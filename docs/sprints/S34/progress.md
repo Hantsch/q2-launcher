@@ -132,3 +132,41 @@
 - 2026-10-05 11:33 · 243 · review 1 fixes · started
 - 2026-10-05 11:35 · 243 · review 1 fixes · done
 - 2026-10-05 11:35 · 243 · story · done
+- 2026-10-05T11:36:04 · 242 · build · started
+- 2026-10-05 11:36 · 242 · D1 shared folder logic · started
+- 2026-10-05 11:38 · 242 · D1 shared folder logic · done
+- 2026-10-05 11:38 · 242 · D2 recursive discovery · started
+- 2026-10-05 11:45 · 242 · D2 recursive discovery · done
+- 2026-10-05 11:45 · 242 · D3 folder view in list · started
+- 2026-10-05 11:48 · 242 · D3 folder view in list · done
+- 2026-10-05 11:48 · 242 · D4 flows follow folder view (helper+screens+replays-folders) · started
+- 2026-10-05 11:56 · 242 · D4 flows follow folder view (helper+screens+replays-folders) · done
+- 2026-10-05 11:56 · 242 · D4 migrate flows batch 1 · started
+- 2026-10-05 12:10 · 242 · D4 migrate flows batch 1 · done
+- 2026-10-05 12:10 · 242 · D4 migrate flows batch 2 · started
+- 2026-10-05 12:22 · 242 · D4 migrate flows batch 2 · done
+- 2026-10-05 12:22 · 242 · D4 migrate flows batch 3 · started
+- 2026-10-05 12:34 · 242 · D4 migrate flows batch 3 · done
+- 2026-10-05 12:34 · 242 · D5 search across folders · started
+- 2026-10-05 12:37 · 242 · D5 search across folders · done
+- 2026-10-05 12:37 · 242 · D6 move one demo (main) · started
+- 2026-10-05 12:41 · 242 · D6 move one demo (main) · done
+- 2026-10-05 12:41 · 242 · D7 create/rename folder main (hard) · started
+- 2026-10-05 12:51 · 242 · D7 create/rename folder main (hard) · done
+- 2026-10-05 12:51 · 242 · D8 create/rename folder UI · started
+- 2026-10-05 12:59 · 242 · D8 create/rename folder UI · done
+- 2026-10-05 12:59 · 242 · D9 drag a demo onto a folder · started
+- 2026-10-05 13:04 · 242 · D9 drag a demo onto a folder · done
+- 2026-10-05 13:04 · 242 · D10 scale · started
+- 2026-10-05 13:06 · 242 · D10 scale · done
+- 2026-10-05 13:06 · 242 · verify · started
+- 2026-10-05 13:30 · 242 · verify · blocked: systems-docs line cap, ui:verify replays-list axe nested-interactive, replays-list-loading unreachable (fix cycle)
+- 2026-10-05 13:30 · 242 · verify fixes · started
+- 2026-10-05 13:38 · 242 · verify fixes · done
+- 2026-10-05 13:38 · 242 · review 1 · started
+- 2026-10-05 13:42 · 242 · review 1 · done
+- 2026-10-05 13:42 · 242 · review 1 fixes · started
+- 2026-10-05 13:49 · 242 · review 1 fixes · done
+- 2026-10-05 13:49 · 242 · verify 2 · started
+- 2026-10-05 14:12 · 242 · verify 2 · done
+- 2026-10-05 14:12 · 242 · story · done

@@ -14,7 +14,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { makeFail, sleep } from '../lib/flow-common.mjs'
-import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
+import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -96,9 +96,8 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
   const speed = page.getByTestId('replays-timeline-speed')
   const waiting = page.getByTestId('replays-timeline-waiting')
 
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
 
   // ---- Phase A: every command runs 1500 ms late ----
   await startDemo(page, { commandDelayMs: 1500 })

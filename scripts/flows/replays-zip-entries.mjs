@@ -22,6 +22,7 @@ import {
   vendoredExtractorExists,
   writeReplaysZipPackArchive,
 } from '../lib/fixture.mjs'
+import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -51,30 +52,30 @@ export default async function replaysZipEntries({ page, shot, step }) {
     )
   }
 
-  step('navigating to the Demos view renders the discovered list')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
+  step('opening the demos root renders the discovered list')
+  await openDemos(page)
+  await openFolder(page, 'Fixture Favorite Install')
 
-  const list = page.getByTestId('replays-demo-list')
-  await list.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  step('exactly two rows come from pack.zip')
-  const zipRows = page
-    .getByTestId('replays-demo-row')
-    .filter({ has: page.getByTestId('replays-demo-source').filter({ hasText: 'pack.zip ›' }) })
-  const zipRowCount = await zipRows.count()
-  if (zipRowCount !== 2) {
+  step('a loose fixture file carries no data-archive-entry attribute')
+  const looseName = REPLAYS_FIXTURE_DEMOS.find((demo) => demo.fileName === 'FINAL.DM2').fileName
+  const looseRow = page.getByTestId('replays-demo-row').filter({ hasText: looseName })
+  const looseArchiveEntry = await looseRow.getAttribute('data-archive-entry')
+  if (looseArchiveEntry !== null) {
     throw new Error(
-      `replays-zip-entries: expected exactly 2 rows from pack.zip, got ${zipRowCount}`,
+      `replays-zip-entries: loose row ${looseName} must have no data-archive-entry attribute, got "${looseArchiveEntry}"`,
     )
   }
 
-  step('both pack.zip rows carry data-archive-entry="true"')
-  for (let i = 0; i < zipRowCount; i += 1) {
-    await zipRows.nth(i).evaluate((el, index) => {
-      if (el.getAttribute('data-archive-entry') !== 'true') {
-        throw new Error(`replays-zip-entries: row ${index} is missing data-archive-entry="true"`)
-      }
-    }, i)
+  step('pack.zip opens like a folder; its test.dm2 entry is an archive row')
+  await openFolder(page, 'pack.zip')
+  const zipRows = page
+    .getByTestId('replays-demo-row')
+    .filter({ has: page.getByTestId('replays-demo-source').filter({ hasText: 'pack.zip ›' }) })
+  const topCount = await zipRows.count()
+  if (topCount !== 1) {
+    throw new Error(
+      `replays-zip-entries: expected 1 entry row at the top of pack.zip, got ${topCount}`,
+    )
   }
 
   step('the test.dm2 archive entry shows its parsed map name')
@@ -95,15 +96,32 @@ export default async function replaysZipEntries({ page, shot, step }) {
     throw new Error('replays-zip-entries: readme.txt must never appear as a demo row')
   }
 
-  step('a loose fixture file carries no data-archive-entry attribute')
-  const looseName = REPLAYS_FIXTURE_DEMOS.find((demo) => demo.fileName === 'FINAL.DM2').fileName
-  const looseRow = page.getByTestId('replays-demo-row').filter({ hasText: looseName })
-  const looseArchiveEntry = await looseRow.getAttribute('data-archive-entry')
-  if (looseArchiveEntry !== null) {
+  step('the nested entry one folder down is the second pack.zip row')
+  await openFolder(page, 'sub')
+  const nestedCount = await zipRows.count()
+  if (topCount + nestedCount !== 2) {
     throw new Error(
-      `replays-zip-entries: loose row ${looseName} must have no data-archive-entry attribute, got "${looseArchiveEntry}"`,
+      `replays-zip-entries: expected exactly 2 rows from pack.zip, got ${topCount + nestedCount}`,
     )
   }
+
+  step('both pack.zip rows carry data-archive-entry="true"')
+  for (const row of [zipRows.first()]) {
+    await row.evaluate((el) => {
+      if (el.getAttribute('data-archive-entry') !== 'true') {
+        throw new Error('replays-zip-entries: nested row is missing data-archive-entry="true"')
+      }
+    })
+  }
+  await page
+    .getByTestId('replays-crumb')
+    .filter({ hasText: 'pack.zip' })
+    .click({ timeout: TIMEOUT_MS })
+  await zipRows.first().evaluate((el) => {
+    if (el.getAttribute('data-archive-entry') !== 'true') {
+      throw new Error('replays-zip-entries: test.dm2 row is missing data-archive-entry="true"')
+    }
+  })
 
   await shot('replays-zip-entries')
 }

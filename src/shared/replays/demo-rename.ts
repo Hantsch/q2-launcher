@@ -9,6 +9,7 @@
  */
 
 import { refuse, type DomainResult } from '../types/common'
+import { endsWithDotOrSpace, firstInvalidChar, reservedNameIn } from './file-name-rules'
 
 const DEMO_EXTENSIONS = ['.dm2.gz', '.mvd2.gz', '.dm2', '.mvd2'] as const
 
@@ -50,33 +51,6 @@ export type DemoRenameRefusalKey =
 
 export type ValidateDemoRenameResult = DomainResult<{ fileName: string }, DemoRenameRefusalKey>
 
-const INVALID_CHARS = '<>:"|?*'
-
-const RESERVED_NAMES = new Set([
-  'CON',
-  'PRN',
-  'AUX',
-  'NUL',
-  'COM1',
-  'COM2',
-  'COM3',
-  'COM4',
-  'COM5',
-  'COM6',
-  'COM7',
-  'COM8',
-  'COM9',
-  'LPT1',
-  'LPT2',
-  'LPT3',
-  'LPT4',
-  'LPT5',
-  'LPT6',
-  'LPT7',
-  'LPT8',
-  'LPT9',
-])
-
 /**
  * Validates a candidate rename stem against `currentFileName`'s recognised extension. Checks run
  * in a fixed order (empty, separator, dotDot, invalidChar, trailingDotOrSpace, reserved, tooLong)
@@ -100,21 +74,13 @@ export function validateDemoRename(
 
   if (s.includes('..')) return refuse('replays.rename.error.dotDot')
 
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i]
-    const code = s.charCodeAt(i)
-    if (INVALID_CHARS.includes(ch) || (code >= 0 && code <= 0x1f)) {
-      return refuse('replays.rename.error.invalidChar', { char: ch })
-    }
-  }
+  const badChar = firstInvalidChar(s)
+  if (badChar !== null) return refuse('replays.rename.error.invalidChar', { char: badChar })
 
-  if (s.endsWith('.') || s.endsWith(' ')) return refuse('replays.rename.error.trailingDotOrSpace')
+  if (endsWithDotOrSpace(s)) return refuse('replays.rename.error.trailingDotOrSpace')
 
-  const dotIndex = s.indexOf('.')
-  const namePart = dotIndex === -1 ? s : s.slice(0, dotIndex)
-  if (RESERVED_NAMES.has(namePart.toUpperCase())) {
-    return refuse('replays.rename.error.reserved', { name: namePart })
-  }
+  const reserved = reservedNameIn(s)
+  if (reserved !== null) return refuse('replays.rename.error.reserved', { name: reserved })
 
   if (s.length > DEMO_RENAME_MAX_STEM)
     return refuse('replays.rename.error.tooLong', { max: DEMO_RENAME_MAX_STEM })

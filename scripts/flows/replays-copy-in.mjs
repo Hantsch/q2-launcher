@@ -19,6 +19,7 @@ import {
   copiesIn,
   launchLines,
   openDemos,
+  openFolder,
   poll,
   selectDemo,
   snapshot,
@@ -41,6 +42,7 @@ export default async function replaysCopyIn({ page, step, shot }) {
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
   await openDemos(page)
+  const topLevel = () => page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
 
   async function playAndObserve(label, fileName, originalPath) {
     const before = snapshot(originalPath)
@@ -78,6 +80,7 @@ export default async function replaysCopyIn({ page, step, shot }) {
   }
 
   step('extra-folder demo: copy exists while the stub runs, gone after exit, original untouched')
+  await openFolder(page, 'copy-in-demos')
   await playAndObserve(
     'extra-folder',
     REPLAYS_COPY_IN_EXTRA_DEMO,
@@ -85,10 +88,13 @@ export default async function replaysCopyIn({ page, step, shot }) {
   )
 
   step('pack.zip entry: same, archive untouched')
+  await openFolder(page, REPLAYS_COPY_IN_ZIP)
   await playAndObserve('zip-entry', REPLAYS_COPY_IN_ZIP_ENTRY, join(folder, REPLAYS_COPY_IN_ZIP))
 
   step('in-place demo: no copy is made and the file still exists after the play ends')
   const inPlace = join(demosDir, REPLAYS_COPY_IN_INPLACE_DEMO)
+  await topLevel()
+  await openFolder(page, 'Fixture Play Q2PRO')
   const before = snapshot(inPlace)
   const lines = launchLines(logPath).length
   await selectDemo(page, REPLAYS_COPY_IN_INPLACE_DEMO)

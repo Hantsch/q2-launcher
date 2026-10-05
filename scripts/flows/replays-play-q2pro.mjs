@@ -18,7 +18,7 @@ import {
   vendoredExtractorExists,
   writeReplaysPlayFixture,
 } from '../lib/fixture.mjs'
-import { rowFor, waitForScan } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play'
 
@@ -59,9 +59,8 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
 
   step('open Demos; the fixture lists three demos')
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
 
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
 
@@ -133,6 +132,8 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
 
   step('a demo whose mod no installation has keeps View enabled and asks for confirmation')
   const launchCount = () => (readFileSync(logPath, 'utf8').match(/launching/g) ?? []).length
+  await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
+  await openFolder(page, 'baseq2')
   await selectDemo(page, REPLAYS_PLAY_MISSING_MOD_DEMO)
   if (await play.isDisabled()) {
     throw new Error('replays-play-q2pro: View must stay enabled for the missing-mod demo')

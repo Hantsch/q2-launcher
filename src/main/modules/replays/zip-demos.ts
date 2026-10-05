@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { basename } from 'node:path'
 import { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
 import { parseDemoHeader } from '@shared/demos/demo-header'
@@ -42,6 +43,12 @@ const GZIP_MAGIC_1 = 0x8b
 
 function idFor(key: string): string {
   return createHash('sha256').update(key).digest('hex').slice(0, 16)
+}
+
+/** The id `expandZip` gives an entry of the archive at `archivePath` - exposed so a folder rename
+ * can re-key an archive's entries without re-opening it (story 242) */
+export function zipEntryIdFor(archivePath: string, entryPath: string): string {
+  return idFor(`${archivePath}\u0000${entryPath}`)
 }
 
 function baseName(entryPath: string): string {
@@ -113,13 +120,15 @@ function durationOf(
 /**
  * Expands one zip archive's demo-like entries into `DiscoveredDemo` rows. `archiveMtimeMs` is
  * accepted for forward-compatibility with the call site but unused here - not surfaced yet, no
- * UI/schema field for it in this story.
+ * UI/schema field for it in this story. `zipFolder` is the directory the archive sits in, relative
+ * to its source's root: every row's `folder` nests under it, then the archive's own name.
  */
 export async function expandZip(
   archivePath: string,
   source: DemoSource,
   archiveMtimeMs: number,
   deps: ZipDeps,
+  zipFolder: string[] = [],
 ): Promise<ExpandZipResult> {
   const listing = await listZipEntries(archivePath, deps)
   if (!listing.ok) return { rows: [], error: { archivePath, code: listing.code } }
@@ -131,8 +140,13 @@ export async function expandZip(
     const recognised = recogniseDemoFile(entry.path)
     if (!recognised) continue
 
-    const id = idFor(`${archivePath}\u0000${entry.path}`)
+    const id = zipEntryIdFor(archivePath, entry.path)
     const fileName = baseName(entry.path)
+    const folder = [
+      ...zipFolder,
+      basename(archivePath),
+      ...entry.path.split('/').slice(0, -1).filter(Boolean),
+    ]
     const archiveEntry = { archivePath, entryPath: entry.path }
     // Story 145: a zip entry has no creation time of its own; `mtimeMs` is the entry's own
     // modified stamp, falling back to the archive's when 7-Zip didn't report one.
@@ -155,6 +169,7 @@ export async function expandZip(
       durationMs: null,
       roster: null,
       fileTime,
+      folder,
       nameFacts: null,
     })
 
@@ -216,6 +231,7 @@ export async function expandZip(
       players: header.players,
       ...durationOf(finalBytes, header.format),
       fileTime,
+      folder,
       nameFacts: null,
     })
   }

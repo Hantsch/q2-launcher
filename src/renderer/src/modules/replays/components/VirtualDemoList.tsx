@@ -1,15 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
+import type { FolderEntry } from '@shared/replays/demo-folders'
 import type { DemoListSort, DemoSortColumn } from '@shared/replays/list-sort'
 import { DEMO_ROW_HEIGHT } from '../list-grid'
 import { visibleRange } from '../visible-range'
 import type { RowPatcher } from '../demo-editor-store'
 import { DemoListHeader } from './DemoListHeader'
 import { DemoRow } from './DemoRow'
+import { DemoFolderRow } from './DemoFolderRow'
+
+/** What the list renders: folders first, then demos, one fixed row height for both. */
+export type DemoListItem =
+  { kind: 'folder'; folder: FolderEntry } | { kind: 'demo'; row: DemoRowData; folderText?: string }
 
 export interface VirtualDemoListProps {
-  rows: DemoRowData[]
+  items: DemoListItem[]
+  onOpenFolder: (folder: FolderEntry) => void
+  onRenameFolder: (folder: FolderEntry) => void
   selectedId: string | null
   onSelect: (id: string) => void
   /** Story 155: forwarded straight to each `DemoRow` for its favourite/rating quick edit. */
@@ -36,7 +44,9 @@ export interface VirtualDemoListProps {
  * simple enough not to need one.
  */
 export function VirtualDemoList({
-  rows,
+  items,
+  onOpenFolder,
+  onRenameFolder,
   selectedId,
   onSelect,
   onRowPatched,
@@ -66,10 +76,10 @@ export function VirtualDemoList({
     scrollTop,
     viewportHeight,
     rowHeight: DEMO_ROW_HEIGHT,
-    count: rows.length,
+    count: items.length,
     overscan,
   })
-  const visibleRows = rows.slice(start, end)
+  const visibleItems = items.slice(start, end)
 
   return (
     <div
@@ -80,20 +90,37 @@ export function VirtualDemoList({
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
       <DemoListHeader sort={sort} onSort={onSort} />
-      <div style={{ position: 'relative', height: rows.length * DEMO_ROW_HEIGHT }}>
+      <div style={{ position: 'relative', height: items.length * DEMO_ROW_HEIGHT }}>
         <ul
           data-testid="replays-demo-list"
           aria-label={t('common.label.demos')}
           style={{ position: 'absolute', top: start * DEMO_ROW_HEIGHT, left: 0, right: 0 }}
         >
-          {visibleRows.map((row, index) => (
-            <li key={row.id} aria-setsize={rows.length} aria-posinset={start + index + 1}>
-              <DemoRow
-                row={row}
-                selected={row.id === selectedId}
-                onSelect={onSelect}
-                onRowPatched={onRowPatched}
-              />
+          {visibleItems.map((item, index) => (
+            <li
+              key={
+                item.kind === 'folder'
+                  ? `folder:${item.folder.ref.sourceKey}:${item.folder.ref.path.join('/')}`
+                  : item.row.id
+              }
+              aria-setsize={items.length}
+              aria-posinset={start + index + 1}
+            >
+              {item.kind === 'folder' ? (
+                <DemoFolderRow
+                  folder={item.folder}
+                  onOpen={onOpenFolder}
+                  onRename={onRenameFolder}
+                />
+              ) : (
+                <DemoRow
+                  row={item.row}
+                  folderText={item.folderText}
+                  selected={item.row.id === selectedId}
+                  onSelect={onSelect}
+                  onRowPatched={onRowPatched}
+                />
+              )}
             </li>
           ))}
         </ul>

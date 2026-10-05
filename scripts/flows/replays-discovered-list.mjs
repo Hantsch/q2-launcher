@@ -18,18 +18,24 @@
 // assertions to match, not merely delete it.
 
 import { REPLAYS_FIXTURE_DEMOS } from '../lib/fixture.mjs'
+import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
 export default async function replaysDiscoveredList({ page, shot, step }) {
   step('navigating to the Demos view renders the discovered list')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-
-  const list = page.getByTestId('replays-demo-list')
-  await list.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await openDemos(page)
 
   step('exactly the five fixture demo files are listed - no decoys')
-  const names = await page.getByTestId('replays-demo-name').allTextContents()
+  const rootLabel = (demo) => `${demo.installationName} / ${demo.gameDir}`
+  const roots = [...new Set(REPLAYS_FIXTURE_DEMOS.map(rootLabel))]
+  const names = []
+  for (const root of roots) {
+    await openFolder(page, root)
+    names.push(...(await page.getByTestId('replays-demo-name').allTextContents()))
+    await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
+    await page.getByTestId('replays-breadcrumb').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  }
   const expectedNames = REPLAYS_FIXTURE_DEMOS.map((demo) => demo.fileName)
   const sortedActual = [...names].sort()
   const sortedExpected = [...expectedNames].sort()
@@ -41,6 +47,7 @@ export default async function replaysDiscoveredList({ page, shot, step }) {
 
   step('a baseq2 row and a second-game-dir row both show the right source text')
   const finalDemo = REPLAYS_FIXTURE_DEMOS.find((demo) => demo.fileName === 'FINAL.DM2')
+  await openFolder(page, rootLabel(finalDemo))
   const finalRow = page.getByTestId('replays-demo-row').filter({ hasText: 'FINAL.DM2' })
   const finalSource = await finalRow.getByTestId('replays-demo-source').textContent()
   const expectedFinalSource = `${finalDemo.installationName} · ${finalDemo.gameDir}`
@@ -50,7 +57,9 @@ export default async function replaysDiscoveredList({ page, shot, step }) {
     )
   }
 
+  await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
   const teamDemo = REPLAYS_FIXTURE_DEMOS.find((demo) => demo.fileName === 'team_q2dm3.mvd2')
+  await openFolder(page, rootLabel(teamDemo))
   const teamRow = page.getByTestId('replays-demo-row').filter({ hasText: 'team_q2dm3.mvd2' })
   const teamSource = await teamRow.getByTestId('replays-demo-source').textContent()
   const expectedTeamSource = `${teamDemo.installationName} · ${teamDemo.gameDir}`

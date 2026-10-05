@@ -9,7 +9,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { makeFail, sleep } from '../lib/flow-common.mjs'
-import { waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -83,9 +83,8 @@ async function newGeometry(from, n, label) {
 
 export default async function replaysStageOverlays({ page, app, step, shot }) {
   step('a demo plays on the stage')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   await page
     .getByTestId('replays-demo-row')
     .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })

@@ -62,6 +62,7 @@ function baseRow(overrides: Partial<DemoRow> = {}): DemoRow {
     durationMs: 12_345,
     roster: null,
     fileTime: { birthtimeMs: 1_000, mtimeMs: 2_000 },
+    folder: [],
     nameFacts,
     sidecar: { state: 'ok', values: sidecarValues },
     effective,

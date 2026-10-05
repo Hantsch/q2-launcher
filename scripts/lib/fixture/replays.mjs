@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { copyFileSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { REPO_ROOT } from '../paths.mjs'
 import { execFileSync } from 'node:child_process'
 import { variantUserDataDir } from '../harness.mjs'
@@ -87,6 +87,10 @@ export const REPLAYS_FIXTURE_DECOYS = [
   'old/nested.dm2',
   'readme.txt',
 ]
+
+/** What the loading strip's `data-total` reads once the scan has counted everything: the recursive
+ * scan also counts the decoy demo in the `old/` subfolder, not just `REPLAYS_FIXTURE_DEMOS`. */
+export const REPLAYS_FIXTURE_SCANNED_TOTAL = REPLAYS_FIXTURE_DEMOS.length + 1
 
 /** Placeholder bytes for a fixture demo file - never real demo content (out of scope for this
  * deliverable), just enough for the file to exist and be recognised by name. */
@@ -696,6 +700,87 @@ export function removeReplaysFilterFixture() {
   rmDirBestEffort(variantUserDataDir(REPLAYS_FILTER_VARIANT))
 }
 
+// --- the folder view's e2e fixture (story 242) ----------------------------------------------
+
+/** `replays-folders`' own variant: one extra folder (no installations) holding demos nested
+ * `a/b/c`, one directly in the folder, and a zip with entries. */
+export const REPLAYS_FOLDERS_VARIANT = 'folders-demos'
+
+const REPLAYS_FOLDERS_FOLDER_ID = 'fixture-replays-folders-folder'
+
+export function replaysFoldersFixturePath() {
+  return join(variantUserDataDir(REPLAYS_FOLDERS_VARIANT), 'folders-demos')
+}
+
+export const REPLAYS_FOLDERS_ROOT_DEMO = 'folders-root.dm2'
+
+export const REPLAYS_FOLDERS_A_DEMO = 'folders-a.dm2'
+
+/** The sidecar beside `REPLAYS_FOLDERS_A_DEMO`: a rating a folder rename must carry along. */
+export const REPLAYS_FOLDERS_A_SIDECAR = { schemaVersion: 1, rating: 7 }
+
+export const REPLAYS_FOLDERS_C_DEMO = 'folders-c.dm2'
+
+export const REPLAYS_FOLDERS_ZIP = 'folders-pack.zip'
+
+/** The entry names inside `REPLAYS_FOLDERS_ZIP` that are real demos. */
+export const REPLAYS_FOLDERS_ZIP_ENTRIES = ['test.dm2']
+
+export function writeReplaysFoldersFixture() {
+  const userDataDir = variantUserDataDir(REPLAYS_FOLDERS_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [
+        {
+          id: REPLAYS_FOLDERS_FOLDER_ID,
+          path: replaysFoldersFixturePath(),
+          addedAt: FIXED_TIMESTAMP,
+        },
+      ],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysFoldersFixturePath()
+  mkdirSync(join(folder, 'a', 'b', 'c'), { recursive: true })
+  const dm2 = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+  copyFileSync(dm2, join(folder, REPLAYS_FOLDERS_ROOT_DEMO))
+  copyFileSync(dm2, join(folder, 'a', REPLAYS_FOLDERS_A_DEMO))
+  writeJson(join(folder, 'a', `${REPLAYS_FOLDERS_A_DEMO}.json`), REPLAYS_FOLDERS_A_SIDECAR)
+  copyFileSync(dm2, join(folder, 'a', 'b', 'c', REPLAYS_FOLDERS_C_DEMO))
+
+  if (vendoredExtractorExists()) {
+    const staging = join(bootstrapStagingDir(), 'replays-folders-zip')
+    rmSync(staging, { recursive: true, force: true })
+    mkdirSync(staging, { recursive: true })
+    copyFileSync(dm2, join(staging, 'test.dm2'))
+    writeFileSync(join(staging, 'readme.txt'), 'not a demo\n', 'utf8')
+    execFileSync(
+      vendoredSevenZaPath(),
+      [
+        'a',
+        '-tzip',
+        '-mx1',
+        '-bso0',
+        '-bse0',
+        '-bd',
+        join(folder, REPLAYS_FOLDERS_ZIP),
+        'test.dm2',
+        'readme.txt',
+      ],
+      { cwd: staging, windowsHide: true },
+    )
+  }
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+export function removeReplaysFoldersFixture() {
+  rmDirBestEffort(variantUserDataDir(REPLAYS_FOLDERS_VARIANT))
+}
+
 // --- story 154 D5: the demo list's own date filter's e2e fixture --------------------------------
 
 /** `replays-date-filter`'s own fixture variant name - own `state.json`/own extra folder, never
@@ -1050,6 +1135,63 @@ export function writeReplaysTeamsFixture() {
     JSON.stringify(REPLAYS_TEAMS_SIDECAR, null, 2) + '\n',
     'utf8',
   )
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+export const REPLAYS_FOLDER_SCALE_VARIANT = 'replays-folder-scale'
+const REPLAYS_FOLDER_SCALE_FOLDER_ID = 'fixture-replays-folder-scale-folder'
+
+/** Folders per level (4 levels, 200 in all); demos are spread round-robin over every one of them,
+ * so the root holds no demo itself and its children's recursive counts sum to the total. */
+export const REPLAYS_FOLDER_SCALE_LEVEL_SIZES = [8, 32, 64, 96]
+export const REPLAYS_FOLDER_SCALE_FOLDER_COUNT = 200
+export const REPLAYS_FOLDER_SCALE_DEMO_COUNT = 5000
+/** Top-level folders under the root - the rows the flow reads counts from. */
+export const REPLAYS_FOLDER_SCALE_ROOT_CHILDREN = REPLAYS_FOLDER_SCALE_LEVEL_SIZES[0]
+/** The root folder's display label (its directory name). */
+export const REPLAYS_FOLDER_SCALE_ROOT_LABEL = 'folder-scale'
+/** The first top-level folder; it holds the junction loop and is the one the flow opens. */
+export const REPLAYS_FOLDER_SCALE_OPEN_FOLDER = 'f1-00'
+
+function replaysFolderScalePath() {
+  return join(variantUserDataDir(REPLAYS_FOLDER_SCALE_VARIANT), REPLAYS_FOLDER_SCALE_ROOT_LABEL)
+}
+
+export function writeReplaysFolderScaleFixture() {
+  const userDataDir = variantUserDataDir(REPLAYS_FOLDER_SCALE_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+  const root = replaysFolderScalePath()
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [{ id: REPLAYS_FOLDER_SCALE_FOLDER_ID, path: root, addedAt: FIXED_TIMESTAMP }],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  // Folder i of a level hangs under folder (i % size) of the level above.
+  const dirs = []
+  let previous = [root]
+  REPLAYS_FOLDER_SCALE_LEVEL_SIZES.forEach((size, level) => {
+    const current = []
+    for (let i = 0; i < size; i += 1) {
+      const dir = join(previous[i % previous.length], `f${level + 1}-${String(i).padStart(2, '0')}`)
+      mkdirSync(dir, { recursive: true })
+      current.push(dir)
+    }
+    dirs.push(...current)
+    previous = current
+  })
+
+  for (let i = 0; i < REPLAYS_FOLDER_SCALE_DEMO_COUNT; i += 1) {
+    const name = `fs-${String(i).padStart(4, '0')}.dm2`
+    writeFileSync(join(dirs[i % dirs.length], name), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  }
+
+  // A junction pointing at its own parent: a scan that follows it never terminates.
+  symlinkSync(root, join(root, REPLAYS_FOLDER_SCALE_OPEN_FOLDER, 'loop'), 'junction')
 
   return { userDataDir, installations: 0, configProfiles: 0 }
 }

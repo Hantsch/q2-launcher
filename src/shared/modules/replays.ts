@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { VALUE_SOURCES } from '../demos/effective-values'
 import { demoUnreadableSchema } from '../demos/readability'
+import { type DiscoveredFolder, type FolderRef } from '../replays/demo-folders'
 import { demoListFilterSchema, type DemoListFilter } from '../replays/list-filter'
 import { DEMO_SORT_COLUMNS, type DemoListSort } from '../replays/list-sort'
 import type { NameFacts } from '../replays/name-template'
@@ -42,6 +43,8 @@ export const REPLAYS_HANDLERS = {
    * the last successful scan's rows after that.
    */
   indexRead: 'index.read',
+  /** Resolves to every folder of every demo source, empty ones and zip pseudo-folders included. */
+  foldersRead: 'folders.read',
   /** Resolves to the current sidecar for a demo id, or `{ state: 'none' }` if it has none. */
   sidecarRead: 'sidecar.read',
   /** Full-replacement save of a demo's sidecar fields, id-addressed. */
@@ -66,6 +69,12 @@ export const REPLAYS_HANDLERS = {
   demosCopyPath: 'demos.copyPath',
   /** Renames a demo (and its sidecar, if any) to a new stem, id-addressed. */
   demoRename: 'demo.rename',
+  /** Moves a demo (and its sidecar, if any) into another folder of a demo source, id-addressed. */
+  demoMove: 'demo.move',
+  /** Creates a folder inside a folder of a demo source, ref-addressed. */
+  folderCreate: 'folder.create',
+  /** Renames a folder of a demo source (its demos and sidecars move with it), ref-addressed. */
+  folderRename: 'folder.rename',
   /** Plays a demo in Q2PRO (`+demo <file>`), id-addressed. */
   demoPlay: 'demo.play',
   /** Steers the running demo (pause, jump, seek, speed). */
@@ -281,6 +290,9 @@ export const discoveredDemoSchema = z.object({
     .nullable(),
   /** `fs.stat`'s own timestamps for this file - present whether the row is readable or not. */
   fileTime: fileTimeSchema,
+  /** Folder segments between the source's root and this demo; for a zip entry, the zip's own
+   * folder, the zip's file name, then the entry's directories. */
+  folder: z.array(z.string()),
   /**
    * Name-template match facts for this file's name, or null when no template matched (story 139)
    */
@@ -290,6 +302,14 @@ export const discoveredDemoSchema = z.object({
 export type DemoFormat = z.infer<typeof demoFormatSchema>
 export type DemoSource = z.infer<typeof demoSourceSchema>
 export type DiscoveredDemo = z.infer<typeof discoveredDemoSchema>
+
+/** One directory (or zip pseudo-folder) of a demo source; `path` is empty for the source's root. */
+export const discoveredFolderSchema = z.object({
+  sourceKey: z.string(),
+  source: z.string().optional(),
+  path: z.array(z.string()),
+  archive: z.boolean(),
+}) satisfies z.ZodType<DiscoveredFolder>
 
 /** The scan-progress key of one `DemoSource` - one key per distinct source. */
 export function demoSourceKey(source: DemoSource): string {
@@ -442,6 +462,44 @@ export const replaysDemoRenameSchema = z
   .strict()
 
 /**
+ * A folder of a demo source as a source key and name segments - never a path; main resolves it
+ * against the scanned tree. A segment names a folder that already exists, so it is checked for path
+ * safety only - never against the rules for NEW names, which a real folder may break (a 120-char
+ * or trailing-dot name is listed and must stay addressable).
+ */
+const folderRefSegmentSchema = z
+  .string()
+  .min(1)
+  .max(255)
+  .refine((seg) => seg !== '.' && seg !== '..' && !/[/\\\0]/.test(seg))
+
+export const replaysFolderRefSchema = z
+  .object({
+    sourceKey: z.string().min(1).max(1024),
+    path: z.array(folderRefSegmentSchema).max(64),
+  })
+  .strict()
+
+/** `demo.move`'s payload: the demo id plus the target folder ref. */
+export const replaysDemoMoveSchema = z
+  .object({ id: replaysDemoIdSchema, target: replaysFolderRefSchema })
+  .strict()
+
+/** `folder.create`'s payload. `name` is loosely capped here; main's `validateFolderName` is the
+ * authority, so a refusal comes back as its i18n key. */
+export const replaysFolderCreateSchema = z
+  .object({ parent: replaysFolderRefSchema, name: z.string().max(255) })
+  .strict()
+
+/** `folder.rename`'s payload; `name` as in `folder.create`. */
+export const replaysFolderRenameSchema = z
+  .object({ folder: replaysFolderRefSchema, name: z.string().max(255) })
+  .strict()
+
+/** `folder.rename`'s answer: every demo id the rename re-keyed. */
+export type ReplaysFolderRenameResult = { ids: { from: string; to: string }[] }
+
+/**
  * `playback.consoleSend`'s payload: one free console line. The loose 1024 cap only bounds the
  * payload; main's `validateConsoleLine` is the authority (printable, one line, 255).
  */
@@ -566,6 +624,7 @@ export const REPLAYS_HANDLER_SCHEMAS = {
   [REPLAYS_HANDLERS.extraFoldersRemove]: extraFoldersRemoveSchema,
   [REPLAYS_HANDLERS.scanStart]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.indexRead]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.foldersRead]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.sidecarRead]: replaysSidecarReadSchema,
   [REPLAYS_HANDLERS.sidecarWrite]: replaysSidecarWriteSchema,
   [REPLAYS_HANDLERS.listGetSort]: listGetSortInputSchema,
@@ -579,6 +638,9 @@ export const REPLAYS_HANDLER_SCHEMAS = {
   [REPLAYS_HANDLERS.demosReveal]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demosCopyPath]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,
+  [REPLAYS_HANDLERS.demoMove]: replaysDemoMoveSchema,
+  [REPLAYS_HANDLERS.folderCreate]: replaysFolderCreateSchema,
+  [REPLAYS_HANDLERS.folderRename]: replaysFolderRenameSchema,
   [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
   [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
   [REPLAYS_HANDLERS.playbackStage]: replaysPlaybackStageSchema,
@@ -677,6 +739,7 @@ export type ReplaysContract = {
     [REPLAYS_HANDLERS.extraFoldersRemove]: ReplaysHandler<'extraFolders.remove', ExtraFoldersResult>
     [REPLAYS_HANDLERS.scanStart]: ReplaysHandler<'scan.start', ReplaysScanStartResult>
     [REPLAYS_HANDLERS.indexRead]: ReplaysHandler<'index.read', DemoRow[]>
+    [REPLAYS_HANDLERS.foldersRead]: ReplaysHandler<'folders.read', DiscoveredFolder[]>
     [REPLAYS_HANDLERS.sidecarRead]: ReplaysHandler<
       'sidecar.read',
       { state: SidecarState; values: Partial<SidecarFields> }
@@ -699,6 +762,9 @@ export type ReplaysContract = {
     [REPLAYS_HANDLERS.demosReveal]: ReplaysHandler<'demos.reveal', DemoFileActionResult>
     [REPLAYS_HANDLERS.demosCopyPath]: ReplaysHandler<'demos.copyPath', DemoFileActionResult>
     [REPLAYS_HANDLERS.demoRename]: ReplaysHandler<'demo.rename', { demo: DiscoveredDemo }>
+    [REPLAYS_HANDLERS.demoMove]: ReplaysHandler<'demo.move', { demo: DiscoveredDemo }>
+    [REPLAYS_HANDLERS.folderCreate]: ReplaysHandler<'folder.create', { folder: FolderRef }>
+    [REPLAYS_HANDLERS.folderRename]: ReplaysHandler<'folder.rename', ReplaysFolderRenameResult>
     [REPLAYS_HANDLERS.demoPlay]: ReplaysHandler<'demo.play', ReplaysDemoPlayResult>
     [REPLAYS_HANDLERS.playbackTimeline]: ReplaysHandler<'playback.timeline', void>
     [REPLAYS_HANDLERS.playbackConsoleSend]: ReplaysHandler<'playback.consoleSend', void>

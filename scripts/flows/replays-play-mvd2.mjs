@@ -10,7 +10,7 @@ import {
   vendoredExtractorExists,
   writeReplaysPlayMvd2Fixture,
 } from '../lib/fixture.mjs'
-import { rowFor, waitForScan } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play-mvd2'
 
@@ -95,9 +95,8 @@ export default async function replaysPlayMvd2({ page, step }) {
 
   step('open Demos; the fixture install lists an .mvd2 and an .mvd2.gz')
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'baseq2')
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
 
   step('the mvd2 detail note is visible')

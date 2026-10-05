@@ -33,7 +33,7 @@ import {
   removeReplaysFilterFixture,
   writeReplaysFilterFixture,
 } from '../lib/fixture.mjs'
-import { waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { openDemosRoot, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 const POLL_INTERVAL_MS = 100
@@ -130,9 +130,7 @@ const ALL_NAMES = [
 
 export default async function replaysFilterSearch({ page, step, shot }) {
   step('navigate to Demos and wait for the scan to settle')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await waitForVisibleSet(page, ALL_NAMES, 'the unfiltered list')
   await shot('unfiltered')
 
@@ -319,6 +317,7 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page)
+  if ((await page.getByTestId('replays-breadcrumb').count()) === 0) await openDemosRoot(page)
 
   const restoredSearch = await page.getByTestId('replays-filter-search').inputValue()
   if (restoredSearch !== REPLAYS_FILTER_DESCRIPTION_WORD) {

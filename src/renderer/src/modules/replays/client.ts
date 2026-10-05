@@ -10,6 +10,7 @@ import {
   type ReplaysModWarning,
   type ReplaysStageRect,
   type ReplaysExtraFolder,
+  type ReplaysFolderRenameResult,
   type ReplaysOverview,
   type ReplaysPlaybackPosition,
   type ReplaysPlaybackDisplay,
@@ -19,6 +20,7 @@ import {
   type SidecarSaveResult,
   type SidecarState,
 } from '@shared/modules/replays'
+import type { DiscoveredFolder, FolderRef } from '@shared/replays/demo-folders'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { SidecarFields } from '@shared/replays/sidecar'
 import type { DemoListSort } from '@shared/replays/list-sort'
@@ -162,6 +164,14 @@ export function renameDemo(id: string, name: string): Promise<Outcome<{ demo: Di
   return client.call(REPLAYS_HANDLERS.demoRename, { id, name })
 }
 
+/** The `demo.move` handler: a demo id and a target folder in, the freshly discovered demo out. */
+export function moveDemo(
+  id: string,
+  target: FolderRef,
+): Promise<Outcome<{ demo: DiscoveredDemo }>> {
+  return client.call(REPLAYS_HANDLERS.demoMove, { id, target })
+}
+
 /** Sends one console line to the running demo's engine; a refusal is `replays.console.error.*`. */
 export function consoleSend(line: string): Promise<Outcome<void>> {
   return client.call(REPLAYS_HANDLERS.playbackConsoleSend, { line })
@@ -186,6 +196,27 @@ export function scanStart(): Promise<Outcome<ReplaysScanStartResult>> {
 
 export function indexRead(): Promise<Outcome<DemoRow[]>> {
   return client.call(REPLAYS_HANDLERS.indexRead)
+}
+
+/** Every folder of every demo source - empty ones and zip pseudo-folders included. */
+export function foldersRead(): Promise<Outcome<DiscoveredFolder[]>> {
+  return client.call(REPLAYS_HANDLERS.foldersRead)
+}
+
+/** Creates a folder under `parent`; a refusal is a `replays.folder.error.*` key. */
+export function folderCreate(
+  parent: FolderRef,
+  name: string,
+): Promise<Outcome<{ folder: FolderRef }>> {
+  return client.call(REPLAYS_HANDLERS.folderCreate, { parent, name })
+}
+
+/** Renames a folder; `ids` maps every demo id that moved to its new id. */
+export function folderRename(
+  folder: FolderRef,
+  name: string,
+): Promise<Outcome<ReplaysFolderRenameResult>> {
+  return client.call(REPLAYS_HANDLERS.folderRename, { folder, name })
 }
 
 export function onScanProgress(listener: (payload: ReplaysScanProgress) => void): () => void {

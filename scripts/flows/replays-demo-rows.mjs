@@ -33,7 +33,7 @@ import {
   REPLAYS_ROWS_ZIP_ARCHIVE,
   vendoredExtractorExists,
 } from '../lib/fixture.mjs'
-import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { openDemosRoot, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -43,9 +43,7 @@ export const variant = 'replays-rows'
 
 export default async function replaysDemoRows({ page, shot, step }) {
   step('navigating to the Demos view renders the discovered list')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
 
   step("the sidecar'd row shows its reported name, gamemode, sides, favourite and rating")
   // The tdm row's sidecar sets `name`, so its effective name (shown in the row) is that reported
@@ -187,6 +185,7 @@ export default async function replaysDemoRows({ page, shot, step }) {
     step('7za.exe is not vendored - skipping the archive-entry assertion')
   } else {
     step('the zipped copy of test.dm2 shows up as an archive-entry row')
+    await openFolder(page, REPLAYS_ROWS_ZIP_ARCHIVE)
     const zipRow = page.getByTestId('replays-demo-row').filter({
       has: page
         .getByTestId('replays-demo-source')
@@ -199,6 +198,7 @@ export default async function replaysDemoRows({ page, shot, step }) {
         `replays-demo-rows: expected the pack.zip row to carry data-archive-entry="true", got "${archiveEntry}"`,
       )
     }
+    await page.getByTestId('replays-crumb').nth(1).click({ timeout: TIMEOUT_MS })
   }
 
   step(

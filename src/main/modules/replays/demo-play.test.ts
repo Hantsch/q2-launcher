@@ -77,6 +77,7 @@ function demo(
     durationMs: null,
     roster: null,
     fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+    folder: [],
     nameFacts: null,
     ...overrides,
   }
@@ -682,6 +683,20 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
       expect(existsSync(join(q2proRoot, 'ctf', 'Demos', '_launcher'))).toBe(false)
       expect(existsSync(join(q2proRoot, 'ctf', 'demos', '_launcher'))).toBe(false)
     }
+  })
+
+  it('a demo in a subfolder of demos plays from a copy', async () => {
+    const nested = join(q2proRoot, 'baseq2', 'demos', 'cups', 'deep.dm2')
+    await mkdir(join(q2proRoot, 'baseq2', 'demos', 'cups'), { recursive: true })
+    await writeFile(nested, 'demo')
+    const h = harness({
+      demos: [demo({ id: 'deep', fileName: 'deep.dm2', folder: ['cups'] })],
+      files: { deep: { absolutePath: nested, archiveEntry: null } },
+    })
+
+    expect(await h.play('deep', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
+    expect(h.launch.start.mock.calls[0][0].extraArgs).toEqual(['+demo', '_launcher/deep.dm2'])
+    expect(existsSync(nested)).toBe(true)
   })
 
   it('a staging failure never calls launch', async () => {

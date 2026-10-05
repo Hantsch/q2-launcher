@@ -13,7 +13,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { sleep } from '../lib/flow-common.mjs'
-import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
+import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -55,9 +55,8 @@ export default async function replaysConsoleCommand({ page, step, shot }) {
   const reason = page.getByTestId('replays-console-reason')
 
   step('with no demo playing there is no console field and no no-session text')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   if ((await page.getByTestId('replays-console-field').count()) !== 0) {
     throw new Error('replays-console-command: there must be no console field without a session')
   }

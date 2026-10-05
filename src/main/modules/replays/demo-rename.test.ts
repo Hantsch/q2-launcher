@@ -315,7 +315,7 @@ describe('demo rename (story 157)', () => {
   it('a scan swap before the index update still answers with the renamed row', async () => {
     const t = await setup(
       { 'Final.dm2': 'demo' },
-      { scanOverride: () => ({ applyRename: async () => undefined }) },
+      { scanOverride: () => ({ applyRelocate: async () => undefined }) },
     )
 
     const outcome = await t.rename(await t.idOf('Final.dm2'), 'Other')

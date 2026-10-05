@@ -16,6 +16,8 @@ import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { SESSION_RESTORE_CVARS, createDemoPlay, launcherSweepDirs } from './demo-play'
+import { createDemoFolders } from './demo-folders'
+import { createDemoMove } from './demo-move'
 import { createDemoRename } from './demo-rename'
 import { sweepLauncherDirs } from './demo-staging'
 import { composeDemoRows } from './demo-rows'
@@ -114,7 +116,7 @@ export async function scanHoldMs({ harness, userData }: ScanHoldMsOptions): Prom
  * The replays module's main half: wires the demo library's and playback's handlers to the services
  * behind them.
  *
- * Registers `overview.read`, `scan.start`, `index.read`, the sidecar read/write, `demos.*` file
+ * Registers `overview.read`, `scan.start`, `index.read`, `folders.read`, the sidecar read/write, `demos.*` file
  * actions, rename and play, the `playback.*` control channel (stage, timeline, console, stop, cinema,
  * display), `nameTemplates.*`, `extraFolders.*`, `list.*` sort and filter, and `modWarning.*`.
  * `setup()` registers and subscribes; the rules live in the files it composes.
@@ -231,6 +233,8 @@ export const replaysModule: MainModule = {
         return nameMatcherFor(templates, fingerprint)
       },
     })
+    const demoMove = createDemoMove({ scan: scanService, sessions: playbackSessions })
+    const demoFolders = createDemoFolders({ scan: scanService, sessions: playbackSessions })
 
     // Story 159: demo playback - id + installation id in, main re-runs eligibility on its own
     // data, contains the file in that installation's demos folder, then starts the launch and
@@ -420,6 +424,7 @@ export const replaysModule: MainModule = {
     // `index.read` answers composed rows - each demo plus its sidecar and resolved effective
     // values. A failed sidecar read (the store's own `Outcome` came back `ok: false`) becomes a
     // `null` sidecar input, same as an archive entry or an id the index doesn't know about.
+    handle(REPLAYS_HANDLERS.foldersRead, async () => ok(await scanService.readFolders()))
     handle(REPLAYS_HANDLERS.indexRead, async () =>
       ok(
         await composeDemoRows(await scanService.read(), async (id) => {
@@ -441,6 +446,13 @@ export const replaysModule: MainModule = {
       ok(await demoFileActions.copyPath(payload.demoId)),
     )
     handle(REPLAYS_HANDLERS.demoRename, (payload) => demoRename.rename(payload.id, payload.name))
+    handle(REPLAYS_HANDLERS.demoMove, (payload) => demoMove.move(payload.id, payload.target))
+    handle(REPLAYS_HANDLERS.folderCreate, (payload) =>
+      demoFolders.create(payload.parent, payload.name),
+    )
+    handle(REPLAYS_HANDLERS.folderRename, (payload) =>
+      demoFolders.rename(payload.folder, payload.name),
+    )
     handle(REPLAYS_HANDLERS.demoPlay, (payload) =>
       demoPlay.play(payload.demoId, payload.installationId, {
         acknowledgeModMissing: payload.acknowledgeModMissing === true,

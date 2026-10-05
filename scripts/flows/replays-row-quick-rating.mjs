@@ -12,7 +12,7 @@
 
 import { readFileSync } from 'node:fs'
 import { REPLAYS_ROWS_DUEL_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
-import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { openDemosRoot, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -20,9 +20,7 @@ export const variant = 'replays-rows'
 
 export default async function replaysRowQuickRating({ page, shot, step }) {
   step("noting the duel row's sidecar before any quick edit")
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page, { label: 'replays-row-quick-rating' })
+  await openDemosRoot(page)
   const before = JSON.parse(readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_DUEL_DEMO), 'utf8'))
   if (before.favourite === true) {
     throw new Error(

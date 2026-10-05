@@ -19,7 +19,7 @@
 //   replays-refresh                ReplaysView.tsx - toggles back to "Refresh" once the scan settles
 
 import { REPLAYS_ROWS_DUEL_DEMO, REPLAYS_ROWS_MVD_DEMO } from '../lib/fixture.mjs'
-import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { openDemosRoot, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -29,9 +29,7 @@ export const variant = 'replays-rows'
 
 export default async function replaysDemoDetail({ page, shot, step }) {
   step('navigating to the Demos view renders the discovered list')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
 
   const PROVENANCE = ['set by you', 'from the demo', 'from the file name', 'file time', 'guessed']
   const FILE_IDS = ['fileName', 'duration', 'date']

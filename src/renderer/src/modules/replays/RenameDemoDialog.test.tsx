@@ -51,6 +51,7 @@ const BASE_ROW: DemoRow = {
   durationMs: 65_000,
   roster: null,
   fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+  folder: [],
   nameFacts: null,
   sidecar: { state: 'ok', values: {} },
   effective: {

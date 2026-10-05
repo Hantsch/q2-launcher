@@ -24,6 +24,7 @@ version section when a release actually ships.
 - **Servers** — Switch between Online and LAN to find servers on your local network.
 - **Servers** — Save your server filter as a named quick filter and reapply it with one click.
 - **Demos** — Demo detail lists players by team, spectators tucked away.
+- **Demos** — Browse your demo subfolders — breadcrumb, new/rename folder, drag a demo to move it.
 
 ### Changed
 

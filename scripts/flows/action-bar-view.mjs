@@ -7,7 +7,7 @@
 // Selectors: `actionbar-play` (+ `data-action`), `nav-home|library|replays`, `replays-demo-row`,
 // `replays-demo-play`, `replays-demo-play-anyway` (both must be gone), `installation-tile`.
 import { REPLAYS_PLAY_CTF_DEMO, writeReplaysPlayFixture } from '../lib/fixture.mjs'
-import { waitForScan } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play'
 
@@ -41,9 +41,8 @@ export default async function actionBarView({ page, step, shot }) {
   await expectAction(page, 'play', 'Play')
 
   step('Demos with no selection: "View", disabled')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   await expectAction(page, 'view', 'View', true)
   await shot('view-disabled')
 

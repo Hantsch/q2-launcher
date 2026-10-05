@@ -22,6 +22,8 @@ import {
   writeReplaysZipPackArchive,
 } from '../lib/fixture.mjs'
 
+import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+
 const TIMEOUT_MS = 8_000
 
 // Same regression note as `replays-zip-entries.mjs`: `pack.zip` is built/removed by this flow
@@ -45,10 +47,8 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
   }
 
   step('navigating to the Demos view renders the discovered list')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-
-  const list = page.getByTestId('replays-demo-list')
-  await list.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await openDemos(page)
+  await openFolder(page, 'Fixture Favorite Install', 'pack.zip')
 
   step('a zip entry shows the same view read-only with its reason')
   const dm2Row = page
@@ -63,7 +63,9 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
       .getByTestId(`replays-detail-input-${field}`)
       .evaluate((element) => element.tagName)
     if (tag === 'INPUT' || tag === 'TEXTAREA') {
-      throw new Error(`replays-archive-readonly: ${field} must not be editable for an archive entry`)
+      throw new Error(
+        `replays-archive-readonly: ${field} must not be editable for an archive entry`,
+      )
     }
   }
 
@@ -127,8 +129,25 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
     }
   }
 
+  step(
+    'the zip row disables its quick favourite control with a visible reason, the loose row does not',
+  )
+  const dm2FavouriteDisabled = await dm2Row
+    .getByTestId('replays-row-favourite')
+    .getAttribute('disabled')
+  if (dm2FavouriteDisabled === null) {
+    throw new Error('replays-archive-readonly: the zip row favourite control must be disabled')
+  }
+  await dm2Row
+    .getByTestId('replays-archive-readonly-row')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+
   step('a loose demo shows neither read-only notice')
   const looseName = REPLAYS_FIXTURE_DEMOS.find((demo) => demo.fileName === 'FINAL.DM2').fileName
+  await page
+    .getByTestId('replays-crumb')
+    .filter({ hasText: 'Fixture Favorite Install' })
+    .click({ timeout: TIMEOUT_MS })
   const looseRow = page.getByTestId('replays-demo-row').filter({ hasText: looseName })
   await looseRow.click({ timeout: TIMEOUT_MS })
 
@@ -144,19 +163,6 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
       'replays-archive-readonly: a loose demo must not show the read-only rename notice',
     )
   }
-
-  step(
-    'the zip row disables its quick favourite control with a visible reason, the loose row does not',
-  )
-  const dm2FavouriteDisabled = await dm2Row
-    .getByTestId('replays-row-favourite')
-    .getAttribute('disabled')
-  if (dm2FavouriteDisabled === null) {
-    throw new Error('replays-archive-readonly: the zip row favourite control must be disabled')
-  }
-  await dm2Row
-    .getByTestId('replays-archive-readonly-row')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   const looseFavouriteDisabled = await looseRow
     .getByTestId('replays-row-favourite')

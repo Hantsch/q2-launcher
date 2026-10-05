@@ -12,7 +12,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { makeFail, sleep } from '../lib/flow-common.mjs'
-import { waitForScan } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -45,9 +45,8 @@ export default async function replaysStageX11Unreachable({ page, step, shot }) {
   if (typeof expectedReason !== 'string') fail('en.json has no replays.stage.notOnTop.x11')
 
   step('Play with an unreachable X server shows the notice as visible text and the timeline')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
   await page
     .getByTestId('replays-demo-row')

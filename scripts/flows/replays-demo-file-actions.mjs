@@ -26,7 +26,7 @@ import {
   writeReplaysZipPackArchive,
 } from '../lib/fixture.mjs'
 import { variantUserDataDir } from '../lib/harness.mjs'
-import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -63,9 +63,8 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   }
 
   step('navigating to the Demos view renders the discovered list')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemos(page)
+  await openFolder(page, 'Fixture Favorite Install')
 
   const detail = page.getByTestId('replays-detail')
 
@@ -102,6 +101,7 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   }
 
   step('reveal and copy path on a pack.zip entry act on pack.zip itself')
+  await openFolder(page, 'pack.zip')
   const zipRow = page
     .getByTestId('replays-demo-row')
     .filter({ has: page.getByTestId('replays-demo-source').filter({ hasText: 'pack.zip ›' }) })
@@ -133,6 +133,10 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   step('reveal on a vanished demo shows the file-missing alert and reveals nothing')
   // The demo list is virtualized (VirtualDemoList.tsx) - vanish-156.dm2 may not be within the
   // rendered window, so narrow the list via the search filter to bring its row into the DOM.
+  await page
+    .getByTestId('replays-crumb')
+    .filter({ hasText: 'Fixture Favorite Install' })
+    .click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-filter-search').fill('vanish-156')
   await rowFor(page, 'vanish-156.dm2').click({ timeout: TIMEOUT_MS })
   await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })

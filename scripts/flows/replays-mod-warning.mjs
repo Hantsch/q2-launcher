@@ -15,7 +15,7 @@ import {
   startBootstrapFixtureServer,
   writeReplaysPlayFixture,
 } from '../lib/fixture.mjs'
-import { waitForScan } from '../lib/replays-copy-in.mjs'
+import { openDemos as openDemosList, openFolder } from '../lib/replays-copy-in.mjs'
 import { readLog } from '../lib/flow-common.mjs'
 
 export const variant = 'replays-play'
@@ -67,9 +67,8 @@ export default async function replaysModWarning({ page, step, shot }) {
   }
 
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemosList(page)
+  await openFolder(page, '/ baseq2')
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   const dialog = page.getByTestId('replays-mod-missing-dialog')
@@ -209,6 +208,8 @@ export default async function replaysModWarning({ page, step, shot }) {
   const openDemos = async () => {
     await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
     await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    if ((await page.getByTestId('replays-breadcrumb').count()) === 0)
+      await openFolder(page, '/ baseq2')
     await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   }
   const viewPlaysWithoutDialog = async (why) => {

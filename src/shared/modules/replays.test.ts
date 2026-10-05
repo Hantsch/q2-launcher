@@ -7,6 +7,7 @@ import {
   REPLAYS_HANDLERS,
   REPLAYS_HANDLER_SCHEMAS,
   REPLAYS_PATH_PAYLOAD_HANDLERS,
+  replaysFolderRefSchema,
   type ReplaysContract,
   type ReplaysStageRect,
 } from './replays'
@@ -76,10 +77,12 @@ describe('replays module contract (story 135 D1)', () => {
       durationMs: null,
       roster: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+      folder: [],
       nameFacts: null,
     })
 
-    const isSuspectKey = (key: string) => /path|dir$|folder/i.test(key) && key !== 'gameDir'
+    const isSuspectKey = (key: string) =>
+      /path|dir$|folder/i.test(key) && key !== 'gameDir' && key !== 'folder'
 
     for (const key of Object.keys(parsed)) {
       expect(isSuspectKey(key)).toBe(false)
@@ -106,6 +109,9 @@ function findPathLeak(schema: z.ZodTypeAny, keyName?: string): string | undefine
 
   // `gameDir` is a bare mod directory name, not a path: story 182's `modWarning.trustMod` schema
   // pins it to /^[A-Za-z0-9_.-]+$/ (no separators) and refuses `.`/`..`.
+  // A folder ref is a source key plus name segments of existing folders, never a path.
+  if ((schema as unknown) === (replaysFolderRefSchema as unknown)) return undefined
+
   if (keyName && keyName !== 'gameDir' && /path|dir$|folder|file/i.test(keyName)) {
     return `key "${keyName}" looks like a filesystem path`
   }
@@ -177,5 +183,21 @@ describe('ReplaysContract', () => {
     expectTypeOf<Handlers['playback.timeline']['req']>().toEqualTypeOf<
       z.infer<Schemas['playback.timeline']>
     >()
+  })
+})
+
+describe('folder ref segments', () => {
+  const ref = (...path: string[]) => ({ sourceKey: 'k', path })
+
+  it('accepts an existing folder whose name would be refused for a new one', () => {
+    for (const seg of ['trailing.', 'trailing ', 'CON', 'a:b', 'x'.repeat(120)]) {
+      expect(replaysFolderRefSchema.safeParse(ref(seg)).success).toBe(true)
+    }
+  })
+
+  it('refuses segments that are not a single plain name', () => {
+    for (const seg of ['..', '.', 'a/b', 'a\\b', '', 'a\0b', 'x'.repeat(256)]) {
+      expect(replaysFolderRefSchema.safeParse(ref(seg)).success).toBe(false)
+    }
   })
 })

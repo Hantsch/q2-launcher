@@ -10,7 +10,13 @@ import {
 } from '../lib/fixture.mjs'
 import { waitForWindow } from '../lib/harness.mjs'
 import { makeFail, sleep } from '../lib/flow-common.mjs'
-import { commands, launchGeometry, waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
+import {
+  commands,
+  launchGeometry,
+  openDemos,
+  openFolder,
+  windowLines,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -46,9 +52,8 @@ async function until(predicate, label, timeoutMs = ENGINE_TIMEOUT_MS) {
 
 export default async function replaysCinemaFullscreen({ page, app, log, step, shot }) {
   step('a demo plays in cinema')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   await page
     .getByTestId('replays-demo-row')
     .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })

@@ -225,6 +225,7 @@ describe('replays scan service (story 144 D3)', () => {
       durationMs: null,
       roster: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+      folder: [],
       nameFacts: null,
     }
     await new ReplaysIndexCache({ filePath: cacheFile }).write(
@@ -364,7 +365,7 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
         homeDir: root,
         zipDeps: { extractorPath: '', extractorExists: false },
       })
-      return { demos, sourceErrors: [error] }
+      return { demos, sourceErrors: [error], folders: [] }
     })
     const h = harness([dir], { discover })
 
@@ -395,7 +396,7 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
         homeDir: root,
         zipDeps: { extractorPath: '', extractorExists: false },
       })
-      return { demos, sourceErrors: discoverCall === 1 ? [error1] : [error2] }
+      return { demos, sourceErrors: discoverCall === 1 ? [error1] : [error2], folders: [] }
     })
     const h = harness([dir], { parse, discover })
 
@@ -434,7 +435,11 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
         homeDir: root,
         zipDeps: { extractorPath: '', extractorExists: false },
       })
-      return { demos, sourceErrors: discoverCall === 1 ? [error1] : [errorFor(dir, 'missing')] }
+      return {
+        demos,
+        sourceErrors: discoverCall === 1 ? [error1] : [errorFor(dir, 'missing')],
+        folders: [],
+      }
     })
     const h = harness([dir], { parse, discover })
 
@@ -684,7 +689,7 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
   })
 })
 
-describe('applyRename (story 157)', () => {
+describe('applyRelocate (story 157)', () => {
   it('re-keys the row, file lookup and cache to the new id/name, without touching disk', async () => {
     const dir = await demoFolder('demos', ['old.dm2'])
     const h = harness([dir])
@@ -699,7 +704,7 @@ describe('applyRename (story 157)', () => {
     const newAbsolutePath = join(dir, 'new.dm2')
     const newId = demoIdForPath(newAbsolutePath)
 
-    const renamed = await h.service.applyRename(oldId, newAbsolutePath, 'new.dm2')
+    const renamed = await h.service.applyRelocate(oldId, newAbsolutePath, [])
 
     expect(renamed).toBeDefined()
     expect(renamed!.id).toBe(newId)
@@ -737,7 +742,7 @@ describe('applyRename (story 157)', () => {
     await h.waitIdle(1)
 
     expect(
-      await h.service.applyRename('0000000000000000', join(dir, 'x.dm2'), 'x.dm2'),
+      await h.service.applyRelocate('0000000000000000', join(dir, 'x.dm2'), []),
     ).toBeUndefined()
   })
 

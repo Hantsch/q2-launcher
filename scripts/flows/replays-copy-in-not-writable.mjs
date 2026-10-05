@@ -7,7 +7,13 @@ import {
   replaysCopyInDemosDir,
   writeReplaysCopyInFixture,
 } from '../lib/fixture.mjs'
-import { launchLines, openDemos, selectDemo, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
+import {
+  launchLines,
+  openDemos,
+  openFolder,
+  selectDemo,
+  TIMEOUT_MS,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-copy-in-not-writable'
 
@@ -22,6 +28,7 @@ export default async function replaysCopyInNotWritable({ page, step, shot }) {
   if (!statSync(blocker).isFile())
     throw new Error('replays-copy-in-not-writable: _launcher is not a plain file')
   await openDemos(page)
+  await openFolder(page, 'copy-in-demos')
   const linesBefore = launchLines(logPath).length
   await page.evaluate(() => {
     window.__q2lPhases = []

@@ -33,7 +33,7 @@ import {
   removeReplaysDateFilterFixture,
   writeReplaysDateFilterFixture,
 } from '../lib/fixture.mjs'
-import { waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { openDemosRoot } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 const POLL_INTERVAL_MS = 100
@@ -197,9 +197,7 @@ async function tabUntilFocused(page, testId, maxTabs = 40) {
 
 export default async function replaysDateFilter({ page, step, shot }) {
   step('navigate to Demos and wait for the scan to settle')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await waitForVisibleSet(page, ALL_NAMES, 'the unfiltered list')
 
   step('presets narrow the list')

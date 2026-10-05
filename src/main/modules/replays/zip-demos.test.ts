@@ -18,6 +18,28 @@ describe('expandZip (fake listing/reader)', () => {
     vi.restoreAllMocks()
   })
 
+  it("zip entries sit inside the zip's folder", async () => {
+    vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({
+      ok: true,
+      entries: [
+        { path: 'top.dm2', isFolder: false, size: null, modified: null, encrypted: false },
+        {
+          path: 'cup/final/two.dm2',
+          isFolder: false,
+          size: null,
+          modified: null,
+          encrypted: false,
+        },
+      ],
+    })
+
+    const result = await expandZip('C:/demos/cups/pack.zip', SOURCE, 0, {} as ZipDeps, ['cups'])
+    expect(result.rows.map((r) => [r.fileName, r.folder])).toEqual([
+      ['top.dm2', ['cups', 'pack.zip']],
+      ['two.dm2', ['cups', 'pack.zip', 'cup', 'final']],
+    ])
+  })
+
   it('oversized and encrypted entries are unparsable rows and a broken archive is a source error', async () => {
     vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({
       ok: true,
@@ -272,6 +294,7 @@ describe('expandZip (real 7za binary)', () => {
       durationMs: null,
       roster: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+      folder: [],
       nameFacts: null,
     }
     expect(looseRow.archiveEntry).toBeNull()

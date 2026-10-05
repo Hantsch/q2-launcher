@@ -25,7 +25,7 @@ import {
   REPLAYS_SORT_ORDER_VARIANT,
   writeReplaysSortOrderFixture,
 } from '../lib/fixture.mjs'
-import { waitForDemosScanToFinish, waitForRowCount } from '../lib/replays-copy-in.mjs'
+import { openDemosRoot, waitForRowCount } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -96,9 +96,7 @@ async function assertDirectionText(page, column, expected) {
 
 export default async function replaysSortOrder({ page, step, shot }) {
   step('navigate to Demos and wait for the scan to settle')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await waitForRowCount(page, 4)
 
   step('the default order groups favourites first (newest of the two first), then newest-first')
@@ -206,9 +204,7 @@ export default async function replaysSortOrder({ page, step, shot }) {
 
   step('reloading the page keeps the map/descending order and the pressed state')
   await page.reload()
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await waitForRowCount(page, 4)
   await waitForPressed(page, 'map', true)
   const afterReloadOrder = await rowOrder(page)

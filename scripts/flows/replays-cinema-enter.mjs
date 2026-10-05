@@ -13,7 +13,7 @@ import {
 } from '../lib/fixture.mjs'
 import { waitForWindow } from '../lib/harness.mjs'
 import { makeFail, sleep } from '../lib/flow-common.mjs'
-import { waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -48,9 +48,8 @@ const cinemaWindows = (app) => app.windows().filter((w) => w.url().includes('cin
 
 export default async function replaysCinemaEnter({ page, app, log, step, shot }) {
   step('a demo plays on the stage and the mode switch offers Preview, Cinema and Fullscreen')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
   await page
     .getByTestId('replays-demo-row')

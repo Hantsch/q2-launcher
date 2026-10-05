@@ -1,12 +1,15 @@
 import type { BoundModule } from '../define-module'
 import { stat } from 'node:fs/promises'
+import { basename, join, resolve, sep } from 'node:path'
 import type { DemoRoster } from '@shared/demos/dm2-roster'
+import { isPrefix, type DiscoveredFolder, type FolderRef } from '@shared/replays/demo-folders'
 import { demoReadability } from '@shared/demos/readability'
 import type { DemoUnreadable } from '@shared/demos/readability'
 import {
   REPLAYS_EVENTS,
   demoSourceKey,
   discoveredDemoSchema,
+  type DemoSource,
   type DemoUnparsableReason,
   type DiscoveredDemo,
   type ReplaysOverview,
@@ -21,9 +24,11 @@ import {
   type NameFacts,
 } from '@shared/replays/name-template'
 import { readDemoFullPass, readDemoHeader } from '../../lib/demo-bytes'
-import { demoIdForPath, type DiscoveredDemoFile } from './discovery'
+import { isDirectory, isInside } from '../../lib/fs-utils'
+import { demoIdForPath, type DemoRootDir, type DiscoveredDemoFile } from './discovery'
 import type { CachedDemo, ReplaysIndexCache } from './index-cache'
 import { runIncrementalScan, type IncrementalScanSource } from './incremental-scan'
+import { zipEntryIdFor } from './zip-demos'
 
 /**
  * The replays index scan service - the one stateful thing between discovery
@@ -93,9 +98,15 @@ export interface ReplaysScanLog {
 
 export interface CreateReplaysScanServiceOptions {
   emit: BoundModule<ReplaysContract>['emit']
-  cache: Pick<ReplaysIndexCache, 'read' | 'write'>
+  cache: Pick<ReplaysIndexCache, 'read' | 'readFolders' | 'write'> &
+    Partial<Pick<ReplaysIndexCache, 'readRoots'>>
   /** Runs discovery fresh; read at scan time, never captured once. */
-  discover: () => Promise<{ demos: DiscoveredDemoFile[]; sourceErrors: ReplaysSourceError[] }>
+  discover: () => Promise<{
+    demos: DiscoveredDemoFile[]
+    sourceErrors: ReplaysSourceError[]
+    folders: DiscoveredFolder[]
+    roots?: DemoRootDir[]
+  }>
   /** Parses one changed/new demo's header - called only for cache misses. */
   parse: (file: ReplaysScanFile) => Promise<DemoHeaderFacts>
   /** The current naming templates' matcher and fingerprint, resolved once per scan. */
@@ -110,9 +121,18 @@ export interface CreateReplaysScanServiceOptions {
   log?: ReplaysScanLog
 }
 
+export interface ResolvedFolder {
+  absolutePath: string
+  /** The recorded directory of the root `absolutePath` was built from. */
+  rootPath: string
+  source: DemoSource
+}
+
 export interface ReplaysScanService {
   start: () => ReplaysScanStartResult
   read: () => Promise<DiscoveredDemo[]>
+  /** The last successful scan's folders; the cached ones until this process's first scan succeeds. */
+  readFolders: () => Promise<DiscoveredFolder[]>
   overview: () => Promise<ReplaysOverview>
   /** Resolves a demo id to the file identity a sidecar store needs: its absolute path
    * and whether it's a zip entry. `undefined` before this process's first successful scan has seen
@@ -121,17 +141,33 @@ export interface ReplaysScanService {
   resolveFile: (
     id: string,
   ) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
-  /** Renames a demo's identity in place, without a re-scan. Looks the old id up in
+  /** Relocates a demo's identity in place (new name, new folder, or both), without a re-scan. Looks the old id up in
    * `fileById`; `undefined` (a no-op) when it is not known - no successful scan has seen it, or a
    * later scan has already replaced it. Otherwise re-keys `snapshot`, `fileById` and `lastCache`
-   * (persisted via `cache.write`, same as a normal scan) to the new id/path/name, re-matching
-   * `nameFacts` against the current `nameMatcher()` since the name changed; every other parsed fact
-   * is carried over unchanged. Returns the updated row (story 157) */
-  applyRename: (
+   * (persisted via `cache.write`, same as a normal scan) to the new id/path/name/folder (and
+   * `source`, when the demo crossed into another root), re-matching `nameFacts` against the current
+   * `nameMatcher()`; every other parsed fact is carried over unchanged. Returns the updated row (story 242) */
+  applyRelocate: (
     oldId: string,
     newAbsolutePath: string,
-    newFileName: string,
+    folder: string[],
+    source?: DemoSource,
   ) => Promise<DiscoveredDemo | undefined>
+  /** The absolute directory a folder ref names: its root's recorded directory (the last scan's,
+   * the cached ones before that) plus `ref.path`. Of a source's roots, the one holding the demo
+   * `near` comes first, then the first in scan order where the directory exists; `undefined` only
+   * when the source has no recorded root. Existence and containment are the caller's to check. */
+  resolveFolder: (ref: FolderRef, near?: string) => Promise<ResolvedFolder | undefined>
+  /** Adds a just-created folder to the folder list (persisted alongside the index), without a
+   * re-scan; a no-op when the list already has it. */
+  addFolder: (folder: DiscoveredFolder) => Promise<void>
+  /** Re-keys everything below a renamed directory in place, without a re-scan or re-parse: every
+   * row whose file lies under `oldDir` (segment-wise, case-folded where the filesystem is) gets its
+   * new path, `folder`, id and - for a zip entry - archive path, in `snapshot`, `fileById` and the
+   * index cache; the folder list's entries below it are renamed too. Only rows of this process's
+   * last successful scan are known; before one, the next scan re-parses what moved. Returns the
+   * re-keyed ids (story 242) */
+  applyFolderRelocate: (oldDir: string, newDir: string) => Promise<{ from: string; to: string }[]>
   /** Whether a scan is currently running - the same flag `overview()` reports as `scanning`. */
   isScanning: () => boolean
 }
@@ -171,6 +207,7 @@ function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
       file.archiveEntry !== null
         ? file.fileTime
         : { birthtimeMs: file.birthtimeMs, mtimeMs: file.mtimeMs },
+    folder: file.folder,
     nameFacts: null,
   }
 }
@@ -181,6 +218,27 @@ function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
  * when the header facts themselves were reused untouched. */
 function withNameFacts(row: DiscoveredDemo, name: unknown): DiscoveredDemo {
   return { ...row, nameFacts: (name ?? null) as NameFacts | null }
+}
+
+/** A path's segments after `resolve` - the drive or UNC host is the first one - so a prefix count
+ * on one resolved path lines up with every other path under it. */
+function segments(path: string): string[] {
+  return resolve(path).split(sep).filter(Boolean)
+}
+
+/** The deepest root holding `path`: a root nested in another is its own source. */
+function deepestRootHolding(roots: DemoRootDir[], path: string): DemoRootDir | undefined {
+  return roots
+    .filter((r) => isInside(r.dir, path))
+    .sort((a, b) => segments(b.dir).length - segments(a.dir).length)[0]
+}
+
+/** The id discovery gives a loose file: hashed under the root's canonical dir, so a demos dir
+ * reached through a link or short path still yields the id the next scan assigns. */
+function looseIdFor(root: DemoRootDir, absolutePath: string): string {
+  return demoIdForPath(
+    join(root.canonicalDir, ...segments(absolutePath).slice(segments(root.dir).length)),
+  )
 }
 
 /** Drops every cache row whose `parsed` is not a valid row - it simply becomes a miss. */
@@ -317,6 +375,10 @@ export function createReplaysScanService(
    * scan's own right after the snapshot swap, so the final `running: false` push carries the fresh
    * set. A throwing scan leaves this untouched, same as `lastCache`/`snapshot` (story 151) */
   let lastSourceErrors: ReplaysSourceError[] = []
+  /** The last successful scan's folders; `null` until this process's first scan succeeds. */
+  let foldersSnapshot: DiscoveredFolder[] | null = null
+  /** The last successful scan's root directories; `null` until this process's first scan succeeds. */
+  let rootsSnapshot: DemoRootDir[] | null = null
   /** `id -> file` for the last successful scan's rows - the sidecar store's only index
    * dependency (`resolveFile`), kept in lockstep with `snapshot`/`lastCache` and never populated on
    * a failed scan (story 146) */
@@ -375,7 +437,9 @@ export function createReplaysScanService(
       for (const [id, entry] of result.entries) fileById.set(id, entry.file)
       lastCache = result.nextCache
       lastSourceErrors = discovered.sourceErrors
-      await cache.write(result.nextCache)
+      foldersSnapshot = discovered.folders
+      rootsSnapshot = discovered.roots ?? []
+      await cache.write(result.nextCache, discovered.folders, rootsSnapshot)
     } catch (error) {
       log?.warn('replays index scan failed; the previous index is kept', error)
     } finally {
@@ -406,6 +470,21 @@ export function createReplaysScanService(
     )
   }
 
+  async function readFolders(): Promise<DiscoveredFolder[]> {
+    return foldersSnapshot ?? (await cache.readFolders().catch(() => []))
+  }
+
+  async function readRoots(): Promise<DemoRootDir[]> {
+    if (rootsSnapshot !== null) return rootsSnapshot
+    return (await cache.readRoots?.().catch(() => [])) ?? []
+  }
+
+  /** Persists an in-place change; skipped before this process's first scan has produced a cache of
+   * its own - that scan writes everything anyway. */
+  async function persist(): Promise<void> {
+    if (lastCache) await cache.write(lastCache, foldersSnapshot ?? [], await readRoots())
+  }
+
   async function overview(): Promise<ReplaysOverview> {
     const rows = await read()
     return { scanning: running, demoCount: rows.length }
@@ -418,10 +497,11 @@ export function createReplaysScanService(
     return file ? { absolutePath: file.absolutePath, archiveEntry: file.archiveEntry } : undefined
   }
 
-  async function applyRename(
+  async function applyRelocate(
     oldId: string,
     newAbsolutePath: string,
-    newFileName: string,
+    folder: string[],
+    source?: DemoSource,
   ): Promise<DiscoveredDemo | undefined> {
     const oldFile = fileById.get(oldId)
     if (!oldFile) return undefined
@@ -429,10 +509,19 @@ export function createReplaysScanService(
     const oldRowIndex = snapshot.findIndex((row) => row.id === oldId)
     if (oldRowIndex === -1) return undefined
 
-    const newId = demoIdForPath(newAbsolutePath)
+    const root = deepestRootHolding(await readRoots(), newAbsolutePath)
+    const newId =
+      root === undefined ? demoIdForPath(newAbsolutePath) : looseIdFor(root, newAbsolutePath)
+    const newFileName = basename(newAbsolutePath)
     const matched = nameMatcher().match(newFileName)
     const newRow = withNameFacts(
-      { ...snapshot[oldRowIndex], id: newId, fileName: newFileName },
+      {
+        ...snapshot[oldRowIndex],
+        id: newId,
+        fileName: newFileName,
+        folder,
+        ...(source ? { source } : {}),
+      },
       matched,
     )
 
@@ -444,6 +533,8 @@ export function createReplaysScanService(
       id: newId,
       fileName: newFileName,
       absolutePath: newAbsolutePath,
+      folder,
+      ...(source ? { source } : {}),
     })
 
     if (lastCache) {
@@ -451,16 +542,119 @@ export function createReplaysScanService(
       if (oldCached) {
         lastCache.delete(oldId)
         lastCache.set(newId, { ...oldCached, parsed: newRow, name: matched ?? null })
-        await cache.write(lastCache)
+        await cache.write(lastCache, foldersSnapshot ?? [], await readRoots())
       }
     }
 
     return newRow
   }
 
+  async function resolveFolder(ref: FolderRef, near?: string): Promise<ResolvedFolder | undefined> {
+    const roots = (await readRoots()).filter((r) => r.sourceKey === ref.sourceKey)
+    const nearPath = near === undefined ? undefined : fileById.get(near)?.absolutePath
+    const holdsNear = (r: DemoRootDir): boolean =>
+      nearPath !== undefined && isInside(r.dir, nearPath)
+    let fallback: ResolvedFolder | undefined
+    for (const root of [...roots.filter(holdsNear), ...roots.filter((r) => !holdsNear(r))]) {
+      const candidate: ResolvedFolder = {
+        absolutePath: join(root.dir, ...ref.path),
+        rootPath: root.dir,
+        source: root.source,
+      }
+      if (await isDirectory(candidate.absolutePath)) return candidate
+      fallback ??= candidate
+    }
+    return fallback
+  }
+
+  async function addFolder(folder: DiscoveredFolder): Promise<void> {
+    const folders = await readFolders()
+    const same = (f: DiscoveredFolder): boolean =>
+      f.sourceKey === folder.sourceKey &&
+      f.path.length === folder.path.length &&
+      isPrefix(f.path, folder.path)
+    if (folders.some(same)) return
+    foldersSnapshot = [...folders, folder]
+    await persist()
+  }
+
+  async function applyFolderRelocate(
+    oldDir: string,
+    newDir: string,
+  ): Promise<{ from: string; to: string }[]> {
+    const root = deepestRootHolding(await readRoots(), oldDir)
+    if (root === undefined) return []
+    const rootDepth = segments(root.dir).length
+    const oldDepth = segments(oldDir).length
+    const oldPath = segments(oldDir).slice(rootDepth)
+    const newPath = segments(newDir).slice(rootDepth)
+    if (oldPath.length === 0) return []
+
+    const moves: { from: string; row: DiscoveredDemo; file: ReplaysScanFile }[] = []
+    const unmovedFolders: string[][] = []
+    for (const row of snapshot ?? []) {
+      if (demoSourceKey(row.source) !== root.sourceKey) continue
+      const file = fileById.get(row.id)
+      // `isInside` is segment-wise and folds case where the filesystem does: a sibling `ab` is
+      // not below `a`, and on Windows `A/x.dm2` is.
+      if (file === undefined || !isInside(oldDir, file.absolutePath)) {
+        unmovedFolders.push(row.folder)
+        continue
+      }
+      const absolutePath = join(newDir, ...segments(file.absolutePath).slice(oldDepth))
+      const folder = [...newPath, ...file.folder.slice(oldPath.length)]
+      const archiveEntry =
+        file.archiveEntry === null ? null : { ...file.archiveEntry, archivePath: absolutePath }
+      // The ids discovery itself computes, so the next scan is a cache hit, not a re-parse.
+      const id =
+        archiveEntry === null
+          ? looseIdFor(root, absolutePath)
+          : zipEntryIdFor(absolutePath, archiveEntry.entryPath)
+      moves.push({
+        from: row.id,
+        row: { ...row, id, folder, archiveEntry },
+        file: { ...file, id, absolutePath, folder, archiveEntry },
+      })
+    }
+
+    const byOldId = new Map(moves.map((m) => [m.from, m.row]))
+    if (snapshot !== null) snapshot = snapshot.map((row) => byOldId.get(row.id) ?? row)
+    // Every old key goes before any new one is set, so a new id is never deleted as an old one.
+    for (const m of moves) fileById.delete(m.from)
+    for (const m of moves) fileById.set(m.row.id, m.file)
+    const cacheMap = lastCache
+    if (cacheMap) {
+      const cached = moves.map((m) => [m, cacheMap.get(m.from)] as const)
+      for (const m of moves) cacheMap.delete(m.from)
+      for (const [m, entry] of cached) {
+        if (entry) cacheMap.set(m.row.id, { ...entry, parsed: m.row })
+      }
+    }
+
+    // A folder another root of the same source still has demos under stays listed as well.
+    foldersSnapshot = (await readFolders()).flatMap((f) => {
+      if (f.sourceKey !== root.sourceKey || !isPrefix(oldPath, f.path)) return [f]
+      const renamed = { ...f, path: [...newPath, ...f.path.slice(oldPath.length)] }
+      return unmovedFolders.some((p) => isPrefix(f.path, p)) ? [f, renamed] : [renamed]
+    })
+    await persist()
+    return moves.map((m) => ({ from: m.from, to: m.row.id }))
+  }
+
   function isScanning(): boolean {
     return running
   }
 
-  return { start, read, overview, resolveFile, applyRename, isScanning }
+  return {
+    start,
+    read,
+    readFolders,
+    overview,
+    resolveFile,
+    applyRelocate,
+    resolveFolder,
+    addFolder,
+    applyFolderRelocate,
+    isScanning,
+  }
 }

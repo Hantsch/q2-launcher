@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { DemoRow, ReplaysScanProgress } from '@shared/modules/replays'
+import { demoSourceKey, type DemoRow, type ReplaysScanProgress } from '@shared/modules/replays'
+import {
+  buildFolderView,
+  isInArchive,
+  nearestExisting,
+  rowsBelow,
+  type DiscoveredFolder,
+  type FolderEntry,
+  type FolderRef,
+} from '@shared/replays/demo-folders'
 import {
   nextSort,
   sortDemoRows,
@@ -13,10 +22,12 @@ import {
   demoFilterSubject,
   filterDemos,
   EMPTY_DEMO_LIST_FILTER,
+  isDemoFilterActive,
   type DemoListFilter,
 } from '@shared/replays/list-filter'
 import { Button } from '../../components/ui/Button'
 import { cn } from '../../lib/cn'
+import { toastOutcomeError } from '../../lib/toast'
 import { useListSort } from '../../lib/useListSort'
 import { useModuleQuery } from '../../lib/useModuleQuery'
 import { usePrimaryActionContribution, type ContributedAction } from '../../lib/primary-action'
@@ -27,7 +38,11 @@ import {
   type InstallDecisionRequest,
 } from '../mods/components/InstallDecisionDialog'
 import { getCatalog, installMod, onInstallDecision } from '../mods/client'
-import { VirtualDemoList } from './components/VirtualDemoList'
+import { VirtualDemoList, type DemoListItem } from './components/VirtualDemoList'
+import { DemoBreadcrumb } from './components/DemoBreadcrumb'
+import { DemoDragZone } from './components/DemoDragZone'
+import { FolderNameDialog } from './FolderNameDialog'
+import { useFolderStore } from './folder-store'
 import { DemoDetailPanel } from './components/DemoDetailPanel'
 import { ConsoleCommandField } from './components/ConsoleCommandField'
 import { DemoStage } from './components/DemoStage'
@@ -41,13 +56,18 @@ import { ModMissingConfirmDialog } from './components/ModMissingConfirmDialog'
 import { rowWithSidecar } from './row-patch'
 import {
   getListFilter,
+  folderCreate,
+  folderRename,
+  foldersRead,
   getListSort,
   indexRead,
+  moveDemo,
   readModWarning,
   onScanProgress,
   scanStart,
   setListFilter,
   setListSort,
+  sidecarRead,
   trustModWarningMod,
 } from './client'
 import { deriveReplaysListState } from './list-state'
@@ -89,6 +109,13 @@ function toSortFields(row: DemoRow): DemoSortFields {
   }
 }
 
+/** The label a source carries on its root folder - the same text main puts on `DiscoveredFolder.source`. */
+function sourceLabel(row: DemoRow): string {
+  return row.source.kind === 'installation'
+    ? `${row.source.installationName} / ${row.source.gameDir}`
+    : row.source.path
+}
+
 /** A scan that hasn't reported anything yet - the placeholder before the first `scan.progress`
  * push arrives, so `ReplaysListStatus` always has something to render while `scanning` starts
  * `true` on mount. */
@@ -120,7 +147,14 @@ const IDLE_SCAN_PROGRESS: ReplaysScanProgress = {
 export function ReplaysView() {
   const { t } = useTranslation()
   const setRoute = useLauncher((state) => state.setRoute)
+  const pushToast = useLauncher((state) => state.pushToast)
   const [demos, setDemos] = useState<DemoRow[] | null>(null)
+  const [folders, setFolders] = useState<DiscoveredFolder[] | null>(null)
+  const currentFolder = useFolderStore((state) => state.current)
+  const openFolder = useFolderStore((state) => state.open)
+  const [folderDialog, setFolderDialog] = useState<
+    { mode: 'create' } | { mode: 'rename'; folder: FolderEntry } | null
+  >(null)
   // Story 151: the view always calls `scanStart()` on mount, so it starts out assuming a scan
   // is under way - flipped back to `false` only if that call itself resolves `ok: false` (refused
   // outright, never even started). A real `scan.progress` push takes over from there.
@@ -190,18 +224,24 @@ export function ReplaysView() {
     }, FILTER_PERSIST_DEBOUNCE_MS)
   }
 
+  // Rows and folders land in one render so the folder view never mixes two reads.
+  const rereadLists = useCallback(async (): Promise<void> => {
+    const [index, folderList] = await Promise.all([indexRead(), foldersRead()])
+    if (cancelledRef.current) return
+    const next = index.ok ? index.value : []
+    setDemos(next)
+    setFolders(folderList?.ok ? folderList.value : [])
+    useDemoEditorStore.getState().deselectIfMissing(next.map((demo) => demo.id))
+  }, [])
+
   useEffect(() => {
     cancelledRef.current = false
 
-    function applyDemos(next: DemoRow[]): void {
-      setDemos(next)
-      useDemoEditorStore.getState().deselectIfMissing(next.map((demo) => demo.id))
+    function readIndex(): void {
+      void rereadLists()
     }
 
-    void indexRead().then((result) => {
-      if (cancelledRef.current) return
-      applyDemos(result.ok ? result.value : [])
-    })
+    readIndex()
     void scanStart().then((result) => {
       if (cancelledRef.current) return
       if (!result.ok) setScanning(false)
@@ -211,19 +251,14 @@ export function ReplaysView() {
       if (cancelledRef.current) return
       setScanning(next.running)
       setProgress(next)
-      if (!next.running) {
-        void indexRead().then((result) => {
-          if (cancelledRef.current) return
-          applyDemos(result.ok ? result.value : [])
-        })
-      }
+      if (!next.running) readIndex()
     })
 
     return () => {
       cancelledRef.current = true
       unsubscribe()
     }
-  }, [])
+  }, [rereadLists])
 
   // Story 151: mirrors `ServersView.tsx`'s `handleOpenSourceSettings` - the route change lands
   // on the next render commit, so two rAFs (one for the commit, one for the browser's next paint)
@@ -260,8 +295,68 @@ export function ReplaysView() {
     selectDemo(newRow.id)
   }
 
+  // The moved demo leaves the open folder, so a selection on it clears; the list is patched with
+  // the returned row and the folder counts re-read. A refusal is a toast, nothing changes.
+  const handleDemoMove = async (demoId: string, target: FolderRef): Promise<void> => {
+    const outcome = await moveDemo(demoId, target)
+    if (!outcome.ok) {
+      toastOutcomeError(pushToast, outcome)
+      return
+    }
+    const sidecar = await sidecarRead(outcome.value.demo.id)
+    const composed = rowWithSidecar(
+      outcome.value.demo,
+      sidecar.ok ? sidecar.value : { state: { state: 'none' }, values: {} },
+    )
+    setDemos((current) =>
+      current === null ? current : current.map((d) => (d.id === demoId ? composed : d)),
+    )
+    if (selectedId === demoId) {
+      pinnedRowIdRef.current = null
+      closeDemo()
+    }
+    await rereadLists()
+  }
+
+  const handleFolderCreate = async (name: string) => {
+    // The control is disabled at the top level, so a parent always exists here.
+    const outcome = await folderCreate(currentFolder as FolderRef, name)
+    if (outcome.ok) await rereadLists()
+    return outcome
+  }
+
+  // A rename moves every demo below the folder: the selection follows the returned id map, and an
+  // open folder at or below the renamed one follows the new name. (story 242)
+  const handleFolderRename = async (folder: FolderEntry, name: string) => {
+    const outcome = await folderRename(folder.ref, name)
+    if (!outcome.ok) return outcome
+    const moved = outcome.value.ids.find((pair) => pair.from === selectedId)
+    if (moved !== undefined) {
+      pinnedRowIdRef.current = moved.to
+      selectDemo(moved.to)
+    }
+    const depth = folder.ref.path.length
+    if (
+      currentFolder !== null &&
+      currentFolder.sourceKey === folder.ref.sourceKey &&
+      currentFolder.path.length >= depth &&
+      folder.ref.path.every((seg, i) => seg === currentFolder.path[i])
+    ) {
+      const renamedTo = name.trim()
+      openFolder({
+        sourceKey: currentFolder.sourceKey,
+        path: [...folder.ref.path.slice(0, -1), renamedTo, ...currentFolder.path.slice(depth)],
+      })
+    }
+    await rereadLists()
+    return outcome
+  }
+
   const rowCount = demos?.length ?? 0
-  const listState = deriveReplaysListState({ scanning, rowCount })
+  const listState = deriveReplaysListState({
+    scanning,
+    rowCount: rowCount + (folders?.length ?? 0),
+  })
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
 
   // Story 180: the action bar's primary button on this tab is "View" - it plays the selected
@@ -392,13 +487,81 @@ export function ReplaysView() {
     return sortedDemos.filter((demo) => visibleIds.has(demo.id))
   }, [sortedDemos, filter])
 
-  // A row filtered out from under the current selection is deselected - mirrors `ServersView`'s
-  // own filter-driven deselect. Not before the index has loaded: a remount (module switch) starts
-  // with no rows at all, and deselecting then would drop a demo left in edit mode (story 178).
+  // Folders sort before demos and ignore the column sort; the demos keep it. The view is built
+  // over the filtered, sorted rows, so a folder's count is what survives the filter.
+  const folderView = useMemo(
+    () =>
+      buildFolderView({
+        rows: visibleDemos.map((demo) => ({
+          demo,
+          sourceKey: demoSourceKey(demo.source),
+          source: sourceLabel(demo),
+          folder: demo.folder,
+        })),
+        folders: folders ?? [],
+        current: currentFolder,
+      }),
+    [visibleDemos, folders, currentFolder],
+  )
+  // An active filter searches every folder below the open one, flat; clearing it returns to the
+  // folder view of the unchanged `current`.
+  const searching = isDemoFilterActive(filter)
+  const searchRows = useMemo(
+    () =>
+      searching
+        ? rowsBelow(
+            visibleDemos.map((demo) => ({
+              demo,
+              sourceKey: demoSourceKey(demo.source),
+              folder: demo.folder,
+            })),
+            currentFolder,
+          )
+        : [],
+    [searching, visibleDemos, currentFolder],
+  )
+  const listedDemos = useMemo(
+    () => (searching ? searchRows.map((entry) => entry.demo) : folderView.demos.map((e) => e.demo)),
+    [searching, searchRows, folderView],
+  )
+  const listItems = useMemo<DemoListItem[]>(
+    () =>
+      searching
+        ? searchRows.map((entry): DemoListItem => ({
+            kind: 'demo',
+            row: entry.demo,
+            folderText: [sourceLabel(entry.demo), ...entry.folder].join(' / '),
+          }))
+        : [
+            ...folderView.folders.map((folder): DemoListItem => ({ kind: 'folder', folder })),
+            ...folderView.demos.map((entry): DemoListItem => ({ kind: 'demo', row: entry.demo })),
+          ],
+    [searching, searchRows, folderView],
+  )
+  // Empty folders count: a library of only folders still shows its folders and "New folder".
+  const libraryHasEntries = rowCount > 0 || (folders?.length ?? 0) > 0
+  const noMatch = searching ? searchRows.length === 0 : listItems.length === 0
+
+  // The open folder vanished in a rescan: fall back to its nearest surviving ancestor.
   useEffect(() => {
-    if (demos === null) return
-    useDemoEditorStore.getState().deselectIfMissing(visibleDemos.map((demo) => demo.id))
-  }, [demos, visibleDemos])
+    if (folders === null || currentFolder === null) return
+    const nearest = nearestExisting(currentFolder, folders)
+    if (
+      nearest?.sourceKey !== currentFolder.sourceKey ||
+      nearest.path.length !== currentFolder.path.length
+    ) {
+      openFolder(nearest)
+    }
+  }, [folders, currentFolder, openFolder])
+
+  // A row filtered out (or left behind by opening another folder) from under the current
+  // selection is deselected. Not before the index and folders have loaded: a remount (module
+  // switch) starts with no rows at all, and deselecting then would drop a demo left in edit
+  // mode (story 178).
+  useEffect(() => {
+    if (demos === null || folders === null) return
+    useDemoEditorStore.getState().deselectIfMissing(listedDemos.map((demo) => demo.id))
+  }, [demos, folders, listedDemos])
 
   // The only replace dialog: every write that met a broken sidecar (row toggle or detail edit)
   // parks behind it, whether or not that demo's detail is open (story 243).
@@ -456,7 +619,7 @@ export function ReplaysView() {
         >
           <div className={detailSplit(selected !== null, stageMode)}>
             <div className={cn('flex min-h-0 flex-col p-5', stageMode && 'hidden')}>
-              {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length === 0 && (
+              {demos !== null && filterLoaded && rowCount > 0 && noMatch && (
                 <div
                   className="flex flex-col items-center gap-3 px-6 py-12 text-center"
                   data-testid="replays-filter-no-match"
@@ -472,19 +635,35 @@ export function ReplaysView() {
                   </Button>
                 </div>
               )}
-              {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length > 0 && (
-                <VirtualDemoList
-                  rows={visibleDemos}
-                  selectedId={selectedId}
-                  onSelect={(id) => {
-                    if (id !== pinnedRowIdRef.current) pinnedRowIdRef.current = null
-                    selectDemo(id)
-                  }}
-                  onRowPatched={handleRowPatched}
-                  sort={sort}
-                  onSort={handleSort}
-                />
-              )}
+              <DemoDragZone onMove={(id, target) => void handleDemoMove(id, target)}>
+                {demos !== null && folders !== null && filterLoaded && libraryHasEntries && (
+                  <DemoBreadcrumb
+                    crumbs={folderView.crumbs}
+                    onOpen={openFolder}
+                    onNewFolder={() => setFolderDialog({ mode: 'create' })}
+                    {...(currentFolder === null
+                      ? { newFolderDisabledKey: 'replays.folder.newDisabledTop' }
+                      : isInArchive(currentFolder, folders)
+                        ? { newFolderDisabledKey: 'replays.folder.archive' }
+                        : {})}
+                  />
+                )}
+                {demos !== null && folders !== null && filterLoaded && !noMatch && (
+                  <VirtualDemoList
+                    items={listItems}
+                    onOpenFolder={(folder) => openFolder(folder.ref)}
+                    onRenameFolder={(folder) => setFolderDialog({ mode: 'rename', folder })}
+                    selectedId={selectedId}
+                    onSelect={(id) => {
+                      if (id !== pinnedRowIdRef.current) pinnedRowIdRef.current = null
+                      selectDemo(id)
+                    }}
+                    onRowPatched={handleRowPatched}
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                )}
+              </DemoDragZone>
             </div>
 
             {selected && (
@@ -518,6 +697,25 @@ export function ReplaysView() {
         <DemoTimeline />
       </div>
       {stageMode && <ConsoleCommandField />}
+
+      {folderDialog?.mode === 'create' && (
+        <FolderNameDialog
+          titleKey="replays.folder.newFolder"
+          submitLabelKey="replays.folder.create"
+          initialName=""
+          onSubmit={handleFolderCreate}
+          onClose={() => setFolderDialog(null)}
+        />
+      )}
+      {folderDialog?.mode === 'rename' && (
+        <FolderNameDialog
+          titleKey="replays.folder.rename"
+          submitLabelKey="common.action.save"
+          initialName={folderDialog.folder.name}
+          onSubmit={(name) => handleFolderRename(folderDialog.folder, name)}
+          onClose={() => setFolderDialog(null)}
+        />
+      )}
 
       {confirmingModMissing && askFirst && eligibility !== null && !eligibility.ok && (
         <ModMissingConfirmDialog

@@ -17,7 +17,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { sleep } from '../lib/flow-common.mjs'
-import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
+import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -113,9 +113,8 @@ export default async function replaysTimeline({ page, step, shot }) {
   let n = 0
 
   step('the timeline appears while a demo plays and disappears when the game exits')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   if (await timeline.isVisible())
     throw new Error('replays-timeline: the strip must not show before a demo plays')
   await page

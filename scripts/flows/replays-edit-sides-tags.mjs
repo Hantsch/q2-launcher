@@ -19,7 +19,7 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { REPLAYS_ROWS_MVD_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
-import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { rowFor, openDemosRoot } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -64,9 +64,7 @@ async function waitForSidecar(predicate, why) {
 }
 
 export default async function replaysEditSidesTags({ page, shot, step }) {
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await rowFor(page, KNOWN_PLAYERS_DEMO).click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-detail-title').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
 

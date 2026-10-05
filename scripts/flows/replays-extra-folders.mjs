@@ -27,7 +27,7 @@ import { REPO_ROOT } from '../lib/paths.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
 import { replaysExtraFolderFixturePath } from '../lib/fixture.mjs'
 import { waitForStateJson } from '../lib/state-json.mjs'
-import { waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { openFolder, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -64,6 +64,10 @@ async function openDemosView(page) {
     timeout: TIMEOUT_MS,
   })
   await waitForDemosScanToFinish(page)
+  if ((await page.getByTestId('replays-breadcrumb').count()) > 0) {
+    await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
+    await page.getByTestId('replays-breadcrumb').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  }
 }
 
 export default async function replaysExtraFolders({ page, shot, step, variant }) {
@@ -78,6 +82,7 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
 
   step('the Demos view lists both files under the extra-folder source, and no decoys (AC2)')
   await openDemosView(page)
+  await openFolder(page, extraFolder)
   const expectedSourceText = `extra folder: ${extraFolder}`
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     const row = page.locator('[data-testid="replays-demo-row"]').filter({ hasText: fileName })
@@ -143,6 +148,7 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   await shot('replays-extra-folder-duplicate-refused')
 
   await openDemosView(page)
+  await openFolder(page, extraFolder)
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     const count = await page
       .locator('[data-testid="replays-demo-row"]')
@@ -163,6 +169,13 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   await rowForPath(page, extraFolder).waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   await openDemosView(page)
+  const rootRows = await page
+    .getByTestId('replays-folder-name')
+    .filter({ hasText: extraFolder })
+    .count()
+  if (rootRows !== 0) {
+    throw new Error(`expected the removed extra folder's root row to be gone, got ${rootRows}`)
+  }
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     const count = await page
       .locator('[data-testid="replays-demo-row"]')

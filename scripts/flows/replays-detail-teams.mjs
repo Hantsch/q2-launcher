@@ -9,7 +9,7 @@ import {
   REPLAYS_TEAMS_VARIANT,
   writeReplaysTeamsFixture,
 } from '../lib/fixture.mjs'
-import { openDemos, rowFor } from '../lib/replays-copy-in.mjs'
+import { openDemosRoot, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -48,7 +48,7 @@ async function openRow(page, fileName) {
 
 export default async function replaysDetailTeams({ page, step, shot }) {
   step('open the Demos view and the example demo')
-  await openDemos(page)
+  await openDemosRoot(page)
   let panel = await openRow(page, REPLAYS_TEAMS_EXAMPLE_DEMO)
 
   step('the players table lists names only - no score or ping header')

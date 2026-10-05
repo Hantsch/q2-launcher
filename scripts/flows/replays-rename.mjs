@@ -26,7 +26,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { INSTALL_ONE_ID, installationConfigFilePath } from '../lib/fixture.mjs'
-import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -67,9 +67,8 @@ export async function teardown() {
 
 export default async function replaysRename({ page, shot, step }) {
   step('an invalid name shows its reason and blocks saving')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemos(page)
+  await openFolder(page, 'Fixture Favorite Install')
 
   // The demo list is virtualized (VirtualDemoList.tsx) - narrow it via the search filter to bring
   // this fixture's row into the rendered window, same trick `replays-demo-file-actions.mjs` uses.
@@ -79,9 +78,7 @@ export default async function replaysRename({ page, shot, step }) {
   const detail = page.getByTestId('replays-detail')
   await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  const mapFieldTextBeforeRename = await detail
-    .getByTestId('replays-detail-field-map')
-    .textContent()
+  const mapFieldTextBeforeRename = await detail.getByTestId('replays-detail-input-map').inputValue()
 
   await detail
     .getByTestId('replays-detail-file-actions')
@@ -144,7 +141,7 @@ export default async function replaysRename({ page, shot, step }) {
   // name-derived fact, so the rename writes it into the sidecar rather than losing it - the panel
   // still shows the value (no provenance text any more) and the sidecar JSON carries `map` (asserted
   // below, next to the date).
-  const mapFieldTextAfterRename = await detail.getByTestId('replays-detail-field-map').textContent()
+  const mapFieldTextAfterRename = await detail.getByTestId('replays-detail-input-map').inputValue()
   if (!mapFieldTextAfterRename.includes('q2dm1')) {
     throw new Error(
       `replays-rename: expected the map value to survive the rename, was "${mapFieldTextBeforeRename}", now "${mapFieldTextAfterRename}"`,

@@ -185,6 +185,54 @@
         "rollbackFailed": "Rename failed and couldn't be fully undone — check {{demo}} and {{sidecar}}."
       }
     },
+    "move": {
+      "error": {
+        "unknownDemo": "This demo is no longer in the index, so it can't be moved.",
+        "archiveEntry": "Demos inside an archive can't be moved.",
+        "playing": "Cannot move while playing.",
+        "scanning": "Can't move while a scan is running.",
+        "demoMissing": "The file to move is no longer on disk.",
+        "unknownFolder": "That folder no longer exists.",
+        "archiveFolder": "Archives are read-only — nothing can be moved into one.",
+        "outsideSource": "That folder lies outside the demo folder it belongs to.",
+        "exists": "\"{{name}}\" already exists in that folder.",
+        "sidecarExists": "The notes file \"{{name}}\" already exists in that folder.",
+        "moveFailed": "Move failed ({{code}}).",
+        "notWritable": "Can't move into {{folder}} — it isn't writable.",
+        "rollbackFailed": "Move failed and couldn't be fully undone — check {{demo}} and {{sidecar}}."
+      }
+    },
+    "folder": {
+      "breadcrumb": "Demo folder path",
+      "allDemos": "All demos",
+      "archive": "Archive — read-only",
+      "newFolder": "New folder",
+      "newDisabledTop": "Open a folder first",
+      "create": "Create",
+      "rename": "Rename folder",
+      "dropHere": "Move here",
+      "dragHint": "Press Ctrl+Space to pick up this demo, the arrow keys to choose a folder, Enter to drop it, Escape to cancel.",
+      "demoCount_one": "{{count}} demo",
+      "demoCount_other": "{{count}} demos",
+      "error": {
+        "empty": "Enter a folder name.",
+        "separator": "A folder name can't contain / or \\.",
+        "dotDot": "A folder can't be named \".\" or \"..\".",
+        "invalidChar": "A folder name can't contain \"{{char}}\".",
+        "trailingDotOrSpace": "A folder name can't end with a dot or space.",
+        "reserved": "\"{{name}}\" is a reserved folder name on Windows.",
+        "tooLong": "A folder name has at most {{max}} characters.",
+        "unknownFolder": "That folder is no longer there. Refresh the list and try again.",
+        "archive": "Folders inside a zip archive are read-only.",
+        "root": "A demo source's own folder can't be renamed.",
+        "scanning": "Wait for the demo scan to finish, then try again.",
+        "exists": "A folder named \"{{name}}\" already exists here.",
+        "playing": "A demo in this folder is playing. Stop it first.",
+        "outsideSource": "This folder links outside its demo source and can't be changed here.",
+        "notWritable": "The launcher can't write to {{folder}}.",
+        "failed": "The folder couldn't be changed ({{code}})."
+      }
+    },
     "list": {
       "loading": "Looking for demos…",
       "loadingProgress": "Reading demos… {{scanned}} of {{total}}",

@@ -1,6 +1,7 @@
 // Shared helpers of the replays flows (waiting for the demo scan, finding rows, opening a demo,
 // clicking Play, reading the engine stub's command/window logs, watching `<gamedir>/demos/_launcher/`
-// and main.log). Selectors: `nav-replays`, `replays-demo-row`,
+// and main.log). Selectors: `nav-replays`, `replays-demo-row`, `replays-folder-row`
+// (`DemoFolderRow.tsx`), `replays-breadcrumb`/`replays-crumb` (`DemoBreadcrumb.tsx`),
 // `actionbar-play[data-action="view"]`, `actionbar-action-error` (`ActionBar.tsx`), `replays-refresh`.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -24,6 +25,40 @@ export async function openDemos(page) {
   const refresh = page.getByTestId('replays-refresh')
   await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await poll('the demo scan to finish', async () => !(await refresh.isDisabled()), TIMEOUT_MS)
+}
+
+/** Opens the folder rows named by `names`, one level per name (root labels match by substring).
+ * Demo rows exist only inside a folder, so a flow opens its folder before touching a row. */
+export async function openFolder(page, ...names) {
+  for (const name of names) {
+    const row = page
+      .getByTestId('replays-folder-row')
+      .filter({ has: page.getByTestId('replays-folder-name').filter({ hasText: name }) })
+    const exact = row.filter({
+      has: page.getByTestId('replays-folder-name').getByText(name, { exact: true }),
+    })
+    const target = (await exact.count()) > 0 ? exact.first() : row.first()
+    await target.dblclick({ timeout: TIMEOUT_MS })
+    await poll(
+      `the breadcrumb to end at "${name}"`,
+      async () =>
+        ((await page.getByTestId('replays-crumb').last().textContent()) ?? '').includes(name),
+      TIMEOUT_MS,
+    )
+  }
+}
+
+/** `openDemos` plus opening the only root folder; throws unless exactly one root exists. */
+export async function openDemosRoot(page) {
+  await openDemos(page)
+  const roots = page.getByTestId('replays-folder-row')
+  await roots.first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const count = await roots.count()
+  if (count !== 1) {
+    throw new Error(`replays-copy-in: openDemosRoot needs exactly one root folder, found ${count}`)
+  }
+  await roots.first().dblclick({ timeout: TIMEOUT_MS })
+  await page.getByTestId('replays-breadcrumb').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }
 
 export async function selectDemo(page, fileName) {

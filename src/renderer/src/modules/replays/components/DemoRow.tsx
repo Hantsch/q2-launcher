@@ -1,5 +1,12 @@
-import { useRef, type KeyboardEvent, type MouseEvent } from 'react'
+import {
+  useRef,
+  type KeyboardEvent,
+  type KeyboardEventHandler,
+  type MouseEvent,
+  type PointerEventHandler,
+} from 'react'
 import { useTranslation } from 'react-i18next'
+import { useDraggable } from '@dnd-kit/core'
 import { Archive, FileWarning, Star, StickyNote, TriangleAlert } from 'lucide-react'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
 import type { GamemodeSource } from '@shared/demos/gamemode'
@@ -11,6 +18,7 @@ import { IconButton } from '../../../components/ui/Button'
 import { DEMO_LIST_GRID } from '../list-grid'
 import { formatDemoDate, formatLabel, sidesText } from '../row-format'
 import { useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
+import type { DemoDragData } from './DemoDragZone'
 
 export interface DemoRowProps {
   row: DemoRowData
@@ -19,6 +27,8 @@ export interface DemoRowProps {
   /** Patches this row's `sidecar` part in the view's list after a quick edit - same patcher the
    * detail panel's own save uses (`ReplaysView`'s `handleRowPatched`). */
   onRowPatched?: RowPatcher
+  /** Search mode only: `root label / folder / folder`, shown in place of the source text. */
+  folderText?: string
 }
 
 const RATING_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1)
@@ -49,8 +59,19 @@ function UnknownValue() {
  * name - status is never colour-only. Mirrors `../../servers/ServerRow.tsx`'s shape and
  * conventions.
  */
-export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps) {
+export function DemoRow({ row, selected, onSelect, onRowPatched, folderText }: DemoRowProps) {
   const { t, i18n } = useTranslation()
+  const dragData: DemoDragData = { fileName: row.fileName }
+  const {
+    setNodeRef: setDragRef,
+    listeners: dragListeners,
+    attributes: dragAttributes,
+    isDragging,
+  } = useDraggable({
+    id: row.id,
+    data: dragData,
+    disabled: row.archiveEntry !== null,
+  })
   const archiveMarkerId = `replays-marker-archive-${row.id}`
   const archiveReadonlyRowId = `replays-archive-readonly-row-${row.id}`
 
@@ -100,6 +121,8 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
   const rating = row.sidecar.values.rating
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    // A keyboard drag owns Enter (drop) and the arrows while it runs; Ctrl+Space picks the row up.
+    if (isDragging || event.ctrlKey) return
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       onSelect(row.id)
@@ -136,6 +159,12 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
     // already stop propagation, so clicking them never selects the row. Mirrors
     // `../../servers/ServerRow.tsx`'s copy-address button.
     <div
+      ref={setDragRef}
+      // The keyboard sensor only reacts to its own Ctrl+Space chord, never to plain Enter/Space.
+      onKeyDown={dragListeners?.onKeyDown as KeyboardEventHandler<HTMLDivElement> | undefined}
+      onPointerDown={
+        dragListeners?.onPointerDown as PointerEventHandler<HTMLDivElement> | undefined
+      }
       onClick={() => onSelect(row.id)}
       data-testid="replays-demo-row"
       data-demo-id={row.id}
@@ -143,6 +172,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
       className={cn(
         DEMO_LIST_GRID,
         'w-full cursor-default border-b border-b-line/60 py-1.5 text-xs text-ink-dim transition-colors duration-[--dur-fast]',
+        isDragging && 'opacity-50',
         selected ? 'border-l-flame-500 bg-flame-900/20' : 'border-l-transparent hover:bg-hover',
       )}
       style={{ minHeight: 56 }}
@@ -153,6 +183,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
         tabIndex={0}
         onKeyDown={handleKeyDown}
         aria-pressed={selected}
+        aria-describedby={dragAttributes['aria-describedby']}
         className="col-span-full row-start-1 grid grid-cols-subgrid items-center"
       >
         <div className="min-w-0">
@@ -174,7 +205,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
               {formatLabel(row.format, row.gzip, t)}
             </Badge>
             <span className="truncate text-[11px] text-ink-muted" data-testid="replays-demo-source">
-              {sourceText}
+              {folderText ?? sourceText}
             </span>
 
             {row.sidecar.state !== 'none' && (

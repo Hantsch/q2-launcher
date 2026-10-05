@@ -98,6 +98,7 @@ Elsewhere on disk: the index cache replays-index.json (regenerable) and one side
 - `extraFoldersRemove` — removes a folder by id.
 - `scanStart` — starts a background scan.
 - `indexRead` — the cached or last scanned index rows.
+- `foldersRead` — every folder of every demo source, empty and zip ones included.
 - `sidecarRead` — a demo's sidecar by id, or none.
 - `sidecarWrite` — full-replacement save of a sidecar.
 - `listGetSort` — the persisted sort or `null`.
@@ -111,6 +112,9 @@ Elsewhere on disk: the index cache replays-index.json (regenerable) and one side
 - `demosReveal` — reveals the demo file in the file manager.
 - `demosCopyPath` — copies the resolved path.
 - `demoRename` — renames a demo and its sidecar.
+- `demoMove` — moves a loose demo and its sidecar into another folder of a demo source; the target is a folder ref resolved against the last scan, its real path must lie inside the source root's; refuses archive entries, archive folders, a playing demo, a running scan and a name clash.
+- `folderCreate` — creates a folder inside a folder of a demo source (non-recursive `mkdir`) and adds it to the folder list without a rescan; returns the new folder ref. Refuses an invalid or existing name, archive folders, a folder whose real path leaves the source root and a running scan.
+- `folderRename` — renames a folder of a demo source in one directory rename (demos and sidecars move with it), then re-keys every row, id and folder below it in place, without re-parsing; returns the `{ from, to }` id pairs. Refuses a source root, an invalid or clashing name (a case-only rename is allowed), archive folders, a folder outside the source root, a playing demo below it and a running scan. Folder refs resolve against each root's directory, which discovery records main-side and the index cache persists.
 - `demoPlay` — plays a demo in Q2PRO.
 - `playbackTimeline` — pause, jump, seek or speed on the running demo.
 - `playbackConsoleSend` — sends one validated console line.
@@ -125,8 +129,10 @@ and `playbackDisplay`.
 ## External inputs
 
 - Files: demo files (optionally gz) in installation game dirs, the Linux Q2PRO write dir and extra
-  folders; zip archives read through a bounded reader, never recursed; demo sidecars;
-  replays-index.json; state.json.
+  folders, found at any depth below each `demos` folder; zip archives read through a bounded reader,
+  never recursed; demo sidecars; replays-index.json; state.json.
+- Folder walk: a directory whose real path was already visited is never entered (loops end; a nested
+  root is walked as its own root); the launcher's `_launcher` staging folder is skipped.
 - Engine processes: Q2PRO started with `+demo`. Windows: commands via `q2l_ctl.cfg` in the game
   dir and answers tailed from a dedicated logfile. Linux: console over the game's stdin/stdout.
 - Window system: window placement on Windows; X11 (via the X-Resource PID) for the stage on Linux.

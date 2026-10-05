@@ -158,12 +158,11 @@ describe('discoverDemos', () => {
     expect(result.demos.map((d) => d.fileName).sort()).toEqual(['FINAL.DM2', 'Match.MVD2.GZ'])
   })
 
-  it('sidecars, _launcher and subfolders are never listed', async () => {
+  it('sidecars and _launcher copies are never listed', async () => {
     const root = join(dir, 'inst')
     const demosDir = join(root, 'baseq2', 'demos')
     await writeDemo(demosDir, 'x.dm2.json')
     await writeDemo(join(demosDir, '_launcher'), 'y.dm2')
-    await writeDemo(join(demosDir, 'sub'), 'z.dm2')
     await writeDemo(demosDir, 'notes.txt')
     await writeDemo(demosDir, 'a.zip')
 
@@ -323,6 +322,87 @@ describe('discoverDemos', () => {
   })
 })
 
+describe('discoverDemos - subfolders', () => {
+  it('a demo three folders deep is found with its folder path', async () => {
+    const demos = join(dir, 'root', 'baseq2', 'demos')
+    await writeDemo(join(demos, 'a', 'b', 'c'), 'deep.dm2')
+    await writeDemo(demos, 'top.dm2')
+
+    const result = await discoverDemos([installation()], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos.map((d) => [d.fileName, d.folder])).toEqual([
+      ['deep.dm2', ['a', 'b', 'c']],
+      ['top.dm2', []],
+    ])
+    expect(result.folders.map((f) => f.path)).toEqual([[], ['a'], ['a', 'b'], ['a', 'b', 'c']])
+  })
+
+  it('a junction loop does not hang the scan', async () => {
+    const demos = join(dir, 'root', 'baseq2', 'demos')
+    await writeDemo(join(demos, 'loop'), 'once.dm2')
+    await symlink(demos, join(demos, 'loop', 'back'), 'junction')
+
+    const result = await discoverDemos([installation()], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos.map((d) => d.fileName)).toEqual(['once.dm2'])
+  })
+
+  it('a root nested inside another root is only walked as its own root', async () => {
+    const outer = join(dir, 'outer')
+    await writeDemo(join(outer, 'inner'), 'nested.dm2')
+
+    const result = await discoverDemos(
+      [],
+      [extraFolder(outer), extraFolder(join(outer, 'inner'), { id: 'extra-2' })],
+      { platform: 'win32', homeDir: join(dir, 'home'), zipDeps: ZIP_DEPS },
+    )
+
+    expect(result.demos.map((d) => [d.source, d.folder])).toEqual([
+      [{ kind: 'extraFolder', path: join(outer, 'inner') }, []],
+    ])
+  })
+
+  it('an empty subfolder is listed', async () => {
+    const demos = join(dir, 'root', 'baseq2', 'demos')
+    await mkdir(join(demos, 'empty'), { recursive: true })
+
+    const result = await discoverDemos([installation()], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos).toEqual([])
+    expect(result.folders.map((f) => [f.path, f.archive])).toEqual([
+      [[], false],
+      [['empty'], false],
+    ])
+  })
+
+  it('_launcher copies are not listed', async () => {
+    const demos = join(dir, 'root', 'baseq2', 'demos')
+    await writeDemo(join(demos, '_LAUNCHER'), 'copy.dm2')
+    await writeDemo(demos, 'real.dm2')
+
+    const result = await discoverDemos([installation()], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos.map((d) => d.fileName)).toEqual(['real.dm2'])
+    expect(result.folders.map((f) => f.path)).toEqual([[]])
+  })
+})
+
 describe('discoverDemos - extra folders (story 142 D3)', () => {
   it('demos in an extra folder are listed with an extra-folder source', async () => {
     const extra = join(dir, 'my-demos')
@@ -339,7 +419,7 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
     expect(result.demos[0].source).toEqual({ kind: 'extraFolder', path: extra })
   })
 
-  it('an extra folder is scanned top-level only with the same formats and exclusions as installations', async () => {
+  it('an extra folder is scanned with the same formats and exclusions as installations', async () => {
     const extra = join(dir, 'my-demos')
     await writeDemo(join(extra, 'sub'), 'deep.dm2')
     await writeDemo(extra, 'x.dm2.json')
@@ -352,7 +432,10 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
       zipDeps: ZIP_DEPS,
     })
 
-    expect(result.demos.map((d) => d.fileName)).toEqual(['FINAL.DM2'])
+    expect(result.demos.map((d) => [d.fileName, d.folder])).toEqual([
+      ['deep.dm2', ['sub']],
+      ['FINAL.DM2', []],
+    ])
   })
 
   it("an extra folder that is an installation's demos folder yields no duplicate demos", async () => {

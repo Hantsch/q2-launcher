@@ -2750,6 +2750,37 @@
       "searchPlaceholder": "Name, map or player — \"quotes\" for exact",
       "tags": "Tags"
     },
+    "folder": {
+      "allDemos": "All demos",
+      "archive": "Archive — read-only",
+      "breadcrumb": "Demo folder path",
+      "create": "Create",
+      "demoCount_one": "{{count}} demo",
+      "demoCount_other": "{{count}} demos",
+      "dragHint": "Press Ctrl+Space to pick up this demo, the arrow keys to choose a folder, Enter to drop it, Escape to cancel.",
+      "dropHere": "Move here",
+      "error": {
+        "archive": "Folders inside a zip archive are read-only.",
+        "dotDot": "A folder can't be named \".\" or \"..\".",
+        "empty": "Enter a folder name.",
+        "exists": "A folder named \"{{name}}\" already exists here.",
+        "failed": "The folder couldn't be changed ({{code}}).",
+        "invalidChar": "A folder name can't contain \"{{char}}\".",
+        "notWritable": "The launcher can't write to {{folder}}.",
+        "outsideSource": "This folder links outside its demo source and can't be changed here.",
+        "playing": "A demo in this folder is playing. Stop it first.",
+        "reserved": "\"{{name}}\" is a reserved folder name on Windows.",
+        "root": "A demo source's own folder can't be renamed.",
+        "scanning": "Wait for the demo scan to finish, then try again.",
+        "separator": "A folder name can't contain / or \\.",
+        "tooLong": "A folder name has at most {{max}} characters.",
+        "trailingDotOrSpace": "A folder name can't end with a dot or space.",
+        "unknownFolder": "That folder is no longer there. Refresh the list and try again."
+      },
+      "newDisabledTop": "Open a folder first",
+      "newFolder": "New folder",
+      "rename": "Rename folder"
+    },
     "format": {
       "dm2": "DM2",
       "gzip": "{{format}} (gz)",
@@ -2795,6 +2826,23 @@
     },
     "module": {
       "description": "Browse, tag and watch your Quake II demos."
+    },
+    "move": {
+      "error": {
+        "archiveEntry": "Demos inside an archive can't be moved.",
+        "archiveFolder": "Archives are read-only — nothing can be moved into one.",
+        "demoMissing": "The file to move is no longer on disk.",
+        "exists": "\"{{name}}\" already exists in that folder.",
+        "moveFailed": "Move failed ({{code}}).",
+        "notWritable": "Can't move into {{folder}} — it isn't writable.",
+        "outsideSource": "That folder lies outside the demo folder it belongs to.",
+        "playing": "Cannot move while playing.",
+        "rollbackFailed": "Move failed and couldn't be fully undone — check {{demo}} and {{sidecar}}.",
+        "scanning": "Can't move while a scan is running.",
+        "sidecarExists": "The notes file \"{{name}}\" already exists in that folder.",
+        "unknownDemo": "This demo is no longer in the index, so it can't be moved.",
+        "unknownFolder": "That folder no longer exists."
+      }
     },
     "nameTemplate": {
       "error": {

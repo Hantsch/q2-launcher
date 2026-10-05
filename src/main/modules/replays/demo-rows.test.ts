@@ -28,6 +28,7 @@ function demo(overrides: Partial<DiscoveredDemo> = {}): DiscoveredDemo {
     durationMs: 60000,
     roster: null,
     fileTime: { birthtimeMs: 1000, mtimeMs: 2000 },
+    folder: [],
     nameFacts: null,
     ...overrides,
   }

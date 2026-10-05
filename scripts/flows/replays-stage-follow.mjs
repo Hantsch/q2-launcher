@@ -21,7 +21,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { makeFail, sleep } from '../lib/flow-common.mjs'
-import { launchGeometry, waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
+import { launchGeometry, openDemos, openFolder, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -105,9 +105,8 @@ async function placedNow(page, app) {
 
 export default async function replaysStageFollow({ page, app, step, shot }) {
   step('a demo plays on the stage')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
   await page
     .getByTestId('replays-demo-row')

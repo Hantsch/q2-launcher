@@ -12,7 +12,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { sleep } from '../lib/flow-common.mjs'
-import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
+import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -51,9 +51,8 @@ export default async function replaysTimelineBurst({ page, step, shot }) {
   const positionS = async () => Number(await seekBar.getAttribute('aria-valuenow'))
 
   step('a demo plays and the timeline is up')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   await page
     .getByTestId('replays-demo-row')
     .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })

@@ -134,9 +134,10 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from './harness.mjs'
+import { waitForDemosScanToFinish } from './replays-copy-in.mjs'
 import {
   REPLAYS_DATE_FILTER_VARIANT,
-  REPLAYS_FIXTURE_DEMOS,
+  REPLAYS_FIXTURE_SCANNED_TOTAL,
   SERVERS_SCAN_SETTINGS_SEED,
 } from './fixture.mjs'
 import {
@@ -145,6 +146,21 @@ import {
   startListServer,
   startServerResponders,
 } from './servers-stub.mjs'
+
+/** Demo rows exist only inside a folder: after the scan settles, opens the first root folder
+ * (the first whose label contains `rootText`, when given). */
+async function openFirstReplaysRoot(page, rootText) {
+  await waitForDemosScanToFinish(page, { timeout: SCAN_SETTLE_TIMEOUT_MS })
+  // The second viewport shares the launch, so the folder is usually still open.
+  if ((await page.getByTestId('replays-breadcrumb').count()) > 0) return
+  const roots = page.getByTestId('replays-folder-row')
+  await (rootText ? roots.filter({ hasText: rootText }) : roots)
+    .first()
+    .dblclick({ timeout: CLICK_TIMEOUT_MS })
+  await page
+    .getByTestId('replays-breadcrumb')
+    .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+}
 
 /** Mirrors src/shared/constants.ts:17-18 (`WINDOW_DEFAULT_WIDTH/HEIGHT`). */
 const VIEWPORT_DEFAULT = { width: 1280, height: 800 }
@@ -1326,6 +1342,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
     },
   },
   {
@@ -1340,6 +1357,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await page
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
@@ -1360,6 +1378,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await page
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
@@ -1397,6 +1416,7 @@ export const SCREENS = [
         .first()
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
       if (!(await page.getByTestId('replays-timeline').isVisible())) {
+        await openFirstReplaysRoot(page, 'ctf')
         await page
           .getByTestId('replays-demo-row')
           .filter({ hasText: 'play-ctf.dm2' })
@@ -1430,6 +1450,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await page
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
@@ -1459,6 +1480,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
     },
   },
   {
@@ -1469,7 +1491,7 @@ export const SCREENS = [
     // the plain `populated` demo set plus a harness-only scan hold (`writeReplaysListLoadingFixture`,
     // `scripts/lib/fixture.mjs`), so the scan is still genuinely running long enough for this to be a
     // real screenshot of it, not a race against an instant scan. Waits for the loading strip's own
-    // `data-total` to be a genuine positive count (`REPLAYS_FIXTURE_DEMOS.length`), the same
+    // `data-total` to be a genuine positive count (`REPLAYS_FIXTURE_SCANNED_TOTAL`), the same
     // discipline `servers-list-loading` above uses for `data-found`.
     coldStart: true,
     navigate: async (page) => {
@@ -1479,7 +1501,7 @@ export const SCREENS = [
           const el = document.querySelector('[data-testid="replays-list-loading"]')
           return el !== null && Number(el.getAttribute('data-total')) === expectedTotal
         },
-        REPLAYS_FIXTURE_DEMOS.length,
+        REPLAYS_FIXTURE_SCANNED_TOTAL,
         { timeout: CLICK_TIMEOUT_MS },
       )
     },
@@ -1510,6 +1532,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-list-source-errors')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page, 'baseq2')
       await page
         .getByTestId('replays-demo-row')
         .first()
@@ -1527,6 +1550,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await click(page, 'replays-filter-date-trigger')
       await page.getByTestId('replays-filter-date-from').fill('2026-01-01')
       await page.getByTestId('replays-filter-date-to').fill('2026-12-31')
@@ -1542,6 +1566,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await click(page, 'replays-filter-date-trigger')
       await page.getByTestId('replays-filter-date-from').fill('2026-12-31')
       await page.getByTestId('replays-filter-date-to').fill('2026-01-01')

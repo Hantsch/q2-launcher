@@ -1,7 +1,7 @@
 ---
 id: 242
 title: I browse my demos in their folders
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -21,20 +21,20 @@ Concept: [replays-module.md](../systems/replays-module.md), [demo-browser.md](..
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Demos in subfolders of a scanned demo folder are found, at any depth.
-- [ ] **AC2** — The list shows the current folder's subfolders first, then its demos; a folder row
+- [x] **AC1** — Demos in subfolders of a scanned demo folder are found, at any depth.
+- [x] **AC2** — The list shows the current folder's subfolders first, then its demos; a folder row
       shows its name and how many demos it contains.
-- [ ] **AC3** — Opening a folder (double-click or Enter) shows its content; a breadcrumb shows the
+- [x] **AC3** — Opening a folder (double-click or Enter) shows its content; a breadcrumb shows the
       path from the root and each crumb goes back to that level.
-- [ ] **AC4** — Search and filters apply across all folders below the current one, and each match
+- [x] **AC4** — Search and filters apply across all folders below the current one, and each match
       shows the folder it is in; clearing them returns to the folder view.
-- [ ] **AC5** — The user can create a new folder in the current folder and rename an empty or
+- [x] **AC5** — The user can create a new folder in the current folder and rename an empty or
       non-empty folder; a rename moves sidecars along with their demos.
-- [ ] **AC6** — Demos can be moved into another folder by drag and drop (single demo here; several
+- [x] **AC6** — Demos can be moved into another folder by drag and drop (single demo here; several
       at once is [[244]]).
-- [ ] **AC7** — Scanning a large tree (e.g. 5 000 demos in 200 folders) keeps the view responsive, and
+- [x] **AC7** — Scanning a large tree (e.g. 5 000 demos in 200 folders) keeps the view responsive, and
       a folder loop (junction/symlink) does not hang the scan.
-- [ ] **AC8** — Zip archives keep behaving as today — read-only; whether a zip shows as a folder is
+- [x] **AC8** — Zip archives keep behaving as today — read-only; whether a zip shows as a folder is
       decided in refine.
 
 ## Open Questions
@@ -134,7 +134,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
 
 ## Deliverables
 
-- [ ] **D1 — Shared folder logic (pure).** New `src/shared/replays/file-name-rules.ts`: move the
+- [x] **D1 — Shared folder logic (pure).** New `src/shared/replays/file-name-rules.ts`: move the
       invalid-character set, reserved Windows names and trailing dot/space rule out of
       `src/shared/replays/demo-rename.ts` (which then imports them; its tests stay green). New
       `src/shared/replays/demo-folders.ts`:
@@ -149,7 +149,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       `nearestExisting(current, folders)`. Generic over a row accessor
       (`{ sourceKey, folder }`), so it does not depend on `DemoRow` details. Tests in
       `src/shared/replays/demo-folders.test.ts` and the existing `demo-rename.test.ts`.
-- [ ] **D2 — Recursive discovery + `foldersRead`.** `src/main/modules/replays/discovery.ts`:
+- [x] **D2 — Recursive discovery + `foldersRead`.** `src/main/modules/replays/discovery.ts`:
       `scanDemosDir` recurses through `listDirOrReason` dirs at any depth; a visited set of
       `pathKey(canonicalizePath(dir))` (`src/main/lib/fs-utils.ts`) seeded with every root's real
       path before any walk, so a junction/symlink loop or a nested root is never descended; skip
@@ -168,7 +168,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       folder"), `demo-play.test.ts` ("a demo in a subfolder of demos plays from a copy"). Update
       `docs/systems/replays-module.md` (External inputs: recursive, loop detection; handler
       `foldersRead`).
-- [ ] **D3 — Folder view in the list.** `src/renderer/src/modules/replays/`: `client.ts`
+- [x] **D3 — Folder view in the list.** `src/renderer/src/modules/replays/`: `client.ts`
       (`foldersRead`); new `folder-store.ts` (Zustand: `current: FolderRef | null`, `open`, `up`);
       new `components/DemoFolderRow.tsx` (inline-SVG folder glyph, name, "n demos", archive marker
       with "Archive — read-only" text; `data-testid="replays-folder-row"`, Enter/double-click open);
@@ -180,7 +180,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       (`replays.folder.*`). Fix `ReplaysView.test.tsx` for the folder view and add "folders come
       before demos and open on Enter". Add one line to `CHANGELOG.md` under Unreleased: "Demos:
       browse your demo subfolders — breadcrumb, new/rename folder, drag a demo to move it."
-- [ ] **D4 — Flows follow the folder view.** `scripts/lib/replays-copy-in.mjs`: add
+- [x] **D4 — Flows follow the folder view.** `scripts/lib/replays-copy-in.mjs`: add
       `openFolder(page, ...names)` (double-clicks `replays-folder-row` by text, waits for the crumb).
       Every flow under `scripts/flows/replays-*.mjs` that expects demo rows without searching
       (archive-readonly, cinema-*, console-command, demo-detail, demo-rows, detail-quick-edit,
@@ -192,13 +192,13 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       in `demos/`): top level shows roots; opening the root shows subfolders first with counts, then
       demos; opening `a`→`b`→`c` shows the deep demo; each crumb returns to its level; the zip opens as
       a folder with its entries and the read-only text.
-- [ ] **D5 — Search across folders.** `ReplaysView.tsx`: while `isDemoFilterActive(filter)`, the
+- [x] **D5 — Search across folders.** `ReplaysView.tsx`: while `isDemoFilterActive(filter)`, the
       list is D1's `rowsBelow(sortedDemos, current)` filtered as today (no folder rows); `DemoRow.tsx`
       source cell shows `root label / seg / seg` (new prop `folderText`); clearing the filter
       returns to the folder view of the unchanged `current`. Test in `ReplaysView.test.tsx`
       ("search matches demos in every folder below the current one and shows their folder"); flow
       `scripts/flows/replays-folders-search.mjs`.
-- [ ] **D6 — Move one demo (main).** Extract the demo+sidecar rename-with-rollback steps of
+- [x] **D6 — Move one demo (main).** Extract the demo+sidecar rename-with-rollback steps of
       `src/main/modules/replays/demo-rename.ts` into new `demo-relocate.ts`
       (`relocateDemo(fs, from, to)` — demo then `${path}.json`, undo on failure, collision checks
       for both names, EXDEV via `moveFile` in `fs-utils.ts`); `demo-rename.ts` uses it. New
@@ -212,7 +212,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       Tests: `demo-move.test.ts` ("moves demo and sidecar", "a clash in the target is refused and
       overwrites nothing", "a sidecar failure rolls the demo back", "a playing demo is not moved"),
       `demo-rename.test.ts` stays green.
-- [ ] **D7 — Create and rename a folder (main).** New `src/main/modules/replays/demo-folders.ts` +
+- [x] **D7 — Create and rename a folder (main).** New `src/main/modules/replays/demo-folders.ts` +
       handlers `folderCreate { parent: FolderRef, name }` and `folderRename { folder: FolderRef,
       name }` (schemas in `src/shared/modules/replays.ts`; registered in `index.ts`). Both resolve
       root + segments from the snapshot (never an absolute path), validate the name with D1, require
@@ -227,7 +227,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       without re-parsing", "a root cannot be renamed", "a folder with a playing demo is not renamed",
       "an existing name is refused", "create in an archive is refused", "a symlinked folder outside
       the root is refused"). Add both handlers to `docs/systems/replays-module.md`.
-- [ ] **D8 — Create / rename folder UI.** `components/DemoBreadcrumb.tsx` gets "New folder"
+- [x] **D8 — Create / rename folder UI.** `components/DemoBreadcrumb.tsx` gets "New folder"
       (`replays-folder-new`; disabled at "All demos" and inside a zip, with the visible reason);
       `components/DemoFolderRow.tsx` gets a rename icon button (`replays-folder-rename`; absent on
       roots, disabled in zips); both open the UI kit `NameDialog`; `client.ts` (`folderCreate`,
@@ -236,7 +236,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       `components/DemoFolderRow.test.tsx`; flow `scripts/flows/replays-folder-manage.mjs`
       (create `new`, rename a folder holding a demo with a sidecar, assert on disk both moved and the
       row still shows its sidecar data).
-- [ ] **D9 — Drag a demo onto a folder.** `VirtualDemoList.tsx` wraps rows in a `DndContext`
+- [x] **D9 — Drag a demo onto a folder.** `VirtualDemoList.tsx` wraps rows in a `DndContext`
       (`@dnd-kit/core`, `PointerSensor` with the same 8px activation as
       `src/renderer/src/components/dnd/SortableList.tsx`, plus `KeyboardSensor`); `DemoRow.tsx`
       `useDraggable` (not for archive entries); `DemoFolderRow.tsx` and `DemoBreadcrumb.tsx` crumbs
@@ -246,7 +246,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       `scripts/flows/replays-folder-drag-move.mjs` (low-level `page.mouse` drag as in
       `controls-drag-reorder.mjs`; demo + sidecar land in the target on disk; a clash is reported and
       the target file is unchanged).
-- [ ] **D10 — Scale.** `scripts/lib/fixture/replays.mjs`: `writeReplaysFolderScaleFixture` (5 000
+- [x] **D10 — Scale.** `scripts/lib/fixture/replays.mjs`: `writeReplaysFolderScaleFixture` (5 000
       placeholder demos in 200 folders, 4 levels, plus a junction loop `loop → ..` created with
       `symlinkSync(target, link, 'junction')`), variant `replays-folder-scale`. Flow
       `scripts/flows/replays-folders-scale.mjs`: the scan finishes (bounded by the flow timeout),
@@ -283,3 +283,19 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
   folder) + unit `src/main/modules/replays/demo-folders.test.ts` › "create in an archive is refused"
 
 ## Done
+
+Summary: The Demos view finds demos at any depth and browses them as folders (roots at top level, folders-first rows with recursive counts, breadcrumb, zips as read-only folders), searches across the folders below the current one, creates/renames folders (sidecars move along) and moves one demo by pointer or keyboard drag onto a folder or crumb. Main keeps the folder list and root dirs in the scan snapshot and index cache (cache v5) and remaps rename/move in place without re-parsing.
+
+Commit message: `242: browse demos in folders — recursive discovery, folder view + breadcrumb, search across folders, create/rename folder, drag-move demo`
+
+Verification (narrow gate, run twice: before and after the one review-fix cycle; second run is the result): `npm run build`, `typecheck`, `lint` green; `npx vitest run --changed HEAD` 175 files / 1518 tests green, `src/comments.test.ts`, `src/architecture.test.ts`, `systems-docs.test.ts` green. Flows: instead of `--affected` (too broad for a 10-minute call) the story's five flows (`replays-folders`, `-folders-search`, `-folder-manage`, `-folder-drag-move`, `-folders-scale`) plus every `replays-*` flow and `action-bar-view` (54) ran in batches of 7-14, all green; `ui:verify` on the 7 replays screens green, axe clean. AC → test as verified: AC1-AC8 each passed with the unit test and flow named in `## Acceptance Tests` (no manual residue). Review: stage 1 (default) returned FAIL on 2 spec points, fixed with the other findings and re-verified.
+
+Decisions:
+- Breadcrumb bar always renders once loaded (top level: only a disabled "New folder" with the visible reason "Open a folder first"); the `replays-breadcrumb` nav shows inside a folder and stays while a search matches nothing; a library with only empty folders still lists them.
+- `DemoDragZone` hosts the `DndContext` (breadcrumb sits outside the list); keyboard drag starts on Ctrl+Space (own sensor, arrows move, Enter drops, Esc cancels) with an i18n hint, so a row's Enter/Space keeps selecting.
+- Main records each root's absolute dir internally (never sent to the renderer) so empty and zip-only roots can be targets; folder-ref segments are validated for path safety only, new names with `validateFolderName`.
+- Recursive scan counts the fixture decoy `old/nested.dm2`: list-loading flow and screen expect `REPLAYS_FIXTURE_SCANNED_TOTAL` (demos + 1).
+- `replays-rename` now reads the map from the in-place input (story 243); `replays-zip-entries` split across the zip folder levels.
+- `demoMove` also supports a changed source (groundwork for 244), the renderer offers same-root moves only. Duplicate `sourceLabel` (discovery.ts, ReplaysView.tsx) left as is.
+
+tiers: D 10 / hard 1 · review default · cycles 1 · agents 19
