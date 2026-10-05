@@ -416,7 +416,7 @@ A manual scan is refused with the same reason.
 - **Default order:** favourites first, then occupancy descending. Gamemode is the second dimension;
   whether that means grouping or only a tie-break is §18.3.
 - **No default filter.** Empty servers are in the list; the sort puts them where they belong.
-- **Filters and search:** mod, gamemode, empty, waiting-for-opponent, map, and a text search across
+- **Filters and search:** mod, gamemode, empty, waiting-for-opponent, map, a maximum ping (below 50/100/150/200 ms; hides stale and unmeasured rows), and a text search across
   server name, address, and **player names** (player names only where stage 2 has run).
 - **Sorting** is user-changeable on every column, and the choice is remembered.
 - **States:** the list has an explicit loading state (scan in progress, with counts), an empty state
@@ -759,7 +759,7 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
 - **GB-L3** — Default order is favourites first, then occupancy descending, with gamemode as the
   second dimension.
 - **GB-L4** — No filter is applied by default; every discovered server is listed.
-- **GB-L5** — Filters exist for mod, gamemode, empty, waiting-for-opponent and map; search covers
+- **GB-L5** — Filters exist for mod, gamemode, empty, waiting-for-opponent, map and maximum ping; search covers
   server name, address, and, where stage 2 has run, player names.
 - **GB-L6** — Sorting is user-changeable and remembered.
 - **GB-L7** — The list has explicit loading, empty and per-source error states.

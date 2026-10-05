@@ -4,6 +4,8 @@ import { BookmarkPlus, BotOff, Check, Search, User, UserX, X } from 'lucide-reac
 import {
   EMPTY_SERVER_LIST_FILTER,
   isFilterActive,
+  MAX_PING_STEPS,
+  type MaxPingMs,
   type ServerListFilter,
 } from '@shared/servers/list-filter'
 import {
@@ -122,6 +124,13 @@ export function ServerListFilterBar({
     ...GAMEMODE_OPTIONS.map((gamemode) => ({
       value: gamemode,
       label: t(`servers.gamemode.${gamemode}`),
+    })),
+  ]
+  const maxPingOptions: SelectOption[] = [
+    { value: '', label: t('common.label.any') },
+    ...MAX_PING_STEPS.map((ms) => ({
+      value: String(ms),
+      label: t('servers.filter.pingBelow', { ms }),
     })),
   ]
 
@@ -247,6 +256,21 @@ export function ServerListFilterBar({
               onChange({ ...filter, map: event.target.value === '' ? null : event.target.value })
             }
             data-testid="servers-filter-map"
+          />
+        </Field>
+
+        <Field label={t('servers.filter.maxPing')}>
+          <Select
+            value={filter.maxPingMs === null ? '' : String(filter.maxPingMs)}
+            options={maxPingOptions}
+            onChange={(event) =>
+              onChange({
+                ...filter,
+                maxPingMs:
+                  event.target.value === '' ? null : (Number(event.target.value) as MaxPingMs),
+              })
+            }
+            data-testid="servers-filter-max-ping"
           />
         </Field>
       </div>

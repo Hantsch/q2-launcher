@@ -121,5 +121,23 @@ export default async function serversLanMode({ page, step, shot }) {
   await shot('lan-filtered')
   await search.fill('')
 
-  console.log('servers-lan-mode: AC1-AC5 and AC8 verified through the UI.')
+  step('the ping limit applies to the LAN list')
+  const maxPing = page.getByTestId('servers-filter-max-ping')
+  await maxPing.selectOption('50')
+  assertRows(await rowAddresses(page), [LAN_ADDRESS], 'LAN row under < 50')
+  responders.setDelayMs(100)
+  await refreshAndWait(page)
+  await page
+    .getByTestId(`servers-row-${LAN_ADDRESS}`)
+    .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  assertRows(await rowAddresses(page), [], 'slow LAN row under < 50')
+  await maxPing.selectOption('150')
+  await page
+    .getByTestId(`servers-row-${LAN_ADDRESS}`)
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  assertRows(await rowAddresses(page), [LAN_ADDRESS], 'slow LAN row under < 150')
+  await maxPing.selectOption('')
+  responders.setDelayMs(0)
+
+  console.log('servers-lan-mode: AC1-AC5, AC8 and the ping limit verified through the UI.')
 }

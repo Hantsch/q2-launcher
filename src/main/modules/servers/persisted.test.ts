@@ -94,6 +94,41 @@ describe('parseServersState (story 110 D2)', () => {
     expect(parseServersState({ quickFilters: 'junk' }).quickFilters).toEqual([])
   })
 
+  it('a quick filter saved before story 247 loads with no ping limit', () => {
+    const criteria = {
+      mod: 'ctf',
+      gamemode: null,
+      map: null,
+      empty: false,
+      hideBotsOnly: false,
+      waitingForOpponent: false,
+    }
+    const parsed = parseServersState({ quickFilters: [{ id: 'a', name: 'Old', criteria }] })
+    expect(parsed.quickFilters).toEqual([
+      { id: 'a', name: 'Old', criteria: { ...criteria, maxPingMs: null } },
+    ])
+  })
+
+  it('a quick filter with an unknown ping step is dropped', () => {
+    const criteria = {
+      mod: null,
+      gamemode: null,
+      map: null,
+      maxPingMs: 100,
+      empty: false,
+      hideBotsOnly: false,
+      waitingForOpponent: false,
+    }
+    const parsed = parseServersState({
+      quickFilters: [
+        { id: 'a', name: 'Good', criteria },
+        { id: 'b', name: 'Odd', criteria: { ...criteria, maxPingMs: 75 } },
+        { id: 'c', name: 'Also good', criteria: { ...criteria, maxPingMs: 50 } },
+      ],
+    })
+    expect(parsed.quickFilters.map((q) => q.name)).toEqual(['Good', 'Also good'])
+  })
+
   // Story 111 D2.
   it('a state.json without the `servers` key at all yields the three shipped default sources', () => {
     const result = parseServersState(undefined)

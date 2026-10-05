@@ -1,7 +1,7 @@
 ---
 id: 247
 title: I filter servers by maximum ping
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -20,14 +20,14 @@ Concept: [game-browser.md](../systems/game-browser.md), [servers-module.md](../s
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The filter bar has a "Max ping" select with Any, < 50, < 100, < 150 and < 200 ms;
+- [x] **AC1** — The filter bar has a "Max ping" select with Any, < 50, < 100, < 150 and < 200 ms;
       Any is the default.
-- [ ] **AC2** — With a limit set, only servers whose last measured ping is below the limit are shown.
-- [ ] **AC3** — Servers without a measured ping (no answer, stale) are hidden while a limit is set.
-- [ ] **AC4** — The filter count ("showing N of M") and Clear include the ping limit.
-- [ ] **AC5** — The ping limit is part of a saved quick filter, and a quick filter saved before this
+- [x] **AC2** — With a limit set, only servers whose last measured ping is below the limit are shown.
+- [x] **AC3** — Servers without a measured ping (no answer, stale) are hidden while a limit is set.
+- [x] **AC4** — The filter count ("showing N of M") and Clear include the ping limit.
+- [x] **AC5** — The ping limit is part of a saved quick filter, and a quick filter saved before this
       story still loads and applies (as "Any").
-- [ ] **AC6** — The limit works the same in Online and LAN mode.
+- [x] **AC6** — The limit works the same in Online and LAN mode.
 
 ## Open Questions
 
@@ -202,3 +202,15 @@ Review: → default
   and `npm run ui:flow -- servers-lan-mode`.
 
 ## Done
+
+Max ping filter shipped: `maxPingMs` (50/100/150/200/null) in the shared filter engine and quick-filter schema (legacy entries load as Any), a "Max ping" select in the filter rail, flow `servers-ping-filter` plus a LAN step.
+
+Commit message: `247: filter servers by maximum ping — maxPingMs in filter + quick filters, Max ping select, servers-ping-filter flow`
+
+Verification (narrow gate): build, lint, typecheck green; `npx vitest run --changed HEAD` green after fixing one fixture (`maxPingMs: null` in `src/main/modules/servers/index.test.ts`), servers module re-run 308/308; `src/comments.test.ts` + `src/architecture.test.ts` green. `npm run ui:flows -- --affected scripts/flows/servers-ping-filter.mjs scripts/flows/servers-lan-mode.mjs`: 25/25 green (570 s). Clean-agent review: PASS, minor findings fixed (flow header comment, stale LAN log line).
+AC -> test: AC1 flow step AC1 + ServerListFilterBar.test "max ping select lists Any and the four steps"; AC2 flow AC2 + list-filter.test "a limit shows only online rows below it"; AC3 flow AC3 + list-filter.test "stale and unmeasured rows are hidden..."; AC4 flow AC4 + ServerListFilterBar.test "a ping limit alone enables Clear..."; AC5 flow AC5 + persisted.test (legacy entry, unknown step) + quick-filters.test; AC6 servers-lan-mode step "the ping limit applies to the LAN list". All passed. No manual residue.
+
+Decisions: (1) Flow closes responder C and refreshes once before AC1, so C is stale during AC2 as well; otherwise `< 50` would show {A, C}. AC3 still compares no limit (C listed) with `< 200` (C hidden). (2) After A's delay becomes 100 ms, `< 50` shows no rows (B is already slow) — the vanish is the assertion. (3) Flow not registered in `scripts/flows/areas.json` (flow-select row caps). (4) `servers-ping-filter.mjs` repeats ~25 lines of the filter-search fixture/scan setup, per the flows' copied-not-imported convention; shared helper left as low-priority debt. (5) No unit test for chip pressed state / save-hint with a ping-only filter (not in plan).
+Known reds not ours: none surfaced in the runs.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5

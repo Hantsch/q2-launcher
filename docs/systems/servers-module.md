@@ -62,7 +62,7 @@ This document describes the module as built. `servers` is a registered module; i
   falls back to its own default.
 - `listSort` — the chosen sort, `null` for the default order.
 - `watchlist` — entries keyed by id.
-- `quickFilters` — named filters, unique by lower-cased name, capped.
+- `quickFilters` — named filters, unique by lower-cased name, capped. Criteria include the ping limit; entries saved before it load as Any.
 
 ## Handlers
 

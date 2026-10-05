@@ -25,6 +25,7 @@ export function criteriaOf(f: ServerListFilter): QuickFilterCriteria {
     mod: f.mod,
     gamemode: f.gamemode,
     map: f.map,
+    maxPingMs: f.maxPingMs,
     empty: f.empty,
     hideBotsOnly: f.hideBotsOnly,
     waitingForOpponent: f.waitingForOpponent,
@@ -37,6 +38,7 @@ export function hasCriteria(c: QuickFilterCriteria): boolean {
     c.mod !== null ||
     c.gamemode !== null ||
     c.map !== null ||
+    c.maxPingMs !== null ||
     c.empty ||
     c.hideBotsOnly ||
     c.waitingForOpponent
@@ -54,6 +56,7 @@ export function sameCriteria(a: QuickFilterCriteria, b: QuickFilterCriteria): bo
     sameText(a.mod, b.mod) &&
     sameText(a.map, b.map) &&
     a.gamemode === b.gamemode &&
+    a.maxPingMs === b.maxPingMs &&
     a.empty === b.empty &&
     a.hideBotsOnly === b.hideBotsOnly &&
     a.waitingForOpponent === b.waitingForOpponent

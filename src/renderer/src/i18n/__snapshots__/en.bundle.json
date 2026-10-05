@@ -3352,7 +3352,9 @@
     },
     "filter": {
       "hideBotsOnly": "Hide bot-only servers",
+      "maxPing": "Max ping",
       "noMatch": "No servers match your filters.",
+      "pingBelow": "< {{ms}} ms",
       "quick": "Quick filters",
       "searchPlaceholder": "Name, address or player — \"quotes\" for exact",
       "waiting": "Waiting for an opponent"
@@ -3426,7 +3428,7 @@
       "rename": "Rename",
       "save": "Save as quick filter",
       "saveAtCap": "You can keep 8 quick filters — delete one first.",
-      "saveNeedsCriteria": "Set a mod, gamemode, map or quick toggle first."
+      "saveNeedsCriteria": "Set a mod, gamemode, map, ping limit or quick toggle first."
     },
     "row": {
       "copyError": "Couldn't copy the server address",

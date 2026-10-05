@@ -388,3 +388,34 @@ describe('filter options are distinct, case-insensitive and sorted', () => {
     expect(options.maps).toEqual([...options.maps].sort((a, b) => a.localeCompare(b)))
   })
 })
+
+describe('ping limit (story 247)', () => {
+  const online = (rttMs: number) => row({ address: `10.9.0.${rttMs}:27910`, rttMs })
+
+  it('a limit shows only online rows below it', () => {
+    const rows = [online(30), online(99), online(100), online(140)]
+    const result = filterServers(rows, filter({ maxPingMs: 100 }))
+    expect(result.map((r) => r.rttMs)).toEqual([30, 99])
+  })
+
+  it('stale and unmeasured rows are hidden while a limit is set', () => {
+    const staleFast = row({ status: 'stale', rttMs: 10 })
+    const pendingNoPing = row({ status: 'pending' })
+    const f = filter({ maxPingMs: 100 })
+    expect(matchesFilter(staleFast, f)).toBe(false)
+    expect(matchesFilter(pendingNoPing, f)).toBe(false)
+  })
+
+  it('no limit keeps every row', () => {
+    const staleFast = row({ status: 'stale', rttMs: 10 })
+    const pendingNoPing = row({ status: 'pending' })
+    const f = filter({ maxPingMs: null })
+    expect(matchesFilter(staleFast, f)).toBe(true)
+    expect(matchesFilter(pendingNoPing, f)).toBe(true)
+  })
+
+  it('a ping limit makes the filter active', () => {
+    expect(isFilterActive(filter({ maxPingMs: 50 }))).toBe(true)
+    expect(isFilterActive(filter({ maxPingMs: null }))).toBe(false)
+  })
+})

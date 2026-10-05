@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { DomainResult } from '../types'
 import { serverAddressSchema } from '../schemas'
 import type { InfoReplySuccess } from '../servers/info-reply'
+import type { MaxPingMs } from '../servers/list-filter'
 import { SERVER_SORT_COLUMNS } from '../servers/list-sort'
 import type { ServerListSort, ServerSortColumn } from '../servers/list-sort'
 import type { MasterSourceAddressRejection } from '../servers/master-source-address'
@@ -423,11 +424,19 @@ const serverGamemodeSchema = z.enum([
   'single',
 ] as const satisfies readonly ServerGamemode[])
 
+const maxPingMsSchema = z.union([
+  z.literal(50),
+  z.literal(100),
+  z.literal(150),
+  z.literal(200),
+]) satisfies z.ZodType<MaxPingMs>
+
 export const quickFilterCriteriaSchema = z
   .object({
     mod: z.string().nullable(),
     gamemode: serverGamemodeSchema.nullable(),
     map: z.string().nullable(),
+    maxPingMs: maxPingMsSchema.nullable().default(null),
     empty: z.boolean(),
     hideBotsOnly: z.boolean(),
     waitingForOpponent: z.boolean(),

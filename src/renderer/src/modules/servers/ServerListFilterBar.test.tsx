@@ -71,6 +71,33 @@ describe('ServerListFilterBar - each control writes its own field (story 120 D2)
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_SERVER_LIST_FILTER, map: 'q2dm1' })
   })
 
+  it('the max ping select lists Any and the four steps, Any by default', () => {
+    renderBar(EMPTY_SERVER_LIST_FILTER, vi.fn())
+
+    const select = screen.getByTestId('servers-filter-max-ping') as HTMLSelectElement
+    expect(Array.from(select.options).map((o) => [o.value, o.textContent])).toEqual([
+      ['', 'Any'],
+      ['50', '< 50 ms'],
+      ['100', '< 100 ms'],
+      ['150', '< 150 ms'],
+      ['200', '< 200 ms'],
+    ])
+    expect(select.value).toBe('')
+  })
+
+  it('choosing a step writes maxPingMs and Any writes null', () => {
+    const onChange = vi.fn()
+    renderBar(EMPTY_SERVER_LIST_FILTER, onChange)
+    fireEvent.change(screen.getByTestId('servers-filter-max-ping'), { target: { value: '100' } })
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, maxPingMs: 100 })
+    cleanup()
+
+    const onClear = vi.fn()
+    renderBar({ ...EMPTY_SERVER_LIST_FILTER, maxPingMs: 100 }, onClear)
+    fireEvent.change(screen.getByTestId('servers-filter-max-ping'), { target: { value: '' } })
+    expect(onClear).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, maxPingMs: null })
+  })
+
   it('each quick-filter chip toggles only its own field', () => {
     const onChange = vi.fn()
     renderBar(EMPTY_SERVER_LIST_FILTER, onChange)
@@ -125,6 +152,18 @@ describe('ServerListFilterBar - clear and count (story 120 D2)', () => {
 
     const clearButton = screen.getByTestId('servers-filter-clear') as HTMLButtonElement
     expect(clearButton.disabled).toBe(false)
+
+    fireEvent.click(clearButton)
+    expect(onChange).toHaveBeenCalledWith(EMPTY_SERVER_LIST_FILTER)
+  })
+
+  it('a ping limit alone enables Clear and the count, and Clear resets it', () => {
+    const onChange = vi.fn()
+    renderBar({ ...EMPTY_SERVER_LIST_FILTER, maxPingMs: 50 }, onChange, 1, 4)
+
+    const clearButton = screen.getByTestId('servers-filter-clear') as HTMLButtonElement
+    expect(clearButton.disabled).toBe(false)
+    expect(screen.getByTestId('servers-filter-count').textContent).toBe('Showing 1 of 4')
 
     fireEvent.click(clearButton)
     expect(onChange).toHaveBeenCalledWith(EMPTY_SERVER_LIST_FILTER)

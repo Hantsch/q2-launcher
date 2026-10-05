@@ -341,3 +341,4 @@ second roadmap.
 - 240 — the install folder is created for me and shown before install · S34 · location + editable subfolder with free name, install-here for an empty folder, final path shown before install; job creates the folder and removes it again on failure when empty
 - 249 — I pick mod and map when I start an installation · S34 · Play with... dialog beside Play: mod, map (loose/pak/pkz, titles) and game type, remembered per installation, launches with +map
 - 246 — an installation with several engines lets me choose one · S34 · inspector lists all engines, the card offers the choice, Play and demo playback follow it
+- 247 — I filter servers by maximum ping · S34 · Max ping select (< 50 to < 200 ms) filters live servers, saved in quick filters, same in Online and LAN

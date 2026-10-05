@@ -28,7 +28,7 @@
     },
     "quickFilter": {
       "save": "Save as quick filter",
-      "saveNeedsCriteria": "Set a mod, gamemode, map or quick toggle first.",
+      "saveNeedsCriteria": "Set a mod, gamemode, map, ping limit or quick toggle first.",
       "saveAtCap": "You can keep 8 quick filters — delete one first.",
       "menuFor": "Actions for quick filter {{name}}",
       "rename": "Rename",
@@ -219,6 +219,8 @@
       "searchPlaceholder": "Name, address or player — \"quotes\" for exact",
       "hideBotsOnly": "Hide bot-only servers",
       "waiting": "Waiting for an opponent",
+      "maxPing": "Max ping",
+      "pingBelow": "< {{ms}} ms",
       "noMatch": "No servers match your filters."
     },
     "source": {

@@ -12,6 +12,7 @@ const NONE: QuickFilterCriteria = {
   mod: null,
   gamemode: null,
   map: null,
+  maxPingMs: null,
   empty: false,
   hideBotsOnly: false,
   waitingForOpponent: false,

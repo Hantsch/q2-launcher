@@ -25,6 +25,14 @@ describe('quick filter criteria', () => {
     expect('search' in c).toBe(false)
   })
 
+  it('the ping limit is a criterion', () => {
+    const f = { ...EMPTY_SERVER_LIST_FILTER, maxPingMs: 100 as const }
+    expect(criteriaOf(f).maxPingMs).toBe(100)
+    expect(hasCriteria(criteriaOf(f))).toBe(true)
+    expect(sameCriteria({ ...none, maxPingMs: 100 }, { ...none, maxPingMs: 50 })).toBe(false)
+    expect(sameCriteria({ ...none, maxPingMs: 100 }, { ...none, maxPingMs: 100 })).toBe(true)
+  })
+
   it('hasCriteria is true for any select or toggle and false for none', () => {
     expect(hasCriteria(none)).toBe(false)
     expect(hasCriteria({ ...none, mod: 'a' })).toBe(true)

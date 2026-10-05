@@ -11,11 +11,16 @@ import { isBotsOnly, isWaitingForOpponent, knownPlayerCount } from './row-marker
 import type { ServerGamemode } from './row-markers'
 import type { ServerListEntry, ServerListRow } from '../modules/servers'
 
+export const MAX_PING_STEPS = [50, 100, 150, 200] as const
+export type MaxPingMs = (typeof MAX_PING_STEPS)[number]
+
 export interface ServerListFilter {
   search: string
   mod: string | null
   gamemode: ServerGamemode | null
   map: string | null
+  /** Strict "below" this many ms; only online rows with a measured ping match. */
+  maxPingMs: MaxPingMs | null
   /** Only servers known to have nobody on them. */
   empty: boolean
   /** Hides servers whose whole roster looks like bots (`isBotsOnly`) - an estimate. */
@@ -29,6 +34,7 @@ export const EMPTY_SERVER_LIST_FILTER: ServerListFilter = {
   mod: null,
   gamemode: null,
   map: null,
+  maxPingMs: null,
   empty: false,
   hideBotsOnly: false,
   waitingForOpponent: false,
@@ -41,6 +47,7 @@ export function isFilterActive(f: ServerListFilter): boolean {
     f.mod !== null ||
     f.gamemode !== null ||
     f.map !== null ||
+    f.maxPingMs !== null ||
     f.empty ||
     f.hideBotsOnly ||
     f.waitingForOpponent ||
@@ -83,6 +90,12 @@ export function matchesFilter(row: ServerListRow, f: ServerListFilter): boolean 
   if (f.mod !== null && !matchesText(row.mod, f.mod)) return false
   if (f.map !== null && !matchesText(row.map, f.map)) return false
   if (f.gamemode !== null && row.gamemode !== f.gamemode) return false
+  if (
+    f.maxPingMs !== null &&
+    !(row.status === 'online' && row.rttMs !== undefined && row.rttMs < f.maxPingMs)
+  ) {
+    return false
+  }
 
   if (f.empty || f.waitingForOpponent) {
     const n = knownPlayerCount(row)
