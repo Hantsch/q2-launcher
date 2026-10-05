@@ -83,6 +83,16 @@ describe('flow gate quarantine', () => {
     expect(onWindows.failed).toEqual(['flaky'])
   })
 
+  test('a linux-scoped entry is not expected to fail on win32', async () => {
+    const entries = [entry({ platform: 'linux' })]
+    const green = await gate({ flaky: [true] }, entries, { platform: 'win32' })
+    expect(green.ok).toBe(true)
+    expect(green.unexpectedPasses ?? []).toEqual([])
+    const red = await gate({ flaky: [false] }, entries, { platform: 'win32' })
+    expect(red.ok).toBe(false)
+    expect(red.failed).toEqual(['flaky'])
+  })
+
   test('the run exits 0 only when every non-quarantined flow is green', async () => {
     expect((await gate({ a: [true], flaky: [false] }, [entry()])).ok).toBe(true)
     const red = await gate({ a: [false], flaky: [false] }, [entry()])

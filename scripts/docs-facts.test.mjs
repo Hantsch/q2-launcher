@@ -34,4 +34,15 @@ describe('docs facts', () => {
     expect(readme).toContain('src/**/*.test.ts(x)')
     expect(readme).toContain('scripts/**/*.test.mjs')
   })
+
+  test('the sprint notes run the rehearsal before a merge to main, not per sprint', () => {
+    const readme = read('docs/sprints/README.md')
+    expect(readme).toContain('npm run rehearse')
+    expect(readme).toContain('before a merge into `main`')
+    const start = readme.indexOf('2. **`/sprint SNN`**')
+    const end = readme.indexOf('3. **You**')
+    expect(start).toBeGreaterThan(-1)
+    expect(end).toBeGreaterThan(start)
+    expect(readme.slice(start, end)).not.toMatch(/rehears/i)
+  })
 })

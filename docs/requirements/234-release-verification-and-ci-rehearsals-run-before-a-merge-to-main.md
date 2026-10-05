@@ -1,7 +1,7 @@
 ---
 id: 234
 title: release verification and CI rehearsals run before a merge to main
-status: ready # draft -> ready -> in-progress -> done
+status: in-progress # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -67,7 +67,7 @@ Order: D1 → D2 → D3. D2 needs Docker up; if it is not, D2 reports BLOCKED wi
 
 ## Deliverables
 
-- [ ] **D1 — detached rehearsal runner with a timed pass/fail record.**
+- [x] **D1 — detached rehearsal runner with a timed pass/fail record.**
       Files: new `scripts/lib/act.mjs` (move `resolveAct`, `removeStaleActContainers` and a
       `dockerRunning()` check out of `scripts/verify-release.mjs`, which then imports them — no
       behaviour change there), new `scripts/lib/rehearsal.mjs`, new `scripts/rehearse.mjs`, new
@@ -120,7 +120,7 @@ Order: D1 → D2 → D3. D2 needs Docker up; if it is not, D2 reports BLOCKED wi
       stop and report BLOCKED with the failed record. Test: the existing
       `scripts/flow-gate.test.mjs` validation of quarantine entries must stay green, plus the new
       case "a linux-scoped entry is not expected to fail on win32" in that file.
-- [ ] **D3 — the sprint notes say when the rehearsal runs.**
+- [x] **D3 — the sprint notes say when the rehearsal runs.**
       Files: `docs/sprints/README.md` (step 3 of `## Flow`: before a merge into `main` — not per
       sprint, not per push to `dev` — run `npm run rehearse`, check `--status` until passed; then
       the GitHub-only checks after opening the PR: `ui-flows` shard times under 20 min and
@@ -155,3 +155,5 @@ Order: D1 → D2 → D3. D2 needs Docker up; if it is not, D2 reports BLOCKED wi
   main, not per sprint".
 
 ## Done
+
+**BLOCKED (D2, AC2/AC3 local part).** The Docker daemon is down on this machine (`docker version` cannot reach `//./pipe/dockerDesktopLinuxEngine`), so the real rehearsal cannot run. `npm run rehearse` (D1) was run once and failed honestly in seconds: record `status: failed`, reason "Docker is not running: start Docker Desktop", no command executed. D1 and D3 are done and green (rehearsal, flow-gate incl. "a linux-scoped entry is not expected to fail on win32", docs-facts, workflows, repo-hygiene, comments, architecture, lint, typecheck). Not yet run: the real `npm run rehearse` with triage of Linux-only red flows into `scripts/flows/quarantine.json`, the clean-agent review, and the Done section. Next step: start Docker Desktop, run `npm run rehearse`, poll `-- --status`, then continue with D2.

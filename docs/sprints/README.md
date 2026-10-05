@@ -71,6 +71,12 @@ sprints/
    first. A protected branch only ever receives a deliberate release merge, never a sprint
    branch directly.
 
+   Run the rehearsal before a merge into `main` — not per sprint, not per push to `dev`:
+   `npm run rehearse` (detached: verify:release, `ci:local` and `ci:local:flows`, with a pass/fail
+   record and timings under the gitignored `.rehearsal/`) and check `npm run rehearse -- --status`
+   until it reports passed. After opening the PR, the GitHub-only checks remain: `ui-flows` shard
+   times under 20 minutes and `windows-verify` green.
+
 The sprint is **resumable**: if the session dies, `/sprint SNN` continues at the
 first open spot based on `sprint.md` + story status.
 

@@ -57,6 +57,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import yaml from 'js-yaml'
+import { dockerRunning, removeStaleActContainers, resolveAct } from './lib/act.mjs'
 import { REPO_ROOT } from './lib/paths.mjs'
 
 const IS_WIN = process.platform === 'win32'
@@ -94,29 +95,6 @@ function capture(command, args, { cwd = REPO_ROOT, env } = {}) {
 }
 
 const npm = (args, cwd, env) => run(IS_WIN ? 'npm.cmd' : 'npm', args, { cwd, env, shell: IS_WIN })
-
-/**
- * `ACT`, else `act` on the PATH, else (Windows) winget's install folder - winget only puts act on
- * the PATH of shells started after the install, which agent and IDE shells often are not.
- */
-function resolveAct() {
-  if (process.env.ACT) return process.env.ACT
-  if (capture('act', ['--version']) !== null) return 'act'
-  if (IS_WIN && process.env.LOCALAPPDATA) {
-    const packages = join(process.env.LOCALAPPDATA, 'Microsoft', 'WinGet', 'Packages')
-    const dir = existsSync(packages)
-      ? readdirSync(packages).find((name) => name.startsWith('nektos.act_'))
-      : undefined
-    if (dir && existsSync(join(packages, dir, 'act.exe'))) return join(packages, dir, 'act.exe')
-  }
-  return null
-}
-
-/** Removes act job containers left behind by an aborted run - they break the next one. */
-function removeStaleActContainers() {
-  const ids = capture('docker', ['ps', '-aq', '--filter', 'name=act-'])
-  if (ids) run('docker', ['rm', '-f', ...ids.split(/\s+/)])
-}
 
 /** The 8.3 short form of an existing Windows path - the path itself when the volume has none. */
 function shortPath(path) {
@@ -248,7 +226,7 @@ function main() {
     process.exitCode = 1
     return
   }
-  if (capture('docker', ['info', '--format', '{{.ServerVersion}}']) === null) {
+  if (!dockerRunning()) {
     console.error('verify:release - Docker is not running: start Docker Desktop.')
     process.exitCode = 1
     return

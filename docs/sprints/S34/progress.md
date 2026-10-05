@@ -85,3 +85,13 @@
 - 2026-10-05 09:53 · 233 · review 1 · started
 - 2026-10-05 09:54 · 233 · review 1 · done
 - 2026-10-05 09:54 · 233 · story · done
+- 2026-10-05T09:54:25 · 234 · build · started
+- 2026-10-05 09:54 · 234 · D1 detached rehearsal runner · started
+- 2026-10-05 10:02 · 234 · D1 detached rehearsal runner · done
+- 2026-10-05 10:02 · 234 · D3 sprint notes · started
+- 2026-10-05 10:03 · 234 · D3 sprint notes · done
+- 2026-10-05 10:03 · 234 · D2 real rehearsal · started
+- 2026-10-05 10:03 · 234 · D2 real rehearsal · blocked: Docker daemon down
+- 2026-10-05 10:03 · 234 · verify · started
+- 2026-10-05 10:04 · 234 · verify · done
+- 2026-10-05 10:04 · 234 · story · blocked: Docker daemon down, D2 not runnable
