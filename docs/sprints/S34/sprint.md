@@ -1,7 +1,7 @@
 ---
 sprint: S34
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S34
 milestone: # roadmap milestone, set by /roadmap plan
 ---
 
