@@ -2,6 +2,7 @@ import { refuse } from '@shared/types'
 import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY,
+  SCAN_UNKNOWN_ADDRESS_REASON_KEY,
   SERVERS_EVENTS,
   type ScanBlockedReason,
   type ScanQueryResult,
@@ -9,6 +10,7 @@ import {
   type ScanServerPush,
   type ScanSnapshot,
   type ScanStartResult,
+  type ScanStateScope,
   type ScanTarget,
   type ServerDetail,
   type ServerListEntry,
@@ -18,7 +20,7 @@ import {
   type ServersScanState,
   type ServersState,
 } from '@shared/modules/servers'
-import type { ParsedServerAddress } from '@shared/servers/address'
+import { parseServerAddress, type ParsedServerAddress } from '@shared/servers/address'
 import { readIntKey } from '@shared/servers/infostring'
 import { deriveGamemode } from '@shared/servers/row-markers'
 import type { LaunchHost } from '../../services/write-guard'
@@ -27,7 +29,7 @@ import { electronNetFetch, type FetchImpl } from '../../lib/net/fetcher'
 import { discoverLanServers } from './lan-discovery'
 import { isScanBlocked } from './scan-guard'
 import { appendRttSample, mergeStaleRound } from './scan-merge'
-import { resolveScanScopeAddresses } from './scan-scope'
+import { normalizeScopeAddresses, resolveScanScopeAddresses, type KnownScanRow } from './scan-scope'
 import { resolveSources, type ResolveSourcesDeps } from './source-resolution'
 import { runScan, type QueryServerFn } from './scan-runner'
 import type { ServerQueryResult } from './server-query'
@@ -89,6 +91,13 @@ import type { Clock, MasterUdpImpl } from './udp-master-source'
  *   resolution, no stale merge, no `onStage2Row`. Favourites are refused in LAN; a `'server'`
  *   round refreshes a row already in the LAN list and never adds one (only broadcast answers
  *   ever enter it) (story 196)
+ * - **The `addresses` scope.** Re-queries named rows the active list already has (its "known" set
+ *   is exactly `read(mode).entries`, online placeholders included) and nothing else: one unknown
+ *   name refuses the whole start before any query, so there is never a partial round. Online it is
+ *   the favourites shape - no source resolution, `runTargets` = `scopeTargets`, stale merge over the
+ *   scope only; on the LAN it is the `'server'` shape widened to many rows - no discovery, no list
+ *   clear, no stale merge. Each target keeps its row's origins, and `scanState.scope` reports only
+ *   the count (story 250)
  */
 
 /** Injectable seams for both `resolveSources` and `runScan`, all optional - each defaults to the
@@ -127,8 +136,9 @@ export interface CreateScanServiceOptions {
 export interface ScanStartOptions {
   /** Which addresses this round touches. Omitted means `{ kind: 'all' }` (story 117) */
   scope?: ScanScope
-  /** The "currently selected server", queried in stage 2 of a full scan. Only honoured for
-   * the `'all'` scope - `'favourites'` ignores it, `'server'` already names its one address. */
+  /** The "currently selected server", queried in stage 2 of a full scan. Honoured for the
+   * `'all'` scope, and for `'addresses'` only when it is one of the scope's addresses -
+   * `'favourites'` ignores it, `'server'` already names its one address. */
   selectedAddress?: string
 }
 
@@ -263,6 +273,18 @@ function mergeSuccessfulReply(
   }
 }
 
+/** `selectedAddress` only when it names one of `targets` - a selection outside a scoped round
+ * must not smuggle an extra `status` query into it (story 250) */
+function selectedInScope(
+  selectedAddress: string | undefined,
+  targets: readonly ScanTarget[],
+): string | undefined {
+  if (selectedAddress === undefined) return undefined
+  const parsed = parseServerAddress(selectedAddress)
+  const normalized = parsed.ok ? parsed.normalized : selectedAddress.trim()
+  return targets.some((target) => target.address === normalized) ? normalized : undefined
+}
+
 export function createScanService(options: CreateScanServiceOptions): ScanService {
   const { getServersState, emit, launch, onStage2Row } = options
   const deps = options.deps ?? {}
@@ -311,6 +333,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     current: ServersState,
     scope: ScanScope,
     selectedAddress: string | undefined,
+    knownRows: readonly KnownScanRow[],
     signal: AbortSignal,
   ): Promise<void> {
     // Only the 'all' scope uses source addresses, so only it resolves sources -
@@ -335,10 +358,21 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     // may stale-flip. `runTargets` is what stage 1 queries: the same set, except for the
     // single-server scope, which skips stage 1 entirely and reaches runScan's stage 2 through
     // `selectedAddress` instead (one `status` query, no `info` query - see the file doc comment).
-    const scopeTargets = resolveScanScopeAddresses(current, scope, resolvedSourceAddresses)
+    const scopeTargets = resolveScanScopeAddresses(
+      current,
+      scope,
+      resolvedSourceAddresses,
+      knownRows,
+    )
     const runTargets = scope.kind === 'server' ? [] : scopeTargets
     const runSelectedAddress =
-      scope.kind === 'server' ? scope.address : scope.kind === 'all' ? selectedAddress : undefined
+      scope.kind === 'server'
+        ? scope.address
+        : scope.kind === 'all'
+          ? selectedAddress
+          : scope.kind === 'addresses'
+            ? selectedInScope(selectedAddress, scopeTargets)
+            : undefined
 
     const answeredOnline = new Set<string>()
 
@@ -407,13 +441,15 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
 
   /** A LAN round on the LAN list. `'all'` replaces the list with this round's
    * broadcast answers, then runs the usual two stages over them; `'server'` refreshes one row
-   * already in the list. Never resolves sources, never stale-merges, never feeds `onStage2Row`
-   * (the watchlist only follows online servers). `'favourites'` never gets here (story 196) */
+   * already in the list, `'addresses'` several. Never resolves sources, never
+   * stale-merges, never feeds `onStage2Row` (the watchlist only follows online servers).
+   * `'favourites'` never gets here (story 196) */
   async function runLanRound(
     list: ScanList,
     current: ServersState,
     scope: ScanScope,
     selectedAddress: string | undefined,
+    knownRows: readonly KnownScanRow[],
     signal: AbortSignal,
   ): Promise<void> {
     // Only broadcast answers ever enter the LAN list: a reply for an address not already in it is
@@ -434,6 +470,22 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         targets: [],
         settings: current.scan,
         selectedAddress: scope.address,
+        signal,
+        deps: { queryServer: deps.queryServer },
+        onServer,
+        onProgress,
+      })
+      return
+    }
+
+    // Must stay ahead of the clear below: a scoped LAN round re-queries rows, it never replaces
+    // the list (story 250)
+    if (scope.kind === 'addresses') {
+      const targets = resolveScanScopeAddresses(current, scope, [], knownRows)
+      await runScan({
+        targets,
+        settings: current.scan,
+        selectedAddress: selectedInScope(selectedAddress, targets),
         signal,
         deps: { queryServer: deps.queryServer },
         onServer,
@@ -490,6 +542,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     sweepMode: ServersBrowseMode,
     scope: ScanScope,
     selectedAddress: string | undefined,
+    knownRows: readonly KnownScanRow[],
     signal: AbortSignal,
   ): Promise<void> {
     try {
@@ -498,8 +551,9 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       // `running: true` stuck forever (the single-flight guard would then refuse every future
       // `scan.start` for the rest of the process's life).
       const current = getServersState()
-      if (sweepMode === 'lan') await runLanRound(list, current, scope, selectedAddress, signal)
-      else await runOnlineRound(list, current, scope, selectedAddress, signal)
+      if (sweepMode === 'lan')
+        await runLanRound(list, current, scope, selectedAddress, knownRows, signal)
+      else await runOnlineRound(list, current, scope, selectedAddress, knownRows, signal)
     } catch {
       // `runSweep` is fire-and-forget (`start()` returns before this settles, `void
       // runSweep(...)` below has no `.catch()`), so an unexpected throw here (a `getServersState()`
@@ -536,6 +590,21 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     if (sweepMode === 'lan' && scope.kind === 'favourites') {
       return refuse(SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY)
     }
+    // Captured once here, so the rows validated are exactly the rows the round re-queries even if
+    // a favourite/manual placeholder disappears before the sweep reads the state (story 250)
+    let knownRows: KnownScanRow[] = []
+    let stateScope: ScanStateScope
+    if (scope.kind === 'addresses') {
+      knownRows = read(sweepMode).entries.map(({ address, origins }) => ({ address, origins }))
+      const known = new Set(knownRows.map((row) => row.address))
+      const addresses = normalizeScopeAddresses(scope.addresses)
+      if (addresses.some((address) => !known.has(address))) {
+        return refuse(SCAN_UNKNOWN_ADDRESS_REASON_KEY)
+      }
+      stateScope = { kind: 'addresses', count: addresses.length }
+    } else {
+      stateScope = scope
+    }
     const list = lists[sweepMode]
     const controller = new AbortController()
     abortController = controller
@@ -548,12 +617,12 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       phase: 'stage1',
       startedAt: new Date().toISOString(),
       finishedAt: null,
-      scope,
+      scope: stateScope,
       mode: sweepMode,
     }
     emitChanged()
 
-    void runSweep(list, sweepMode, scope, options.selectedAddress, controller.signal)
+    void runSweep(list, sweepMode, scope, options.selectedAddress, knownRows, controller.signal)
 
     return { ok: true }
   }

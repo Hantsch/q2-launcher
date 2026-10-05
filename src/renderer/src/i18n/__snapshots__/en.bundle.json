@@ -2595,6 +2595,10 @@
         "refresh": "Scan now",
         "refreshFavourites": "Refresh favourites",
         "refreshSelected": "Refresh this server",
+        "refreshShown": "Refresh {{count}} shown",
+        "refreshShownNone": "No servers shown — use Scan all or clear the filter.",
+        "scanAll": "Scan all",
+        "scanOptions": "More scan options",
         "status": {
           "idle": "Idle",
           "line_one": "{{state}} · {{count}} known server",
@@ -3444,7 +3448,8 @@
       },
       "error": {
         "already-running": "A scan is already running.",
-        "favouritesNotInLan": "Favourites can't be refreshed on the local network."
+        "favouritesNotInLan": "Favourites can't be refreshed on the local network.",
+        "unknownAddress": "That server is no longer in the list."
       }
     },
     "sort": {

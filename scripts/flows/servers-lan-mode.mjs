@@ -121,6 +121,20 @@ export default async function serversLanMode({ page, step, shot }) {
   await shot('lan-filtered')
   await search.fill('')
 
+  step('Refresh N shown re-queries the LAN row without emptying the list')
+  await search.fill('LAN Server')
+  await page.waitForFunction(
+    () =>
+      /Refresh 1 shown/.test(
+        document.querySelector('[data-testid="servers-refresh"]')?.textContent ?? '',
+      ),
+    null,
+    { timeout: TIMEOUT_MS },
+  )
+  await refreshAndWait(page) // waits for the scan status's data-finished-at to change
+  assertRows(await rowAddresses(page), [LAN_ADDRESS], 'LAN row after Refresh 1 shown')
+  await search.fill('')
+
   step('the ping limit applies to the LAN list')
   const maxPing = page.getByTestId('servers-filter-max-ping')
   await maxPing.selectOption('50')

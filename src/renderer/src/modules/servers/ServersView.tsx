@@ -5,6 +5,7 @@ import {
   EMPTY_SERVER_LIST_FILTER,
   filterOptions,
   filterServers,
+  isFilterActive,
   type ServerListFilter,
 } from '@shared/servers/list-filter'
 import { criteriaOf, type QuickFilter } from '@shared/servers/quick-filters'
@@ -33,6 +34,7 @@ import { QuickFilterChipMenu } from './QuickFilterChipMenu'
 import { QuickFilterNameDialog } from './QuickFilterNameDialog'
 import { ServerListHeader } from './ServerListHeader'
 import { ServerRow } from './ServerRow'
+import { scrollToSourceSettings } from './scrollToSourceSettings'
 import { ServersListStatus } from './ServersListStatus'
 import { TabPanel } from '../../components/ui/Tabs'
 import { ServersTabStrip, type ServersTab } from './ServersTabStrip'
@@ -94,17 +96,9 @@ export function ServersView() {
     setSelectedAddress((current) => (current === address ? null : address))
   }
 
-  // Two rAFs (the route's render commit, then the next paint) is the smallest wait that reliably
-  // sees `settings-section-servers` in the DOM before scrolling.
   const handleOpenSourceSettings = (): void => {
     setRoute(ROUTE_SETTINGS)
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        document
-          .querySelector('[data-testid="settings-section-servers"]')
-          ?.scrollIntoView({ block: 'start' })
-      })
-    })
+    scrollToSourceSettings()
   }
 
   const resolveServer = (address: string): ServerListRow | undefined =>
@@ -273,7 +267,15 @@ export function ServersView() {
           entryCount={entries.length}
           sortCaption={sortCaption}
           onModeChange={handleModeChange}
+          filterActive={isFilterActive(filter)}
+          shownCount={visible.length}
           onRefresh={() => scan.refresh(selectedAddress ?? undefined)}
+          onRefreshShown={() =>
+            scan.refreshShown(
+              visible.map((row) => row.address),
+              selectedAddress ?? undefined,
+            )
+          }
           onRefreshFavourites={scan.refreshFavourites}
         />
         <div className="@container min-h-0 flex-1">

@@ -14,6 +14,7 @@ version section when a release actually ships.
 
 ### Added
 
+- **Servers** — Scan now refreshes only the servers your filter shows; Scan all is one click away.
 - **Servers** — Hide servers above a maximum ping (< 50 to < 200 ms).
 - **Library** — A folder with several engines lists them all; choose which one Play starts.
 - **Mods** — "Play with..." next to Play: pick a mod and a map to start.

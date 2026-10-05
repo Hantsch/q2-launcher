@@ -77,7 +77,7 @@ This document describes the module as built. `servers` is a registered module; i
 - `favouritesAdd` — adds a favourite.
 - `favouritesRemove` — removes a favourite.
 - `historyRead` — the connection history, newest first (main alone appends).
-- `scanStart` — starts a scan; refused while one runs.
+- `scanStart` — starts a scan; refused while one runs. Scopes: all, favourites, one server, or `addresses` (the servers the filter shows; an address the launcher does not know is refused, and in LAN mode only known rows are re-queried — no discovery, nothing cleared).
 - `scanRead` — snapshot of scan state and every last-known row.
 - `scanGetSettings` — the persisted scan settings.
 - `scanPatchSettings` — validates and persists a settings patch.

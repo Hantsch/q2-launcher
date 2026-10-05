@@ -45,7 +45,7 @@ event-push precedents, and the module seam described in
   not shown** — the protocol does not carry it (§6.4). It costs the scan **nothing**: it matches
   against the details a normal scan already fetched, and re-checks an entry by querying only the one
   server that player was last seen on.
-- **Refreshes are scoped** — all servers, favourites only, or a single server — so nothing reloads
+- **Refreshes are scoped** — all servers, favourites only, a single server, or the servers the filter shows — so nothing reloads
   that does not need to. Whether that is even necessary is a question for the first measurement, not
   for the concept.
 - **The watchlist ships hidden.** A launcher-wide experimental-features mechanism gates it behind a

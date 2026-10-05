@@ -354,3 +354,15 @@
 - 2026-10-05 22:17 · 247 · review 1 · done
 - 2026-10-05 22:17 · 247 · verify · done
 - 2026-10-05 22:17 · 247 · story · done
+- 2026-10-05T22:17:50 · 250 · build · started
+- 2026-10-05 22:18 · 250 · D1 addresses scan scope · started
+- 2026-10-05 22:23 · 250 · D1 addresses scan scope · done
+- 2026-10-05 22:23 · 250 · D2 toolbar refresh shown · started
+- 2026-10-05 22:28 · 250 · D2 toolbar refresh shown · done
+- 2026-10-05 22:28 · 250 · D3 flows docs changelog · started
+- 2026-10-05 22:30 · 250 · D3 flows docs changelog · done
+- 2026-10-05 22:30 · 250 · verify · started
+- 2026-10-05 22:41 · 250 · verify · done
+- 2026-10-05 22:41 · 250 · review 1 · started
+- 2026-10-05 22:42 · 250 · review 1 · done
+- 2026-10-05 22:42 · 250 · story · done

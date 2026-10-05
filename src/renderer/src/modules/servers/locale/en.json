@@ -57,6 +57,7 @@
     "scan": {
       "error": {
         "already-running": "A scan is already running.",
+        "unknownAddress": "That server is no longer in the list.",
         "favouritesNotInLan": "Favourites can't be refreshed on the local network."
       },
       "blocked": {

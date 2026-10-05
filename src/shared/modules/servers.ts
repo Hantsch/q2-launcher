@@ -708,7 +708,7 @@ export interface ServersScanState {
   startedAt: string | null
   finishedAt: string | null
   blockedReason: ScanBlockedReason | null
-  scope: ScanScope | null
+  scope: ScanStateScope | null
   /** The mode of the running scan, or of the last one (`'online'` before any scan). */
   mode: ServersBrowseMode
 }
@@ -759,16 +759,37 @@ export const SERVERS_LAN_ERROR_SOCKET_REFUSED_KEY = 'servers.lan.error.socketRef
 /**
  * Which subset of servers a scan round touches. 'all' is exactly today's full scan (114's union
  * address set); 'favourites' touches only the favourites list; 'server' touches exactly one address
- * (allowed even when it is in no source/favourite/manual list).
+ * (allowed even when it is in no source/favourite/manual list). 'addresses' touches exactly the
+ * named rows of the active list - every one must already be a row there, or the whole start is
+ * refused with `SCAN_UNKNOWN_ADDRESS_REASON_KEY`.
  */
 export type ScanScope =
-  { kind: 'all' } | { kind: 'favourites' } | { kind: 'server'; address: string }
+  | { kind: 'all' }
+  | { kind: 'favourites' }
+  | { kind: 'server'; address: string }
+  | { kind: 'addresses'; addresses: string[] }
+
+/** Upper bound on an `addresses` scope - far above any real list, low enough that a hostile payload
+ * cannot make main normalise an unbounded array (story 250) */
+export const SCAN_SCOPE_ADDRESSES_MAX = 10_000
 
 export const scanScopeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('all') }),
   z.object({ kind: z.literal('favourites') }),
   z.object({ kind: z.literal('server'), address: serverAddressSchema }),
+  z.object({
+    kind: z.literal('addresses'),
+    addresses: z.array(serverAddressSchema).min(1).max(SCAN_SCOPE_ADDRESSES_MAX),
+  }),
 ])
+
+/** `scan.start` with an `addresses` scope naming an address the active list has no row for. */
+export const SCAN_UNKNOWN_ADDRESS_REASON_KEY = 'servers.scan.error.unknownAddress'
+
+/** The scope as `ServersScanState` reports it: an `addresses` scope carries only its size, so a
+ * `scan.changed` push never ships the whole address list back to the renderer (story 250) */
+export type ScanStateScope =
+  Exclude<ScanScope, { kind: 'addresses' }> | { kind: 'addresses'; count: number }
 
 /**
  * `scan.start`'s payload (D-G): `selectedAddress` is optional and, when present, re-validated with

@@ -1,4 +1,4 @@
-import type { ScanScope, ScanTarget, ServersState } from '@shared/modules/servers'
+import type { ScanScope, ScanTarget, ServerListEntry, ServersState } from '@shared/modules/servers'
 import type { ParsedServerAddress } from '@shared/servers/address'
 import { parseServerAddress } from '@shared/servers/address'
 import { buildScanAddressSet } from './address-set'
@@ -17,11 +17,16 @@ import { listFavourites } from './favourites'
  * - `server` returns exactly one target for the given address, `origins: []` (mirrors
  *   `scan-runner.ts`'s own fallback for a selected address that is in no known list) - allowed
  *   even when that address is in no source/favourite/manual list.
+ * - `addresses` returns one target per distinct named address that `knownRows` (the active list's
+ *   rows) has, carrying that row's own origins - a successful reply overwrites a row's origins
+ *   with its target's, so an empty origins list here would erase them. A name with no known row
+ *   is dropped; `scan-service.ts` refuses such a start before ever getting here (story 250)
  */
 export function resolveScanScopeAddresses(
   state: Pick<ServersState, 'favourites' | 'manualServers'>,
   scope: ScanScope,
   resolvedSourceAddresses: ParsedServerAddress[],
+  knownRows: readonly KnownScanRow[] = [],
 ): ScanTarget[] {
   switch (scope.kind) {
     case 'all':
@@ -47,5 +52,25 @@ export function resolveScanScopeAddresses(
       const address = parsed.ok ? parsed.normalized : scope.address.trim()
       return [{ address, origins: [] }]
     }
+    case 'addresses': {
+      const originsByAddress = new Map(knownRows.map((row) => [row.address, row.origins]))
+      return normalizeScopeAddresses(scope.addresses).flatMap((address) => {
+        const origins = originsByAddress.get(address)
+        return origins === undefined ? [] : [{ address, origins: [...origins] }]
+      })
+    }
   }
+}
+
+/** A row of the active list as the `addresses` scope needs it. */
+export type KnownScanRow = Pick<ServerListEntry, 'address' | 'origins'>
+
+/** Normalises and de-duplicates an `addresses` scope's names, keeping first-seen order - the same
+ * keying `read()` rows and `mergeStaleRound` use, so a differently-spelled duplicate is one target. */
+export function normalizeScopeAddresses(addresses: readonly string[]): string[] {
+  const normalized = addresses.map((address) => {
+    const parsed = parseServerAddress(address)
+    return parsed.ok ? parsed.normalized : address.trim()
+  })
+  return [...new Set(normalized)]
 }

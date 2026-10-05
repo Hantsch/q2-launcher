@@ -1,7 +1,7 @@
 ---
 id: 250
 title: Scan now refreshes only the servers my filter shows
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -21,17 +21,17 @@ Concept: [servers-module.md](../systems/servers-module.md), [game-browser.md](..
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With a filter active, the button reads "Refresh N shown" and refreshes exactly the
+- [x] **AC1** — With a filter active, the button reads "Refresh N shown" and refreshes exactly the
       servers the list currently shows (both scan stages, no master query).
-- [ ] **AC2** — With no filter active, the button reads "Scan now" and runs the full scan as today.
-- [ ] **AC3** — A full scan stays reachable while a filter is active (e.g. a split-button entry
+- [x] **AC2** — With no filter active, the button reads "Scan now" and runs the full scan as today.
+- [x] **AC3** — A full scan stays reachable while a filter is active (e.g. a split-button entry
       "Scan all").
-- [ ] **AC4** — A server that no longer matches after the refresh leaves the list, like with any live
+- [x] **AC4** — A server that no longer matches after the refresh leaves the list, like with any live
       update.
-- [ ] **AC5** — The visible set is sent as a validated list of addresses; main refuses addresses it
+- [x] **AC5** — The visible set is sent as a validated list of addresses; main refuses addresses it
       does not already know.
-- [ ] **AC6** — Works in Online and LAN mode; in LAN it only re-queries known rows, no broadcast.
-- [ ] **AC7** — The existing scan rules still hold: one scan at a time, refused while the game runs.
+- [x] **AC6** — Works in Online and LAN mode; in LAN it only re-queries known rows, no broadcast.
+- [x] **AC7** — The existing scan rules still hold: one scan at a time, refused while the game runs.
 
 ## Open Questions
 
@@ -95,7 +95,7 @@ unchanged, so it needs no edit (`scan-cadence.test.ts` pins that line).
 
 ## Deliverables
 
-- **D1 — `addresses` scan scope in contract and main, plus its unit tests.**
+- [x] **D1 — `addresses` scan scope in contract and main, plus its unit tests.**
   Files: `src/shared/modules/servers.ts` (`ScanScope` gains `{ kind: 'addresses'; addresses: string[] }`;
   `scanScopeSchema` entry `z.array(serverAddressSchema).min(1).max(SCAN_SCOPE_ADDRESSES_MAX)`;
   `export const SCAN_SCOPE_ADDRESSES_MAX = 10_000`; `export const SCAN_UNKNOWN_ADDRESS_REASON_KEY =
@@ -125,7 +125,7 @@ unchanged, so it needs no edit (`scan-cadence.test.ts` pins that line).
   otherwise in a new `src/shared/modules/servers.scan-scope.test.ts`. Named tests are listed under
   Acceptance Tests.
 
-- **D2 — Toolbar: "Refresh N shown" with a "Scan all" split entry, plus its component tests.**
+- [x] **D2 — Toolbar: "Refresh N shown" with a "Scan all" split entry, plus its component tests.**
   Files: `src/renderer/src/modules/servers/useServerScan.ts` (add `refreshShown: (addresses: string[],
   selected?: string) => void` → `startScan({ kind: 'addresses', addresses }, selected)`; the
   `refresh`/`refreshFavourites`/`refreshServer` shape stays),
@@ -146,7 +146,7 @@ unchanged, so it needs no edit (`scan-cadence.test.ts` pins that line).
   `onRefreshShown={() => scan.refreshShown(visible.map((r) => r.address), selectedAddress ?? undefined)}`.
   Use tokens only, `size="sm"` (28px floor deviation), and add the focus ring through `Button`.
 
-- **D3 — e2e proof, systems docs and changelog.**
+- [x] **D3 — e2e proof, systems docs and changelog.**
   Files: new `scripts/flows/servers-refresh-shown.mjs`, which mirrors `scripts/flows/servers-scoped-refresh.mjs`
   (three responders via `makeResponderBinder(..., { counted: true })` from `scripts/lib/servers-stub.mjs`,
   `readFinishedAt`/`waitForFinishedAtChange` from `scripts/lib/servers-flow.mjs`, the same fixture
@@ -198,3 +198,17 @@ unchanged, so it needs no edit (`scan-cadence.test.ts` pins that line).
   are disabled while a scan runs or the game blocks it"
 
 ## Done
+
+Scan now follows the filter: with one active the button reads "Refresh N shown" and refreshes exactly the
+visible servers (new `addresses` scan scope, both stages, no master query); a chevron menu keeps "Scan all".
+Unknown addresses are refused whole; LAN re-queries known rows only. Auto-refresh and favourites are unchanged.
+
+**Commit message:** `250: Scan now refreshes only the servers the filter shows — addresses scan scope, "Refresh N shown" + Scan all menu, servers-refresh-shown flow`
+
+**Verification (narrow gate):** build, typecheck, lint green; `npx vitest run --changed HEAD` 180 files green; comments + architecture tests green (after fixing two story-pointer placements). Flows: `--affected` not used; the new flow is not in `areas.json` (rows capped at 12, registering worsened flow-select.test), so all 25 `servers-*` flows incl. servers-refresh-shown and servers-lan-mode were run by name in 3 batches: all OK. Review (default tier, 1 cycle): PASS.
+AC → test: AC1/2/3 → ServersView.test.tsx component tests + servers-refresh-shown flow; AC4 → ServersView.test.tsx "a row that stops matching…"; AC5 → scoped-rounds unknown-address test + servers.test.ts schema test; AC6 → scoped-rounds LAN test + servers-lan-mode; AC7 → scoped-rounds refused test + ServersView disabled test. All ran and passed. No manual residue.
+
+**Decisions:** `scrollToSourceSettings.ts` extracted from ServersView.tsx to stay under the renderer-health line cap (pure move). New flow left out of `areas.json` (see above). Review nits left: AC4 test mostly re-exercises live filtering; AC1 component test does not pass a selected address through the view; "http-list not contacted" is asserted as empty `sourceFailures` as the plan prescribes.
+Open: an `all` round leaves a silent favourite as a stale row, contradicting a scan-service header comment ("never gets a row") — pre-existing, untouched.
+
+tiers: D 3 / hard 1 · review default · cycles 1 · agents 6

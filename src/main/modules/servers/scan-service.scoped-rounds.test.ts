@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+  SCAN_UNKNOWN_ADDRESS_REASON_KEY,
   SERVERS_EVENTS,
   type ServersScanState,
   type ServersState,
 } from '@shared/modules/servers'
 import { IDLE_LAUNCH_STATE } from '@shared/types'
 import type { FetchImpl } from '../../lib/net/fetcher'
+import type { LanReply } from './lan-discovery'
 import type { QueryServerFn } from './scan-runner'
 import type { ServerQueryResult } from './server-query'
-import { createScanService, SCAN_ALREADY_RUNNING_REASON_KEY } from './scan-service'
+import {
+  createScanService,
+  SCAN_ALREADY_RUNNING_REASON_KEY,
+  type LanDiscoveryFn,
+} from './scan-service'
 import {
   type RecordedEvent,
   fakeLaunch,
@@ -579,5 +585,294 @@ describe('createScanService - readDetail', () => {
     const detail = service.readDetail(ADDR)
     expect(detail?.serverinfo).toEqual(before)
     expect(detail?.row.status).toBe('stale')
+  })
+})
+
+describe('addresses scope (story 250)', () => {
+  const FAV = '10.0.1.1:27910'
+  const MANUAL = '10.0.1.2:27910'
+  const OTHER = '10.0.1.3:27910'
+  const UNKNOWN = '10.0.1.9:27910'
+  const LAN_A = '192.168.1.10:27910'
+  const LAN_B = '192.168.1.11:27910'
+  const LAN_C = '192.168.1.12:27910'
+
+  type QueryCall = { address: string; kind: 'info' | 'status' }
+
+  /** Answers `info` and `status` for every address in `online` - an `info` with two clients for an
+   * address in `busy`, so it reaches stage 2 - and stays silent for everything else. */
+  function liveQuery(): {
+    fn: QueryServerFn
+    calls: QueryCall[]
+    online: Map<string, string>
+    busy: Set<string>
+  } {
+    const calls: QueryCall[] = []
+    const online = new Map<string, string>()
+    const busy = new Set<string>()
+    const fn: QueryServerFn = async (target, options) => {
+      const address = `${target.host}:${target.port}`
+      calls.push({ address, kind: options.kind })
+      const name = online.get(address)
+      if (name === undefined) return noReply
+      if (options.kind === 'status') {
+        return {
+          ok: true,
+          kind: 'status',
+          reply: { ok: true, serverinfo: { hostname: `${name} status` }, players: [] },
+          rttMs: 9,
+        }
+      }
+      return {
+        ok: true,
+        kind: 'info',
+        reply: { ok: true, serverinfo: { hostname: name }, clients: busy.has(address) ? 2 : 0 },
+        rttMs: 7,
+      }
+    }
+    return { fn, calls, online, busy }
+  }
+
+  function failingFetch(): { fetchImpl: FetchImpl; fetchCalls: string[] } {
+    const fetchCalls: string[] = []
+    const fetchImpl: FetchImpl = async (url) => {
+      fetchCalls.push(url)
+      throw new Error('offline')
+    }
+    return { fetchImpl, fetchCalls }
+  }
+
+  /** A discovery round that always answers `replies`; `calls` counts how often it ran. */
+  function fakeLan(replies: string[]): { fn: LanDiscoveryFn; calls: number[] } {
+    const calls: number[] = []
+    const fn: LanDiscoveryFn = async (options) => {
+      calls.push(calls.length)
+      for (const address of replies) {
+        const reply: LanReply = {
+          address,
+          reply: { ok: true, serverinfo: { hostname: `LAN ${address}` }, clients: 0 },
+          rttMs: 2,
+        }
+        options.onReply(reply)
+      }
+      return { failureKey: null }
+    }
+    return { fn, calls }
+  }
+
+  function sorted(calls: QueryCall[]): QueryCall[] {
+    return [...calls].sort((a, b) =>
+      `${a.kind}:${a.address}`.localeCompare(`${b.kind}:${b.address}`),
+    )
+  }
+
+  function onlineState(): ServersState {
+    return baseState({
+      sources: [
+        { id: 'src-1', type: 'http-list', address: 'http://example.invalid/list', enabled: true },
+      ],
+      favourites: [{ address: FAV, addedAt: new Date().toISOString() }],
+      manualServers: [manualEntry(MANUAL), manualEntry(OTHER)],
+    })
+  }
+
+  it('an addresses round queries exactly those addresses through both stages and never resolves sources', async () => {
+    const state = onlineState()
+    const query = liveQuery()
+    const { fetchImpl, fetchCalls } = failingFetch()
+    const service = createScanService({
+      getServersState: () => state,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn, fetchImpl },
+    })
+    const entryOf = (address: string) => service.read().entries.find((e) => e.address === address)
+
+    // Round 1 (all): the favourite is silent; both manual servers answer.
+    query.online.set(MANUAL, 'Manual')
+    query.online.set(OTHER, 'Other')
+    service.start()
+    await waitForIdle(service)
+    expect(entryOf(FAV)).toMatchObject({ status: 'stale', origins: ['favourite'] })
+    const otherBefore = structuredClone(entryOf(OTHER))
+
+    // Round 2: FAV (busy) answers, MANUAL is silent, OTHER would answer differently if asked.
+    query.online.set(FAV, 'Fav')
+    query.busy.add(FAV)
+    query.online.delete(MANUAL)
+    query.online.set(OTHER, 'Other changed')
+    query.calls.length = 0
+    fetchCalls.length = 0
+    expect(
+      service.start({
+        scope: { kind: 'addresses', addresses: [FAV, MANUAL, ` ${FAV} `] },
+        selectedAddress: OTHER,
+      }),
+    ).toEqual({ ok: true })
+    expect(service.read().state.scope).toEqual({ kind: 'addresses', count: 2 })
+    await waitForIdle(service)
+
+    expect(fetchCalls).toHaveLength(0)
+    expect(service.read().state.sourceFailures).toEqual([])
+    // Stage 1 asks each named address once; stage 2 asks only the busy one - the selection outside
+    // the scope adds nothing.
+    expect(sorted(query.calls)).toEqual([
+      { address: FAV, kind: 'info' },
+      { address: MANUAL, kind: 'info' },
+      { address: FAV, kind: 'status' },
+    ])
+    // Origins survive: the answering row's favourite origin, the silent row's manual one.
+    expect(entryOf(FAV)).toMatchObject({
+      status: 'online',
+      name: 'Fav status',
+      origins: ['favourite'],
+    })
+    expect(entryOf(MANUAL)).toMatchObject({ status: 'stale', name: 'Manual', origins: ['manual'] })
+    expect(entryOf(OTHER)).toEqual(otherBefore)
+    expect(service.read().entries).toHaveLength(3)
+    expect(service.read().state.scope).toEqual({ kind: 'addresses', count: 2 })
+  })
+
+  it('an addresses round over a never-scanned placeholder honours a selection inside the scope and keeps its origin', async () => {
+    const state = onlineState()
+    const query = liveQuery()
+    query.online.set(FAV, 'Fav')
+    const service = createScanService({
+      getServersState: () => state,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn },
+    })
+    expect(service.read().entries.find((e) => e.address === FAV)).toMatchObject({
+      status: 'pending',
+      origins: ['favourite'],
+    })
+
+    expect(
+      service.start({ scope: { kind: 'addresses', addresses: [FAV] }, selectedAddress: FAV }),
+    ).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    expect(sorted(query.calls)).toEqual([
+      { address: FAV, kind: 'info' },
+      { address: FAV, kind: 'status' },
+    ])
+    expect(service.read().entries.find((e) => e.address === FAV)).toMatchObject({
+      status: 'online',
+      origins: ['favourite'],
+    })
+  })
+
+  it('an addresses round naming an address the active list does not know is refused with no query sent', async () => {
+    const state = onlineState()
+    const query = liveQuery()
+    const { emit, events } = recorder()
+    const lan = fakeLan([LAN_A])
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn, lanDiscovery: lan.fn },
+    })
+
+    expect(service.start({ scope: { kind: 'addresses', addresses: [MANUAL, UNKNOWN] } })).toEqual({
+      ok: false,
+      reasonKey: SCAN_UNKNOWN_ADDRESS_REASON_KEY,
+    })
+    await tick()
+    await tick()
+    expect(query.calls).toHaveLength(0)
+    expect(events).toHaveLength(0)
+    expect(service.read().state).toMatchObject({ running: false, scope: null, startedAt: null })
+
+    // Known means the active list: a manual server is an online placeholder, not a LAN row.
+    service.setMode('lan')
+    expect(service.start({ scope: { kind: 'addresses', addresses: [MANUAL] } })).toEqual({
+      ok: false,
+      reasonKey: SCAN_UNKNOWN_ADDRESS_REASON_KEY,
+    })
+    await tick()
+    expect(query.calls).toHaveLength(0)
+    expect(lan.calls).toHaveLength(0)
+  })
+
+  it('a LAN addresses round re-queries known LAN rows without discovery and keeps the list', async () => {
+    const query = liveQuery()
+    for (const address of [LAN_A, LAN_B, LAN_C]) query.online.set(address, `LAN ${address}`)
+    const lan = fakeLan([LAN_A, LAN_B, LAN_C])
+    const service = createScanService({
+      getServersState: onlineState,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn, lanDiscovery: lan.fn },
+    })
+    service.setMode('lan')
+    const entryOf = (address: string) => service.read().entries.find((e) => e.address === address)
+
+    service.start()
+    await waitForIdle(service)
+    expect(lan.calls).toHaveLength(1)
+    const bBefore = structuredClone(entryOf(LAN_B))
+    const cBefore = structuredClone(entryOf(LAN_C))
+
+    // LAN_A is busy and renamed, LAN_B is silent, LAN_C would answer differently if asked.
+    query.online.set(LAN_A, 'LAN A renamed')
+    query.busy.add(LAN_A)
+    query.online.delete(LAN_B)
+    query.online.set(LAN_C, 'LAN C renamed')
+    query.calls.length = 0
+    expect(service.start({ scope: { kind: 'addresses', addresses: [LAN_A, LAN_B] } })).toEqual({
+      ok: true,
+    })
+    await waitForIdle(service)
+
+    expect(lan.calls).toHaveLength(1)
+    expect(sorted(query.calls)).toEqual([
+      { address: LAN_A, kind: 'info' },
+      { address: LAN_B, kind: 'info' },
+      { address: LAN_A, kind: 'status' },
+    ])
+    expect(entryOf(LAN_A)).toMatchObject({
+      status: 'online',
+      name: 'LAN A renamed status',
+      origins: ['lan'],
+    })
+    // No stale merge on the LAN: a silent row is left exactly as it was, and nothing is dropped.
+    expect(entryOf(LAN_B)).toEqual(bBefore)
+    expect(entryOf(LAN_C)).toEqual(cBefore)
+    expect(
+      service
+        .read()
+        .entries.map((e) => e.address)
+        .sort(),
+    ).toEqual([LAN_A, LAN_B, LAN_C])
+  })
+
+  it('an addresses round is refused while a scan runs and while the game runs', async () => {
+    const { fn: queryServer, calls } = deferredQuery()
+    const launch = fakeLaunch()
+    const service = createScanService({
+      getServersState: () => baseState({ manualServers: [manualEntry(MANUAL)] }),
+      emit: recorder().emit,
+      launch: launch.host,
+      deps: { queryServer },
+    })
+
+    expect(service.start()).toEqual({ ok: true })
+    expect(service.start({ scope: { kind: 'addresses', addresses: [MANUAL] } })).toEqual({
+      ok: false,
+      reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY,
+    })
+    expect(service.read().state.scope).toEqual({ kind: 'all' })
+
+    // The game guard comes first - even ahead of the unknown-address refusal.
+    launch.set(RUNNING)
+    expect(service.start({ scope: { kind: 'addresses', addresses: [UNKNOWN] } })).toEqual({
+      ok: false,
+      reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+    })
+    await tick()
+    expect(calls.map((call) => call.address)).toEqual([MANUAL])
+    service.dispose()
   })
 })

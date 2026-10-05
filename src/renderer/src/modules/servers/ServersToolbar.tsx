@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, RefreshCw, Star } from 'lucide-react'
+import { AlertTriangle, ChevronDown, RefreshCw, Star } from 'lucide-react'
 import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   type ScanBlockedReason,
@@ -8,6 +8,7 @@ import {
   type ServersScanState,
 } from '@shared/modules/servers'
 import { Button } from '../../components/ui/Button'
+import { Menu } from '../../components/ui/Menu'
 import { StatusDot } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
 import { ServersModeToggle } from './ServersModeToggle'
@@ -26,7 +27,12 @@ export interface ServersToolbarProps {
   entryCount: number
   sortCaption: string
   onModeChange: (next: ServersBrowseMode) => void
+  /** A list filter narrows the rows: the primary button then refreshes just those. */
+  filterActive: boolean
+  shownCount: number
+  /** Scans everything - "Scan now" without a filter, "Scan all" in the options menu with one. */
   onRefresh: () => void
+  onRefreshShown: () => void
   onRefreshFavourites: () => void
 }
 
@@ -42,13 +48,17 @@ export function ServersToolbar({
   entryCount,
   sortCaption,
   onModeChange,
+  filterActive,
+  shownCount,
   onRefresh,
+  onRefreshShown,
   onRefreshFavourites,
 }: ServersToolbarProps) {
   const { t } = useTranslation()
   const isBlocked = scanState.blockedReason !== null
   const isBusy = scanState.running
   const isRefreshDisabled = isBlocked || isBusy
+  const noneShown = filterActive && shownCount === 0
   const isLan = mode === 'lan'
   const stateLabel = t(isBusy ? 'common.action.scanning' : 'module.servers.view.status.idle')
 
@@ -92,12 +102,41 @@ export function ServersToolbar({
             icon={
               <RefreshCw className={cn('size-3.5', isBusy && 'animate-spin')} aria-hidden="true" />
             }
-            onClick={onRefresh}
-            disabled={isRefreshDisabled}
+            onClick={filterActive ? onRefreshShown : onRefresh}
+            disabled={isRefreshDisabled || noneShown}
             data-testid="servers-refresh"
           >
-            {t('module.servers.view.refresh')}
+            {filterActive
+              ? t('module.servers.view.refreshShown', { count: shownCount })
+              : t('module.servers.view.refresh')}
           </Button>
+          {filterActive && (
+            <Menu
+              side="below"
+              label={t('module.servers.view.scanOptions')}
+              items={[
+                {
+                  id: 'scan-all',
+                  label: t('module.servers.view.scanAll'),
+                  onSelect: onRefresh,
+                },
+              ]}
+            >
+              {({ open, toggle }) => (
+                <Button
+                  variant="neutral"
+                  size="sm"
+                  icon={<ChevronDown className="size-3.5" aria-hidden="true" />}
+                  onClick={toggle}
+                  disabled={isRefreshDisabled}
+                  aria-label={t('module.servers.view.scanOptions')}
+                  aria-haspopup="menu"
+                  aria-expanded={open}
+                  data-testid="servers-refresh-options"
+                />
+              )}
+            </Menu>
+          )}
           <Button
             variant="neutral"
             size="sm"
@@ -112,6 +151,11 @@ export function ServersToolbar({
         {isLan && (
           <p className="text-xs text-ink-muted" data-testid="servers-lan-favourites-reason">
             {t('servers.lan.favouritesNotInLan')}
+          </p>
+        )}
+        {noneShown && (
+          <p className="text-xs text-ink-muted" data-testid="servers-refresh-none">
+            {t('module.servers.view.refreshShownNone')}
           </p>
         )}
         {isBlocked && scanState.blockedReason && (

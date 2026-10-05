@@ -254,6 +254,10 @@
       },
       "view": {
         "refresh": "Scan now",
+        "refreshShown": "Refresh {{count}} shown",
+        "scanAll": "Scan all",
+        "scanOptions": "More scan options",
+        "refreshShownNone": "No servers shown — use Scan all or clear the filter.",
         "refreshFavourites": "Refresh favourites",
         "refreshSelected": "Refresh this server",
         "status": {

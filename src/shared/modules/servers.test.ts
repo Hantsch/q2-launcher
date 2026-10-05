@@ -6,6 +6,7 @@ import {
   DEFAULT_SERVERS_STATE,
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY,
+  SCAN_SCOPE_ADDRESSES_MAX,
   SERVER_HISTORY_CAP,
   SERVERS_LAN_ERROR_NO_INTERFACE_KEY,
   SERVERS_LAN_ERROR_SOCKET_REFUSED_KEY,
@@ -417,6 +418,32 @@ describe('scan scope (story 117 D1)', () => {
     )
     expect(scanScopeSchema.safeParse({ kind: 'server', address: '' }).success).toBe(false)
     expect(scanScopeSchema.safeParse({ kind: 'server' }).success).toBe(false)
+  })
+
+  it('the addresses scope rejects an empty list, an invalid address and more than SCAN_SCOPE_ADDRESSES_MAX', () => {
+    const addressAt = (i: number): string =>
+      `10.${Math.floor(i / 65536) % 256}.${Math.floor(i / 256) % 256}.${i % 256}:27910`
+    const atMax = Array.from({ length: SCAN_SCOPE_ADDRESSES_MAX }, (_, i) => addressAt(i))
+
+    expect(
+      scanScopeSchema.safeParse({ kind: 'addresses', addresses: ['1.2.3.4:27910'] }).success,
+    ).toBe(true)
+    expect(scanScopeSchema.safeParse({ kind: 'addresses', addresses: atMax }).success).toBe(true)
+
+    expect(scanScopeSchema.safeParse({ kind: 'addresses', addresses: [] }).success).toBe(false)
+    expect(
+      scanScopeSchema.safeParse({
+        kind: 'addresses',
+        addresses: ['1.2.3.4:27910', 'not-an-address'],
+      }).success,
+    ).toBe(false)
+    expect(
+      scanScopeSchema.safeParse({
+        kind: 'addresses',
+        addresses: [...atMax, '1.2.3.4:27910'],
+      }).success,
+    ).toBe(false)
+    expect(scanScopeSchema.safeParse({ kind: 'addresses' }).success).toBe(false)
   })
 
   it('scanScopeSchema rejects an unknown kind', () => {

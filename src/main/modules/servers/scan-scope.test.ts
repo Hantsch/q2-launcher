@@ -114,4 +114,41 @@ describe('resolveScanScopeAddresses', () => {
       expect(result).toEqual([{ address: '192.168.1.1:27910', origins: [] }])
     })
   })
+
+  describe('addresses scope', () => {
+    const state = {
+      favourites: [favourite('10.0.0.9:27910')],
+      manualServers: [manual('10.0.0.5:27910')],
+    } as Pick<ServersState, 'favourites' | 'manualServers'>
+    const knownRows = [
+      { address: '10.0.0.9:27910', origins: ['favourite' as const] },
+      { address: '10.0.0.5:27910', origins: ['manual' as const] },
+      { address: '10.0.0.7:27910', origins: ['source' as const, 'favourite' as const] },
+    ]
+
+    it('targets each named known row once, carrying the origins of its known row', () => {
+      const result = resolveScanScopeAddresses(
+        state,
+        { kind: 'addresses', addresses: ['10.0.0.7:27910', '10.0.0.9:27910', ' 10.0.0.7:27910 '] },
+        [sourceAddress('10.0.0.1:27910')],
+        knownRows,
+      )
+
+      expect(result).toEqual([
+        { address: '10.0.0.7:27910', origins: ['source', 'favourite'] },
+        { address: '10.0.0.9:27910', origins: ['favourite'] },
+      ])
+    })
+
+    it('never names a source, favourite or manual address the scope does not list, nor an unknown one', () => {
+      const result = resolveScanScopeAddresses(
+        state,
+        { kind: 'addresses', addresses: ['10.0.0.5:27910', '192.168.1.1:27910'] },
+        [sourceAddress('10.0.0.1:27910')],
+        knownRows,
+      )
+
+      expect(result).toEqual([{ address: '10.0.0.5:27910', origins: ['manual'] }])
+    })
+  })
 })

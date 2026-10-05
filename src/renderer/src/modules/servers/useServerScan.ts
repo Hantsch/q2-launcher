@@ -46,6 +46,8 @@ export interface ServerScan {
   changeMode: (next: ServersBrowseMode) => void
   /** A full scan; `selected` still gets a stage-2 query even if stage 1 reports it empty. */
   refresh: (selected?: string) => void
+  /** Re-scans exactly the rows the filter shows; `selected` is kept as in `refresh`. */
+  refreshShown: (addresses: string[], selected?: string) => void
   refreshFavourites: () => void
   refreshServer: (address: string) => void
   /** Re-reads the list, e.g. after a favourite changed. */
@@ -179,6 +181,8 @@ export function useServerScan(): ServerScan {
     sourceLabels,
     changeMode,
     refresh: (selected) => void startScan({ kind: 'all' }, selected),
+    refreshShown: (addresses, selected) =>
+      void startScan({ kind: 'addresses', addresses }, selected),
     refreshFavourites: () => void startScan({ kind: 'favourites' }),
     refreshServer: (address) => void startScan({ kind: 'server', address }),
     rereadEntries,

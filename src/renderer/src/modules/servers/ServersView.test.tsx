@@ -647,3 +647,102 @@ describe('ServersView - render cost', () => {
     expect(vi.mocked(sortServerRows).mock.calls.length).toBe(sorts)
   })
 })
+
+describe('ServersView - refresh the shown servers (story 250)', () => {
+  const CTF: ServerListEntry = {
+    address: 'a:1',
+    name: 'Alpha',
+    origins: ['manual'],
+    status: 'online',
+    lastSeenAt: 'x',
+    mod: 'ctf',
+  }
+  const BASEQ2: ServerListEntry = { ...CTF, address: 'b:1', name: 'Bravo', mod: 'baseq2' }
+
+  it('with a filter active the button reads Refresh N shown and starts the addresses scope with the visible rows', async () => {
+    await renderView(snapshot({ entries: [CTF, BASEQ2] }))
+
+    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+    await screen.findByTestId('servers-row-a:1')
+
+    const button = screen.getByTestId('servers-refresh')
+    expect(button.textContent).toBe('Refresh 1 shown')
+    fireEvent.click(button)
+
+    expect(startScanMock).toHaveBeenCalledWith({ kind: 'addresses', addresses: ['a:1'] }, undefined)
+    expect(startScanMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('with no filter the button reads Scan now, has no options menu and starts the all scope', async () => {
+    await renderView(snapshot({ entries: [CTF, BASEQ2] }))
+
+    const button = screen.getByTestId('servers-refresh')
+    expect(button.textContent).toBe('Scan now')
+    expect(screen.queryByTestId('servers-refresh-options')).toBeNull()
+    fireEvent.click(button)
+
+    expect(startScanMock).toHaveBeenCalledWith({ kind: 'all' }, undefined)
+  })
+
+  it('Scan all in the options menu starts the all scope while a filter is active', async () => {
+    await renderView(snapshot({ entries: [CTF, BASEQ2] }))
+    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+    await screen.findByTestId('servers-row-a:1')
+
+    const options = screen.getByTestId('servers-refresh-options')
+    expect(options.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(options)
+    expect(options.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Scan all' }))
+
+    expect(startScanMock).toHaveBeenCalledWith({ kind: 'all' }, undefined)
+    expect(startScanMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('a row that stops matching the filter after a scan.server push leaves the list', async () => {
+    await renderView(snapshot({ entries: [CTF, BASEQ2] }))
+    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+    await screen.findByTestId('servers-row-a:1')
+
+    readScanMock.mockResolvedValue({
+      ok: true,
+      value: snapshot({ entries: [{ ...CTF, mod: 'baseq2' }, BASEQ2] }),
+    })
+    const pushed = onScanServerMock.mock.calls[0]?.[0] as () => void
+    await act(async () => {
+      pushed()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
+    expect(screen.getByTestId('servers-refresh').textContent).toBe('Refresh 0 shown')
+  })
+
+  it('shows why the button is disabled when the filter leaves no servers', async () => {
+    await renderView(snapshot({ entries: [CTF] }))
+    fireEvent.change(screen.getByTestId('servers-filter-search'), { target: { value: 'nope' } })
+
+    expect((await screen.findByTestId('servers-refresh-none')).textContent).toBe(
+      'No servers shown — use Scan all or clear the filter.',
+    )
+    expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('servers-refresh-options') as HTMLButtonElement).disabled).toBe(
+      false,
+    )
+  })
+
+  it('the refresh-shown button and the options menu are disabled while a scan runs or the game blocks it', async () => {
+    for (const state of [{ running: true }, { blockedReason: 'game-running' as const }]) {
+      await renderView(snapshot({ state, entries: [CTF, BASEQ2] }))
+      fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+      await screen.findByTestId('servers-row-a:1')
+
+      expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
+      expect((screen.getByTestId('servers-refresh-options') as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+      cleanup()
+    }
+  })
+})

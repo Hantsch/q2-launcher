@@ -342,3 +342,4 @@ second roadmap.
 - 249 — I pick mod and map when I start an installation · S34 · Play with... dialog beside Play: mod, map (loose/pak/pkz, titles) and game type, remembered per installation, launches with +map
 - 246 — an installation with several engines lets me choose one · S34 · inspector lists all engines, the card offers the choice, Play and demo playback follow it
 - 247 — I filter servers by maximum ping · S34 · Max ping select (< 50 to < 200 ms) filters live servers, saved in quick filters, same in Online and LAN
+- 250 — Scan now refreshes only the servers my filter shows · S34 · filter active: "Refresh N shown" re-queries just the visible servers, chevron menu keeps Scan all; LAN re-queries known rows only
