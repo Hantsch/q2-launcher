@@ -16,7 +16,9 @@ export const PAK_ENTRY_BYTES = 64
 export const PAK_NAME_BYTES = 56
 export const PAK_MAX_ENTRIES = 65_536
 
-export type PakDirectoryResult = { ok: true; names: string[] } | { ok: false }
+export type PakEntry = { name: string; offset: number; length: number }
+
+export type PakDirectoryResult = { ok: true; names: string[]; entries: PakEntry[] } | { ok: false }
 
 const REFUSED: PakDirectoryResult = { ok: false }
 
@@ -65,9 +67,16 @@ export async function readPakDirectory(path: string): Promise<PakDirectoryResult
     const directory = await readExactly(handle, dirlen, dirofs)
     if (!directory) return REFUSED
 
-    const names: string[] = []
-    for (let i = 0; i < count; i += 1) names.push(entryName(directory, i))
-    return { ok: true, names }
+    const entries: PakEntry[] = []
+    for (let i = 0; i < count; i += 1) {
+      const at = i * PAK_ENTRY_BYTES + PAK_NAME_BYTES
+      entries.push({
+        name: entryName(directory, i),
+        offset: directory.readInt32LE(at),
+        length: directory.readInt32LE(at + 4),
+      })
+    }
+    return { ok: true, names: entries.map((e) => e.name), entries }
   } catch {
     return REFUSED
   } finally {

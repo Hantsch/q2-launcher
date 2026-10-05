@@ -16,6 +16,8 @@ This document describes the module as built. `mods` is a registered module; its 
 - Update a catalog mod to its pinned version and remove a launcher-installed mod, deleting only
   the files the launcher recorded.
 - Tell the server browser whether an installation has a server's map.
+- List the maps a mod can start (loose, in a pak, or as a `.pkz` archive) and remember the last launch choice, for the
+  "Play with..." dialog beside Play in the action bar.
 
 ## Map
 
@@ -33,6 +35,9 @@ This document describes the module as built. `mods` is a registered module; its 
 - `remove-job.ts` / `remove.ts` — removal from the install record alone.
 - `install-records.ts` — the one parser of an installation's `mods` record data.
 - `map-presence.ts` — looks for a map loose, in a pak or in a pkz.
+- `map-list.ts` / `game-dir-fs.ts` — the sorted, name-checked maps of one game directory (loose
+  and in paks, titled from the BSP's worldspawn message; maps in `.pkz` archives are listed by
+  name only, with no title, except for r1q2 installations, which cannot read a `.pkz`).
 - `src/shared/modules/mods.ts` — shared contract + schema map.
 
 **Shared** (`src/shared/`, pure)
@@ -46,7 +51,8 @@ This document describes the module as built. `mods` is a registered module; its 
 - `ModsView.tsx`, `client.ts`, `useModUpdate.tsx`, `merge-mod-tiles.ts`, `engine-name.ts`,
   `locale/en.json`.
 - `components/` — `ModTile.tsx`, `ModDetailPanel.tsx`, `ModInstallState.tsx`,
-  `InstallDecisionDialog.tsx`, `UpdateModDialog.tsx`, `RemoveModDialog.tsx`.
+  `InstallDecisionDialog.tsx`, `UpdateModDialog.tsx`, `RemoveModDialog.tsx`,
+  `PlayWithDialog.tsx`.
 
 ## Persisted state
 
@@ -54,6 +60,8 @@ This document describes the module as built. `mods` is a registered module; its 
   catalog mod: catalog id, game directory, version, variant, engine kind, arch, platform,
   content-only flag, install time and the files written (path, size, sha256). Read
   defensively: a bad envelope is an empty set, a bad row or an unsafe recorded path is dropped.
+- The `lastLaunch` key of the same envelope — `{gameDir, map, gameType}`, written when the user
+  starts from the Play with... dialog. Every writer of the envelope keeps the other key.
 - catalog-cache.json under the user data cache folder — the last good catalog; fresh for 15
   minutes, served stale when a fetch fails.
 
@@ -71,6 +79,14 @@ This document describes the module as built. `mods` is a registered module; its 
 - `mapPresence` — whether `maps/<map>.bsp` exists in the installation.
 - `updatePreview` — names, versions and changed files for the confirm dialog; writes nothing.
 - `update` — starts updating a catalog mod; refused when no install record exists.
+- `mapsList` (`maps.list`) — the maps of one installation's game directory (loose, in a pak, or in a
+  `.pkz` by name only; no `.pkz` for r1q2 installations), sorted, unsafe names left out.
+- `lastLaunchGet` (`launch.last.get`) — the last mod, map and game type chosen per installation.
+- `lastLaunchRemember` (`launch.last.remember`) — stores that choice; the dialog falls back to the installation's own defaults when it no longer exists.
+
+The play-with dialog (`PlayWithDialog.tsx`, opened by the action bar's "Play with..." button,
+enabled exactly when Play is) starts the game with `+set game <dir>`, and with a map also
+`+set deathmatch 0|1` and `+map <map>`. Plain Play is unchanged.
 
 Events: `MODS_EVENTS` pushes `installDecision` when an install meets a folder it did not create.
 

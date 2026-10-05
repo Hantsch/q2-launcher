@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModInstallRecord } from '@shared/modules/mods'
 import { ok, type Installation } from '@shared/types'
 import { makeJobRunner, type JobRunnerHarness } from '../../../test-support/job-runner'
-import { readModsState } from './install-records'
+import { readLastLaunch, readModsState } from './install-records'
 import { startModRemove, previewModRemoval, type ModRemoveDeps } from './remove-job'
 
 const forced = vi.hoisted(() => ({ failPath: undefined as string | undefined }))
@@ -63,7 +63,12 @@ interface Harness {
 /** `gate` keeps the write guard closed (the game is running) until `release()`. */
 function harness(
   rec: ModInstallRecord | undefined,
-  opts: { activeGameDir?: string; gate?: boolean; revalidatedActive?: string } = {},
+  opts: {
+    activeGameDir?: string
+    gate?: boolean
+    revalidatedActive?: string
+    lastLaunch?: unknown
+  } = {},
 ): Harness {
   const installation = {
     id: 'inst-1',
@@ -71,7 +76,15 @@ function harness(
     rootPath: root,
     gameDirs: ['baseq2', 'rogue'],
     activeGameDir: opts.activeGameDir ?? '',
-    moduleData: rec ? { mods: { records: [rec] }, other: 1 } : {},
+    moduleData: rec
+      ? {
+          mods: {
+            records: [rec],
+            ...(opts.lastLaunch !== undefined ? { lastLaunch: opts.lastLaunch } : {}),
+          },
+          other: 1,
+        }
+      : {},
   } as unknown as Installation
   const state = { installation }
   const toasts: unknown[][] = []
@@ -139,6 +152,21 @@ describe('startModRemove', () => {
     expect(preview.ok).toBe(false)
     expect(existsSync(join(root, 'rogue', 'pak0.pak'))).toBe(true)
     expect(h.jobs.list()).toEqual([])
+  })
+
+  it('removing a mod keeps the remembered launch', async () => {
+    await seed(FILES)
+    const choice = { gameDir: 'rogue', map: 'rmine1', gameType: 'single' }
+    const h = harness(record(FILES), { lastLaunch: choice })
+    const started = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'rogue',
+      changedFiles: 'delete',
+    })
+    if (!started.ok) throw new Error('expected a started job')
+    expect(await started.value.settled).toEqual({ status: 'succeeded' })
+    expect(readModsState(h.installation.moduleData).records).toEqual([])
+    expect(readLastLaunch(h.installation.moduleData)).toEqual(choice)
   })
 
   it('nothing is deleted before the write guard grants the lock', async () => {
@@ -247,9 +275,9 @@ describe('startModRemove', () => {
     expect(
       startModRemove(h.deps, { installationId: 'inst-1', modId: 'rogue', changedFiles: 'delete' }),
     ).toMatchObject(refused)
-    expect(await previewModRemoval(h.deps, { installationId: 'inst-1', modId: 'rogue' })).toMatchObject(
-      refused,
-    )
+    expect(
+      await previewModRemoval(h.deps, { installationId: 'inst-1', modId: 'rogue' }),
+    ).toMatchObject(refused)
     expect(existsSync(join(root, 'rogue', 'pak0.pak'))).toBe(true)
     expect(h.jobs.list()).toHaveLength(1)
 

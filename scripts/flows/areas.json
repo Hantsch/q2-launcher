@@ -685,7 +685,12 @@
   },
   {
     "area": "mods",
-    "paths": ["src/main/modules/mods/**", "src/shared/mods/**", "src/renderer/src/modules/mods/**"],
+    "paths": [
+      "src/main/modules/mods/**",
+      "src/main/lib/bsp-title.ts",
+      "src/shared/mods/**",
+      "src/renderer/src/modules/mods/**"
+    ],
     "flows": ["mods-*", "mod-update", "replays-mod-install"],
     "why": "The mods module end to end: catalog, install, update and removal."
   },

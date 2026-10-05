@@ -13,7 +13,7 @@ import {
 import { type ContributedAction, usePrimaryActionStore } from '../../lib/primary-action'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
-import { IconButton, PlayButton } from '../ui/Button'
+import { Button, IconButton, PlayButton } from '../ui/Button'
 import { DemoBadge } from '../ui/DemoBadge'
 import { EngineBadge } from '../ui/EngineBadge'
 import { InstallationTile } from '../installations/InstallationTile'
@@ -51,6 +51,8 @@ export function ActionBar() {
   )
 
   const action = resolvePrimaryAction(installation, job, launch, demo, contribution)
+  // A tab's contributed action never decides this one: Play with... is about starting the game.
+  const canPlay = resolvePrimaryAction(installation, job, launch, demo, null).kind === 'play'
   const note =
     action.kind === 'contributed' && contribution
       ? contribution.error
@@ -197,6 +199,23 @@ export function ActionBar() {
               only be proven by sampling this exact button's enabled-ness against a live job, and
               the footer's buttons are otherwise addressable only by translated label - which
               changes per `action.kind`, i.e. precisely with the state under test. */}
+          <Button
+            variant="ghost"
+            data-testid="actionbar-play-with"
+            disabled={!installation || !canPlay}
+            onClick={() =>
+              installation &&
+              openDialog({
+                kind: 'module',
+                moduleId: 'mods',
+                view: 'play-with',
+                installationId: installation.id,
+              })
+            }
+          >
+            {t('actionbar.playWith')}
+          </Button>
+
           <PlayButton
             data-testid="actionbar-play"
             data-action={

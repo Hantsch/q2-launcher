@@ -56,8 +56,27 @@ describe('readPakDirectory', () => {
         { name: long, data: Buffer.alloc(0) },
       ]),
     )
-    expect(result).toEqual({ ok: true, names: ['maps/q2dm1.bsp', 'pics/café.pcx', long] })
-    expect(await read('empty.pak', buildPak([]))).toEqual({ ok: true, names: [] })
+    expect(result).toMatchObject({ ok: true, names: ['maps/q2dm1.bsp', 'pics/café.pcx', long] })
+    expect(await read('empty.pak', buildPak([]))).toMatchObject({ ok: true, names: [] })
+  })
+
+  it("entries carry each file's offset and length", async () => {
+    const a = Buffer.from('first file')
+    const b = Buffer.from('second')
+    const result = await read(
+      'offsets.pak',
+      buildPak([
+        { name: 'maps/a.bsp', data: a },
+        { name: 'maps/b.bsp', data: b },
+      ]),
+    )
+    expect(result).toMatchObject({
+      ok: true,
+      entries: [
+        { name: 'maps/a.bsp', offset: 12, length: a.length },
+        { name: 'maps/b.bsp', offset: 12 + a.length, length: b.length },
+      ],
+    })
   })
 
   it('refuses a bad magic, an oversized directory and a truncated file', async () => {
@@ -93,6 +112,6 @@ describe('readPakDirectory', () => {
     expect(await readPakDirectory(dir)).toEqual({ ok: false })
 
     // The untouched fixture still reads, so the refusals above are about the damage.
-    expect(await read('ok.pak', valid)).toEqual({ ok: true, names: ['maps/a.bsp'] })
+    expect(await read('ok.pak', valid)).toMatchObject({ ok: true, names: ['maps/a.bsp'] })
   })
 })

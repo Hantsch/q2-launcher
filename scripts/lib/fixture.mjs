@@ -72,6 +72,8 @@ export {
   joinExecutablePath,
   writeJoinInstallRoot,
   writeJoinFixture,
+  PLAY_WITH_INSTALL_ID,
+  writePlayWithFixture,
   WINDOWS_BUILD_INSTALL_NAME,
   windowsBuildInstallRoot,
   windowsBuildExecutablePath,

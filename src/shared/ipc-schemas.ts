@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { IpcInvokeMap } from './ipc'
+import { isSafeGameName } from './mods/server-local-content'
 import type { InstallationIcon } from './types'
 import { MODULE_MANIFESTS, type ModuleId } from './types/module'
 import {
@@ -195,24 +196,30 @@ export const detectionListDrivesSchema: z.ZodType<IpcInvokeMap['detection:listDr
 
 // ---- launching --------------------------------------------------------------------
 
-export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = z.object({
-  installationId: z.string().min(1),
-  gameDir: z.string().max(64).optional(),
-  connect: serverAddressSchema.optional(),
-  extraArgs: z.array(z.string().max(500)).max(64).optional(),
-  // Story 125: validated the same way a password would be checked on its own, never trusted
-  // just because it arrived alongside a validated `connect`.
-  userinfo: z
-    .object({
-      password: launchUserinfoValueSchema.optional(),
-      spectator: launchUserinfoValueSchema.optional(),
-    })
-    .strict()
-    .optional(),
-  // Story 126: composes with `userinfo.password` (reused as the spectator password) - see
-  // `resolveEffectiveUserinfo` in `launch-plan.ts`.
-  spectate: z.literal(true).optional(),
-})
+export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = z
+  .object({
+    installationId: z.string().min(1),
+    gameDir: z.string().max(64).optional(),
+    connect: serverAddressSchema.optional(),
+    extraArgs: z.array(z.string().max(500)).max(64).optional(),
+    // Story 125: validated the same way a password would be checked on its own, never trusted
+    // just because it arrived alongside a validated `connect`.
+    userinfo: z
+      .object({
+        password: launchUserinfoValueSchema.optional(),
+        spectator: launchUserinfoValueSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    // Story 126: composes with `userinfo.password` (reused as the spectator password) - see
+    // `resolveEffectiveUserinfo` in `launch-plan.ts`.
+    spectate: z.literal(true).optional(),
+    map: z.string().refine(isSafeGameName, 'invalid map name').optional(),
+    gameType: z.enum(['deathmatch', 'single']).optional(),
+  })
+  .refine((input) => input.map === undefined || input.connect === undefined, {
+    message: 'map and connect are mutually exclusive',
+  })
 
 export const launchGetStateSchema: z.ZodType<IpcInvokeMap['launch:getState']['req']> = z.void()
 

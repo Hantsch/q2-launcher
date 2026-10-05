@@ -6,6 +6,7 @@ import { Dialogs as DownloadsBootstrapDialogs } from './downloads/bootstrap/Dial
 import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
 import { DownloadsView } from './downloads/DownloadsView'
 import { HomeView } from './home/HomeView'
+import { Dialogs as ModsDialogs } from './mods/Dialogs'
 import { ModsView } from './mods/ModsView'
 import { ReplaysSettingsSection } from './replays/ReplaysSettingsSection'
 import { ReplaysView } from './replays/ReplaysView'
@@ -80,7 +81,7 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
       Section: ServersSettingsSection,
     },
   },
-  { id: 'mods', View: ModsView },
+  { id: 'mods', View: ModsView, Dialogs: ModsDialogs },
   // { id: 'assets',  View: AssetsView },
   {
     // Story 141: `ReplaysView` replaces the `PlannedModuleView` fallback (`MODULE_MANIFESTS`'s

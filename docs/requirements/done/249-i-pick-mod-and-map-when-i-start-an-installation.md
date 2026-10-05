@@ -1,7 +1,7 @@
 ---
 id: 249
 title: I pick mod and map when I start an installation
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -18,17 +18,17 @@ There is no map support anywhere (`+map` is never passed), and no UI edits `laun
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Next to Play there is a "Play with…" action that opens a small launch dialog with a
+- [x] **AC1** — Next to Play there is a "Play with…" action that opens a small launch dialog with a
       mod select and a map select.
-- [ ] **AC2** — The mod select lists Base game and the installation's game dirs; the map select lists
+- [x] **AC2** — The mod select lists Base game and the installation's game dirs; the map select lists
       the maps available to the chosen mod (its own and baseq2's), sorted by name.
-- [ ] **AC3** — Starting from the dialog launches with the chosen mod and loads the chosen map; with
+- [x] **AC3** — Starting from the dialog launches with the chosen mod and loads the chosen map; with
       "No map" the game starts at the menu, as Play does today.
-- [ ] **AC4** — The dialog remembers the last choice per installation.
-- [ ] **AC5** — A map whose name is not a safe single token is not offered (launch arguments stay
+- [x] **AC4** — The dialog remembers the last choice per installation.
+- [x] **AC5** — A map whose name is not a safe single token is not offered (launch arguments stay
       validated as today).
-- [ ] **AC6** — The plain Play button keeps its current behaviour.
-- [ ] **AC7** — Maps inside `.pak`/`.pk3` files are listed, not only loose `.bsp` files.
+- [x] **AC6** — The plain Play button keeps its current behaviour.
+- [x] **AC7** — Maps inside `.pak`/`.pk3` files are listed, not only loose `.bsp` files.
 
 ## Open Questions
 
@@ -257,3 +257,19 @@ Review: → default
 Coverage: AC1 D5+D6 · AC2 D3+D5 · AC3 D1+D5 · AC4 D4+D5 · AC5 D1+D3 · AC6 D1+D6 · AC7 D2+D3.
 
 ## Done
+
+**Summary.** "Play with..." sits beside Play and opens a mods-module dialog (mod, map, game type). Launch input carries `map`/`gameType` (`+set deathmatch` after `+set game`, `+map` last); maps are listed from loose BSPs, `.pak` and `.pkz` (not for r1q2) of the mod and baseq2 with BSP titles; the last choice is stored in `moduleData.mods.lastLaunch`, and every envelope writer keeps the other key.
+
+**Commit message:** `249: Play with... dialog — pick mod, map and game type; map listing from loose/pak/pkz, remembered launch, +map launch args`
+
+**Verification (narrow gate).** build, typecheck, lint green; `npx vitest run --changed HEAD` green after fixing three reds (systems-docs handler names, i18n bundle snapshot, duplicate i18n values reused from `common.label.*`); comments + architecture tests green. e2e: `--affected` not used (too broad) — flows by name: `play-with` (all 7 steps), `servers-actionbar-join`, `mods-catalog`, `mods-catalog-detail`, `mods-install*`, `mods-remove`, `mods-detail`, `mods-view` all OK. `mods-view` fails only when run after `mods-detail` on the same seed (mods-detail persists a selected installation); it passes on a fresh seed, `ui:flows` reseeds per flow.
+AC -> test: AC1 flow AC1 step; AC2/AC7 flow AC2 step + map-list.test.ts + bsp-title.test.ts; AC3 flow AC3 steps + launch-plan.test.ts; AC4 flow AC4 + install-record/index/PlayWithDialog tests; AC5 flow AC5 + map-list/ipc-schemas/launch-plan tests; AC6 flow AC6 + launch-plan "unchanged" — all ran and passed. No manual residue.
+Review: 1 cycle, PASS with minor findings, fixed (stale doc text on .pkz and persisted state, deliverable id in two comments, added test for mod change keeping the map). Left as is: pkz tests self-skip without the vendored 7-Zip (precedent: map-presence.test.ts); `rememberLastLaunch` failure is ignored on Start (launch unaffected).
+
+**Decisions.**
+- `schemas.ts` does not exist in the mods module; mods schemas and handler declarations live in `src/shared/modules/mods.ts` (story 232), so the new schemas went there.
+- `bsp-title.ts` avoids a control-char regex (the architecture test forbids eslint-disable); `mods.playWith.mod/map` reuse `common.label.mod/map`.
+- `play-with` is not registered in `scripts/flows/areas.json` (the `mods` row is already at 12 flows, flow-select.test.mjs stays at its known reds); `src/main/lib/bsp-title.ts` was added to the mods row paths. The flow is run by name. `seedJoinStyleFixture` extracted so the play-with fixture shares the join fixture seeding.
+- Known reds not touched: check-docs.test.mjs, flow-select.test.mjs (downloads-bootstrap, replays-playback rows over 12), flow-helper-duplication.test.mjs.
+
+tiers: D 6 / hard 1 · review default · cycles 1 · agents 11

@@ -297,3 +297,27 @@
 - 2026-10-05 20:42 · 240 · review 1 fixes · started
 - 2026-10-05 20:45 · 240 · review 1 fixes · done
 - 2026-10-05 20:45 · 240 · story · done
+- 2026-10-05T20:46:04 · 249 · build · started
+- 2026-10-05 20:46 · 249 · D1 launch input map + game type · started
+- 2026-10-05 20:46 · 249 · D2 pak entries offsets + bsp title · started
+- 2026-10-05 20:47 · 249 · D1 launch input map + game type · done
+- 2026-10-05 20:47 · 249 · D2 pak entries offsets + bsp title · done
+- 2026-10-05 20:47 · 249 · D3 map listing · started
+- 2026-10-05 20:47 · 249 · D4 remembered launch (hard) · started
+- 2026-10-05 20:48 · 249 · D3 map listing · done
+- 2026-10-05 20:48 · 249 · D4 remembered launch (hard, sequential after D3) · started
+- 2026-10-05 20:51 · 249 · D4 remembered launch (hard, sequential after D3) · done
+- 2026-10-05 20:51 · 249 · D5 Play with dialog · started
+- 2026-10-05 20:53 · 249 · D5 Play with dialog · done
+- 2026-10-05 20:53 · 249 · D6 trigger + flow + docs · started
+- 2026-10-05 20:57 · 249 · D6 trigger + flow + docs · done
+- 2026-10-05 20:57 · 249 · verify · started
+- 2026-10-05 21:04 · 249 · verify · blocked: systems-docs, i18n bundle snapshot, i18n keys dup, flow mods-view
+- 2026-10-05 21:04 · 249 · verify fixes · started
+- 2026-10-05 21:09 · 249 · verify fixes · done
+- 2026-10-05 21:09 · 249 · verify · done (reds fixed; mods-view order-dependent, reseed per flow)
+- 2026-10-05 21:09 · 249 · review 1 · started
+- 2026-10-05 21:10 · 249 · review 1 · done (PASS, minor findings)
+- 2026-10-05 21:10 · 249 · review fixes · started
+- 2026-10-05 21:11 · 249 · review fixes · done
+- 2026-10-05 21:11 · 249 · story · done

@@ -5,6 +5,8 @@ import {
   type ModCatalogState,
   type ModInstallChoice,
   type ModInstallDecisionEvent,
+  type ModLastLaunch,
+  type ModMapList,
   type ModMapPresence,
   type ModRemovalPreview,
   type ModRemoveChangedFiles,
@@ -102,4 +104,19 @@ export function updateMod(
     catalogId,
     changedPolicy,
   })
+}
+
+export function listMaps(installationId: string, gameDir: string): Promise<Outcome<ModMapList>> {
+  return client.call(MODS_HANDLERS.mapsList, { installationId, gameDir })
+}
+
+export function getLastLaunch(installationId: string): Promise<Outcome<ModLastLaunch | null>> {
+  return client.call(MODS_HANDLERS.lastLaunchGet, { installationId })
+}
+
+export function rememberLastLaunch(
+  installationId: string,
+  choice: ModLastLaunch,
+): Promise<Outcome<null>> {
+  return client.call(MODS_HANDLERS.lastLaunchRemember, { installationId, ...choice })
 }

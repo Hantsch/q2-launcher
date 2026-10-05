@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MODS_HANDLERS, type ModInstallChoice, type ModsListResult } from '@shared/modules/mods'
-import type { Outcome } from '@shared/types'
+import { ok, type Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
 import { resolveUiHarness } from '../../lib/ui-harness'
 import { PersistenceRegistry } from '../../services/persistence'
@@ -43,6 +43,7 @@ const emitted: unknown[][] = []
 async function registryFor(
   inst: ReturnType<typeof installation>,
   manifest: { getManifest: () => Promise<unknown> } = { getManifest: async () => ({ packages: [] }) },
+  installations: unknown = { find: (id: string) => (id === inst.id ? inst : undefined) },
 ) {
   const app = {
     isDev: false,
@@ -52,7 +53,7 @@ async function registryFor(
     os: { openPath },
     persistence: new PersistenceRegistry(),
     content: { manifest },
-    installations: { find: (id: string) => (id === inst.id ? inst : undefined) },
+    installations,
     broadcast: { emit: (...args: unknown[]) => emitted.push(args) },
   } as unknown as AppContext
   const registry = new MainModuleRegistry()
@@ -403,5 +404,51 @@ describe('mods module persistence', () => {
     } as unknown as AppContext
     await new MainModuleRegistry().register(modsModule, app)
     expect(labels.sort()).toEqual(['mods-catalog'])
+  })
+})
+
+describe('mods module remembered launch', () => {
+  type Inst = ReturnType<typeof installation>
+
+  it('launch.last.remember then get round-trips per installation', async () => {
+    const records = [{ catalogId: 'rogue', gameDir: 'rogue' }]
+    const store = new Map<string, Inst>([
+      ['inst-1', installation(['rogue'], { mods: { records } })],
+      ['inst-2', { ...installation(['baseq2']), id: 'inst-2' }],
+    ])
+    const installations = {
+      find: (id: string) => store.get(id),
+      setModuleData: (id: string, moduleId: string, value: unknown) => {
+        const inst = store.get(id)
+        if (!inst) throw new Error(`unknown ${id}`)
+        const next = { ...inst, moduleData: { ...inst.moduleData, [moduleId]: value } }
+        store.set(id, next)
+        return ok(next)
+      },
+    }
+    const r = await registryFor(store.get('inst-1') as Inst, undefined, installations)
+    const call = <T>(type: string, payload: unknown) =>
+      unwrap<T>(r.invoke({ moduleId: 'mods', type, payload }))
+    const get = (installationId: string) => call(MODS_HANDLERS.lastLaunchGet, { installationId })
+
+    expect(await get('inst-1')).toEqual({ ok: true, value: null })
+    const one = { gameDir: 'rogue', map: 'rmine1', gameType: 'single' }
+    const two = { gameDir: '', map: null, gameType: 'deathmatch' }
+    expect(
+      await call(MODS_HANDLERS.lastLaunchRemember, { installationId: 'inst-1', ...one }),
+    ).toEqual({ ok: true, value: null })
+    await call(MODS_HANDLERS.lastLaunchRemember, { installationId: 'inst-2', ...two })
+
+    expect(await get('inst-1')).toEqual({ ok: true, value: one })
+    expect(await get('inst-2')).toEqual({ ok: true, value: two })
+    // The launcher still knows which mods it installed after remembering a launch.
+    expect(store.get('inst-1')?.moduleData?.['mods']).toMatchObject({ records })
+    expect(await get('nope')).toMatchObject({
+      ok: false,
+      error: { key: 'mods.error.installationNotFound' },
+    })
+    expect(
+      await call(MODS_HANDLERS.lastLaunchRemember, { installationId: 'nope', ...one }),
+    ).toMatchObject({ ok: false, error: { key: 'mods.error.installationNotFound' } })
   })
 })

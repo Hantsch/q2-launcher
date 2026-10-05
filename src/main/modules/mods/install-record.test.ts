@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ModInstallRecord } from '@shared/modules/mods'
-import { readModsState, recordedGameDirs, withRecord } from './install-records'
+import {
+  readLastLaunch,
+  readModsState,
+  recordedGameDirs,
+  withLastLaunch,
+  withRecord,
+  withRecords,
+} from './install-records'
 
 function record(over: Partial<ModInstallRecord> = {}): ModInstallRecord {
   return {
@@ -41,5 +48,38 @@ describe('mod install record', () => {
     const next = withRecord({ downloads: { version: '2.34' }, mods: { records: [old] } }, record())
     expect(next['downloads']).toEqual({ version: '2.34' })
     expect(readModsState(next).records).toEqual([record()])
+  })
+
+  it('a record write keeps the remembered launch', () => {
+    const choice = { gameDir: 'rogue', map: 'rmine1', gameType: 'single' as const }
+    const remembered = withLastLaunch({ mods: { records: [record()] } }, choice)
+    const installed = withRecord(remembered, record({ catalogId: 'xatrix', gameDir: 'xatrix' }))
+    expect(readLastLaunch(installed)).toEqual(choice)
+    const removed = withRecords(installed, [])
+    expect(readLastLaunch(removed)).toEqual(choice)
+    expect(readModsState(removed).records).toEqual([])
+  })
+
+  it('remembering a launch keeps the install records', () => {
+    const rec = record()
+    const next = withLastLaunch(
+      { downloads: { version: '2.34' }, mods: { records: [rec] } },
+      { gameDir: '', map: null, gameType: 'deathmatch' },
+    )
+    expect(readModsState(next).records).toEqual([rec])
+    expect(recordedGameDirs(next)).toEqual(new Set(['rogue']))
+    expect(next['downloads']).toEqual({ version: '2.34' })
+    expect(readLastLaunch(next)).toEqual({ gameDir: '', map: null, gameType: 'deathmatch' })
+  })
+
+  it('a garbage lastLaunch reads as null', () => {
+    const at = (lastLaunch: unknown) => readLastLaunch({ mods: { records: [], lastLaunch } })
+    expect(readLastLaunch(undefined)).toBeNull()
+    expect(readLastLaunch({ mods: { records: [] } })).toBeNull()
+    expect(at(42)).toBeNull()
+    expect(at({ gameDir: '../x', map: null, gameType: 'single' })).toBeNull()
+    expect(at({ gameDir: 'rogue', map: 'a/b', gameType: 'single' })).toBeNull()
+    expect(at({ gameDir: 'rogue', map: null, gameType: 'coop' })).toBeNull()
+    expect(at({ gameDir: 'rogue', gameType: 'single' })).toBeNull()
   })
 })

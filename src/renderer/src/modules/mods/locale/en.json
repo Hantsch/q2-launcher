@@ -75,6 +75,16 @@
         "unsafePath": "The install record points outside the mod folder. Nothing was changed."
       }
     },
+    "playWith": {
+      "title": "Play {{installation}} with...",
+      "baseGame": "Base game",
+      "noMap": "No map",
+      "loadingMaps": "Loading maps...",
+      "gameType": "Game type",
+      "deathmatch": "Deathmatch",
+      "single": "Single player",
+      "start": "Start"
+    },
     "remove": {
       "title": "Remove {{mod}} from {{installation}}?",
       "titleLoading": "Remove mod",

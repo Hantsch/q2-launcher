@@ -339,3 +339,4 @@ second roadmap.
 - 237 — I set the demo's game volume with a slider · S34 · timeline speaker button + 0-100 slider, coalesced s_volume, restored after the session, last level remembered
 - 239 — adding an installation is one flow wherever I start it · S34 · rail and Library share one entry list; New installation… opens the wizard, which names the installation; empty-create path removed
 - 240 — the install folder is created for me and shown before install · S34 · location + editable subfolder with free name, install-here for an empty folder, final path shown before install; job creates the folder and removes it again on failure when empty
+- 249 — I pick mod and map when I start an installation · S34 · Play with... dialog beside Play: mod, map (loose/pak/pkz, titles) and game type, remembered per installation, launches with +map

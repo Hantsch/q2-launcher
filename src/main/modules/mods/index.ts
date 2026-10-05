@@ -7,6 +7,8 @@ import {
   type ModActiveInstall,
   type ModCatalogState,
   type ModGameDir,
+  type ModLastLaunch,
+  type ModMapList,
   type ModMapPresence,
   type ModRemovalPreview,
   type ModUpdatePreview,
@@ -17,11 +19,12 @@ import { fail, ok, type Installation, type Outcome } from '@shared/types'
 import { readBinaryArch } from '../../lib/fs-utils'
 import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
-import { readModsState, recordedGameDirs } from './install-records'
+import { readLastLaunch, readModsState, recordedGameDirs, withLastLaunch } from './install-records'
 import { resolveDownloadSource } from '../../services/content/source'
 import { resolveVendoredExtractor, stagePackage } from '../../services/package-staging'
 import { toCatalogEntryDto } from './catalog-parse'
 import { CatalogService } from './catalog-service'
+import { listMaps } from './map-list'
 import { mapPresence } from './map-presence'
 import { previewModRemoval, startModRemove } from './remove-job'
 import { previewModUpdate, startModUpdate } from './update-job'
@@ -282,6 +285,39 @@ export const modsModule: MainModule = {
         { zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists } },
       )
       return ok(presence)
+    })
+
+    handle(MODS_HANDLERS.mapsList, async (input): Promise<Outcome<ModMapList>> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return failMods('mods.error.installationNotFound')
+      const extractor = resolveVendoredExtractor(app.isPackaged)
+      return ok(
+        await listMaps(
+          {
+            rootPath: installation.rootPath,
+            gameDir: input.gameDir,
+            engineKind: installation.engineKind,
+          },
+          { zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists } },
+        ),
+      )
+    })
+
+    handle(MODS_HANDLERS.lastLaunchGet, (input): Outcome<ModLastLaunch | null> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return failMods('mods.error.installationNotFound')
+      return ok(readLastLaunch(installation.moduleData))
+    })
+
+    handle(MODS_HANDLERS.lastLaunchRemember, (input): Outcome<null> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return failMods('mods.error.installationNotFound')
+      const saved = app.installations.setModuleData(
+        installation.id,
+        'mods',
+        withLastLaunch(installation.moduleData, input)['mods'],
+      )
+      return saved.ok ? ok(null) : saved
     })
 
     handle(MODS_HANDLERS.reveal, async (input): Promise<Outcome<null>> => {

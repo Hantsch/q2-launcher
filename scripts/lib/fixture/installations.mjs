@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { REPO_ROOT, UI_VERIFY_ROOT, assertInside } from '../paths.mjs'
 import { chmodSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { variantUserDataDir } from '../harness.mjs'
@@ -827,14 +827,14 @@ export function joinExecutablePath() {
  * as `writeLinuxJourneyInstallRoot()` - `spawnable` is `false` only on Windows when
  * `resources/bin/7za.exe` was never vendored locally.
  */
-export function writeJoinInstallRoot() {
-  const root = joinInstallRoot()
+export function writeJoinInstallRoot(dirName = JOIN_INSTALL_DIR) {
+  const root = join(gameRoot(), dirName)
   rmDirBestEffort(root)
   const baseq2Dir = join(root, 'baseq2')
   mkdirSync(baseq2Dir, { recursive: true })
   writeFileSync(join(baseq2Dir, 'pak0.pak'), 'not a real pak, just needs to exist')
 
-  const executablePath = joinExecutablePath()
+  const executablePath = join(root, JOIN_EXECUTABLE_NAME)
   if (process.platform === 'win32') {
     if (vendoredWindowsExtractorExists()) {
       copyFileSync(vendoredWindowsExtractorPath(), executablePath)
@@ -864,19 +864,29 @@ export function writeJoinInstallRoot() {
  * directory, defaulting to `'servers-join'` so the original caller is unaffected.
  */
 export function writeJoinFixture({ servers, variant = 'servers-join' }) {
+  return seedJoinStyleFixture({
+    variant,
+    install: writeJoinInstallRoot(),
+    id: JOIN_INSTALL_ID,
+    name: 'Fixture Join Install',
+    gameDirs: ['baseq2'],
+    servers,
+  })
+}
+
+/** Seeds `install` as the sole, active installation of a fresh `variant` userDataDir. */
+function seedJoinStyleFixture({ variant, install, id, name, gameDirs, servers }) {
   const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
 
-  const install = writeJoinInstallRoot()
-
   writeJson(join(userDataDir, STATE_FILE), {
     schemaVersion: LEGACY_SEED_SCHEMA_VERSION,
-    settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false, activeInstallationId: JOIN_INSTALL_ID },
+    settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false, activeInstallationId: id },
     installations: [
       {
-        id: JOIN_INSTALL_ID,
-        name: 'Fixture Join Install',
+        id,
+        name,
         rootPath: install.root,
         engineKind: 'r1q2',
         executablePath: install.executablePath,
@@ -886,7 +896,7 @@ export function writeJoinFixture({ servers, variant = 'servers-join' }) {
         source: 'manual',
         status: 'ok',
         checks: [],
-        gameDirs: ['baseq2'],
+        gameDirs,
         favorite: false,
         sortOrder: 0,
         createdAt: FIXED_TIMESTAMP,
@@ -910,6 +920,67 @@ export function writeJoinFixture({ servers, variant = 'servers-join' }) {
     executablePath: install.executablePath,
     spawnable: install.spawnable,
   }
+}
+
+// --- the "Play with..." flow's own installation ---------------------------------------
+
+export const PLAY_WITH_INSTALL_ID = 'fixture-play-with-install'
+
+/** A minimal BSP: `IBSP`, version 38, a 160-byte lump table whose lump 0 is the entity string. */
+function buildBsp(message) {
+  const entities = Buffer.from(
+    `{ "classname" "worldspawn"${message ? ` "message" "${message}"` : ''} } `,
+    'latin1',
+  )
+  const header = Buffer.alloc(8 + 8 * 19)
+  header.write('IBSP', 0, 'latin1')
+  header.writeInt32LE(38, 4)
+  header.writeInt32LE(header.length, 8)
+  header.writeInt32LE(entities.length, 12)
+  return Buffer.concat([header, entities])
+}
+
+/** A PACK holding `entries` (`{ name, bytes }`), directory last, 64-byte records. */
+function buildPak(entries) {
+  const data = Buffer.concat(entries.map((entry) => entry.bytes))
+  const header = Buffer.alloc(12)
+  header.write('PACK', 0, 'latin1')
+  header.writeInt32LE(12 + data.length, 4)
+  header.writeInt32LE(64 * entries.length, 8)
+  let offset = 12
+  const directory = entries.map((entry) => {
+    const record = Buffer.alloc(64)
+    record.write(entry.name, 0, 'latin1')
+    record.writeInt32LE(offset, 56)
+    record.writeInt32LE(entry.bytes.length, 60)
+    offset += entry.bytes.length
+    return record
+  })
+  return Buffer.concat([header, data, ...directory])
+}
+
+/**
+ * One r1q2 installation with game dirs `baseq2` + `ctf`: loose `q2dm1` ("The Edge") and an unsafe
+ * `bad name`, `base1` inside `baseq2/pak0.pak`, and `ctf1` in `ctf`.
+ */
+export function writePlayWithFixture({ variant = 'play-with' } = {}) {
+  const install = writeJoinInstallRoot(PLAY_WITH_INSTALL_ID)
+  const writeDeep = (relativePath, bytes) => {
+    const path = join(install.root, relativePath)
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, bytes)
+  }
+  writeDeep('baseq2/maps/q2dm1.bsp', buildBsp('The Edge'))
+  writeDeep('baseq2/maps/bad name.bsp', buildBsp(''))
+  writeDeep('baseq2/pak0.pak', buildPak([{ name: 'maps/base1.bsp', bytes: buildBsp('') }]))
+  writeDeep('ctf/maps/ctf1.bsp', buildBsp(''))
+  return seedJoinStyleFixture({
+    variant,
+    install,
+    id: PLAY_WITH_INSTALL_ID,
+    name: 'Fixture Play With Install',
+    gameDirs: ['baseq2', 'ctf'],
+  })
 }
 
 // --- story 103 D8: the windows-build-on-linux e2e proof's own install root ---------------------

@@ -1,8 +1,8 @@
-import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { isSafeGameName } from '@shared/mods/server-local-content'
 import type { ModMapPresence } from '@shared/modules/mods'
 import { isFile } from '../../lib/fs-utils'
+import { asciiLower, listNames, matching, matchingChildren } from './game-dir-fs'
 import { readPakDirectory } from '../../lib/pak-directory'
 import { listZipEntries, type ZipDeps } from '../../lib/zip-entries'
 
@@ -26,29 +26,6 @@ export interface MapPresenceInput {
 
 export interface MapPresenceDeps {
   zipDeps: ZipDeps
-}
-
-/** ASCII-only lowercase: `toLowerCase()` would fold e.g. U+212A KELVIN SIGN onto `k`. */
-function asciiLower(value: string): string {
-  return value.replace(/[A-Z]/g, (c) => c.toLowerCase())
-}
-
-async function listNames(dir: string): Promise<string[]> {
-  try {
-    return await readdir(dir)
-  } catch {
-    return []
-  }
-}
-
-/** Paths of the `names` (children of `dir`) equal to `wanted` ignoring ASCII case (Linux can have several). */
-function matching(dir: string, names: string[], wanted: string): string[] {
-  const key = asciiLower(wanted)
-  return names.filter((n) => asciiLower(n) === key).map((n) => join(dir, n))
-}
-
-async function matchingChildren(dir: string, wanted: string): Promise<string[]> {
-  return matching(dir, await listNames(dir), wanted)
 }
 
 /** `entry` names the wanted map: `maps/<map>.bsp` after `\` -> `/`, ignoring ASCII case. */

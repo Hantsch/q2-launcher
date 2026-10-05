@@ -14,6 +14,7 @@ version section when a release actually ships.
 
 ### Added
 
+- **Mods** — "Play with..." next to Play: pick a mod and a map to start.
 - **Downloads** — New installs go into their own folder; the path is shown before anything is written.
 - **Replays** — Demo timeline: volume slider and mute button for the game's sound.
 - **Mods** — Mods view shows every game directory of the selected installation.

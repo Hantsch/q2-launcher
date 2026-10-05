@@ -23,6 +23,12 @@ export const MODS_HANDLERS = {
   remove: 'remove',
   /** Story 192: does the installation have a server's map? Resolves to `Outcome<ModMapPresence>`. */
   mapPresence: 'map.presence',
+  /** Story 249: the maps a mod (plus baseq2) offers. Resolves to `Outcome<ModMapList>`. */
+  mapsList: 'maps.list',
+  /** Story 249: the installation's remembered launch choice. Resolves to `Outcome<ModLastLaunch | null>`. */
+  lastLaunchGet: 'launch.last.get',
+  /** Story 249: remembers the installation's launch choice. Resolves to `Outcome<null>`. */
+  lastLaunchRemember: 'launch.last.remember',
   /** Story 194: what updating a mod would touch. Resolves to `Outcome<ModUpdatePreview>`; writes nothing. */
   updatePreview: 'update.preview',
   /** Story 194: start updating a catalog mod to its pinned version. Resolves to `Outcome<{ jobId }>`. */
@@ -46,6 +52,11 @@ export type ModUpdateChangedPolicy = 'overwrite' | 'keep'
 /** What `mapPresence` answers: whether `maps/<map>.bsp` exists loose, in a pak or in a pkz. */
 export interface ModMapPresence {
   available: boolean
+}
+
+/** What `mapsList` answers: map names (no `.bsp`), each with its BSP title when one could be read. */
+export interface ModMapList {
+  maps: Array<{ name: string; title?: string }>
 }
 
 /** What `removalPreview` answers: names for the confirm dialog and the recorded files the user changed. */
@@ -242,6 +253,32 @@ export const mapPresenceInputSchema = z
   })
   .strict()
 
+/** `gameDir` is `''` (baseq2 only) or a safe game name. */
+export const mapsListInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    gameDir: z.union([z.literal(''), safeGameNameSchema]),
+  })
+  .strict()
+
+/**
+ * A remembered launch choice (story 249): `gameDir` `''` is baseq2, `map` null is the game's own
+ * start. Also the parser of the persisted copy, so a remembered value is held to the same names.
+ */
+export const modLastLaunchSchema = z.object({
+  gameDir: z.union([z.literal(''), safeGameNameSchema]),
+  map: safeGameNameSchema.nullable(),
+  gameType: z.enum(['deathmatch', 'single']),
+})
+
+export type ModLastLaunch = z.infer<typeof modLastLaunchSchema>
+
+export const lastLaunchGetInputSchema = z.object({ installationId: z.string().min(1) }).strict()
+
+export const lastLaunchRememberInputSchema = modLastLaunchSchema
+  .extend({ installationId: z.string().min(1) })
+  .strict()
+
 export const updatePreviewInputSchema = z
   .object({ installationId: z.string().min(1), catalogId: modIdSchema })
   .strict()
@@ -272,6 +309,9 @@ export const MODS_HANDLER_SCHEMAS = {
   [MODS_HANDLERS.removalPreview]: removalPreviewInputSchema,
   [MODS_HANDLERS.remove]: removeInputSchema,
   [MODS_HANDLERS.mapPresence]: mapPresenceInputSchema,
+  [MODS_HANDLERS.mapsList]: mapsListInputSchema,
+  [MODS_HANDLERS.lastLaunchGet]: lastLaunchGetInputSchema,
+  [MODS_HANDLERS.lastLaunchRemember]: lastLaunchRememberInputSchema,
   [MODS_HANDLERS.updatePreview]: updatePreviewInputSchema,
   [MODS_HANDLERS.update]: updateInputSchema,
 } satisfies Record<(typeof MODS_HANDLERS)[keyof typeof MODS_HANDLERS], z.ZodTypeAny>
@@ -292,6 +332,15 @@ export type ModsContract = {
     }
     [MODS_HANDLERS.remove]: { req: z.infer<ModsSchemas['remove']>; res: { jobId: string } }
     [MODS_HANDLERS.mapPresence]: { req: z.infer<ModsSchemas['map.presence']>; res: ModMapPresence }
+    [MODS_HANDLERS.mapsList]: { req: z.infer<ModsSchemas['maps.list']>; res: ModMapList }
+    [MODS_HANDLERS.lastLaunchGet]: {
+      req: z.infer<ModsSchemas['launch.last.get']>
+      res: ModLastLaunch | null
+    }
+    [MODS_HANDLERS.lastLaunchRemember]: {
+      req: z.infer<ModsSchemas['launch.last.remember']>
+      res: null
+    }
     [MODS_HANDLERS.updatePreview]: {
       req: z.infer<ModsSchemas['update.preview']>
       res: ModUpdatePreview

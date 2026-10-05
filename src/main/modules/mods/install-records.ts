@@ -1,5 +1,9 @@
 import { z } from 'zod'
-import type { ModInstallRecord } from '@shared/modules/mods'
+import {
+  modLastLaunchSchema,
+  type ModInstallRecord,
+  type ModLastLaunch,
+} from '@shared/modules/mods'
 import { parseForgivingRows } from '../../lib/forgiving'
 
 /**
@@ -64,15 +68,57 @@ export function readModsState(moduleData: unknown): ModsState {
   return { records: parseForgivingRows(recordSchema, rows) as ModInstallRecord[] }
 }
 
+function baseOf(moduleData: unknown): Record<string, unknown> {
+  return typeof moduleData === 'object' && moduleData !== null
+    ? (moduleData as Record<string, unknown>)
+    : {}
+}
+
+/**
+ * Every writer of `moduleData.mods` goes through here: the envelope holds the install records and
+ * the remembered launch side by side, and rebuilding it from one of them alone would erase the
+ * other - records lost mean the launcher can no longer update or remove a mod it installed.
+ */
+function withEnvelopeKey(
+  moduleData: unknown,
+  key: string,
+  value: unknown,
+): Record<string, unknown> {
+  const envelope = envelopeOf(moduleData)
+  const kept = envelope && !Array.isArray(envelope) ? envelope : {}
+  return { ...baseOf(moduleData), mods: { ...kept, [key]: value } }
+}
+
+/** Returns a new `moduleData` whose install records are `records`; every other key is kept. */
+export function withRecords(
+  moduleData: unknown,
+  records: readonly ModInstallRecord[],
+): Record<string, unknown> {
+  return withEnvelopeKey(moduleData, 'records', [...records])
+}
+
 /** Returns a new `moduleData` with `record` replacing any record of the same game dir (case-insensitive). */
 export function withRecord(moduleData: unknown, record: ModInstallRecord): Record<string, unknown> {
-  const base =
-    typeof moduleData === 'object' && moduleData !== null
-      ? (moduleData as Record<string, unknown>)
-      : {}
   const key = record.gameDir.toLowerCase()
   const kept = readModsState(moduleData).records.filter((r) => r.gameDir.toLowerCase() !== key)
-  return { ...base, mods: { records: [...kept, record] } }
+  return withRecords(moduleData, [...kept, record])
+}
+
+/** The remembered launch choice; anything that does not parse reads as "nothing remembered" (story 249). */
+export function readLastLaunch(moduleData: unknown): ModLastLaunch | null {
+  return modLastLaunchSchema
+    .nullable()
+    .catch(null)
+    .parse(envelopeOf(moduleData)?.['lastLaunch'] ?? null)
+}
+
+/** Returns a new `moduleData` remembering `choice` (only its choice fields); every other key is kept. */
+export function withLastLaunch(
+  moduleData: unknown,
+  choice: ModLastLaunch,
+): Record<string, unknown> {
+  const { gameDir, map, gameType } = choice
+  return withEnvelopeKey(moduleData, 'lastLaunch', { gameDir, map, gameType })
 }
 
 /**

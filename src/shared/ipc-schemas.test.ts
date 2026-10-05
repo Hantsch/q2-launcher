@@ -210,3 +210,22 @@ describe('launch:start refuses an unvalidated connect or userinfo value', () => 
     }
   })
 })
+
+describe('launch input map', () => {
+  it('launch input refuses an unsafe map name', () => {
+    for (const map of ['q2dm1 +quit', 'a/b', '..', 'q"x', ''])
+      expect(launchInputSchema.safeParse({ installationId: 'inst-1', map }).success).toBe(false)
+    expect(launchInputSchema.safeParse({ installationId: 'inst-1', map: 'q2dm1' }).success).toBe(
+      true,
+    )
+  })
+
+  it('launch input refuses map together with connect', () => {
+    const result = launchInputSchema.safeParse({
+      installationId: 'inst-1',
+      map: 'q2dm1',
+      connect: '1.2.3.4:27910',
+    })
+    expect(result.success).toBe(false)
+  })
+})

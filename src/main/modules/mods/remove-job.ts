@@ -17,7 +17,7 @@ import {
   type StartedJob,
   type ToastHost,
 } from '../ports'
-import { readModsState } from './install-records'
+import { readModsState, withRecords } from './install-records'
 import { planRemoval, removeRecordedFiles, RemovalRefusedError } from './remove'
 
 /**
@@ -164,7 +164,11 @@ async function run(
       const records = partial
         ? [...others, { ...record, files: record.files.filter((f) => stillThere.has(f.path)) }]
         : others
-      const recorded = deps.installations.setModuleData(installation.id, 'mods', { records })
+      const recorded = deps.installations.setModuleData(
+        installation.id,
+        'mods',
+        withRecords(current.moduleData, records)['mods'],
+      )
       if (!recorded.ok) {
         throw new RemoveFailed(
           JOB_LOCAL_FAILURE,

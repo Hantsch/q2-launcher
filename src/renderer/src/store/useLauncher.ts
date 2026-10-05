@@ -206,7 +206,14 @@ interface LauncherStore {
    * `options` entirely and keeps launching the installation's own default. */
   play: (
     installationId?: string,
-    options?: { connect?: string; userinfo?: LaunchUserinfo; spectate?: true },
+    options?: {
+      connect?: string
+      userinfo?: LaunchUserinfo
+      spectate?: true
+      gameDir?: string
+      map?: string
+      gameType?: 'deathmatch' | 'single'
+    },
   ) => Promise<void>
   cancelJob: (jobId: string) => Promise<void>
 
