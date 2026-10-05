@@ -336,3 +336,4 @@ second roadmap.
 - 238 — the demo list shows the selected installation's demos · S34 · the Demos view scopes to the rail's installation (plus extra folders) with an All-installations toggle and empty states that name the folders.
 - 244 — I select several demos and delete, tag or move them · S34 · multi-select with a bulk bar for delete (trash), tag and move, plus single-demo and folder delete via the detail panel and a row context menu.
 - 241 — I comment a moment on the demo timeline · S34 · comments live in the sidecar, show as marks on the timeline that seek, and are listed, edited and deleted in the detail; zip demos are read-only.
+- 237 — I set the demo's game volume with a slider · S34 · timeline speaker button + 0-100 slider, coalesced s_volume, restored after the session, last level remembered

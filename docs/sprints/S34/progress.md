@@ -236,3 +236,22 @@
 - 2026-10-05 18:18 · 241 · review 1 fixes · started
 - 2026-10-05 18:22 · 241 · review 1 fixes · done
 - 2026-10-05 18:23 · 241 · story · done
+- 2026-10-05T18:23:29 · 237 · build · started
+- 2026-10-05 18:23 · 237 · D1 playback.volume main path · started
+- 2026-10-05 18:26 · 237 · D1 playback.volume main path · done
+- 2026-10-05 18:26 · 237 · D2 start value, restore, memory · started
+- 2026-10-05 18:38 · 237 · D2 start value, restore, memory · done
+- 2026-10-05 18:38 · 237 · D3 VolumeControl renderer · started
+- 2026-10-05 18:43 · 237 · D3 VolumeControl renderer · done
+- 2026-10-05 18:43 · 237 · D4 e2e flow replays-volume · started
+- 2026-10-05 18:52 · 237 · D4 e2e flow replays-volume · done
+- 2026-10-05 18:52 · 237 · verify · started
+- 2026-10-05 19:04 · 237 · verify · blocked: 4 unit reds (golden, doc length, i18n dup, bundle snapshot), flows replays-timeline-optimistic + replays-cinema red
+- 2026-10-05 19:04 · 237 · fix verify reds · started
+- 2026-10-05 19:21 · 237 · fix verify reds · done
+- 2026-10-05 19:21 · 237 · verify · done
+- 2026-10-05 19:21 · 237 · review 1 · started
+- 2026-10-05 19:22 · 237 · review 1 · done
+- 2026-10-05 19:22 · 237 · review 1 fixes · started
+- 2026-10-05 19:24 · 237 · review 1 fixes · done
+- 2026-10-05 19:24 · 237 · story · done

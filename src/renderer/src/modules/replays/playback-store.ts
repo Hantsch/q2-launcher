@@ -14,6 +14,7 @@ import {
   playbackCinema,
   playbackDisplayRead,
   playbackStop,
+  playbackVolume,
   playbackTimeline,
 } from './client'
 import {
@@ -42,6 +43,11 @@ import {
 /** Story 187: how the running demo is shown. */
 export type PlaybackMode = 'preview' | 'cinema' | 'fullscreen'
 
+export interface PlaybackVolume {
+  percent: number
+  muted: boolean
+}
+
 export interface PlaybackSession {
   demoName: string
   /** The playing demo's row id, or null when the session was not started from a demo row (cinema). */
@@ -59,6 +65,8 @@ export interface PlaybackSession {
   view: PlaybackView | null
   /** Last speed the user set; 1x at session start. Local only - the engine has no read-back. */
   speed: number
+  /** Game volume as main holds it; the level survives muting so unmute can restore it. (story 237) */
+  volume: PlaybackVolume
   /** Story 172: the game window is fullscreen; the strip shows the keys text instead of stale position. */
   fullscreen: boolean
   /** Story 187: preview (the stage), cinema (the overlay) or fullscreen, from the display event. */
@@ -101,6 +109,8 @@ interface PlaybackStoreState {
   /** Story 184: sends a timeline action optimistically; resolves to the refusal to show, or null. */
   sendTimeline: (action: TimelineAction) => Promise<LocalizedMessage | null>
   setSpeed: (speed: number) => void
+  /** Sets the game volume optimistically; resolves to the refusal to show, or null. (story 237) */
+  setVolume: (volume: PlaybackVolume) => Promise<LocalizedMessage | null>
   applyPosition: (
     positionMs: number | null,
     engineDurationMs: number | null,
@@ -204,6 +214,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         knownDurationMs,
         view: null,
         speed: 1,
+        volume: { percent: 100, muted: false },
         fullscreen: false,
         mode: 'preview',
         cinemaAvailability: { available: true },
@@ -281,6 +292,15 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     return null
   },
   setSpeed: (speed) => set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),
+  setVolume: async (volume) => {
+    set((s) => (s.session === null ? s : { session: { ...s.session, volume } }))
+    try {
+      const result = await playbackVolume(volume)
+      return result.ok ? null : result.error
+    } catch {
+      return { key: 'replays.timeline.error' }
+    }
+  },
   applyPosition: (positionMs, engineDurationMs, enginePaused = null) => {
     // Read inside `set`, so a position racing another one cannot send the seek twice.
     let seekS = null as number | null
@@ -323,6 +343,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       const speed = p.speed ?? s.session.speed
       const cinemaAvailability = p.cinemaAvailability ?? s.session.cinemaAvailability
       const c = s.session
+      const volume = p.volume ?? c.volume
       // The display event's speed is authoritative: the optimistic timeline (what the speed select shows)
       // follows it unless a speed change of this window's own is still pending.
       const followSpeed = c.optimistic.speed === null && c.optimistic.confirmed.speed !== speed
@@ -344,6 +365,8 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         c.fullscreen === p.fullscreen &&
         c.mode === mode &&
         c.speed === speed &&
+        c.volume.percent === volume.percent &&
+        c.volume.muted === volume.muted &&
         !followSpeed &&
         JSON.stringify(c.cinemaAvailability) === JSON.stringify(cinemaAvailability)
       if (same) return s
@@ -352,7 +375,15 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         : c.optimistic
       return {
         ...(noticeChange ?? {}),
-        session: { ...c, fullscreen: p.fullscreen, mode, speed, cinemaAvailability, optimistic },
+        session: {
+          ...c,
+          fullscreen: p.fullscreen,
+          mode,
+          speed,
+          volume,
+          cinemaAvailability,
+          optimistic,
+        },
       }
     }),
   applyState: (state) => {

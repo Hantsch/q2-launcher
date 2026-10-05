@@ -8,6 +8,7 @@ import {
   STAGE_CVAR_NAMES,
   createCvarRestore,
   nodeCvarRestoreFs,
+  readArchivedCvar,
   sessionConfigPath,
 } from './session-cvar-restore'
 
@@ -238,5 +239,22 @@ describe('session cvar restore (story 170 D3)', () => {
     expect(sessionConfigPath(installation, 'ctf', join('/games/q2', 'ctf'), ctx('linux'))).toBe(
       join('/home/u', '.q2pro', 'ctf', 'q2config.cfg'),
     )
+  })
+})
+
+describe('reading an archived cvar', () => {
+  it('readArchivedCvar takes the last line', async () => {
+    await writeFile(
+      configPath,
+      bytes(
+        'seta s_volume "0.2"\r\nset s_volumex "0.9"\r\n  set s_volume 0.45\r\n// set s_volume "1"\r\n',
+      ),
+    )
+    expect(await readArchivedCvar(configPath, 's_volume')).toBe('0.45')
+    await writeFile(configPath, 'set name "x"\nseta s_volume "0.6"')
+    expect(await readArchivedCvar(configPath, 's_volume')).toBe('0.6')
+    await writeFile(configPath, 'set name "x"\n')
+    expect(await readArchivedCvar(configPath, 's_volume')).toBeNull()
+    expect(await readArchivedCvar(join(tmp, 'missing.cfg'), 's_volume')).toBeNull()
   })
 })

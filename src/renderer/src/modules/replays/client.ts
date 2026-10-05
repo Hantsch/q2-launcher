@@ -132,6 +132,14 @@ export function playbackTimeline(action: TimelineAction): Promise<Outcome<void>>
   return client.call(REPLAYS_HANDLERS.playbackTimeline, action)
 }
 
+/** Sets the running game's volume level and mute flag. */
+export function playbackVolume(volume: {
+  percent: number
+  muted: boolean
+}): Promise<Outcome<void>> {
+  return client.call(REPLAYS_HANDLERS.playbackVolume, volume)
+}
+
 /** Enters or leaves cinema mode. */
 export function playbackCinema(enter: boolean): Promise<Outcome<void>> {
   return client.call(REPLAYS_HANDLERS.playbackCinema, { enter })

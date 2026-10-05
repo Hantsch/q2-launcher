@@ -3127,6 +3127,13 @@
       "stateFinished": "Finished",
       "statePaused": "Paused",
       "statePlaying": "Playing",
+      "volume": {
+        "label": "Game volume",
+        "mute": "Mute",
+        "muted": "Muted",
+        "percent": "{{value}} %",
+        "unmute": "Unmute"
+      },
       "waiting": {
         "pause": "Waiting for the game… (pause)",
         "seek": "Waiting for the game… (seek)",

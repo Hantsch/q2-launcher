@@ -106,6 +106,34 @@ function cvarNameOf(content: string): string | null {
   return match?.[1] ?? null
 }
 
+/** The value a `set`/`seta` line assigns, quoted or bare; null when the line carries none. */
+function cvarValueOf(content: string): string | null {
+  const match = /^[ \t]*seta?[ \t]+"?[^\s";]+"?[ \t]+(?:"([^"]*)"?|([^\s";]+))/i.exec(content)
+  return match?.[1] ?? match?.[2] ?? null
+}
+
+/**
+ * The value `name` gets when the engine execs `configPath`: the last `set`/`seta` line wins. Null when
+ * the file cannot be read or has no such line - a caller falls back to the engine's own default.
+ */
+export async function readArchivedCvar(
+  configPath: string,
+  name: string,
+  fs: Pick<CvarRestoreFs, 'readFile'> = nodeCvarRestoreFs,
+): Promise<string | null> {
+  let text: string
+  try {
+    text = (await fs.readFile(configPath)).toString('latin1')
+  } catch {
+    return null
+  }
+  let value: string | null = null
+  for (const segment of splitLines(text)) {
+    if (cvarNameOf(segment.content) === name) value = cvarValueOf(segment.content)
+  }
+  return value
+}
+
 function isMissing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT'
 }

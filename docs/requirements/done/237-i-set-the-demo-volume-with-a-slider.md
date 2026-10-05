@@ -1,7 +1,7 @@
 ---
 id: 237
 title: I set the demo's game volume with a slider
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -20,19 +20,19 @@ Concept: [replays-module.md](../systems/replays-module.md), [demo-browser.md](..
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a demo session runs, the timeline shows a speaker button and a volume slider
+- [x] **AC1** — While a demo session runs, the timeline shows a speaker button and a volume slider
       (0–100 %), on Windows and Linux.
-- [ ] **AC2** — Moving the slider changes the playing game's sound volume; the slider sends the
+- [x] **AC2** — Moving the slider changes the playing game's sound volume; the slider sends the
       value through the playback channel, never by restarting the demo.
-- [ ] **AC3** — Dragging the slider does not flood the channel: intermediate values are coalesced and
+- [x] **AC3** — Dragging the slider does not flood the channel: intermediate values are coalesced and
       the value the user lets go of is the one the game ends up with.
-- [ ] **AC4** — The speaker button mutes and unmutes; unmute restores the volume set before muting.
+- [x] **AC4** — The speaker button mutes and unmutes; unmute restores the volume set before muting.
       Muted state shows as a crossed-out speaker icon plus a text label, never by colour alone.
-- [ ] **AC5** — The slider and the button are keyboard-operable (arrow keys step the slider, the
+- [x] **AC5** — The slider and the button are keyboard-operable (arrow keys step the slider, the
       button toggles with Enter/Space) and carry accessible names.
-- [ ] **AC6** — After the session ends, the installation's `s_volume` is what it was before the demo
+- [x] **AC6** — After the session ends, the installation's `s_volume` is what it was before the demo
       started — the demo volume never leaks into normal play.
-- [ ] **AC7** — A new session starts at the volume of the last demo session (remembered by the
+- [x] **AC7** — A new session starts at the volume of the last demo session (remembered by the
       launcher), or at the game's own value if none was set yet.
 
 ## Open Questions
@@ -217,3 +217,21 @@ display) and D2 (persisted `demoVolume`, restore list).
   `scripts/flows/replays-volume.mjs` › "replays-volume" (step AC7).
 
 ## Done
+
+**Summary.** The demo timeline carries a speaker button and a 0-100 slider (steps of 5). Main coalesces `playback.volume` to one in-flight `s_volume` line, every channel play launches with `+set s_volume <start>` so the session restore puts the installation's value back, and the last level the user set is remembered globally (`demoVolume`) at session end.
+
+**Commit message:** `237: demo volume slider + mute on the timeline, coalesced s_volume, restored after the session, remembered level`
+
+**Verification (narrow gate).** build, typecheck, lint green; `npx vitest run --changed HEAD` 180 files / 1565 tests green; `src/comments.test.ts` + `src/architecture.test.ts` green. `--affected` would select 45 flows (too many for one call), so flows ran by name in batches: `replays-volume` (AC1-AC7), `replays-timeline`, `-timeline-burst`, `-timeline-optimistic`, `replays-cinema` and the stage/follow/overlays/unavailable/view-leave/x11-unreachable/cinema-*/fullscreen flows, all green. Not run (known reds, not ours): `replays-filter-search`, `replays-mod-warning`, `scripts/check-docs.test.mjs`, `scripts/flow-helper-duplication.test.mjs`. Review (default tier) PASS; fixed: schema doc comment placement, flow header comment, rejected `settled()` handling, `changedVolume` reset in `prepare`.
+AC to test, all as named in Acceptance Tests and verified passing; flow steps AC1-AC7 in `replays-volume`.
+Manual residue: hearing the volume change on a real Q2PRO with an audio device (the stub engine has no sound).
+
+**Decisions.**
+- The `replays-timeline` flow's Tab-order walk got two extra stops (the new toggle and slider sit before the speed select).
+- Flow fixture puts `q2config.cfg` in the demo's game dir (`ctf`); the Linux write-dir path is unrun on this Windows host.
+- Main calls `setVolume` (display push) when a line is actually sent; the slider's local value wins during a drag.
+- The keyboard unit test asserts `step=5` and click-toggle (jsdom has no arrow-key value change); ArrowUp/Space are proven in the flow, Enter on the native button is browser behaviour.
+- `docs/systems/replays-module.md` was tightened to stay within its 150-line cap.
+- Environment note: a fix agent's temporary worktree wiped `node_modules`; restored with `npm ci` (lockfile unchanged).
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 11

@@ -36,7 +36,14 @@ export interface ReplaysState {
   /** The missing-mod warning: whether it is asked at all, and the lowercase game dirs the user
    * said "don't ask again" for. */
   modWarning: { enabled: boolean; trustedMods: string[] }
+  /**
+   * The level (integer percent 0-100) the last demo session ended at, for every installation alike;
+   * null until a session changed it. Mute is never remembered, only the level under it (story 237).
+   */
+  demoVolume: number | null
 }
+
+const demoVolumeSchema = z.number().int().min(0).max(100)
 
 const storedNameTemplateSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -145,7 +152,17 @@ export function parseReplaysState(raw: unknown): ReplaysState {
 
   const modWarning = modWarningSchema.parse((raw as { modWarning?: unknown } | null)?.modWarning)
 
-  return { nameTemplates, extraFolders, listFilter, modWarning, listSort }
+  const demoVolumeResult = demoVolumeSchema.safeParse(
+    (raw as { demoVolume?: unknown } | null)?.demoVolume,
+  )
+  const demoVolume = demoVolumeResult.success ? demoVolumeResult.data : null
+
+  return { nameTemplates, extraFolders, listFilter, modWarning, listSort, demoVolume }
+}
+
+/** Remembers the level a demo session ended at; the same section handle every other slot writes through. */
+export function rememberDemoVolume(state: StateStore, percent: number): void {
+  replaysState(state).update((live) => ({ ...live, demoVolume: percent }))
 }
 
 const replaysSpec: StateSectionSpec<ReplaysState> = {
@@ -159,6 +176,7 @@ const replaysSpec: StateSectionSpec<ReplaysState> = {
     listFilter: { ...EMPTY_DEMO_LIST_FILTER },
     modWarning: { enabled: true, trustedMods: [] },
     listSort: null,
+    demoVolume: null,
   }),
 }
 

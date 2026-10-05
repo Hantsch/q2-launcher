@@ -15,7 +15,12 @@ import type { UiHarness } from '../../lib/ui-harness'
 import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
-import { SESSION_RESTORE_CVARS, WRONG_INSTALLATION, createDemoPlay, launcherSweepDirs } from './demo-play'
+import {
+  SESSION_RESTORE_CVARS,
+  WRONG_INSTALLATION,
+  createDemoPlay,
+  launcherSweepDirs,
+} from './demo-play'
 import { isDirectory } from '../../lib/fs-utils'
 import { createDemoBulkTags } from './demo-bulk-tags'
 import { createDemoFileOps } from './demo-file-ops'
@@ -41,11 +46,12 @@ import {
   type StageFollowSessions,
   virtualDesktopRightEdge,
 } from './stage-follow-session'
+import { createPlaybackVolume } from './playback-volume'
 import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackConsole } from './playback-console'
 import { createPlaybackStop } from './playback-stop'
 import { createPlaybackSessions } from './playback-sessions'
-import { replaysState } from './persisted'
+import { rememberDemoVolume, replaysState } from './persisted'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { SESSION_CVARS_PENDING_FILE, createCvarRestore } from './session-cvar-restore'
 import { createSidecarStore } from './sidecar-store'
@@ -414,6 +420,10 @@ export const replaysModule: MainModule = {
     playbackControl.onStateChange((state) => {
       if (state === 'playing') watchAvailability()
       cinema.onPlaybackState(state)
+      if (state !== 'ended') return
+      // Written once per session, from the level the user last set - never the muted 0 (story 237).
+      const level = playbackControl.takeChangedVolume()
+      if (level !== null) rememberDemoVolume(app.state, level)
     })
 
     const demoPlay = createDemoPlay({
@@ -433,6 +443,7 @@ export const replaysModule: MainModule = {
       toGeometry: (rect) => geometryAt(rect),
       onStageSession: (start) =>
         x11Keeper ? beginKeptSession(start, stageFollow.begin) : stageFollow.begin(start),
+      demoVolume: () => replaysState(app.state).get().demoVolume,
     })
 
     handle(REPLAYS_HANDLERS.overviewRead, async () => ok(await scanService.overview()))
@@ -517,6 +528,8 @@ export const replaysModule: MainModule = {
       },
     })
     handle(REPLAYS_HANDLERS.playbackTimeline, (payload) => playbackTimeline.run(payload))
+    const playbackVolume = createPlaybackVolume({ playback: playbackControl })
+    handle(REPLAYS_HANDLERS.playbackVolume, (payload) => playbackVolume.set(payload))
     const playbackConsole = createPlaybackConsole({ playback: playbackControl })
     handle(REPLAYS_HANDLERS.playbackConsoleSend, (payload) => playbackConsole.send(payload.line))
     const playbackStop = createPlaybackStop({ playback: playbackControl, launch: app.launch })

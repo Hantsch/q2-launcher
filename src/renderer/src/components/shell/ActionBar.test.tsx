@@ -137,6 +137,7 @@ describe('ActionBar', () => {
         knownDurationMs: null,
         view: null,
         speed: 1,
+        volume: { percent: 100, muted: false },
         mode: 'preview',
         cinemaAvailability: { available: true },
         fullscreen: false,

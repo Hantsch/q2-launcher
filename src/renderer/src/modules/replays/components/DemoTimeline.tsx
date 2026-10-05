@@ -28,6 +28,7 @@ import { useOverlayRegistration } from '../../../lib/overlay-registry'
 import { cn } from '../../../lib/cn'
 import { usePlaybackStore } from '../playback-store'
 import type { RowPatcher } from '../demo-editor-store'
+import { VolumeControl } from './VolumeControl'
 import { CommentField, CommentMarks } from './TimelineComments'
 import {
   createTimeline,
@@ -84,6 +85,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
   const sendTimeline = usePlaybackStore((state) => state.sendTimeline)
   const requestStop = usePlaybackStore((state) => state.requestStop)
   const setCinema = usePlaybackStore((state) => state.setCinema)
+  const setVolume = usePlaybackStore((state) => state.setVolume)
   const [error, setError] = useState<LocalizedMessage | null>(null)
   // The native speed popup paints above the page (and the game window): park the game while it is open.
   const [speedOpen, setSpeedOpen] = useState(false)
@@ -177,6 +179,12 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
     // A paused demo would sit frozen behind the fullscreen window with no visible way to resume.
     if (paused && !(await send({ kind: 'togglePause' }))) return
     await send({ kind: 'fullscreen' })
+  }
+
+  async function changeVolume(volume: { percent: number; muted: boolean }): Promise<void> {
+    setError(null)
+    const refusal = await setVolume(volume)
+    if (refusal) setError(refusal)
   }
 
   async function toggleCinema(): Promise<void> {
@@ -349,6 +357,12 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
             {t(`replays.timeline.waiting.${waitingChain}`)}
           </span>
         )}
+        <VolumeControl
+          volume={session.volume}
+          disabled={fullscreen}
+          focusRing={FOCUS_RING}
+          onChange={(volume) => void changeVolume(volume)}
+        />
         <Select
           disabled={fullscreen}
           aria-label={t('replays.timeline.speed')}

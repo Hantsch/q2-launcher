@@ -21,6 +21,7 @@ describe('parseReplaysState (story 140 D2)', () => {
       listFilter: EMPTY_DEMO_LIST_FILTER,
       modWarning: { enabled: true, trustedMods: [] },
       listSort: null,
+      demoVolume: null,
     })
   })
 
@@ -93,6 +94,7 @@ describe('parseReplaysState (story 140 D2)', () => {
       listFilter: EMPTY_DEMO_LIST_FILTER,
       modWarning: { enabled: true, trustedMods: [] },
       listSort: null,
+      demoVolume: null,
     })
   })
 
@@ -265,5 +267,15 @@ describe('replays state section (story 142 D1)', () => {
 
     expect(replaysState(reloaded).get().extraFolders).toEqual([])
     expect(doc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
+  })
+})
+
+describe('parseReplaysState demoVolume', () => {
+  it('demoVolume parses forgivingly', () => {
+    expect(parseReplaysState({}).demoVolume).toBeNull()
+    expect(parseReplaysState({ demoVolume: 0 }).demoVolume).toBe(0)
+    expect(parseReplaysState({ demoVolume: 100 }).demoVolume).toBe(100)
+    for (const bad of [-1, 101, 42.5, '40', null, Number.NaN, { percent: 40 }])
+      expect(parseReplaysState({ demoVolume: bad }).demoVolume, String(bad)).toBeNull()
   })
 })

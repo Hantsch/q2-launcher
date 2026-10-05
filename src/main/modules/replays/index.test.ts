@@ -813,6 +813,7 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.demoFoldersRead]: { installationId: 'nope' },
         [REPLAYS_HANDLERS.demoPlay]: { demoId: 'nope', installationId: 'nope' },
         [REPLAYS_HANDLERS.playbackTimeline]: { kind: 'togglePause' },
+        [REPLAYS_HANDLERS.playbackVolume]: { percent: 70, muted: false },
         [REPLAYS_HANDLERS.playbackConsoleSend]: { line: 'echo hi' },
         [REPLAYS_HANDLERS.playbackStage]: { rect: { x: 0, y: 0, width: 640, height: 480 } },
         [REPLAYS_HANDLERS.playbackStop]: undefined,
@@ -1015,7 +1016,15 @@ describe('replays module lifecycle', () => {
       cinemaClosed: cinemaClosedListeners.size,
       followers: followerCount.created - followerCount.disposed,
     })
-    return { app, live, liveCinemaAndStage, playback, launchArgs, game }
+    /** The game process of `inst-1` exits, as the launch service reports it. */
+    const exit = (): void => {
+      for (const listener of [...stateListeners])
+        (listener as (s: { phase: string; installationId: string }) => void)({
+          phase: 'exited',
+          installationId: 'inst-1',
+        })
+    }
+    return { app, live, liveCinemaAndStage, playback, launchArgs, game, exit }
   }
 
   /** Scans, then plays the one demo, so every lazily-taken subscription is live. */
@@ -1142,6 +1151,33 @@ describe('replays module lifecycle', () => {
     await registry.disposeAll()
   })
 
+  it('a changed volume is remembered at session end, the level not the mute', async () => {
+    const { app, launchArgs, exit } = await countingContext()
+    const registry = await registerAndPlay(app)
+    const invoke = (type: string, payload?: unknown) =>
+      registry.invoke({ moduleId: 'replays', type, payload })
+    // Nothing remembered and no config line yet: the engine's own default.
+    expect(launchArgs[0].join(' ')).toContain('+set s_volume 0.7 +demo')
+
+    // Muted at level 40: the game hears 0, but the level is what the user chose.
+    expect(await invoke(REPLAYS_HANDLERS.playbackVolume, { percent: 40, muted: true })).toEqual(
+      ok(undefined),
+    )
+    expect(replaysState(app.state).get().demoVolume).toBeNull()
+
+    exit()
+    await vi.waitFor(() => expect(replaysState(app.state).get().demoVolume).toBe(40))
+
+    // The next session starts where the last one ended.
+    const listed = await invoke(REPLAYS_HANDLERS.indexRead)
+    const [row] = (listed.ok ? listed.value : []) as Array<{ id: string }>
+    expect(
+      await invoke(REPLAYS_HANDLERS.demoPlay, { demoId: row.id, installationId: 'inst-1' }),
+    ).toEqual({ ok: true, value: { stage: null } })
+    expect(launchArgs[1].join(' ')).toContain('+set s_volume 0.4 +demo')
+    await registry.disposeAll()
+  })
+
   it('cinema is unavailable off the primary display', async () => {
     const { app } = await countingContext({ mainWindow: windowOn(2), displays: mixedDpiDisplays })
     const registry = new MainModuleRegistry()
@@ -1172,7 +1208,10 @@ describe('replays bulk channels', () => {
     const payloads: [string, unknown][] = [
       [REPLAYS_HANDLERS.demosDelete, { demoIds: ['a'], path: '/etc' }],
       [REPLAYS_HANDLERS.demosMove, { demoIds: ['a'], target: { kind: 'pick' }, path: '/etc' }],
-      [REPLAYS_HANDLERS.demosMove, { demoIds: ['a'], target: { kind: 'folder', folderId, path: '/etc' } }],
+      [
+        REPLAYS_HANDLERS.demosMove,
+        { demoIds: ['a'], target: { kind: 'folder', folderId, path: '/etc' } },
+      ],
       [REPLAYS_HANDLERS.demosMove, { demoIds: ['a'], target: { kind: 'path', path: '/etc' } }],
       [REPLAYS_HANDLERS.demosTag, { demoIds: ['a'], add: [], remove: [], path: '/etc' }],
       [REPLAYS_HANDLERS.demoFolderDelete, { folderId, path: '/etc' }],

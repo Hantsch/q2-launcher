@@ -283,6 +283,7 @@ describe('playback control', () => {
       fullscreen: false,
       cinema: false,
       speed: 1,
+      volume: { percent: 70, muted: false },
       cinemaAvailability: { available: true },
       stageNotice: null,
     })
@@ -299,6 +300,7 @@ describe('playback control', () => {
       fullscreen: false,
       cinema: true,
       speed: 2,
+      volume: { percent: 70, muted: false },
       cinemaAvailability: { available: true },
       stageNotice: null,
     })
@@ -313,6 +315,7 @@ describe('playback control', () => {
       fullscreen: true,
       cinema: false,
       speed: 2,
+      volume: { percent: 70, muted: false },
       cinemaAvailability: {
         available: false,
         reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
@@ -327,6 +330,45 @@ describe('playback control', () => {
     expect(states).toEqual(['playing', 'finished', 'ended'])
     // The next session starts at normal speed.
     expect(t.control.display().speed).toBe(1)
+  })
+
+  it('the display carries the session volume', async () => {
+    const t = setup('win32')
+    await t.control.prepare({
+      gameDirPath: 'g',
+      durationMs: null,
+      format: 'dm2',
+      volumePercent: 30,
+    })
+    await t.control.attach()
+    expect(t.control.display().volume).toEqual({ percent: 30, muted: false })
+    t.control.setVolume({ percent: 55, muted: true })
+    expect(t.control.display().volume).toEqual({ percent: 55, muted: true })
+    expect(t.events.filter((e) => e.type === 'playback.display').at(-1)?.payload).toMatchObject({
+      volume: { percent: 55, muted: true },
+    })
+  })
+
+  it('takeChangedVolume returns the last level once, after the session ended', async () => {
+    const t = setup('win32')
+    expect(t.control.takeChangedVolume()).toBeNull()
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
+    await t.control.attach()
+    t.control.setVolume({ percent: 20, muted: false })
+    t.control.setVolume({ percent: 45, muted: true })
+    t.fl.exit()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(t.control.takeChangedVolume()).toBe(45)
+    expect(t.control.takeChangedVolume()).toBeNull()
+  })
+
+  it("a new session does not inherit the previous session's changed volume", async () => {
+    const t = setup('win32')
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
+    await t.control.attach()
+    t.control.setVolume({ percent: 45, muted: false })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
+    expect(t.control.takeChangedVolume()).toBeNull()
   })
 
   it('the display carries the stage notice, null when none is wired', () => {

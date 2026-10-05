@@ -1,11 +1,10 @@
 # Replays module
 
 Status: **Implemented.** The demo browser: finds Quake II demos on disk, indexes and describes them,
-and plays them in the engine with a launcher-controlled stage and timeline. Design reference:
-[demo-browser.md](../concepts/demo-browser.md). Contract: `src/shared/modules/replays.ts`.
+and plays them with a launcher-controlled stage and timeline. Design: [demo-browser.md](../concepts/demo-browser.md).
+Contract: `src/shared/modules/replays.ts`.
 
 ## Purpose
-
 - Discover demos (also in zip archives) across installations and user-added folders; index header
   facts in a disposable cache.
 - Let the user sort, filter, rename and annotate demos (tags, rating, favourite, sides) in a
@@ -14,7 +13,6 @@ and plays them in the engine with a launcher-controlled stage and timeline. Desi
 - Play a demo in Q2PRO and steer it, on the launcher's stage or in cinema mode.
 
 ### Scope
-
 The scan is global; the list is scoped in the view. `scopeDemoRows` (`src/shared/replays/list-scope.ts`)
 keeps a row from an extra folder or when `reachedBy` (absent = its own installation) holds the rail's
 installation, so a folder shared by two installations lists in both. An "All installations" toggle
@@ -25,7 +23,6 @@ scoped rows; the filter value survives an installation switch. An empty list say
 (`scopeSourceErrors`) unless the toggle is on.
 
 ## Map
-
 **Main** (`src/main/modules/replays/`)
 
 - `index.ts` — the module: registers every handler and pushes the events.
@@ -43,14 +40,12 @@ scoped rows; the filter value survives an installation switch. An empty list say
   `persisted.ts` — the forgiving state parse.
 
 **Shared** (`src/shared/`, pure)
-
 - `modules/replays.ts` — handler map, events, schemas and the typed `ReplaysContract`.
 - `replays/` — `sidecar.ts`, `list-sort.ts`, `list-filter.ts`, `name-template.ts`,
   `name-templates.ts`, `demo-comments.ts`, `demo-rename.ts`, `demo-play.ts`, `demo-control.ts`,
   `timeline.ts`, `console-line.ts`, `cinema.ts`; `demos/` — header, frame and readability readers.
 
 **Renderer** (`src/renderer/src/modules/replays/`)
-
 - `ReplaysView.tsx`, `components/VirtualDemoList.tsx`, `components/DemoRow.tsx`,
   `DemoListFilterBar.tsx`, `ReplaysListStatus.tsx` — the list.
 - `components/DemoDetailPanel.tsx`, `components/InPlaceField.tsx`, `components/TagInput.tsx`,
@@ -66,8 +61,8 @@ scoped rows; the filter value survives an installation switch. An empty list say
   `floor(atMs / 1000)`. Add comment pins the shown position, then pauses; field and hover bubble stay
   inside the strip (the native game window covers the stage above it). No comment controls in
   fullscreen or the cinema overlay. "Play from here" seeks a session on that demo, else plays it.
-- Start position: `beginSession(..., { id, archived, startAtS })` keeps `pendingSeekS`; the first
-  position sample sends one `seekTo` and clears it (the engine takes no commands earlier).
+- Start position: `beginSession(..., { id, archived, startAtS })` keeps `pendingSeekS`; the first position
+  sample sends one `seekTo` and clears it (the engine takes no commands earlier).
 - `components/DemoPlayersPanel.tsx` — players by side; `components/DemoStage.tsx`,
   `components/DemoTimeline.tsx` (takes the session's `demo` and `onRowPatched` for comments),
   `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `useDemoPlay.ts` — playback.
@@ -91,6 +86,10 @@ cache replays-index.json (regenerable), one sidecar per demo.
   `extraFolders` — user-added demo folders, unique by normalised path.
 - `listSort` — the chosen sort (`null` = favourites-first); `listFilter` — empty meaning none.
 - `modWarning` — whether the missing-mod warning is asked and the lower-cased game dirs trusted.
+- `demoVolume` — the level (integer percent) the last demo session ended at, for every installation;
+  `null` until one changed it, mute never stored. Written once at session end. A channel play starts
+  there, else at the config's last archived `s_volume`, else 70; `s_volume` is a session-restore cvar,
+  so its archived line is put back after the game exits.
 
 ## Handlers
 
@@ -111,10 +110,9 @@ cache replays-index.json (regenerable), one sidecar per demo.
   inside the root). Refuses archive entries and folders, a playing demo, a running scan, a clash.
 - `folderCreate` — creates a folder in a source folder, listed without a rescan; returns the ref.
   Refuses an invalid or existing name, archive folders, an outside folder, a running scan.
-- `folderRename` — renames a source folder in one directory rename, re-keys every row below it
-  without re-parsing; returns the `{ from, to }` id pairs. Refuses a source root, an invalid or
-  clashing name (case-only is allowed), archive folders, an outside folder, a playing demo below it
-  and a running scan. Refs resolve against each root's recorded directory.
+- `folderRename` — one directory rename, re-keys rows below it without re-parsing; returns `{ from, to }`
+  id pairs. Refuses a source root, an invalid or clashing name (case-only is allowed), archive folders,
+  an outside folder, a playing demo below it, a running scan. Refs resolve against each root's recorded directory.
 - `demosDelete` / `demosMove` / `demosTag` / `demoFolderDelete` — bulk file actions
   (`demo-file-ops.ts`, `demo-bulk-tags.ts`, `demo-folder-delete.ts`), id- or ref-addressed, never a
   path; one outcome per demo (done, failed or skipped, with an i18n reason). Delete goes to the OS
@@ -122,18 +120,20 @@ cache replays-index.json (regenerable), one sidecar per demo.
   Move never replaces a file in the target and puts the demo back when its sidecar cannot follow;
   the target is a tree folder (inside a scanned root) or `{ kind: 'pick' }` (a folder dialog, any
   directory, `{ cancelled: true }` on dismiss) - a demo moved outside every root leaves the index.
-  Tag never overwrites a sidecar that does not parse. Skipped: archive entries, a playing demo, a
-  demo already in the target. All four refuse while a scan runs.
+  Tag never overwrites an unparsable sidecar. Skipped: archive entries, a playing demo, a demo already
+  in the target. All four refuse while a scan runs.
 - `demoFoldersRead` — an installation's absolute `demos` folders (display only); `demoPlay` — plays a demo.
+- `playbackVolume` — sets the running game's `s_volume` (percent + mute; mute sends 0, latest value
+  wins while a line is in flight).
 - `playbackTimeline` / `playbackConsoleSend` / `playbackStage` / `playbackStop` / `playbackCinema` /
   `playbackDisplayRead` — pause, jump, seek or speed the running demo, send one validated console
   line, re-place the window over the stage, end it (quit, then terminate), enter or leave cinema
   mode, read the display state.
 
-Events: `scanProgress`, `playbackPosition` (every 250 ms), `playbackState`, `playbackDisplay`.
+Events: `scanProgress`, `playbackPosition` (every 250 ms), `playbackState`, `playbackDisplay`
+(carries fullscreen, cinema, speed, volume, cinema availability, stage notice).
 
 ## External inputs
-
 - Files: demo files (optionally gz) in installation game dirs, the Linux Q2PRO write dir and extra
   folders, at any depth below each `demos` folder; zip archives via a bounded reader, never recursed;
   sidecars; replays-index.json; state.json. Folder walk: an already visited real path is never
@@ -143,7 +143,6 @@ Events: `scanProgress`, `playbackPosition` (every 250 ms), `playbackState`, `pla
 - Window system: placement on Windows; X11 (X-Resource PID) on Linux. Network: none.
 
 ## Limitations
-
 - Playback needs Q2PRO; other clients are not eligible. A demo outside the Quake filesystem is played
   from a temporary copy; a `.gz` is not decompressed by the launcher.
 - Stage placement depends on the platform's window system; nested archives are not expanded. An `.mvd2`

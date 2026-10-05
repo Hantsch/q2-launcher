@@ -95,6 +95,13 @@
       "fullscreenKeys": "Fullscreen: steer the demo with your keys. Your \"Back to window\" key (Controls tab, Demo playback) returns it here.",
       "seek": "Seek",
       "seekValueText": "{{position}} of {{duration}}",
+      "volume": {
+        "label": "Game volume",
+        "mute": "Mute",
+        "unmute": "Unmute",
+        "muted": "Muted",
+        "percent": "{{value}} %"
+      },
       "speed": "Playback speed",
       "speedOption": "{{value}}x",
       "statePlaying": "Playing",

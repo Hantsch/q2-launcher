@@ -64,6 +64,8 @@ export interface PlaybackControl {
     gameDirPath: string
     durationMs: number | null
     format: DemoFormat
+    /** Game volume the session starts with (default 70). */
+    volumePercent?: number
   }): Promise<PlaybackPrepared>
   /** The game is up: start the channel on Linux (it needs the engine's pipes); Windows started in `prepare`. */
   attach(io?: EngineIo): Promise<void>
@@ -86,6 +88,10 @@ export interface PlaybackControl {
   emitDisplay(): void
   /** Story 187: a `speed` timeline action reached the game - main holds the speed. */
   setSpeed(speed: number): void
+  /** A `playback.volume` line reached the game - main holds the volume, so the display can carry it. */
+  setVolume(volume: { percent: number; muted: boolean }): void
+  /** The level (never the muted 0) last set, once; survives the session ending. Null when unchanged. */
+  takeChangedVolume(): number | null
   /**
    * Module shutdown: drops the launch subscriptions and closes whatever channel is still open. At
    * quit the playback release has usually ended the session already; that close is awaited, never
@@ -98,6 +104,7 @@ interface Prepared {
   channel: PlaybackChannel
   durationMs: number | null
   format: DemoFormat
+  volumePercent: number
   bindIo: (io: EngineIo | undefined) => void
   /** The channel was started in `prepare` (Windows): `attach` must not start it again. */
   startedEarly: boolean
@@ -111,7 +118,10 @@ interface Session extends Prepared {
   fullscreen: boolean
   ending: boolean
   speed: number
+  volume: { percent: number; muted: boolean }
 }
+
+export const DEFAULT_VOLUME_PERCENT = 70
 
 export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackControl {
   const { emit, launch } = deps
@@ -119,6 +129,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   const makeLinux = deps.makeLinux ?? createLinuxChannel
   let prepared: Prepared | null = null
   let session: Session | null = null
+  let changedVolume: number | null = null
   const displayListeners = new Set<(fullscreen: boolean) => void>()
   const stateListeners = new Set<(state: ReplaysPlaybackState['state']) => void>()
   const cinema =
@@ -138,6 +149,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       fullscreen,
       cinema: !fullscreen && c.open,
       speed: live?.speed ?? 1,
+      volume: live?.volume ?? { percent: DEFAULT_VOLUME_PERCENT, muted: false },
       cinemaAvailability: c.availability,
       stageNotice: deps.stageNotice?.() ?? null,
     }
@@ -209,8 +221,9 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   }
 
   return {
-    async prepare({ gameDirPath, durationMs, format }) {
+    async prepare({ gameDirPath, durationMs, format, volumePercent }) {
       subscribe()
+      changedVolume = null
       if (prepared) void prepared.channel.close().catch(() => undefined)
       let channel: PlaybackChannel
       let bound: EngineIo | undefined
@@ -229,7 +242,14 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         channel = makeLinux({ io: lateIo, log, gameDirPath })
       }
       const startedEarly = platform === 'win32'
-      prepared = { channel, durationMs, format, bindIo, startedEarly }
+      prepared = {
+        channel,
+        durationMs,
+        format,
+        volumePercent: volumePercent ?? DEFAULT_VOLUME_PERCENT,
+        bindIo,
+        startedEarly,
+      }
       if (startedEarly) await channel.start()
       return { argsBeforeDemo: channel.argsBeforeDemo, argsAfterDemo: channel.argsAfterDemo }
     },
@@ -248,6 +268,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         fullscreen: false,
         ending: false,
         speed: 1,
+        volume: { percent: p.volumePercent, muted: false },
       }
       session = s
       try {
@@ -318,6 +339,20 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       if (!session || session.ending || session.speed === speed) return
       session.speed = speed
       emitDisplay()
+    },
+
+    setVolume(volume) {
+      if (!session || session.ending) return
+      changedVolume = volume.percent
+      if (session.volume.percent === volume.percent && session.volume.muted === volume.muted) return
+      session.volume = { ...volume }
+      emitDisplay()
+    },
+
+    takeChangedVolume() {
+      const v = changedVolume
+      changedVolume = null
+      return v
     },
 
     currentFormat() {

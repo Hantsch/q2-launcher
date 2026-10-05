@@ -274,6 +274,7 @@
       "enabled": true,
       "trustedMods": []
     },
-    "listSort": null
+    "listSort": null,
+    "demoVolume": null
   }
 }

@@ -110,6 +110,7 @@ const cvars = new Map([
   ['game', ''],
   ['timescale', '1'],
   ['vid_fullscreen', '0'],
+  ['s_volume', '0.7'],
 ])
 const aliases = new Map()
 const demo = { playing: false, paused: false, posMs: 0 }
@@ -394,7 +395,28 @@ function runIf(args) {
 }
 const pendingGuards = new Set()
 
+/** Like Q2PRO on exit: each cvar in `Q2L_UI_ENGINE_ARCHIVE_CVARS` is written into the config file
+ * named by `Q2L_UI_ENGINE_CONFIG_FILE`. Both unset: nothing happens. */
+function archiveCvars() {
+  const file = process.env.Q2L_UI_ENGINE_CONFIG_FILE || ''
+  const names = (process.env.Q2L_UI_ENGINE_ARCHIVE_CVARS || '').split(',').filter(Boolean)
+  if (!file || names.length === 0) return
+  try {
+    let lines = fs.existsSync(file) ? fs.readFileSync(file, 'latin1').split('\n') : []
+    for (const name of names) {
+      const line = `seta ${name} "${cvar(name)}"`
+      const at = lines.findIndex((l) => l.trim().toLowerCase().startsWith(`seta ${name} `))
+      if (at >= 0) lines[at] = line
+      else lines = [...lines.filter((l, i) => i < lines.length - 1 || l !== ''), line, '']
+    }
+    fs.writeFileSync(file, lines.join('\n'), 'latin1')
+  } catch {
+    // a lost archive only fails the flow that asked for it
+  }
+}
+
 function quit() {
+  archiveCvars()
   process.exit(0)
 }
 
@@ -456,7 +478,7 @@ function execLine(raw) {
       print(`"${cmd}" is "${cvar(cmd)}"`)
       return
     }
-    if (cmd === 'timescale' || cmd === 'vid_fullscreen') logCommand(tokens)
+    if (cmd === 'timescale' || cmd === 'vid_fullscreen' || cmd === 's_volume') logCommand(tokens)
     cvars.set(cmd, args[0])
     return
   }

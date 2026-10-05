@@ -840,6 +840,7 @@
       "replays-timeline",
       "replays-timeline-burst",
       "replays-timeline-optimistic",
+      "replays-volume",
       "replays-mod-warning",
       "replays-mod-install",
       "demo-actions-bind",

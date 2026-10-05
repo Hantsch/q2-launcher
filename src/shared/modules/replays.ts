@@ -90,6 +90,8 @@ export const REPLAYS_HANDLERS = {
   demoPlay: 'demo.play',
   /** Steers the running demo (pause, jump, seek, speed). */
   playbackTimeline: 'playback.timeline',
+  /** Sets the running game's volume (`s_volume`), percent 0-100, plus the mute flag. */
+  playbackVolume: 'playback.volume',
   /** Sends one user-typed console line to the running demo. */
   playbackConsoleSend: 'playback.consoleSend',
   /** Re-places the running demo's window over the launcher's stage rect. */
@@ -138,6 +140,8 @@ export interface ReplaysPlaybackDisplay {
   fullscreen: boolean
   cinema: boolean
   speed: number
+  /** Game volume held in main; optional for callers older than the volume slider. */
+  volume?: { percent: number; muted: boolean }
   cinemaAvailability: CinemaAvailability
   /** Why the staged game could not be kept on top (an i18n key), or null. */
   stageNotice: { key: string } | null
@@ -570,6 +574,13 @@ export const replaysStageRectSchema = z
   .strict()
 export type ReplaysStageRect = z.infer<typeof replaysStageRectSchema>
 
+/** `playback.volume`'s payload - the level is kept while muted, so unmuting restores it. */
+export const replaysPlaybackVolumeSchema = z.strictObject({
+  percent: z.number().int().min(0).max(100),
+  muted: z.boolean(),
+})
+export type ReplaysPlaybackVolumePayload = z.infer<typeof replaysPlaybackVolumeSchema>
+
 /** `playback.stage`'s payload - where the stage is now, or `null` when there is none. */
 export const replaysPlaybackStageSchema = z
   .object({ rect: replaysStageRectSchema.nullable() })
@@ -704,6 +715,7 @@ export const REPLAYS_HANDLER_SCHEMAS = {
   [REPLAYS_HANDLERS.demoFoldersRead]: replaysDemoFoldersReadSchema,
   [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
   [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
+  [REPLAYS_HANDLERS.playbackVolume]: replaysPlaybackVolumeSchema,
   [REPLAYS_HANDLERS.playbackStage]: replaysPlaybackStageSchema,
   [REPLAYS_HANDLERS.playbackConsoleSend]: replaysConsoleSendSchema,
   [REPLAYS_HANDLERS.playbackStop]: replaysNoInputSchema,
@@ -833,6 +845,7 @@ export type ReplaysContract = {
     [REPLAYS_HANDLERS.demoFoldersRead]: ReplaysHandler<'demoFolders.read', { folders: string[] }>
     [REPLAYS_HANDLERS.demoPlay]: ReplaysHandler<'demo.play', ReplaysDemoPlayResult>
     [REPLAYS_HANDLERS.playbackTimeline]: ReplaysHandler<'playback.timeline', void>
+    [REPLAYS_HANDLERS.playbackVolume]: ReplaysHandler<'playback.volume', void>
     [REPLAYS_HANDLERS.playbackConsoleSend]: ReplaysHandler<'playback.consoleSend', void>
     [REPLAYS_HANDLERS.playbackStage]: ReplaysHandler<'playback.stage', void>
     [REPLAYS_HANDLERS.playbackStop]: ReplaysHandler<'playback.stop', void>

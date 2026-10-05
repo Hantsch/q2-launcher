@@ -26,18 +26,28 @@ import {
   type DiscoverContext,
 } from './discovery'
 import type { PlaybackSession } from '../../services/playback-session'
-import type { PlaybackControl } from './playback-control'
+import { DEFAULT_VOLUME_PERCENT, type PlaybackControl } from './playback-control'
 import { MOUSE_SESSION_CVARS, NOTIFY_SESSION_CVARS } from './playback-channel/protocol'
-import { STAGE_CVAR_NAMES, sessionConfigPath, type CvarRestore } from './session-cvar-restore'
+import {
+  STAGE_CVAR_NAMES,
+  readArchivedCvar,
+  sessionConfigPath,
+  type CvarRestore,
+} from './session-cvar-restore'
 import { normalWindowArgs, stageLaunchArgs, type StageAvailability } from './stage'
 import type { EngineIo } from './playback-channel/types'
 import type { PlaybackSessions } from './playback-sessions'
 
-/** Every cvar a launch may override with `+set` and whose archived line is put back after the session. */
+/**
+ * Every cvar a launch may override with `+set` and whose archived line is put back after the session.
+ * `s_volume` is set on every channel play, so a level changed live can never be archived into the
+ * installation's own config (story 237).
+ */
 export const SESSION_RESTORE_CVARS = [
   ...STAGE_CVAR_NAMES,
   ...NOTIFY_SESSION_CVARS,
   ...MOUSE_SESSION_CVARS,
+  's_volume',
 ] as const
 
 /**
@@ -136,6 +146,8 @@ export interface DemoPlayDeps {
   /** Story 171: a session launched placed over the stage began (at `geometry`, for `rect`); the
    * returned function runs once when that session ends. Never called for an unplaced play. */
   onStageSession?: (start: { geometry: string; rect: ReplaysStageRect }) => () => void
+  /** The level (percent) the last demo session ended at; null until one changed it (story 237). */
+  demoVolume: () => number | null
 }
 
 /**
@@ -260,6 +272,20 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     if (!deps.launch.isRunning()) stop(true)
   }
 
+  /**
+   * The level a channel session starts at: the last demo session's, else the game's own (the last
+   * archived `s_volume` of the config it runs with), else the engine default (story 237).
+   */
+  async function startVolumePercent(configPath: string | null): Promise<number> {
+    const remembered = deps.demoVolume()
+    if (remembered !== null) return remembered
+    const archived = configPath === null ? null : await readArchivedCvar(configPath, 's_volume')
+    // `parseFloat` reads a value the way the engine's `atof` does; an unreadable one is no level.
+    const value = archived === null ? Number.NaN : Number.parseFloat(archived)
+    if (!Number.isFinite(value)) return DEFAULT_VOLUME_PERCENT
+    return Math.round(Math.min(1, Math.max(0, value)) * 100)
+  }
+
   /** Starts the launch; `copyPath` (a staged copy, or null for an in-place play) is cleaned up on every end path. */
   async function launch(
     demoId: string,
@@ -289,19 +315,20 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         }
       }
     }
-    const withStage = (args: readonly string[]): string[] => {
-      if (stageArgs.length === 0) return [...args]
+    const beforeDemo = (args: readonly string[], extra: readonly string[]): string[] => {
+      if (extra.length === 0) return [...args]
       const at = args.indexOf('+demo')
-      return at < 0
-        ? [...stageArgs, ...args]
-        : [...args.slice(0, at), ...stageArgs, ...args.slice(at)]
+      return at < 0 ? [...extra, ...args] : [...args.slice(0, at), ...extra, ...args.slice(at)]
     }
     if (stageArgs.length > 0 && !deps.playback)
-      input = { ...launchInput, extraArgs: withStage(launchInput.extraArgs ?? []) }
+      input = { ...launchInput, extraArgs: beforeDemo(launchInput.extraArgs ?? [], stageArgs) }
     if (deps.playback) {
       let prepared: Awaited<ReturnType<PlaybackControl['prepare']>>
+      let volumeArgs: string[]
       try {
-        prepared = await deps.playback.prepare(playbackInfo)
+        const volumePercent = await startVolumePercent(configPath)
+        volumeArgs = ['+set', 's_volume', String(volumePercent / 100)]
+        prepared = await deps.playback.prepare({ ...playbackInfo, volumePercent })
       } catch (error) {
         await deps.playback.cancel()
         if (copyPath !== null) await removeStagedCopy(copyPath)
@@ -311,7 +338,11 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       // `+demo` must precede the channel's `+exec` polling loop.
       input = {
         ...launchInput,
-        extraArgs: [...argsBeforeDemo, ...withStage(launchInput.extraArgs ?? []), ...argsAfterDemo],
+        extraArgs: [
+          ...argsBeforeDemo,
+          ...beforeDemo(launchInput.extraArgs ?? [], [...volumeArgs, ...stageArgs]),
+          ...argsAfterDemo,
+        ],
       }
     }
     // Story 170 / 174: only a play whose final args `+set` a restore cvar has its archived cvars put
