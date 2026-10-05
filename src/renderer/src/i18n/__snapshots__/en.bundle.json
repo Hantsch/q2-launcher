@@ -10,6 +10,14 @@
     "playable": "Playable",
     "running": "Quake II is running"
   },
+  "addInstallation": {
+    "hint": {
+      "detect": "Find Steam, GOG, Epic and other installations on this PC.",
+      "existing": "Register a Quake II folder you already have.",
+      "new": "Download or copy the engine and game data into a new, playable installation."
+    },
+    "new": "New installation…"
+  },
   "app": {
     "boot": {
       "status": "Starting up"
@@ -136,7 +144,7 @@
       "engine": "Choose the engine to install.",
       "gameData": "Choose where the game data comes from.",
       "running": "Setting up your installation.",
-      "target": "Choose the folder to install into."
+      "target": "Name the installation and choose its folder."
     },
     "target": {
       "blocked": {
@@ -158,7 +166,7 @@
         "remedyNote": "The picked folder is saved as this installation's write location once you start the install – it does not change the target folder above. If you continue with this folder instead, the same write-access fix stays available afterwards from the installation's own checks."
       }
     },
-    "title": "Download & install"
+    "title": "New installation"
   },
   "common": {
     "action": {
@@ -1890,15 +1898,6 @@
       "description": "Looks through {{name}} for mod-folder config files that duplicate a baseq2 file of the same name. Nothing is removed until you confirm, and a removal can be undone here afterwards.",
       "title": "Redundant config copies"
     },
-    "create": {
-      "body": "Creates an empty installation folder and registers it. Downloading the game files is the downloads module's job – that part is not built yet.",
-      "namePlaceholder": "Quake II – r1q2",
-      "notice": "After creating it, the installation will show “game files missing” until the downloads module can download them. You can also copy pak0.pak in by hand.",
-      "pickButton": "Create here",
-      "pickTitle": "Choose where to create the installation",
-      "submit": "Create installation",
-      "title": "Create new installation"
-    },
     "detect": {
       "alreadyAdded": "Already in your library",
       "body": "Checks Steam, GOG and Epic plus the usual Quake II locations. Fast, and it never touches your files.",
@@ -2065,7 +2064,7 @@
     }
   },
   "empty": {
-    "body": "Point the launcher at a folder you already have, let it search this PC, or set up a fresh installation folder.",
+    "body": "Add a folder you already have, let the launcher search this PC, or download or copy a new installation.",
     "hint": "A valid installation is a folder containing baseq2 with pak0.pak in it.",
     "title": "No Quake II installations yet"
   },
@@ -2327,9 +2326,6 @@
     "triggerConflict": "{{key}} already has a base bind ({{command}}); the layer's trigger binding will take priority."
   },
   "library": {
-    "autoDetect": "Search PC",
-    "create": "Create new",
-    "downloadAndInstall": "Download & install",
     "revalidateAll": "Check all",
     "stats": {
       "needsAttention": "Need attention",
@@ -2601,8 +2597,6 @@
     "activeMarker": "Active installation",
     "add": "Add an installation",
     "autoDetect": "Search this PC…",
-    "createNew": "Create new installation…",
-    "downloadAndInstall": "Download & install…",
     "label": "Installs",
     "manage": "Manage library"
   },

@@ -135,7 +135,7 @@ export default async function importFromFiles({ page, shot, step, variant }) {
     }
     await shot('four-start-from-options')
 
-    step('close the create dialog without submitting')
+    step('close the dialog without submitting')
     await page.keyboard.press('Escape')
     await page
       .getByTestId('config-create-profile')

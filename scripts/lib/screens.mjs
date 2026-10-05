@@ -68,7 +68,7 @@
 //   drop-message-edit-<catalogId>   (ControlsTab.tsx:701, a drops row's "Edit message"
 //                                     trigger, opens MessageEditor with showKeyCapture off)
 //   message-editor-content          (MessageEditor.tsx, the dialog's content container)
-//   library-auto-detect             (LibraryView.tsx, header "Auto Detect" button)
+//   library-add                     (LibraryView.tsx, header add menu; "Search this PC…" opens DetectDialog)
 //   installation-remove-<installationId> (LibraryView.tsx, installation-rail remove button)
 //
 // Story 043 D8 adds one more, same mirroring convention — read ProfileSaveActions.tsx and
@@ -134,6 +134,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from './harness.mjs'
+import { openLibraryAddEntry } from './flow-common.mjs'
 import { waitForDemosScanToFinish } from './replays-copy-in.mjs'
 import {
   REPLAYS_DATE_FILTER_VARIANT,
@@ -1150,15 +1151,14 @@ export const SCREENS = [
     id: 'install-detect-dialog',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
-    // Story 047 D3: Library header's "Auto Detect" button -> DetectDialog
+    // Story 047 D3: Library header add menu "Search this PC…" -> DetectDialog
     // opened with no `autoStart` (LibraryView.tsx passes none), so it renders
     // its pre-scan state: `candidates === null` and not `scanning`, i.e. the
     // deep-scan checkbox plus a "Start" button, no results list. Per story
     // Decision 2 this screen must NEVER trigger `detection:scan` — do not add
     // a click on the start button here, only wait for the dialog itself.
     navigate: async (page) => {
-      await click(page, 'nav-library')
-      await click(page, 'library-auto-detect')
+      await openLibraryAddEntry(page, 'Search this PC…', CLICK_TIMEOUT_MS)
       await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

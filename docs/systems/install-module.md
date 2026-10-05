@@ -289,14 +289,15 @@ What the launcher does with it:
 
 ## 8. The bootstrap wizard
 
-Launched from the Library. Four steps, then a job:
+Launched from "New installation…" in the rail "+" and the Library's add menu. Four steps, then a job:
 
 1. **Engine.** The supported engines from `ENGINE_DEFINITIONS` (r1q2, Q2PRO today), each with the
    version the manifest pins.
 2. **Game data.** Three ways: download the free parts, copy from a detected store installation
    (the detection service already finds Steam/GOG/Epic), or point at a folder that already has
    data. The free path produces a **demo installation** unless retail paks are supplied.
-3. **Target folder.** Free choice. Under `Program Files` the wizard shows a hard warning that
+3. **Target folder.** Free choice; the step also takes the installation's name, defaulting to
+   `defaultBootstrapInstallationName`. Under `Program Files` the wizard shows a hard warning that
    names the consequence — Quake II writes into its own directory — and offers the existing
    `set-write-dir` remedy; the user can acknowledge and continue. A non-empty folder produces a
    warning listing what is in there, with "continue anyway".
@@ -583,10 +584,11 @@ which today only navigates to the Downloads tab — do something.
     output parsing or a coarser per-step model.
 15. **Disk-space precheck** before a job starts, and what the wizard does when space is short.
 16. **Naming and identity of a bootstrapped installation** — default name, whether an icon is
-    assigned, and where it lands in the rail's sort order.
+    assigned, and where it lands in the rail's sort order. Resolved by story 239.
 17. **Where the wizard's entry point sits in the Library** — a button next to the existing "create
     installation", or a replacement of it, and what happens to the current
-    `CreateInstallationDialog` and its bare-folder `installations:create` path.
+    `CreateInstallationDialog` and its bare-folder `installations:create` path. Resolved by story
+    239: "New installation…" replaced both; the dialog and the channel are removed.
 18. **First-start onboarding** — deliberately out of scope; it is expected to reuse this wizard as
     one of its steps, together with profiles, mods and assets.
 19. **i18n of failure reasons** — every job failure needs a key, not prose, across IPC; the set of

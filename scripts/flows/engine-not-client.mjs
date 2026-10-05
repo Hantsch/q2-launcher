@@ -1,15 +1,6 @@
 // Story 068 D5 acceptance flow: the app says "engine", never "client" (AC1 on the real surface),
-// the create-installation dialog offers exactly the two supported engines under a field labelled
-// "Engine" (AC2), and an installation whose engine is outside the supported set is marked as
-// unsupported in text wherever its engine is shown (AC4) while a supported one is not (AC4's
-// negative half).
-//
-// The create dialog is the first surface any flow in this repo opens, and it sits one click away
-// from a native folder picker (`installations:pickFolder` -> `dialog.showOpenDialog`) that
-// Playwright cannot drive at all (docs/UI-VERIFICATION.md, "Known blind spots"). That picker only
-// gates *submit*: the engine `Select` renders as soon as the Modal mounts. So this flow reads the
-// select and closes the dialog with Escape - it never touches "Browse" and never submits. Nothing
-// here may grow a submit step later without also solving the picker.
+// and an installation whose engine is outside the supported set is marked as unsupported in text
+// wherever its engine is shown (AC4) while a supported one is not (AC4's negative half).
 //
 // The `unknown`-engine install is the fixture's third populated installation
 // (`INSTALL_UNKNOWN_ENGINE_NAME`, `scripts/lib/fixture.mjs`), imported rather than copied so the
@@ -18,22 +9,14 @@
 //
 // Selectors, not guesses:
 //   nav-home, nav-library      TitleBar.tsx
-//   library-create             LibraryView.tsx (story 068 D3, mirrors library-auto-detect)
-//   [role="dialog"]            Modal.tsx's portalled panel, named by `aria-label`
+//   library-add                LibraryView.tsx (the header's single add menu)
 //   engine-badge               EngineBadge.tsx via `Badge`'s `testId` prop (primitives.tsx)
 //   installation-tile          InstallationRail.tsx's `RailTile`, `aria-label` is the install name
 //   [role="tooltip"]           HoverCard.tsx's portalled card - the rail's engine surface
 //
-// Two text-reading rules this file sticks to, both for the same reason - the design system
-// uppercases through CSS, so `innerText` reports what the glyphs look like and not what the app
-// actually says:
-//   * badge text is read with `textContent()`, never `innerText()` (`Badge` is `uppercase`), so an
-//     exact-match assertion on the real label is writable at all - same as `engine-badge-surfaces`;
-//   * the engine field's accessible name is matched case-insensitively, because `Field`'s `<label>`
-//     carries `.stencil` (`text-transform: uppercase`, styles/surfaces.css) and whether Chromium
-//     folds that into the computed accessible name is a browser detail, not this story's claim. The
-//     claim - the label reads "Engine" - is asserted exactly, on the associated `<label>`'s own
-//     `textContent` via `HTMLSelectElement.labels`.
+// Badge text is read with `textContent()`, never `innerText()`: `Badge` is `uppercase` through CSS,
+// so `innerText` reports what the glyphs look like and not what the app actually says - same as
+// `engine-badge-surfaces`.
 import { INSTALL_DEMO_UPGRADE_NAME, INSTALL_UNKNOWN_ENGINE_NAME } from '../lib/fixture.mjs'
 import { railTile } from '../lib/flow-common.mjs'
 
@@ -45,12 +28,6 @@ const TIMEOUT_MS = 8_000
  * (the first populated installs, whose roots hold no executable) reads back as `unknown`.
  */
 const SUPPORTED_INSTALL_NAME = INSTALL_DEMO_UPGRADE_NAME
-
-/** Mirrors `SUPPORTED_ENGINE_DEFINITIONS`' labels (src/shared/types/engine.ts) - AC2's whole list. */
-const SUPPORTED_ENGINE_OPTIONS = ['R1Q2', 'Q2PRO']
-
-/** `common.label.engine` (en.json), as the DOM holds it - the CSS uppercases it. */
-const ENGINE_FIELD_LABEL = 'Engine'
 
 /** `engine.unsupportedLabel` applied to `engineLabel('unknown')` (lib/engine-display.ts). */
 const UNSUPPORTED_UNKNOWN_LABEL = 'Unknown engine (unsupported)'
@@ -153,70 +130,8 @@ export default async function engineNotClient({ page, shot, step }) {
   await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
   await shot('home')
 
-  // --- AC2: the create dialog, opened from the library, never submitted -------------------------
   step('open the library')
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-
-  step('open the create-installation dialog')
-  await page.getByTestId('library-create').click({ timeout: TIMEOUT_MS })
-  const dialog = page.getByRole('dialog')
-  await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await shot('create-dialog')
-
-  step('assert the engine select offers exactly the supported engines')
-  // `Field` + `Select` (components/ui/controls.tsx) put exactly one `<select>` in this dialog; the
-  // location and name fields are `<input>`s. Asserting the count makes that a checked assumption
-  // rather than an "expected one, took the first" guess.
-  const selects = dialog.locator('select')
-  await selects.first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const selectCount = await selects.count()
-  if (selectCount !== 1) {
-    throw new Error(
-      `expected the create dialog to hold exactly one <select> (the engine field), got ` +
-        `${selectCount}`,
-    )
-  }
-  const engineSelect = selects.first()
-  const optionLabels = (await engineSelect.locator('option').allTextContents()).map((label) =>
-    label.trim(),
-  )
-  const expected = JSON.stringify(SUPPORTED_ENGINE_OPTIONS)
-  if (JSON.stringify(optionLabels) !== expected) {
-    throw new Error(
-      `expected the engine select to offer exactly ${expected}, got ${JSON.stringify(optionLabels)}`,
-    )
-  }
-  console.log(`create dialog: engine options ${JSON.stringify(optionLabels)}`)
-
-  step('assert the engine field is labelled "Engine"')
-  // `HTMLSelectElement.labels` instead of a `label[for="..."]` query: the id comes from React's
-  // `useId()`, whose delimiters are not CSS-identifier-safe, and `.labels` is the same association
-  // the accessibility tree reads.
-  const labelText = await engineSelect.evaluate((element) => {
-    const label = element.labels?.[0]
-    return label ? (label.textContent ?? '').trim() : null
-  })
-  if (labelText !== ENGINE_FIELD_LABEL) {
-    throw new Error(
-      `expected the engine select's associated <label> to read ` +
-        `${JSON.stringify(ENGINE_FIELD_LABEL)}, got ${JSON.stringify(labelText)}`,
-    )
-  }
-  // And the same thing through the accessibility tree, so the label is not merely a visual one.
-  // Case-insensitive on purpose - see this file's header comment on `.stencil`.
-  const namedCombobox = dialog.getByRole('combobox', { name: /^engine$/i })
-  const namedCount = await namedCombobox.count()
-  if (namedCount !== 1) {
-    throw new Error(
-      `expected exactly one combobox named "Engine" in the create dialog, got ${namedCount}`,
-    )
-  }
-
-  step('close the dialog without submitting it')
-  // Escape, the harness's own way to close a `Modal` - and the only safe one here: "Create
-  // installation" is one step from the native folder picker this flow must never reach.
-  await page.keyboard.press('Escape')
-  await dialog.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
 
   // --- AC4: library cards ------------------------------------------------------------------------
   step('assert the library card of the unsupported-engine install is marked')
@@ -275,6 +190,6 @@ export default async function engineNotClient({ page, shot, step }) {
 
   step('assert no visible text on the library says client')
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-create').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('library-add').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await assertNoClientWord(page, 'library')
 }

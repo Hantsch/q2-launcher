@@ -2,7 +2,6 @@ import { useLauncher } from '../../store/useLauncher'
 import { rendererModule } from '../../modules'
 import { AddExistingDialog } from './AddExistingDialog'
 import { CleanupConfigCopiesDialog } from './CleanupConfigCopiesDialog'
-import { CreateInstallationDialog } from './CreateInstallationDialog'
 import { DetectDialog } from './DetectDialog'
 import { RemoveInstallationDialog } from './RemoveInstallationDialog'
 import { RenameInstallationDialog } from './RenameInstallationDialog'
@@ -22,8 +21,6 @@ export function Dialogs() {
       return <AddExistingDialog />
     case 'detect':
       return <DetectDialog {...(dialog.autoStart ? { autoStart: true } : {})} />
-    case 'create':
-      return <CreateInstallationDialog />
     case 'remove':
       return <RemoveInstallationDialog installationId={dialog.installationId} />
     case 'rename':

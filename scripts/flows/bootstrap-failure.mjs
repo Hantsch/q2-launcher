@@ -74,6 +74,7 @@ import {
   writeBootstrapTargetDir,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** Three small downloads/extracts, failing at the assemble step - well short of a healthy run's
@@ -128,9 +129,8 @@ export default async function bootstrapFailure({ page, shot, step }) {
     throw new Error('the fixture server did not report all three package ids (D9)')
   }
 
-  step('open the Library and click "Download & install"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…"')
+  await openLibraryAddEntry(page, 'New installation…')
 
   step('assert the engine step offers Q2PRO and click Next')
   const engineOption = page.getByTestId('bootstrap-engine-q2pro')

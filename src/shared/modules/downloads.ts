@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { absolutePathSchema, engineKindSchema } from '../schemas'
+import { engineLabel } from '../types'
 import type { EngineKind, InstallationStatus, ValidationCheck, ValidationCheckId } from '../types'
 
 /** The downloads module's contract. */
@@ -341,6 +342,17 @@ export const DEFAULT_BOOTSTRAP_INSTALLATION_NAME = 'Q2PRO Demo'
  * `'existing-folder'` source reuses `copySourcePath` rather than adding a second path field.
  */
 export type BootstrapDataSource = 'free-download' | 'store-copy' | 'existing-folder'
+
+/**
+ * The name a run gets when the user types none: only the free download is the demo; a copied or
+ * pointed-at folder has no demo identity, so it takes the engine's own label.
+ */
+export function defaultBootstrapInstallationName(
+  engine: EngineKind,
+  dataSource: BootstrapDataSource,
+): string {
+  return dataSource === 'free-download' ? DEFAULT_BOOTSTRAP_INSTALLATION_NAME : engineLabel(engine)
+}
 
 /** What inspecting a hand-picked folder for game data reports. */
 export interface GameDataSourceVerdict {

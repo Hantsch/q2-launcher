@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TriangleAlert } from 'lucide-react'
 import type { BootstrapTargetVerdict } from '@shared/modules/downloads'
-import { Checkbox, Field, PathPicker } from '../../../components/ui/controls'
+import { Checkbox, Field, Input, PathPicker } from '../../../components/ui/controls'
 
 /**
  * Story 074, step 2: the target folder and the verdict for it.
@@ -11,13 +11,15 @@ import { Checkbox, Field, PathPicker } from '../../../components/ui/controls'
  * never re-derives "safe to proceed" from the raw fields, `BootstrapWizard` owns that gate and
  * this component only reports which acknowledges are checked.
  *
- * `data-testid`s (the e2e flow depends on these): `bootstrap-target-path-input`,
+ * `data-testid`s (the e2e flow depends on these): `bootstrap-name-input`, `bootstrap-target-path-input`,
  * `bootstrap-target-blocked`, `bootstrap-target-programfiles-warning`,
  * `bootstrap-target-programfiles-acknowledge`, `bootstrap-target-nonempty-warning`,
  * `bootstrap-target-nonempty-acknowledge`, `bootstrap-target-notwritable-warning`,
  * `bootstrap-target-notwritable-acknowledge`.
  */
 export function TargetStep({
+  name,
+  onNameChange,
   targetPath,
   onBrowse,
   verdict,
@@ -30,6 +32,8 @@ export function TargetStep({
   ackNotWritable,
   onAckNotWritableChange,
 }: {
+  name: string
+  onNameChange: (next: string) => void
   targetPath: string
   onBrowse: () => void
   verdict: BootstrapTargetVerdict | null
@@ -46,6 +50,16 @@ export function TargetStep({
 
   return (
     <div className="space-y-4">
+      <Field label={t('common.label.name')} htmlFor="bootstrap-name-input">
+        <Input
+          id="bootstrap-name-input"
+          value={name}
+          maxLength={120}
+          onChange={(event) => onNameChange(event.target.value)}
+          data-testid="bootstrap-name-input"
+        />
+      </Field>
+
       <Field label={t('common.label.installationFolder')}>
         <div data-testid="bootstrap-target-path-input">
           <PathPicker

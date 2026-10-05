@@ -3,14 +3,13 @@ import { useTranslation } from 'react-i18next'
 import {
   CopyX,
   FolderOpen,
-  FolderPlus,
   HardDriveDownload,
   ImagePlus,
   Import,
   Pencil,
   Play,
+  Plus,
   RefreshCw,
-  Search,
   Star,
   Trash2,
 } from 'lucide-react'
@@ -32,6 +31,8 @@ import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components
 import { ChecksList } from '../components/installations/ChecksList'
 import { RunnerSection } from '../components/installations/RunnerSection'
 import { InstallationTile } from '../components/installations/InstallationTile'
+import { useAddInstallationEntries } from '../components/installations/useAddInstallationEntries'
+import { Menu } from '../components/ui/Menu'
 
 /**
  * The library module's view: every installation with its health and the actions
@@ -44,7 +45,7 @@ import { InstallationTile } from '../components/installations/InstallationTile'
 export function LibraryView() {
   const { t } = useTranslation()
   const installations = useLauncher((state) => state.installations)
-  const openDialog = useLauncher((state) => state.openDialog)
+  const addEntries = useAddInstallationEntries()
   const validateAll = useLauncher((state) => state.validateAll)
   const stats = useModuleQuery(getLibraryStats, { deps: [installations] }).data ?? null
   const [checking, setChecking] = useState(false)
@@ -63,46 +64,21 @@ export function LibraryView() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<FolderOpen className="size-3.5" />}
-              onClick={() => openDialog({ kind: 'add-existing' })}
-            >
-              {t('common.action.addExisting')}
-            </Button>
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<Search className="size-3.5" />}
-              data-testid="library-auto-detect"
-              onClick={() => openDialog({ kind: 'detect' })}
-            >
-              {t('library.autoDetect')}
-            </Button>
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<FolderPlus className="size-3.5" />}
-              data-testid="library-create"
-              onClick={() => openDialog({ kind: 'create' })}
-            >
-              {t('library.create')}
-            </Button>
-            {/* Story 074: the module-dialog seam's entry point - opens the downloads module's
-                own bootstrap-wizard modal via the generic 'module' dialog kind. The wizard itself
-                does not exist yet, so this is a no-op click until then. */}
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<HardDriveDownload className="size-3.5" />}
-              data-testid="library-download-install"
-              onClick={() =>
-                openDialog({ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' })
-              }
-            >
-              {t('library.downloadAndInstall')}
-            </Button>
+            <Menu items={addEntries} side="below" label={t('rail.add')}>
+              {({ open, toggle }) => (
+                <Button
+                  variant="neutral"
+                  size="sm"
+                  icon={<Plus className="size-3.5" />}
+                  data-testid="library-add"
+                  aria-expanded={open}
+                  aria-haspopup="menu"
+                  onClick={toggle}
+                >
+                  {t('rail.add')}
+                </Button>
+              )}
+            </Menu>
             {installations.length > 0 && (
               <Button
                 variant="ghost"
@@ -124,7 +100,11 @@ export function LibraryView() {
         {stats && installations.length > 0 && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             <StatTile label={t('common.label.installations')} value={String(stats.total)} />
-            <StatTile label={t('common.label.ready')} value={String(stats.ok)} tone="text-success" />
+            <StatTile
+              label={t('common.label.ready')}
+              value={String(stats.ok)}
+              tone="text-success"
+            />
             <StatTile
               label={t('library.stats.needsAttention')}
               value={String(stats.needsAttention)}
@@ -151,40 +131,16 @@ export function LibraryView() {
               hint={t('empty.hint')}
               actions={
                 <>
-                  <Button
-                    variant="primary"
-                    icon={<FolderOpen className="size-4" />}
-                    onClick={() => openDialog({ kind: 'add-existing' })}
-                  >
-                    {t('common.action.addExistingInstallation')}
-                  </Button>
-                  <Button
-                    variant="neutral"
-                    icon={<Search className="size-4" />}
-                    onClick={() => openDialog({ kind: 'detect' })}
-                  >
-                    {t('rail.autoDetect')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    icon={<FolderPlus className="size-4" />}
-                    onClick={() => openDialog({ kind: 'create' })}
-                  >
-                    {t('rail.createNew')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    icon={<HardDriveDownload className="size-4" />}
-                    onClick={() =>
-                      openDialog({
-                        kind: 'module',
-                        moduleId: 'downloads',
-                        view: 'bootstrap-wizard',
-                      })
-                    }
-                  >
-                    {t('rail.downloadAndInstall')}
-                  </Button>
+                  {addEntries.map((entry) => (
+                    <Button
+                      key={entry.id}
+                      variant={entry.id === 'new' ? 'primary' : 'neutral'}
+                      icon={entry.icon}
+                      onClick={entry.onSelect}
+                    >
+                      {entry.label}
+                    </Button>
+                  ))}
                 </>
               }
             />

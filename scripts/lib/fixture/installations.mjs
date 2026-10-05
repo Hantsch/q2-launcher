@@ -125,7 +125,7 @@ export const CUSTOM_ICON_PNG_BASE64 =
  * Story 065 D5: a third populated installation whose only job is to make AC3 ("an `unknown`
  * engine still gets a labelled badge") and AC4 ("a long name truncates, the badge stays
  * visible") reachable in the real app at all - the two installs above are both `r1q2` with
- * short names, and `CreateInstallationDialog` needs a native folder dialog the harness cannot
+ * short names, and a fresh installation needs a native folder dialog the harness cannot
  * drive, so there is no other way to get either case in front of a flow.
  *
  * Additive by design: every harness selector addresses an installation by its display label

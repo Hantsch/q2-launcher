@@ -399,6 +399,54 @@ describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
   })
 })
 
+describe('BootstrapWizard installation name', () => {
+  async function walkToTargetStep(): Promise<HTMLInputElement> {
+    render(createElement(BootstrapWizard))
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-gamedata-choice-free-download')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-target-path-input')
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    return screen.getByTestId('bootstrap-name-input') as HTMLInputElement
+  }
+
+  it('the name field defaults to the automatic name and the typed name is sent', async () => {
+    const input = await walkToTargetStep()
+    expect(input.value).toBe('Q2PRO Demo')
+
+    fireEvent.change(input, { target: { value: '  My Quake  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-confirm-total-size')
+    await waitFor(() =>
+      expect((screen.getByTestId('bootstrap-confirm-start') as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByTestId('bootstrap-confirm-start'))
+
+    await waitFor(() =>
+      expect(startBootstrapInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'My Quake' }),
+      ),
+    )
+  })
+
+  it('a blank name keeps Next disabled on the target step', async () => {
+    const input = await walkToTargetStep()
+
+    fireEvent.change(input, { target: { value: '   ' } })
+
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
 /**
  * Story 100 D8 (AC7): the engine step's empty state now names *why* it is empty and offers a real
  * way out - `emptyReason` (D7's `BootstrapEngineOptionsResult.emptyReason`) picks between the

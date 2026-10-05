@@ -2,7 +2,6 @@ import type { FeatureName } from './features'
 import type {
   AddExistingInstallationInput,
   AppInfo,
-  CreateInstallationInput,
   DetectionProgress,
   DetectionResult,
   Installation,
@@ -124,7 +123,6 @@ export interface IpcInvokeMap {
   // ---- installations --------------------------------------------------------
   'installations:list': { req: void; res: Installation[] }
   'installations:addExisting': { req: AddExistingInstallationInput; res: Outcome<Installation> }
-  'installations:create': { req: CreateInstallationInput; res: Outcome<Installation> }
   'installations:update': { req: UpdateInstallationInput; res: Outcome<Installation> }
   'installations:remove': { req: RemoveInstallationInput; res: Outcome<null> }
   /** Full ordering, by id, as shown in the rail. */
@@ -280,7 +278,6 @@ export const INVOKE_CHANNELS = [
   'settings:patch',
   'installations:list',
   'installations:addExisting',
-  'installations:create',
   'installations:update',
   'installations:remove',
   'installations:reorder',

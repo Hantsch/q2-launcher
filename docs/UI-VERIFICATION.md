@@ -453,7 +453,7 @@ Story 047 D3 adds three more dialog-entry screens, following the same shape:
   on the dialog's own content container.
 - **`install-detect-dialog`** — `DetectDialog`
   (`src/renderer/src/components/installations/DetectDialog.tsx`), reached via
-  Library header's `library-auto-detect` button. `navigate()` waits only for
+  Library header's `library-add` menu ("Search this PC…"). `navigate()` waits only for
   the dialog itself (`getByRole('dialog')`) and deliberately never clicks its
   "Start" button — per Decision 2, this screen captures the pre-scan state
   only, preserving the harness's guarantee (see "Isolation from your real app
@@ -752,16 +752,9 @@ until an explicit Save this flow does not perform, and (story 061 D1)
 count from `.cfg-code`'s real `clientHeight`, its `padding-block` and `--cfg-code-line-h` (each read
 via `getComputedStyle`), printing `lines=N margin=Mpx` and failing if the computed count drops below
 the story's 30-line budget — the measuring instrument for that budget, not a layout change, and
-(story 068 D5) **`engine-not-client`** — the only flow that opens
-`CreateInstallationDialog`: clicks the library header's `library-create` button, asserts the
-dialog's single `<select>` offers exactly `R1Q2` and `Q2PRO` under a `<label>` reading "Engine"
-(read off `HTMLSelectElement.labels`, plus a `getByRole('combobox', { name: /^engine$/i })` count
-so the name also exists in the accessibility tree), then closes it with Escape — it never clicks
-"Browse" and never submits, because submit is one step from the native folder picker the harness
-cannot drive (see "Known blind spots"). Afterwards it asserts the fixture's `unknown`-engine
-install badges as `Unknown engine (unsupported)` on its library card, its rail hover card and the
-hero panel (activating each install by clicking its rail tile, and restoring the fixture's own
-active install at the end) while an `r1q2` install badges as bare `R1Q2`, and that no visible line
+(story 068 D5) **`engine-not-client`** — asserts the fixture's `unknown`-engine
+install badges as `Unknown engine (unsupported)` on its library card and its rail hover card
+(hovering each rail tile) while an `r1q2` install badges as bare `R1Q2`, and that no visible line
 of `document.body.innerText` on home or library matches `/\bclient\b/i` — with absolute filesystem
 paths stripped first, since a checkout under a directory called `client` is not the launcher's
 vocabulary, and with a sentinel check so an empty text read cannot pass that assertion vacuously,
@@ -909,7 +902,7 @@ app does real network I/O, real archive extraction and real installation assembl
 starts a `node:http` fixture server on `127.0.0.1` (OS-assigned port) serving both manifest files
 (`engines/manifest.json`, `gamedata/manifest.json`) plus three real, `7za.exe`-written `.zip`
 archives whose declared `sha256`/`sizeBytes` are computed from the bytes actually on disk — so
-nothing about verification is faked. It then walks Library → "Download & install" → engine → target
+nothing about verification is faked. It then walks Library → Add an installation → "New installation…" → engine → target
 → confirm → run, lets the real job download, verify, extract and assemble all three packages, and
 finally asserts **on disk** that the target holds a `baseq2` directory and no `ctf`/`xatrix`/`rogue`
 anywhere under it (AC8). Everything it writes lives under `.ui-verify/fixture/bootstrap/`.

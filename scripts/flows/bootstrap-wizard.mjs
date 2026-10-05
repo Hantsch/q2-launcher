@@ -46,7 +46,7 @@
 // ## Selectors, not guesses
 //
 // Read the components before changing any of these:
-//   library-download-install                      views/LibraryView.tsx (D5)
+//   library-add                                   views/LibraryView.tsx (menu: "New installation…")
 //   bootstrap-engine-q2pro                        modules/downloads/bootstrap/EngineStep.tsx
 //   bootstrap-target-path-input                   .../TargetStep.tsx (wraps `PathPicker`)
 //   bootstrap-target-programfiles-warning         .../TargetStep.tsx  (+ -acknowledge)
@@ -80,6 +80,7 @@ import {
   writeBootstrapTargetDir,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** The whole job: three throttled downloads, three 7za spawns, assemble, two revalidations. */
@@ -160,9 +161,8 @@ export default async function bootstrapWizard({ page, shot, step }) {
   }, SAMPLE_INTERVAL_MS)
 
   // --- AC1: the Library opens the wizard and offers Q2PRO only ------------------------------------
-  step('open the Library and click "Download & install"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…"')
+  await openLibraryAddEntry(page, 'New installation…')
 
   step('assert the engine step offers Q2PRO and nothing else (AC1)')
   const engineOption = page.getByTestId('bootstrap-engine-q2pro')

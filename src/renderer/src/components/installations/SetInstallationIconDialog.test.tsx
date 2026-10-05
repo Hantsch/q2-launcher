@@ -11,9 +11,8 @@ import { makeInstallation } from '../../../../test-support/fixtures'
 /**
  * Story 067 D6, AC6: "a failed outcome shows a translated message and keeps the dialog open."
  *
- * `SetInstallationIconDialog` imports the real `useLauncher` store (not a mock, mirroring
- * `CreateInstallationDialog.test.ts` rather than `InstallationTile.test.tsx`) - its import chain
- * reaches `lib/bridge.ts`, which resolves `window.q2` at *module* scope and throws without a
+ * `SetInstallationIconDialog` imports the real `useLauncher` store (not a mock, unlike
+ * `InstallationTile.test.tsx`) - its import chain reaches `lib/bridge.ts`, which resolves `window.q2` at *module* scope and throws without a
  * stub, so `window.q2.invoke` is faked here and the store's own `setInstallationIcon` action
  * (a thin wrapper around `invoke('installations:setIcon', ...)`) runs for real against it. That
  * lets this test drive the exact failure path the dialog has to render inline: a failed

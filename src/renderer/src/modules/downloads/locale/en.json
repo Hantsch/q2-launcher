@@ -109,13 +109,13 @@
     }
   },
   "bootstrapWizard": {
-    "title": "Download & install",
+    "title": "New installation",
     "back": "Back",
     "next": "Next",
     "step": {
       "engine": "Choose the engine to install.",
       "gameData": "Choose where the game data comes from.",
-      "target": "Choose the folder to install into.",
+      "target": "Name the installation and choose its folder.",
       "confirm": "Confirm what will be downloaded.",
       "running": "Setting up your installation."
     },

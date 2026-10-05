@@ -66,7 +66,7 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
       order: 10,
       Section: DownloadsSettingsSection,
     },
-    // Story 074: the bootstrap wizard, opened from the library's "Download & install" button.
+    // Story 074: the bootstrap wizard, opened from the "New installation…" entry of the Library's and the rail's add menu.
     Dialogs: DownloadsBootstrapDialogs,
   },
   { id: 'config', View: ConfigView },

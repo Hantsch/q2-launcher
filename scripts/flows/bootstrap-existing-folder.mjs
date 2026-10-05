@@ -67,6 +67,7 @@ import {
   writeBootstrapExistingFolderTargetDir,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** The whole job: one throttled engine download, one 7za spawn, the assemble, the folder copy and
@@ -137,8 +138,7 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
 
   // --- AC1: the existing-folder choice is offered with zero detected store sources ----------------
   step('open the wizard and assert the existing-folder choice is offered (AC1)')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, 'New installation…')
   await page
     .getByTestId('bootstrap-engine-q2pro')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })

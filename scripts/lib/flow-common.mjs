@@ -23,6 +23,15 @@ export async function simulateLaunch(page, installationId, phase) {
   }
 }
 
+/** Library -> "Add an installation" menu -> the entry whose label starts with `label` (the item's
+ * accessible name carries its hint after the label, so the match is by prefix). */
+export async function openLibraryAddEntry(page, label, timeout = 8_000) {
+  await page.getByTestId('nav-library').click({ timeout })
+  await page.getByTestId('library-add').click({ timeout })
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  await page.getByRole('menuitem', { name: new RegExp(`^${escaped}`) }).click({ timeout })
+}
+
 /** A library entry, located by its name heading; `container` is the card's own selector (the
  * library renders cards as `div.items-start` rows, the repair list as `li`). */
 export function libraryCard(page, name, container = 'div.items-start') {

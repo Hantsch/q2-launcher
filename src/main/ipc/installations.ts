@@ -11,7 +11,6 @@ import { canonicalizePath } from '../lib/fs-utils'
 import { uiHarnessPickedFolders } from '../lib/ui-harness'
 import {
   addExistingInputSchema,
-  createInstallationInputSchema,
   iconDataUrlInputSchema,
   idListSchema,
   idSchema,
@@ -37,10 +36,6 @@ export function registerInstallationsIpc(app: AppContext): void {
 
   handleOutcome('installations:addExisting', addExistingInputSchema, async (input) => {
     return app.installations.addExisting(input)
-  })
-
-  handleOutcome('installations:create', createInstallationInputSchema, async (input) => {
-    return app.installations.create(input)
   })
 
   handleOutcome('installations:update', updateInstallationInputSchema, async (input) => {

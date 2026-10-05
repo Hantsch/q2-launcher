@@ -255,3 +255,27 @@
 - 2026-10-05 19:22 · 237 · review 1 fixes · started
 - 2026-10-05 19:24 · 237 · review 1 fixes · done
 - 2026-10-05 19:24 · 237 · story · done
+- 2026-10-05T19:24:39 · 239 · build · started
+- 2026-10-05 19:24 · 239 · D1 entry list · started
+- 2026-10-05 19:29 · 239 · D1 entry list · done
+- 2026-10-05 19:29 · 239 · D2 remove create dialog · started
+- 2026-10-05 19:30 · 239 · D2 remove create dialog · done
+- 2026-10-05 19:30 · 239 · D3 remove create channel · started
+- 2026-10-05 19:31 · 239 · D3 remove create channel · done
+- 2026-10-05 19:31 · 239 · D4 name in wizard · started
+- 2026-10-05 19:32 · 239 · D4 name in wizard · done
+- 2026-10-05 19:32 · 239 · D5 flows via add menu · started
+- 2026-10-05 19:33 · 239 · D5 flows via add menu · done
+- 2026-10-05 19:33 · 239 · D6 retire create surface · started
+- 2026-10-05 19:44 · 239 · D6 retire create surface · done
+- 2026-10-05 19:44 · 239 · D7 acceptance flow + docs · started
+- 2026-10-05 19:46 · 239 · D7 acceptance flow + docs · done
+- 2026-10-05 19:46 · 239 · verify · started
+- 2026-10-05 20:03 · 239 · verify · done
+- 2026-10-05 20:03 · 239 · review 1 · started
+- 2026-10-05 20:05 · 239 · review 1 · done
+- 2026-10-05 20:05 · 239 · review 1 fixes · started
+- 2026-10-05 20:06 · 239 · review 1 fixes · done
+- 2026-10-05 20:06 · 239 · verify 2 · started
+- 2026-10-05 20:07 · 239 · verify 2 · done
+- 2026-10-05 20:08 · 239 · story · done

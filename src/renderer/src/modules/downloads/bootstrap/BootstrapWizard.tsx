@@ -11,6 +11,7 @@ import type {
   DownloadFailure,
   GameDataSourceVerdict,
 } from '@shared/modules/downloads'
+import { defaultBootstrapInstallationName } from '@shared/modules/downloads'
 import { ok } from '@shared/types'
 import { invoke } from '../../../lib/bridge'
 import { useModuleQuery } from '../../../lib/useModuleQuery'
@@ -41,7 +42,7 @@ const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running'
  * (Q2PRO, R1Q2 once both are pinned) -> game data (free download, a copy of a detected
  * Steam/GOG/Epic installation [[088]], or a hand-picked folder [[089]]) -> target folder (with the
  * verdict's warnings) -> confirm (packages + size + target) -> run (hands off to the
- * download job). Mirrors `CreateInstallationDialog.tsx` for dialog shape.
+ * download job).
  *
  * `dataSource`/`copySourcePath` hold the game-data step's choice; `detectedSources` is fetched
  * once on mount, same convention as `engineOptions` below - an empty array means the game-data
@@ -52,7 +53,7 @@ const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running'
  * (`StartBootstrapInput.copySourcePath`'s own doc comment) - it is never a second field.
  *
  * Wizard state lives here, in `useState`, and is never persisted - closing the dialog before
- * `running` throws all of it away, same as `CreateInstallationDialog`.
+ * `running` throws all of it away.
  *
  * The Program Files remedy holds the picked path in local wizard state (`writeDirPath`) and
  * passes it through `StartBootstrapInput.writeDirPath` when the job starts - there is no
@@ -98,6 +99,10 @@ export function BootstrapWizard() {
     null,
   )
   const [checkingGameDataFolder, setCheckingGameDataFolder] = useState(false)
+
+  // `null` follows the default, so it tracks a data-source change made by going back; typing pins it.
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const name = nameDraft ?? (engine ? defaultBootstrapInstallationName(engine, dataSource) : '')
 
   const [targetPath, setTargetPath] = useState('')
   const verdictQuery = useModuleQuery<BootstrapTargetVerdict | null>(
@@ -317,7 +322,7 @@ export function BootstrapWizard() {
         (dataSource === 'existing-folder' &&
           !!gameDataFolderVerdict &&
           gameDataFolderVerdict.kind !== 'unusable')),
-    target: !!verdict && !verdict.blocked && targetWarningsAcknowledged,
+    target: name.trim().length > 0 && !!verdict && !verdict.blocked && targetWarningsAcknowledged,
     confirm: !!summary && !starting,
     running: false,
   }
@@ -338,6 +343,7 @@ export function BootstrapWizard() {
     setStartError(null)
     const result = await startBootstrapInstall({
       engine,
+      name: name.trim(),
       targetPath,
       includeVideoAndPlayers,
       ...(writeDirPath ? { writeDirPath } : {}),
@@ -430,6 +436,8 @@ export function BootstrapWizard() {
 
       {step === 'target' && (
         <TargetStep
+          name={name}
+          onNameChange={setNameDraft}
           targetPath={targetPath}
           onBrowse={() => void pickTargetFolder()}
           verdict={verdict}

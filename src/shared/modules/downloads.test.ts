@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import type { z } from 'zod'
-import { DEFAULT_SETTINGS, type LauncherSettings } from '../types'
+import { DEFAULT_SETTINGS, engineLabel, type LauncherSettings } from '../types'
 import {
   ARCHIVE_CACHE_BUDGET_CHOICES_GB,
   DEFAULT_DOWNLOADS_SETTINGS,
@@ -8,6 +8,7 @@ import {
   DOWNLOADS_HANDLER_SCHEMAS,
   type DownloadsContract,
   bootstrapSummaryInputSchema,
+  defaultBootstrapInstallationName,
   engineUpdateStatusInputSchema,
   setBleedingEdgeInputSchema,
   startBootstrapInputSchema,
@@ -181,5 +182,14 @@ describe('downloads contract', () => {
     expect(Object.keys(DOWNLOADS_HANDLER_SCHEMAS).sort()).toEqual(
       Object.values(DOWNLOADS_HANDLERS).sort(),
     )
+  })
+})
+
+describe('defaultBootstrapInstallationName', () => {
+  it('is the demo name for the free download and the engine label otherwise', () => {
+    expect(defaultBootstrapInstallationName('q2pro', 'free-download')).toBe('Q2PRO Demo')
+    expect(defaultBootstrapInstallationName('r1q2', 'free-download')).toBe('Q2PRO Demo')
+    expect(defaultBootstrapInstallationName('r1q2', 'store-copy')).toBe(engineLabel('r1q2'))
+    expect(defaultBootstrapInstallationName('q2pro', 'existing-folder')).toBe(engineLabel('q2pro'))
   })
 })

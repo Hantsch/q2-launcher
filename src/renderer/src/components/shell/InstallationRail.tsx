@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FolderOpen, FolderPlus, Import, LayoutGrid, Play, Plus, Search } from 'lucide-react'
+import { Import, LayoutGrid, Play, Plus } from 'lucide-react'
 import type { Installation } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { isDemoData } from '../../lib/demo-data'
@@ -14,7 +14,8 @@ import { FailureBadge } from '../ui/FailureBadge'
 import { EngineBadge } from '../ui/EngineBadge'
 import { HoverCard } from '../ui/HoverCard'
 import { InstallationTile } from '../installations/InstallationTile'
-import { Menu, type MenuItem } from '../ui/Menu'
+import { useAddInstallationEntries } from '../installations/useAddInstallationEntries'
+import { Menu } from '../ui/Menu'
 
 /**
  * The vertical installation strip - this launcher's answer to the Battle.net
@@ -34,32 +35,12 @@ export function InstallationRail() {
   const activeId = useLauncher((state) => state.settings.activeInstallationId)
   const setActive = useLauncher((state) => state.setActiveInstallation)
   const reorder = useLauncher((state) => state.reorderInstallations)
-  const openDialog = useLauncher((state) => state.openDialog)
   const setRoute = useLauncher((state) => state.setRoute)
 
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
 
-  const addItems: MenuItem[] = [
-    {
-      id: 'add-existing',
-      label: t('common.action.addExistingInstallation'),
-      icon: <FolderOpen className="size-4" />,
-      onSelect: () => openDialog({ kind: 'add-existing' }),
-    },
-    {
-      id: 'detect',
-      label: t('rail.autoDetect'),
-      icon: <Search className="size-4" />,
-      onSelect: () => openDialog({ kind: 'detect' }),
-    },
-    {
-      id: 'create',
-      label: t('rail.createNew'),
-      icon: <FolderPlus className="size-4" />,
-      onSelect: () => openDialog({ kind: 'create' }),
-    },
-  ]
+  const addItems = useAddInstallationEntries()
 
   const commitReorder = (targetId: string): void => {
     if (!dragId || dragId === targetId) return

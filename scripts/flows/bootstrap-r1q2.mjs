@@ -56,6 +56,7 @@ import {
   writeBootstrapR1q2TargetDir,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** The whole job: two engine-package attempts (primary 404, mirror success) plus demo/point-release
@@ -119,9 +120,8 @@ export async function teardown() {
 export default async function bootstrapR1q2({ page, shot, step }) {
   const targetPath = bootstrapR1q2TargetDir()
 
-  step('open the Library and click "Download & install"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…"')
+  await openLibraryAddEntry(page, 'New installation…')
 
   // --- AC1/AC8: R1Q2 is offered as a real, selectable option alongside Q2PRO ----------------------
   step('assert at least two engine options are offered and R1Q2 names the fixture version (AC1)')

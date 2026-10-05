@@ -49,6 +49,17 @@ describe('en.json vocabulary', () => {
     expect(offenders).toEqual([])
   })
 
+  it('no user-visible string claims downloading is not built', () => {
+    const values: Array<{ path: string; value: string }> = []
+    collectStringValues(en, '', values)
+
+    const offenders = values.filter(
+      ({ value }) => /not built/i.test(value) || /until the downloads module/i.test(value),
+    )
+
+    expect(offenders).toEqual([])
+  })
+
   it('the executable labels name the engine executable', () => {
     expect(stringAt('common.label.engineExecutable')).toBe('Engine executable')
     expect(stringAt('installation.engine')).toBeUndefined()

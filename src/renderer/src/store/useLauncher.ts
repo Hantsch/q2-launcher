@@ -5,7 +5,6 @@ import type { LaunchUserinfo } from '@shared/launch/userinfo'
 import type {
   AddExistingInstallationInput,
   AppInfo,
-  CreateInstallationInput,
   Installation,
   InstallationIcon,
   Job,
@@ -84,7 +83,6 @@ export type DialogState =
   | { kind: 'none' }
   | { kind: 'add-existing' }
   | { kind: 'detect'; autoStart?: boolean }
-  | { kind: 'create' }
   | { kind: 'remove'; installationId: string }
   | { kind: 'rename'; installationId: string }
   /** the redundant-config-copies cleanup, scoped to one installation - the row it
@@ -176,7 +174,6 @@ interface LauncherStore {
   // --- installations -------------------------------------------------------
   setActiveInstallation: (id: string | null) => Promise<void>
   addExisting: (input: AddExistingInstallationInput) => Promise<Outcome<Installation>>
-  createInstallation: (input: CreateInstallationInput) => Promise<Outcome<Installation>>
   updateInstallation: (input: UpdateInstallationInput) => Promise<Outcome<Installation>>
   /**
    * sets a shipped icon, or clears the current one with `icon: null`. Deliberately
@@ -365,22 +362,6 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
 
   addExisting: async (input) => {
     const result = await invoke('installations:addExisting', input)
-    if (result.ok) {
-      get().pushToast({
-        level: 'success',
-        messageKey: 'installations.toast.added',
-        params: { name: result.value.name },
-        timeoutMs: 4000,
-      })
-      await get().setActiveInstallation(result.value.id)
-    } else {
-      toastOutcomeError(get().pushToast, result)
-    }
-    return result
-  },
-
-  createInstallation: async (input) => {
-    const result = await invoke('installations:create', input)
     if (result.ok) {
       get().pushToast({
         level: 'success',

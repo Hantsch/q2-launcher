@@ -302,12 +302,18 @@
       }
     }
   },
+  "addInstallation": {
+    "new": "New installation…",
+    "hint": {
+      "existing": "Register a Quake II folder you already have.",
+      "detect": "Find Steam, GOG, Epic and other installations on this PC.",
+      "new": "Download or copy the engine and game data into a new, playable installation."
+    }
+  },
   "rail": {
     "label": "Installs",
     "add": "Add an installation",
     "autoDetect": "Search this PC…",
-    "createNew": "Create new installation…",
-    "downloadAndInstall": "Download & install…",
     "manage": "Manage library",
     "activeMarker": "Active installation"
   },
@@ -462,7 +468,7 @@
   },
   "empty": {
     "title": "No Quake II installations yet",
-    "body": "Point the launcher at a folder you already have, let it search this PC, or set up a fresh installation folder.",
+    "body": "Add a folder you already have, let the launcher search this PC, or download or copy a new installation.",
     "hint": "A valid installation is a folder containing baseq2 with pak0.pak in it."
   },
   "dialog": {
@@ -498,15 +504,6 @@
         "done": "Done",
         "cancelled": "Cancelled"
       }
-    },
-    "create": {
-      "title": "Create new installation",
-      "body": "Creates an empty installation folder and registers it. Downloading the game files is the downloads module's job – that part is not built yet.",
-      "namePlaceholder": "Quake II – r1q2",
-      "pickTitle": "Choose where to create the installation",
-      "pickButton": "Create here",
-      "notice": "After creating it, the installation will show “game files missing” until the downloads module can download them. You can also copy pak0.pak in by hand.",
-      "submit": "Create installation"
     },
     "remove": {
       "title": "Remove “{{name}}”?",
@@ -547,9 +544,6 @@
   "library": {
     "subtitle_one": "{{count}} installation",
     "subtitle_other": "{{count}} installations",
-    "autoDetect": "Search PC",
-    "create": "Create new",
-    "downloadAndInstall": "Download & install",
     "revalidateAll": "Check all",
     "stats": {
       "needsAttention": "Need attention",

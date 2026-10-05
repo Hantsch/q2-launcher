@@ -4,7 +4,6 @@ import type { InstallationIcon } from './types'
 import { MODULE_MANIFESTS, type ModuleId } from './types/module'
 import {
   absolutePathSchema,
-  engineKindSchema,
   launchUserinfoValueSchema,
   serverAddressSchema,
   settingsObjectSchema,
@@ -83,13 +82,6 @@ export const addExistingInputSchema: z.ZodType<IpcInvokeMap['installations:addEx
     name: z.string().min(1).max(120).optional(),
     executablePath: absolutePathSchema.optional(),
     source: sourceSchema.optional(),
-  })
-
-export const createInstallationInputSchema: z.ZodType<IpcInvokeMap['installations:create']['req']> =
-  z.object({
-    rootPath: absolutePathSchema,
-    name: z.string().min(1).max(120),
-    engineKind: engineKindSchema,
   })
 
 export const updateInstallationInputSchema: z.ZodType<IpcInvokeMap['installations:update']['req']> =

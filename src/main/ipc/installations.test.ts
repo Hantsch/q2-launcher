@@ -1,5 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { INVOKE_CHANNELS } from '@shared/ipc'
 import type { Installation } from '@shared/types'
 import type { AppContext } from '../context'
 
@@ -74,6 +75,15 @@ beforeEach(() => {
   registered.clear()
   vi.resetModules()
   detectRunnersMock.mockReset()
+})
+
+describe('installations channels', () => {
+  it('no installations channel registers a bare folder without game data', async () => {
+    await setup([])
+
+    expect((INVOKE_CHANNELS as readonly string[]).includes('installations:create')).toBe(false)
+    expect(registered.has('installations:create')).toBe(false)
+  })
 })
 
 describe('installations:listRunners', () => {

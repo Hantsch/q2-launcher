@@ -1,7 +1,7 @@
 ---
 id: 239
 title: adding an installation is one flow wherever I start it
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -27,15 +27,15 @@ Users pick "Create new" from the rail, expect an install, and get an empty folde
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The rail "+" and the Library offer the same set of entries, with the same labels, in
+- [x] **AC1** — The rail "+" and the Library offer the same set of entries, with the same labels, in
       the same order.
-- [ ] **AC2** — "New installation" from either place opens the same wizard, which downloads or copies
+- [x] **AC2** — "New installation" from either place opens the same wizard, which downloads or copies
       engine and game data and ends with a playable installation.
-- [ ] **AC3** — The wizard lets the user name the installation; the default is the current
+- [x] **AC3** — The wizard lets the user name the installation; the default is the current
       automatic name.
-- [ ] **AC4** — No entry point can produce an empty installation without game files unless the user
+- [x] **AC4** — No entry point can produce an empty installation without game files unless the user
       explicitly chose that (see Q1), and the UI text describes what each entry does.
-- [ ] **AC5** — No user-visible text claims downloading is not built.
+- [x] **AC5** — No user-visible text claims downloading is not built.
 
 ## Open Questions
 
@@ -113,7 +113,7 @@ depends on D1's `library-add` menu.
 
 ## Deliverables
 
-- [ ] **D1 — One add-installation entry list for rail and Library.**
+- [x] **D1 — One add-installation entry list for rail and Library.**
       New `src/renderer/src/components/installations/useAddInstallationEntries.tsx`, which exports
       `useAddInstallationEntries(): MenuItem[]` (`MenuItem` from `components/ui/Menu.tsx`). The
       entries come in this order:
@@ -147,7 +147,7 @@ depends on D1's `library-add` menu.
       › "new installation opens the downloads bootstrap wizard". The second test spies
       `useLauncher.getState().openDialog` and mirrors the store setup in
       `components/installations/RemoveInstallationDialog.test.tsx`.
-- [ ] **D2 — Remove the empty-installation dialog and its orphaned text (renderer).**
+- [x] **D2 — Remove the empty-installation dialog and its orphaned text (renderer).**
       Delete `src/renderer/src/components/installations/CreateInstallationDialog.tsx` and
       `CreateInstallationDialog.test.ts`. Remove the `'create'` case from
       `components/installations/Dialogs.tsx`. In `src/renderer/src/store/useLauncher.ts`, remove
@@ -166,7 +166,7 @@ depends on D1's `library-add` menu.
       › "no user-visible string claims downloading is not built". It walks the same `en` bundle
       that file already reads and fails on `/not built/i` or `/until the downloads module/i`.
       `npm test` stays green (the keys and duplicates tests).
-- [ ] **D3 — Remove the `installations:create` IPC channel (shared + main).**
+- [x] **D3 — Remove the `installations:create` IPC channel (shared + main).**
       Remove `'installations:create'` from `src/shared/ipc.ts` (map entry and channel list),
       `createInstallationInputSchema` from `src/shared/ipc-schemas.ts`, and its handler from
       `src/main/ipc/installations.ts`. Keep the `CreateInstallationInput` type (`InstallationsService`
@@ -177,7 +177,7 @@ depends on D1's `library-add` menu.
       `'installations:create'` is not an invoke channel and that the registrar registers no
       handler for it; mirror that file's existing registration assertions. `npm run typecheck`
       proves no caller is left.
-- [ ] **D4 — The wizard lets the user name the installation.**
+- [x] **D4 — The wizard lets the user name the installation.**
       In `src/shared/modules/downloads.ts`, add the pure
       `defaultBootstrapInstallationName(engine: EngineKind, dataSource: BootstrapDataSource):
       string`. It returns `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` for `'free-download'` and
@@ -208,7 +208,7 @@ depends on D1's `library-add` menu.
       - `BootstrapWizard.test.tsx` › "a blank name keeps Next disabled on the target step".
       - The existing `src/main/modules/downloads/bootstrap/job.source-copy.test.ts` name cases stay
         green.
-- [ ] **D5 — Existing flows open the wizard through the Library add menu.**
+- [x] **D5 — Existing flows open the wizard through the Library add menu.**
       In `scripts/lib/flow-common.mjs`, add
       `export async function openLibraryAddEntry(page, label, timeout = 8_000)`. It clicks
       `nav-library`, then `library-add`, then `page.getByRole('menuitem', { name: label })`, matching
@@ -227,7 +227,7 @@ depends on D1's `library-add` menu.
       count. Acceptance: `npm run ui:flow -- bootstrap-wizard` and
       `npm run ui:flow -- bootstrap-r1q2` pass; grep finds no `library-download-install` under
       `scripts/`.
-- [ ] **D6 — Retire the create-dialog surface from the harness.**
+- [x] **D6 — Retire the create-dialog surface from the harness.**
       In `scripts/flows/engine-not-client.mjs`, delete the create-dialog section (the
       `library-create` steps, the `create-dialog` shot, the engine-select assertion and its
       header-comment lines and constants). Keep the AC1/AC4 engine-badge parts. In
@@ -239,7 +239,7 @@ depends on D1's `library-add` menu.
 
       Acceptance: `npm run ui:flow -- engine-not-client` passes, and `npm run ui:verify` reaches the
       detect screen.
-- [ ] **D7 — Acceptance flow, systems doc and changelog.**
+- [x] **D7 — Acceptance flow, systems doc and changelog.**
       Add `scripts/flows/add-installation-one-flow.mjs`. For `setup`/`teardown`, mirror
       `scripts/flows/bootstrap-wizard.mjs:105-140`: `writePopulatedFixture()`,
       `writeBootstrapTargetDir()`, `startBootstrapFixtureServer()`, and `Q2L_UI_PICK_FOLDER` set to
@@ -301,3 +301,29 @@ Review: → default
   downloading is not built". (D2)
 
 ## Done
+
+Rail "+" and Library header/empty state share one `useAddInstallationEntries()` list (Add existing, Search this PC,
+New installation… — each with a hint). "New installation…" opens the bootstrap wizard, which now has a name field
+(default from shared `defaultBootstrapInstallationName`). The create dialog, `'create'` dialog kind, store action and
+`installations:create` channel are gone. Nine bootstrap flows use `openLibraryAddEntry`; new flow
+`add-installation-one-flow`.
+
+Commit message: `239: one add-installation flow — shared entry list, wizard names the installation, empty-create removed`
+
+Verification (narrow gate): build, typecheck, lint, `npx vitest run --changed HEAD` (186 files) green;
+comments + architecture tests green. `ui:flows --affected add-installation-one-flow.mjs` exceeded the 10-minute
+call (stopped, INCONCLUSIVE), so named flows ran in batches, all green: add-installation-one-flow, bootstrap-* (9),
+engine-not-client, engine-badge-surfaces, installation-icon-pick/-tile, installation-remove-from-disk, and after
+the review fixes add-installation-one-flow, bootstrap-wizard, import-from-files. `ui:verify`: 0 errors, detect screen
+reached; only `replays-*` screens unreachable (known replays reds). Not ours, still red: `scripts/flow-select.test.mjs`
+("selects at most 12", replays-playback row at 13; areas.json untouched).
+AC → test, all passed: AC1/AC2/AC3/AC4 e2e add-installation-one-flow + the named unit tests; AC5 vocabulary.test.ts.
+No manual residue. Review 1 (default tier) FAIL on stale text only; fixed (empty.body, UI-VERIFICATION.md, stale comments); not re-reviewed.
+
+Decisions: (1) D1 also deleted the old rail/library keys and the 'Download & install' DUPLICATE_EXCEPTIONS entry,
+because the every-key-referenced test required it. (2) New flow not added to `scripts/flows/areas.json`: the
+downloads-bootstrap row would exceed 12 flows and break flow-select.test.mjs, so `--affected` does not pick it by area.
+(3) Wizard name tests live in their own describe in BootstrapWizard.test.tsx. (4) `empty.body` reworded to match the entries.
+(5) The `StatTile` reflow in LibraryView stays (prettier requires it).
+
+tiers: D 7 / hard 0 · review default · cycles 1 · agents 10

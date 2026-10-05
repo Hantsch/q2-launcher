@@ -106,10 +106,8 @@ describe('registerAllIpc', () => {
     for (const channel of INVOKE_CHANNELS) {
       expect(registered.has(channel)).toBe(true)
     }
-    // 39 + story 098's four staged update actions + D4's dev:simulateAppUpdate
-    // + story 099's app:getReleaseNotes + story 103 D6's installations:listRunners
-    // + story 130 D2's features:getUnlocked + story 129 D1's unlock:getState and unlock:redeem.
-    expect(registered.size).toBe(49)
+    // Update together with every added or removed invoke channel.
+    expect(registered.size).toBe(48)
   })
 
   // Story 101 F3: the UI-verification harness's CI job drives a real packaged AppImage, where

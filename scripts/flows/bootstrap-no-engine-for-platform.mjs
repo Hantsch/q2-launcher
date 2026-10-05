@@ -19,7 +19,7 @@
 //
 // ## Selectors, not guesses
 //
-//   library-download-install         views/LibraryView.tsx - opens this wizard (same as
+//   library-add                      views/LibraryView.tsx - menu opening this wizard (same as
 //                                     `bootstrap-wizard.mjs`)
 //   bootstrap-engine-empty           modules/downloads/bootstrap/EngineStep.tsx (D8) - the empty
 //                                     state's own `Panel`, wraps the platform-specific sentence
@@ -27,6 +27,7 @@
 //                                     `add-existing` via `BootstrapWizard.tsx`'s `onAddExisting`
 //   dialog role="dialog" aria-label  components/ui/Modal.tsx - `AddExistingDialog`'s own title
 import { startNoEngineForPlatformFixtureServer } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -65,9 +66,8 @@ export async function teardown() {
 }
 
 export default async function bootstrapNoEngineForPlatform({ page, shot, step }) {
-  step('open the Library and click "Download & install"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…"')
+  await openLibraryAddEntry(page, 'New installation…')
 
   step('assert the engine step shows the empty state and no engine option rows (AC7)')
   const emptyState = page.getByTestId('bootstrap-engine-empty')

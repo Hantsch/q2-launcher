@@ -43,6 +43,7 @@ import {
   vendoredExtractorExists,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** The first run's failure is near-instant - one 404'd primary and one 404'd mirror, no retry
@@ -199,9 +200,8 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   const runningStep = page.getByTestId('bootstrap-running-step')
 
   // --- run 1: the wizard creates a fresh installation, and its download fails --------------------
-  step('open the Library and click "Download & install" (run 1)')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…" (run 1)')
+  await openLibraryAddEntry(page, 'New installation…')
 
   step('engine step: assert Q2PRO is offered and click Next')
   await page
@@ -277,7 +277,7 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
 
   // --- run 2: the same folder, adopting the failed installation, this time succeeding ------------
   step('open the wizard again, pointed at the same folder (run 2)')
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, 'New installation…')
   await page
     .getByTestId('bootstrap-engine-q2pro')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })

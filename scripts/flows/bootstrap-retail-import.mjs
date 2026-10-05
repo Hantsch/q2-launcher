@@ -89,6 +89,7 @@ import {
   writeBootstrapStoreSources,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** The whole job: one throttled engine download, one 7za spawn, the assemble, the ~197 MB retail
@@ -510,10 +511,9 @@ async function setStoreSourcesOverride(app, value) {
   }, value)
 }
 
-/** Library -> "Download & install", waiting for the engine step to be up. */
+/** Library -> Add an installation -> "New installation…", waiting for the engine step to be up. */
 async function openWizard(page) {
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, 'New installation…')
   await page
     .getByTestId('bootstrap-engine-q2pro')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })

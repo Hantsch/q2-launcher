@@ -3,7 +3,7 @@ import { readdir, rmdir } from 'node:fs/promises'
 import { join, win32 } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
-  DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
+  defaultBootstrapInstallationName,
   type BootstrapDataSource,
   type BootstrapSummary,
   type BootstrapSummaryCopySource,
@@ -16,7 +16,6 @@ import {
   type StartBootstrapInput,
 } from '@shared/modules/downloads'
 import {
-  engineLabel,
   fail,
   ok,
   type CreateInstallationInput,
@@ -840,9 +839,7 @@ export async function startBootstrap(
    * own folder, not by this launcher fetching the free demo. The Demo marker, where it applies, is
    * still derived from the paks by the inspector (Decisions (Sprint)), never from this name.
    */
-  const defaultName =
-    dataSource === 'free-download' ? DEFAULT_BOOTSTRAP_INSTALLATION_NAME : engineLabel(input.engine)
-  const name = input.name?.trim() || defaultName
+  const name = input.name?.trim() || defaultBootstrapInstallationName(input.engine, dataSource)
 
   /**
    * Story 077. The predicate that decides "this is my own leftover, safe to reuse", and

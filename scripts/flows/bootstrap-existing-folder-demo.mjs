@@ -44,6 +44,7 @@ import {
   writeBootstrapExistingFolderUnusableSource,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** Pass 1 runs a real engine download + extraction + folder copy, same budget
@@ -105,8 +106,7 @@ export default async function bootstrapExistingFolderDemo({ page, shot, step }) 
   // Pass 1 (AC4): a demo-shaped folder installs fine and carries the Demo marker
   // ================================================================================================
   step('open the wizard and choose "point at an existing folder" (pass 1)')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, 'New installation…')
   await page
     .getByTestId('bootstrap-engine-q2pro')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -256,7 +256,7 @@ export default async function bootstrapExistingFolderDemo({ page, shot, step }) 
   writeBootstrapExistingFolderUnusableSource()
 
   step('open the wizard again and choose "point at an existing folder" (pass 2)')
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, 'New installation…')
   await page
     .getByTestId('bootstrap-engine-q2pro')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
