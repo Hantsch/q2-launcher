@@ -127,8 +127,7 @@ Concept: [replays-module.md](../../systems/replays-module.md), [demo-browser.md]
 8. **Scale** (D10): 5 000 demos / 200 folders fixture + flow.
 
 Affected: `src/shared/replays/` (new `demo-folders.ts`, `file-name-rules.ts`),
-`src/shared/modules/replays.ts`, `src/main/modules/replays/{discovery,zip-demos,scan-service,
-index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
+`src/shared/modules/replays.ts`, `src/main/modules/replays/{discovery,zip-demos,scan-service, index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
 `src/renderer/src/modules/replays/` (view, list, new folder row/breadcrumb/store), flows + fixture,
 `docs/systems/replays-module.md`, `CHANGELOG.md`.
 
@@ -138,13 +137,10 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       invalid-character set, reserved Windows names and trailing dot/space rule out of
       `src/shared/replays/demo-rename.ts` (which then imports them; its tests stay green). New
       `src/shared/replays/demo-folders.ts`:
-      `validateFolderName(name): DomainResult<string, …>` (trimmed, 1–100 chars, no `/` `\`, not
-      `.`/`..`, plus the shared rules; refusal keys `replays.folder.error.*`);
+      `validateFolderName(name): DomainResult<string, …>` (trimmed, 1–100 chars, no `/` `\`, not `.`/`..`, plus the shared rules; refusal keys `replays.folder.error.*`);
       `type FolderRef = { sourceKey: string; path: string[] }`;
-      `buildFolderView({ rows, folders, current })` → `{ crumbs, folders: { ref, name, label?, archive,
-      demoCount }[], demos }` where top level (`current === null`) lists one entry per root (label
-      from the source, path `[]`), folders sort by `localeCompare(…, { sensitivity: 'base', numeric:
-      true })`, `demoCount` counts rows at any depth below, folder nodes are the union of `folders`
+      `buildFolderView({ rows, folders, current })` → `{ crumbs, folders: { ref, name, label?, archive, demoCount }[], demos }` where top level (`current === null`) lists one entry per root (label
+      from the source, path `[]`), folders sort by `localeCompare(…, { sensitivity: 'base', numeric: true })`, `demoCount` counts rows at any depth below, folder nodes are the union of `folders`
       and every ancestor of a row's `folder`; `rowsBelow(rows, current)` for search mode;
       `nearestExisting(current, folders)`. Generic over a row accessor
       (`{ sourceKey, folder }`), so it does not depend on `DemoRow` details. Tests in
@@ -183,9 +179,9 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
 - [x] **D4 — Flows follow the folder view.** `scripts/lib/replays-copy-in.mjs`: add
       `openFolder(page, ...names)` (double-clicks `replays-folder-row` by text, waits for the crumb).
       Every flow under `scripts/flows/replays-*.mjs` that expects demo rows without searching
-      (archive-readonly, cinema-*, console-command, demo-detail, demo-rows, detail-quick-edit,
-      discovered-list, edit-*, extra-folders, fullscreen, incremental-scan, list-*, mod-*, play-*,
-      row-quick-rating, sort-order, stage-*, stop, timeline-*, zip-entries) calls it after
+      (archive-readonly, cinema-_, console-command, demo-detail, demo-rows, detail-quick-edit,
+      discovered-list, edit-_, extra-folders, fullscreen, incremental-scan, list-_, mod-_, play-_,
+      row-quick-rating, sort-order, stage-_, stop, timeline-*, zip-entries) calls it after
       `openDemos`; the `replays-*` screens in `scripts/lib/screens.mjs` likewise. Mechanical; the
       only acceptance is `npm run ui:flows` green for every `replays-*` flow and `npm run ui:verify`
       green. New flow `scripts/flows/replays-folders.mjs` (fixture: demos in `demos/a/b/c/` and a zip
@@ -213,8 +209,7 @@ index-cache,demo-rename,index}.ts` + new `demo-move.ts`, `demo-folders.ts`,
       overwrites nothing", "a sidecar failure rolls the demo back", "a playing demo is not moved"),
       `demo-rename.test.ts` stays green.
 - [x] **D7 — Create and rename a folder (main).** New `src/main/modules/replays/demo-folders.ts` +
-      handlers `folderCreate { parent: FolderRef, name }` and `folderRename { folder: FolderRef,
-      name }` (schemas in `src/shared/modules/replays.ts`; registered in `index.ts`). Both resolve
+      handlers `folderCreate { parent: FolderRef, name }` and `folderRename { folder: FolderRef, name }` (schemas in `src/shared/modules/replays.ts`; registered in `index.ts`). Both resolve
       root + segments from the snapshot (never an absolute path), validate the name with D1, require
       the real path inside the root's real path, refuse a root (`path: []`) for rename, archive
       folders, a running scan (`replays.folder.error.*`). Create: `mkdir` non-recursive, refuse
@@ -291,6 +286,7 @@ Commit message: `242: browse demos in folders — recursive discovery, folder vi
 Verification (narrow gate, run twice: before and after the one review-fix cycle; second run is the result): `npm run build`, `typecheck`, `lint` green; `npx vitest run --changed HEAD` 175 files / 1518 tests green, `src/comments.test.ts`, `src/architecture.test.ts`, `systems-docs.test.ts` green. Flows: instead of `--affected` (too broad for a 10-minute call) the story's five flows (`replays-folders`, `-folders-search`, `-folder-manage`, `-folder-drag-move`, `-folders-scale`) plus every `replays-*` flow and `action-bar-view` (54) ran in batches of 7-14, all green; `ui:verify` on the 7 replays screens green, axe clean. AC → test as verified: AC1-AC8 each passed with the unit test and flow named in `## Acceptance Tests` (no manual residue). Review: stage 1 (default) returned FAIL on 2 spec points, fixed with the other findings and re-verified.
 
 Decisions:
+
 - Breadcrumb bar always renders once loaded (top level: only a disabled "New folder" with the visible reason "Open a folder first"); the `replays-breadcrumb` nav shows inside a folder and stays while a search matches nothing; a library with only empty folders still lists them.
 - `DemoDragZone` hosts the `DndContext` (breadcrumb sits outside the list); keyboard drag starts on Ctrl+Space (own sensor, arrows move, Enter drops, Esc cancels) with an i18n hint, so a row's Enter/Space keeps selecting.
 - Main records each root's absolute dir internally (never sent to the renderer) so empty and zip-only roots can be targets; folder-ref segments are validated for path safety only, new names with `validateFolderName`.

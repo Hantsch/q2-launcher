@@ -73,7 +73,6 @@ export type RestoreWarningReason =
   /** A layer section's `trigger` tag disagreed with the section's own trigger bind. */
   | 'layer-trigger-contradicted'
 
-
 export interface RestoreWarning {
   reason: RestoreWarningReason
   file: string

@@ -1,5 +1,11 @@
 import { vi } from 'vitest'
-import { IDLE_LAUNCH_STATE, ok, type Installation, type LaunchState, type Outcome } from '@shared/types'
+import {
+  IDLE_LAUNCH_STATE,
+  ok,
+  type Installation,
+  type LaunchState,
+  type Outcome,
+} from '@shared/types'
 import { JobRunner } from '../main/services/job-runner'
 import { JobsService } from '../main/services/jobs'
 import { InstallationWriteGuard, type LaunchHost } from '../main/services/write-guard'
@@ -48,7 +54,9 @@ export interface JobRunnerHarness {
   jobs: JobsService
   writeGuard: InstallationWriteGuard
   /** `validate` is a spy answering `ok(makeInstallation({ id }))` unless overridden. */
-  installations: { validate: ReturnType<typeof vi.fn<(id: string) => Promise<Outcome<Installation>>>> }
+  installations: {
+    validate: ReturnType<typeof vi.fn<(id: string) => Promise<Outcome<Installation>>>>
+  }
   launch: ControllableLaunch
 }
 
@@ -70,6 +78,11 @@ export function makeJobRunner(
   const installations = {
     validate: vi.fn(overrides.validate ?? (async (id: string) => ok(makeInstallation({ id })))),
   }
-  const runner = new JobRunner({ jobs, writeGuard, installations, ...(overrides.state ? { state: overrides.state } : {}) })
+  const runner = new JobRunner({
+    jobs,
+    writeGuard,
+    installations,
+    ...(overrides.state ? { state: overrides.state } : {}),
+  })
   return { runner, jobs, writeGuard, installations, launch }
 }

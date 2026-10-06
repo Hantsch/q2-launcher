@@ -406,9 +406,7 @@ export function MessageEditor({
               ) : key ? (
                 <Badge tone="flame">{key}</Badge>
               ) : (
-                <span className="text-xs text-ink-muted">
-                  {t('common.label.notBound')}
-                </span>
+                <span className="text-xs text-ink-muted">{t('common.label.notBound')}</span>
               )}
               {!capturingKey && (
                 <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>

@@ -241,8 +241,7 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
       stage2Targets.push(known ?? { address: selected, origins: [] })
     }
     for (const target of stage1Targets) {
-      if (worthStage2.has(target.address) && target.address !== selected)
-        stage2Targets.push(target)
+      if (worthStage2.has(target.address) && target.address !== selected) stage2Targets.push(target)
     }
 
     progress.phase = 'stage2'

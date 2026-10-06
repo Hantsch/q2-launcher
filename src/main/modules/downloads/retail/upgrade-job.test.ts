@@ -202,7 +202,12 @@ async function harness(
   if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
 
   const validateCalls: string[] = []
-  const { runner, jobs, launch, installations: runnerInstallations } = makeJobRunner({
+  const {
+    runner,
+    jobs,
+    launch,
+    installations: runnerInstallations,
+  } = makeJobRunner({
     validate: (id) => {
       validateCalls.push(id)
       return service.validate(id)

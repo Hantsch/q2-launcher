@@ -142,12 +142,12 @@ No CHANGELOG entry (nothing user-visible).
   `src/shared/modules/{home,mods}.ts`, `src/renderer/src/modules/{home,mods}/`. Test: add both
   files to D2's table in `src/main/modules/systems-docs.test.ts`, plus a case "every registered
   module has a systems doc": a map `{ config: 'config-module.md', downloads: 'install-module.md',
-  library: 'install-module.md', home: 'home-module.md', servers: 'servers-module.md', replays:
-  'replays-module.md', mods: 'mods-module.md' }`; every folder under `src/main/modules/` that has
+library: 'install-module.md', home: 'home-module.md', servers: 'servers-module.md', replays:
+'replays-module.md', mods: 'mods-module.md' }`; every folder under `src/main/modules/` that has
   an `index.ts` has a key, and every mapped file exists under `docs/systems/`.
 - **D4 — concepts and systems are placed by status; no broken link.** `git mv
-  docs/concepts/game-browser.md docs/systems/` and `git mv docs/concepts/home-screen.md
-  docs/systems/`; their status lines become `Status: **Implemented.**` + one sentence naming the
+docs/concepts/game-browser.md docs/systems/` and `git mv docs/concepts/home-screen.md
+docs/systems/`; their status lines become `Status: **Implemented.**` + one sentence naming the
   phase (game browser: Phase 9; home: Phase 3) and that the doc is the design reference. In
   home-screen.md §6, replace "contains only a LICENSE" with the real content repository layout
   (`engines/`, `gamedata/`, `news/` — story 080; check `content/q2_community_content/README.md`).
@@ -157,13 +157,13 @@ No CHANGELOG entry (nothing user-visible).
   `sprints/done/`, `prototypes/`), `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, and fix the
   moved files' own outbound relative links. Fix the broken links in
   `docs/systems/install-module.md` and `docs/linux-support-analysis.md`; add a short `## Library
-  module` section to install-module.md naming every `LIBRARY_HANDLERS` key (`src/shared/modules/library.ts`).
+module` section to install-module.md naming every `LIBRARY_HANDLERS` key (`src/shared/modules/library.ts`).
   Delete the home-screen §6 line from docs/ROADMAP.md "Follow-ups worth doing". Acceptance:
   `node scripts/check-docs.mjs` exits 0. Test: add to `src/main/modules/systems-docs.test.ts`
   `describe('docs placement')`: "shipped concepts live in systems" (game-browser.md and
   home-screen.md exist under `docs/systems/`, not under `docs/concepts/`), "no systems doc says it
   is a draft" (no `docs/systems/*.md` status line contains `Draft`, `no stories yet`, `no sprint
-  yet` or `planned`), "no concept claims to be unstarted when it shipped" (no `docs/concepts/*.md`
+yet` or `planned`), "no concept claims to be unstarted when it shipped" (no `docs/concepts/*.md`
   status line contains `no stories yet` or `no sprint yet`), "home-screen §6 names the real
   content repository" (does not contain `only a LICENSE`; contains `engines/`), and
   "install-module.md names every library handler".
@@ -177,7 +177,7 @@ No CHANGELOG entry (nothing user-visible).
   `src/main/modules/<id>/` or `src/renderer/src/modules/<id>/` also touched that module's
   `docs/systems/` doc, and lists a miss as a finding. Do not edit `.claude/commands/*.md`
   (plugin-managed). Test: add to `src/main/modules/systems-docs.test.ts` `describe('process
-  rule')`: "Adding a module names the systems doc" (section between `## Adding a module` and the
+rule')`: "Adding a module names the systems doc" (section between `## Adding a module` and the
   next `## ` contains `docs/systems/`), "the sprint review checks the systems doc" (`.claude/ai-scrum.md`
   after `## Notes` contains `docs/systems/` and `review`; docs/README.md `## Maintenance` contains
   `systems doc`).
@@ -220,6 +220,7 @@ AC1 "config-module.md" ×3; AC2 "docs placement" ×5; AC3 "short module docs" (4
 AC4 `scripts/check-docs.test.mjs` (5/5) + check-docs exit 0; AC5 "process rule" ×2. No manual residue. Review (default): PASS.
 
 Decisions:
+
 - Handler write rules and startup order taken from the code (index.ts, profile-writes.ts, startup.ts); reviewer spot-checked 12 handlers, all accurate.
 - Runtime files (state.json, replays-index.json, news-feed.json, catalog-cache.json) are written without backticks since the doc test resolves backticked `.json` to source files.
 - Reviewer minor findings left unfixed: non-rooted path check is basename-only; handler check has no reverse (stale handler) check; AC5 test is loose; story numbers in config Binding decisions are pointers, not narrative; prettier re-padded tables in ROADMAP.md/install-module.md (cosmetic); demo-browser.md says Implemented but stays in concepts/ per D-e.

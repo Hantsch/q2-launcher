@@ -8,7 +8,11 @@ import {
   type RunnerKind,
 } from '@shared/types'
 import { isFile, listDir, looksExecutable } from '../lib/fs-utils'
-import { resolveUiHarness, uiHarnessDetectedRunners, uiHarnessSteamExecutable } from '../lib/ui-harness'
+import {
+  resolveUiHarness,
+  uiHarnessDetectedRunners,
+  uiHarnessSteamExecutable,
+} from '../lib/ui-harness'
 import { findSteamRoot, steamLibraryRoots } from './detection/providers'
 import { scopedLogger } from '../lib/logger'
 import { isWindows } from '../lib/platform'

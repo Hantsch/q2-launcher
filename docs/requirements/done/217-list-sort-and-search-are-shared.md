@@ -99,18 +99,18 @@ No systems doc covers servers/replays sort (`docs/systems/` has none), so no doc
   `compareStrings(a, b)` (`localeCompare(b, 'en', { sensitivity: 'base', numeric: true })` — lift
   it verbatim from `src/shared/servers/list-sort.ts:51`), `compareFavouriteFirst(a, b)` over
   `{ favourite: boolean }`, generic `nextSort<C>(current: ListSort<C> | null, column: C, natural:
-  Record<C, SortDirection>): ListSort<C> | null` (different column/none → natural; same column at
+Record<C, SortDirection>): ListSort<C> | null` (different column/none → natural; same column at
   natural → reversed; reversed → `null`), `compareBy(a, b, spec, direction)` where
   `spec = { isUnknown(x): boolean; compareKnownAscending(a, b): number }` — an unknown sorts after
   every known value in **both** directions, two unknowns return 0 so the caller's tie-break runs —
   and `createColumnSorter<T, C>({ columns: Record<C, spec>, natural, defaultCompare, tieBreak,
-  pinFavourites: boolean })` returning `{ sortRows(rows, sort: ListSort<C> | null): T[] (copy, never
-  mutates), nextSort(current, column) }`; `pinFavourites` applies `compareFavouriteFirst` before the
+pinFavourites: boolean })` returning `{ sortRows(rows, sort: ListSort<C> | null): T[] (copy, never
+mutates), nextSort(current, column) }`; `pinFavourites` applies `compareFavouriteFirst` before the
   column compare (the default order is `defaultCompare` alone). Shape it on the two existing
   engines: `src/shared/servers/list-sort.ts` (`compareColumn`, favourites pinned) and
   `src/shared/replays/list-sort.ts` (`COLUMN_SPECS`/`compareColumn`, no pinning) — it must express
   both without changing either order. New `src/shared/list/search.ts`: `matchesTerm(term, values:
-  Iterable<string | null | undefined>): boolean` — trimmed empty term → `true`; quoted mode exactly
+Iterable<string | null | undefined>): boolean` — trimmed empty term → `true`; quoted mode exactly
   as `src/shared/servers/list-filter.ts:60-70` (trimmed, ≥3 chars, starts and ends with `"`, inner
   lower-cased and not trimmed, equality with a whole value); otherwise case-insensitive substring;
   never throws; plus `equalsIgnoreCase(value: string | null | undefined, filter: string)`. Pure
@@ -129,7 +129,7 @@ No systems doc covers servers/replays sort (`docs/systems/` has none), so no doc
   `sort === null`; `ServerListHeader.tsx`'s `sort` prop becomes `ServerListSort | null`. Proven by
   the unchanged-order servers list-sort tests and the `servers-sort-order` flow.
 - **D3 — servers main slice stores `null`.** `src/shared/modules/servers.ts` `ServersState.listSort:
-  ServerListSort | null`; `src/main/modules/servers/persisted.ts` (~L168-195) parses absent/malformed
+ServerListSort | null`; `src/main/modules/servers/persisted.ts` (~L168-195) parses absent/malformed
   to `null` and always returns the key (default state carries `listSort: null`);
   `src/main/modules/servers/index.ts:287-289` returns `servers.get().listSort` and sets with
   `servers.update((live) => ({ ...live, listSort: payload.sort })).listSort` — no `?? null`, no
@@ -145,7 +145,7 @@ No systems doc covers servers/replays sort (`docs/systems/` has none), so no doc
 - **D5 — replays sort, player sort and alias rows on the shared sort, plus the rule.**
   `src/shared/replays/list-sort.ts`: keep the exported names (`DEMO_SORT_COLUMNS`, `NATURAL_DIRECTION`,
   `DemoSortFields`, `sortDemoRows<T>(rows, sort, fields)`, `nextSort`, `DemoListSort =
-  ListSort<DemoSortColumn>`, `DemoSortDirection = SortDirection`) but build them on
+ListSort<DemoSortColumn>`, `DemoSortDirection = SortDirection`) but build them on
   `createColumnSorter` with `pinFavourites: false`; `COLUMN_SPECS` become shared specs; private
   `compareStrings`/`compareFavouriteFirst` go; `src/shared/replays/list-sort.test.ts` must pass
   byte-unchanged. `src/shared/servers/player-sort.ts`: `SortDir` → `SortDirection` (re-export is not
@@ -162,7 +162,7 @@ No systems doc covers servers/replays sort (`docs/systems/` has none), so no doc
   `const compareStrings` (regex on source text, the same file-walking the existing layering tests use).
 - **D6 — shared search, quoted demo search.** `src/shared/servers/list-filter.ts`: `matchesSearch`
   calls `matchesTerm(term, [row.name, row.address, ...(Array.isArray(row.players) ?
-  row.players.map((p) => p.name) : [])])`; its `matchesText` → `equalsIgnoreCase`.
+row.players.map((p) => p.name) : [])])`; its `matchesText` → `equalsIgnoreCase`.
   `src/shared/replays/list-filter.ts`: `matchesDemoSearch` calls `matchesTerm` over name, fileName,
   map, sidecar description, each sidecar tag, each sidecar side player, each header player, each
   name-fact player (quoted = exact whole value of any of them); `matchesText` → `equalsIgnoreCase`;
@@ -177,7 +177,7 @@ No systems doc covers servers/replays sort (`docs/systems/` has none), so no doc
   demo(s) whose whole field equals it; a quoted partial word matches none. Pick terms from the
   existing fixture constants (e.g. map `q2ctf5` vs `q2ctf`); add a constant to `fixture.mjs` only if
   none fits. `CHANGELOG.md` under `## Unreleased` `### Changed`: `- **Demos** — Put a search term in
-  quotes to match it exactly; a third click on a player column resets its sort.`
+quotes to match it exactly; a third click on a player column resets its sort.`
 
 ## Model Hints
 
@@ -222,6 +222,7 @@ Commit message: `217: shared list sort/search (src/shared/list), null sort senti
 Verification (narrow gate: `npx vitest run --changed HEAD`, `npm run ui:flow -- <flow>` per mapped flow, build/typecheck/lint): green after one fix pass; review cycle 1 found a vacuous architecture regex (mangled ``), fixed and re-verified. All AC tests in the mapping ran and passed; flows servers-sort-order, replays-sort-order, replays-filter-search, servers-filter-search, servers-quoted-search, replays-quoted-search green. No manual residue.
 
 Decisions:
+
 - Persisted `null` changed the golden state fixtures (`__fixtures__/state/*.expected.json`) and `serversStateSchema` (lazy `listSort` key + key list in servers.test.ts); the two sort-order flows now wait for `listSort === null` instead of an absent key.
 - Replays `nextSort` is a `const` binding of the shared sorter so the architecture rule has no exception.
 - Flow quoted-search uses partial map `q2ctf` (unquoted >=2, quoted none) since unquoted `Zephyr` matches one demo.

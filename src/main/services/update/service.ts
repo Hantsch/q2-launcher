@@ -8,7 +8,7 @@ import type {
 } from '@shared/types'
 import { fail, isJobActive, ok } from '@shared/types'
 import type { PersistenceRegistry } from '../persistence'
-import { UpdateCheckStore,type UpdateCheckStoreData } from './store'
+import { UpdateCheckStore, type UpdateCheckStoreData } from './store'
 
 /**
  * Story 097: the update-check service - the only thing that decides *whether* a check runs, and

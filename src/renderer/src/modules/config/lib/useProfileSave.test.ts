@@ -101,8 +101,12 @@ describe('useProfileSave', () => {
     const { result } = hook()
     const firstRevert = vi.fn()
     const laterRevert = vi.fn()
-    act(() => result.current.schedule({ apply: vi.fn(), revert: firstRevert, run: async () => REFUSED }))
-    act(() => result.current.schedule({ apply: vi.fn(), revert: laterRevert, run: async () => REFUSED }))
+    act(() =>
+      result.current.schedule({ apply: vi.fn(), revert: firstRevert, run: async () => REFUSED }),
+    )
+    act(() =>
+      result.current.schedule({ apply: vi.fn(), revert: laterRevert, run: async () => REFUSED }),
+    )
     await elapseDebounce()
 
     expect(firstRevert).toHaveBeenCalledTimes(1)
@@ -113,8 +117,12 @@ describe('useProfileSave', () => {
 
   it('a refused save pushes one error toast with the refusal key', async () => {
     const { result } = hook()
-    act(() => result.current.schedule({ apply: vi.fn(), revert: vi.fn(), run: async () => REFUSED }))
-    act(() => result.current.schedule({ apply: vi.fn(), revert: vi.fn(), run: async () => REFUSED }))
+    act(() =>
+      result.current.schedule({ apply: vi.fn(), revert: vi.fn(), run: async () => REFUSED }),
+    )
+    act(() =>
+      result.current.schedule({ apply: vi.fn(), revert: vi.fn(), run: async () => REFUSED }),
+    )
     await elapseDebounce()
     expect(pushToast).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ level: 'error', messageKey: 'config.error.writeFailed' }),

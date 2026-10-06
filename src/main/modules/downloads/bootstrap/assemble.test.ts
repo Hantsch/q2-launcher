@@ -184,20 +184,23 @@ describe('core and extras plans are disjoint', () => {
     { engine: 'r1q2', dataSource: 'existing-folder', folderPakNames: ['pak0.pak', 'pak1.pak'] },
   ]
 
-  it.each(combos)('%o: no extras target equals or prefixes a core target, or vice versa', (combo) => {
-    const input = combo
-    const core = buildAssemblePlan({ ...input, scope: 'core' }).map((entry) => entry.to)
-    const extras = buildAssemblePlan({ ...input, scope: 'extras' }).map((entry) => entry.to)
-    expect(core.length).toBeGreaterThan(0)
-    expect(extras.length).toBeGreaterThan(0)
+  it.each(combos)(
+    '%o: no extras target equals or prefixes a core target, or vice versa',
+    (combo) => {
+      const input = combo
+      const core = buildAssemblePlan({ ...input, scope: 'core' }).map((entry) => entry.to)
+      const extras = buildAssemblePlan({ ...input, scope: 'extras' }).map((entry) => entry.to)
+      expect(core.length).toBeGreaterThan(0)
+      expect(extras.length).toBeGreaterThan(0)
 
-    const nests = (a: string, b: string): boolean => a === b || b.startsWith(`${a}/`)
-    for (const c of core) {
-      for (const e of extras) {
-        expect(nests(c, e) || nests(e, c), `${c} vs ${e}`).toBe(false)
+      const nests = (a: string, b: string): boolean => a === b || b.startsWith(`${a}/`)
+      for (const c of core) {
+        for (const e of extras) {
+          expect(nests(c, e) || nests(e, c), `${c} vs ${e}`).toBe(false)
+        }
       }
-    }
-  })
+    },
+  )
 })
 
 describe('assembleInstallation', () => {

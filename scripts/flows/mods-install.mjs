@@ -25,6 +25,8 @@ export const variant = 'populated'
 const TIMEOUT_MS = 8_000
 const JOB_TIMEOUT_MS = 60_000
 const LIBRARY_FILE = 'fixturemod-win32-x86.zip'
+/** `<platform>-<arch>` of the library variant the fixture offers this host. */
+const HOST_VARIANT_ID = `${process.platform === 'win32' ? 'win32' : 'linux'}-x86`
 
 let server = null
 
@@ -110,7 +112,7 @@ export default async function modsInstall({ page, shot, step }) {
   if (
     record.catalogId !== 'fixturemod' ||
     record.version !== 'v1.0.0' ||
-    record.variantId !== 'win32-x86'
+    record.variantId !== HOST_VARIANT_ID
   ) {
     throw new Error(
       `unexpected record identity: ${JSON.stringify({ ...record, files: undefined })}`,

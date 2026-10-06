@@ -22,8 +22,7 @@ Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F15, F3
   IPC-side `normalizeActionKeys` still accepts pre-story-050 keys "until renderer call sites land
   it" — they landed (zero renderer hits); it is kept alive only by one test.
 - `toRestoreInput` exists twice (`import.ts` over `Record`s, `file-source.ts` over `Map`s) for
-  the same `RestoreProfilePartsInput`; the field list `cvars, binds, actions, categories,
-cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four places and
+  the same `RestoreProfilePartsInput`; the field list `cvars, binds, actions, categories, cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four places and
   story-059 comments record that `cvarSections` was once dropped on one path only.
 - `main/modules/config/render.ts` and `switch-bind.ts` are one-line `export * from '@shared/config/…'`
   shims used by eight files; the 2,457-line main-side `render.test.ts` tests the pure shared
@@ -57,13 +56,13 @@ cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four 
 - **D-A** Story 207 is already done: the persisted twins live in `src/main/modules/config/persisted.ts`
   (+ `persisted-migrations.ts`), not `main/lib/schemas.ts` (which holds no config shapes) — so AC2's
   "after story 207" branch applies and Q1 has nothing left to order; the wrappers are retyped in place.
-- **D-B** Where a constraint lives: a rule *both* trees enforce today goes into the shared shape; a
+- **D-B** Where a constraint lives: a rule _both_ trees enforce today goes into the shared shape; a
   rule only the IPC tree has (`.min(1)`/`.max(n)` length and count bounds) is an IPC-side cap; a rule
   only the persisted tree has (`.catch()`, forgiving-row preprocess, legacy `entryKind`, legacy keys)
   stays persisted-side — because the persisted tree is looser (e.g. `AltLayer.id` is `z.string()`
   there), and a shared shape stricter than it would start dropping stored user rows on load.
 - **D-C** The shared module exports, per object shape, a plain `z.object` (for `.extend()` overrides,
-  which keep key position and so output key order) *and* a `: z.ZodType<Contract>`-annotated final
+  which keep key position and so output key order) _and_ a `: z.ZodType<Contract>`-annotated final
   schema — because a `ZodType`-annotated constant has no `.extend`, and both trees must extend.
 - **D-D** The whole-`ConfigProfile` schema stays in `persisted.ts` (there is no IPC twin of a whole
   profile to dedupe); it gets a `z.ZodType<ConfigProfile, unknown>` annotation plus a key-set
@@ -71,7 +70,7 @@ cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four 
 - **D-E** The IPC-side legacy-key fold is deleted with no replacement test: a legacy-shaped payload's
   `key`/`keyModifier` fields are then simply stripped by zod, which is fine because no renderer call
   site sends that shape (zero hits) and the persisted fold still loads old `state.json`.
-- **D-F** AC5's "byte-identical" gate is a characterization test written *first* (D1), against the
+- **D-F** AC5's "byte-identical" gate is a characterization test written _first_ (D1), against the
   unchanged code: it serialises parse outputs with `JSON.stringify` (so key order counts) and records
   accept/reject verdicts — the existing round-trip tests alone do not cover malformed rows or caps.
 - **D-G** The single `toRestoreInput(file, folded, options)` takes a structural entry source
@@ -80,8 +79,7 @@ cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four 
   `ImportResult` cannot become a single-file fold without changing its last-wins semantics, while the
   `RestoreProfilePartsInput` field mapping (the place `cvarSections`/`firstLine` once diverged) can be
   written once.
-- **D-H** `RestoredProfileFields` is `Pick<ConfigProfile, 'cvars' | 'binds' | 'actions' | 'categories'
-  | 'cvarSections' | 'layers'>`; `writeUnbindall`/`sectionHeaderStyle` stay outside it, because they
+- **D-H** `RestoredProfileFields` is `Pick<ConfigProfile, 'cvars' | 'binds' | 'actions' | 'categories' | 'cvarSections' | 'layers'>`; `writeUnbindall`/`sectionHeaderStyle` stay outside it, because they
   are detected from the raw text by `adoptFromFile`'s callers, never produced by the restore.
 - **D-I** The shim importers are every file that imports `./render` or `./switch-bind` inside
   `src/main/modules/config/` (`index.ts` plus ~17 tests), not "eight" — the AC counts what exists.
@@ -129,9 +127,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       (a) "persisted profile parse is unchanged" — run every `ROUND_TRIP_FIXTURES` profile
       (`@shared/config/fixtures/profiles`) through `persisted.ts`'s exported profile parse path
       (`configProfileSchema` or the exported `parse*` that wraps it) after a `JSON.parse(JSON.stringify(...))`
-      round, plus a hand-written malformed corpus: a command with a `"` and with a non-latin-1 char,
-      empty action id, empty layer id, `triggerKey: 42`, a legacy `entryKind` on a category, a legacy
-      `key`/`keyModifier`/`secondaryKey` action, a bad `modifier`, a one-part `toggle`, a malformed
+      round, plus a hand-written malformed corpus: a command with a `"` and with a non-latin-1 char, empty action id, empty layer id, `triggerKey: 42`, a legacy `entryKind` on a category, a legacy `key`/`keyModifier`/`secondaryKey` action, a bad `modifier`, a one-part `toggle`, a malformed
       sub-category row, `cvars: 7` on a cvar section, a mangled `baseline`. Snapshot
       `JSON.stringify(output)` (key order counts).
       (b) "IPC payload verdicts are unchanged" — for `setProfileActionsInputSchema`,
@@ -144,15 +140,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
 
 - [x] **D2 — Shared sub-shapes; the persisted tree derives from them.** New
       `src/shared/config/profile-schema.ts` (zod only, no node/electron) exporting: `actionTextSchema`
-      (latin-1 + no `"`, moved from `main/modules/config/schemas.ts:163`, messages kept),
-      `modifierTriggerSchema`, `configCommandSchema` (raw/message/wait, `frames` int 1..`MAX_WAIT_FRAMES`),
-      `actionEntryKindSchema`, `TWO_PART_ACTION_KINDS` + one `refineActionParts(action, ctx)`,
-      and for `ActionEntryPart`, `ActionKeySlot`, `ConfigAction`, `ConfigActionCategory`,
-      `ConfigActionSubcategory`, `ConfigCvarSection`, `ConfigCvarSubsection`, `AltLayer`: a plain
-      `…ObjectSchema` (`z.object`, extendable) **and** a final `…Schema: z.ZodType<Contract>`
-      (types from `src/shared/modules/config.ts` / `@shared/config/alt-layers`). Rule for what goes
-      in: a constraint *both* `persisted.ts` and `main/modules/config/schemas.ts` enforce today; IPC-only
-      `.min(1)`/`.max(n)` stay out (D3 adds them); persisted-only `.catch()`/preprocess stay out.
+      (latin-1 + no `"`, moved from `main/modules/config/schemas.ts:163`, messages kept), `modifierTriggerSchema`, `configCommandSchema` (raw/message/wait, `frames` int 1..`MAX_WAIT_FRAMES`), `actionEntryKindSchema`, `TWO_PART_ACTION_KINDS` + one `refineActionParts(action, ctx)`, and for `ActionEntryPart`, `ActionKeySlot`, `ConfigAction`, `ConfigActionCategory`, `ConfigActionSubcategory`, `ConfigCvarSection`, `ConfigCvarSubsection`, `AltLayer`: a plain `…ObjectSchema` (`z.object`, extendable) **and** a final `…Schema: z.ZodType<Contract>` (types from `src/shared/modules/config.ts` / `@shared/config/alt-layers`). Rule for what goes in: a constraint _both_ `persisted.ts` and `main/modules/config/schemas.ts` enforce today; IPC-only `.min(1)`/`.max(n)` stay out (D3 adds them); persisted-only `.catch()`/preprocess stay out.
       Then rewrite `src/main/modules/config/persisted.ts`'s twins (`altLayerPersistedSchema`,
       `persistedActionTextSchema`, `configCommandPersistedSchema`, `actionEntryKindPersistedSchema`,
       `actionEntryPartPersistedSchema`, the category/sub-category/cvar-section/sub-section/key-slot/
@@ -190,10 +178,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
 - [x] **D4 — One restore adapter.** New `src/shared/config/profile-restore-input.ts` (sibling of
       `profile-restore.ts`, which defines `RestoreProfilePartsInput` at :378) exporting
       `toRestoreInput(file, folded, options): RestoreProfilePartsInput` where `folded` is a structural
-      `RestoreEntrySource = { aliases: Iterable<{name, body, line, comment, codeWidth, file?}>;
-      binds: Iterable<{key, command, line, comment, file?}>; cvars: Iterable<{name, value, line,
-      comment, file?, firstFile?, firstLine?}> }` and `options = { comments: readonly {text, line,
-      file?}[]; layerAliases?: readonly string[]; newId: () => string }`; an entry's own `file` wins
+      `RestoreEntrySource = { aliases: Iterable<{name, body, line, comment, codeWidth, file?}>; binds: Iterable<{key, command, line, comment, file?}>; cvars: Iterable<{name, value, line, comment, file?, firstFile?, firstLine?}> }` and `options = { comments: readonly {text, line, file?}[]; layerAliases?: readonly string[]; newId: () => string }`; an entry's own `file` wins
       over the `file` argument; `firstFile`/`firstLine` are copied only when present; `layerAliases`
       only when given. Replace `main/modules/config/import.ts:172`'s exported `toRestoreInput`
       (build the entry lists from `ImportResult`'s Records + `bindLines`/`cvarLines`/`cvarFirstLines`/
@@ -213,8 +198,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       `file-source.ts#parseCanonicalProfile` (:274; `ParsedCanonicalProfile` extends
       `RestoredProfileFields`), `import.ts#commitImportFiles` (:439, ~:486-490),
       `profiles.ts#createFromImport` (:137; input = `RestoredProfileFields & { name, unrecognized }`)
-      and `profiles.ts#adoptFromFile` (:670; `fields = RestoredProfileFields & { name,
-      writeUnbindall, sectionHeaderStyle }`), adjusting its callers in `index.ts` (~1313, ~1445) and
+      and `profiles.ts#adoptFromFile` (:670; `fields = RestoredProfileFields & { name, writeUnbindall, sectionHeaderStyle }`), adjusting its callers in `index.ts` (~1313, ~1445) and
       `round-trip/helpers.ts` (~264). `writeUnbindall`/`sectionHeaderStyle` stay detected from text
       by the callers. Tests: unit in `profile-restore-input.test.ts` › "restoredToProfileFields
       carries all six fields"; new `src/main/modules/config/round-trip/import-vs-refresh.test.ts` ›
@@ -243,8 +227,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       only statement is `export * from '@shared/…'`). Files: the two deletions, `index.ts`, the test
       importers (mechanical one-line edits), `architecture.test.ts`.
 
-- [x] **D8 — Fixtures out of the production graph.** `git mv src/shared/config/profile-fixtures.ts
-      src/shared/config/fixtures/profile-fixtures.ts`, repoint `render-invariants.test.ts`. Add to
+- [x] **D8 — Fixtures out of the production graph.** `git mv src/shared/config/profile-fixtures.ts src/shared/config/fixtures/profile-fixtures.ts`, repoint `render-invariants.test.ts`. Add to
       `src/architecture.test.ts` › "src/shared/config/fixtures is imported only by tests and
       test-only helpers": every edge in `ALL_EDGES` into `src/shared/config/fixtures/` comes from an
       `isTestFile` file or from a file whose every importer is an `isTestFile` file. Files:

@@ -19,14 +19,17 @@ const BUSY = /another job is changing this installation/i
 
 const jobsFor = (page) =>
   page.evaluate(
-    (id) => window.q2.invoke('jobs:list').then((jobs) => jobs.filter((j) => j.installationId === id)),
+    (id) =>
+      window.q2.invoke('jobs:list').then((jobs) => jobs.filter((j) => j.installationId === id)),
     MODS_INSTALL_R1Q2_ID,
   )
 
 export default async function jobsInstallationBusy({ page, shot, step }) {
   step('select the r1q2 installation and open Mods')
   await openMods(page, MODS_INSTALL_R1Q2_NAME)
-  await page.getByTestId('mods-install-fixturemod').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('mods-install-fixturemod')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('hold the installation with a write job')
   const held = await page.evaluate(
@@ -57,7 +60,9 @@ export default async function jobsInstallationBusy({ page, shot, step }) {
       .getByTestId('engine-update-action')
       .getByRole('button')
       .click({ timeout: TIMEOUT_MS })
-    await page.getByTestId('engine-update-dialog').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    await page
+      .getByTestId('engine-update-dialog')
+      .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     await page.getByTestId('engine-update-confirm').click({ timeout: TIMEOUT_MS })
     await page
       .getByTestId('engine-update-error')

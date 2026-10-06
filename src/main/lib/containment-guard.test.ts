@@ -24,7 +24,9 @@ describe('path containment rule', () => {
 
   it('ARCHITECTURE.md names isInside as the path rule', () => {
     const doc = readFileSync(join(mainDir, '..', '..', 'docs', 'ARCHITECTURE.md'), 'utf8')
-    const paragraph = doc.split(/\r?\n\r?\n/).find((p) => p.includes('**Paths are never trusted.**'))
+    const paragraph = doc
+      .split(/\r?\n\r?\n/)
+      .find((p) => p.includes('**Paths are never trusted.**'))
     expect(paragraph).toBeDefined()
     expect(paragraph).toContain('isInside')
   })

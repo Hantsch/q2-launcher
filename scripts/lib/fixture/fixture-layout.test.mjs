@@ -25,7 +25,7 @@ describe('fixture layout', () => {
     expect(() => writeFixture('nope')).toThrow(/unknown fixture variant/)
   })
 
-  it('a reseed over leftover archives leaves exactly the fixture\'s archives', () => {
+  it("a reseed over leftover archives leaves exactly the fixture's archives", () => {
     const userData = mkdtempSync(join(tmpdir(), 'q2l-fixture-'))
     try {
       const cacheDir = join(userData, 'cache', 'downloads')

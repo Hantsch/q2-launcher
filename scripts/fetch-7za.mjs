@@ -43,7 +43,15 @@
 // `downloads.error.extractorMissing` and gate their real-archive test on `existsSync`, rather than
 // assuming this script has run.
 import { execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -135,10 +143,14 @@ async function fetchWindows() {
   )
 
   renameSync(join(TMP_DIR, '7za.exe'), TARGET_BINARY)
-  if (existsSync(join(TMP_DIR, 'License.txt'))) {
-    renameSync(join(TMP_DIR, 'License.txt'), TARGET_LICENSE)
-  }
+  vendorLicense(join(TMP_DIR, 'License.txt'))
   rmSync(TMP_DIR, { recursive: true, force: true })
+}
+
+/** The tracked licence is LF (`.gitattributes`); 7-Zip ships it CRLF, which would dirty the worktree. */
+function vendorLicense(extracted) {
+  if (!existsSync(extracted)) return
+  writeFileSync(TARGET_LICENSE, readFileSync(extracted, 'utf8').replace(/\r\n/g, '\n'))
 }
 
 async function fetchLinux() {
@@ -169,9 +181,7 @@ async function fetchLinux() {
 
   renameSync(join(TMP_DIR, '7zz'), TARGET_BINARY)
   chmodSync(TARGET_BINARY, 0o755)
-  if (existsSync(join(TMP_DIR, 'License.txt'))) {
-    renameSync(join(TMP_DIR, 'License.txt'), TARGET_LICENSE)
-  }
+  vendorLicense(join(TMP_DIR, 'License.txt'))
   rmSync(TMP_DIR, { recursive: true, force: true })
 }
 

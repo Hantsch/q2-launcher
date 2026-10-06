@@ -9,26 +9,26 @@ linter; jobs, package staging, HTTP fetches and platform rules each exist once. 
 except a correct error message. All 18 stories are done on `sprint/S32`; the merge into `dev` is the
 user's decision (see Blocked / open).
 
-| Story                         | Status | Commit                                                                                       |
-| ----------------------------- | ------ | -------------------------------------------------------------------------------------------- |
-| 223 flow gate                 | done   | aa58f5c quarantine list, shards, timeout, setup action, ui-flows CI, flow rules              |
-| 226 format + dependencies     | done   | 20c8c79 format once, 736c09b Electron 43.7.7, dependabot, repo hygiene tests                 |
-| 225 test kit                  | done   | 4c86012 quiet test run, one test-support kit, mockClient, files under 1,500 lines            |
-| 199 path containment          | done   | 11fb221 `isInside` is the one rule, `absolutePathSchema` honest                              |
-| 200 thrown handler            | done   | 16a7ec6 shell IPC answers `ipc.error.handlerFailed`, not prose                               |
-| 201 ordered shutdown          | done   | 88a10f1 awaited shutdown, persist-failure retry + toast, `onDispose`, debounced `state.json` |
-| 202 slice mutators            | done   | 3c57ed0 `updateSlice` replaces read-spread-set; installations merge on live                  |
-| 203 forgiving rows            | done   | 79250ec `lib/forgiving.ts`                                                                   |
-| 204 one Outcome envelope      | done   | d93dbe5 flatteners gone; every error key proven to resolve                                   |
-| 206 one refusal shape         | done   | fa58546 `Refusal`/`refuse()` with full keys; `lib/toast.ts`                                  |
-| 205 typed module contract     | done   | e2d5130 `defineModule`/`createModuleClient`, home + servers converted, dead handlers removed |
-| 207 modules own state         | done   | fe59935 `StateStore.section`, per-module `persisted.ts`, migrations out of the shell         |
-| 208 layer rules               | done   | b519108 `architecture.test.ts` + oxlint (`npm run lint`)                                     |
-| 209 modules via the shell     | done   | 9a5b2ec `app.os/displays/harness/env`; regression fix 4d8f9e7                                |
-| 221 HTTP policy               | done   | 3af6844 `lib/http.ts` `fetchWithPolicy`; list sources 10 s / 2 MiB                           |
-| 222 platform module           | done   | b343287 `lib/platform.ts`, `createListenerSet`, `looksLikeQuake2` once                       |
-| 220 package staging           | done   | dd4e2a3 one `stagePackage`, dead queue removed, one `ManifestService`; regression fix 26a7c24 |
-| 219 job runner                | done   | b9f3c76 one `JobRunner`, one busy rule, failure log for every module                         |
+| Story                     | Status | Commit                                                                                        |
+| ------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| 223 flow gate             | done   | aa58f5c quarantine list, shards, timeout, setup action, ui-flows CI, flow rules               |
+| 226 format + dependencies | done   | 20c8c79 format once, 736c09b Electron 43.7.7, dependabot, repo hygiene tests                  |
+| 225 test kit              | done   | 4c86012 quiet test run, one test-support kit, mockClient, files under 1,500 lines             |
+| 199 path containment      | done   | 11fb221 `isInside` is the one rule, `absolutePathSchema` honest                               |
+| 200 thrown handler        | done   | 16a7ec6 shell IPC answers `ipc.error.handlerFailed`, not prose                                |
+| 201 ordered shutdown      | done   | 88a10f1 awaited shutdown, persist-failure retry + toast, `onDispose`, debounced `state.json`  |
+| 202 slice mutators        | done   | 3c57ed0 `updateSlice` replaces read-spread-set; installations merge on live                   |
+| 203 forgiving rows        | done   | 79250ec `lib/forgiving.ts`                                                                    |
+| 204 one Outcome envelope  | done   | d93dbe5 flatteners gone; every error key proven to resolve                                    |
+| 206 one refusal shape     | done   | fa58546 `Refusal`/`refuse()` with full keys; `lib/toast.ts`                                   |
+| 205 typed module contract | done   | e2d5130 `defineModule`/`createModuleClient`, home + servers converted, dead handlers removed  |
+| 207 modules own state     | done   | fe59935 `StateStore.section`, per-module `persisted.ts`, migrations out of the shell          |
+| 208 layer rules           | done   | b519108 `architecture.test.ts` + oxlint (`npm run lint`)                                      |
+| 209 modules via the shell | done   | 9a5b2ec `app.os/displays/harness/env`; regression fix 4d8f9e7                                 |
+| 221 HTTP policy           | done   | 3af6844 `lib/http.ts` `fetchWithPolicy`; list sources 10 s / 2 MiB                            |
+| 222 platform module       | done   | b343287 `lib/platform.ts`, `createListenerSet`, `looksLikeQuake2` once                        |
+| 220 package staging       | done   | dd4e2a3 one `stagePackage`, dead queue removed, one `ManifestService`; regression fix 26a7c24 |
+| 219 job runner            | done   | b9f3c76 one `JobRunner`, one busy rule, failure log for every module                          |
 
 Also on the branch: c73921f (refine of the 18 stories) and 376e5fe (quarantine of the pre-existing
 `mods-view` flow). Gate on `376e5fe`.
@@ -107,20 +107,20 @@ Also on the branch: c73921f (refine of the 18 stories) and 376e5fe (quarantine o
 
 **Deliberately unfixed or open, with where each went**
 
-| Finding (story)                                                                                                                                                  | Where                                                                                                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Handlers of config, downloads, mods, replays, library are not typed from a contract (205 FU1–FU5; S33 does not cover them)                                          | [232](../../../requirements/done/232-every-modules-handlers-are-typed-from-a-contract.md)                                                   |
-| `mods-view` quarantined (flow vs uppercase, 188); `replays-mod-warning` flake; fixture-cache pollution; narrow gates miss neighbours (223, 209, 220)                | [233](../../../requirements/done/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md)                            |
-| `verify:release` not run (226, nothing in this sprint ran it); `ci:local`/`ci:local:flows` not observed; Linux-only red flows undetermined; runner timings (223)  | [234](../../../requirements/234-release-verification-and-ci-rehearsals-run-before-a-merge-to-main.md); manual part in `testplan.md`    |
-| Late `cinema.set(true)` after dispose; `quitAndInstall` through held `before-quit` untested; cinema/stage-follow disposal only helper-tested (201)                | [235](../../../requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md)                                                 |
-| `StateStore` without `migrations` runs none; `withEngineState` prototype view (207)                                                                               | [235](../../../requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md)                                                 |
-| `commitAdoption` throw outside bootstrap's catch; debounce-race fix inferred, not measured (219)                                                                  | [235](../../../requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md)                                                 |
-| Bleeding-edge transport failure now `allMirrorsFailed` instead of `network` (220)                                                                                 | [235](../../../requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md) AC6                                             |
-| Modules still use `lib/paths.userDataDir()`, `lib/net/fetcher`, `lib/native-image` (209); oxlint builtin list shorter than the test's (208)                       | [236](../../../requirements/done/236-the-layer-and-error-key-rules-have-no-known-holes.md)                                                  |
-| `${reason}` templates in five files, scan misses `fail(\`...\`)` (206); `.value.ok` grep narrowed, stale comment paths (204, 207); `parseMissingKeyHandler` (225)  | [236](../../../requirements/done/236-the-layer-and-error-key-rules-have-no-known-holes.md)                                                  |
-| `dedupeByKey` (203) and `toastRefusal` (206) have no production caller                                                                                            | roadmap follow-up                                                                                                                   |
-| Split test files with story numbers in describe titles, a few `as never` casts in client-mock overrides (225); renderer reference regex matches comments (205)    | roadmap follow-up                                                                                                                   |
-| No darwin tests at steam/diagnostics call sites, thin `looksLikeQuake2` test (222); no per-site swapped-argument test for `isInside` at four call sites (199)    | roadmap follow-up                                                                                                                   |
+| Finding (story)                                                                                                                                                  | Where                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Handlers of config, downloads, mods, replays, library are not typed from a contract (205 FU1–FU5; S33 does not cover them)                                       | [232](../../../requirements/done/232-every-modules-handlers-are-typed-from-a-contract.md)                                                |
+| `mods-view` quarantined (flow vs uppercase, 188); `replays-mod-warning` flake; fixture-cache pollution; narrow gates miss neighbours (223, 209, 220)             | [233](../../../requirements/done/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md)                         |
+| `verify:release` not run (226, nothing in this sprint ran it); `ci:local`/`ci:local:flows` not observed; Linux-only red flows undetermined; runner timings (223) | [234](../../../requirements/done/234-release-verification-and-ci-rehearsals-run-before-a-merge-to-main.md); manual part in `testplan.md` |
+| Late `cinema.set(true)` after dispose; `quitAndInstall` through held `before-quit` untested; cinema/stage-follow disposal only helper-tested (201)               | [235](../../../requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md)                                              |
+| `StateStore` without `migrations` runs none; `withEngineState` prototype view (207)                                                                              | [235](../../../requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md)                                              |
+| `commitAdoption` throw outside bootstrap's catch; debounce-race fix inferred, not measured (219)                                                                 | [235](../../../requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md)                                              |
+| Bleeding-edge transport failure now `allMirrorsFailed` instead of `network` (220)                                                                                | [235](../../../requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md) AC6                                          |
+| Modules still use `lib/paths.userDataDir()`, `lib/net/fetcher`, `lib/native-image` (209); oxlint builtin list shorter than the test's (208)                      | [236](../../../requirements/done/236-the-layer-and-error-key-rules-have-no-known-holes.md)                                               |
+| `${reason}` templates in five files, scan misses `fail(\`...\`)`(206);`.value.ok`grep narrowed, stale comment paths (204, 207);`parseMissingKeyHandler` (225)    | [236](../../../requirements/done/236-the-layer-and-error-key-rules-have-no-known-holes.md)                                               |
+| `dedupeByKey` (203) and `toastRefusal` (206) have no production caller                                                                                           | roadmap follow-up                                                                                                                        |
+| Split test files with story numbers in describe titles, a few `as never` casts in client-mock overrides (225); renderer reference regex matches comments (205)   | roadmap follow-up                                                                                                                        |
+| No darwin tests at steam/diagnostics call sites, thin `looksLikeQuake2` test (222); no per-site swapped-argument test for `isInside` at four call sites (199)    | roadmap follow-up                                                                                                                        |
 
 ## Blocked / open
 
@@ -132,13 +132,13 @@ Nothing blocked. Open: merging `sprint/S32` into `dev` is the user's decision; S
 
 Ran on `376e5fe` (sprint branch HEAD after two fix commits).
 
-| Command                                        | Minutes | Result                                                 |
-| ---------------------------------------------- | ------- | ------------------------------------------------------ |
-| `npm run build` / `typecheck` / `lint`         | ~0.2    | green                                                  |
-| `npm test`                                     | 0.4     | green (524 files, 6563 passed, 8 skipped)              |
-| `npm run ui:verify`                            | 1.9     | green (60/60 screens, 0 axe violations)                |
-| `npm run ui:flows` (first run, on `b9f3c76`)   | 49.8    | red: 134/138                                           |
-| `npm run ui:flows` (confirmation, on `376e5fe`) | 49.4    | green: 136/138, `mods-view` expected fail              |
+| Command                                         | Minutes | Result                                    |
+| ----------------------------------------------- | ------- | ----------------------------------------- |
+| `npm run build` / `typecheck` / `lint`          | ~0.2    | green                                     |
+| `npm test`                                      | 0.4     | green (524 files, 6563 passed, 8 skipped) |
+| `npm run ui:verify`                             | 1.9     | green (60/60 screens, 0 axe violations)   |
+| `npm run ui:flows` (first run, on `b9f3c76`)    | 49.8    | red: 134/138                              |
+| `npm run ui:flows` (confirmation, on `376e5fe`) | 49.4    | green: 136/138, `mods-view` expected fail |
 
 `verify:release` was not run (Docker daemon down, run exceeds the 10-minute call ceiling).
 

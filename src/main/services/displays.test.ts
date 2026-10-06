@@ -5,7 +5,9 @@ import { createDisplaysService, type ScreenLike } from './displays'
 const display = (id: number, scaleFactor: number, x = 0): Display =>
   ({ id, scaleFactor, bounds: { x, y: 0, width: 1920, height: 1080 } }) as Display
 
-const win = { getContentBounds: () => ({ x: 2000, y: 0, width: 800, height: 600 }) } as BrowserWindow
+const win = {
+  getContentBounds: () => ({ x: 2000, y: 0, width: 800, height: 600 }),
+} as BrowserWindow
 const primary = display(1, 1)
 const second = display(2, 2, 1920)
 

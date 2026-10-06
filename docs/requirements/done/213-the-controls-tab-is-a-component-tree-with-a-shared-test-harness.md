@@ -126,98 +126,98 @@ ControlsTab suites and the four `controls-*` flows stay green.
 ## Deliverables
 
 - [x] **D1 — Shared config test harness + first four suites.** Create
-  `src/renderer/src/modules/config/test/fixtures.ts` (`profileFixture(overrides)` wrapping
-  `makeConfigProfile` from `src/test-support/fixtures.ts`, defaulting two categories `movement`/
-  `weapons` and a catalogue + a plain action), `test/bridge.ts` (on import installs a
-  `globalThis.q2 = { invoke: vi.fn(), on: () => () => {} }` stub at module scope, because
-  `lib/bridge.ts` reads `window.q2` at module scope; exports `stubBridge()` which resets and returns
-  it, default `invoke` resolving `{ ok: true, value: [] }`), `test/render.tsx`
-  (`renderWithProviders(ui, { profile? })` = `@testing-library/react` `render` wrapped in
-  `ProfileChangesProvider` and, if story 218 landed, its `ProfileDraftProvider`; calls `initI18n`
-  once). Test files import the harness **before** the component. Migrate
-  `ControlsTab.bindings.test.tsx`, `ControlsTab.category-drag.test.tsx`,
-  `ControlsTab.category-menu.test.tsx`, `ControlsTab.dnd.test.tsx` off `createRoot`/`act`/
-  `IS_REACT_ACT_ENVIRONMENT`/`vi.hoisted` bridge/local `profileFixture` onto the harness; keep
-  every assertion. Test: `test/harness.test.tsx` › "renderWithProviders mounts with a stubbed
-  bridge".
+      `src/renderer/src/modules/config/test/fixtures.ts` (`profileFixture(overrides)` wrapping
+      `makeConfigProfile` from `src/test-support/fixtures.ts`, defaulting two categories `movement`/
+      `weapons` and a catalogue + a plain action), `test/bridge.ts` (on import installs a
+      `globalThis.q2 = { invoke: vi.fn(), on: () => () => {} }` stub at module scope, because
+      `lib/bridge.ts` reads `window.q2` at module scope; exports `stubBridge()` which resets and returns
+      it, default `invoke` resolving `{ ok: true, value: [] }`), `test/render.tsx`
+      (`renderWithProviders(ui, { profile? })` = `@testing-library/react` `render` wrapped in
+      `ProfileChangesProvider` and, if story 218 landed, its `ProfileDraftProvider`; calls `initI18n`
+      once). Test files import the harness **before** the component. Migrate
+      `ControlsTab.bindings.test.tsx`, `ControlsTab.category-drag.test.tsx`,
+      `ControlsTab.category-menu.test.tsx`, `ControlsTab.dnd.test.tsx` off `createRoot`/`act`/
+      `IS_REACT_ACT_ENVIRONMENT`/`vi.hoisted` bridge/local `profileFixture` onto the harness; keep
+      every assertion. Test: `test/harness.test.tsx` › "renderWithProviders mounts with a stubbed
+      bridge".
 - [x] **D2 — Remaining suites on the harness + guard.** Migrate `ControlsTab.row-menu.test.tsx`,
-  `ControlsTab.subcategory-drag.test.tsx`, `ControlsTab.dialogs.test.ts`,
-  `SettingsTab.dnd.test.tsx`, `AliasesTab.test.ts` (all under
-  `src/renderer/src/modules/config/`) onto `test/` from D1, `@testing-library/react` only (no
-  `react-dom/client`). Add to `src/architecture.test.ts` (reuse its `source-tree` helpers) a test
-  › "config module tests use the shared harness": no `*.test.ts(x)` under
-  `src/renderer/src/modules/config/` declares `function profileFixture`/`const profileFixture`,
-  and none of the nine named suites imports `react-dom/client`.
+      `ControlsTab.subcategory-drag.test.tsx`, `ControlsTab.dialogs.test.ts`,
+      `SettingsTab.dnd.test.tsx`, `AliasesTab.test.ts` (all under
+      `src/renderer/src/modules/config/`) onto `test/` from D1, `@testing-library/react` only (no
+      `react-dom/client`). Add to `src/architecture.test.ts` (reuse its `source-tree` helpers) a test
+      › "config module tests use the shared harness": no `*.test.ts(x)` under
+      `src/renderer/src/modules/config/` declares `function profileFixture`/`const profileFixture`,
+      and none of the nine named suites imports `react-dom/client`.
 - [x] **D3 — `useControlsRows`.** New `src/renderer/src/modules/config/lib/useControlsRows.ts`: one
-  `useMemo` over (category id, actions, filter text, …) that runs `buildControlsRowEntries`, the
-  filter, `groupControlsRowEntries` (`lib/controls-row-groups.ts`), `buildMoveTargets`, the bound
-  count, and a `rowState: Map<entryId, RowState>` with `deriveRowState` called once per catalogue
-  entry. `ControlsTab.tsx` reads entries/groups/moveTargets/boundCount/rowState from it and stops
-  computing them inline (today around lines 883–1046). Test `lib/useControlsRows.test.ts` with
-  `renderHook`: › "computes groups, move targets and bound count in one pass" and › "derives row
-  state once per entry" (spy on `deriveRowState`, calls === catalogue entry count; a rerender with
-  equal inputs adds no calls).
+      `useMemo` over (category id, actions, filter text, …) that runs `buildControlsRowEntries`, the
+      filter, `groupControlsRowEntries` (`lib/controls-row-groups.ts`), `buildMoveTargets`, the bound
+      count, and a `rowState: Map<entryId, RowState>` with `deriveRowState` called once per catalogue
+      entry. `ControlsTab.tsx` reads entries/groups/moveTargets/boundCount/rowState from it and stops
+      computing them inline (today around lines 883–1046). Test `lib/useControlsRows.test.ts` with
+      `renderHook`: › "computes groups, move targets and bound count in one pass" and › "derives row
+      state once per entry" (spy on `deriveRowState`, calls === catalogue entry count; a rerender with
+      equal inputs adds no calls).
 - [x] **D4 — `ControlsEntryRow`, one path.** New
-  `src/renderer/src/modules/config/components/ControlsEntryRow.tsx`, `memo`-wrapped, props
-  `{ entry: ControlsRowEntry; odd; grip; ctx }` where `ctx` is a `useMemo`'d object from the tab
-  (draft actions, `rowState` map from D3, conflict index, handlers for assign/clear/replace/
-  message/menu/move, reveal/expand sets). It replaces `renderCatalogSlot`, `renderPlainSlot`,
-  `renderKeyCell`, `renderExtraKeyRows`, `renderCatalogRow`, `renderPlainActionRow` **and** the
-  per-row `renderDropToggles`, `renderCatalogOptionsCell`, `renderPlainOptionsCell`,
-  `renderMessageSubRow`, `renderRowMenu` in `ControlsTab.tsx`. Catalogue vs plain differs only in
-  data (keys from `rowState` vs plain key slots, `withCatalogBody` applied in the assign handler
-  for catalogue rows, options cell content): exactly **one** `<BindSlot` JSX site; the "only
-  difference is withCatalogBody" comment is deleted. Reuse `ControlsRow`, `BindSlot`,
-  `ControlsOptionsCell`, `ControlsRowMenu`, `DropToggles` as-is. Test
-  `components/ControlsEntryRow.test.tsx` on D1's harness: assign, clear, replace × catalogue row and
-  plain row (six cases, asserting the patched action keys). Add to `src/architecture.test.ts` ›
-  "Controls rows have one slot path": `ControlsEntryRow.tsx` contains exactly one `<BindSlot`, and
-  neither it nor `ControlsTab.tsx` references `deriveRowState`.
+      `src/renderer/src/modules/config/components/ControlsEntryRow.tsx`, `memo`-wrapped, props
+      `{ entry: ControlsRowEntry; odd; grip; ctx }` where `ctx` is a `useMemo`'d object from the tab
+      (draft actions, `rowState` map from D3, conflict index, handlers for assign/clear/replace/
+      message/menu/move, reveal/expand sets). It replaces `renderCatalogSlot`, `renderPlainSlot`,
+      `renderKeyCell`, `renderExtraKeyRows`, `renderCatalogRow`, `renderPlainActionRow` **and** the
+      per-row `renderDropToggles`, `renderCatalogOptionsCell`, `renderPlainOptionsCell`,
+      `renderMessageSubRow`, `renderRowMenu` in `ControlsTab.tsx`. Catalogue vs plain differs only in
+      data (keys from `rowState` vs plain key slots, `withCatalogBody` applied in the assign handler
+      for catalogue rows, options cell content): exactly **one** `<BindSlot` JSX site; the "only
+      difference is withCatalogBody" comment is deleted. Reuse `ControlsRow`, `BindSlot`,
+      `ControlsOptionsCell`, `ControlsRowMenu`, `DropToggles` as-is. Test
+      `components/ControlsEntryRow.test.tsx` on D1's harness: assign, clear, replace × catalogue row and
+      plain row (six cases, asserting the patched action keys). Add to `src/architecture.test.ts` ›
+      "Controls rows have one slot path": `ControlsEntryRow.tsx` contains exactly one `<BindSlot`, and
+      neither it nor `ControlsTab.tsx` references `deriveRowState`.
 - [x] **D5 — `useControlsDrag`.** New `src/renderer/src/modules/config/lib/useControlsDrag.ts` owning
-  `draggingRowId`, `springCategoryId`, the spring-load timer (the `handleSpringLoad`
-  `useCallback` + ref workaround moves inside) and the drag start/end/cancel handlers handed to
-  `ControlsDragZone`; returns stable callbacks so a pointer move does not change `ControlsEntryRow`
-  props. `ControlsTab.tsx` consumes it. Test `lib/useControlsDrag.test.ts` (`renderHook`, fake
-  timers) › "spring-loads a category after the hover delay and cancels on drag end". The existing
-  `ControlsTab.dnd`/`category-drag`/`subcategory-drag` suites must stay green.
+      `draggingRowId`, `springCategoryId`, the spring-load timer (the `handleSpringLoad`
+      `useCallback` + ref workaround moves inside) and the drag start/end/cancel handlers handed to
+      `ControlsDragZone`; returns stable callbacks so a pointer move does not change `ControlsEntryRow`
+      props. `ControlsTab.tsx` consumes it. Test `lib/useControlsDrag.test.ts` (`renderHook`, fake
+      timers) › "spring-loads a category after the hover delay and cancels on drag end". The existing
+      `ControlsTab.dnd`/`category-drag`/`subcategory-drag` suites must stay green.
 - [x] **D6 — Appended dialogs into `components/`.** Move `CreateCategoryDialog`,
-  `RenameCategoryDialog`, `CreateSubcategoryDialog`, `RenameSubcategoryDialog`, `CreateActionDialog`
-  (+ `ENTRY_KIND_OPTIONS`) out of the bottom of `ControlsTab.tsx` into one file each under
-  `src/renderer/src/modules/config/components/` (in whatever shape story 216 left them — thin
-  `NameDialog` callers if it landed). `ControlsTab.dialogs.test.ts` imports them from
-  `./components/…` and no longer imports `./ControlsTab`. Test: that suite, plus
-  `src/architecture.test.ts` › "ControlsTab.dialogs.test does not load the tab" (source check: no
-  `ControlsTab'` import).
+      `RenameCategoryDialog`, `CreateSubcategoryDialog`, `RenameSubcategoryDialog`, `CreateActionDialog`
+      (+ `ENTRY_KIND_OPTIONS`) out of the bottom of `ControlsTab.tsx` into one file each under
+      `src/renderer/src/modules/config/components/` (in whatever shape story 216 left them — thin
+      `NameDialog` callers if it landed). `ControlsTab.dialogs.test.ts` imports them from
+      `./components/…` and no longer imports `./ControlsTab`. Test: that suite, plus
+      `src/architecture.test.ts` › "ControlsTab.dialogs.test does not load the tab" (source check: no
+      `ControlsTab'` import).
 - [x] **D7 — `ControlsCategoryRail`.** New
-  `src/renderer/src/modules/config/components/ControlsCategoryRail.tsx` owning the category chip
-  rail (sortable chips, `ControlsCategoryMenu`), the create/rename/delete category and
-  create/rename subcategory dialog state and their persist handlers (via story 212's save hook),
-  and chip scroll-into-view. `ControlsTab.tsx` passes `selectedCategoryId` + a
-  `selectCategory(id)` handler that sets the id **and** `setFilterText('')`; the
-  `useEffect(() => setFilterText(''), [selectedCategoryId])` is deleted. The rail stays inside the
-  tab's single `DndContext` (story 054 D5). Test: `ControlsTab.category-menu.test.tsx` /
-  `category-drag` stay green, plus new case in `ControlsTab.bindings.test.tsx` › "selecting a
-  category clears the filter".
+      `src/renderer/src/modules/config/components/ControlsCategoryRail.tsx` owning the category chip
+      rail (sortable chips, `ControlsCategoryMenu`), the create/rename/delete category and
+      create/rename subcategory dialog state and their persist handlers (via story 212's save hook),
+      and chip scroll-into-view. `ControlsTab.tsx` passes `selectedCategoryId` + a
+      `selectCategory(id)` handler that sets the id **and** `setFilterText('')`; the
+      `useEffect(() => setFilterText(''), [selectedCategoryId])` is deleted. The rail stays inside the
+      tab's single `DndContext` (story 054 D5). Test: `ControlsTab.category-menu.test.tsx` /
+      `category-drag` stay green, plus new case in `ControlsTab.bindings.test.tsx` › "selecting a
+      category clears the filter".
 - [x] **D8 — Remount on profile switch, caps, doc.** In `ConfigView.tsx` (or 218's detail
-  component) put `key={selected.id}` on the element that owns the draft (218's
-  `ProfileDraftProvider`, else the detail-tab container) so tabs and draft mount fresh per profile;
-  delete the `[profile.id]` reset effects in `ControlsTab.tsx`, `SettingsTab.tsx`,
-  `OverviewKeyboardPanel.tsx` (move any initial value into the `useState` initialiser) and the
-  "one-tick staleness" comment in `ConfigView.tsx`. Test
-  `ConfigView.profile-switch.test.tsx` › "switching profile remounts the detail tabs with fresh
-  state" (Controls filter text and selected category reset; Overview test mode off). Add to
-  `src/architecture.test.ts` › "ControlsTab stays under its soft caps": `ControlsTab.tsx` < 800
-  lines and < 12 `useState(` occurrences; if still over, move the remaining action-mutation
-  handlers into `lib/useControlsEntryActions.ts`. Update `docs/systems/config-module.md` §5
-  "Controls" with the component tree (tab → rail / rows hook / drag hook / `ControlsEntryRow`) and
-  the shared test harness path.
+      component) put `key={selected.id}` on the element that owns the draft (218's
+      `ProfileDraftProvider`, else the detail-tab container) so tabs and draft mount fresh per profile;
+      delete the `[profile.id]` reset effects in `ControlsTab.tsx`, `SettingsTab.tsx`,
+      `OverviewKeyboardPanel.tsx` (move any initial value into the `useState` initialiser) and the
+      "one-tick staleness" comment in `ConfigView.tsx`. Test
+      `ConfigView.profile-switch.test.tsx` › "switching profile remounts the detail tabs with fresh
+      state" (Controls filter text and selected category reset; Overview test mode off). Add to
+      `src/architecture.test.ts` › "ControlsTab stays under its soft caps": `ControlsTab.tsx` < 800
+      lines and < 12 `useState(` occurrences; if still over, move the remaining action-mutation
+      handlers into `lib/useControlsEntryActions.ts`. Update `docs/systems/config-module.md` §5
+      "Controls" with the component tree (tab → rail / rows hook / drag hook / `ControlsEntryRow`) and
+      the shared test harness path.
 - [x] **D9 — Anchor tests.** On D1's harness, one behaviour each:
-  `components/BindSlot.test.tsx` › "an empty slot starts key capture",
-  `components/CvarRow.test.tsx` › "editing the value reports the new cvar value",
-  `components/KeyBindDialog.test.tsx` › "a captured key is confirmed to the caller",
-  `LayersPanel.test.tsx` › "adding a layer saves it through the bridge" (all under
-  `src/renderer/src/modules/config/`). Read each component's props to pick the exact event; no
-  product changes.
+      `components/BindSlot.test.tsx` › "an empty slot starts key capture",
+      `components/CvarRow.test.tsx` › "editing the value reports the new cvar value",
+      `components/KeyBindDialog.test.tsx` › "a captured key is confirmed to the caller",
+      `LayersPanel.test.tsx` › "adding a layer saves it through the bridge" (all under
+      `src/renderer/src/modules/config/`). Read each component's props to pick the exact event; no
+      product changes.
 
 ## Model Hints
 

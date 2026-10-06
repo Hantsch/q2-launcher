@@ -20,7 +20,7 @@ refinements from the latest user feedback.
 - [x] 236 — the layer and error-key rules have no known holes
 - [x] 235 — shutdown, state store and job edge cases are closed
 - [x] 233 — the flow gate has no quarantined flows and catches cross-story breakage
-- [ ] 234 — release verification and CI rehearsals run before a merge to main (blocked: Docker daemon down, D2 rehearsal not run)
+- [x] 234 — release verification and CI rehearsals run before a merge to main
 - [x] 245 — the demo detail lists players by team
 - [x] 243 — the demo detail is edited in place and saves itself
 - [x] 242 — I browse my demos in their folders
@@ -78,4 +78,9 @@ scripts, none in `src/`):
   `replays-play-q2pro` — story 237 (the extra `+set s_volume` token). **Fixed** in the flows. Stories 237, 241, 244 and 246
   had reported such reds as "pre-existing, not ours"; they were caused by earlier stories of the same sprint.
 - Quarantine: `scripts/flows/quarantine.json` stays `[]`; no entry written, no unexpected pass.
-- Unattributed / blockers: none. Story 234's D2 (the real rehearsal) is not part of the gate: Docker is down.
+- Unattributed / blockers: none.
+- Story 234 rehearsal (after the gate, record `.rehearsal/20261006-073931`, PASSED): `verify:release` 1029 s, `ci:local` 270 s,
+  `ci:local:flows` 1412 s; six shards 685/682/820/664/747/666 s (limit 900); six real runs, each red triaged and fixed or
+  quarantined (20 Linux entries). The work changed about 100 format-only files, 4 flows and `quarantine.json` after the
+  169/169 confirmation, which was not repeated: the final tree had narrow checks only (typecheck, lint, `prettier --check`,
+  targeted vitest, the touched flows on Windows).

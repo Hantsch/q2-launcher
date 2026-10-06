@@ -67,7 +67,7 @@ describe('the maps a mod offers', () => {
   it('lists loose, pak and pkz maps of the mod and baseq2, sorted', async () => {
     await mkdir(join(root, 'BaseQ2', 'MAPS'), { recursive: true })
     await writeFile(join(root, 'BaseQ2', 'MAPS', 'Q2DM1.BSP'), bsp())
-    await mkdir(join(root, 'BaseQ2', 'maps', 'fake.bsp'))
+    await mkdir(join(root, 'BaseQ2', 'MAPS', 'fake.bsp'))
     await writeFile(join(root, 'BaseQ2', 'pak0.pak'), 'PACKÿÿÿ\u007fgarbage')
     await writeFile(
       join(root, 'BaseQ2', 'PAK1.PAK'),

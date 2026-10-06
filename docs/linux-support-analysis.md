@@ -154,11 +154,11 @@ release ships from a changelog_) carries 11 acceptance criteria and 6 deliverabl
 scripts, `electron-builder.yml`, a CI workflow, README and CONTRIBUTING. Against that yardstick the
 blockers in §3 are two stories, not eight.
 
-| #                                                                   | Story                                    | Status | Covers             | Blocked on    |
-| ------------------------------------------------------------------- | ---------------------------------------- | ------ | ------------------ | ------------- |
+| #                                                                        | Story                                    | Status | Covers             | Blocked on    |
+| ------------------------------------------------------------------------ | ---------------------------------------- | ------ | ------------------ | ------------- |
 | [100](requirements/done/100-the-launcher-runs-on-linux.md)               | the launcher runs on linux               | done   | B2, B3, B4, B6, B7 | —             |
 | [101](requirements/done/101-a-linux-release-ships-and-updates-itself.md) | a linux release ships and updates itself | ready  | B5                 | —             |
-| [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md)      | a linux q2pro is built and mirrored      | draft  | B1                 | its own Q1–Q4 |
+| [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md)           | a linux q2pro is built and mirrored      | draft  | B1                 | its own Q1–Q4 |
 
 **Re-cut 2026-09-21.** 101 originally carried B1 as well. Its Q1 was resolved by splitting the
 engine-supply obligation into 102, so 101 is now the launcher's own release and update path and

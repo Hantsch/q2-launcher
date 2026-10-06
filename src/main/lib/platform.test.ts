@@ -25,9 +25,7 @@ describe('platform', () => {
       expect(isCaseInsensitiveFs(), row.platform).toBe(row.ci)
       expect(foldPathCase('C:/Foo'), row.platform).toBe(row.fold)
       expect(executableFileName('q2'), row.platform).toBe(row.exe)
-      expect(executableFileName('q2', 'q2-bin'), row.platform).toBe(
-        row.win ? 'q2.exe' : 'q2-bin',
-      )
+      expect(executableFileName('q2', 'q2-bin'), row.platform).toBe(row.win ? 'q2.exe' : 'q2-bin')
       restore()
       restore = undefined
     }

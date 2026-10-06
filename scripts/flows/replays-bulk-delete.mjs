@@ -44,7 +44,9 @@ export async function teardown() {
 
 export default async function replaysBulkDelete({ page, shot, step, variant }) {
   if (!vendoredExtractorExists()) {
-    throw new Error('replays-bulk-delete: resources/bin/7za.exe is missing - run `npm run fetch:7za`')
+    throw new Error(
+      'replays-bulk-delete: resources/bin/7za.exe is missing - run `npm run fetch:7za`',
+    )
   }
   const text = async (testId) => (await page.getByTestId(testId).textContent()) ?? ''
   const expectText = async (testId, what, needle) => {
@@ -64,7 +66,8 @@ export default async function replaysBulkDelete({ page, shot, step, variant }) {
   await poll(
     'the flow demos and the zip entry to be listed',
     async () => {
-      for (const name of [...LOOSE, ZIP_ENTRY]) if ((await rowNamed(name).count()) !== 1) return false
+      for (const name of [...LOOSE, ZIP_ENTRY])
+        if ((await rowNamed(name).count()) !== 1) return false
       return true
     },
     TIMEOUT_MS,

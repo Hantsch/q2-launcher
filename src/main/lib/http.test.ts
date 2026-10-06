@@ -29,7 +29,12 @@ describe('fetchWithPolicy', () => {
   it('an external abort ends the fetch as aborted and is never retried', async () => {
     const controller = new AbortController()
     const fetchImpl = vi.fn(hang)
-    const pending = fetchWithPolicy('http://x/', { ...base, timeoutMs: 5000, fetchImpl, signal: controller.signal })
+    const pending = fetchWithPolicy('http://x/', {
+      ...base,
+      timeoutMs: 5000,
+      fetchImpl,
+      signal: controller.signal,
+    })
     controller.abort()
     const outcome = await pending
     expect(outcome).toMatchObject({ ok: false, kind: 'aborted' })
@@ -50,8 +55,8 @@ describe('fetchWithPolicy', () => {
   })
 
   it('a body over maxBytes is too-large, by declared content-length and by streamed bytes', async () => {
-    const declared = vi.fn<FetchImpl>(async () =>
-      new Response('x', { status: 200, headers: { 'content-length': '5000' } }),
+    const declared = vi.fn<FetchImpl>(
+      async () => new Response('x', { status: 200, headers: { 'content-length': '5000' } }),
     )
     const byDeclared = await fetchWithPolicy('http://x/', { ...base, fetchImpl: declared })
     expect(byDeclared).toMatchObject({ ok: false, kind: 'too-large' })
@@ -61,7 +66,11 @@ describe('fetchWithPolicy', () => {
       streamOf(new Uint8Array(600), new Uint8Array(600)),
     )
     const byStream = await fetchWithPolicy('http://x/', { ...base, fetchImpl: streamed })
-    expect(byStream).toMatchObject({ ok: false, kind: 'too-large', reason: 'body exceeds 1024 bytes' })
+    expect(byStream).toMatchObject({
+      ok: false,
+      kind: 'too-large',
+      reason: 'body exceeds 1024 bytes',
+    })
     expect(streamed).toHaveBeenCalledTimes(1)
   })
 

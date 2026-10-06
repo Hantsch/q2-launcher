@@ -301,6 +301,7 @@ and full `npm test` all green (516 files, 6480 passed, 8 skipped). All 19 named 
 ran and passed (AC1-AC6 map as written). Clean-agent review PASS; fixes applied and re-reviewed (PASS).
 
 Decisions:
+
 - `AS_ANY_BASELINE` is 0: all 28 `as any` hits are in comments; the ratchet strips comments.
 - `tsconfig.web.json` exclude stays at 5 node-only entries (demo-guard, common, lib/toast, i18n/reason-templates, test-support/source-files); the test pins that exact list. Moving the other four is out of scope.
 - `views/LibraryView.tsx -> modules/library/client` predates the story log; allowlisted under story 208 with a reason.

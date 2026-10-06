@@ -37,10 +37,7 @@ const LOCKED = 'mods.remove.failed.locked'
 
 /** A removal fails with a mods key, the locked-file key, or a refusal reason from the removal planner. */
 type ModRemoveFailureKey =
-  | ModsErrorKey
-  | typeof LOCKED
-  | RemovalRefusedError['reason']
-  | JobLocalFailureKey
+  ModsErrorKey | typeof LOCKED | RemovalRefusedError['reason'] | JobLocalFailureKey
 
 export type ModRemoveOutcome = JobOutcome<ModRemoveFailureKey>
 

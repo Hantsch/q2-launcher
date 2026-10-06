@@ -3,7 +3,11 @@ import { dirname, join, resolve } from 'node:path'
 import { fetchWithPolicy, type FetchImpl } from '../../../lib/http'
 import { decodeImageWithElectron } from '../../../lib/native-image'
 import { NEWS_FETCH_RETRIES, NEWS_FETCH_TIMEOUT_MS, type NewsFetchLog } from '../news/feed-fetcher'
-import { SAFE_NEWS_IMAGE_EXTENSIONS, isSafeNewsImageFileName, newsImageFileName } from '../../../lib/news-image-paths'
+import {
+  SAFE_NEWS_IMAGE_EXTENSIONS,
+  isSafeNewsImageFileName,
+  newsImageFileName,
+} from '../../../lib/news-image-paths'
 
 /**
  * Story 084: fetch one slide image, decide whether it is safe to cache, and never leave an

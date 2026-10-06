@@ -97,7 +97,11 @@ describe('direct platform reads in main services and modules', () => {
       })
     }
 
-    expect(count, 'Use isWindows()/isLinux() from src/main/lib/platform.ts instead.').toBeLessThan(10)
-    expect(unexplained, 'Annotate each read with a "// platform-read: <reason>" comment.').toEqual([])
+    expect(count, 'Use isWindows()/isLinux() from src/main/lib/platform.ts instead.').toBeLessThan(
+      10,
+    )
+    expect(unexplained, 'Annotate each read with a "// platform-read: <reason>" comment.').toEqual(
+      [],
+    )
   })
 })

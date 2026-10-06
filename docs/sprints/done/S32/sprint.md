@@ -62,13 +62,13 @@ correct error message where they used to see English prose or a path.
 
 Ran on `376e5fe` (sprint branch HEAD after two fix commits).
 
-| Command | Minutes | Result |
-| --- | --- | --- |
-| `npm run build` / `typecheck` / `lint` | ~0.2 | green |
-| `npm test` | 0.4 | green (524 files, 6563 passed, 8 skipped) |
-| `npm run ui:verify` | 1.9 | green (60/60 screens, 0 axe violations) |
-| `npm run ui:flows` (first run, on `b9f3c76`) | 49.8 | red: 134/138 |
-| `npm run ui:flows` (confirmation, on `376e5fe`) | 49.4 | green: 136/138, `mods-view` expected fail |
+| Command                                         | Minutes | Result                                    |
+| ----------------------------------------------- | ------- | ----------------------------------------- |
+| `npm run build` / `typecheck` / `lint`          | ~0.2    | green                                     |
+| `npm test`                                      | 0.4     | green (524 files, 6563 passed, 8 skipped) |
+| `npm run ui:verify`                             | 1.9     | green (60/60 screens, 0 axe violations)   |
+| `npm run ui:flows` (first run, on `b9f3c76`)    | 49.8    | red: 134/138                              |
+| `npm run ui:flows` (confirmation, on `376e5fe`) | 49.4    | green: 136/138, `mods-view` expected fail |
 
 `verify:release` was not run (Docker daemon down, run exceeds the 10-minute call ceiling).
 

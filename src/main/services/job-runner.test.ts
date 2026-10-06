@@ -231,12 +231,18 @@ describe('JobRunner', () => {
 
   it('a cancelled job still blocks its installation until its body has finished', async () => {
     const { runner, jobs } = makeJobRunner()
-    const exclusive: RunJobSpec = { ...SPEC, exclusive: 'installation', installationId: INSTALLATION }
+    const exclusive: RunJobSpec = {
+      ...SPEC,
+      exclusive: 'installation',
+      installationId: INSTALLATION,
+    }
     const hold = deferred()
-    const first = started(runner.run(exclusive, async () => {
-      await hold.promise
-      return { status: 'succeeded' as const }
-    }))
+    const first = started(
+      runner.run(exclusive, async () => {
+        await hold.promise
+        return { status: 'succeeded' as const }
+      }),
+    )
 
     jobs.cancel(first.jobId)
     expect(jobById(jobs, first.jobId)?.status).toBe('cancelled')

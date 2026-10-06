@@ -546,7 +546,7 @@ export function SettingsTab() {
   }
 
   /** The destination placement's real, unfiltered name list - `section.cvars`/`subsection.cvars`
-   * straight off `sections`, not `rowNamesByPlacementKey`'s rendered subset. 
+   * straight off `sections`, not `rowNamesByPlacementKey`'s rendered subset.
    * `buildCvarSectionGroups`'s row resolver drops a name from rendering entirely - a duplicate
    * already claimed by an earlier section, or a non-catalogue name with no stored value
    * (`makeRowResolver`, `cvar-rows.ts`) - while it stays present in the underlying array

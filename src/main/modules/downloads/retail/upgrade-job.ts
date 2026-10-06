@@ -6,13 +6,7 @@ import type {
   DownloadsErrorKey,
   StartRetailUpgradeInput,
 } from '@shared/modules/downloads'
-import {
-  fail,
-  ok,
-  type Installation,
-  type InstallationStatus,
-  type Outcome,
-} from '@shared/types'
+import { fail, ok, type Installation, type InstallationStatus, type Outcome } from '@shared/types'
 import { canonicalizePath, findChild, resolveRelaxed } from '../../../lib/fs-utils'
 import type { JobContext, JobOutcome, JobRunnerHost, StartedJob } from '../../ports'
 import type { AssembleInstallationResult } from '../bootstrap/assemble'
@@ -248,7 +242,6 @@ async function verifyUpgradeSource(
 
   return ok(match)
 }
-
 
 /** A write-phase step that failed; thrown inside the write so the body can end the job with its reason. */
 class UpgradeRefused extends Error {

@@ -100,7 +100,7 @@ display) and D2 (persisted `demoVolume`, restore list).
   Files: `src/shared/modules/replays.ts` (handler `playbackVolume: 'playback.volume'`, payload schema
   `z.strictObject({ percent: z.number().int().min(0).max(100), muted: z.boolean() })`, wired into the
   payload-schema map like `playbackTimeline`; `ReplaysPlaybackDisplay.volume?: { percent: number;
-  muted: boolean }`, optional for older callers like `speed`), new
+muted: boolean }`, optional for older callers like `speed`), new
   `src/main/modules/replays/playback-volume.ts` + `playback-volume.test.ts`,
   `src/main/modules/replays/playback-control.ts` (+ its test), `src/main/modules/replays/index.ts`,
   `docs/systems/replays-module.md` (handler list + display line).
@@ -183,7 +183,7 @@ display) and D2 (persisted `demoVolume`, restore list).
 ## Model Hints
 
 - D2 → deliverable-hard: the leak AC6 guards against hides in the launch/restore ordering — `+set
-  s_volume` must reach `overridesRestoreCvar` and the snapshot before spawn on both the in-place and
+s_volume` must reach `overridesRestoreCvar` and the snapshot before spawn on both the in-place and
   staged-copy paths, and the remembered value must be read at session end before the control clears
   the session, never the muted 0.
 - Review: → default
@@ -227,6 +227,7 @@ AC to test, all as named in Acceptance Tests and verified passing; flow steps AC
 Manual residue: hearing the volume change on a real Q2PRO with an audio device (the stub engine has no sound).
 
 **Decisions.**
+
 - The `replays-timeline` flow's Tab-order walk got two extra stops (the new toggle and slider sit before the speed select).
 - Flow fixture puts `q2config.cfg` in the demo's game dir (`ctf`); the Linux write-dir path is unrun on this Windows host.
 - Main calls `setVolume` (display push) when a line is actually sent; the slider's local value wins during a drag.

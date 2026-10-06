@@ -116,104 +116,104 @@ user-visible change (no CHANGELOG entry).
 ## Deliverables
 
 - [x] **D1 — `useConfigProfiles` store, ConfigView reads it.** New
-  `src/renderer/src/modules/config/config-profiles-store.ts` (Zustand `create`, mirror the shape of
-  `src/renderer/src/modules/replays/playback-store.ts`): state `profiles: ConfigProfile[]`; actions
-  `load(): Promise<Outcome<ConfigProfile[]>>` (calls `listConfigProfiles` from `./client`, on `ok`
-  replaces the list, returns the outcome unchanged), `replaceAll(list)`, `upsert(profile)` (replace by
-  id, append if new), `remove(id)`. A sequence counter bumped by every action makes a `load()` that
-  resolves after any later action leave the list alone. In
-  `src/renderer/src/modules/config/ConfigView.tsx`: drop `const [profiles, setProfiles]` and the
-  `listConfigProfiles` effect; subscribe with `useConfigProfiles((s) => s.profiles)`, call `load()` on
-  mount; `onChanged={setProfiles}`/`handleCreated`/`handleRenamed`/`handleDeleted`/`handleDiscarded` →
-  `replaceAll`, `handleProfileUpdated` → `upsert`, `handleFileSourceResult` →
-  `replaceAll(applyRefreshedProfile(useConfigProfiles.getState().profiles, result))`. Keep the
-  route-focus and "profile disappeared" effects' semantics: the list may now already be populated on
-  mount (store outlives the view) — the pending-focus ref must still apply a hint on that first
-  commit, and still be one-shot. Tests: `config-profiles-store.test.ts` (new) — "load fills the list
-  and returns the outcome", "a failed load leaves the list", "a load resolving after upsert does not
-  revert it", "replaceAll, upsert and remove"; reset the store in `beforeEach`
-  (`useConfigProfiles.setState({ profiles: [] })`). `ConfigView.routeFocus.test.tsx`: reset the store
-  in `beforeEach`, add "a route-focus hint opens the profile when the store already holds the list".
+      `src/renderer/src/modules/config/config-profiles-store.ts` (Zustand `create`, mirror the shape of
+      `src/renderer/src/modules/replays/playback-store.ts`): state `profiles: ConfigProfile[]`; actions
+      `load(): Promise<Outcome<ConfigProfile[]>>` (calls `listConfigProfiles` from `./client`, on `ok`
+      replaces the list, returns the outcome unchanged), `replaceAll(list)`, `upsert(profile)` (replace by
+      id, append if new), `remove(id)`. A sequence counter bumped by every action makes a `load()` that
+      resolves after any later action leave the list alone. In
+      `src/renderer/src/modules/config/ConfigView.tsx`: drop `const [profiles, setProfiles]` and the
+      `listConfigProfiles` effect; subscribe with `useConfigProfiles((s) => s.profiles)`, call `load()` on
+      mount; `onChanged={setProfiles}`/`handleCreated`/`handleRenamed`/`handleDeleted`/`handleDiscarded` →
+      `replaceAll`, `handleProfileUpdated` → `upsert`, `handleFileSourceResult` →
+      `replaceAll(applyRefreshedProfile(useConfigProfiles.getState().profiles, result))`. Keep the
+      route-focus and "profile disappeared" effects' semantics: the list may now already be populated on
+      mount (store outlives the view) — the pending-focus ref must still apply a hint on that first
+      commit, and still be one-shot. Tests: `config-profiles-store.test.ts` (new) — "load fills the list
+      and returns the outcome", "a failed load leaves the list", "a load resolving after upsert does not
+      revert it", "replaceAll, upsert and remove"; reset the store in `beforeEach`
+      (`useConfigProfiles.setState({ profiles: [] })`). `ConfigView.routeFocus.test.tsx`: reset the store
+      in `beforeEach`, add "a route-focus hint opens the profile when the store already holds the list".
 
 - [x] **D2 — The tile and the address-book dialog subscribe; only the store reads the list.**
-  `src/renderer/src/modules/home/dashboard/ConfigProfilesTile.tsx`: `fetchConfigProfilesData` gets
-  the list via `useConfigProfiles.getState().load()` (throw on `!ok`, as today), rows render from the
-  store's `profiles` joined with the fetched sync states by id (D-8). `src/renderer/src/modules/servers/AddToAddressBookDialog.tsx`:
-  both `listConfigProfiles()` reads become `load()` (same error handling), the profile list it renders
-  comes from the store, and the profile `commitProfileCvars` returns is `upsert`ed. `src/architecture.test.ts`:
-  two `ALLOWED` edges, story `218`, reason "reads the shared config profile list" —
-  `home/dashboard/ConfigProfilesTile.tsx → config/config-profiles-store` and
-  `servers/AddToAddressBookDialog.tsx → config/config-profiles-store` (drop any edge that no longer
-  matches a real import — the test "every allowlist entry still matches a real import" enforces it).
-  Reset the store in `beforeEach` of `ConfigProfilesTile.test.tsx`, `home/dashboard/i18n.test.tsx` and
-  `AddToAddressBookDialog.test.tsx`. New `src/renderer/src/modules/config/config-structure.test.ts`
-  (node env; `listSourceFiles`/`readRepoFile`/`stripComments`/`isTestFile` from
-  `src/test-support/source-tree.ts`): "only the config profiles store reads listConfigProfiles" —
-  in non-test files under `src/renderer/src`, `listConfigProfiles(` appears only in
-  `config-profiles-store.ts` (and its declaration in `client.ts`). New
-  `src/renderer/src/modules/config/ConfigView.profilesStore.test.tsx` (jsdom; mock `./client` as
-  `ConfigView.routeFocus.test.tsx` does): "a profile renamed through the dashboard tile shows in an
-  open Config view without a remount" — render `ConfigView` and `ConfigProfilesTile` together, open
-  the profile, let the tile's second read return the renamed profile, assert
-  `config-profile-identity` shows the new name and ConfigView's mount counter (or a ref'd DOM node)
-  is unchanged.
+      `src/renderer/src/modules/home/dashboard/ConfigProfilesTile.tsx`: `fetchConfigProfilesData` gets
+      the list via `useConfigProfiles.getState().load()` (throw on `!ok`, as today), rows render from the
+      store's `profiles` joined with the fetched sync states by id (D-8). `src/renderer/src/modules/servers/AddToAddressBookDialog.tsx`:
+      both `listConfigProfiles()` reads become `load()` (same error handling), the profile list it renders
+      comes from the store, and the profile `commitProfileCvars` returns is `upsert`ed. `src/architecture.test.ts`:
+      two `ALLOWED` edges, story `218`, reason "reads the shared config profile list" —
+      `home/dashboard/ConfigProfilesTile.tsx → config/config-profiles-store` and
+      `servers/AddToAddressBookDialog.tsx → config/config-profiles-store` (drop any edge that no longer
+      matches a real import — the test "every allowlist entry still matches a real import" enforces it).
+      Reset the store in `beforeEach` of `ConfigProfilesTile.test.tsx`, `home/dashboard/i18n.test.tsx` and
+      `AddToAddressBookDialog.test.tsx`. New `src/renderer/src/modules/config/config-structure.test.ts`
+      (node env; `listSourceFiles`/`readRepoFile`/`stripComments`/`isTestFile` from
+      `src/test-support/source-tree.ts`): "only the config profiles store reads listConfigProfiles" —
+      in non-test files under `src/renderer/src`, `listConfigProfiles(` appears only in
+      `config-profiles-store.ts` (and its declaration in `client.ts`). New
+      `src/renderer/src/modules/config/ConfigView.profilesStore.test.tsx` (jsdom; mock `./client` as
+      `ConfigView.routeFocus.test.tsx` does): "a profile renamed through the dashboard tile shows in an
+      open Config view without a remount" — render `ConfigView` and `ConfigProfilesTile` together, open
+      the profile, let the tile's second read return the renamed profile, assert
+      `config-profile-identity` shows the new name and ConfigView's mount counter (or a ref'd DOM node)
+      is unchanged.
 
 - [x] **D3 — `ProfileDraftProvider`; Settings and Aliases read it.** New
-  `src/renderer/src/modules/config/lib/ProfileDraftProvider.tsx` (mirror the context shape of
-  `lib/profile-changes.tsx`): `ProfileDraftProvider({ profile, children })` owns
-  `useProfileDraft(profile)` and exposes `useProfileDraftContext(): { profile, draft, patch,
-  installations, save, resetDraft }` — `draft` is `draft ?? profile` (non-null), `installations` from
-  `useLauncher`, `save(updated: ConfigProfile[] | ConfigProfile)` → store `replaceAll`/`upsert`
-  (D-3); the hook throws outside the provider. ConfigView mounts it once, directly inside
-  `ProfileChangesProvider`, around the whole detail screen; delete `activeProfile`/`draftOrSelected`
-  from ConfigView (validation reads the context or `draft ?? selected` inside the provider's subtree).
-  `SettingsTab.tsx` and `AliasesTab.tsx` drop `profile`/`draft`/`patch`/`onChanged` props and read the
-  context (SettingsTab also drops its own `useLauncher` installations read); their saves report
-  through `save`. Update `SettingsTab.dnd.test.tsx` and `AliasesTab.test.ts` to wrap in the real
-  provider (D-12). New `lib/ProfileDraftProvider.test.tsx` (jsdom): "exposes profile, draft, patch,
-  installations and save", "save with a list replaces the store, with one profile upserts it",
-  "patch changes draft but not profile", "useProfileDraftContext throws outside the provider".
-  `docs/systems/config-module.md` §6: one bullet — renderer profile state is the
-  `useConfigProfiles` store (list) plus `ProfileDraftProvider` (selected profile, draft, save sink);
-  selection stays in ConfigView via route focus.
+      `src/renderer/src/modules/config/lib/ProfileDraftProvider.tsx` (mirror the context shape of
+      `lib/profile-changes.tsx`): `ProfileDraftProvider({ profile, children })` owns
+      `useProfileDraft(profile)` and exposes `useProfileDraftContext(): { profile, draft, patch,
+installations, save, resetDraft }` — `draft` is `draft ?? profile` (non-null), `installations` from
+      `useLauncher`, `save(updated: ConfigProfile[] | ConfigProfile)` → store `replaceAll`/`upsert`
+      (D-3); the hook throws outside the provider. ConfigView mounts it once, directly inside
+      `ProfileChangesProvider`, around the whole detail screen; delete `activeProfile`/`draftOrSelected`
+      from ConfigView (validation reads the context or `draft ?? selected` inside the provider's subtree).
+      `SettingsTab.tsx` and `AliasesTab.tsx` drop `profile`/`draft`/`patch`/`onChanged` props and read the
+      context (SettingsTab also drops its own `useLauncher` installations read); their saves report
+      through `save`. Update `SettingsTab.dnd.test.tsx` and `AliasesTab.test.ts` to wrap in the real
+      provider (D-12). New `lib/ProfileDraftProvider.test.tsx` (jsdom): "exposes profile, draft, patch,
+      installations and save", "save with a list replaces the store, with one profile upserts it",
+      "patch changes draft but not profile", "useProfileDraftContext throws outside the provider".
+      `docs/systems/config-module.md` §6: one bullet — renderer profile state is the
+      `useConfigProfiles` store (list) plus `ProfileDraftProvider` (selected profile, draft, save sink);
+      selection stays in ConfigView via route focus.
 
 - [x] **D4 — ControlsTab reads the provider.** `src/renderer/src/modules/config/ControlsTab.tsx` drops
-  `profile`/`draft`/`patch`/`onChanged` props and its `useLauncher` installations read, uses
-  `useProfileDraftContext()` (from D3, `lib/ProfileDraftProvider.tsx`); `focusActionId` stays a prop.
-  ConfigView's `<ControlsTab>` mount loses those props. The seven suites
-  `ControlsTab.{bindings,category-drag,category-menu,dnd,row-menu,subcategory-drag}.test.tsx` and
-  `ControlsTab.dialogs.test.ts` render inside the real `ProfileDraftProvider` with a store reset in
-  `beforeEach`; assertions that read a spy `patch`/`onChanged` assert on the rendered output or the
-  store instead. All seven stay green with the same test names.
+      `profile`/`draft`/`patch`/`onChanged` props and its `useLauncher` installations read, uses
+      `useProfileDraftContext()` (from D3, `lib/ProfileDraftProvider.tsx`); `focusActionId` stays a prop.
+      ConfigView's `<ControlsTab>` mount loses those props. The seven suites
+      `ControlsTab.{bindings,category-drag,category-menu,dnd,row-menu,subcategory-drag}.test.tsx` and
+      `ControlsTab.dialogs.test.ts` render inside the real `ProfileDraftProvider` with a store reset in
+      `beforeEach`; assertions that read a spy `patch`/`onChanged` assert on the rendered output or the
+      store instead. All seven stay green with the same test names.
 
 - [x] **D5 — The eight panels read the provider; AC1's grep-zero.** `OverviewKeyboardPanel.tsx`,
-  `LayersPanel.tsx`, `RawFileTab.tsx`, `CareTab.tsx` (both components in the file),
-  `AssignmentsMenu.tsx`, `ProfileAssignmentsPanel.tsx` (all under `src/renderer/src/modules/config/`),
-  `components/UnsavedChangesTab.tsx` and `components/ProfileSaveActions.tsx` drop `profile` and their
-  `onChanged`/`onProfileUpdated`/`onSaved` props for `useProfileDraftContext()` (`save` replaces the
-  callbacks; ProfileSaveActions' discard path calls the context's `resetDraft` with the discarded
-  profile, keeping ConfigView's `handleDiscarded` semantics; AssignmentsMenu/ProfileAssignmentsPanel/
-  CareTab take `installations` from context). Non-profile props (`activeLayer`, `activeLayerId`,
-  `onSelectLayer`, `validation`, `syncStatus`, navigation callbacks) stay. Update ConfigView's mounts.
-  Add to `config-structure.test.ts`: "no config tab or panel declares profile, draft, patch or
-  onChanged props" — over the 11 files (3 tabs + 8 panels), comment-stripped, no line matches
-  `^\s+(profile|draft|patch|onChanged)\??:\s` and UnsavedChangesTab's signature takes no props; and
-  "ProfileDraftProvider is mounted exactly once" — `<ProfileDraftProvider` occurs once across non-test
-  files under `src/renderer/src`.
+      `LayersPanel.tsx`, `RawFileTab.tsx`, `CareTab.tsx` (both components in the file),
+      `AssignmentsMenu.tsx`, `ProfileAssignmentsPanel.tsx` (all under `src/renderer/src/modules/config/`),
+      `components/UnsavedChangesTab.tsx` and `components/ProfileSaveActions.tsx` drop `profile` and their
+      `onChanged`/`onProfileUpdated`/`onSaved` props for `useProfileDraftContext()` (`save` replaces the
+      callbacks; ProfileSaveActions' discard path calls the context's `resetDraft` with the discarded
+      profile, keeping ConfigView's `handleDiscarded` semantics; AssignmentsMenu/ProfileAssignmentsPanel/
+      CareTab take `installations` from context). Non-profile props (`activeLayer`, `activeLayerId`,
+      `onSelectLayer`, `validation`, `syncStatus`, navigation callbacks) stay. Update ConfigView's mounts.
+      Add to `config-structure.test.ts`: "no config tab or panel declares profile, draft, patch or
+      onChanged props" — over the 11 files (3 tabs + 8 panels), comment-stripped, no line matches
+      `^\s+(profile|draft|patch|onChanged)\??:\s` and UnsavedChangesTab's signature takes no props; and
+      "ProfileDraftProvider is mounted exactly once" — `<ProfileDraftProvider` occurs once across non-test
+      files under `src/renderer/src`.
 
 - [x] **D6 — ConfigView is layout.** Extract into `src/renderer/src/modules/config/components/`:
-  `ConfigListScreen.tsx` (header + empty state + profile rows + InstallationProfilesPanel, props
-  `onOpen`, `onCreate`), `ConfigDetailHeader.tsx` (back button, identity zone, action cluster incl.
-  `RenameHeaderButton`; reads the context), `ConfigTabStrip.tsx` (tab list incl. Care badge and
-  Unsaved tab, on `Tabs` from `src/renderer/src/components/ui` — D-9; keep
-  `data-testid="config-tab-strip"`/`config-tab-<id>` and today's classes/padding, the 30-line
-  geometry budget depends on them), and `ProfileFileBanners.tsx` (missing-file banner + diagnostic).
-  Move the explanatory comments with the code they explain. If still over budget, move the
-  validation/tidy-up/drift badge computation into `lib/useDetailTabBadge.ts`. ConfigView keeps
-  selection, tab state, dialogs and providers. Add to `config-structure.test.ts`: "ConfigView is under
-  350 lines and mounts the extracted header, tab strip and list screen" (line count < 350; imports of
-  the three components). Run `npm run ui:flow -- config-header-geometry` and every flow listed under
-  Acceptance Tests.
+      `ConfigListScreen.tsx` (header + empty state + profile rows + InstallationProfilesPanel, props
+      `onOpen`, `onCreate`), `ConfigDetailHeader.tsx` (back button, identity zone, action cluster incl.
+      `RenameHeaderButton`; reads the context), `ConfigTabStrip.tsx` (tab list incl. Care badge and
+      Unsaved tab, on `Tabs` from `src/renderer/src/components/ui` — D-9; keep
+      `data-testid="config-tab-strip"`/`config-tab-<id>` and today's classes/padding, the 30-line
+      geometry budget depends on them), and `ProfileFileBanners.tsx` (missing-file banner + diagnostic).
+      Move the explanatory comments with the code they explain. If still over budget, move the
+      validation/tidy-up/drift badge computation into `lib/useDetailTabBadge.ts`. ConfigView keeps
+      selection, tab state, dialogs and providers. Add to `config-structure.test.ts`: "ConfigView is under
+      350 lines and mounts the extracted header, tab strip and list screen" (line count < 350; imports of
+      the three components). Run `npm run ui:flow -- config-header-geometry` and every flow listed under
+      Acceptance Tests.
 
 ## Model Hints
 
@@ -260,6 +260,7 @@ Verification (narrow gate): build, lint, typecheck green; `npx vitest run --chan
 AC -> test: AC1 config-structure.test.ts (props, mounted once) + ProfileDraftProvider.test.tsx; AC2 config-profiles-store.test.ts, config-structure.test.ts (only reader), ConfigView.profilesStore.test.tsx; AC3 config-structure.test.ts (line cap); AC4 flows above. All passed. No manual residue.
 
 Decisions:
+
 - Route-focus hint now applies as soon as the stored list contains it, dropped only after this mount's own `load()` finished without it (`listLoaded`); needed because the store outlives the view.
 - Extra extractions to reach <350 lines: `ConfigTabContent.tsx`, `lib/useProfileFileSync.ts`, `lib/useDraftValidation.ts`; `config-structure.test.ts` added to the node-only tsconfig excludes (and the architecture test's expected list).
 - Structure test's props regex also ignores comma-terminated lines (call-argument objects like `onChanged: save,`).

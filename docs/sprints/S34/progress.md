@@ -399,3 +399,14 @@
 - 2026-10-06T00:57:11 · gate-fix · re-verified: 4 unit files, typecheck, lint, comments+architecture, 21 helper/changed flows, ui:verify exit 0 (116 shots, 0 unreachable) · done
 - 2026-10-06T00:57:27 · gate · e2e-all (confirmation) · started
 - 2026-10-06T02:02:54 · gate · e2e-all (confirmation) · done (169/169)
+- 2026-10-06T05:25:14 · 234 · build (resume D2) · started
+- 2026-10-06 05:25 · 234 · D2 real rehearsal · started
+- 2026-10-06 06:26 · 234 · D2 triage run 1 (verify:release red: prettier 99 files + 1 flaky test; ci:local red: prettier; ci:local:flows red: act copies ignored 7za.exe + 4.5GB tree) · done
+- 2026-10-06 06:29 · 234 · D2 fixes (prettier --write 99 branch files, .actrc honours .gitignore) · done
+- 2026-10-06 07:20 · 234 · D2 triage run 2 (40 red flows: 29x 7za.exe missing -> fixture extractor path platform-aware; rest to triage) · done
+- 2026-10-06 07:45 · 234 · D2 triage run 3 (flow fixes + 25 linux quarantine entries) · done
+- 2026-10-06 08:50 · 234 · D2 triage run 4 (stub-engine parent check, mods fixture host platform; 20 quarantine entries; run 3 record: all green, shards 1211-1268s over margin) · done
+- 2026-10-06 09:39 · 234 · D2 run 4 record: all green, shards 973-1147s still over margin -> ui-flows 6 shards · done
+- 2026-10-06 10:28 · 234 · D2 real rehearsal passed (6 shards <= 820s) · done
+- 2026-10-06 10:38 · 234 · review 1 (default tier, PASS, minor findings fixed) · done
+- 2026-10-06 10:39 · 234 · story · done

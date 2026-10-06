@@ -123,7 +123,8 @@ async function attemptOnce(url: string, policy: FetchPolicy): Promise<Attempt> {
   const signal = composeSignals(timeoutSignal, policy.signal)
 
   const failed = (error: unknown, prefix = ''): Attempt => {
-    const kind = policy.signal?.aborted === true ? 'aborted' : timeoutSignal.aborted ? 'timeout' : 'network'
+    const kind =
+      policy.signal?.aborted === true ? 'aborted' : timeoutSignal.aborted ? 'timeout' : 'network'
     const reason = `${prefix}${describeFetchError(error, policy.timeoutMs)}`
     return { outcome: { ok: false, kind, reason }, retryable: kind !== 'aborted' }
   }
@@ -156,7 +157,12 @@ async function attemptOnce(url: string, policy: FetchPolicy): Promise<Attempt> {
   if (policy.method === 'HEAD') {
     await response.body?.cancel().catch(() => undefined)
     return {
-      outcome: { ok: true, status: response.status, headers: response.headers, body: new Uint8Array(0) },
+      outcome: {
+        ok: true,
+        status: response.status,
+        headers: response.headers,
+        body: new Uint8Array(0),
+      },
       retryable: false,
     }
   }

@@ -70,9 +70,9 @@ servers already follow the thinner "setup registers one-line delegations" patter
   plain-object deps. Reason: matches the existing deps style and needs no `this` binding in
   one-line `handle(...)` delegations.
 - **D-d — Deps interface** (`ProfileWritesDeps`): `profiles: ProfilesStore`, `installations:
-  { list(); find(id) }`, `launchState: () => LaunchState`, `config: ReturnType<typeof
-  configState>` (state access: writeFailures, playedMods, switchBinds), `canonicalBaseDir: () =>
-  string`, `readFileState`, `readText(path) → latin-1 string` (replaces the `node:fs` import),
+{ list(); find(id) }`, `launchState: () => LaunchState`, `config: ReturnType<typeof
+configState>` (state access: writeFailures, playedMods, switchBinds), `canonicalBaseDir: () =>
+string`, `readFileState`, `readText(path) → latin-1 string` (replaces the `node:fs` import),
   `writeTargetFile`, `log`. Production defaults for the three I/O functions are exported from
   `profile-writes.ts`; `profile-writes.ts` imports no `AppContext`, `electron` or `lib/paths`.
   Reason: AC1 names exactly these seams, and a temp-dir `canonicalBaseDir` replaces the
@@ -152,8 +152,8 @@ work against what is on the branch.
   `ProfileWrites`, `createProfileWrites(deps)` and production defaults for `readFileState`,
   `readText` (latin-1 `node:fs/promises` read) and `writeTargetFile`. Deps (plain object, style of
   `sync.ts#SyncProfileDeps`): `profiles: ProfilesStore`, `installations: { list(): Installation[];
-  find(id: string): Installation | undefined }`, `launchState: () => LaunchState`, `config:
-  ReturnType<typeof configState>` (from `./persisted`), `canonicalBaseDir: () => string`,
+find(id: string): Installation | undefined }`, `launchState: () => LaunchState`, `config:
+ReturnType<typeof configState>` (from `./persisted`), `canonicalBaseDir: () => string`,
   `readFileState`, `readText`, `writeTargetFile`, `log: Logger`. `profile-writes.ts` must not
   import `../../context` (`AppContext`), `electron` or `../../lib/paths`.
   Move from `src/main/modules/config/index.ts` into the service, unchanged in logic:
@@ -217,7 +217,7 @@ work against what is on the branch.
   `setSwitchBind` (its `writeInstallationFiles` call), `tidyUpApply`, `syncState` and `rawFiles`
   (move `collectRawFiles` in as `writes.rawFiles`). A handler that keeps a line of store logic is
   a "short adapter" (≤ ~8 lines); everything else is one `handle(X, schema, (input) =>
-  writes.x(input))` line. Afterwards `index.ts` has no `readFile`/`node:fs` import.
+writes.x(input))` line. Afterwards `index.ts` has no `readFile`/`node:fs` import.
   Tests: port `index.sync.test.ts` → new `profile-writes.sync.test.ts` (describe "sync after a
   profile mutation"), `index.write-failures.test.ts` → into the same file (describe "write
   failures under overlapping sync runs"), and the `describe('story 175: commitCvars')` block of

@@ -172,10 +172,9 @@ Facts gathered in refine (for the Ds): `ModuleId` = home, library, config, downl
       paths at `info`), `## Renderer state` (main-owned data → query hook or mirror; cross-view →
       module store; subtree → context; else component state), `## Inside a renderer module` (View +
       tabs at the module root, `components/`, `dialogs/`, `hooks/` with camelCase `useX.ts`, `lib/`
-      React-free). `src/main/lib/logger.ts`: `scopedLogger` returns `Logger & { caught(message:
-      string, error: unknown): void }`, `caught` logging at `warn` with the error as last argument;
+      React-free). `src/main/lib/logger.ts`: `scopedLogger` returns `Logger & { caught(message: string, error: unknown): void }`, `caught` logging at `warn` with the error as last argument;
       `logger` keeps working for existing callers. Tests: `src/main/lib/logger.test.ts` › "caught
-      logs at warn with the error object" (spy the electron-log stub's scope); 
+      logs at warn with the error object" (spy the electron-log stub's scope);
       `src/main/modules/architecture-doc.test.ts` › "the errors, renderer-state and placement
       sections exist with their rules" (asserts headings plus `Outcome`, `log.caught`, `query hook`,
       `components/`, `lib/`).
@@ -235,6 +234,7 @@ Verification (narrow gate): build, lint, typecheck green; `npx vitest run --chan
 AC1 -> architecture-doc.test.ts (4 tests); AC2 -> architecture-doc.test.ts + logger.test.ts; AC3 -> docs-facts.test.mjs + check-docs.test.mjs; AC4 -> check-docs.test.mjs + docs-facts.test.mjs; AC5 -> check-docs.test.mjs. All passed. check-docs before the fix: 146 findings (145 broken links + README 0.3.0 vs 0.6.0), now 0.
 
 Decisions:
+
 - Existing tests (shell-layering, i18n bundle) pin ARCHITECTURE.md order: Adding a module precedes `### Jobs` and step 5 is Strings; the checklist follows that instead of loosening those tests.
 - Story 205 is not fully built (only home and servers have a contract type); the doc says so, marked planned in story 232 (open). Per-module system docs are marked planned in 228, the catch/comment sweep in 230.
 - Six Zustand stores exist, not five; the doc says six.

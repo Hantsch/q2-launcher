@@ -102,109 +102,109 @@ Order D1 → D2 → D3, then D4 → D5 → D6. Files: `src/shared/types/{engine,
 ## Deliverables
 
 - [x] **D1 — the inspector reports every engine in the root.**
-  `src/shared/types/engine.ts`: add `export interface DetectedEngine { kind: EngineKind; executablePath: string; supported: boolean }`
-  and `export function defaultEngineKind(engines: readonly DetectedEngine[], classified: EngineKind): EngineKind`
-  — `q2pro` if detected, else the first other `supported` engine in `ENGINE_DEFINITIONS` order, else
-  `engines[0].kind`, else `classified`. `src/shared/types/installation.ts`: `ValidationResult.engines: DetectedEngine[]`
-  (table order), `ValidationFix` gains `'choose-engine'`, `Installation.detectedEngines?: DetectedEngine[]`
-  (doc: written by every inspection verdict, absent on records predating story 246).
-  `src/main/services/inspector.ts`: new `detectEngines(rootPath, rootListing)` — for each definition,
-  a client `executables` name present in the root (case-insensitive, real on-disk casing in the joined
-  path, `looksExecutable` must pass) yields one entry; `dedicatedExecutables` never count; a name
-  listed by several definitions (`quake2.exe`, `quake2`) is credited only to the first of them whose
-  `markers` match (`classifyEngine`'s marker logic, reused not copied). `inspectInstallation` sets
-  `engineKind = defaultEngineKind(engines, classified)` and ranks executables with that engine's
-  definition (so `executables[0]` is `q2pro.exe` in a folder with both). The `executable` check for a
-  missing `options.executablePath` keeps key `validation.executableMissing` but its fix becomes
-  `'choose-engine'` when `engines` is non-empty (`'select-executable'` otherwise). The missing-root
-  early return carries `engines: []`. Tests in `src/main/services/inspector.test.ts` (temp dirs, mirror
-  the file's existing setup): "reports every known engine in the root" (r1q2 + q2pro + kmquake2),
-  "a folder with r1q2 and q2pro defaults to q2pro", "a dedicated server binary is not an engine",
-  "quake2.exe counts once", "a missing chosen executable with another engine offers choose-engine".
-  Fix any existing inspector test that asserted r1q2 wins over q2pro, and say so in the D's report.
+      `src/shared/types/engine.ts`: add `export interface DetectedEngine { kind: EngineKind; executablePath: string; supported: boolean }`
+      and `export function defaultEngineKind(engines: readonly DetectedEngine[], classified: EngineKind): EngineKind`
+      — `q2pro` if detected, else the first other `supported` engine in `ENGINE_DEFINITIONS` order, else
+      `engines[0].kind`, else `classified`. `src/shared/types/installation.ts`: `ValidationResult.engines: DetectedEngine[]`
+      (table order), `ValidationFix` gains `'choose-engine'`, `Installation.detectedEngines?: DetectedEngine[]`
+      (doc: written by every inspection verdict, absent on records predating story 246).
+      `src/main/services/inspector.ts`: new `detectEngines(rootPath, rootListing)` — for each definition,
+      a client `executables` name present in the root (case-insensitive, real on-disk casing in the joined
+      path, `looksExecutable` must pass) yields one entry; `dedicatedExecutables` never count; a name
+      listed by several definitions (`quake2.exe`, `quake2`) is credited only to the first of them whose
+      `markers` match (`classifyEngine`'s marker logic, reused not copied). `inspectInstallation` sets
+      `engineKind = defaultEngineKind(engines, classified)` and ranks executables with that engine's
+      definition (so `executables[0]` is `q2pro.exe` in a folder with both). The `executable` check for a
+      missing `options.executablePath` keeps key `validation.executableMissing` but its fix becomes
+      `'choose-engine'` when `engines` is non-empty (`'select-executable'` otherwise). The missing-root
+      early return carries `engines: []`. Tests in `src/main/services/inspector.test.ts` (temp dirs, mirror
+      the file's existing setup): "reports every known engine in the root" (r1q2 + q2pro + kmquake2),
+      "a folder with r1q2 and q2pro defaults to q2pro", "a dedicated server binary is not an engine",
+      "quake2.exe counts once", "a missing chosen executable with another engine offers choose-engine".
+      Fix any existing inspector test that asserted r1q2 wins over q2pro, and say so in the D's report.
 
 - [x] **D2 — the installation stores detected engines, keeps the chosen one and lets the user change it.**
-  `src/main/services/installations.ts` `applyInspectionResult`: always write
-  `next.detectedEngines = result.engines`. Then decide `engineKind` in this order: (a) the stored
-  `executablePath` equals (`pathKey` compare) a detected engine's path → `engineKind` = that kind;
-  (b) the stored `executablePath` is set, not detected, and `result.engines` is non-empty → keep
-  `installation.engineKind` (chosen engine missing: no silent switch); (c) otherwise today's logic
-  unchanged (`custom` guard, story 077 `preserveKnownEngine`). Adoption of an empty `executablePath`
-  prefers the detected engine whose kind equals `installation.engineKind`, else the entry for
-  `result.engineKind`, else `result.executables[0]`. `addExisting()` also stores `detectedEngines`.
-  `update()`: new `input.engine` (an `EngineKind`) — look it up in the live record's
-  `detectedEngines`; absent → `fail('installations.error.engineNotDetected', { engine: engineLabel(kind) })`,
-  `supported: false` → `fail('installations.error.engineUnsupported', { engine })`; otherwise it sets
-  `userPatch.executablePath` to that entry's path and goes through the existing revalidate path.
-  Contract: `UpdateInstallationInput.engine?: EngineKind` (`src/shared/types/installation.ts`),
-  `engine: engineKindSchema.optional()` in `updateInstallationInputSchema` (`src/shared/ipc-schemas.ts`).
-  Persisted: `src/main/lib/schemas.ts` `installationSchema.detectedEngines` = optional array of
-  `{ kind: engineKindSchema, executablePath: string, supported: boolean }` with `.optional().catch(undefined)`
-  (same additive convention as `executableKind`); add `'choose-engine'` to `checkSchema.fix`'s enum.
-  i18n: the two error keys in `src/renderer/src/i18n/locales/en.shell.json` ("{{engine}} was not found in this installation's folder.",
-  "{{engine}} is not supported by the launcher yet."). Docs: one paragraph in
-  `docs/ARCHITECTURE.md` § The installation domain (detected engines vs. chosen engine, story 246).
-  Tests in `src/main/services/installations.test.ts` (mirror its temp-root helpers):
-  "a folder with r1q2 and q2pro lists both engines", "choosing q2pro changes executable and engine and survives a reload",
-  "an engine added later appears and the choice stays", "a missing chosen engine is reported, not switched",
-  "an unsupported engine cannot be chosen", "an engine not in the folder cannot be chosen",
-  "an existing r1q2 installation keeps r1q2 when q2pro is present"; in `src/main/lib/schemas.persisted-state.test.ts`:
-  "a record without detectedEngines still loads".
+      `src/main/services/installations.ts` `applyInspectionResult`: always write
+      `next.detectedEngines = result.engines`. Then decide `engineKind` in this order: (a) the stored
+      `executablePath` equals (`pathKey` compare) a detected engine's path → `engineKind` = that kind;
+      (b) the stored `executablePath` is set, not detected, and `result.engines` is non-empty → keep
+      `installation.engineKind` (chosen engine missing: no silent switch); (c) otherwise today's logic
+      unchanged (`custom` guard, story 077 `preserveKnownEngine`). Adoption of an empty `executablePath`
+      prefers the detected engine whose kind equals `installation.engineKind`, else the entry for
+      `result.engineKind`, else `result.executables[0]`. `addExisting()` also stores `detectedEngines`.
+      `update()`: new `input.engine` (an `EngineKind`) — look it up in the live record's
+      `detectedEngines`; absent → `fail('installations.error.engineNotDetected', { engine: engineLabel(kind) })`,
+      `supported: false` → `fail('installations.error.engineUnsupported', { engine })`; otherwise it sets
+      `userPatch.executablePath` to that entry's path and goes through the existing revalidate path.
+      Contract: `UpdateInstallationInput.engine?: EngineKind` (`src/shared/types/installation.ts`),
+      `engine: engineKindSchema.optional()` in `updateInstallationInputSchema` (`src/shared/ipc-schemas.ts`).
+      Persisted: `src/main/lib/schemas.ts` `installationSchema.detectedEngines` = optional array of
+      `{ kind: engineKindSchema, executablePath: string, supported: boolean }` with `.optional().catch(undefined)`
+      (same additive convention as `executableKind`); add `'choose-engine'` to `checkSchema.fix`'s enum.
+      i18n: the two error keys in `src/renderer/src/i18n/locales/en.shell.json` ("{{engine}} was not found in this installation's folder.",
+      "{{engine}} is not supported by the launcher yet."). Docs: one paragraph in
+      `docs/ARCHITECTURE.md` § The installation domain (detected engines vs. chosen engine, story 246).
+      Tests in `src/main/services/installations.test.ts` (mirror its temp-root helpers):
+      "a folder with r1q2 and q2pro lists both engines", "choosing q2pro changes executable and engine and survives a reload",
+      "an engine added later appears and the choice stays", "a missing chosen engine is reported, not switched",
+      "an unsupported engine cannot be chosen", "an engine not in the folder cannot be chosen",
+      "an existing r1q2 installation keeps r1q2 when q2pro is present"; in `src/main/lib/schemas.persisted-state.test.ts`:
+      "a record without detectedEngines still loads".
 
 - [x] **D3 — the library card offers the engine choice.**
-  New `src/renderer/src/components/installations/EngineSection.tsx`, rendered in
-  `src/renderer/src/views/LibraryView.tsx` directly above `<RunnerSection>`. Mirror `RunnerSection.tsx`'s
-  structure: root `id={`installation-engine-${installation.id}`}`, `tabIndex={-1}`, `data-testid="installation-engine"`,
-  `SectionLabel` "Engine", a `role="radiogroup"` row of chips (`role="radio"`, `aria-checked`,
-  `data-testid={`installation-engine-option-${kind}`}`, label `engineLabel(kind)`), reasons as visible
-  text below the row linked via `aria-describedby` (`data-testid={`installation-engine-reason-${kind}`}`).
-  Chips = `installation.detectedEngines`, plus the chosen `engineKind` when it is not among them
-  (selected, disabled, reason "{{executable}} is missing from the folder" with the basename of `executablePath`).
-  Unsupported engines are disabled with reason "Not supported by the launcher yet". Selecting calls
-  `updateInstallation({ id, engine: kind })` from `useLauncher`. Render nothing unless there are ≥ 2 detected
-  engines or the chosen one is missing while another is detected. `ChecksList.tsx` `useFixAction`: case
-  `'choose-engine'` scrolls to and focuses `installation-engine-${id}` (copy the `choose-runner` case),
-  plus the fix label `"choose-engine": "Choose engine…"`. i18n in `en.shell.json` under `installation.engine.*`;
-  refresh the bundle snapshot. CHANGELOG `## Unreleased`: "A folder with several engines lists them all; choose which one Play starts."
-  Fixture: new `scripts/lib/fixture/engine-choice.mjs` (mirror `replays-play.mjs`'s writer shape), registered as
-  variant `engine-choice` in `scripts/lib/fixture.mjs`. Two installations, executables written per platform
-  (`.exe` on win32, bare name + `#!/bin/sh\nexit 0\n` + chmod 755 elsewhere), `baseq2/pak0.pak` present, records
-  written **without** `detectedEngines`: `fixture-engine-choice-two` "Fixture Two Engines" (active; root holds
-  r1q2, q2pro, kmquake2; stored `engineKind: 'r1q2'`, `executablePath` = its r1q2 executable) and
-  `fixture-engine-choice-missing` "Fixture Missing Engine" (root holds q2pro only; stored `r1q2` + a path to an
-  absent r1q2 executable). Flow `scripts/flows/installation-engine-choice.mjs` (`export const variant = 'engine-choice'`)
-  — see Acceptance Tests for its steps. Unit test `src/renderer/src/modules/config/lib/engine-scope.test.ts`:
-  "a profile follows its installation's chosen engine".
+      New `src/renderer/src/components/installations/EngineSection.tsx`, rendered in
+      `src/renderer/src/views/LibraryView.tsx` directly above `<RunnerSection>`. Mirror `RunnerSection.tsx`'s
+      structure: root `id={`installation-engine-${installation.id}`}`, `tabIndex={-1}`, `data-testid="installation-engine"`,
+      `SectionLabel` "Engine", a `role="radiogroup"` row of chips (`role="radio"`, `aria-checked`,
+      `data-testid={`installation-engine-option-${kind}`}`, label `engineLabel(kind)`), reasons as visible
+      text below the row linked via `aria-describedby` (`data-testid={`installation-engine-reason-${kind}`}`).
+      Chips = `installation.detectedEngines`, plus the chosen `engineKind` when it is not among them
+      (selected, disabled, reason "{{executable}} is missing from the folder" with the basename of `executablePath`).
+      Unsupported engines are disabled with reason "Not supported by the launcher yet". Selecting calls
+      `updateInstallation({ id, engine: kind })` from `useLauncher`. Render nothing unless there are ≥ 2 detected
+      engines or the chosen one is missing while another is detected. `ChecksList.tsx` `useFixAction`: case
+      `'choose-engine'` scrolls to and focuses `installation-engine-${id}` (copy the `choose-runner` case),
+      plus the fix label `"choose-engine": "Choose engine…"`. i18n in `en.shell.json` under `installation.engine.*`;
+      refresh the bundle snapshot. CHANGELOG `## Unreleased`: "A folder with several engines lists them all; choose which one Play starts."
+      Fixture: new `scripts/lib/fixture/engine-choice.mjs` (mirror `replays-play.mjs`'s writer shape), registered as
+      variant `engine-choice` in `scripts/lib/fixture.mjs`. Two installations, executables written per platform
+      (`.exe` on win32, bare name + `#!/bin/sh\nexit 0\n` + chmod 755 elsewhere), `baseq2/pak0.pak` present, records
+      written **without** `detectedEngines`: `fixture-engine-choice-two` "Fixture Two Engines" (active; root holds
+      r1q2, q2pro, kmquake2; stored `engineKind: 'r1q2'`, `executablePath` = its r1q2 executable) and
+      `fixture-engine-choice-missing` "Fixture Missing Engine" (root holds q2pro only; stored `r1q2` + a path to an
+      absent r1q2 executable). Flow `scripts/flows/installation-engine-choice.mjs` (`export const variant = 'engine-choice'`)
+      — see Acceptance Tests for its steps. Unit test `src/renderer/src/modules/config/lib/engine-scope.test.ts`:
+      "a profile follows its installation's chosen engine".
 
 - [x] **D4 — launch can start a detected engine other than the chosen one.**
-  `src/shared/types/launch.ts`: `LaunchInput.engine?: EngineKind` (doc: main-internal, set by demo playback
-  only; `launch:start`'s payload schema in `src/shared/ipc-schemas.ts` stays unchanged). `src/main/services/launch.ts`
-  `plan()`: with `input.engine` set and different from `installation.engineKind`, use the `executablePath` of
-  `installation.detectedEngines` entry of that kind (absent → `fail('launch.error.engineNotDetected', { engine: engineLabel(kind) })`,
-  key added to `en.shell.json`) for the existence check, the runner wrap and the plan. `src/main/services/launch-plan.ts`
-  `buildLaunchArgs`: take the engine for `defaultArgs` from `input.engine ?? installation.engineKind`. Tests:
-  `src/main/services/launch-plan.test.ts` › "an engine override uses that engine's default args";
-  `src/main/services/launch.test.ts` › "an engine override starts the detected executable" and
-  "an override for an engine that is not detected is refused".
+      `src/shared/types/launch.ts`: `LaunchInput.engine?: EngineKind` (doc: main-internal, set by demo playback
+      only; `launch:start`'s payload schema in `src/shared/ipc-schemas.ts` stays unchanged). `src/main/services/launch.ts`
+      `plan()`: with `input.engine` set and different from `installation.engineKind`, use the `executablePath` of
+      `installation.detectedEngines` entry of that kind (absent → `fail('launch.error.engineNotDetected', { engine: engineLabel(kind) })`,
+      key added to `en.shell.json`) for the existence check, the runner wrap and the plan. `src/main/services/launch-plan.ts`
+      `buildLaunchArgs`: take the engine for `defaultArgs` from `input.engine ?? installation.engineKind`. Tests:
+      `src/main/services/launch-plan.test.ts` › "an engine override uses that engine's default args";
+      `src/main/services/launch.test.ts` › "an engine override starts the detected executable" and
+      "an override for an engine that is not detected is refused".
 
 - [x] **D5 — demos play with the installation's Q2PRO when another engine is chosen.**
-  `src/shared/replays/demo-play.ts`: an installation is Q2PRO-capable when `engineKind === 'q2pro'` or its
-  `detectedEngines` holds a supported `q2pro`. Use it for the Linux check and the active check (widen the `Pick` by
-  `'detectedEngines'`). On success, add `engine: 'q2pro'` to the result exactly when the active installation's `engineKind`
-  is not `q2pro`. `src/main/modules/replays/demo-play.ts`: pass `eligibility.engine` into the launch input as
-  `engine` (both the in-place and the staged path). `src/main/modules/replays/discovery.ts` `effectiveWriteDirs`: a detected
-  supported q2pro counts like `engineKind === 'q2pro'` (add `'detectedEngines'` to `DiscoverableInstallation`).
-  Update `docs/systems/replays-module.md` (playback engine paragraph). Tests: `src/shared/replays/demo-play.test.ts` ›
-  "an r1q2 installation with a detected Q2PRO plays with Q2PRO" and "an r1q2 installation without Q2PRO is refused";
-  `src/main/modules/replays/demo-play.test.ts` › "playback passes the q2pro engine override to launch".
+      `src/shared/replays/demo-play.ts`: an installation is Q2PRO-capable when `engineKind === 'q2pro'` or its
+      `detectedEngines` holds a supported `q2pro`. Use it for the Linux check and the active check (widen the `Pick` by
+      `'detectedEngines'`). On success, add `engine: 'q2pro'` to the result exactly when the active installation's `engineKind`
+      is not `q2pro`. `src/main/modules/replays/demo-play.ts`: pass `eligibility.engine` into the launch input as
+      `engine` (both the in-place and the staged path). `src/main/modules/replays/discovery.ts` `effectiveWriteDirs`: a detected
+      supported q2pro counts like `engineKind === 'q2pro'` (add `'detectedEngines'` to `DiscoverableInstallation`).
+      Update `docs/systems/replays-module.md` (playback engine paragraph). Tests: `src/shared/replays/demo-play.test.ts` ›
+      "an r1q2 installation with a detected Q2PRO plays with Q2PRO" and "an r1q2 installation without Q2PRO is refused";
+      `src/main/modules/replays/demo-play.test.ts` › "playback passes the q2pro engine override to launch".
 
 - [x] **D6 — the replays view says the demo plays with Q2PRO.**
-  `src/renderer/src/modules/replays/ReplaysView.tsx` `viewAction`: when `eligibility.ok && eligibility.engine === 'q2pro'`,
-  set `reason: { key: 'replays.play.withInstallationQ2pro' }` (shown by the action bar's note line as
-  `data-testid="actionbar-action-reason"`); add the key ("Plays with this installation's Q2PRO.") next to
-  `replays.play.unavailable.*` in the replays locale. Extend `scripts/lib/fixture/engine-choice.mjs`: copy
-  `docs/fixtures/demos/test.dm2` to `baseq2/demos/engine-choice.dm2` of "Fixture Two Engines". Flow
-  `scripts/flows/replays-play-detected-q2pro.mjs` (`variant = 'engine-choice'`).
+      `src/renderer/src/modules/replays/ReplaysView.tsx` `viewAction`: when `eligibility.ok && eligibility.engine === 'q2pro'`,
+      set `reason: { key: 'replays.play.withInstallationQ2pro' }` (shown by the action bar's note line as
+      `data-testid="actionbar-action-reason"`); add the key ("Plays with this installation's Q2PRO.") next to
+      `replays.play.unavailable.*` in the replays locale. Extend `scripts/lib/fixture/engine-choice.mjs`: copy
+      `docs/fixtures/demos/test.dm2` to `baseq2/demos/engine-choice.dm2` of "Fixture Two Engines". Flow
+      `scripts/flows/replays-play-detected-q2pro.mjs` (`variant = 'engine-choice'`).
 
 ## Model Hints
 

@@ -533,9 +533,7 @@ export const replaysDemosTagSchema = z
   .strict()
 
 /** `demoFolder.delete`'s payload. */
-export const replaysDemoFolderDeleteSchema = z
-  .object({ folderId: replaysFolderRefSchema })
-  .strict()
+export const replaysDemoFolderDeleteSchema = z.object({ folderId: replaysFolderRefSchema }).strict()
 
 /** `demos.move`'s answer: the user dismissed the folder dialog, or one outcome per demo. */
 export type ReplaysDemosMoveResult = { cancelled: true } | BulkOutcome

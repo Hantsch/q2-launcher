@@ -36,8 +36,8 @@ describe('refusals', () => {
     const paragraphs = doc.split(/\r?\n\s*\r?\n/)
     expect(
       paragraphs.some((p) =>
-        ['Outcome<T>', 'Refusal<R>', 'refuse()', 'toastRefusal'].every((t) => p.includes(t))
-      )
+        ['Outcome<T>', 'Refusal<R>', 'refuse()', 'toastRefusal'].every((t) => p.includes(t)),
+      ),
     ).toBe(true)
   })
 })

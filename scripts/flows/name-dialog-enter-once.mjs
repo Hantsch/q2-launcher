@@ -17,7 +17,8 @@ export default async function nameDialogEnterOnce({ page, shot, step }) {
   const input = dialog.getByLabel('Name', { exact: true })
   await input.waitFor({ timeout: 8000 })
   await page.waitForFunction(
-    () => document.activeElement?.closest('[role="dialog"]') !== null &&
+    () =>
+      document.activeElement?.closest('[role="dialog"]') !== null &&
       document.activeElement?.tagName === 'INPUT',
     undefined,
     { timeout: 4000 },
@@ -33,6 +34,7 @@ export default async function nameDialogEnterOnce({ page, shot, step }) {
   const header = page.getByText(SECTION_NAME, { exact: true })
   await header.first().waitFor({ timeout: 8000 })
   const count = await header.count()
-  if (count !== 1) throw new Error(`expected exactly 1 section named '${SECTION_NAME}', found ${count}`)
+  if (count !== 1)
+    throw new Error(`expected exactly 1 section named '${SECTION_NAME}', found ${count}`)
   await shot('section-created-once')
 }

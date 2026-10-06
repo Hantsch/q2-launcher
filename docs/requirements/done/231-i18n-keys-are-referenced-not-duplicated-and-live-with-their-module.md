@@ -126,9 +126,9 @@ locales/}`, `src/renderer/src/modules/locales.ts`, `src/renderer/src/modules/<id
   (exclude `*.test.*`); a key is used if the source text contains the key or its plural base
   (strip `_zero|_one|_two|_few|_many|_other`). Otherwise it must start with an entry of an
   exported `DYNAMIC_KEY_PREFIXES` array — each entry a prefix ending in `.`, ≥2 segments, with a
-  `//` comment naming the call site file (e.g. `` t(`servers.detail.rules.${id}`) `` in
+  `//` comment naming the call site file (e.g. ``t(`servers.detail.rules.${id}`)`` in
   `…/ServerRulesPanel.tsx`). Find the dynamic call sites by searching for template literals and
-  string concatenation that build keys (≈49 `` t(`ns.…${ `` sites, plus keys built in main/shared
+  string concatenation that build keys (≈49 ``t(`ns.…${`` sites, plus keys built in main/shared
   — catalogs, `validation.fix.${id}`, `repair.offer.${id}`, `runner.kind.${k}`, sort columns,
   gamemodes, `config.actionCatalog.${id}` …). Probe on 2026-10-03: 346 of 2,400 keys are not
   literally referenced; most are dynamic families. Tests: › "every leaf key is referenced
@@ -191,7 +191,7 @@ locales/}`, `src/renderer/src/modules/locales.ts`, `src/renderer/src/modules/<id
   `src/shared/config/comment-labels.test.ts`, `src/shared/launch/userinfo.test.ts`,
   `src/shared/replays/demo-rename.test.ts`, `src/shared/servers/{address,master-records}.test.ts`;
   and the `readFileSync(...en.json)` reads in `src/main/modules/replays/{demo-play,extra-folders,
-  file-actions}.test.ts`, `src/main/modules/servers/{master-sources,quick-filter-entries}.test.ts`
+file-actions}.test.ts`, `src/main/modules/servers/{master-sources,quick-filter-entries}.test.ts`
   (replace with the import). Re-grep `locales/en.json` afterwards: only `bundle.ts` may remain.
   Purely mechanical, no behaviour change; verify with `npm test`, `npm run typecheck`,
   `npm run lint`.
@@ -199,7 +199,7 @@ locales/}`, `src/renderer/src/modules/locales.ts`, `src/renderer/src/modules/<id
 - **D5 — Strings live with their module; the merged bundle is unchanged.** Order matters:
   (1) create `src/renderer/src/i18n/bundle.test.ts` › "the merged bundle matches the pre-split
   snapshot" — `await expect(JSON.stringify(en, null, 2) + '\n').toMatchFileSnapshot(
-  './__snapshots__/en.bundle.json')` — and run it once **while `en.json` is still one file** to
+'./__snapshots__/en.bundle.json')` — and run it once **while `en.json` is still one file** to
   write the snapshot; do not regenerate it after step 2. (2) Split
   `src/renderer/src/i18n/locales/en.json` by top-level namespace: `config`, `layer` →
   `src/renderer/src/modules/config/locale/en.json`; `servers` → `modules/servers/locale/en.json`;
@@ -221,7 +221,7 @@ locales/}`, `src/renderer/src/modules/locales.ts`, `src/renderer/src/modules/<id
   `scripts/flows/replays-cinema-unavailable.mjs` and `replays-stage-unavailable.mjs` at
   `src/renderer/src/modules/replays/locale/en.json` (they read only `replays.*`). (6)
   `docs/ARCHITECTURE.md` "Adding a module" step 5 → "Strings — `src/renderer/src/modules/<id>/
-  locale/en.json`, registered in `src/renderer/src/modules/locales.ts`; shell strings live in
+locale/en.json`, registered in `src/renderer/src/modules/locales.ts`; shell strings live in
   `src/renderer/src/i18n/locales/en.shell.json`"; update the "Adding a language" comment in
   `i18n/index.ts` (a language = `xx.shell.json` + one `xx.json` per module locale). (7) Finish
   with `npm run ui:flows` and `npm run ui:a11y`; diff the label-class findings (`label`,
@@ -271,6 +271,7 @@ Commit message: `231: i18n key-usage + duplicate-value tests, common.action/labe
 Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` 368 files / 5049 tests green; `npm run ui:flow -- replays-stage-unavailable` and `replays-cinema-unavailable` OK; ui:a11y label-class findings 0 before and after. Full `ui:flows` left to the sprint gate. AC1-AC4 map to keys.test.ts, bundle.test.ts, index.test.ts, architecture.test.ts, vocabulary.test.ts as listed in Acceptance Tests; all passed. No manual residue. Review: default stage PASS.
 
 Decisions:
+
 - Dead keys are what the test reports (~100 deleted), not the review's ~25 (D-c).
 - en.json held duplicate JSON keys (ipc, ipc.error, installation.source); shadowed earlier blocks are dropped by splitting the parsed object, merged result unchanged.
 - Snapshot compares key-sorted JSON (namespaces interleave, a shell-first merge reorders text); content pinned either way.

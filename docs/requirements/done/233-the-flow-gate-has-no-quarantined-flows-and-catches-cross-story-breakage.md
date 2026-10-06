@@ -142,7 +142,7 @@ Order: D1 -> D2 -> D3 -> D4 -> D5 (D5 depends on D4; D2 and D5 both edit `flows-
   added flow with its reason before running. Argument handling stays testable through
   `scripts/lib/flow-gate.mjs` helpers, tested in `scripts/flow-gate.test.mjs` › "flow file paths and
   --affected are parsed into flow names". Change `.claude/ai-scrum.md`: `e2e-story: npm run ui:flows
-  -- --affected {files}` and its comment (one run, story flows + affected flows). Update
+-- --affected {files}` and its comment (one run, story flows + affected flows). Update
   `docs/UI-VERIFICATION.md` § "The flow gate: quarantine, shards, timeout" with `--repeat`,
   `--affected`, file arguments and how `areas.json` is maintained (a new `src/` file fails the
   exhaustiveness test until a row or testid reaches it); keep `scripts/flow-rules-doc.test.mjs` /

@@ -96,73 +96,73 @@ unchanged, so it needs no edit (`scan-cadence.test.ts` pins that line).
 ## Deliverables
 
 - [x] **D1 — `addresses` scan scope in contract and main, plus its unit tests.**
-  Files: `src/shared/modules/servers.ts` (`ScanScope` gains `{ kind: 'addresses'; addresses: string[] }`;
-  `scanScopeSchema` entry `z.array(serverAddressSchema).min(1).max(SCAN_SCOPE_ADDRESSES_MAX)`;
-  `export const SCAN_SCOPE_ADDRESSES_MAX = 10_000`; `export const SCAN_UNKNOWN_ADDRESS_REASON_KEY =
-  'servers.scan.error.unknownAddress'`; `ScanStateScope` = the other kinds unchanged, or
-  `{ kind: 'addresses'; count: number }`, used as the type of `ServersScanState.scope`),
-  `src/main/modules/servers/scan-scope.ts`, `src/main/modules/servers/scan-service.ts`,
-  `src/renderer/src/modules/servers/locale/en.json` (`servers.scan.error.unknownAddress`: "That server
-  is no longer in the list." next to `already-running`), the `en.bundle.json` snapshot (`vitest -u`).
-  Behaviour in `start()`, keeping the existing guard order (game-running → already-running → LAN
-  favourites refusal): normalise each address (`parseServerAddress(...).normalized`) and de-duplicate.
-  The known set is `read(sweepMode).entries` (rows plus online placeholders). If any address is not
-  known → `refuse(SCAN_UNKNOWN_ADDRESS_REASON_KEY)` with no query sent. Otherwise
-  build `ScanTarget`s with each known row's `origins` (LAN: `['lan']`), store the summarised scope in
-  `scanState.scope`, and run:
+      Files: `src/shared/modules/servers.ts` (`ScanScope` gains `{ kind: 'addresses'; addresses: string[] }`;
+      `scanScopeSchema` entry `z.array(serverAddressSchema).min(1).max(SCAN_SCOPE_ADDRESSES_MAX)`;
+      `export const SCAN_SCOPE_ADDRESSES_MAX = 10_000`; `export const SCAN_UNKNOWN_ADDRESS_REASON_KEY =
+'servers.scan.error.unknownAddress'`; `ScanStateScope` = the other kinds unchanged, or
+      `{ kind: 'addresses'; count: number }`, used as the type of `ServersScanState.scope`),
+      `src/main/modules/servers/scan-scope.ts`, `src/main/modules/servers/scan-service.ts`,
+      `src/renderer/src/modules/servers/locale/en.json` (`servers.scan.error.unknownAddress`: "That server
+      is no longer in the list." next to `already-running`), the `en.bundle.json` snapshot (`vitest -u`).
+      Behaviour in `start()`, keeping the existing guard order (game-running → already-running → LAN
+      favourites refusal): normalise each address (`parseServerAddress(...).normalized`) and de-duplicate.
+      The known set is `read(sweepMode).entries` (rows plus online placeholders). If any address is not
+      known → `refuse(SCAN_UNKNOWN_ADDRESS_REASON_KEY)` with no query sent. Otherwise
+      build `ScanTarget`s with each known row's `origins` (LAN: `['lan']`), store the summarised scope in
+      `scanState.scope`, and run:
   - **online** (`runOnlineRound`): no `resolveSources`; `runTargets = scopeTargets = those targets`;
     `runSelectedAddress = selectedAddress` only when it is in the scope; `mergeStaleRound` over
     `scopeTargets` only.
   - **LAN** (`runLanRound`): no `lanDiscovery`, no `entries.clear()`; `runScan` over the targets with
     the existing `onServer` filter (only rows already in the list are stored).
-  In `scan-scope.ts` add the `addresses` case to `resolveScanScopeAddresses`, taking the known rows as
-  a new parameter (pure, no I/O). Mirror the existing `'server'`/`'favourites'` branches; no second
-  scan path.
-  Tests: `src/main/modules/servers/scan-service.scoped-rounds.test.ts` (new `describe('addresses
-  scope (story 250)')`, injected `queryServer`/`lanDiscovery`/`fetchImpl` spies as the file already
-  does) and `src/main/modules/servers/scan-scope.test.ts`, plus the schema cases. Put them in the
-  existing schema test for the servers contract if one exists (`src/shared/modules/servers*.test.ts`),
-  otherwise in a new `src/shared/modules/servers.scan-scope.test.ts`. Named tests are listed under
-  Acceptance Tests.
+    In `scan-scope.ts` add the `addresses` case to `resolveScanScopeAddresses`, taking the known rows as
+    a new parameter (pure, no I/O). Mirror the existing `'server'`/`'favourites'` branches; no second
+    scan path.
+    Tests: `src/main/modules/servers/scan-service.scoped-rounds.test.ts` (new `describe('addresses
+scope (story 250)')`, injected `queryServer`/`lanDiscovery`/`fetchImpl` spies as the file already
+    does) and `src/main/modules/servers/scan-scope.test.ts`, plus the schema cases. Put them in the
+    existing schema test for the servers contract if one exists (`src/shared/modules/servers*.test.ts`),
+    otherwise in a new `src/shared/modules/servers.scan-scope.test.ts`. Named tests are listed under
+    Acceptance Tests.
 
 - [x] **D2 — Toolbar: "Refresh N shown" with a "Scan all" split entry, plus its component tests.**
-  Files: `src/renderer/src/modules/servers/useServerScan.ts` (add `refreshShown: (addresses: string[],
-  selected?: string) => void` → `startScan({ kind: 'addresses', addresses }, selected)`; the
-  `refresh`/`refreshFavourites`/`refreshServer` shape stays),
-  `src/renderer/src/modules/servers/ServersToolbar.tsx`, `src/renderer/src/modules/servers/ServersView.tsx`,
-  `src/renderer/src/i18n/locales/en.shell.json` (next to `module.servers.view.refresh`: `refreshShown`
-  "Refresh {{count}} shown", `scanAll` "Scan all", `scanOptions` "More scan options", `refreshShownNone`
-  "No servers shown — use Scan all or clear the filter."), the `en.bundle.json` snapshot,
-  `src/renderer/src/modules/servers/ServersView.test.tsx`.
-  New toolbar props: `filterActive: boolean`, `shownCount: number` and `onRefreshShown: () => void`.
-  With `filterActive`, the `servers-refresh` button reads `refreshShown` (count = shownCount) and
-  calls `onRefreshShown`. It is disabled while busy/blocked or when `shownCount === 0`, in which case
-  the `servers-refresh-none` reason line shows. Beside it sits a chevron `Button`
-  (`data-testid="servers-refresh-options"`, `aria-label` = `scanOptions`, `aria-haspopup="menu"`,
-  `aria-expanded`), wrapped in the existing `Menu` (`src/renderer/src/components/ui/Menu.tsx`,
-  `side="below"`) with one item `{ id: 'scan-all', label: scanAll }` → `onRefresh`. It is disabled
-  while busy/blocked. Without a filter: today's single "Scan now" button, no chevron.
-  `ServersView` passes `filterActive={isFilterActive(filter)}`, `shownCount={visible.length}` and
-  `onRefreshShown={() => scan.refreshShown(visible.map((r) => r.address), selectedAddress ?? undefined)}`.
-  Use tokens only, `size="sm"` (28px floor deviation), and add the focus ring through `Button`.
+      Files: `src/renderer/src/modules/servers/useServerScan.ts` (add `refreshShown: (addresses: string[],
+selected?: string) => void` → `startScan({ kind: 'addresses', addresses }, selected)`; the
+      `refresh`/`refreshFavourites`/`refreshServer` shape stays),
+      `src/renderer/src/modules/servers/ServersToolbar.tsx`, `src/renderer/src/modules/servers/ServersView.tsx`,
+      `src/renderer/src/i18n/locales/en.shell.json` (next to `module.servers.view.refresh`: `refreshShown`
+      "Refresh {{count}} shown", `scanAll` "Scan all", `scanOptions` "More scan options", `refreshShownNone`
+      "No servers shown — use Scan all or clear the filter."), the `en.bundle.json` snapshot,
+      `src/renderer/src/modules/servers/ServersView.test.tsx`.
+      New toolbar props: `filterActive: boolean`, `shownCount: number` and `onRefreshShown: () => void`.
+      With `filterActive`, the `servers-refresh` button reads `refreshShown` (count = shownCount) and
+      calls `onRefreshShown`. It is disabled while busy/blocked or when `shownCount === 0`, in which case
+      the `servers-refresh-none` reason line shows. Beside it sits a chevron `Button`
+      (`data-testid="servers-refresh-options"`, `aria-label` = `scanOptions`, `aria-haspopup="menu"`,
+      `aria-expanded`), wrapped in the existing `Menu` (`src/renderer/src/components/ui/Menu.tsx`,
+      `side="below"`) with one item `{ id: 'scan-all', label: scanAll }` → `onRefresh`. It is disabled
+      while busy/blocked. Without a filter: today's single "Scan now" button, no chevron.
+      `ServersView` passes `filterActive={isFilterActive(filter)}`, `shownCount={visible.length}` and
+      `onRefreshShown={() => scan.refreshShown(visible.map((r) => r.address), selectedAddress ?? undefined)}`.
+      Use tokens only, `size="sm"` (28px floor deviation), and add the focus ring through `Button`.
 
 - [x] **D3 — e2e proof, systems docs and changelog.**
-  Files: new `scripts/flows/servers-refresh-shown.mjs`, which mirrors `scripts/flows/servers-scoped-refresh.mjs`
-  (three responders via `makeResponderBinder(..., { counted: true })` from `scripts/lib/servers-stub.mjs`,
-  `readFinishedAt`/`waitForFinishedAtChange` from `scripts/lib/servers-flow.mjs`, the same fixture
-  with disabled sources and auto-behaviours off; give the responders distinct hostnames so a search
-  term matches exactly one or two). Steps: (1) "Scan now" with no filter → all three get info+status;
-  (2) type a search matching A and B → button text "Refresh 2 shown", click → A and B get
-  info+status, C gets zero packets, and the http-list/master is not contacted (sources disabled, so
-  assert `scan.read` `state.sourceFailures` is empty); (3) open `servers-refresh-options`, click the
-  menuitem named "Scan all" → C is queried too; (4) clear the search → button reads "Scan now".
-  `scripts/flows/servers-lan-mode.mjs`: append a step after the LAN scan. Type a search matching the
-  LAN hostname → "Refresh 1 shown" → click. The LAN row is still listed and refreshed (`data-finished-at`
-  changed), and the list is not emptied.
-  `docs/systems/servers-module.md` (`scanStart` line: the scopes incl. `addresses` and the unknown-address
-  refusal), `docs/systems/game-browser.md` line ~48 ("Refreshes are scoped" gains "the servers the
-  filter shows"), and `CHANGELOG.md` under `## Unreleased` (one line: "Scan now refreshes only the
-  servers your filter shows; Scan all is one click away.").
+      Files: new `scripts/flows/servers-refresh-shown.mjs`, which mirrors `scripts/flows/servers-scoped-refresh.mjs`
+      (three responders via `makeResponderBinder(..., { counted: true })` from `scripts/lib/servers-stub.mjs`,
+      `readFinishedAt`/`waitForFinishedAtChange` from `scripts/lib/servers-flow.mjs`, the same fixture
+      with disabled sources and auto-behaviours off; give the responders distinct hostnames so a search
+      term matches exactly one or two). Steps: (1) "Scan now" with no filter → all three get info+status;
+      (2) type a search matching A and B → button text "Refresh 2 shown", click → A and B get
+      info+status, C gets zero packets, and the http-list/master is not contacted (sources disabled, so
+      assert `scan.read` `state.sourceFailures` is empty); (3) open `servers-refresh-options`, click the
+      menuitem named "Scan all" → C is queried too; (4) clear the search → button reads "Scan now".
+      `scripts/flows/servers-lan-mode.mjs`: append a step after the LAN scan. Type a search matching the
+      LAN hostname → "Refresh 1 shown" → click. The LAN row is still listed and refreshed (`data-finished-at`
+      changed), and the list is not emptied.
+      `docs/systems/servers-module.md` (`scanStart` line: the scopes incl. `addresses` and the unknown-address
+      refusal), `docs/systems/game-browser.md` line ~48 ("Refreshes are scoped" gains "the servers the
+      filter shows"), and `CHANGELOG.md` under `## Unreleased` (one line: "Scan now refreshes only the
+      servers your filter shows; Scan all is one click away.").
 
 ## Model Hints
 

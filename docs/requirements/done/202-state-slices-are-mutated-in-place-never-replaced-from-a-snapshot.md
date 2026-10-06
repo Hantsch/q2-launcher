@@ -266,9 +266,10 @@ Commit message: `202: slice mutators (updateSlice) replace read-spread-set; inst
 Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (205 files, 2892 passed) after fixing `fakeState` in `src/main/modules/downloads/test-support.ts` (lacked `updateSlice`). No e2e (S14). Clean-agent review: PASS, no findings needing a fix; the orphaned doc comment in `state.ts` was fixed.
 AC -> test (all ran and passed): AC1 state.test.ts "updateSlice hands the callback the live value…" + "…schedules no write…" and typecheck/grep; AC2 servers/index.test.ts "a refused sources mutation…", replays/index.test.ts "a sort change during extraFoldersAdd's await survives"; AC3 installations.test.ts four named tests; AC4 config/write-failures.test.ts + config/index.write-failures.test.ts; AC5 lib/list-sort.test.ts; AC6 state.test.ts "ARCHITECTURE.md states the slice-mutator rule". No manual residue.
 Decisions:
+
 - The AC4 concurrency test sits in a new sibling `index.write-failures.test.ts` (there is no `config/index.test.ts`); the failing keys are `p1|own`/`p2|own`.
 - `update()` with a blank name keeps the live name (no `name` key in the patch).
 - Stale `applyInspection` references in doc comments renamed to `applyInspectionResult`.
 - No CHANGELOG entry: no user-visible change.
 - Not done: weak spots noted by review (sibling-key assertion in state.test.ts is light) left as is.
-tiers: D 5 / hard 1 · review default · cycles 0 · agents 8
+  tiers: D 5 / hard 1 · review default · cycles 0 · agents 8

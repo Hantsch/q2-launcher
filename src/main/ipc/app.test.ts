@@ -48,7 +48,9 @@ async function setup(
   const { registerAppIpc } = await import('./app')
   const app = fakeAppContext({
     isDev: options.isDev ?? false,
-    installations: { list: () => options.installations ?? [] } as unknown as AppContext['installations'],
+    installations: {
+      list: () => options.installations ?? [],
+    } as unknown as AppContext['installations'],
     os: {
       openPath: vi.fn(async () => ''),
       showItemInFolder: vi.fn(),

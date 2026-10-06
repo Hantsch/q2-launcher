@@ -115,61 +115,61 @@ a story pointer survives only as a trailing `(story NNN)`; no `D1`–`D9`/`AC1`�
 convention is the comment paragraph in `CLAUDE.md` (story 227).
 
 - [x] **D1 — comment scanner, guard test, diag lines, review-prompt pin.**
-  Files: `src/test-support/source-tree.ts` (add `export function commentRanges(source: string):
-  { text: string; startLine: number; endLine: number }[]` — the same lexer `stripComments` uses,
-  skipping string/template/regex literals; reimplement `stripComments` on top of it, no second
-  lexer), `src/test-support/source-tree.test.ts` (cases: `//` inside a URL string, `/*` inside a
-  regex, JSX `{/* */}`, line numbers of a multi-line block), `src/main/modules/replays/index.ts`
-  (delete the three `log.info('[diag187] …')` calls at ~318/338/344; keep the surrounding `.then`
-  chain working), new `src/comments.test.ts` (mirror `src/architecture.test.ts`'s use of
-  `listSourceFiles`/`isTestFile`/`readRepoFile`). The test file holds: a `SWEPT_FILES: string[]`
-  (empty), an `ID_FREE_ROOTS: string[]` (empty), a helper `commentShare(path)` (lines touched by a
-  comment ÷ total lines), and the tests named under Acceptance Tests for AC1 and AC5, plus the
-  table-driven tests over `SWEPT_FILES` / `ID_FREE_ROOTS` (vacuously green while empty) and the
-  tree-wide narrative-marker test (markers: `review round`, `review finding`, `\bfinding F?\d+`,
-  `reversed by story`, `\bround (one|two|three|\d)\b`, case-insensitive, comments only) — which
-  will be red today, so in D1 it runs over `ID_FREE_ROOTS` only; D11 widens it with the list.
-  AC5 test reads `.claude/commands/build.md` and asserts the review assignment contains
-  "comments that narrate story or review history".
+      Files: `src/test-support/source-tree.ts` (add `export function commentRanges(source: string):
+{ text: string; startLine: number; endLine: number }[]` — the same lexer `stripComments` uses,
+      skipping string/template/regex literals; reimplement `stripComments` on top of it, no second
+      lexer), `src/test-support/source-tree.test.ts` (cases: `//` inside a URL string, `/*` inside a
+      regex, JSX `{/* */}`, line numbers of a multi-line block), `src/main/modules/replays/index.ts`
+      (delete the three `log.info('[diag187] …')` calls at ~318/338/344; keep the surrounding `.then`
+      chain working), new `src/comments.test.ts` (mirror `src/architecture.test.ts`'s use of
+      `listSourceFiles`/`isTestFile`/`readRepoFile`). The test file holds: a `SWEPT_FILES: string[]`
+      (empty), an `ID_FREE_ROOTS: string[]` (empty), a helper `commentShare(path)` (lines touched by a
+      comment ÷ total lines), and the tests named under Acceptance Tests for AC1 and AC5, plus the
+      table-driven tests over `SWEPT_FILES` / `ID_FREE_ROOTS` (vacuously green while empty) and the
+      tree-wide narrative-marker test (markers: `review round`, `review finding`, `\bfinding F?\d+`,
+      `reversed by story`, `\bround (one|two|three|\d)\b`, case-insensitive, comments only) — which
+      will be red today, so in D1 it runs over `ID_FREE_ROOTS` only; D11 widens it with the list.
+      AC5 test reads `.claude/commands/build.md` and asserts the review assignment contains
+      "comments that narrate story or review history".
 - [x] **D2 — six module headers as built.** Files (resolve post-refactor paths first):
-  `src/main/modules/servers/index.ts`, `src/main/modules/replays/index.ts`,
-  `src/renderer/src/modules/index.ts`, the `profile-restore` folder's `index.ts` (story 214),
-  `src/shared/config/**/render.ts`, `src/main/modules/config/**/rebuild.ts`. Each header (first
-  `/** … */` of ≥ 3 lines) is rewritten in present tense from reading the file's code: what it
-  owns, what it registers/exports, the invariants a caller relies on; ≤ 40 lines; no ids, no
-  history. Gone: "There is no scanning yet" (servers), "no platform checks - that is a later
-  deliverable" (replays ~136), the story-115 "stand-in" narrative (renderer modules index ~72).
-  Test in `src/comments.test.ts` (see AC2 line).
+      `src/main/modules/servers/index.ts`, `src/main/modules/replays/index.ts`,
+      `src/renderer/src/modules/index.ts`, the `profile-restore` folder's `index.ts` (story 214),
+      `src/shared/config/**/render.ts`, `src/main/modules/config/**/rebuild.ts`. Each header (first
+      `/** … */` of ≥ 3 lines) is rewritten in present tense from reading the file's code: what it
+      owns, what it registers/exports, the invariants a caller relies on; ≤ 40 lines; no ids, no
+      history. Gone: "There is no scanning yet" (servers), "no platform checks - that is a later
+      deliverable" (replays ~136), the story-115 "stand-in" narrative (renderer modules index ~72).
+      Test in `src/comments.test.ts` (see AC2 line).
 - [x] **D3 — id codemod over canonical forms.** A throwaway script (scratch dir or a temporary
-  test run once and deleted — not committed) that, using `commentRanges` from D1, edits **only
-  text inside comments** of every non-test `src/**/*.{ts,tsx}`: `story NNN D3` / `story-NNN D3, AC2`
-  / `NNN D5's` → `story NNN` (keeping the surrounding punctuation readable), parenthetical
-  `(D4)`/`(AC3)`/`(AC1, AC2)` → removed, `// AC3: text` → `// text`. It asserts per file that
-  `stripComments(before) === stripComments(after)` and aborts otherwise. Acceptance: typecheck,
-  lint, `npm test` green; report remaining id count (bare forms) per top directory.
+      test run once and deleted — not committed) that, using `commentRanges` from D1, edits **only
+      text inside comments** of every non-test `src/**/*.{ts,tsx}`: `story NNN D3` / `story-NNN D3, AC2`
+      / `NNN D5's` → `story NNN` (keeping the surrounding punctuation readable), parenthetical
+      `(D4)`/`(AC3)`/`(AC1, AC2)` → removed, `// AC3: text` → `// text`. It asserts per file that
+      `stripComments(before) === stripComments(after)` and aborts otherwise. Acceptance: typecheck,
+      lint, `npm test` green; report remaining id count (bare forms) per top directory.
 - [x] **D4 — sweep the shared contracts.** Files: `src/shared/modules/config.ts`,
-  `downloads.ts`, `servers.ts`, `replays.ts`, plus the matching `docs/systems/*.md` if narrative
-  moves. Bring each below 0.35 comment share (today 57/66/35/37 %), story pointers trailing-only.
-  Append the four paths to `SWEPT_FILES`.
+      `downloads.ts`, `servers.ts`, `replays.ts`, plus the matching `docs/systems/*.md` if narrative
+      moves. Bring each below 0.35 comment share (today 57/66/35/37 %), story pointers trailing-only.
+      Append the four paths to `SWEPT_FILES`.
 - [x] **D5 — sweep shared/config.** Files: every file of the `profile-restore` folder (story 214)
-  and `render.ts` (post-214 path), plus `docs/systems/config-module.md` if narrative moves.
-  Each file below 0.35 (today 53 % / 54 % for the pre-split files). Append the paths to
-  `SWEPT_FILES`.
+      and `render.ts` (post-214 path), plus `docs/systems/config-module.md` if narrative moves.
+      Each file below 0.35 (today 53 % / 54 % for the pre-split files). Append the paths to
+      `SWEPT_FILES`.
 - [x] **D6 — sweep the main files.** Files: `src/main/lib/schemas.ts`,
-  `src/main/modules/servers/scan-service.ts`, `src/main/modules/replays/scan-service.ts`. Shares
-  are already < 0.35; the work is pointer form, ids and narrative. Append to `SWEPT_FILES`.
+      `src/main/modules/servers/scan-service.ts`, `src/main/modules/replays/scan-service.ts`. Shares
+      are already < 0.35; the work is pointer form, ids and narrative. Append to `SWEPT_FILES`.
 - [x] **D7 — sweep the renderer files.** Files: `ControlsTab.tsx` and the component files story
-  213 split out of it (its `components/`/`dialogs/` children), `ConfigView.tsx` and the components
-  story 218 split out of it, `src/renderer/src/store/useLauncher.ts`. Append to `SWEPT_FILES`.
+      213 split out of it (its `components/`/`dialogs/` children), `ConfigView.tsx` and the components
+      story 218 split out of it, `src/renderer/src/store/useLauncher.ts`. Append to `SWEPT_FILES`.
 - [x] **D8 — residual ids: `src/shared` + `src/preload`.** Rewrite every remaining bare
-  `D\d`/`AC\d` in comments (e.g. "D2's verification" → name the check; "(AC4)" → drop) in those
-  trees. Append `src/shared`, `src/preload` to `ID_FREE_ROOTS`.
+      `D\d`/`AC\d` in comments (e.g. "D2's verification" → name the check; "(AC4)" → drop) in those
+      trees. Append `src/shared`, `src/preload` to `ID_FREE_ROOTS`.
 - [x] **D9 — residual ids: `src/main/modules/{config,downloads}`.** Same rewrite; append both.
 - [x] **D10 — residual ids: rest of `src/main`.** Same rewrite; replace the main entries in
-  `ID_FREE_ROOTS` with `src/main`.
+      `ID_FREE_ROOTS` with `src/main`.
 - [x] **D11 — residual ids: `src/renderer`, then whole tree.** Same rewrite in `src/renderer`
-  (the config module first: ~80 files); set `ID_FREE_ROOTS = ['src']`, which also makes the
-  narrative-marker test tree-wide; rewrite any marker hit it reports.
+      (the config module first: ~80 files); set `ID_FREE_ROOTS = ['src']`, which also makes the
+      narrative-marker test tree-wide; rewrite any marker hit it reports.
 
 ## Model Hints
 
@@ -214,6 +214,7 @@ only"; AC4 "no deliverable or criterion ids in comments" + "no review-round narr
 not comment-like text in literals". No manual residue.
 
 Decisions:
+
 - The replays header is the block above `defineModule`; `moduleHeader()` picks it. `profile-restore/index.ts` was already compliant; `render.ts` had no header, one was added.
 - The id regex is wider than the spec (`\bD\d{1,2}\b|\bAC ?\d{1,2}\b`); in swept files and headers a story pointer must be a trailing `(story N)` (also `stories N`, `story-N`).
 - CSS comments under `src/renderer/src/styles` keep old ids (AC4 covers ts/tsx source); left alone.

@@ -52,6 +52,8 @@ const path = require('node:path')
 const FRAME_MS = 16
 const MAX_LINES_PER_FRAME = 1000
 const PARENT_CHECK_MS = 250
+// Fixed at start: off Windows an orphan is re-parented to init, whose pid always answers.
+const PARENT_PID = process.ppid
 
 function readConfig() {
   try {
@@ -564,7 +566,7 @@ if (OUTPUT_BURST_MS > 0) setInterval(flushHeld, OUTPUT_BURST_MS)
 if (LOG_FLUSH_MS > 0) setInterval(flushLog, LOG_FLUSH_MS)
 setInterval(() => {
   try {
-    process.kill(process.ppid, 0)
+    process.kill(PARENT_PID, 0)
   } catch (err) {
     // EPERM means the parent exists but is not ours to signal - only a vanished parent ends the run.
     if (err && err.code !== 'EPERM') quit()

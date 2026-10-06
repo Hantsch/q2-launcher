@@ -952,8 +952,9 @@ manifest, so a registry screen would make every `ui:verify` run reach out to
 raw.githubusercontent.com and break the harness's "never touches the network" guarantee. The flow
 takes its own `shot()`s of all four steps instead.
 
-The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) and refuses to run without it rather
-than quietly skipping the extraction — the whole point is that the _real_ extractor runs.
+The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`; off Windows the vendored extractor is
+`7zz`) and refuses to run without it rather than quietly skipping the extraction — the whole point
+is that the _real_ extractor runs.
 
 ## The offline bootstrap-failure-retry flow (`bootstrap-failure-retry`)
 
@@ -1555,8 +1556,8 @@ a human to look at during manual review.
 **CI runs the harness through `.github/workflows/ui-flows.yml`**, which has
 two jobs:
 
-- `ui-flows` — every flow on `ubuntu-latest` under xvfb, split into 4 shards
-  (`npm run ui:flows -- --shard=<i>/4`).
+- `ui-flows` — every flow on `ubuntu-latest` under xvfb, split into 6 shards
+  (`npm run ui:flows -- --shard=<i>/6`).
 - `windows-verify` — on `windows-latest`: build, `npm run ui:verify`
   (screenshots + axe-core) and three flows (`about-release-notes`,
   `steam-handoff`, `open-keycap-dialog`).

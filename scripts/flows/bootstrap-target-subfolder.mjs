@@ -82,9 +82,7 @@ export default async function bootstrapTargetSubfolder({ page, shot, step }) {
     .getByTestId('bootstrap-engine-q2pro')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await next.click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('bootstrap-gamedata-choice-existing-folder')
-    .click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('bootstrap-gamedata-choice-existing-folder').click({ timeout: TIMEOUT_MS })
   await page
     .getByTestId('bootstrap-gamedata-folder-path')
     .getByRole('button', { name: 'Browse…' })

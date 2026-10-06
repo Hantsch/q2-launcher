@@ -125,7 +125,8 @@ export const DUPLICATE_EXCEPTIONS: Record<string, string> = {
   Close: 'The titlebar button closes the window; the others dismiss a panel.',
   Scan: 'A section heading in the servers settings versus the button that starts a cleanup scan.',
   Reset: 'A column header in the controls grid versus a name-template action button.',
-  'Import from files': 'A source choice in the config profile dialog versus the import dialog title.',
+  'Import from files':
+    'A source choice in the config profile dialog versus the import dialog title.',
   'Engine update': 'The update button label versus the engine update dialog title.',
   'Checking for installations you already own…':
     'A wizard step and the retail-upgrade panel each show their own loading state, which are different screens.',

@@ -63,7 +63,11 @@ const iconsMock = {
 }
 
 function fakeApp(isDev: boolean): AppContext {
-  return { isDev, harness: resolveUiHarness(process.env), icons: iconsMock } as unknown as AppContext
+  return {
+    isDev,
+    harness: resolveUiHarness(process.env),
+    icons: iconsMock,
+  } as unknown as AppContext
 }
 
 beforeEach(() => {
@@ -314,9 +318,9 @@ describe('a throwing handler', () => {
     const rejection = await Promise.resolve(
       registered.get('window:getState')!(fakeEvent, undefined),
     ).then(
-        () => null,
-        (error: unknown) => error,
-      )
+      () => null,
+      (error: unknown) => error,
+    )
 
     expect(rejection).toBeInstanceOf(Error)
     const message = (rejection as Error).message

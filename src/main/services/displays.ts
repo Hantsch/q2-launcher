@@ -25,7 +25,10 @@ export interface DisplaysService {
 }
 
 /** `dipToScreenRect` is optional: Electron only ships it on Windows and Linux. */
-export type ScreenLike = Pick<Screen, 'getPrimaryDisplay' | 'getAllDisplays' | 'getDisplayMatching'> & {
+export type ScreenLike = Pick<
+  Screen,
+  'getPrimaryDisplay' | 'getAllDisplays' | 'getDisplayMatching'
+> & {
   dipToScreenRect?: (window: BrowserWindow | null, rect: Rectangle) => Rectangle
 }
 

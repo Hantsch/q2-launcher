@@ -260,10 +260,7 @@ export function demoFilterSubject(row: DemoRow): DemoFilterSubject {
     rosterTerms:
       row.roster === null
         ? []
-        : [
-            ...row.roster.teams.flatMap((t) => [t.name, ...t.players]),
-            ...row.roster.spectators,
-          ],
+        : [...row.roster.teams.flatMap((t) => [t.name, ...t.players]), ...row.roster.spectators],
     date: row.effective.date.value,
   }
 }

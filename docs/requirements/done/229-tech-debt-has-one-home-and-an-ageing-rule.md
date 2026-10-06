@@ -60,7 +60,7 @@ never reach the roadmap; docs/README.md gives no ageing or escalation rule, and 
   field, bad `since`/`sev`, duplicate id, id ≥ next id, unresolved source link) but never on age;
   overdue rows are listed by `node scripts/check-docs.mjs --overdue` (exit 0) — reason: a gate
   that turns red because a calendar moved would break unrelated stories' builds mid-sprint.
-- **D-f** `/roadmap check` *reports* overdue `TECH-DEBT.md` rows and leaves promoting/deleting
+- **D-f** `/roadmap check` _reports_ overdue `TECH-DEBT.md` rows and leaves promoting/deleting
   them to the maintainer, while overdue roadmap follow-ups keep the plugin's existing automatic
   promote-or-delete — reason: AC4 says "reports", and silently deleting a known defect loses the
   information the file exists to keep.
@@ -231,6 +231,7 @@ Commit message: `229: TECH-DEBT.md home + check-docs validator + ageing rule, fo
 Verification: narrow gate — `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEAD`, tech-debt/check-docs/repo-hygiene tests, `node scripts/check-docs.mjs` all green; no e2e (no app surface). Pre-existing red (shell-layering, useQuickFilters mockClient) not in the narrow run. AC1-AC5 each proven by the named `scripts/tech-debt.test.mjs` tests (all ran and passed); AC2 completeness = ledger below, checked by review. Review 1 PASS; one fix cycle (see Decisions). No manual residue.
 
 Decisions:
+
 - Story 230's done-file link (`../reviews/` -> `../../reviews/`) fixed because the new link check flagged it.
 - Review F2 fixed: S29/S30 behavioural edges added as TD-029/TD-030 instead of being deleted as cosmetic.
 - Review F1 accepted: the `npm audit` blocking flip stays as a dated roadmap chore citing "(story 226)" in plain text — 226 added the step, the flip on 2026-10-09 is still open.
@@ -240,9 +241,11 @@ Decisions:
 tiers: D 3 / hard 0 · review default · cycles 1 · agents 5
 
 Triage ledger (source -> destination):
+
 # Triage ledger 229 (scratch)
 
 ROADMAP follow-ups
+
 - ROADMAP · replays-mod-warning flake -> deleted: covered by draft 233 (Open row)
 - ROADMAP · OpenTDM on 64-bit refused -> TD-007
 - ROADMAP · play anyway ENOENT on missing game dir -> TD-008
@@ -270,6 +273,7 @@ ROADMAP follow-ups
 - ROADMAP · only en ships -> deleted: statement of fact, not a to-do
 
 Reviews
+
 - S27 · quickEdit read-merge-write race -> TD-018
 - S27 · four servers/replays flows pre-existing red -> deleted: historic, not in quarantine.json today
 - S28 · 167 long speed-row alias names, conflict marker hides text -> deleted: cosmetic
@@ -287,6 +291,7 @@ Reviews
 - S32 · dedupeByKey/test tidy-up/missing tests -> TD-012/013/014 (see ROADMAP above)
 
 Story Done sections
+
 - 198 · X errors dropped, TCP auth, park geometry, cinema ABOVE -> TD-023
 - 210 · withLiveAssignments untested, stale mocks -> TD-024
 - 211 · keepEmptyAlias stripped by both schema trees -> TD-022

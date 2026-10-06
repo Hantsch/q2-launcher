@@ -181,10 +181,7 @@ export function ServerDetailHeader({
       />
 
       <div className="grid grid-cols-3 gap-px overflow-hidden rounded-sm border border-line bg-line">
-        <StatCell
-          label={t('common.label.players')}
-          testId="servers-detail-field-occupancy"
-        >
+        <StatCell label={t('common.label.players')} testId="servers-detail-field-occupancy">
           <span className="numeric">{formatOccupancy(row)}</span>
         </StatCell>
         <StatCell label={t('common.label.ping')} testId="servers-detail-field-ping">

@@ -498,15 +498,7 @@ async function expandGlobDir(
 export async function assembleInstallation(
   input: AssembleInstallationInput,
 ): Promise<AssembleInstallationResult> {
-  const {
-    sources,
-    targetRoot,
-    engine,
-    scope,
-    dataSource,
-    folderPakNames,
-    restrictTo,
-  } = input
+  const { sources, targetRoot, engine, scope, dataSource, folderPakNames, restrictTo } = input
   const copiedFiles: string[] = []
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
   const entries: AssembleEntryResult[] = []

@@ -5,9 +5,8 @@
 // exit, as Q2PRO does.
 //
 // Selectors: `replays-timeline-volume-{toggle,label}`, `replays-timeline-volume` (`VolumeControl.tsx`).
-import { readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_TIMELINE_VARIANT,
@@ -15,6 +14,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { sleep } from '../lib/flow-common.mjs'
+import { variantUserDataDir } from '../lib/harness.mjs'
 import { commands, openDemos, openFolder, poll } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
@@ -29,11 +29,13 @@ let configFile = ''
 
 export async function setup() {
   const fixture = writeReplaysTimelineFixture()
-  // The demo plays in the fixture's ctf game dir (Windows: the game dir; Linux: Q2PRO's write dir).
+  // The demo plays in the fixture's ctf game dir (Windows: the game dir; Linux: Q2PRO's write dir,
+  // which the harness redirects into the variant's userData).
   configFile =
     process.platform === 'win32'
       ? join(fixture.installRoot, 'ctf', 'q2config.cfg')
-      : join(homedir(), '.q2pro', 'ctf', 'q2config.cfg')
+      : join(variantUserDataDir(variant), 'harness-home', '.q2pro', 'ctf', 'q2config.cfg')
+  mkdirSync(dirname(configFile), { recursive: true })
   writeFileSync(configFile, `seta s_volume "${USER_VOLUME}"\n`)
   return {
     env: {

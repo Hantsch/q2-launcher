@@ -16,10 +16,7 @@
  * trimmed) must equal a whole value. Anything else (an unclosed quote, empty quotes, a lone quote,
  * single quotes) is plain text.
  */
-export function matchesTerm(
-  term: string,
-  values: Iterable<string | null | undefined>,
-): boolean {
+export function matchesTerm(term: string, values: Iterable<string | null | undefined>): boolean {
   const raw = term.trim()
   if (raw === '') return true
 

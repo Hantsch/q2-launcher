@@ -166,7 +166,7 @@ About tab shows the release notes of what you have and what is available.
 
 | Feature          | What it is                                                                                                                                             | Status      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| **Mods**         | Discover, install and enable/disable game directories with their own config. The `+set game` half already exists.                                      | In progress  |
+| **Mods**         | Discover, install and enable/disable game directories with their own config. The `+set game` half already exists.                                      | In progress |
 | **Asset packs**  | Texture, model and sound packs, with conflict detection between packs touching the same files and a record of what a pack changed so it can be undone. | Not started |
 | **Linux engine** | A self-built, mirrored Linux Q2PRO so the bootstrap wizard can install a native engine on Linux too.                                                   | Open        |
 

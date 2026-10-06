@@ -66,7 +66,7 @@ Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F17, F3
 - **D-e — New alias goes to `draft.categories[0]`, no dialog**, because AC4 allows either and the
   first-category default matches ControlsTab's own (`ControlsTab.tsx:169`); `MoveEntryDialog`
   stays unused here.
-- **D-f — AC5 rejects only *new* orphans.** Profiles legitimately hold actions whose `categoryId`
+- **D-f — AC5 rejects only _new_ orphans.** Profiles legitimately hold actions whose `categoryId`
   is in no category (story 042 AC2: restore/import deliberately produce the "Other" bucket;
   fixture `orphanedCategoryProfiles`; profiles with `categories: []`), and every save resends the
   full `actions`, so a blanket check would refuse every later save of such a profile. The rule:
@@ -113,19 +113,13 @@ is independent and can go anytime.
       `type SaveStatus = 'idle' | 'saving' | 'saved'` (the only declarations in the renderer).
       API (names may be tuned, semantics not):
       `useProfileSave<T = ConfigProfile[]>({ profileId, onChanged })` →
-      `{ status, saving, schedule, saveNow, cancel }`.
-      - `schedule({ apply, revert, run })`: calls `apply()` immediately (optimistic patch), sets
-        `'saving'`, (re)starts ONE timer of `SAVE_DEBOUNCE_MS`; calls within the window coalesce —
-        only the last `run` executes. The `revert` kept is the one from the **first** call of the
-        burst (snapshot before the first edit, not the latest closure value).
-      - `saveNow({ run })`: cancels any pending timer first (cancel-on-immediate), sets
-        `saving=true`/`'saving'`, awaits `run()`, returns `Promise<boolean>`; no optimistic patch.
-      - On success (either path): `onChanged(result.value)`, status `'saved'`.
-      - On failure (either path): debounced → `revert()`; both → `toastOutcomeError(pushToast,
-        result)` (`src/renderer/src/lib/toast.ts`; `pushToast` via
-        `useLauncher((s) => s.pushToast)`), status `'idle'`.
-      - The pending timer is cleared on unmount and when `profileId` changes; a result arriving
-        after either is ignored (no `onChanged`, no revert, no toast, no setState).
+      `{ status, saving, schedule, saveNow, cancel }`. - `schedule({ apply, revert, run })`: calls `apply()` immediately (optimistic patch), sets
+      `'saving'`, (re)starts ONE timer of `SAVE_DEBOUNCE_MS`; calls within the window coalesce —
+      only the last `run` executes. The `revert` kept is the one from the **first** call of the
+      burst (snapshot before the first edit, not the latest closure value). - `saveNow({ run })`: cancels any pending timer first (cancel-on-immediate), sets
+      `saving=true`/`'saving'`, awaits `run()`, returns `Promise<boolean>`; no optimistic patch. - On success (either path): `onChanged(result.value)`, status `'saved'`. - On failure (either path): debounced → `revert()`; both → `toastOutcomeError(pushToast, result)` (`src/renderer/src/lib/toast.ts`; `pushToast` via
+      `useLauncher((s) => s.pushToast)`), status `'idle'`. - The pending timer is cleared on unmount and when `profileId` changes; a result arriving
+      after either is ignored (no `onChanged`, no revert, no toast, no setState).
       Tests (fake timers, client stub returning `{ok:false, error:{key:'config.error.writeFailed'}}`
       or ok): "coalesces edits inside the debounce window into one save", "saveNow cancels a
       pending debounced save", "a refused debounced save reverts to the snapshot from the first
@@ -156,13 +150,11 @@ is independent and can go anytime.
       `persistActions` (~l.311) → `saveNow`, patch after success, `return ok` (dialog stays open on
       failure, toast now shown). `handleCreateAlias` (~l.337): `categoryId: draft.categories?.[0]?.id`
       instead of `BUILT_IN_ACTION_CATEGORIES[0].id` (drop the import if unused, fix the doc comment
-      at 328-336). "New alias" button (~l.464) gets `disabled` when `(draft.categories ?? []).length
-      === 0`, with a visible text reason next to it (not only a tooltip), new i18n key
+      at 328-336). "New alias" button (~l.464) gets `disabled` when `(draft.categories ?? []).length === 0`, with a visible text reason next to it (not only a tooltip), new i18n key
       `config.aliases.createNeedsCategory` = "Add a category in Controls first." in
       `src/renderer/src/i18n/locales/en.json`. Tests: AliasesTab case in `save-refusal.test.tsx`;
       new `src/renderer/src/modules/config/AliasesTab.category.test.tsx` › "a new alias lands in the
-      profile's first custom category and shows in the Controls rail" (profile `categories:
-      [{id:'my-cat',name:'Mine'}]`; create via the dialog; take the `updateProfileActions` payload,
+      profile's first custom category and shows in the Controls rail" (profile `categories: [{id:'my-cat',name:'Mine'}]`; create via the dialog; take the `updateProfileActions` payload,
       render `ControlsTab` with it, assert `action-edit-<newId>` under the selected first category)
       and › "New alias is disabled with a visible reason when the profile has no categories".
       Flow `scripts/flows/alias-new-lands-in-first-category.mjs` (mirror
@@ -240,10 +232,12 @@ custom-action-row, settings-section-rename-add-cvar. Red and identical on bare H
 controls-drag-reorder, controls-extra-keys, controls-subcategory, settings-downloads-section, config-header-geometry,
 plus the known unsaved-diff, grenade-rows-take-a-key and shell-layering "no shell file imports from modules".
 AC1 useProfileSave.test.ts; AC2 architecture.test.ts; AC3 save-refusal.test.tsx (5 cases); AC4 AliasesTab.category.test.tsx
-+ flow; AC5 index.test.ts (two named tests) + orphan-category.test.ts; AC6 ControlsTab.* suites green, flows above (red ones pre-existing).
-No manual residue. Review: default stage PASS.
+
+- flow; AC5 index.test.ts (two named tests) + orphan-category.test.ts; AC6 ControlsTab.* suites green, flows above (red ones pre-existing).
+  No manual residue. Review: default stage PASS.
 
 Decisions (sprint, no user available):
+
 - `saveNow` failing after cancelling a pending burst leaves that burst's optimistic edit in the draft (same as before the hook); unfixed, spec reverts debounced saves only.
 - Late results after profile switch/unmount drop `onChanged` (spec); superseded older success still calls `onChanged`, failure toasts without reverting. Edge cases accepted, not tested.
 - SettingsTab uses a `latestCvars` ref for same-tick edits; revert there uses the first-call closure value, equivalent to the snapshot in practice.

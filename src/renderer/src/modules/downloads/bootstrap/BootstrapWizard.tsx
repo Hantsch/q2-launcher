@@ -359,7 +359,9 @@ export function BootstrapWizard() {
     target:
       proposalCurrent &&
       name.trim().length > 0 &&
-      !!verdict && !verdict.blocked && targetWarningsAcknowledged,
+      !!verdict &&
+      !verdict.blocked &&
+      targetWarningsAcknowledged,
     confirm: !!summary && !starting,
     running: false,
   }

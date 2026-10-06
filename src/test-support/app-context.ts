@@ -28,7 +28,12 @@ export function fakeAppContext(overrides: Partial<AppContext> = {}): AppContext 
       all: () => [{ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1 }],
       dipToScreenRect: (rect: unknown) => rect,
     },
-    os: { openPath: async () => '', showItemInFolder: () => {}, openExternal: async () => {}, copyText: () => {} },
+    os: {
+      openPath: async () => '',
+      showItemInFolder: () => {},
+      openExternal: async () => {},
+      copyText: () => {},
+    },
     ...overrides,
   } as unknown as AppContext
 }

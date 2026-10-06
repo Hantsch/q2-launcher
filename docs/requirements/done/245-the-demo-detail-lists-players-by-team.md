@@ -147,11 +147,11 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
 ## Deliverables
 
 - [x] **D1 — Roster collector in the frame pass (shared).** Copy the example demo from
-  `C:\Games\Q2Pro\opentdm\demos\shad-maq_PFDE3_q2rdm2_20260922-161521.dm2` to
-  `docs/fixtures/demos/` under the same name. New pure file `src/shared/demos/dm2-roster.ts` exports
-  `type DemoRoster = { teams: { name: string; players: string[] }[]; spectators: string[] }` and
-  `createDm2RosterCollector()`, which provides `onServerdata(protocol)`, `onConfigstring(index, value)`,
-  `onLayout(text)` and `finish(): DemoRoster | null`. The collector works as follows:
+      `C:\Games\Q2Pro\opentdm\demos\shad-maq_PFDE3_q2rdm2_20260922-161521.dm2` to
+      `docs/fixtures/demos/` under the same name. New pure file `src/shared/demos/dm2-roster.ts` exports
+      `type DemoRoster = { teams: { name: string; players: string[] }[]; spectators: string[] }` and
+      `createDm2RosterCollector()`, which provides `onServerdata(protocol)`, `onConfigstring(index, value)`,
+      `onLayout(text)` and `finish(): DemoRoster | null`. The collector works as follows:
   - Configstring layout comes from the protocol via `ORIGINAL_LAYOUT`/`EXTENDED_LAYOUT` in
     `dm2-header.ts`. `CS_GENERAL = CS_PLAYERSKINS + MAX_CLIENTS`, the OpenTDM strings sit at
     `CS_GENERAL + MAX_CLIENTS + slot`, and `CS_STATUSBAR = 5`.
@@ -179,6 +179,7 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
     is the median of 20 runs.
   - In `src/shared/demos/dm2-frames.test.ts`, a case showing that the counts with and without an
     observer are equal on `docs/fixtures/demos/test.dm2` and on the new fixture.
+
 - [x] **D2 — Roster in the index (main + shared schema).**
   - `src/main/lib/demo-bytes.ts`: `readDemoDuration` becomes
     `readDemoFullPass(path): Promise<{ duration: FrameCountResult; roster: DemoRoster | null }>`. The
@@ -199,20 +200,20 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
     also for a gzipped copy. In `src/main/modules/replays/scan-service.test.ts`, a case asserting that
     `readDemoFacts` opens a loose demo for one full pass, not two (AC7, structural).
 - [x] **D3 — Effective sides from the teams (shared + callers).** The `headerFromRow` shape exists three
-  times: `src/main/modules/replays/demo-rows.ts:29`, `src/main/modules/replays/demo-rename.ts:66` and
-  `src/renderer/src/modules/replays/row-patch.ts:14`. Extract it into
-  `src/shared/replays/row-header.ts` as `headerFromRow(row: DiscoveredDemo)`, now including `roster`,
-  and use that one helper in all three places. In `src/shared/demos/effective-values.ts`, `OkHeader`
-  gains `roster: DemoRoster | null`. The `demo` rung of `sides` is
-  `roster.teams.map(t => ({ team: t.name, players: t.players }))` when the roster is non-null,
-  otherwise today's `[{ players: header.players }]`, with the sidecar rung staying first. Then run the
-  replays tests and flows that read test.dm2-derived rows and update the assertions that encode the
-  old spectator-inclusive sides or gamemode. Expect `src/shared/replays/list-filter.test.ts`,
-  `src/main/modules/replays/scan-service.test.ts`, `src/main/modules/replays/zip-demos.test.ts`
-  and `scripts/flows/replays-filter-search.mjs`; grep for `sauDove` and `WallFly`. Tests in
-  `src/shared/demos/effective-values.test.ts`: a roster becomes team sides, sidecar sides still win
-  over the roster (AC5), and no roster falls back to header players (AC4). Add a test for
-  `row-header.ts`.
+      times: `src/main/modules/replays/demo-rows.ts:29`, `src/main/modules/replays/demo-rename.ts:66` and
+      `src/renderer/src/modules/replays/row-patch.ts:14`. Extract it into
+      `src/shared/replays/row-header.ts` as `headerFromRow(row: DiscoveredDemo)`, now including `roster`,
+      and use that one helper in all three places. In `src/shared/demos/effective-values.ts`, `OkHeader`
+      gains `roster: DemoRoster | null`. The `demo` rung of `sides` is
+      `roster.teams.map(t => ({ team: t.name, players: t.players }))` when the roster is non-null,
+      otherwise today's `[{ players: header.players }]`, with the sidecar rung staying first. Then run the
+      replays tests and flows that read test.dm2-derived rows and update the assertions that encode the
+      old spectator-inclusive sides or gamemode. Expect `src/shared/replays/list-filter.test.ts`,
+      `src/main/modules/replays/scan-service.test.ts`, `src/main/modules/replays/zip-demos.test.ts`
+      and `scripts/flows/replays-filter-search.mjs`; grep for `sauDove` and `WallFly`. Tests in
+      `src/shared/demos/effective-values.test.ts`: a roster becomes team sides, sidecar sides still win
+      over the roster (AC5), and no roster falls back to header players (AC4). Add a test for
+      `row-header.ts`.
 - [x] **D4 — Search and detail model (shared).**
   - `src/shared/replays/list-filter.ts`: `DemoFilterSubject` gains
     `rosterTerms: readonly string[]` (team names, team players, spectators). `demoFilterSubject` fills
@@ -301,6 +302,7 @@ Verification (narrow gate): `npm run build`, `lint`, `typecheck` green; `npx vit
 AC -> test: AC1/AC6 flow + DemoPlayersPanel.test.tsx; AC2/AC3/AC8 dm2-roster.test.ts + flow; AC4 dm2-roster.test.ts, effective-values.test.ts, DemoPlayersPanel.test.tsx (component level only); AC5 effective-values.test.ts + flow; AC7 dm2-roster.test.ts budget + scan-service.test.ts one-pass. No manual residue.
 
 Decisions:
+
 - `OkHeader.roster` is optional (`roster?: DemoRoster | null`) because `Dm2Header`/`Mvd2Header` are in the same union and carry no roster.
 - `dm2-roster.test.ts` and `dm2-frames.test.ts` read fixtures via `node:fs`, so they were added to `tsconfig.web.json` exclude and the list pinned in `architecture.test.ts` (as `fixture-constants.test.ts`).
 - `replays-teams` fixture puts the demos in an extra folder under the variant's userData, not an installation demos folder, because the shared `gameRoot()` would leak them into other flows. The scan covers both.

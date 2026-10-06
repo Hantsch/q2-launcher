@@ -127,10 +127,7 @@ const FORMAT_SNIFF_BYTES = MVD2_MAGIC.length
  * errors on `source` itself are decode errors on a possibly-cut `.gz` (`finish()` on what was
  * pushed so far, like a cut plain file). Never rejects.
  */
-function streamDemoDuration(
-  source: Readable,
-  rawStream: Readable | null,
-): Promise<DemoFullPass> {
+function streamDemoDuration(source: Readable, rawStream: Readable | null): Promise<DemoFullPass> {
   return new Promise((resolve) => {
     let resolved = false
     let counter: FrameCounter | null = null

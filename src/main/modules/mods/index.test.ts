@@ -42,7 +42,9 @@ const emitted: unknown[][] = []
 
 async function registryFor(
   inst: ReturnType<typeof installation>,
-  manifest: { getManifest: () => Promise<unknown> } = { getManifest: async () => ({ packages: [] }) },
+  manifest: { getManifest: () => Promise<unknown> } = {
+    getManifest: async () => ({ packages: [] }),
+  },
   installations: unknown = { find: (id: string) => (id === inst.id ? inst : undefined) },
 ) {
   const app = {

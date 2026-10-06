@@ -35,10 +35,7 @@ describe('createListenerSet', () => {
   })
 
   it('emits without an argument when T is void', () => {
-    const set = createListenerSet(
-      { error: vi.fn() },
-      'a void',
-    )
+    const set = createListenerSet({ error: vi.fn() }, 'a void')
     const fn = vi.fn()
     set.add(fn)
     set.emit()

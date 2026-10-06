@@ -231,7 +231,9 @@ describe('recordHarnessExternalUrl', () => {
     const { writeFile } = await import('node:fs/promises')
     await writeFile(filePath, 'not valid json', 'utf8')
 
-    await recordHarnessExternalUrl(enabledHarness, 'https://example.test/after-corruption', { filePath })
+    await recordHarnessExternalUrl(enabledHarness, 'https://example.test/after-corruption', {
+      filePath,
+    })
 
     expect(await readUrls()).toEqual(['https://example.test/after-corruption'])
   })
@@ -241,8 +243,12 @@ describe('recordHarnessRevealedPath', () => {
   it('appends each revealed path', async () => {
     const revealedFilePath = join(dir, HARNESS_REVEALED_PATHS_FILE)
 
-    await recordHarnessRevealedPath(enabledHarness, 'C:\\demos\\one.dm2', { filePath: revealedFilePath })
-    await recordHarnessRevealedPath(enabledHarness, 'C:\\demos\\two.dm2', { filePath: revealedFilePath })
+    await recordHarnessRevealedPath(enabledHarness, 'C:\\demos\\one.dm2', {
+      filePath: revealedFilePath,
+    })
+    await recordHarnessRevealedPath(enabledHarness, 'C:\\demos\\two.dm2', {
+      filePath: revealedFilePath,
+    })
 
     expect(JSON.parse(await readFile(revealedFilePath, 'utf8'))).toEqual([
       'C:\\demos\\one.dm2',

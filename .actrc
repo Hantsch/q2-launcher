@@ -1,3 +1,2 @@
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 --matrix os:ubuntu-latest
---use-gitignore=false

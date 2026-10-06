@@ -303,10 +303,7 @@ export function KeyBindDialog({
           Cancel/Clear/Assign, and one footer cannot mean two unrelated saves.
         */}
         {!layer && layers.length > 0 && (
-          <Field
-            className="border-t border-line pt-3"
-            label={t('common.label.layerTrigger')}
-          >
+          <Field className="border-t border-line pt-3" label={t('common.label.layerTrigger')}>
             <p className="text-xs text-ink-muted">
               {triggerOwner
                 ? t('config.keyBindDialog.trigger.currentLabel', { name: triggerOwner.name })

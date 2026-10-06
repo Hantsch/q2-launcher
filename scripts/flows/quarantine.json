@@ -1,1 +1,142 @@
-[]
+[
+  {
+    "flow": "add-installation-one-flow",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-existing-folder",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-existing-folder-demo",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-failure",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-failure-retry",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-incomplete-package",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-r1q2",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-retail-import",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-target-subfolder",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "bootstrap-wizard",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "engine-update",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "repair",
+    "reason": "the fixture's engine package is a Windows Q2PRO (q2pro64.exe), so the Linux wizard shows no engine option",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "jobs-installation-busy",
+    "reason": "the engine update it drives needs an engine the Linux fixture does not offer (its engine package is a Windows build)",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "job-waits-for-running-game",
+    "reason": "the fixture demo installation's engine marker is r1q2.exe, which the Linux inspector rejects, so the upgrade ends installationNotPlayable",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "retail-upgrade",
+    "reason": "the fixture demo installation's engine marker is r1q2.exe, which the Linux inspector rejects, so the upgrade ends installationNotPlayable",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "replays-copy-in-not-writable",
+    "reason": "Linux stages the demo copy under Q2PRO's write dir, not the game-dir _launcher file the flow blocks, so no error shows",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "replays-fullscreen",
+    "reason": "the flow's guarded key presses assume the Windows control loop; Linux drives the engine over stdin and the press runs",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "replays-stage-follow",
+    "reason": "stage follow sets vid_geometry through the engine on Windows; Linux places the window through X11, so the command log stays empty",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "replays-stage-x11-unreachable",
+    "reason": "the flow assumes no X display, but the Linux run under xvfb has a reachable one, so no not-on-top notice shows",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  },
+  {
+    "flow": "replays-volume",
+    "reason": "a slider burst sends every s_volume command on Linux (stdin, no coalescing) where the Windows control loop sends fewer",
+    "story": "234",
+    "since": "S34",
+    "platform": "linux"
+  }
+]

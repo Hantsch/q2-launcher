@@ -52,7 +52,7 @@ replays,news,controls}.mjs` with a `VARIANTS: Record<name, writer>` map; no file
 - **`populated`/`empty` stay seeded one schema version behind, but explicitly.** The fixture's
   stale `STATE_SCHEMA_VERSION = 1` becomes `LEGACY_SEED_SCHEMA_VERSION = 1` plus an exported
   `LEGACY_SEED_VARIANTS` list; every other variant uses the shared current version. Reason: AC1
-  forbids migration *warnings* and dropped rows, not migrations, and seeding `populated` at the
+  forbids migration _warnings_ and dropped rows, not migrations, and seeding `populated` at the
   current version would mean hand-authoring the ~50 catalogue rows story 052 D6's migration
   materialises (see the comment block above `CONTROLS_SEED_SCHEMA_VERSION` in `fixture.mjs`).
 - **AC2's source is `src/shared/fixture-constants.json`** (the AC's own name), holding `stateFile`,

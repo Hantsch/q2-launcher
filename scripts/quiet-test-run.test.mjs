@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -43,7 +44,8 @@ describe('quiet test run', () => {
       env: childEnv(),
       encoding: 'utf8',
     })
-    const output = `${run.stdout}${run.stderr}`
+    // A runner that sets CI colours the summary labels, which would split `Test Files` from its count.
+    const output = stripVTControlCharacters(`${run.stdout}${run.stderr}`)
 
     expect(run.status, output).toBe(0)
     expect(output, output).toMatch(new RegExp(`Test Files\\s+${NOISY_SAMPLE.length} passed`))

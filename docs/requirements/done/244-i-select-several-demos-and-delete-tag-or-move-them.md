@@ -135,7 +135,7 @@ own ui:flow.
   `demo-file-ops.test.ts`) exports `createDemoFileOps({ scan, sessions, os, fs? })` with
   `delete(ids)` and `move(ids, targetDir)` → `Outcome<BulkOutcome>`. `BulkOutcome` and its item type
   are new in `src/shared/replays/bulk.ts`: per item `{ demoId, status: 'done'|'failed'|'skipped',
-  reasonKey, params? }`; the module is pure, with no node imports. Rules:
+reasonKey, params? }`; the module is pure, with no node imports. Rules:
   - Refuse the whole call with `replays.bulk.error.scanning` while `scan.isScanning()`.
   - Resolve every id via `scan.resolveFile`, never a path. Unknown id → failed `unknownDemo`.
     `archiveEntry !== null` → skipped `archiveEntry`. `sessions.isPlaying(id)` → skipped `playing`.
@@ -157,8 +157,8 @@ own ui:flow.
     `shell` to `Pick<…, 'trashItem'>`). Under the harness, move the path into
     `<userData>/harness-trash/` and record it (new `harnessTrashDir()` in `src/main/lib/ui-harness.ts`,
     next to `harnessRevealedPathsFilePath`); otherwise call `shell.trashItem`.
-  Tests: the names in Acceptance Tests for AC3, AC5, AC6, AC7, AC8, AC9, plus "a sidecar failure
-  moves the demo back" and "a cross-device move keeps the modification time".
+    Tests: the names in Acceptance Tests for AC3, AC5, AC6, AC7, AC8, AC9, plus "a sidecar failure
+    moves the demo back" and "a cross-device move keeps the modification time".
 
 - **D2 — Bulk tag service in main.** Extract `mergeTags(tags, add, remove)` into
   `src/shared/replays/sidecar-draft.ts`; `addTag`/`removeTag` call it, keeping the trim, 40-char,
@@ -184,13 +184,13 @@ own ui:flow.
   - `demos.move { demoIds, target: { kind: 'folder', folderId } | { kind: 'pick' } }` → `{ cancelled: true } | BulkOutcome`
   - `demos.tag { demoIds, add, remove }`
   - `demoFolder.delete { folderId }`
-  Register the handlers in `src/main/modules/replays/index.ts`, wiring D1–D3. `kind: 'pick'` calls a
-  new `DialogService.pickFolder()` (`src/main/services/dialog.ts` + test), whose harness stub reads
-  `uiHarnessPickedFolders(app.harness)`. A folder target is resolved and contained in main. Add typed
-  wrappers in `src/renderer/src/modules/replays/client.ts`. Update `docs/systems/replays-module.md`
-  (file actions: delete/move/tag/folder delete, trash rule, no-overwrite rule, skip rules).
-  Tests: `index.test.ts` › "bulk channels reject a payload carrying a path" and `dialog.test.ts` ›
-  "pickFolder returns the harness folder without opening a dialog".
+    Register the handlers in `src/main/modules/replays/index.ts`, wiring D1–D3. `kind: 'pick'` calls a
+    new `DialogService.pickFolder()` (`src/main/services/dialog.ts` + test), whose harness stub reads
+    `uiHarnessPickedFolders(app.harness)`. A folder target is resolved and contained in main. Add typed
+    wrappers in `src/renderer/src/modules/replays/client.ts`. Update `docs/systems/replays-module.md`
+    (file actions: delete/move/tag/folder delete, trash rule, no-overwrite rule, skip rules).
+    Tests: `index.test.ts` › "bulk channels reject a payload carrying a path" and `dialog.test.ts` ›
+    "pickFolder returns the harness folder without opening a dialog".
 
 - **D5 — Multi-select in the renderer.** New pure `src/renderer/src/modules/replays/selection.ts` (+
   test): `toggle`, `range(anchor, id, visibleOrder)`, `all(visibleOrder)`, `clear`, `prune(visible)`.
@@ -232,7 +232,7 @@ own ui:flow.
     count. For a root or a zip folder it is disabled with the reason as text.
   - All of these reuse D6/D7's dialogs and outcome.
   - Add one `CHANGELOG.md` line under Unreleased › Added.
-  Flow `scripts/flows/replays-demo-context-menu.mjs`.
+    Flow `scripts/flows/replays-demo-context-menu.mjs`.
 
 ## Model Hints
 
@@ -278,6 +278,7 @@ Verification (narrow gate): build, typecheck, lint green; `npx vitest run --chan
 AC -> test, all ran and passed: AC1 replays-multi-select + selection.test.ts; AC2/AC3/AC6/AC7 replays-bulk-delete + demo-file-ops.test.ts; AC4/AC5 replays-bulk-tag-move + demo-bulk-tags/demo-file-ops tests; AC8 demo-file-ops.test.ts; AC9 os.test.ts + demo-file-ops.test.ts (manual residue: real Windows Recycle Bin / Linux trash); AC10/AC11 replays-demo-context-menu + demo-folder-delete.test.ts. Review 1 (default): PASS with findings, fixed (checkbox focus vs Ctrl+A/Escape, keyboard toggle, stale comment, trailing story pointers, EOPNOTSUPP/ENOSYS copy fallback, failed-stay-selected test, "0 selected" bar, changelog); re-verified by unit tests + the two flows.
 
 Decisions:
+
 - `demos.move` takes a main-resolved absolute folder; reason keys are `replays.bulk.reason.<x>` (dynamic prefix allowlisted in the i18n keys test); whole-call refusals are toasts.
 - Single-demo delete/move go through the same `useBulkActions` pipeline and one confirmation path; rename dialog lifted into ReplaysView so panel and menu share it.
 - Folder rows had no menu: added one with Rename and "Delete folder…" (disabled with visible reason for roots and zip folders); `scan.removeFolder` prunes the folder list.

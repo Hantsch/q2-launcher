@@ -32,7 +32,7 @@ export function allSteps(workflows = loadWorkflows()) {
 const UI_FLOWS = join(WORKFLOWS_DIR, 'ui-flows.yml')
 
 describe('ui-flows workflow', () => {
-  test('ui-flows runs four shards on PRs into main and on dispatch only', () => {
+  test('ui-flows runs six shards on PRs into main and on dispatch only', () => {
     const doc = loadYaml(UI_FLOWS)
     // js-yaml (YAML 1.2 core) keeps `on` a string key.
     expect(Object.keys(doc.on).sort()).toEqual(['pull_request', 'workflow_dispatch'])
@@ -42,11 +42,11 @@ describe('ui-flows workflow', () => {
     expect(job['runs-on']).toBe('ubuntu-latest')
     expect(job['timeout-minutes']).toBe(20)
     expect(job.strategy['fail-fast']).toBe(false)
-    expect(job.strategy.matrix.shard).toEqual([1, 2, 3, 4])
+    expect(job.strategy.matrix.shard).toEqual([1, 2, 3, 4, 5, 6])
     const runs = job.steps.map((s) => String(s.run ?? ''))
     expect(
       runs.some((r) =>
-        /xvfb-run --auto-servernum npm run ui:flows -- --shard=\$\{\{ matrix\.shard \}\}\/4/.test(
+        /xvfb-run --auto-servernum npm run ui:flows -- --shard=\$\{\{ matrix\.shard \}\}\/6/.test(
           r,
         ),
       ),

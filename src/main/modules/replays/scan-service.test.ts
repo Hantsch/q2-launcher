@@ -651,7 +651,7 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
 
   it('a loose demo is read for one full pass, not two', async () => {
     const dir = await fixtureFolder()
-    const path = join(dir, 'good.dm2')
+    const path = await canonicalizePath(join(dir, 'good.dm2'))
     streamOpens.paths.length = 0
 
     const h = harness([dir], { parse: readDemoFacts })

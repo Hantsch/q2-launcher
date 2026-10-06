@@ -72,8 +72,7 @@ Users pick "Create new" from the rail, expect an install, and get an empty folde
   `InstallationsService.create()` stays, because the bootstrap job uses it.
 - The name field sits on the wizard's target step, above the folder. [[240]] derives the proposed
   subfolder from the name, so the name has to be set by the time the folder is chosen.
-- The default name comes from one pure helper, `defaultBootstrapInstallationName(engine,
-  dataSource)` in `src/shared/modules/downloads.ts`, which `bootstrap/job.ts` uses as well. The
+- The default name comes from one pure helper, `defaultBootstrapInstallationName(engine, dataSource)` in `src/shared/modules/downloads.ts`, which `bootstrap/job.ts` uses as well. The
   prefilled value then cannot differ from what main would have picked ("the current automatic name").
 - The name state is `nameDraft: string | null`. `null` follows the default, so it updates if the
   user goes back and switches the data source; once the user types, their value is kept.
@@ -116,11 +115,8 @@ depends on D1's `library-add` menu.
 - [x] **D1 — One add-installation entry list for rail and Library.**
       New `src/renderer/src/components/installations/useAddInstallationEntries.tsx`, which exports
       `useAddInstallationEntries(): MenuItem[]` (`MenuItem` from `components/ui/Menu.tsx`). The
-      entries come in this order:
-      - `add-existing`: label `common.action.addExistingInstallation`, opens `{ kind: 'add-existing' }`.
-      - `detect`: label `rail.autoDetect`, opens `{ kind: 'detect' }`.
-      - `new`: new key `addInstallation.new` = "New installation…", opens
-        `{ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' }`.
+      entries come in this order: - `add-existing`: label `common.action.addExistingInstallation`, opens `{ kind: 'add-existing' }`. - `detect`: label `rail.autoDetect`, opens `{ kind: 'detect' }`. - `new`: new key `addInstallation.new` = "New installation…", opens
+      `{ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' }`.
 
       Each entry gets a `hint` from new keys in `src/renderer/src/i18n/locales/en.shell.json`:
       - `addInstallation.hint.existing`: "Register a Quake II folder you already have."
@@ -147,6 +143,7 @@ depends on D1's `library-add` menu.
       › "new installation opens the downloads bootstrap wizard". The second test spies
       `useLauncher.getState().openDialog` and mirrors the store setup in
       `components/installations/RemoveInstallationDialog.test.tsx`.
+
 - [x] **D2 — Remove the empty-installation dialog and its orphaned text (renderer).**
       Delete `src/renderer/src/components/installations/CreateInstallationDialog.tsx` and
       `CreateInstallationDialog.test.ts`. Remove the `'create'` case from
@@ -166,6 +163,7 @@ depends on D1's `library-add` menu.
       › "no user-visible string claims downloading is not built". It walks the same `en` bundle
       that file already reads and fails on `/not built/i` or `/until the downloads module/i`.
       `npm test` stays green (the keys and duplicates tests).
+
 - [x] **D3 — Remove the `installations:create` IPC channel (shared + main).**
       Remove `'installations:create'` from `src/shared/ipc.ts` (map entry and channel list),
       `createInstallationInputSchema` from `src/shared/ipc-schemas.ts`, and its handler from
@@ -177,10 +175,10 @@ depends on D1's `library-add` menu.
       `'installations:create'` is not an invoke channel and that the registrar registers no
       handler for it; mirror that file's existing registration assertions. `npm run typecheck`
       proves no caller is left.
+
 - [x] **D4 — The wizard lets the user name the installation.**
       In `src/shared/modules/downloads.ts`, add the pure
-      `defaultBootstrapInstallationName(engine: EngineKind, dataSource: BootstrapDataSource):
-      string`. It returns `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` for `'free-download'` and
+      `defaultBootstrapInstallationName(engine: EngineKind, dataSource: BootstrapDataSource): string`. It returns `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` for `'free-download'` and
       `engineLabel(engine)` (from `@shared/types`) otherwise, exactly today's inline logic at
       `src/main/modules/downloads/bootstrap/job.ts:843-845`. Replace that inline logic with a call
       (`input.name?.trim() || defaultBootstrapInstallationName(input.engine, dataSource)`).
@@ -208,6 +206,7 @@ depends on D1's `library-add` menu.
       - `BootstrapWizard.test.tsx` › "a blank name keeps Next disabled on the target step".
       - The existing `src/main/modules/downloads/bootstrap/job.source-copy.test.ts` name cases stay
         green.
+
 - [x] **D5 — Existing flows open the wizard through the Library add menu.**
       In `scripts/lib/flow-common.mjs`, add
       `export async function openLibraryAddEntry(page, label, timeout = 8_000)`. It clicks
@@ -227,6 +226,7 @@ depends on D1's `library-add` menu.
       count. Acceptance: `npm run ui:flow -- bootstrap-wizard` and
       `npm run ui:flow -- bootstrap-r1q2` pass; grep finds no `library-download-install` under
       `scripts/`.
+
 - [x] **D6 — Retire the create-dialog surface from the harness.**
       In `scripts/flows/engine-not-client.mjs`, delete the create-dialog section (the
       `library-create` steps, the `create-dialog` shot, the engine-select assertion and its
@@ -239,24 +239,18 @@ depends on D1's `library-add` menu.
 
       Acceptance: `npm run ui:flow -- engine-not-client` passes, and `npm run ui:verify` reaches the
       detect screen.
+
 - [x] **D7 — Acceptance flow, systems doc and changelog.**
       Add `scripts/flows/add-installation-one-flow.mjs`. For `setup`/`teardown`, mirror
       `scripts/flows/bootstrap-wizard.mjs:105-140`: `writePopulatedFixture()`,
       `writeBootstrapTargetDir()`, `startBootstrapFixtureServer()`, and `Q2L_UI_PICK_FOLDER` set to
-      the target dir alone. Steps:
-      - (a) Open the rail's "Add an installation" button (`aside` + `getByRole('button', { name:
-        'Add an installation' })`) and read the `menuitem`s' first-line labels and hints. Press
-        Escape, then open `library-add` and read the same.
-      - Assert that both lists equal `['Add existing installation…', 'Search this PC…', 'New
-        installation…']`, that each hint is non-empty, and that no item matches `/create|empty/i`.
-      - (b) From the rail, choose "New installation…" and assert the dialog named "New
-        installation" with `bootstrap-engine-*` visible. Close it, then do the same from the
-        Library's menu.
-      - (c) Walk engine → free download → target: assert `bootstrap-name-input` reads "Q2PRO Demo",
-        fill "One Flow Quake", browse, Next, confirm-start. Wait for `bootstrap-running-step`
-        `data-status="succeeded"` (`JOB_TIMEOUT_MS` as in `bootstrap-wizard.mjs`) and dismiss.
-      - Assert that the Library card "One Flow Quake" exists (`libraryCard` from `flow-common.mjs`)
-        and that its Play button is enabled.
+      the target dir alone. Steps: - (a) Open the rail's "Add an installation" button (`aside` + `getByRole('button', { name: 'Add an installation' })`) and read the `menuitem`s' first-line labels and hints. Press
+      Escape, then open `library-add` and read the same. - Assert that both lists equal `['Add existing installation…', 'Search this PC…', 'New installation…']`, that each hint is non-empty, and that no item matches `/create|empty/i`. - (b) From the rail, choose "New installation…" and assert the dialog named "New
+      installation" with `bootstrap-engine-*` visible. Close it, then do the same from the
+      Library's menu. - (c) Walk engine → free download → target: assert `bootstrap-name-input` reads "Q2PRO Demo",
+      fill "One Flow Quake", browse, Next, confirm-start. Wait for `bootstrap-running-step`
+      `data-status="succeeded"` (`JOB_TIMEOUT_MS` as in `bootstrap-wizard.mjs`) and dismiss. - Assert that the Library card "One Flow Quake" exists (`libraryCard` from `flow-common.mjs`)
+      and that its Play button is enabled.
 
       Update `docs/systems/install-module.md`:
       - §8: "Launched from 'New installation…' in the rail '+' and the Library's add menu"; the

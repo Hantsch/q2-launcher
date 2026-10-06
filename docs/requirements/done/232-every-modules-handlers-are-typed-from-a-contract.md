@@ -107,126 +107,126 @@ flows listed under Acceptance Tests.
 ## Deliverables
 
 - [x] **D1 — Convert `library` (shared + main + client).**
-  `src/shared/modules/library.ts`: add `LIBRARY_HANDLER_SCHEMAS = { [LIBRARY_HANDLERS.stats]: z.void() }
+      `src/shared/modules/library.ts`: add `LIBRARY_HANDLER_SCHEMAS = { [LIBRARY_HANDLERS.stats]: z.void() }
 satisfies Record<…, ZodTypeAny>` and `LibraryContract` (`stats` → `res: LibraryStats`, events `{}`).
-  `src/main/modules/library/index.ts`: `defineModule<LibraryContract>('library',
+      `src/main/modules/library/index.ts`: `defineModule<LibraryContract>('library',
 LIBRARY_HANDLER_SCHEMAS).bind(setup)`; drop the inline `z.void()`. `src/renderer/src/modules/library/client.ts`:
-  `createModuleClient<LibraryContract>('library')`, `getLibraryStats` unchanged in name/signature.
-  Mirror `home.ts` / `home/index.ts` / `home/client.ts`. Test: new `src/shared/modules/library.test.ts`
-  › "LibraryContract req types are derived from LIBRARY_HANDLER_SCHEMAS" (`expectTypeOf`, mirror
-  `home.test.ts`) and › "LIBRARY_HANDLER_SCHEMAS has exactly one schema per LIBRARY_HANDLERS value";
-  existing `src/main/modules/library/stats.test.ts` stays green.
+      `createModuleClient<LibraryContract>('library')`, `getLibraryStats` unchanged in name/signature.
+      Mirror `home.ts` / `home/index.ts` / `home/client.ts`. Test: new `src/shared/modules/library.test.ts`
+      › "LibraryContract req types are derived from LIBRARY_HANDLER_SCHEMAS" (`expectTypeOf`, mirror
+      `home.test.ts`) and › "LIBRARY_HANDLER_SCHEMAS has exactly one schema per LIBRARY_HANDLERS value";
+      existing `src/main/modules/library/stats.test.ts` stays green.
 
 - [x] **D2 — `mods` contract + main half.**
-  Move every export of `src/main/modules/mods/schemas.ts` into `src/shared/modules/mods.ts` and
-  delete the main file (its only import, `isSafeGameName`, is already shared). Add
-  `MODS_HANDLER_SCHEMAS` (`satisfies`) for all 10 `MODS_HANDLERS` and `ModsContract` (`res` = the
-  value each handler in `src/main/modules/mods/index.ts` returns today, e.g. `ModsListResult`,
-  `{ jobId: string }`, `null`; events `{ [MODS_EVENTS.installDecision]: ModInstallDecisionEvent }`).
-  `src/main/modules/mods/index.ts`: `const { handle, emit } = defineModule<ModsContract>('mods',
+      Move every export of `src/main/modules/mods/schemas.ts` into `src/shared/modules/mods.ts` and
+      delete the main file (its only import, `isSafeGameName`, is already shared). Add
+      `MODS_HANDLER_SCHEMAS` (`satisfies`) for all 10 `MODS_HANDLERS` and `ModsContract` (`res` = the
+      value each handler in `src/main/modules/mods/index.ts` returns today, e.g. `ModsListResult`,
+      `{ jobId: string }`, `null`; events `{ [MODS_EVENTS.installDecision]: ModInstallDecisionEvent }`).
+      `src/main/modules/mods/index.ts`: `const { handle, emit } = defineModule<ModsContract>('mods',
 MODS_HANDLER_SCHEMAS).bind(setup)`; drop the schema imports. `catalog-schema.ts` stays in main.
-  Move `src/main/modules/mods/schemas.test.ts` → `src/shared/modules/mods.test.ts` (imports
-  re-pointed); `src/main/modules/mods/map-presence.test.ts` imports `mapPresenceInputSchema` from
-  `@shared/modules/mods`. `docs/systems/mods-module.md`: the `schemas.ts` line becomes the shared
-  contract + schema map. Tests: `src/shared/modules/mods.test.ts` › "ModsContract req types are
-  derived from MODS_HANDLER_SCHEMAS" and › "MODS_HANDLER_SCHEMAS has exactly one schema per
-  MODS_HANDLERS value"; existing `src/main/modules/mods/*.test.ts` stay green.
+      Move `src/main/modules/mods/schemas.test.ts` → `src/shared/modules/mods.test.ts` (imports
+      re-pointed); `src/main/modules/mods/map-presence.test.ts` imports `mapPresenceInputSchema` from
+      `@shared/modules/mods`. `docs/systems/mods-module.md`: the `schemas.ts` line becomes the shared
+      contract + schema map. Tests: `src/shared/modules/mods.test.ts` › "ModsContract req types are
+      derived from MODS_HANDLER_SCHEMAS" and › "MODS_HANDLER_SCHEMAS has exactly one schema per
+      MODS_HANDLERS value"; existing `src/main/modules/mods/*.test.ts` stay green.
 
 - [x] **D3 — `mods` client.**
-  `src/renderer/src/modules/mods/client.ts`: `createModuleClient<ModsContract>('mods')`; every
-  `callModule<…>` → `client.call(MODS_HANDLERS.x, …)`, `onModuleEvent<…>` → `client.on(MODS_EVENTS.installDecision, …)`;
-  keep passing the handler constants. Exported names/signatures unchanged; a signature the inferred
-  type proves wrong is corrected at its callers, never cast. Mirror `src/renderer/src/modules/home/client.ts`.
-  Tests: existing mods renderer tests (`src/renderer/src/modules/mods/**/*.test.ts*`) stay green.
+      `src/renderer/src/modules/mods/client.ts`: `createModuleClient<ModsContract>('mods')`; every
+      `callModule<…>` → `client.call(MODS_HANDLERS.x, …)`, `onModuleEvent<…>` → `client.on(MODS_EVENTS.installDecision, …)`;
+      keep passing the handler constants. Exported names/signatures unchanged; a signature the inferred
+      type proves wrong is corrected at its callers, never cast. Mirror `src/renderer/src/modules/home/client.ts`.
+      Tests: existing mods renderer tests (`src/renderer/src/modules/mods/**/*.test.ts*`) stay green.
 
 - [x] **D4 — `downloads` contract + main half.**
-  Move every export of `src/main/modules/downloads/schemas.ts` into `src/shared/modules/downloads.ts`
-  (it already imports only `@shared/schemas` and constants from that same file — drop the
-  self-import) and delete the main file. Manifest schemas (`src/main/services/content/manifest-schemas.ts`)
-  and `src/main/modules/downloads/persisted.ts` stay in main. Add `DOWNLOADS_HANDLER_SCHEMAS`
-  (`satisfies`) for all 20 `DOWNLOADS_HANDLERS` and `DownloadsContract` (`res` per handler from
-  `src/main/modules/downloads/index.ts`; events `{}`). `index.ts`: register via
-  `defineModule<DownloadsContract>('downloads', DOWNLOADS_HANDLER_SCHEMAS).bind(setup)`. Append
-  `src/main/modules/downloads/schemas.test.ts`'s cases to `src/shared/modules/downloads.test.ts`
-  and delete the main test. `docs/systems/install-module.md`: fix any mention of the main
-  `schemas.ts`. Tests: `downloads.test.ts` › "DownloadsContract req types are derived from
-  DOWNLOADS_HANDLER_SCHEMAS" and › "DOWNLOADS_HANDLER_SCHEMAS has exactly one schema per
-  DOWNLOADS_HANDLERS value"; existing `src/main/modules/downloads/**/*.test.ts` stay green.
+      Move every export of `src/main/modules/downloads/schemas.ts` into `src/shared/modules/downloads.ts`
+      (it already imports only `@shared/schemas` and constants from that same file — drop the
+      self-import) and delete the main file. Manifest schemas (`src/main/services/content/manifest-schemas.ts`)
+      and `src/main/modules/downloads/persisted.ts` stay in main. Add `DOWNLOADS_HANDLER_SCHEMAS`
+      (`satisfies`) for all 20 `DOWNLOADS_HANDLERS` and `DownloadsContract` (`res` per handler from
+      `src/main/modules/downloads/index.ts`; events `{}`). `index.ts`: register via
+      `defineModule<DownloadsContract>('downloads', DOWNLOADS_HANDLER_SCHEMAS).bind(setup)`. Append
+      `src/main/modules/downloads/schemas.test.ts`'s cases to `src/shared/modules/downloads.test.ts`
+      and delete the main test. `docs/systems/install-module.md`: fix any mention of the main
+      `schemas.ts`. Tests: `downloads.test.ts` › "DownloadsContract req types are derived from
+      DOWNLOADS_HANDLER_SCHEMAS" and › "DOWNLOADS_HANDLER_SCHEMAS has exactly one schema per
+      DOWNLOADS_HANDLERS value"; existing `src/main/modules/downloads/**/*.test.ts` stay green.
 
 - [x] **D5 — `downloads` client.**
-  `src/renderer/src/modules/downloads/client.ts`: `createModuleClient<DownloadsContract>('downloads')`;
-  all 20 `callModule<…>` → `client.call(DOWNLOADS_HANDLERS.x, …)`. Same rules as D3 (names and
-  signatures unchanged, no cast, mirror `home/client.ts`). Tests: existing downloads renderer tests
-  and `src/renderer/src/views/**` tests that use these functions stay green.
+      `src/renderer/src/modules/downloads/client.ts`: `createModuleClient<DownloadsContract>('downloads')`;
+      all 20 `callModule<…>` → `client.call(DOWNLOADS_HANDLERS.x, …)`. Same rules as D3 (names and
+      signatures unchanged, no cast, mirror `home/client.ts`). Tests: existing downloads renderer tests
+      and `src/renderer/src/views/**` tests that use these functions stay green.
 
 - [x] **D6 — Move config's request schemas to shared (mechanical, no contract yet).**
-  `git mv src/main/modules/config/schemas.ts src/shared/modules/config-schemas.ts`; its imports are
-  already all `@shared/...` (the `@shared/modules/config` import stays `import type`). No schema
-  body changes. Re-point imports: `src/main/modules/config/index.ts`,
-  `index.raw-files.test.ts`, `persisted.test.ts`, `profiles.ipc-schemas.test.ts`,
-  `schema-parity.test.ts` (to `@shared/modules/config-schemas`); `git mv
-  src/main/modules/config/schemas.test.ts src/shared/modules/config-schemas.test.ts`. Fix the
-  `schemas.ts` mention in the comment in `src/main/modules/config/picked-files.ts` and line ~41 of
-  `docs/systems/config-module.md` (request schemas now in shared; `persisted.ts` stays main).
-  Tests: `schema-parity.test.ts` snapshot unchanged (proves no schema behaviour moved), all
-  `src/main/modules/config/**` and `config-schemas.test.ts` green.
+      `git mv src/main/modules/config/schemas.ts src/shared/modules/config-schemas.ts`; its imports are
+      already all `@shared/...` (the `@shared/modules/config` import stays `import type`). No schema
+      body changes. Re-point imports: `src/main/modules/config/index.ts`,
+      `index.raw-files.test.ts`, `persisted.test.ts`, `profiles.ipc-schemas.test.ts`,
+      `schema-parity.test.ts` (to `@shared/modules/config-schemas`); `git mv
+src/main/modules/config/schemas.test.ts src/shared/modules/config-schemas.test.ts`. Fix the
+      `schemas.ts` mention in the comment in `src/main/modules/config/picked-files.ts` and line ~41 of
+      `docs/systems/config-module.md` (request schemas now in shared; `persisted.ts` stays main).
+      Tests: `schema-parity.test.ts` snapshot unchanged (proves no schema behaviour moved), all
+      `src/main/modules/config/**` and `config-schemas.test.ts` green.
 
 - [x] **D7 — `config` contract + main half.**
-  In `src/shared/modules/config-schemas.ts` add `CONFIG_HANDLER_SCHEMAS` (`satisfies Record<…,
+      In `src/shared/modules/config-schemas.ts` add `CONFIG_HANDLER_SCHEMAS` (`satisfies Record<…,
 ZodTypeAny>`, one entry per `CONFIG_HANDLERS` value — 35) importing `CONFIG_HANDLERS` as a value
-  from `./config`. In `src/shared/modules/config.ts` add `ConfigContract` with
-  `import type { CONFIG_HANDLER_SCHEMAS } from './config-schemas'` (`req` = `z.infer<typeof
+      from `./config`. In `src/shared/modules/config.ts` add `ConfigContract` with
+      `import type { CONFIG_HANDLER_SCHEMAS } from './config-schemas'` (`req` = `z.infer<typeof
 CONFIG_HANDLER_SCHEMAS[K]>`, `res` = the value each handler in `src/main/modules/config/index.ts`
-  returns today, including in-band `DomainResult` types; events `{}` — config emits none).
-  `src/main/modules/config/index.ts`: `defineModule<ConfigContract>('config',
+      returns today, including in-band `DomainResult` types; events `{}` — config emits none).
+      `src/main/modules/config/index.ts`: `defineModule<ConfigContract>('config',
 CONFIG_HANDLER_SCHEMAS).bind(setup)`, drop the per-handler schema imports; it must stay under its
-  600-line cap (`src/architecture.test.ts` LINE_CAPS). A mismatch the compiler finds is fixed in
-  the contract (or in main if main is wrong), not with a cast. Tests: new cases in
-  `src/shared/modules/config-schemas.test.ts` › "ConfigContract req types are derived from
-  CONFIG_HANDLER_SCHEMAS" (`expectTypeOf` on a representative set incl. `setSwitchBind`) and ›
-  "CONFIG_HANDLER_SCHEMAS has exactly one schema per CONFIG_HANDLERS value"; existing
-  `src/main/modules/config/**/*.test.ts` stay green.
+      600-line cap (`src/architecture.test.ts` LINE_CAPS). A mismatch the compiler finds is fixed in
+      the contract (or in main if main is wrong), not with a cast. Tests: new cases in
+      `src/shared/modules/config-schemas.test.ts` › "ConfigContract req types are derived from
+      CONFIG_HANDLER_SCHEMAS" (`expectTypeOf` on a representative set incl. `setSwitchBind`) and ›
+      "CONFIG_HANDLER_SCHEMAS has exactly one schema per CONFIG_HANDLERS value"; existing
+      `src/main/modules/config/**/*.test.ts` stay green.
 
 - [x] **D8 — `config` client.**
-  `src/renderer/src/modules/config/client.ts`: `createModuleClient<ConfigContract>('config')`; all
-  35 `callModule<…>` → `client.call(CONFIG_HANDLERS.x, …)`. Same rules as D3. Tests: existing
-  config renderer tests (`src/renderer/src/modules/config/**/*.test.ts*`) stay green.
+      `src/renderer/src/modules/config/client.ts`: `createModuleClient<ConfigContract>('config')`; all
+      35 `callModule<…>` → `client.call(CONFIG_HANDLERS.x, …)`. Same rules as D3. Tests: existing
+      config renderer tests (`src/renderer/src/modules/config/**/*.test.ts*`) stay green.
 
 - [x] **D9 — `replays` contract + main half.**
-  `src/shared/modules/replays.ts`: `REPLAYS_HANDLER_SCHEMAS` annotation → `satisfies`; add
-  `ReplaysContract` for all 33 handlers (`res` from `src/main/modules/replays/index.ts`) and the 4
-  `REPLAYS_EVENTS` payloads (`ReplaysPlaybackPosition`, `ReplaysPlaybackState`,
-  `ReplaysPlaybackDisplay`, `ReplaysScanProgress`). `src/main/modules/replays/index.ts`:
-  `defineModule<ReplaysContract>('replays', REPLAYS_HANDLER_SCHEMAS).bind(setup)`.
-  `scan-service.ts` (dep `emit`, ~:90) and `playback-control.ts` (~:38) type `emit` as
-  `BoundModule<ReplaysContract>['emit']` (mirror `src/main/modules/servers/scan-service.ts`); adjust
-  their tests' fake `emit` types only. `docs/systems/replays-module.md` line ~43: the shared file
-  also carries the contract. Tests: `src/shared/modules/replays.test.ts` › "ReplaysContract req
-  types are derived from REPLAYS_HANDLER_SCHEMAS"; existing `src/main/modules/replays/**/*.test.ts`
-  (incl. `stage.test.ts`'s schema identity check) stay green.
+      `src/shared/modules/replays.ts`: `REPLAYS_HANDLER_SCHEMAS` annotation → `satisfies`; add
+      `ReplaysContract` for all 33 handlers (`res` from `src/main/modules/replays/index.ts`) and the 4
+      `REPLAYS_EVENTS` payloads (`ReplaysPlaybackPosition`, `ReplaysPlaybackState`,
+      `ReplaysPlaybackDisplay`, `ReplaysScanProgress`). `src/main/modules/replays/index.ts`:
+      `defineModule<ReplaysContract>('replays', REPLAYS_HANDLER_SCHEMAS).bind(setup)`.
+      `scan-service.ts` (dep `emit`, ~:90) and `playback-control.ts` (~:38) type `emit` as
+      `BoundModule<ReplaysContract>['emit']` (mirror `src/main/modules/servers/scan-service.ts`); adjust
+      their tests' fake `emit` types only. `docs/systems/replays-module.md` line ~43: the shared file
+      also carries the contract. Tests: `src/shared/modules/replays.test.ts` › "ReplaysContract req
+      types are derived from REPLAYS_HANDLER_SCHEMAS"; existing `src/main/modules/replays/**/*.test.ts`
+      (incl. `stage.test.ts`'s schema identity check) stay green.
 
 - [x] **D10 — `replays` client.**
-  `src/renderer/src/modules/replays/client.ts`: `createModuleClient<ReplaysContract>('replays')`;
-  every `callModule<…>` → `client.call(REPLAYS_HANDLERS.x, …)`, the four `onModuleEvent<…>` →
-  `client.on(REPLAYS_EVENTS.x, …)`. Same rules as D3. Tests: existing replays renderer tests stay
-  green.
+      `src/renderer/src/modules/replays/client.ts`: `createModuleClient<ReplaysContract>('replays')`;
+      every `callModule<…>` → `client.call(REPLAYS_HANDLERS.x, …)`, the four `onModuleEvent<…>` →
+      `client.on(REPLAYS_EVENTS.x, …)`. Same rules as D3. Tests: existing replays renderer tests stay
+      green.
 
 - [x] **D11 — Close the gates + docs.**
-  `src/renderer/src/modules/handler-coverage.test.ts`: delete `CONVERTED`; rename the second case
-  to › "every module client is built with createModuleClient" — for every `./*/client.ts` in the
-  glob: contains `createModuleClient<`, does not match `/\bcallModule\b/`, `/\bonModuleEvent\b/`
-  or `/as Outcome/`. `src/main/modules/handler-coverage.test.ts`: `DECLARED` typed
-  `Record<Exclude<ModuleId, 'assets'>, readonly string[]>` (no `Partial`, no `?? []`; narrow `id`
-  in the `it.each`); add › "every module's main half binds defineModule" (for each `MODULES` id,
-  `src/main/modules/<id>/index.ts` contains `defineModule<` and no `setup(...)` destructuring of
-  `handle`, i.e. not `/setup\(\{[^}]*\bhandle\b/`); add › "request schemas live in shared,
-  persisted and manifest schemas in main" (no `src/main/modules/*/schemas.ts` exists;
-  `src/main/modules/{config,downloads,replays}/persisted.ts`, `src/main/modules/mods/catalog-schema.ts`,
-  `src/main/services/content/manifest-schemas.ts` exist). `docs/ARCHITECTURE.md`: drop the
-  "main-only `schemas.ts` … planned in story 232" sentence (~126), say every module is
-  contract-typed (~328), drop "replays' client still calls `callModule`/`onModuleEvent` (planned in
-  story 232)" (~410). `src/main/modules/architecture-doc.test.ts` › "the module seam has no
-  unconverted-module remnants" (doc contains neither `planned in story 232` nor `not-yet-converted`).
+      `src/renderer/src/modules/handler-coverage.test.ts`: delete `CONVERTED`; rename the second case
+      to › "every module client is built with createModuleClient" — for every `./*/client.ts` in the
+      glob: contains `createModuleClient<`, does not match `/\bcallModule\b/`, `/\bonModuleEvent\b/`
+      or `/as Outcome/`. `src/main/modules/handler-coverage.test.ts`: `DECLARED` typed
+      `Record<Exclude<ModuleId, 'assets'>, readonly string[]>` (no `Partial`, no `?? []`; narrow `id`
+      in the `it.each`); add › "every module's main half binds defineModule" (for each `MODULES` id,
+      `src/main/modules/<id>/index.ts` contains `defineModule<` and no `setup(...)` destructuring of
+      `handle`, i.e. not `/setup\(\{[^}]*\bhandle\b/`); add › "request schemas live in shared,
+      persisted and manifest schemas in main" (no `src/main/modules/*/schemas.ts` exists;
+      `src/main/modules/{config,downloads,replays}/persisted.ts`, `src/main/modules/mods/catalog-schema.ts`,
+      `src/main/services/content/manifest-schemas.ts` exist). `docs/ARCHITECTURE.md`: drop the
+      "main-only `schemas.ts` … planned in story 232" sentence (~126), say every module is
+      contract-typed (~328), drop "replays' client still calls `callModule`/`onModuleEvent` (planned in
+      story 232)" (~410). `src/main/modules/architecture-doc.test.ts` › "the module seam has no
+      unconverted-module remnants" (doc contains neither `planned in story 232` nor `not-yet-converted`).
 
 ## Model Hints
 
@@ -297,6 +297,7 @@ Verification (narrow gate): `npm run build`, `lint`, `typecheck` green; `npx vit
 AC -> test as verified: AC1 the Contract/"exactly one schema per" tests in library/mods/downloads/config-schemas/replays shared test files; AC2 main "every module's main half binds defineModule" + renderer "every module client is built with createModuleClient"; AC3 "every module registers exactly its declared handlers" + "every handler constant is referenced by its module's client"; AC4 "request schemas live in shared, persisted and manifest schemas in main" + unchanged schema-parity snapshot; AC5 flows + typecheck. No manual residue. D11 doc test "the module seam has no unconverted-module remnants" passed.
 
 Decisions:
+
 - `ConfigContract.setActions.req` is `SetProfileActionsInput` (readonly slots), not `z.infer`: typecheck rejected the mutable inferred type; a `toExtend` assertion pins schema output as assignable to it.
 - Removed `expect(markers.length).toBeGreaterThan(0)` in architecture-doc.test.ts: no `planned in story` markers remain, so it could never pass.
 - A persisted-schema describe block moved from config-schemas.test.ts into main persisted.test.ts (shared cannot import main).

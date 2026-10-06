@@ -344,3 +344,4 @@ second roadmap.
 - 247 — I filter servers by maximum ping · S34 · Max ping select (< 50 to < 200 ms) filters live servers, saved in quick filters, same in Online and LAN
 - 250 — Scan now refreshes only the servers my filter shows · S34 · filter active: "Refresh N shown" re-queries just the visible servers, chevron menu keeps Scan all; LAN re-queries known rows only
 - 248 — I filter servers by several mods at once · S34 · mod and map filters are multi-select (any-of), quick filters store the sets and legacy single-mod rows load as a set of one
+- 234 — release verification and CI rehearsals run before a merge to main · S34 · `npm run rehearse` runs verify:release, ci:local and ci:local:flows detached with a timed record; real run green, 20 Linux flows quarantined, ui-flows in 6 shards (<= 820 s)

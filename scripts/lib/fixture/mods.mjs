@@ -23,6 +23,9 @@ import {
 import { makeInstallation } from './installations.mjs'
 import { REPLAYS_PLAY_MISSING_MOD, writeReplaysPlayFixture } from './replays-play.mjs'
 
+/** The platform a mod library variant must name to match the running host. */
+const HOST_PLATFORM = process.platform === 'win32' ? 'win32' : 'linux'
+
 // --- story 190 D7: the mods-install fixture ------------------------------------------------------
 
 /** Expected bytes per gamedir-relative path - what `fixturemod`'s win32/x86 library variant (and, for
@@ -89,7 +92,7 @@ export function modsInstallManifestEntries({ library, content, bad }, baseUrl) {
   return [
     entry('fixturemod', 'Fixture Install Mod', {
       variants: [
-        { platform: 'win32', arch: 'x86', packages: [pkg('fixturemod-win32-x86', library)] },
+        { platform: HOST_PLATFORM, arch: 'x86', packages: [pkg('fixturemod-win32-x86', library)] },
       ],
       contentOnly: { packages: [pkg('fixturemod-content', content)] },
     }),
@@ -166,7 +169,7 @@ export function buildModsReplaysPackage() {
 /** `action` is always listed; `opentdm` only with `withOpentdm`. Each entry carries a library variant
  * for this host (both arches, so the stub engine's header decides nothing) plus a content-only set. */
 export function modsReplaysManifestEntries(info, baseUrl, withOpentdm) {
-  const platform = process.platform === 'win32' ? 'win32' : 'linux'
+  const platform = HOST_PLATFORM
   const pkg = (id) => ({
     id,
     version: 'v1.0.0',
@@ -268,7 +271,7 @@ export function writeModsRemoveFixture() {
       variantId: `${gameDir}-win32-x86`,
       engineKind: 'r1q2',
       arch: 'x86',
-      platform: 'win32',
+      platform: HOST_PLATFORM,
       contentOnly: false,
       installedAt: Date.parse(FIXED_TIMESTAMP),
       files: Object.entries(files).map(([path, bytes]) => ({
@@ -384,7 +387,7 @@ export function modsUpdateManifestEntries(mods, baseUrl) {
         prerelease: false,
         variants: [
           {
-            platform: 'win32',
+            platform: HOST_PLATFORM,
             arch: 'x86',
             packages: [pkg(`${gamedir}-win32-x86`, info, wrongSha)],
           },
@@ -425,7 +428,7 @@ export function writeModsUpdateFixture() {
       variantId: `${gameDir}-win32-x86`,
       engineKind: 'r1q2',
       arch: 'x86',
-      platform: 'win32',
+      platform: HOST_PLATFORM,
       contentOnly: false,
       installedAt: Date.parse(FIXED_TIMESTAMP),
       files: Object.entries(files).map(([path, bytes]) => ({

@@ -127,7 +127,7 @@ export function bootstrapStagingDir() {
 
 /** The vendored extractor - the same binary the app spawns (`7za-path.ts`, its dev branch). */
 export function vendoredSevenZaPath() {
-  return join(REPO_ROOT, 'resources', 'bin', '7za.exe')
+  return join(REPO_ROOT, 'resources', 'bin', process.platform === 'win32' ? '7za.exe' : '7zz')
 }
 
 /** True when that binary is present; the flow refuses to pretend an extraction happened without it. */

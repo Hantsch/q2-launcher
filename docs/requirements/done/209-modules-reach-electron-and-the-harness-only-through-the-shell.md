@@ -366,6 +366,7 @@ Commit message: `209: modules reach electron/harness only via app (os, displays,
 Verification (narrow gate): build, typecheck, lint, `npx vitest run --changed HEAD` (205 files) green; full `npm test` after the review fix green (521 files, 6492 passed); flows harness-offscreen, mods-detail, replays-demo-file-actions, replays-stage, replays-stage-follow, replays-cinema, replays-cinema-unavailable, bootstrap-retail-import, retail-upgrade, mods-install, engine-update, servers-master-sources, news-feed, servers-lan-mode all OK. AC1-AC6 map to the named tests in Acceptance Tests; all ran and passed. No manual residue. Review: default + story-review-hard, both PASS after one fix cycle (stage 1: loose architecture regexes, over-wide shell-layering exemption, stale path references; stage 2: doc/comment/name findings only, fixed; that comment-only follow-up got no third review).
 
 Decisions:
+
 - Test names as run: "primary and all list the screen displays"; the allowlist test is "a main module imports another module only through an allowlisted edge" (208's name). Acceptance Tests lines updated.
 - displays.ts: a `null`-anchored rect scales by the display the rect sits on (getDisplayMatching), not always the primary, so `virtualDesktopRightEdge` stays identical on mixed-DPI desktops (the spec's "primary" wording would have changed it).
 - `onPrimaryDisplay`/`geometryAt` read the snapshot (last un-minimized content bounds) instead of live outer bounds: identical for the frameless window, benign while minimized.

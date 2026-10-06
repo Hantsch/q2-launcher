@@ -268,6 +268,7 @@ AC -> test: AC1-AC9 as mapped in Acceptance Tests, all ran and passed; the AC1 u
 Review: default stage, PASS with findings; fixed sides refusal visible, InPlaceField revert/in-flight/unmount, stale comments, blur test.
 
 Decisions:
+
 - Editor's own replace dialog removed (would have duplicated the view's one dialog).
 - Old draft `cancelEdit` renamed `cancelDraftEdit` in D2, deleted in D4 with the draft API.
 - Name field is a large title-size `InPlaceField` (`size="title"`); `replays-demo-detail` flow now measures the name input.

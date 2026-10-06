@@ -99,30 +99,26 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       complete this request."). Reuse `Outcome`/`LocalizedMessage`/`Refusal` from
       `src/shared/types/common.ts`; promote the shape of
       `src/renderer/src/modules/home/components/useTileData.ts` (read held in a ref, data kept across
-      reload) — do not copy it, D3 turns that file into an alias of this one.
-      - `useModuleQuery<T>(read: () => Promise<Outcome<T>>, options?: { subscribe?: (push: (value: T) => void) => () => void; deps?: unknown[] })`
-        → `{ state: 'loading' | 'error' | 'success'; data: T | undefined; error: LocalizedMessage | null; reload: () => void; setData: (next: T) => void }`.
-        `read`/`subscribe` identities are read from refs (inline arrows allowed); the effect re-runs on
-        `deps` (default `[]`) and on `reload()`. Each run has a generation number: a response of an
-        older generation, or arriving after unmount, is dropped. `subscribe` is called once per
-        `deps` cycle and its unsubscribe runs on cleanup; a push sets `data`, `state: 'success'`,
-        and makes a still-pending read of the same cycle be dropped. `Outcome` failure → `error =
-        outcome.error`; rejected promise → `error = { key: 'ipc.error.unreachable' }`. `data`
-        survives reload/error. `setData` applies main's returned value directly.
-      - `useModuleMutation<I, R>(apply: (input: I) => Promise<Outcome<R>>, toKey?: (refusal: Extract<R, { ok: false }>) => LocalizedMessage)`
-        → `{ run: (input: I) => Promise<R | undefined>; busy: boolean; error: LocalizedMessage | null; clearError: () => void }`.
-        `run` clears `error`, sets `busy`, awaits; transport failure → `error = outcome.error`,
-        resolves `undefined`; a value with `ok === false` is a refusal → `error = toKey(value)`
-        (default `{ key: value.reasonKey, params: value.params }` when `params` present), resolves the
-        value; rejected promise → `ipc.error.unreachable`, resolves `undefined`. No state update after
-        unmount.
-      - Tests (`renderHook` from `@testing-library/react`; StrictMode via `wrapper`): "query: unmount
-        before resolve drops the result and unsubscribes", "query: StrictMode double mount reads,
-        subscribes and settles once", "query: a transport failure becomes error and keeps data",
-        "query: a push beats a later-resolving read", "query: a stale reload response is dropped",
-        "mutation: a refused mutation sets the mapped error and resolves the refusal", "mutation: a
-        transport failure sets the outcome error and resolves undefined", "mutation: busy is true while
-        in flight", "mutation: unmount before resolve sets no state".
+      reload) — do not copy it, D3 turns that file into an alias of this one. - `useModuleQuery<T>(read: () => Promise<Outcome<T>>, options?: { subscribe?: (push: (value: T) => void) => () => void; deps?: unknown[] })`
+      → `{ state: 'loading' | 'error' | 'success'; data: T | undefined; error: LocalizedMessage | null; reload: () => void; setData: (next: T) => void }`.
+      `read`/`subscribe` identities are read from refs (inline arrows allowed); the effect re-runs on
+      `deps` (default `[]`) and on `reload()`. Each run has a generation number: a response of an
+      older generation, or arriving after unmount, is dropped. `subscribe` is called once per
+      `deps` cycle and its unsubscribe runs on cleanup; a push sets `data`, `state: 'success'`,
+      and makes a still-pending read of the same cycle be dropped. `Outcome` failure → `error = outcome.error`; rejected promise → `error = { key: 'ipc.error.unreachable' }`. `data`
+      survives reload/error. `setData` applies main's returned value directly. - `useModuleMutation<I, R>(apply: (input: I) => Promise<Outcome<R>>, toKey?: (refusal: Extract<R, { ok: false }>) => LocalizedMessage)`
+      → `{ run: (input: I) => Promise<R | undefined>; busy: boolean; error: LocalizedMessage | null; clearError: () => void }`.
+      `run` clears `error`, sets `busy`, awaits; transport failure → `error = outcome.error`,
+      resolves `undefined`; a value with `ok === false` is a refusal → `error = toKey(value)`
+      (default `{ key: value.reasonKey, params: value.params }` when `params` present), resolves the
+      value; rejected promise → `ipc.error.unreachable`, resolves `undefined`. No state update after
+      unmount. - Tests (`renderHook` from `@testing-library/react`; StrictMode via `wrapper`): "query: unmount
+      before resolve drops the result and unsubscribes", "query: StrictMode double mount reads,
+      subscribes and settles once", "query: a transport failure becomes error and keeps data",
+      "query: a push beats a later-resolving read", "query: a stale reload response is dropped",
+      "mutation: a refused mutation sets the mapped error and resolves the refusal", "mutation: a
+      transport failure sets the outcome error and resolves undefined", "mutation: busy is true while
+      in flight", "mutation: unmount before resolve sets no state".
 - [x] **D2 — servers first wave.** Rewrite on D1's hooks (`src/renderer/src/lib/useModuleQuery.ts`):
       `src/renderer/src/modules/servers/useQuickFilters.ts` (query `listQuickFilters`; mutations
       save/rename/remove via `useModuleMutation`, `setData(result.list)` on `ok`; public
@@ -177,9 +173,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       `changeMode`, `refresh/refreshFavourites/refreshServer(address)`, `rereadEntries()`. One-shot
       reads use D1's `useModuleQuery`; the coalesced streaming read may keep one local
       cancellation flag (it is listed in Done). Move the toolbar JSX (~484–563) into `ServersToolbar`
-      (props: scan state, mode, lan, sort caption, handlers). Wrap `sortedRows = useMemo(() =>
-      sortServerRows(entries, sort ?? undefined), [entries, sort])` and `visible = useMemo(() =>
-      filterServers(sortedRows, filter), [sortedRows, filter])`. Shorten the 100-line doc comment
+      (props: scan state, mode, lan, sort caption, handlers). Wrap `sortedRows = useMemo(() => sortServerRows(entries, sort ?? undefined), [entries, sort])` and `visible = useMemo(() => filterServers(sortedRows, filter), [sortedRows, filter])`. Shorten the 100-line doc comment
       above `ServersView` to the view's current responsibilities (history moves nowhere — it is in
       git). Tests: `useServerScan.test.ts` › "the mount resets to online before announcing the view
       open", "a burst of scan.server pushes queues at most one trailing read", "LAN rows never
@@ -209,8 +203,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       `src/renderer/src/components/unlock/UnlockCodePanel.tsx`,
       `src/renderer/src/components/about/AboutPanel.tsx`,
       `src/renderer/src/components/installations/RunnerSection.tsx` (two queries,
-      `deps: [installation.id]`), `src/renderer/src/modules/home/HomeView.tsx` (`subscribe:
-      onNewsChanged`), `src/renderer/src/modules/home/dashboard/Dashboard.tsx`,
+      `deps: [installation.id]`), `src/renderer/src/modules/home/HomeView.tsx` (`subscribe: onNewsChanged`), `src/renderer/src/modules/home/dashboard/Dashboard.tsx`,
       `src/renderer/src/modules/downloads/DownloadsSettingsSection.tsx`,
       `src/renderer/src/modules/downloads/retail/RetailUpgradeDialog.tsx`. Reads returning a raw
       value via `invoke` are wrapped `async () => ok(await invoke(…))`; a seeding side effect (first

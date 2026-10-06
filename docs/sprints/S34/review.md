@@ -5,30 +5,31 @@
 Goal: the five open codebase-health drafts from the S32 review are closed (typed module handlers, a flow gate
 without quarantine, release verification before a merge to main, shutdown/store/job edge cases, no known holes in
 the layer and error-key rules), and the demo browser, the add-installation flow and the server browser carry the
-refinements from the latest user feedback. 18 of 19 stories are done on `sprint/S34`; story 234 is blocked (its
-real rehearsal needs Docker). The merge into `dev` is the user's decision (see Blocked / open).
+refinements from the latest user feedback. All 19 stories are done on `sprint/S34`; story 234 (the real rehearsal)
+finished after the sprint review and the gate (see Regression gate). The merge into `dev` is the user's decision (see
+Blocked / open).
 
-| Story                               | Status  | Commit                                                                                                              |
-| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| 232 typed module handlers           | done    | a4ebaba `defineModule` + `createModuleClient` for library/mods/downloads/config/replays; 7152267 comment-rule fix   |
-| 236 layer and error-key holes       | done    | fd0773c electron-backed edges, builtin list, literal key records, comment paths, unlock feature fallback            |
-| 235 shutdown, store, job edges      | done    | 32165ac cinema dispose, required migrations, `setEngineState`, `commitAdoption` failure, race + quitAndInstall pins |
-| 233 flow gate without quarantine    | done    | b00cee1 empty quarantine, `--repeat`, fixture-owned downloads cache, `--affected` selection                         |
-| 234 release verification, rehearse  | blocked | b547f37 WIP: D1 detached `npm run rehearse` runner and D3 sprint note done; D2 real rehearsal not run (Docker down) |
-| 245 players by team                 | done    | e192187 roster from the dm2 frame pass, OpenTDM + CTF, spectators group                                             |
-| 243 detail edited in place          | done    | f3e9724 queued fresh-read edits, `InPlaceField`, `SidesField`                                                       |
-| 242 demos in folders                | done    | 271d56d recursive discovery, folder view + breadcrumb, search across folders, create/rename folder, drag-move       |
-| 238 list scoped to installation     | done    | 7510b37 `reachedBy`, "All installations" toggle, empty states, `demoFolders.read`                                   |
-| 244 select several demos            | done    | f208e0a multi-select, bulk delete/tag/move, folder delete, row context menu                                         |
-| 241 comment a moment                | done    | 541bd55 sidecar comments, detail list, timeline marks, play from here                                               |
-| 237 demo volume slider              | done    | 9260377 slider + mute, coalesced `s_volume`, restored after the session, remembered level                           |
-| 239 one add-installation flow       | done    | c278482 shared entry list, wizard names the installation, empty-create removed                                      |
-| 240 install folder shown first      | done    | 1079255 `bootstrap.proposeTarget`, subfolder + free name, install-here, job mkdir + empty-root cleanup              |
-| 249 pick mod and map                | done    | d1d0aa5 "Play with..." dialog, map listing from loose/pak/pkz, remembered launch, `+map` args                       |
-| 246 choose an engine                | done    | eb7f7e4 inspector lists all engines, chosen engine persisted, Engine chips, demos play with a detected Q2PRO        |
-| 247 maximum ping filter             | done    | ad581fd `maxPingMs` in filter + quick filters, Max ping select                                                      |
-| 250 scan only what the filter shows | done    | 489ad6d `addresses` scan scope, "Refresh N shown" + Scan all menu                                                   |
-| 248 several mods at once            | done    | dc6fa0d `MultiSelect` primitive, mod/map as sets, legacy quick filters load as a set of one                         |
+| Story                               | Status | Commit                                                                                                               |
+| ----------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
+| 232 typed module handlers           | done   | a4ebaba `defineModule` + `createModuleClient` for library/mods/downloads/config/replays; 7152267 comment-rule fix    |
+| 236 layer and error-key holes       | done   | fd0773c electron-backed edges, builtin list, literal key records, comment paths, unlock feature fallback             |
+| 235 shutdown, store, job edges      | done   | 32165ac cinema dispose, required migrations, `setEngineState`, `commitAdoption` failure, race + quitAndInstall pins  |
+| 233 flow gate without quarantine    | done   | b00cee1 empty quarantine, `--repeat`, fixture-owned downloads cache, `--affected` selection                          |
+| 234 release verification, rehearse  | done   | b547f37 D1 detached `npm run rehearse` runner, D3 note; real rehearsal PASSED 2026-10-06, 20 Linux flows quarantined |
+| 245 players by team                 | done   | e192187 roster from the dm2 frame pass, OpenTDM + CTF, spectators group                                              |
+| 243 detail edited in place          | done   | f3e9724 queued fresh-read edits, `InPlaceField`, `SidesField`                                                        |
+| 242 demos in folders                | done   | 271d56d recursive discovery, folder view + breadcrumb, search across folders, create/rename folder, drag-move        |
+| 238 list scoped to installation     | done   | 7510b37 `reachedBy`, "All installations" toggle, empty states, `demoFolders.read`                                    |
+| 244 select several demos            | done   | f208e0a multi-select, bulk delete/tag/move, folder delete, row context menu                                          |
+| 241 comment a moment                | done   | 541bd55 sidecar comments, detail list, timeline marks, play from here                                                |
+| 237 demo volume slider              | done   | 9260377 slider + mute, coalesced `s_volume`, restored after the session, remembered level                            |
+| 239 one add-installation flow       | done   | c278482 shared entry list, wizard names the installation, empty-create removed                                       |
+| 240 install folder shown first      | done   | 1079255 `bootstrap.proposeTarget`, subfolder + free name, install-here, job mkdir + empty-root cleanup               |
+| 249 pick mod and map                | done   | d1d0aa5 "Play with..." dialog, map listing from loose/pak/pkz, remembered launch, `+map` args                        |
+| 246 choose an engine                | done   | eb7f7e4 inspector lists all engines, chosen engine persisted, Engine chips, demos play with a detected Q2PRO         |
+| 247 maximum ping filter             | done   | ad581fd `maxPingMs` in filter + quick filters, Max ping select                                                       |
+| 250 scan only what the filter shows | done   | 489ad6d `addresses` scan scope, "Refresh N shown" + Scan all menu                                                    |
+| 248 several mods at once            | done   | dc6fa0d `MultiSelect` primitive, mod/map as sets, legacy quick filters load as a set of one                          |
 
 Also on the branch: `d73d2ff` (the regression fixes found by the gate, see Regression gate). Base `2e0adb5` (sprint start,
 clarification answers and the refine of the 19 stories).
@@ -46,8 +47,10 @@ clarification answers and the refine of the 19 stories).
   transport failures are pinned by tests.
 - **233** — the quarantine list is empty; `ui:flows` takes `--repeat=<n>`, flow files and `--affected[=<ref>]`
   (changed files to flows via testid derivation and `scripts/flows/areas.json`); the fixture owns `cache/downloads/`.
-- **234** — blocked, see below: D1 and D3 are done (`npm run rehearse` runs detached with a status record; sprint
-  README note); D2 (the real run and the quarantine triage of Linux-only red flows) is not run.
+- **234** — `npm run rehearse` runs `verify:release`, `ci:local` and `ci:local:flows` detached with a status record;
+  the real rehearsal (record `.rehearsal/20261006-073931`) PASSED after six real runs, each red triaged. The `ui-flows`
+  workflow now runs 6 shards (was 4, 973-1147 s each); 20 Linux flows are quarantined; the sprint README says when
+  the rehearsal runs.
 - **245** — the roster (teams, spectators) is read in the existing `.dm2` frame pass and stored on the index row;
   the detail lists players per team with a POV mark and a closed spectators group; search matches teams and players.
 - **243** — one detail view, no Edit/Save/Cancel: `InPlaceField` per text field, live `TagInput`, `SidesField`; every
@@ -110,10 +113,22 @@ red because earlier stories of the same sprint changed what a later story's flow
 and 246 each saw those reds in their narrow runs and recorded them as "pre-existing, not ours"; the cause was a
 story of the same sprint, so a red named in a narrow run should be attributed before it is waved through.
 
-**Review outcomes.** All 18 reviews ran at the default tier, so the hard-review question does not apply. Default
+**Review outcomes.** All 19 reviews ran at the default tier, so the hard-review question does not apply. Default
 reviews returned FAIL on real defects in three stories and each was fixed in its cycle: 242 (breadcrumb hidden at the
 top level, dead keyboard sensor), 239 (stale text; the fix was verified but not re-reviewed) and 248 (a11y gaps,
-invalid UTF-8 in `CHANGELOG.md`).
+invalid UTF-8 in `CHANGELOG.md`). 234 returned PASS with minor findings, fixed in one cycle; its cosmetic leftover
+is TD-048.
+
+**Story 234 after the confirmation gate.** The 234 work (about 5 h wall time, because a rehearsal run takes 17-24
+min) happened after the sprint review and changed about 100 format-only files, 4 flows (`replays-stop`,
+`replays-volume`, `replays-date-filter`, `mods-install`) and `quarantine.json` after the confirmation gate (169/169 on
+`d73d2ff`). The final tree had narrow checks only (typecheck, lint, `prettier --check`, targeted vitest and the
+touched flows on Windows), not a third full `e2e-all`. What the six real runs found and fixed on the branch:
+`prettier --check` was red on 99 files (reformatted), `fetch-7za` wrote a CRLF licence, `scan-service.test` (TEMP),
+`quiet-test-run.test` (ANSI) and `map-list.test` (case-sensitive paths) were red on Linux, `.actrc` no longer sets
+`--use-gitignore=false`, the extractor path is `7zz`, the mods fixture follows the host platform, the stub engine
+takes its parent pid. Rehearsal numbers: `verify:release` 1029 s, `ci:local` 270 s, `ci:local:flows` 1412 s; six
+shards 685/682/820/664/747/666 s against the 900 s limit.
 
 **Process observations**
 
@@ -134,7 +149,8 @@ invalid UTF-8 in `CHANGELOG.md`).
 - 235 → TD-036 (guard test sanity, implicit quit order, installer vs 3 s shutdown); 243 → TD-037 (tag and sides edges)
 - 244 → TD-038 (duplicated folder-pick walk, plain rename, no size total); 241 → TD-039 (refused vs failed on retry)
 - 233 → TD-040 (flow-select test strength, usage header), TD-043 (`--affected` over-selects); 236 → TD-041 (circular
-  test)
+  test); 234 → TD-047 (20 Linux quarantines, 12 a Windows-engine fixture limitation, staleness deadline S38), TD-048
+  (`win32` variant ids in the mods fixture)
 - 239, 240, 247, 248, 249, 250 → TD-042 (flows missing from `areas.json`); 240, 237 → TD-044 (Linux/non-root paths
   unrun on this host)
 - 237, 238, 244 → TD-045 (replays doc condensed); doc misses of the module-doc check → TD-046 (below)
@@ -155,13 +171,11 @@ a `RawFileTab` comment path). All other stories touched their module's doc: 245,
 
 ## Blocked / open
 
-- **Story 234 (blocked).** D1 and D3 are done; D2, the real `npm run rehearse` with triage of Linux-only red flows,
-  could not run because the Docker daemon is down on this machine. The story stays `in-progress`; no clean-agent review
-  ran. **Question for the user:** start Docker Desktop so D2 can be re-run (`npm run rehearse`, poll `-- --status`).
-  AC3's GitHub half (real-runner shard times under 20 minutes and `windows-verify` green on `windows-latest`) needs a
-  PR or workflow dispatch, which is the user's step, not an agent's.
+- **Story 234, AC3 GitHub half.** Real-runner shard times under 20 minutes and `windows-verify` green on
+  `windows-latest` need a PR or workflow dispatch, which is the user's step, not an agent's.
 - Merging `sprint/S34` into `dev` is the user's decision (pushes and pull requests are not done by agents).
 - The manual residue in `testplan.md` (244 AC9, 237, 234 AC3 GitHub half).
+- The 20 Linux quarantine entries are due a fix by S38 (TD-047).
 - Nine overdue TECH-DEBT rows (above).
 
 ## Regression gate
@@ -190,6 +204,10 @@ per-failure verdicts also in [sprint.md](sprint.md#regression-gate).
   (`+set s_volume` token). **Fixed** in the flows.
 - Quarantine: `scripts/flows/quarantine.json` stays `[]`, nothing quarantined, no unexpected pass.
 - Unattributed / blockers: none. The confirmation did not re-run the whole `npm test`, only the four red files.
+- Story 234 rehearsal, after the gate: PASSED (`.rehearsal/20261006-073931`: `verify:release` 1029 s, `ci:local` 270 s,
+  `ci:local:flows` 1412 s; shards 685/682/820/664/747/666 s). It changed about 100 format-only files, 4 flows and
+  `quarantine.json` after the 169/169 confirmation; the final tree had narrow checks only (typecheck, lint,
+  `prettier --check`, targeted vitest, the touched flows on Windows), not a third full `e2e-all`.
 
 ## Acceptance
 
@@ -212,8 +230,10 @@ Every criterion below has a named automated test (listed in full in each story's
 - **233** — AC1 flow `mods-view`; AC2 flow-gate "--repeat…" + `replays-mod-warning --repeat=20` 20/20; AC3
   `fixture-layout` test + flows `downloads-tab`, `settings-downloads-section`; AC4 five `flow-select` tests +
   flow-gate "flow file paths and --affected…"; AC5 quarantine `[]` + the gate's 169/169.
-- **234** — D1/D3 only: the rehearsal, flow-gate (linux-scoped entry not expected to fail on win32), docs-facts,
-  workflows tests; AC2 and AC3 are not proven (blocked).
+- **234** — AC1 `scripts/rehearsal.test.mjs` (launcher returns at once, failing command, missing Docker) + the
+  rehearsal record `.rehearsal/20261006-073931` (PASSED); AC2 `scripts/flow-gate.test.mjs` (linux-scoped entry) + the 20
+  entries in `quarantine.json` + `ci:local:flows` passed with them applied; AC3 `scripts/rehearsal.test.mjs` (shard
+  parser, margin) + six shards at most 820 s of 900 (GitHub half is residue); AC4 `scripts/docs-facts.test.mjs`.
 - **245** — AC1/AC6 flow `replays-detail-teams` + `DemoPlayersPanel.test.tsx`; AC2/AC3/AC8 `dm2-roster.test.ts` +
   flow; AC4 `dm2-roster.test.ts`, `effective-values.test.ts`, `DemoPlayersPanel.test.tsx` (component level only); AC5
   `effective-values.test.ts` + flow; AC7 `dm2-roster.test.ts` budget + `scan-service.test.ts` one-pass.
@@ -259,7 +279,7 @@ Every criterion below has a named automated test (listed in full in each story's
   `harness-trash/` and never touches the OS trash.
 - 237 — hearing the volume change on a real Q2PRO with an audio device: the stub engine has no sound.
 - 234 AC3, GitHub half — real-runner shard times and `windows-verify` green on `windows-latest`: it needs a PR or a
-  workflow dispatch, which is the user's step. (D2 itself is blocked, not residue.)
+  workflow dispatch, which is the user's step.
 
 **Criteria covered below the real surface**
 
@@ -268,6 +288,8 @@ Every criterion below has a named automated test (listed in full in each story's
   Space are proven in the flow. The Linux `q2config.cfg` path is unrun on this host ([TD-044](../../TECH-DEBT.md)).
 - 240 — "a subfolder of a non-writable parent is not writable" is `skipIf` on Windows/root.
 - 249 — `.pkz` tests self-skip without the vendored 7-Zip.
+- 234 AC2 — 20 flows are quarantined on Linux rather than fixed, 12 of them for a Windows-engine fixture limitation
+  ([TD-047](../../TECH-DEBT.md)); the rehearsal ran them under Docker, not on a real Linux desktop.
 - 232, 236, 233 — structural criteria (one contract, import direction, key records) are proven by source-scanning
   tests; their flows are regression proof.
 
@@ -277,30 +299,31 @@ Fixed lines for 235 and 236. No entry was missing and none was added late. 232, 
 
 ## Tier record
 
-| Story     | Ds         | hard Ds | review       | cycles | agents  | build min |
-| --------- | ---------- | ------- | ------------ | ------ | ------- | --------- |
-| 232       | 11         | 1       | default      | 1      | 16      | 31        |
-| 236       | 6          | 0       | default      | 1      | 8       | 8         |
-| 235       | 7          | 1       | default      | 0      | 9       | 12        |
-| 233       | 5          | 1       | default      | 1      | 7       | 40        |
-| 234       | 3 (2 done) | 1       | not run      | —      | 2       | 10        |
-| 245       | 5          | 1       | default      | 1      | 9       | 39        |
-| 243       | 5          | 1       | default      | 1      | 9       | 52        |
-| 242       | 10         | 1       | default      | 1      | 19      | 156       |
-| 238       | 4          | 1       | default      | 1      | 10      | 106       |
-| 244       | 8          | 1       | default      | 1      | 13      | 85        |
-| 241       | 4          | 1       | default      | 1      | 9       | 58        |
-| 237       | 4          | 1       | default      | 1      | 11      | 61        |
-| 239       | 7          | 0       | default      | 1      | 10      | 44        |
-| 240       | 5          | 1       | default      | 1      | 8       | 37        |
-| 249       | 6          | 1       | default      | 1      | 11      | 25        |
-| 246       | 6          | 1       | default      | 1      | 10      | 49        |
-| 247       | 3          | 0       | default      | 1      | 5       | 17        |
-| 250       | 3          | 1       | default      | 1      | 6       | 25        |
-| 248       | 4          | 0       | default      | 1      | 7       | 34        |
-| **Total** | **106**    | **15**  | 0 hard of 18 | 17     | **179** | **~889**  |
+| Story     | Ds      | hard Ds | review       | cycles | agents  | build min |
+| --------- | ------- | ------- | ------------ | ------ | ------- | --------- |
+| 232       | 11      | 1       | default      | 1      | 16      | 31        |
+| 236       | 6       | 0       | default      | 1      | 8       | 8         |
+| 235       | 7       | 1       | default      | 0      | 9       | 12        |
+| 233       | 5       | 1       | default      | 1      | 7       | 40        |
+| 234       | 3       | 1       | default      | 1      | 3       | ~310      |
+| 245       | 5       | 1       | default      | 1      | 9       | 39        |
+| 243       | 5       | 1       | default      | 1      | 9       | 52        |
+| 242       | 10      | 1       | default      | 1      | 19      | 156       |
+| 238       | 4       | 1       | default      | 1      | 10      | 106       |
+| 244       | 8       | 1       | default      | 1      | 13      | 85        |
+| 241       | 4       | 1       | default      | 1      | 9       | 58        |
+| 237       | 4       | 1       | default      | 1      | 11      | 61        |
+| 239       | 7       | 0       | default      | 1      | 10      | 44        |
+| 240       | 5       | 1       | default      | 1      | 8       | 37        |
+| 249       | 6       | 1       | default      | 1      | 11      | 25        |
+| 246       | 6       | 1       | default      | 1      | 10      | 49        |
+| 247       | 3       | 0       | default      | 1      | 5       | 17        |
+| 250       | 3       | 1       | default      | 1      | 6       | 25        |
+| 248       | 4       | 0       | default      | 1      | 7       | 34        |
+| **Total** | **106** | **15**  | 0 hard of 19 | 18     | **180** | **~1190** |
 
 Refine took 11 min (19 in parallel) plus the user's question round; the gate took about 5 minutes of short suites, 65
-and 65.5 minutes of `ui:flows` and about 30 minutes of attribution and fixes. All 18 reviews ran at the default tier
+and 65.5 minutes of `ui:flows` and about 30 minutes of attribution and fixes. The 234 build minutes are about 5 h of
+wall time, mostly rehearsal runs of 17-24 min each, plus 10 min before. All 19 reviews ran at the default tier
 and no second-stage hard review ran, so there is no evidence this sprint on whether the hard tier earns its place
 (default reviews alone caught the real defects in 242, 239 and 248).

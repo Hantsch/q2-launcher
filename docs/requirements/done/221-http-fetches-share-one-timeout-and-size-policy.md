@@ -201,6 +201,7 @@ Commit message: `221: http fetches share one timeout/size policy (lib/http.ts fe
 Verification (narrow gate): `npm run build`, `typecheck`, `lint` green; `npx vitest run --changed HEAD` green (47 files / 555 tests); no e2e line by design (`e2e-all` is the sprint's gate). AC1-AC5 mapped tests all ran and passed (http.test.ts x5, source-resolution hanging-source, http-list-source truncated, content-repo and bleeding-edge timeout tests, feed/image/scan-runner/net-fetcher files green). AC5 checked in review of the diff. No manual residue. Review: stage 1 FAIL on test quality, fixed (2 cycles), second review PASS.
 
 Decisions:
+
 - Story paths mapped to current locations: `fetcher.ts` is `src/main/lib/net/fetcher.ts` (import `../http`), manifest service in `src/main/services/content/`.
 - Tests that faked responses as plain objects without a body stream (manifest-service, catalog-service, engine-options, downloads index, content-repo, bleeding-edge, source-resolution) had their response helpers changed to real `new Response(...)`, assertions unchanged, because `fetchWithPolicy` reads the body stream; the story's "unmodified" list only held for scan-runner, net/fetcher, feed and image tests.
 - Image fetcher: the size cap now applies while reading, before the content-type check, so an oversized body with a bad content-type is `rejected` for size; both outcomes are `rejected`.

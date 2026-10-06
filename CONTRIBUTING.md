@@ -113,9 +113,9 @@ Things the `ci:local*` scripts cannot tell you (`verify:release` handles the
 first two), each of which has produced a green local run over a red CI one:
 
 - they run your branch, but a PR's checks run on its **merge into main**.
-- act copies your **working tree**, not the commit (`.actrc`'s
-  `--use-gitignore=false`), so untracked and ignored files are present here and
-  absent on GitHub.
+- act copies your **working tree**, not the commit, so uncommitted edits and
+  untracked files are present here and absent on GitHub (ignored files are
+  skipped, as in a checkout).
 - your machine is faster, and its locale is probably not the runner's. Two
   tests currently fail on a German Windows and pass on CI, because
   `formatRelativeTime()` renders in the system locale.

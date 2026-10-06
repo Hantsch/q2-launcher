@@ -46,7 +46,11 @@ async function load(harness: boolean) {
   const { rendererWebPreferences } = await import('./window-shared')
   const { resolveUiHarness } = await import('./lib/ui-harness')
   const harnessGate = resolveUiHarness(process.env)
-  return { service: createCinemaWindow(harnessGate, { kind: 'scheme' }), rendererWebPreferences, harnessGate }
+  return {
+    service: createCinemaWindow(harnessGate, { kind: 'scheme' }),
+    rendererWebPreferences,
+    harnessGate,
+  }
 }
 
 describe('cinema window', () => {

@@ -88,12 +88,11 @@ export type Refusal<R extends string = string> = {
 
 /** A domain result: success carrying `T` (bare success: `Record<never, never>`) or a `Refusal`. */
 export type DomainResult<T extends object, R extends string = string> =
-  | ({ ok: true } & T)
-  | Refusal<R>
+  ({ ok: true } & T) | Refusal<R>
 
 export function refuse<R extends string>(
   reasonKey: R,
-  params?: Record<string, string | number>
+  params?: Record<string, string | number>,
 ): Refusal<R> {
   return params ? { ok: false, reasonKey, params } : { ok: false, reasonKey }
 }

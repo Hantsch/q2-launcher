@@ -356,6 +356,7 @@ Commit message: `201: ordered awaited shutdown, persist-failure retry + toast, o
 Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` 177 files / 2111 tests green; `npm run ui:flow -- <name>` green for `quit-persists-state` and all 21 flows D2-D4 migrated (`settings-downloads-section` needs a fresh `npm run ui:seed` when run after other flows: fixture pollution, not a regression). Review 1 (default tier): PASS. AC -> test as verified: AC1 shutdown.test.ts + flow; AC2 registry/servers/downloads tests; AC3 replays index.test.ts; AC4 persistence.test.ts + per-owner tests; AC5 json-store/state/shutdown tests; AC6 state.test.ts; AC7 flow `quit-persists-state`. No manual residue.
 
 Decisions:
+
 - `withApp` got an `expectExit` opt-out (`scripts/lib/harness.mjs`, read from a flow's `export const expectExit` by `scripts/flow.mjs`), because a flow that quits the app would otherwise fail its "still alive" check.
 - Plan gap: replays listeners subscribe lazily, so the "twice" test plays a demo (and triggers a stop) in each registry; cinema/stage-follow disposal is proven by their helper tests (reviewer note: not at module level).
 - Added D9b: `playback-stop.ts` also leaked a `launch.onStateChange` listener; now `dispose()`d via `onDispose`.

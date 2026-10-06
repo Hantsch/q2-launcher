@@ -76,8 +76,7 @@ Affected: `src/renderer/src/components/ui/MultiSelect.tsx` (new), `src/shared/se
 ## Deliverables
 
 - [x] **D1 — `MultiSelect` UI-kit primitive.** New `src/renderer/src/components/ui/MultiSelect.tsx`
-      plus `MultiSelect.test.tsx`. Props: `label` (accessible name, the field label), `options:
-      string[]`, `value: string[]`, `onChange(next: string[])`, `summaryCount: (n) => string` (caller's
+      plus `MultiSelect.test.tsx`. Props: `label` (accessible name, the field label), `options: string[]`, `value: string[]`, `onChange(next: string[])`, `summaryCount: (n) => string` (caller's
       "N mods"), `data-testid` (on the trigger; options get `${testid}-option`). Behaviour:
       options rendered = `options` plus every `value` entry with no case-insensitive match in
       `options`, appended in `value` order; an option is checked when `value` contains it
@@ -109,11 +108,8 @@ Affected: `src/renderer/src/components/ui/MultiSelect.tsx` (new), `src/shared/se
       `ServerListFilter.mod`/`.map` to `string[]` (`EMPTY_SERVER_LIST_FILTER` → `[]`); keep every
       other field, including any added earlier in the sprint (story 247), untouched.
       `isFilterActive`/`hasCriteria`: a set is active when non-empty. `matchesFilter`: when `mod` is
-      non-empty the row passes if `equalsIgnoreCase(row.mod, m)` for any `m`; same for `map`; fields
-      still AND together. `sameCriteria`: mod/map equal as lower-cased sets (order, duplicates
-      ignored). `criteriaOf`/`applyCriteria` copy arrays. In `quickFilterCriteriaSchema` replace
-      `mod`/`map` with `z.preprocess(v => typeof v === 'string' ? [v] : v === null ? [] : v,
-      z.array(z.string()))` and a one-line comment naming the legacy scalar (story 248); the
+      non-empty the row passes if `equalsIgnoreCase(row.mod, m)` for any `m`; same for `map`; fields still AND together. `sameCriteria`: mod/map equal as lower-cased sets (order, duplicates ignored). `criteriaOf`/`applyCriteria` copy arrays. In `quickFilterCriteriaSchema` replace
+      `mod`/`map` with `z.preprocess(v => typeof v === 'string' ? [v] : v === null ? [] : v, z.array(z.string()))` and a one-line comment naming the legacy scalar (story 248); the
       `.strict()` object and `.refine(hasCriteria)` stay, so a legacy `{ mod: null, … all false }`
       row is still dropped as before. Bridge in `src/renderer/src/modules/servers/ServerListFilterBar.tsx`
       only so typecheck stays green: the two `Select`s read `filter.mod[0] ?? ''` and write `[]`/
@@ -141,8 +137,7 @@ Affected: `src/renderer/src/components/ui/MultiSelect.tsx` (new), `src/shared/se
 
 - [x] **D4 — real-surface proof, flows migrated, docs.** Files: `scripts/lib/servers-flow.mjs`
       (add `setMultiFilter(page, testId, values)` — opens the trigger, sets exactly `values` by
-      clicking `${testId}-option` entries by text, closes with Escape — and `readMultiFilter(page,
-      testId)` — opens, returns the `aria-selected="true"` option texts, closes),
+      clicking `${testId}-option` entries by text, closes with Escape — and `readMultiFilter(page, testId)` — opens, returns the `aria-selected="true"` option texts, closes),
       `scripts/flows/servers-filter-search.mjs` and `scripts/flows/servers-quick-filters.mjs`
       (replace every `selectOption`/`inputValue` on `servers-filter-mod`/`servers-filter-map` with
       the helpers; assertions on persisted `criteria.mod` become arrays; the seeded legacy
@@ -194,6 +189,7 @@ duplicate keys, thin keyboard tests) — all fixed and re-verified. Not fixed: t
 local case-insensitive helper copies.
 
 Decisions:
+
 - `servers-multi-filter` is not registered in `scripts/flows/areas.json`: both servers rows already hold 12 flows (cap); it runs via `ui:flows` all and by name.
 - Trigger Enter opens the listbox in addition to Space/ArrowDown (native-select muscle memory).
 - Trigger `aria-label` is "{label}: {summary}" so the closed selection is exposed.

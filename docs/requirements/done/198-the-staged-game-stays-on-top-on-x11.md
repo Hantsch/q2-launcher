@@ -117,7 +117,7 @@ raise the window. So on X11 the game is never on top and keeps its window-manage
 
 On X11 main itself does what Q2PRO's `win_*` cvars do on Windows: a minimal hand-written X11 client
 finds the game's window by PID (X-Resource) and sets `_NET_WM_STATE_ABOVE` / `_MOTIF_WM_HINTS`. The
-follower keeps owning *when* the game is on top; on X11 its decision goes to the keeper instead of a
+follower keeps owning _when_ the game is on top; on X11 its decision goes to the keeper instead of a
 console line. Order (bottom-up, each D testable alone):
 
 1. **D1** — X11 wire codec + Xauthority parser (pure, byte fixtures from the X11/XRes specs).
@@ -142,7 +142,7 @@ Real-X behaviour (AC1–AC4) is manual residue on the tester's X11 machine (User
   `src/main/modules/replays/x11/xauth.ts`, tests `wire.test.ts` / `xauth.test.ts` next to them. Pure
   functions, no I/O, `Buffer` in/out, little-endian byte order (`'l'`):
   - `encodeSetupRequest(authName, authData)`; `decodeSetupReply(buf)` → `{ status, resourceIdBase,
-    resourceIdMask, roots: [{ root }] }` (skip vendor string and pixmap formats with 4-byte padding;
+resourceIdMask, roots: [{ root }] }` (skip vendor string and pixmap formats with 4-byte padding;
     a failed/authenticate status yields its reason string).
   - Requests (each padded to 4 bytes, length field in 4-byte units): `InternAtom` (opcode 16,
     only-if-exists=0), `GetProperty` (20), `ChangeProperty` (18, mode Replace, format 32),
@@ -155,9 +155,9 @@ Real-X behaviour (AC1–AC4) is manual residue on the tester's X11 machine (User
   - `xauth.ts`: `parseXauthority(buf)` (big-endian 16-bit length-prefixed family/address/number/
     name/data records) and `pickCookie(entries, { hostname, display })` → MIT-MAGIC-COOKIE-1 data or
     null (family Local 256 matches the hostname; FamilyWild 65535 matches any).
-  Tests: **byte fixtures written by hand from the X11 protocol / XRes 1.2 spec** (never produced by
-  this encoder), one per request and per reply/error shape, plus padding edges (name lengths 0..4)
-  and a truncated/garbled packet → typed failure, never a throw.
+    Tests: **byte fixtures written by hand from the X11 protocol / XRes 1.2 spec** (never produced by
+    this encoder), one per request and per reply/error shape, plus padding edges (name lengths 0..4)
+    and a truncated/garbled packet → typed failure, never a throw.
 
 - **D2 — X11 connection.** New `src/main/modules/replays/x11/connection.ts` + `connection.test.ts`.
   `connectX11({ env, readFile, hostname, createSocket?, timeoutMs = 2000 })` → `Promise<Outcome<X11Connection>>`.
@@ -173,7 +173,7 @@ Real-X behaviour (AC1–AC4) is manual residue on the tester's X11 machine (User
 
 - **D3 — the stage window keeper.** New `src/main/modules/replays/x11/stage-window.ts` +
   `stage-window.test.ts`. `createX11StageWindow({ connect: () => Promise<Outcome<X11Connection>>,
-  pid: () => number | undefined, onFailure: (cause: string) => void, now?, setTimeout?, clearTimeout? })`
+pid: () => number | undefined, onFailure: (cause: string) => void, now?, setTimeout?, clearTimeout? })`
   → `{ setTop(top: 0 | 1): Outcome<void>; placed(geometry: string): void; dispose(): void }`.
   - Starts at once: connect; `QueryExtension("X-Resource")` (absent → failure); intern
     `_NET_CLIENT_LIST`, `_NET_WM_STATE`, `_NET_WM_STATE_ABOVE`, `_MOTIF_WM_HINTS`.
@@ -189,11 +189,11 @@ Real-X behaviour (AC1–AC4) is manual residue on the tester's X11 machine (User
     an unchanged value sends nothing); `placed` only records the geometry.
   - Any connect/X error → `onFailure(cause)` exactly once, then everything is a no-op; `dispose()`
     stops polling and closes the connection without calling `onFailure`.
-  Tests with a fake `X11Connection` (records requests, answers with canned replies): AC5 — windows of
-  other PIDs never receive ChangeProperty/ConfigureWindow/SendEvent, and with `pid()` undefined
-  nothing is touched; AC2 — Motif hints then ConfigureWindow to the latest geometry; AC1/AC3 —
-  setTop 1/0 sends add/remove with the ABOVE atom, cached before discovery; AC6 — connect fail,
-  no X-Resource, deadline passed, X error each call `onFailure` once; dispose is silent.
+    Tests with a fake `X11Connection` (records requests, answers with canned replies): AC5 — windows of
+    other PIDs never receive ChangeProperty/ConfigureWindow/SendEvent, and with `pid()` undefined
+    nothing is touched; AC2 — Motif hints then ConfigureWindow to the latest geometry; AC1/AC3 —
+    setTop 1/0 sends add/remove with the ABOVE atom, cached before discovery; AC6 — connect fail,
+    no X-Resource, deadline passed, X error each call `onFailure` once; dispose is silent.
 
 - **D4 — seams in the stage/follower/cinema logic.** Files: `src/main/modules/replays/stage.ts`,
   `stage-follow.ts`, `stage-follow-session.ts`, `cinema-controller.ts` and their `*.test.ts`.
@@ -208,10 +208,10 @@ Real-X behaviour (AC1–AC4) is manual residue on the tester's X11 machine (User
   - `stage-follow-session.ts`: `begin({ geometry, rect, windowState? })` passes it to the follower.
   - `cinema-controller.ts`: `CinemaControllerDeps.raiseOverlay?: () => void`, called once right after
     `window.open()` resolved with cinema still active (before `emitDisplay`); absent → nothing.
-  Tests: selector table (linux x11 → x11; linux Wayland → none; win32 → none; win32 + harness x11 →
-  x11; harness wayland → none); follower with `windowState` sends no `win_alwaysontop` line and
-  forwards focus 1/0 and geometry; follower without it unchanged (AC7); pinned follower never calls
-  `setTop`; cinema raises after open and not when left during load.
+    Tests: selector table (linux x11 → x11; linux Wayland → none; win32 → none; win32 + harness x11 →
+    x11; harness wayland → none); follower with `windowState` sends no `win_alwaysontop` line and
+    forwards focus 1/0 and geometry; follower without it unchanged (AC7); pinned follower never calls
+    `setTop`; cinema raises after open and not when left during load.
 
 - **D5 — main wiring and contract.** Files: `src/shared/modules/replays.ts`,
   `src/main/modules/replays/playback-control.ts` (+ test), `src/main/modules/replays/index.ts`,
@@ -228,9 +228,9 @@ Real-X behaviour (AC1–AC4) is manual residue on the tester's X11 machine (User
     and passes it as `windowState`; the session end disposes the keeper and clears the notice. The
     cinema controller gets `raiseOverlay: () => app.cinemaWindow.raise()` only on this path. On
     `'none'` nothing of this is constructed (AC7).
-  Tests: `playback-control.test.ts` — `display()` carries `stageNotice` (null by default, the dep's
-  value otherwise); `cinema-window.test.ts` — `raise()` calls `moveTop` on an open overlay, nothing
-  when closed.
+    Tests: `playback-control.test.ts` — `display()` carries `stageNotice` (null by default, the dep's
+    value otherwise); `cinema-window.test.ts` — `raise()` calls `moveTop` on an open overlay, nothing
+    when closed.
 
 - **D6 — renderer notice, i18n, flow, changelog.** Files:
   `src/renderer/src/modules/replays/playback-store.ts` (+ its test),
@@ -246,8 +246,8 @@ Real-X behaviour (AC1–AC4) is manual residue on the tester's X11 machine (User
     `vid_geometry` (stage placed). Screenshot `stage-x11-not-on-top`.
   - `CHANGELOG.md` `## Unreleased` → `### Fixed`: "**Demos** — On Linux X11 the staged demo stays on
     top of the launcher, borderless."
-  Test: store test — a display event with `stageNotice` shows it as `stageReason`; `null` keeps a
-  Wayland reason.
+    Test: store test — a display event with `stageNotice` shows it as `stageReason`; `null` keeps a
+    Wayland reason.
 
 ## Model Hints
 
@@ -298,6 +298,7 @@ On X11 main now keeps the staged game on top itself: a hand-written X11 client (
 Commit: `198: X11 stage window keeper (above + borderless via X-Resource PID), cinema overlay raise, not-on-top notice`
 
 Verification (narrow gate: build, typecheck, lint, `npx vitest run --changed HEAD` 1440 green, `npm run ui:flow -- replays-stage-x11-unreachable|replays-stage-follow|replays-stage-unavailable` all green; review default + hard, 2 fix cycles, final replays suite re-run green). Pre-existing prettier red on cinema-window.test.ts and this story file (also on HEAD).
+
 - AC1-AC4: unit tests green (x11/stage-window.test.ts, stage-follow.test.ts, cinema-controller.test.ts, cinema-window.test.ts, wire.test.ts); real-WM effect is manual residue: needs a real X server/WM (user Q5, no Xvfb harness).
 - AC5: stage-window.test.ts (only the X-Resource-PID window is changed; no pid -> nothing touched). AC6: flow replays-stage-x11-unreachable + stage-window.test.ts + connection.test.ts (missing DISPLAY). AC7: stage.test.ts, stage-follow.test.ts, flow replays-stage-follow. AC8: stage.test.ts, flow replays-stage-unavailable.
 - Acceptance Tests names: tests are named after behaviour, not "story 198: ..." as the plan wrote (project rule).

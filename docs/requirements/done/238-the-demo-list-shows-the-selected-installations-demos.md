@@ -132,7 +132,7 @@ Order D1 → D2 → D3 → D4. Systems doc `docs/systems/replays-module.md` is u
 
 - **D3 — the list is scoped to the rail's installation, with an "All installations" toggle.** New pure
   `src/shared/replays/list-scope.ts`: `type DemoListScope = { kind: 'installation'; installationId: string }
-  | { kind: 'all' } | { kind: 'none' }` and `scopeDemoRows(rows, scope)`: `all` → every row; `none` → `[]`;
+| { kind: 'all' } | { kind: 'none' }` and `scopeDemoRows(rows, scope)`: `all` → every row; `none` → `[]`;
   `installation` → rows with `source.kind === 'extraFolder'` or whose `reachedBy ?? [source.installationId]`
   contains the id; never copies or alters a row (same objects, so sidecar data is identical). Test
   `src/shared/replays/list-scope.test.ts` › "scoping keeps the active installation's and extra-folder rows",
@@ -230,11 +230,13 @@ Coverage: AC1 → D1+D3 · AC2 → D3 · AC3 → D3 · AC4 → D4 · AC5 → D2+
 **Commit message:** `238: demo list scoped to the selected installation — reachedBy, All-installations toggle, empty states, demoFolders.read`
 
 **Verification** (narrow gate; `test-story` = `npx vitest run --changed HEAD`, green 175 files/1512 tests; comments + architecture green; build/typecheck/lint green).
+
 - e2e: `--affected` selected 132 flows (too many for one call, `scripts/lib` touched), so the 3 new flows plus every `replays-*` flow (56) ran in batches: all green on a freshly seeded fixture (two fix rounds). Non-replays flows selected by `--affected` were not run; the sprint's full gate covers them.
 - AC1: flow replays-installation-scope + discovery.test "a Q2PRO write dir shared by two installations is reached by both" + list-scope.test; AC2/AC3: flow + ReplaysView.test; AC4: flows replays-list-empty, replays-scope-empty, replays-scope-none-selected + list-state.test; AC5: flow replays-scope-empty + ReplaysListStatus.test + discovery.test (demo folders); AC6: flow + list-scope.test + demo-rename.test. All passed. No manual residue.
 - Flows share the `populated` fixture; run in a loop without reseed, `replays-rename`/`demo-file-actions` leave a persisted search that reds later flows (pre-existing hygiene issue; `ui:flows` reseeds per flow).
 
 **Decisions.**
+
 - D1 also reuses the first walk of a root already scanned (`scannedRoots`): story 242's visited-set made the second installation sharing `~/.q2pro` see only top-level files.
 - `scan-service.toRow` takes `reachedBy` from fresh discovery on cache hits; index cache version bumped.
 - Flows needing the union list use `openAllDemos` / `showAllInstallations` (shared helper in `replays-copy-in.mjs`); with the toggle on, roots read "<installation> · <gameDir>".

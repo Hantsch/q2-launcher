@@ -122,7 +122,7 @@ platform-specific — Windows and Linux both get the feature.
   "launch input refuses map together with connect".
 - **D2 — Pak entries with offsets, and a bounded BSP title reader.** Files:
   `src/main/lib/pak-directory.ts` (result `{ ok: true; names: string[]; entries: Array<{ name;
-  offset; length }> }` — additive, `names` unchanged so `map-presence.ts` keeps working; offset and
+offset; length }> }` — additive, `names` unchanged so `map-presence.ts` keeps working; offset and
   length are the int32s after the 56-byte name), new `src/main/lib/bsp-title.ts`
   (`readBspTitle(path: string, base = 0, limit?: number): Promise<string | undefined>`; reads the
   BSP header at `base` — `IBSP`, version 38, lump 0 = entities `{ofs,len}` relative to `base` —
@@ -161,14 +161,14 @@ platform-specific — Windows and Linux both get the feature.
   `src/main/modules/mods/install-records.ts` (add `readLastLaunch(moduleData)` →
   `{ gameDir: string; map: string | null; gameType: 'deathmatch' | 'single' } | null`, parsed with
   zod and `.catch(null)`, `gameDir` `''` or safe, `map` safe or null; `withLastLaunch(moduleData,
-  choice)`; `withRecords(moduleData, records)`; all three keep every other key of the
+choice)`; `withRecords(moduleData, records)`; all three keep every other key of the
   `moduleData.mods` envelope; `withRecord` is rewritten on top of `withRecords`),
   `src/main/modules/mods/remove-job.ts` (its `setModuleData(…, 'mods', { records })` becomes
   `withRecords(current.moduleData, records)['mods']`), `src/shared/modules/mods.ts` (handlers
   `lastLaunchGet: 'launch.last.get'` → `Outcome<ModLastLaunch | null>`, `lastLaunchRemember:
-  'launch.last.remember'` → `Outcome<null>`; type `ModLastLaunch`), `src/main/modules/mods/schemas.ts`,
+'launch.last.remember'` → `Outcome<null>`; type `ModLastLaunch`), `src/main/modules/mods/schemas.ts`,
   `src/main/modules/mods/index.ts` (remember writes `withLastLaunch(installation.moduleData,
-  input)['mods']` through `app.installations.setModuleData`). Tests:
+input)['mods']` through `app.installations.setModuleData`). Tests:
   `src/main/modules/mods/install-record.test.ts` › "a record write keeps the remembered launch",
   "remembering a launch keeps the install records", "a garbage lastLaunch reads as null";
   `src/main/modules/mods/remove-job.test.ts` › "removing a mod keeps the remembered launch";
@@ -267,6 +267,7 @@ AC -> test: AC1 flow AC1 step; AC2/AC7 flow AC2 step + map-list.test.ts + bsp-ti
 Review: 1 cycle, PASS with minor findings, fixed (stale doc text on .pkz and persisted state, deliverable id in two comments, added test for mod change keeping the map). Left as is: pkz tests self-skip without the vendored 7-Zip (precedent: map-presence.test.ts); `rememberLastLaunch` failure is ignored on Start (launch unaffected).
 
 **Decisions.**
+
 - `schemas.ts` does not exist in the mods module; mods schemas and handler declarations live in `src/shared/modules/mods.ts` (story 232), so the new schemas went there.
 - `bsp-title.ts` avoids a control-char regex (the architecture test forbids eslint-disable); `mods.playWith.mod/map` reuse `common.label.mod/map`.
 - `play-with` is not registered in `scripts/flows/areas.json` (the `mods` row is already at 12 flows, flow-select.test.mjs stays at its known reds); `src/main/lib/bsp-title.ts` was added to the mods row paths. The flow is run by name. `seedJoinStyleFixture` extracted so the play-with fixture shares the join fixture seeding.

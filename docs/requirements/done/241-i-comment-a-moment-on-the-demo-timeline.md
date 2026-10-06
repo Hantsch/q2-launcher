@@ -172,6 +172,7 @@ AC → test: all 18 lines of Acceptance Tests exist, ran and passed (e2e `step:`
 Review: default tier PASS with minor findings, all fixed (misplaced comments, duplicate limit constant, non-unique React keys + test, systems doc re-expanded to 150 lines). Unit reds found in verify (error-keys list, systems-doc length, i18n snapshot, duplicate "Cancel" value) fixed in-product.
 
 Decisions:
+
 - Add comment uses `aria-disabled` (focusable) so the reason is reachable; fullscreen keeps `disabled`; it only shows when the strip has the session's demo row and sits after the speed select (tab order unchanged).
 - `beginSession` demo argument also takes optional `startAtS`; `commentEdit` goes through the existing `queueEdit`/`editWrite` queue, refusals return `{status:'refused', key}` and write nothing.
 - Duplicate comments (same time + text) get unique keys via an occurrence counter; `replays.comments.cancel` dropped in favour of `common.action.cancel`.

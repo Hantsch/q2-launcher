@@ -225,16 +225,15 @@ export default async function bootstrapFailure({ page, shot, step }) {
 
   await shot('bootstrap-failure-cause')
 
-  step('assert the created target folder is gone and the installation still shows its failure badge')
+  step(
+    'assert the created target folder is gone and the installation still shows its failure badge',
+  )
   if (existsSync(subfolderPath)) {
     throw new Error(`${subfolderPath} still exists after the failed run; the job created it empty`)
   }
   await page.getByTestId('bootstrap-running-dismiss').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('failure-badge')
-    .first()
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('failure-badge').first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))

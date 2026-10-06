@@ -193,9 +193,10 @@ Verification (narrow gate): `npm run typecheck`, `npm run lint`, `npm run build`
 AC -> test: AC1 platform.test.ts passed; AC2 platform-assertions.test.mjs count guard passed (7 reads); AC3 listeners.test.ts both tests passed; AC4 inspector.test.ts both tests passed; AC5 roadmap edit done, full suite deferred to sprint gate. No manual residue, no e2e line (refactor). Review: clean default-tier agent, PASS.
 
 Decisions:
+
 - Plan paths predate 199/208/209: 7za-path is in `lib/archive/` and manifest-* in `services/content/`; `ipc/app.ts` had no inline fold left, so it was not touched.
 - The two non-`.test.ts` test helpers (`job.test-helpers.ts`, `downloads/test-support.ts`) use `isWindows()` so the count guard sees only the 7 real reads.
 - Listener failures in cinema-window and the replays channels now log at `error` (was `warn`) per D-i; `linux-channel.test.ts` log stub gained `error`.
 - Unfixed review nits: no darwin-specific test at the steam/diagnostics call sites (helper covered in platform.test.ts); `looksLikeQuake2` test covers good/missing folder only; unescaped dots in an inspector.test.ts regex. Harmless, not in the AC.
 
-tiers: D 6 / hard 0 · review default · cycles 1 · agents 8
+tiers: D 6 / hard 0 ï¿½ review default ï¿½ cycles 1 ï¿½ agents 8

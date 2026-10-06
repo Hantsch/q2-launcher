@@ -88,11 +88,17 @@ export default async function replaysStop({ page, step, shot }) {
   await openDemos(page)
   await openFolder(page, 'ctf')
 
-  step('the windowed stage says in-game typing does not reach the game')
+  step('the windowed stage says in-game typing does not reach the game (Windows only)')
   await playDemo(page, timeline)
-  await page
-    .getByTestId('replays-console-stage-hint')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const stageHint = page.getByTestId('replays-console-stage-hint')
+  if (process.platform === 'win32') {
+    await stageHint.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  } else {
+    await sleep(1_000)
+    if (await stageHint.isVisible()) {
+      throw new Error('replays-stop: the stage typing hint must only show on Windows')
+    }
+  }
   await stop.click({ timeout: TIMEOUT_MS })
   await timeline.waitFor({ state: 'detached', timeout: 10_000 })
   await expectFilesGone('after the hint step')

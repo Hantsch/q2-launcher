@@ -31,7 +31,7 @@ neighbours, so a future change cannot reopen a hole unnoticed.
 - [x] **AC2** — The set of node builtins forbidden by `.oxlintrc.json` equals the architecture test's,
       checked by a test that compares the two.
 - [x] **AC3** — No `fail()` or refusal key is built from a template; the error-key scan covers
-      `fail(\`...\`)` and the five remaining `${reason}` sites use literal key records.
+      `fail(\`...\`)`and the five remaining`${reason}` sites use literal key records.
 - [x] **AC4** — The `.value.ok` check covers all of `src/renderer`, not a listed set of files, and no
       comment points at a path that no longer exists.
 - [x] **AC5** — An unknown unlock feature id renders through a translated fallback (decided in
@@ -61,15 +61,14 @@ None — the two refine questions (AC1 route, AC5 fallback) are decided below.
   `src/shared/servers/address.ts` (`as const satisfies Record<Union, \`ns.${string}\`>`); no shared
   helper, because a record of literals cannot be generated without reintroducing a template.
 - **AC3: the template ban covers all of `src/main` and `src/shared`** (not only modules), so
-  `ipc/installations.ts` is inside it; key-shaped `return \`a.b.${x}\`` builders count as templates.
-  `labelKey` templates (`runner.kind.*`, gamemode, config group names) are labels, not refusals, and
+  `ipc/installations.ts` is inside it; key-shaped `return \`a.b.${x}\``builders count as templates.`labelKey` templates (`runner.kind.*`, gamemode, config group names) are labels, not refusals, and
   stay out of scope as story 206 already decided.
 - **AC4: the renderer-wide check targets the double-envelope tells.** `.value.ok` on an
   `Outcome<DomainResult>` is the shape story 206 keeps by design (7 legitimate reads today), so the
   check scans every renderer production file for what only a nested `Outcome` has — `.value.error`
   and `.value.value` — plus `Outcome<Outcome` across `src`; no file list remains.
 - **AC4: "a path that no longer exists" means rooted paths of this repo** (`src/main|renderer|shared|
-  preload|test-support/…`, `docs/…`, `scripts/…`, and `main/|renderer/|shared/…` read under `src/`),
+preload|test-support/…`, `docs/…`, `scripts/…`, and `main/|renderer/|shared/…` read under `src/`),
   plus `` `path`'s `symbol` `` mentions whose symbol must still be in that file; elided (`.../`) and
   sibling-relative (`lib/x.ts`) forms and the predecessor project's `src/core/…` are not checked —
   they cannot be resolved without guessing.
@@ -108,7 +107,7 @@ Verify per D: `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEA
   catches `await import('electron')`); assert the set contains `src/main/lib/paths.ts`,
   `src/main/lib/net/fetcher.ts`, `src/main/lib/native-image.ts` (the rule must bite); then
   `offenders(edge => moduleOf(edge.from, MAIN_MODULES) !== undefined && ELECTRON_BACKED has edge.to
-  (compare without extension, as edges resolve) && !isAllowed(edge))` must be `[]`. Add one `ALLOWED`
+(compare without extension, as edges resolve) && !isAllowed(edge))` must be `[]`. Add one `ALLOWED`
   entry per current production edge, story `'236'`, grouped with the existing `.map` pattern and a
   reason per target: `lib/paths` ← `config/index.ts`, `downloads/index.ts`, `home/news/news-service.ts`,
   `home/news/feed-cache.ts`, `mods/catalog-service.ts`, `replays/index-cache.ts` (reason: "reads the
@@ -141,27 +140,21 @@ Verify per D: `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEA
 - **D3 — No fail() or refusal key is built from a template.**
   Replace the five templates with literal records, mirroring `SERVER_ADDRESS_REJECTION_KEYS` +
   `serverAddressRejectionKey` in `src/shared/servers/address.ts` (~224–240: `const X = {…} as const
-  satisfies Record<Union, \`ns.${string}\`>`, lookup returns `(typeof X)[Union]`):
-  (1) `src/shared/servers/master-source-address.ts:117` `masterSourceAddressRejectionKey` →
-  `MASTER_SOURCE_ADDRESS_REJECTION_KEYS` (`servers.sources.reject.*`); if
-  `MASTER_SOURCES_REFUSAL_KEYS` in `src/main/modules/servers/master-sources.ts` (~48–67) repeats those
-  entries, spread the shared record there instead of keeping two copies;
-  (2) `src/main/modules/replays/playback-console.ts:22` → `CONSOLE_LINE_ERROR_KEYS` in
-  `src/shared/replays/console-line.ts` next to `ConsoleLineReason` (`replays.console.error.*`);
-  (3) `src/shared/launch/userinfo.ts:60` → `USERINFO_REJECTION_KEYS` (`launch.userinfo.reject.*`);
-  (4) `src/shared/servers/master-records.ts:75` → `MASTER_SOURCE_FAILURE_KEYS`
-  (`servers.source.error.*`); (5) `src/main/ipc/installations.ts:210` `runner.unavailable.${kind}` →
-  `RUNNER_UNAVAILABLE_KEYS` keyed by the kinds that reach that branch (`RunnerKind` minus the
-  `steam`/`proton` arms above it, `src/shared/types/runner.ts:11`). Keys and values stay identical.
-  In `src/main/error-keys.test.ts`: count `fail(` followed by a backtick as a template (do not report
-  other non-literal `fail(` arguments as unknown); count a key-shaped template return
-  (`return \`<lower>.<…>${`) as a template; apply "no refusal key is built from a template" — rename it
-  "no fail() or refusal key is built from a template" — to every scanned file of `src/main` and
-  `src/shared` (drop `scopedToModules`); add the new records to the resolve list in "every reasonKey
-  and refuse() literal resolves in en.json" and their lookup shapes to `COVERED_ARGUMENTS`; extend
-  "a misspelled reasonKey literal fails the scan" with `fail(\`a.${b}\`)` and `return \`a.b.${c}\``
-  each counting 1 template. Files: the five sites, `src/shared/replays/console-line.ts`,
-  `src/main/modules/servers/master-sources.ts` (only if it duplicated), `src/main/error-keys.test.ts`.
+satisfies Record<Union, \`ns.${string}\`>`, lookup returns `(typeof X)[Union]`):
+(1) `src/shared/servers/master-source-address.ts:117` `masterSourceAddressRejectionKey`→`MASTER_SOURCE_ADDRESS_REJECTION_KEYS` (`servers.sources.reject._`); if
+`MASTER_SOURCES_REFUSAL_KEYS`in`src/main/modules/servers/master-sources.ts`(~48–67) repeats those
+entries, spread the shared record there instead of keeping two copies;
+(2)`src/main/modules/replays/playback-console.ts:22`→`CONSOLE_LINE_ERROR_KEYS`in`src/shared/replays/console-line.ts`next to`ConsoleLineReason` (`replays.console.error._`);
+(3) `src/shared/launch/userinfo.ts:60`→`USERINFO_REJECTION_KEYS` (`launch.userinfo.reject._`);
+(4) `src/shared/servers/master-records.ts:75`→`MASTER_SOURCE_FAILURE_KEYS`
+(`servers.source.error._`); (5) `src/main/ipc/installations.ts:210` `runner.unavailable.${kind}`→`RUNNER_UNAVAILABLE_KEYS` keyed by the kinds that reach that branch (`RunnerKind`minus the`steam`/`proton`arms above it,`src/shared/types/runner.ts:11`). Keys and values stay identical.
+In `src/main/error-keys.test.ts`: count `fail(`followed by a backtick as a template (do not report
+other non-literal`fail(` arguments as unknown); count a key-shaped template return
+(`return \`<lower>.<…>${`) as a template; apply "no refusal key is built from a template" — rename it
+"no fail() or refusal key is built from a template" — to every scanned file of `src/main`and`src/shared`(drop`scopedToModules`); add the new records to the resolve list in "every reasonKey
+and refuse() literal resolves in en.json" and their lookup shapes to `COVERED_ARGUMENTS`; extend
+"a misspelled reasonKey literal fails the scan" with `fail(\`a.${b}\`)`and`return \`a.b.${c}\``each counting 1 template. Files: the five sites,`src/shared/replays/console-line.ts`,
+`src/main/modules/servers/master-sources.ts`(only if it duplicated),`src/main/error-keys.test.ts`.
 
 - **D4 — The nested-Outcome check covers all of src/renderer.**
   In `src/architecture.test.ts` add "no renderer file unwraps a nested Outcome": over every production
@@ -198,17 +191,13 @@ Verify per D: `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEA
   `feature: { watchlist: "Server watchlist", unknown: "Unknown feature ({{id}})" }`. In
   `src/renderer/src/components/unlock/UnlockCodePanel.tsx` (lines ~139 and ~159, today
   `t(\`unlock.feature.${feature}\`, { defaultValue: feature })`) render one local
-  `featureLabel(feature)` = `t(\`settings.unlock.feature.${feature}\`, { defaultValue:
-  t('settings.unlock.feature.unknown', { id: feature }) })` in both places; `parseMissingKeyHandler`
-  in `src/renderer/src/i18n/index.ts` stays unchanged. Tests in
-  `src/renderer/src/components/unlock/UnlockCodePanel.test.tsx`: "an unknown feature id renders the
-  translated fallback" (`servers-pro` → "Unknown feature (servers-pro)", both in the accepted result and
-  in the code list) and "a known feature id renders its label" (`watchlist` → "Server watchlist");
-  update existing assertions that expected the raw id. Update the bundle snapshot
-  (`src/renderer/src/i18n/__snapshots__/en.bundle.json`) via the test run. In
-  `docs/systems/unlock-codes.md` § Unlockable features add: a gated feature gets a
-  `settings.unlock.feature.<name>` label; an unlisted name shows "Unknown feature (<name>)". Add under
-  `CHANGELOG.md` `## Unreleased` → `### Fixed`: "- **Settings** — Unlock codes name their features
+`featureLabel(feature)`=`t(\`settings.unlock.feature.${feature}\`, { defaultValue:
+  t('settings.unlock.feature.unknown', { id: feature }) })`in both places;`parseMissingKeyHandler`in`src/renderer/src/i18n/index.ts`stays unchanged. Tests in`src/renderer/src/components/unlock/UnlockCodePanel.test.tsx`: "an unknown feature id renders the
+translated fallback" (`servers-pro` → "Unknown feature (servers-pro)", both in the accepted result and
+in the code list) and "a known feature id renders its label" (`watchlist` → "Server watchlist");
+update existing assertions that expected the raw id. Update the bundle snapshot
+(`src/renderer/src/i18n/**snapshots**/en.bundle.json`) via the test run. In
+`docs/systems/unlock-codes.md`§ Unlockable features add: a gated feature gets a`settings.unlock.feature.<name>`label; an unlisted name shows "Unknown feature (<name>)". Add under`CHANGELOG.md` `## Unreleased`→`### Fixed`: "- **Settings** — Unlock codes name their features
   instead of showing an internal id." Files: the six named.
 
 ## Model Hints
@@ -245,6 +234,7 @@ AC2 "oxlint forbids exactly the node builtins the architecture test forbids"; AC
 AC4 "no renderer file unwraps a nested Outcome" + "every repo path named in a source comment exists"; AC5 UnlockCodePanel.test.tsx "an unknown feature id renders the translated fallback" + "a known feature id renders its label". No manual residue.
 
 Decisions:
+
 - D1 allowlist also holds type-only `main/context` and `main/cinema-window` edges and `downloads/bootstrap/job.test-helpers.ts` (not exempted by `isTestFile`): the generic direct-edge rule found them; kept as listed edges rather than narrowing the rule.
 - D3 `MASTER_SOURCE_ADDRESS_REJECTION_KEYS`: 11 reasons now map to `servers.address.reject.*` (the old `servers.sources.reject.<reason>` keys did not exist in en.json; only tests called it); `MASTER_SOURCES_REFUSAL_KEYS` spreads the shared record. `RUNNER_UNAVAILABLE_KEYS` lives in `shared/types/runner.ts` (error-keys test cannot import electron-pulling main files).
 - D6 added `settings.unlock.feature.` to `DYNAMIC_KEY_PREFIXES` in `src/renderer/src/i18n/keys.test.ts` (key built dynamically). Changelog line added under existing `### Fixed`.

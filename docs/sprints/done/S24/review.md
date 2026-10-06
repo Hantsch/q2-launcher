@@ -7,8 +7,8 @@ stream in, player data follows for the servers that have anyone on them — and 
 the user's own cadence settings, never competes with a running game, and can be narrowed to just
 favourites or just one server instead of always reloading everything.
 
-| Story                                                                                                                   | Status | Commit                                      |
-| ----------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------- |
+| Story                                                                                                                      | Status | Commit                                      |
+| -------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------- |
 | [114 — a scan sweeps the servers in two stages](../../../requirements/done/114-a-scan-sweeps-the-servers-in-two-stages.md) | done   | `114: sweep servers in two stages`          |
 | [115 — how hard the scan works is a setting](../../../requirements/done/115-how-hard-the-scan-works-is-a-setting.md)       | done   | `115: how hard the scan works is a setting` |
 | [116 — no scan runs while the game does](../../../requirements/done/116-no-scan-runs-while-the-game-does.md)               | done   | `116: no scan runs while the game does`     |

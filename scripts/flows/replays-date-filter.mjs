@@ -13,7 +13,8 @@
 //   - `date-filter-old.mvd2`     ~20 days old, no sidecar,        effective date = FILE TIME
 //   - `date-filter-veryold.mvd2` ~60 days old, no sidecar,        effective date = FILE TIME
 //
-// `setup()` returns `{ args: ['--lang=de-DE'] }` (the D4 harness feature) - this only changes
+// `setup()` returns `{ args: ['--lang=de-DE'] }` plus the locale env Chromium reads on Linux (the D4
+// harness feature) - this only changes
 // Chromium/ICU-driven formatting (the picker's `Intl.DateTimeFormat(undefined, ...)` trigger text,
 // and the native `<input type="date">`'s keyboard segment order) since the app ships only an `en`
 // i18next locale - every other assertion below still exercises real UI/keyboard behaviour.
@@ -48,7 +49,8 @@ let fixtureNowMs = Date.now()
 export async function setup() {
   fixtureNowMs = Date.now()
   writeReplaysDateFilterFixture(fixtureNowMs)
-  return { args: ['--lang=de-DE'] }
+  // Chromium on Linux takes its locale from the environment; `--lang` alone leaves it at en-US.
+  return { args: ['--lang=de-DE'], env: { LANGUAGE: 'de_DE:de', LC_ALL: 'de_DE.UTF-8' } }
 }
 
 export async function teardown() {

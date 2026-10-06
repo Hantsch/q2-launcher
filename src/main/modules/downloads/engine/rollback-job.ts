@@ -2,7 +2,12 @@ import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { DownloadsErrorKey } from '@shared/modules/downloads'
 import { fail, type Installation, type InstallationStatus, type Outcome } from '@shared/types'
-import { listFilesRecursive, moveFile, plannedDestination, resolveRelaxed } from '../../../lib/fs-utils'
+import {
+  listFilesRecursive,
+  moveFile,
+  plannedDestination,
+  resolveRelaxed,
+} from '../../../lib/fs-utils'
 import type { JobContext, JobOutcome, JobRunnerHost, StartedJob } from '../../ports'
 import { INSTALLATION_NOT_FOUND, LOCAL_FAILURE } from '../bootstrap/errors'
 import type { BootstrapLog } from '../bootstrap/ports'
@@ -123,7 +128,10 @@ export async function startEngineRollback(
       exclusive: 'installation',
     },
     (ctx) =>
-      runRollback(ctx, deps, installation, { version: backup.version, packageId: backup.packageId }),
+      runRollback(ctx, deps, installation, {
+        version: backup.version,
+        packageId: backup.packageId,
+      }),
   )
 }
 
@@ -204,12 +212,21 @@ async function runRollback(
   // one, and `EngineRollbackInstallationsHost` gives it no way to.
   const revalidated = await ctx.revalidate(installation.id)
   if (!revalidated.ok) {
-    return ctx.fail(LOCAL_FAILURE, `revalidating ${installation.id} failed: ${revalidated.error.key}`)
+    return ctx.fail(
+      LOCAL_FAILURE,
+      `revalidating ${installation.id} failed: ${revalidated.error.key}`,
+    )
   }
 
   ctx.report({ ratio: 1 })
-  log?.info(`rolled back the engine of ${installation.name} to ${backup.version} (job ${ctx.jobId})`)
-  return { status: 'succeeded', version: backup.version, installationStatus: revalidated.value.status }
+  log?.info(
+    `rolled back the engine of ${installation.name} to ${backup.version} (job ${ctx.jobId})`,
+  )
+  return {
+    status: 'succeeded',
+    version: backup.version,
+    installationStatus: revalidated.value.status,
+  }
 }
 
 /**

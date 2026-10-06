@@ -103,8 +103,8 @@ tone, busy, onConfirm, onClose })`, `Tabs` (roving tabindex, `role="tablist"`/`t
 Renderer only; no IPC, no main. All primitives under `src/renderer/src/components/ui/`.
 
 1. **Primitives first (D1–D4):** `useSubmitting` + `NameDialog`, `ConfirmDialog`, `Tabs`/`TabPanel`
-   + `RadioGroup`/`Radio` + `TextArea` + a token guard, the one `ErrorBoundary` (absorbs the three
-   module-local copies in the same D, since it is small).
+   - `RadioGroup`/`Radio` + `TextArea` + a token guard, the one `ErrorBoundary` (absorbs the three
+     module-local copies in the same D, since it is small).
 2. **Jobs (D5–D6):** `useStartJob` + `JobActionDialog` replace the three downloads dialogs' state
    machines; the mods dialogs adopt `useStartJob` (D-H).
 3. **Migrations (D7–D13), one group of ≤8 files each:** tabs; installations; config profile
@@ -126,8 +126,8 @@ Risk: D11 (ControlsTab.tsx, 2.5k lines, seven inline dialogs) — see Model Hint
   `fn` once), sets `submitting`, awaits `fn`, clears in `finally`, returns `fn`'s result.
   New `components/ui/NameDialog.tsx` on `Modal` + `Field`/`Input` (`components/ui/controls.tsx`):
   props `{ titleKey, labelKey, initialName, maxLength, validate?, onSubmit, onClose, children?,
-  submitLabelKey? (default 'common.save'), error?: string, description?, testIds?: { input?, submit?,
-  cancel? } }`. `canSubmit = trimmed.length > 0 && !validate?.(trimmed) && !submitting` — the one
+submitLabelKey? (default 'common.save'), error?: string, description?, testIds?: { input?, submit?,
+cancel? } }`. `canSubmit = trimmed.length > 0 && !validate?.(trimmed) && !submitting` — the one
   value that gates both the submit button and the input's Enter handler; validation message (an i18n
   key from `validate`) and `error` render under the field. Input is autofocused; `onSubmit(trimmed)`
   runs through `useSubmitting`; `children` render below the field. Shape to replace:
@@ -135,16 +135,16 @@ Risk: D11 (ControlsTab.tsx, 2.5k lines, seven inline dialogs) — see Model Hint
   Tests: `components/ui/useSubmitting.test.ts`, `components/ui/NameDialog.test.tsx` (see Acceptance
   Tests).
 - **D2 — `ConfirmDialog`.** New `components/ui/ConfirmDialog.tsx` on `Modal`: `{ title, body:
-  ReactNode, confirmLabel, tone: 'danger' | 'primary', busy, onConfirm, onClose, size?, testIds?:
-  { confirm?, cancel? } }`; footer = ghost Cancel (`common.cancel`) + confirm `Button` with
+ReactNode, confirmLabel, tone: 'danger' | 'primary', busy, onConfirm, onClose, size?, testIds?:
+{ confirm?, cancel? } }`; footer = ghost Cancel (`common.cancel`) + confirm `Button` with
   `variant={tone}`; `busy` disables confirm and passes `preventClose`. Shape to replace:
   `modules/home/dashboard/ResetLayoutDialog.tsx`. Test `components/ui/ConfirmDialog.test.tsx`.
 - **D3 — `Tabs`, `RadioGroup`/`Radio`, `TextArea`, token guard.** New `components/ui/Tabs.tsx`:
   `Tabs({ idBase, value, onChange, items: { id, label, badge?: ReactNode, testId? }[], ariaLabel,
-  className? })` renders `role="tablist"`, each tab `role="tab"`, `aria-selected`, `aria-controls`,
+className? })` renders `role="tablist"`, each tab `role="tab"`, `aria-selected`, `aria-controls`,
   `id={`${idBase}-tab-${id}`}`, roving tabindex (selected = 0, others -1), Arrow Left/Right + Home/End
   move focus (wrapping), Enter/Space select (manual activation); `TabPanel({ idBase, tabId,
-  children, className? })` renders `role="tabpanel"` + `aria-labelledby`. Visual classes copied from
+children, className? })` renders `role="tabpanel"` + `aria-labelledby`. Visual classes copied from
   `ConfigView.tsx:593-610` (the strip's height is measured by `config-header-geometry`). New
   `components/ui/RadioGroup.tsx` (`RadioGroup({ name, value, onChange, label, children })` as
   `role="radiogroup"`, `Radio({ value, label, testId?, disabled? })` with the focus ring of
@@ -157,7 +157,7 @@ Risk: D11 (ControlsTab.tsx, 2.5k lines, seven inline dialogs) — see Model Hint
 - **D4 — One `ErrorBoundary`.** Move `components/ErrorBoundary.tsx` to
   `components/ui/ErrorBoundary.tsx` (delete the old file, update `App.tsx`'s import) with props
   `{ children, fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode), onError?:
-  (error, info) => void, resetKeys?: readonly unknown[], scope?: string }`; default fallback = today's
+(error, info) => void, resetKeys?: readonly unknown[], scope?: string }`; default fallback = today's
   app-level screen unchanged; `componentDidCatch` logs `console.error(`[${scope ?? 'renderer'}] …`)`
   then calls `onError`; a change in any `resetKeys` entry (shallow `Object.is`) clears the error.
   Replace and delete the classes `TileFrameBoundary` (`modules/home/components/DashboardTileFrame.tsx`),
@@ -169,8 +169,8 @@ Risk: D11 (ControlsTab.tsx, 2.5k lines, seven inline dialogs) — see Model Hint
   `components/ui/ErrorBoundary.test.tsx`; existing home/servers tests stay green.
 - **D5 — `useStartJob` + `JobActionDialog` for downloads.** New
   `src/renderer/src/components/jobs/useStartJob.ts`: `useStartJob(starter: (...args) =>
-  Promise<Outcome<{ jobId: string }>>)` → `{ start, starting, refusal: LocalizedMessage | null,
-  jobId, job }` (`job` read from `useLauncher((s) => s.jobs)` by id; `start` guarded by
+Promise<Outcome<{ jobId: string }>>)` → `{ start, starting, refusal: LocalizedMessage | null,
+jobId, job }` (`job` read from `useLauncher((s) => s.jobs)` by id; `start` guarded by
   `useSubmitting`). New `modules/downloads/components/JobActionDialog.tsx`: `Modal` that, once
   `jobId` is set, renders `RunningStep` (`modules/downloads/bootstrap/RunningStep.tsx`) and a
   primary dismiss button labelled `t('jobs.dismiss')` with the caller's dismiss testid, otherwise
@@ -205,8 +205,8 @@ Risk: D11 (ControlsTab.tsx, 2.5k lines, seven inline dialogs) — see Model Hint
   `RenameProfileDialog.tsx` → `NameDialog` (the base-profile `Select` becomes `children`);
   `DeleteProfileDialog.tsx`, `DiscardChangesDialog.tsx`, `CleanupPanel.tsx`'s confirm,
   `CareBatchFixDialog.tsx` → `ConfirmDialog` (D-E rule); `ImportProfileDialog.tsx` → `useSubmitting`
-  + `RadioGroup`. Flows `import-from-files`, `home-route-roundtrip`, `care-duplicate-name`,
-  `care-fix-item`, `external-edit-cascades`.
+  - `RadioGroup`. Flows `import-from-files`, `home-route-roundtrip`, `care-duplicate-name`,
+    `care-fix-item`, `external-edit-cascades`.
 - **D10 — Config settings dialogs.** `modules/config/components/CreateCvarSectionDialog.tsx`,
   `CreateCvarSubsectionDialog.tsx`, `RenameCvarSectionDialog.tsx`, `RenameCvarSubsectionDialog.tsx`
   become thin wrappers over `NameDialog` (D-K); `AddCvarDialog.tsx`, `MoveCvarDialog.tsx`,
@@ -228,13 +228,13 @@ Risk: D11 (ControlsTab.tsx, 2.5k lines, seven inline dialogs) — see Model Hint
   delete → `ConfirmDialog`), `modules/config/LayersPanel.tsx` (create/rename → `NameDialog`),
   `modules/replays/RenameDemoDialog.tsx` → `NameDialog`, `modules/servers/QuickFilterNameDialog.tsx`
   → `NameDialog` (`validateQuickFilterName` via `validate`), `modules/replays/components/
-  ConsoleCommandField.tsx`, `modules/servers/watchlist/WatchlistAddForm.tsx`,
+ConsoleCommandField.tsx`, `modules/servers/watchlist/WatchlistAddForm.tsx`,
   `modules/servers/AddToAddressBookDialog.tsx` (+ `RadioGroup`) → `useSubmitting`;
   `modules/replays/components/DemoDetailEditor.tsx`'s `<textarea>` → `TextArea`. Flows
   `alias-rename-dialog`, `replays-rename`, `servers-quick-filters`, `servers-address-book`,
   `servers-watchlist`, `replays-console-command`, `replays-edit-sidecar`.
 - **D13 — Remaining confirms.** → `ConfirmDialog` (D-E rule): `modules/downloads/
-  DownloadsSettingsSection.tsx` (clear cache), `modules/home/dashboard/ResetLayoutDialog.tsx`,
+DownloadsSettingsSection.tsx` (clear cache), `modules/home/dashboard/ResetLayoutDialog.tsx`,
   `modules/replays/components/DiscardDemoNotesDialog.tsx`, `ReplaceSidecarDialog.tsx`,
   `ModMissingConfirmDialog.tsx`, `modules/servers/join/useJoinFlow.tsx` (mismatch),
   `modules/mods/components/InstallDecisionDialog.tsx` (only if cancel + one action). Flows
@@ -308,6 +308,7 @@ Verification (narrow gate): build, typecheck, lint green; `npm test` red only on
 Pre-existing red on bare HEAD (stash-checked): external-edit-cascades, drop-message-checkbox.
 
 Decisions:
+
 - Tabs/Enter: unit test uses a click (native Enter/Space); real Enter proven by flow tabs-keyboard. RadioGroup test is click + shared name (user-event absent); test names updated in Acceptance Tests.
 - NameDialog grew optional props (placeholder, nameOptional, submittable, suffix, onNameChange, function children, testIds.error/dialog, optional maxLength) to keep existing flows/behaviour; one canSubmit still gates button and Enter.
 - Stayed on Modal (choice dialogs, D-E): QuickFilterNameDialog (Overwrite), CareBatchFixDialog, KeyBindDialog, ModMissingConfirmDialog, InstallDecisionDialog. ControlsTab's empty-category delete confirm stays inline (unit test requires it); ActionEditor/MessageEditor had no confirms.

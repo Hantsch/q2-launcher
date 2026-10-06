@@ -41,7 +41,10 @@ interface RunJobSpecBase {
 
 /** `exclusive` needs the installation it is exclusive on, so the two come together. */
 export type RunJobSpec = RunJobSpecBase &
-  ({ exclusive: 'installation'; installationId: string } | { exclusive?: undefined; installationId?: string })
+  (
+    | { exclusive: 'installation'; installationId: string }
+    | { exclusive?: undefined; installationId?: string }
+  )
 
 export interface JobContext<K extends string = string, S extends object = Record<never, never>> {
   jobId: string
@@ -210,7 +213,9 @@ export class JobRunner {
       }
 
       // A job `jobs.cancel` already ended is not held back by the flush.
-      const stillActive = jobs.list().some((candidate) => candidate.id === jobId && isJobActive(candidate))
+      const stillActive = jobs
+        .list()
+        .some((candidate) => candidate.id === jobId && isJobActive(candidate))
       if (wrote && stillActive) {
         try {
           await state?.settle()

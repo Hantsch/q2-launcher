@@ -53,7 +53,7 @@ file-format story opens it, or as a quiet sprint filler.
   importers' symbol imports unchanged, only their path prefix moves.
 - **D-b — AC1 "none of the importers change" is read as "no importer changes beyond the Q1 path
   rewrite".** Reason: Q1 (User) rewrites all ~117 importer files anyway; the facade's job is that
-  no importer changes *what* it imports.
+  no importer changes _what_ it imports.
 - **D-c — A tenth stage file.** The comment-scan banner (523–1578, ~1,056 lines) splits into
   `comment-parse.ts` (tag/comment parsing, decoration and foreign-wrap helpers,
   `foreignBannerCommentText`) and `comment-scan.ts` (`scanComments` and header-rule helpers). Reason:
@@ -196,7 +196,7 @@ Behaviour gate throughout: the five `profile-restore.*.test.ts` suites and
     - a position inside a layer section is recognised;
     - a missing or invalid tag degrades to inference with a warning.
   - Add the `src/architecture.test.ts` test `it('no profile-restore stage file exceeds 800 lines and
-    no function exceeds 150')` (function span per decision D-k).
+no function exceeds 150')` (function span per decision D-k).
   - Acceptance: entry-grouping tests, the profile-restore suites, round-trip and architecture are green.
 - **D4 — `src/shared/config` grouped into dependency-ordered folders (scripted).**
   - Move the render vocabulary (`COMMENT_PREFIX`, `CVAR_DEFAULTS_SECTION_ID`, `HAND_EDIT_SENTENCE`,
@@ -213,9 +213,9 @@ Behaviour gate throughout: the five `profile-restore.*.test.ts` suites and
     (~117 files outside the folder, plus the folder itself), and path mentions in code comments
     (`scripts/flows/*.mjs`, `scripts/lib/fixture.mjs`, `scripts/lib/screens.mjs`,
     `src/main/services/update/service.actions.test.ts`). Also repoint the profile-restore paths that
-  D2/D3 put into `src/architecture.test.ts` to `src/shared/config/profile/profile-restore/`.
+    D2/D3 put into `src/architecture.test.ts` to `src/shared/config/profile/profile-restore/`.
   - Add the `src/architecture.test.ts` test `it('src/shared/config groups import only leftward:
-    syntax → catalog → aliases/validation → profile → render')`. Build it on the existing import graph
+syntax → catalog → aliases/validation → profile → render')`. Build it on the existing import graph
     (`resolveSpecifier`): rank syntax 0, catalog 1, aliases/validation 2, profile 3, render 4;
     `fixtures/` is exempt as test-only. It also asserts no production `.ts` file remains directly in
     `src/shared/config/`.
@@ -228,7 +228,7 @@ Behaviour gate throughout: the five `profile-restore.*.test.ts` suites and
   - Update every `src/shared/config/<module>` path in `config-module.md` and
     `docs/systems/profile-file-format.md` to its grouped path.
   - Add the `src/architecture.test.ts` test `it('config-module.md states the shared/config dependency
-    direction')`, asserting the doc contains `syntax → catalog → aliases/validation → profile → render`.
+direction')`, asserting the doc contains `syntax → catalog → aliases/validation → profile → render`.
   - Acceptance: the architecture test is green, and no `src/shared/config/<flat-module>.ts` path is
     left in either systems doc.
 
@@ -256,9 +256,10 @@ Behaviour gate throughout: the five `profile-restore.*.test.ts` suites and
   - `src/shared/config/profile/profile-restore.{anchors,metadata,roundtrip,toggle-and-foreign,unbound-alias}.test.ts`;
   - `src/main/modules/config/round-trip/fixed-point-and-kinds.test.ts` › "render(parse(render(p)))
     is a fixed point over the fixture corpus" plus the other `round-trip/*.test.ts`.
-  
+
   These run green after every D. The review checks that their diff contains only specifier/path
   changes (D1–D4).
+
 - AC5 → unit `src/architecture.test.ts` › "profile-restore/index.ts opens with a pipeline overview of
   at most 40 lines" (D2)
 - AC6 → unit `src/architecture.test.ts` › "config-module.md states the shared/config dependency
@@ -277,9 +278,10 @@ syntax/catalog/aliases/validation/profile/render with the direction rule enforce
 Commit: `214: profile-restore as stage folder, groupEntryLines lifted, shared/config grouped by dependency direction`
 
 Verification (narrow gate; story is a big move, so full `npm test` ran instead of `vitest --changed HEAD`): build, lint, typecheck green; `npm test` 6697 passed, 2 red = pre-existing (shell-layering "no shell file imports from modules" via fixture-parity.test.ts; repo-hygiene LF flags on other stories' docs/requirements files and done/INDEX.md, 214 not flagged). No e2e (no user surface). After the review-fix (comment-only) vitest config+round-trip+architecture, typecheck, oxlint, prettier re-run green.
-AC -> test: AC1/AC6 architecture "groups import only leftward" + "config-module.md states the dependency direction"; AC2 entry-grouping.test.ts (6 tests); AC3 architecture 800/150; AC4 profile-restore.*.test.ts + round-trip/*.test.ts (specifier/path edits only); AC5 architecture overview <=40 lines. All passed. No manual residue. Review: clean agent PASS.
+AC -> test: AC1/AC6 architecture "groups import only leftward" + "config-module.md states the dependency direction"; AC2 entry-grouping.test.ts (6 tests); AC3 architecture 800/150; AC4 profile-restore._.test.ts + round-trip/_.test.ts (specifier/path edits only); AC5 architecture overview <=40 lines. All passed. No manual residue. Review: clean agent PASS.
 
 Decisions:
+
 - Group file placement: profile-schema went to `aliases/` (imports alt-layers, engine-limits, q2-charset).
 - Besides the six D-f constants, COMMENT_LINE_BUDGET, STRICTEST_LINE_BUDGET and ENGINES_WITH_LINE_LIMITS also moved to `syntax/file-vocabulary.ts` (entry-build imported them); render.ts re-exports all eight.
 - `entry-matching.ts` added (lifted closures + state) because one file hit 809 lines; two-part helpers (proseCutOf etc.) live in entry-build.ts to avoid a cycle.

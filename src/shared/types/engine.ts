@@ -237,7 +237,9 @@ export function defaultEngineKind(
   classified: EngineKind,
 ): EngineKind {
   if (engines.some((e) => e.kind === 'q2pro')) return 'q2pro'
-  const supported = ENGINE_DEFINITIONS.find((d) => d.supported && engines.some((e) => e.kind === d.kind))
+  const supported = ENGINE_DEFINITIONS.find(
+    (d) => d.supported && engines.some((e) => e.kind === d.kind),
+  )
   if (supported) return supported.kind
   return engines[0]?.kind ?? classified
 }

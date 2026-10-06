@@ -113,13 +113,13 @@ Order: D1 → D2 → D3 → D4 → D5 (D5 last because D3 changes what every flo
   there — one list, not two), empty result → `'Quake II'`, cap at 120 chars. In `target.ts` add
   `proposeBootstrapTarget(parentPath, folderName, { userTyped }): Promise<BootstrapTargetProposal>`:
   if `parentPath` does not exist or is an empty directory → `{ targetPath: parentPath, folderName:
-  '', installHere: true }`; else `base = toFolderName(folderName)`, candidate `join(parent, base)`;
+'', installHere: true }`; else `base = toFolderName(folderName)`, candidate `join(parent, base)`;
   unless `userTyped`, while the candidate exists and is non-empty or not a directory try
   `base (2)` … `base (99)` (after 99 return `base`); return `{ targetPath, folderName, installHere:
-  false }`. Type `BootstrapTargetProposal` and handler id `bootstrapProposeTarget:
-  'bootstrap.proposeTarget'` in `src/shared/modules/downloads.ts` (next to
+false }`. Type `BootstrapTargetProposal` and handler id `bootstrapProposeTarget:
+'bootstrap.proposeTarget'` in `src/shared/modules/downloads.ts` (next to
   `bootstrapTargetVerdict`); strict zod input `{ parentPath: absolutePathSchema, folderName:
-  z.string().max(255), userTyped: z.boolean() }` in `src/main/modules/downloads/schemas.ts`
+z.string().max(255), userTyped: z.boolean() }` in `src/main/modules/downloads/schemas.ts`
   (mirror `bootstrapTargetVerdictInputSchema` :67); register in
   `src/main/modules/downloads/index.ts` next to the verdict handler (:162). Tests in
   `target.test.ts` (real temp dirs): "proposes a subfolder named after the installation",
@@ -132,7 +132,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D5 last because D3 changes what every flo
   `src/main/modules/downloads/bootstrap/job.ts`: after `targetPreexisted` (:828) is taken and before
   `create()`, `await mkdir(verdict.targetPath, { recursive: true })` (failure → the existing
   failed-before-job outcome path). In `failed()` change `cleanUp({ unregister: false, removeRoot:
-  false })` (:1126) to `removeRoot: !targetPreexisted`; cancel (:1070) unchanged. Rewrite the
+false })` (:1126) to `removeRoot: !targetPreexisted`; cancel (:1070) unchanged. Rewrite the
   module comment's "Failure passes …" bullet (:172-177) to the new rule: registration and
   `lastFailure` survive, the folder this job created goes when empty, the installation shows
   `missing`, retry recreates it via the start `mkdir` and adopts by path. Tests in
@@ -148,7 +148,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D5 last because D3 changes what every flo
   the picked `targetPath` at :102): `parentPath`, `folderName`, `folderNameEdited`; `folderName`
   follows the wizard's effective installation name (239's name field, its default included) while
   `!folderNameEdited`. Query `bootstrap.proposeTarget` with `{ parentPath, folderName, userTyped:
-  folderNameEdited }` via `useModuleQuery` (mirror the verdict query :103-109), then the verdict on
+folderNameEdited }` via `useModuleQuery` (mirror the verdict query :103-109), then the verdict on
   `proposal.targetPath`; acks/writeDir reset on that path (:204-214). `pickTargetFolder` (:258)
   sets `parentPath`. TargetStep: picker labelled as the location (testid
   `bootstrap-target-path-input` stays on the picker), a text input for the folder name (testid
@@ -228,6 +228,7 @@ Review: → default
 AC -> test (all ran and passed): AC1/AC4/AC5 target.test.ts + flow bootstrap-target-subfolder; AC2 BootstrapWizard.test.tsx "the confirm step states the final path" + flow; AC3 job.assembly.test.ts "the job creates the target folder before writing" + flow; AC6 target.test.ts (Program Files, registered-installation) + flow bootstrap-wizard; AC7 job.failure-and-retry.test.ts (3 tests) + flow bootstrap-failure. Open point: "a subfolder of a non-writable parent is not writable" is `skipIf` on Windows/root (chmod), same pattern as the existing extractor tests — not run on this host.
 
 **Decisions.**
+
 - Default folder name for an existing-folder source is the engine label (e.g. `Q2PRO`), following the installation name; flow fixtures use that name.
 - The job also removes a folder it created on pre-job refusals (busy, duplicate, refused adoption) — a refused start must not leave an empty folder; non-recursive `rmdir` only.
 - Review finding fixed: the wizard held the previous proposal while the next loads, so Next/Start could use a stale path; the held proposal now carries its key and gates Next/Start, and an error drops it (two tests added; one existing 239 name test now waits for the proposal to settle).

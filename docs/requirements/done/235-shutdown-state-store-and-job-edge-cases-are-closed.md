@@ -190,8 +190,7 @@ only user-visible fix: a crashed retry now shows its failure and can be retried.
     reaches only the runner's generic catch. The job fails, but no `lastFailure` is written, and
     the record was just cleared.
   - Move the call inside that failure path:
-    - A throw ends through `failed(LOCAL_FAILURE, \`adopting ${installation.id} failed: …\`)`
-      (or `cancelledOutcome()` when `ctx.signal.aborted`).
+    - A throw ends through `failed(LOCAL_FAILURE, \`adopting ${installation.id} failed: …\`)`(or`cancelledOutcome()`when`ctx.signal.aborted`).
     - `markAdoptionCommitted()` still always runs, so `startBootstrap`'s `await adoptionCommitted`
       can never hang.
     - The order inside `failed()` (clean up, record, validate, then fail) is untouched.
@@ -283,6 +282,7 @@ Verification (narrow gate): typecheck, lint, build green; `npx vitest run --chan
 AC5 proof: with `await state?.settle()` removed the test fails (`expected '' to contain 'written-by-job'`); green with it restored, job-runner.ts unchanged vs HEAD.
 
 Decisions:
+
 - `config/round-trip/helpers.ts` renamed to `helpers.test-helpers.ts` so it fits the allowed 'none' file patterns.
 - AC6 stays `allMirrorsFailed` (no product change); no D2 defect found, shutdown.ts untouched.
 - Follower counting in the replays test wraps `createStageFollower` via `vi.mock('./stage-follow')` because index.ts passes no follower factory port.
