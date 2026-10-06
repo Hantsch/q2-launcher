@@ -100,7 +100,7 @@ export function ensureBuild() {
     (entry) => !existsSync(join(REPO_ROOT, entry)),
   )
   if (missing.length > 0) {
-    throw new HarnessError(`build missing (${missing.join(', ')}) — build first: npm run build`)
+    throw new HarnessError(`build missing (${missing.join(', ')}) — build first: npm run build:dev`)
   }
 
   const builtAt = Math.min(
@@ -114,7 +114,7 @@ export function ensureBuild() {
   )
   if (sourcesAt > builtAt) {
     throw new HarnessError(
-      `build is older than the sources (${new Date(builtAt).toISOString()} < ${new Date(sourcesAt).toISOString()}) — rebuild first: npm run build`,
+      `build is older than the sources (${new Date(builtAt).toISOString()} < ${new Date(sourcesAt).toISOString()}) — rebuild first: npm run build:dev`,
     )
   }
 }

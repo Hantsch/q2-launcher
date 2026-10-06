@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Import, Play, Wrench, X } from 'lucide-react'
+import { DEV_MODULES } from '@shared/dev-modules'
 import type { Installation, Job, LaunchState } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { isDemoData } from '../../lib/demo-data'
@@ -199,22 +200,24 @@ export function ActionBar() {
               only be proven by sampling this exact button's enabled-ness against a live job, and
               the footer's buttons are otherwise addressable only by translated label - which
               changes per `action.kind`, i.e. precisely with the state under test. */}
-          <Button
-            variant="ghost"
-            data-testid="actionbar-play-with"
-            disabled={!installation || !canPlay}
-            onClick={() =>
-              installation &&
-              openDialog({
-                kind: 'module',
-                moduleId: 'mods',
-                view: 'play-with',
-                installationId: installation.id,
-              })
-            }
-          >
-            {t('actionbar.playWith')}
-          </Button>
+          {DEV_MODULES && (
+            <Button
+              variant="ghost"
+              data-testid="actionbar-play-with"
+              disabled={!installation || !canPlay}
+              onClick={() =>
+                installation &&
+                openDialog({
+                  kind: 'module',
+                  moduleId: 'mods',
+                  view: 'play-with',
+                  installationId: installation.id,
+                })
+              }
+            >
+              {t('actionbar.playWith')}
+            </Button>
+          )}
 
           <PlayButton
             data-testid="actionbar-play"

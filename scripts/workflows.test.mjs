@@ -52,7 +52,7 @@ describe('ui-flows workflow', () => {
       ),
     ).toBe(true)
     expect(runs).toContain('npm run fetch:7za')
-    expect(runs).toContain('npm run build')
+    expect(runs).toContain('npm run build:dev')
     const flows = job.steps.find((s) => /ui:flows/.test(String(s.run ?? '')))
     expect(flows.env.ELECTRON_DISABLE_SANDBOX).toBe('1')
     const upload = job.steps.find((s) => String(s.uses ?? '').startsWith('actions/upload-artifact'))
@@ -67,7 +67,7 @@ describe('ui-flows workflow', () => {
     const runs = job.steps.filter((s) => s.run).map((s) => s.run)
     expect(runs).toEqual([
       'npm run fetch:7za',
-      'npm run build',
+      'npm run build:dev',
       'npm run ui:verify',
       'npm run ui:flow -- about-release-notes',
       'npm run ui:flow -- steam-handoff',

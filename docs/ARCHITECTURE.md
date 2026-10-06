@@ -322,6 +322,8 @@ Everything past the shell is a module, one of the eight `ModuleId`s in
 - `replays` — demos: discovery across installations, extra folders and zip archives with an
   index cache, per-demo details in sidecars (favourite, rating, sides), rename, and playback with
   timeline, console, stage and cinema modes.
+- Dev-only: `mods` and `assets` are in a dev build only, not in a release build — see
+  [DEV-MODULES.md](DEV-MODULES.md).
 - `assets` — planned: a `MODULE_MANIFESTS` entry with `status: 'planned'` and nothing else, so its
   route renders `PlannedModuleView` (what the module will do, which capabilities it needs).
 

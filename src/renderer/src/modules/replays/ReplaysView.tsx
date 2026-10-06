@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { DEV_MODULES } from '@shared/dev-modules'
 import { demoSourceKey, type DemoRow, type ReplaysScanProgress } from '@shared/modules/replays'
 import {
   buildFolderView,
@@ -487,9 +488,9 @@ export function ReplaysView() {
       } else {
         // Only here is the dialog opening: read the catalog fresh for an install offer. A failed,
         // rejected or empty read means no offer - it never blocks the dialog.
-        void getCatalog()
+        void (DEV_MODULES ? getCatalog() : Promise.resolve(null))
           .then((catalog) =>
-            catalog.ok && catalog.value.status === 'ok'
+            catalog?.ok && catalog.value.status === 'ok'
               ? findCatalogEntryByGameDir(
                   catalog.value.entries.map((e) => ({
                     id: e.id,

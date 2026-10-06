@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { DEV_MODULES } from '@shared/dev-modules'
 import type { ModuleId } from '@shared/types'
 import { LibraryView } from '../views/LibraryView'
 import { ConfigView } from './config/ConfigView'
@@ -81,7 +82,8 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
       Section: ServersSettingsSection,
     },
   },
-  { id: 'mods', View: ModsView, Dialogs: ModsDialogs },
+  // Dev-only: absent from a release build (`src/shared/dev-modules.ts`).
+  ...(DEV_MODULES ? [{ id: 'mods', View: ModsView, Dialogs: ModsDialogs } as const] : []),
   // { id: 'assets',  View: AssetsView },
   {
     // Story 141: `ReplaysView` replaces the `PlannedModuleView` fallback (`MODULE_MANIFESTS`'s

@@ -69,6 +69,7 @@
       "src/shared/ipc-schemas.ts",
       "src/shared/schemas.ts",
       "src/shared/constants.ts",
+      "src/shared/dev-modules.ts",
       "src/shared/modules/**",
       "src/shared/types/**",
       "src/preload/**",

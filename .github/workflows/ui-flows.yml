@@ -40,7 +40,7 @@ jobs:
         run: npm run fetch:7za
 
       - name: Build
-        run: npm run build
+        run: npm run build:dev
 
       - name: UI flows (shard ${{ matrix.shard }}/6)
         env:
@@ -71,7 +71,7 @@ jobs:
 
       - name: Build
         shell: bash
-        run: npm run build
+        run: npm run build:dev
 
       - name: UI verify (screenshots + axe-core)
         shell: bash

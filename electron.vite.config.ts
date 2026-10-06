@@ -4,6 +4,14 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
 /**
+ * The dev-only modules (`src/shared/dev-modules.ts`) are in `npm run dev` and `npm run build:dev`
+ * (what ui:flow / ui:verify run against); `build` and `package:*` leave them out.
+ */
+const define = (mode: string): Record<string, string> => ({
+  __Q2L_DEV_MODULES__: JSON.stringify(mode === 'development'),
+})
+
+/**
  * Three separate builds:
  *  - main     -> out/main/index.js      (Node/Electron main process, CJS)
  *  - preload  -> out/preload/index.js   (sandboxed bridge, CJS)
@@ -13,8 +21,9 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
  * external for main/preload, so electron-builder ships them from node_modules.
  * Renderer deps live in `devDependencies` because Vite bundles them.
  */
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   main: {
+    define: define(mode),
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
@@ -30,6 +39,7 @@ export default defineConfig({
   },
 
   preload: {
+    define: define(mode),
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
@@ -44,6 +54,7 @@ export default defineConfig({
   },
 
   renderer: {
+    define: define(mode),
     root: resolve(__dirname, 'src/renderer'),
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -61,4 +72,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

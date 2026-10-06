@@ -29,7 +29,7 @@ exported `run()` **in the same process** — there is no longer a separate
 child process for screenshots and another for accessibility. In order,
 `run()`:
 
-1. Builds the app (`npm run build`) if `out/main/index.js` or
+1. Builds the app (`npm run build:dev` — the build that includes the dev-only modules) if `out/main/index.js` or
    `out/renderer/index.html` is missing.
 2. Resolves which screens to visit: the whole registry by default, or a
    `--screens=a,b,c` subset.

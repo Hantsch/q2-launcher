@@ -1,3 +1,4 @@
+import { DEV_MODULES } from '@shared/dev-modules'
 import type { AppContext } from '../context'
 import type { MigrationStep } from '../services/migrations'
 import { configModule } from './config'
@@ -28,7 +29,8 @@ export const MODULES: readonly MainModule[] = [
   downloadsModule,
   serversModule,
   replaysModule,
-  modsModule,
+  // Dev-only: absent from a release build (`src/shared/dev-modules.ts`).
+  ...(DEV_MODULES ? [modsModule] : []),
 ]
 
 /**

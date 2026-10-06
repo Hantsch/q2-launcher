@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BookMarked, Copy, Lock, RefreshCw, Star } from 'lucide-react'
+import { DEV_MODULES } from '@shared/dev-modules'
 import type { ServerDetail } from '@shared/modules/servers'
 import { deriveEngine, deriveProtocol } from '@shared/servers/server-engine'
 import { invoke } from '../../lib/bridge'
@@ -217,7 +218,7 @@ export function ServerDetailHeader({
           <span className="numeric">{orDash(protocol)}</span>
         </StatCell>
       </div>
-      <ServerLocalContentSection mod={mod} map={row.map} />
+      {DEV_MODULES && <ServerLocalContentSection mod={mod} map={row.map} />}
     </div>
   )
 }

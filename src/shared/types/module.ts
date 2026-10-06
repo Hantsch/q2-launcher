@@ -1,3 +1,5 @@
+import { DEV_MODULES, DEV_MODULE_IDS } from '../dev-modules'
+
 /**
  * The module seam.
  *
@@ -61,7 +63,7 @@ export interface ModuleManifest {
   requiresInstallation: boolean
 }
 
-export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
+const ALL_MODULE_MANIFESTS: readonly ModuleManifest[] = [
   {
     id: 'home',
     titleKey: 'common.label.home',
@@ -190,6 +192,11 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     requiresInstallation: false,
   },
 ]
+
+/** Every manifest this build ships: a release build drops the `DEV_MODULE_IDS` modules entirely. */
+export const MODULE_MANIFESTS: readonly ModuleManifest[] = DEV_MODULES
+  ? ALL_MODULE_MANIFESTS
+  : ALL_MODULE_MANIFESTS.filter((manifest) => !DEV_MODULE_IDS.includes(manifest.id))
 
 export function getModuleManifest(id: ModuleId): ModuleManifest | undefined {
   return MODULE_MANIFESTS.find((m) => m.id === id)

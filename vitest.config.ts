@@ -4,6 +4,8 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [react()],
+  // Tests exercise the dev-only modules; the release shape has its own tests that mock the constant.
+  define: { __Q2L_DEV_MODULES__: 'true' },
   resolve: {
     alias: {
       '@shared': resolve(__dirname, 'src/shared'),

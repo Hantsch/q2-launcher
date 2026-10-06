@@ -23,7 +23,8 @@ run.
 | script                | what it does                                                        |
 | --------------------- | ------------------------------------------------------------------- |
 | `npm run dev`         | Vite dev server + Electron, with hot reload                         |
-| `npm run build`       | builds main, preload and renderer into `out/`                       |
+| `npm run build`       | builds main, preload and renderer into `out/` (release shape)       |
+| `npm run build:dev`   | same, plus the dev-only modules (Mods) — what the UI flows run on   |
 | `npm start`           | runs the built output without packaging                             |
 | `npm run typecheck`   | `tsc -b` over both TS projects                                      |
 | `npm test`            | Vitest unit tests                                                   |

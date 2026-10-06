@@ -17,15 +17,8 @@ version section when a release actually ships.
 - **Servers** — Scan now refreshes only the servers your filter shows; Scan all is one click away.
 - **Servers** — Hide servers above a maximum ping (< 50 to < 200 ms).
 - **Library** — A folder with several engines lists them all; choose which one Play starts.
-- **Mods** — "Play with..." next to Play: pick a mod and a map to start.
 - **Downloads** — New installs go into their own folder; the path is shown before anything is written.
 - **Replays** — Demo timeline: volume slider and mute button for the game's sound.
-- **Mods** — Mods view shows every game directory of the selected installation.
-- **Mods** — Action Quake, OpenTDM and CTF appear as catalog tiles.
-- **Mods** — Install Action Quake, OpenTDM and CTF, also from a demo's mod warning.
-- **Mods** — Remove a mod the launcher installed — your own demos and configs stay.
-- **Mods** — Update an installed mod when the catalog has a newer version.
-- **Servers** — Server detail shows whether you have its mod and map, and installs a missing mod.
 - **Servers** — Put a search term in quotes to match it exactly.
 - **Servers** — Switch between Online and LAN to find servers on your local network.
 - **Servers** — Save your server filter as a named quick filter and reapply it with one click.
@@ -40,7 +33,6 @@ version section when a release actually ships.
 - **Servers** — Filter by several mods or maps at once.
 - New installation… in the rail and Library is one wizard that ends with a playable, named installation.
 - **Downloads** — Settings now say which options are not available yet.
-- **Mods** — A second job on an installation that is already busy is now refused with an explanation.
 - **Demos** — Quote a search term to match it exactly; a third click resets a sort.
 - **Demos** — Demo details are edited in place and save themselves — no Edit or Save button.
 
@@ -48,7 +40,6 @@ version section when a release actually ships.
 
 - **Demos** — On Linux X11 the staged demo stays on top of the launcher, borderless.
 - An unexpected launcher error now shows a translated message instead of raw system text.
-- **Downloads** — A failed mod install now shows up in the Downloads failure log.
 - **Downloads** — A retry that broke while starting now shows its failure and can be retried.
 - Bleeding-edge engine downloads now time out, retry and refuse oversized files.
 - Your last change before quitting is saved, and a failed settings write now tells you.
