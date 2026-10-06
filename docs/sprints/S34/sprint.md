@@ -1,6 +1,6 @@
 ---
 sprint: S34
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S34
 milestone: # roadmap milestone, set by /roadmap plan
 ---
@@ -50,4 +50,32 @@ refinements from the latest user feedback.
 
 ## Regression gate
 
-<!-- Filled by `/sprint` phase 2b: the commands run, minutes taken, result, commit, and a verdict per failure. -->
+Ran on `dc6fa0d` (all 19 stories' commits); the fixes were committed as `d73d2ff` and the confirmation run is on `d73d2ff`.
+
+| Command                                        | Minutes | Result                                                                                                                               |
+| ---------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run build`                                | < 1     | green                                                                                                                                |
+| `npm test`                                     | < 1     | 4 red: `check-docs`, `flow-helper-duplication`, `flow-select`, `tech-debt`                                                           |
+| `npm run ui:verify`                            | 3.7     | red: 14 replays screens unreachable                                                                                                  |
+| `npm run ui:flows` (first run)                 | 65      | red: 161/169, 8 flows red                                                                                                            |
+| fixes, re-verified on the working tree         | ~30     | 4 unit files, typecheck, lint, comments + architecture, 21 helper/changed flows green; `ui:verify` exit 0 (116 shots, 0 unreachable) |
+| `npm run ui:flows` (confirmation on `d73d2ff`) | 65.5    | green: 169/169                                                                                                                       |
+
+Per failure (each judged against docs/UI-VERIFICATION.md#what-a-flow-may-assert; all fixes are in flows, tests, docs or
+scripts, none in `src/`):
+
+- `check-docs` and `tech-debt` tests — the sprint moved stories 232/233/235/236/237-250 and the S32/S33 sprint folders into
+  `done/`, so links broke. **Fixed** with `check-docs --fix` paths.
+- `flow-select` — `areas.json` rows over 12 flows (replays-playback, downloads-bootstrap). **Fixed** by splitting the rows.
+- `flow-helper-duplication` — helpers copied into `replays-copy-in` and `servers-flow` (242, 238, 247). **Fixed** by moving
+  them to `scripts/lib`.
+- `ui:verify` replays screens — stories 238 (installation scope) and 242 (folder view) changed what the list shows first.
+  **Fixed** in `screens.mjs` (all installations, flat filter view).
+- `add-installation-one-flow` — story 240: the target step asks for a parent and proposes a subfolder. **Fixed** in the flow.
+- `linux-user-journey`, `runner-choice-compact`, `steam-handoff`, `windows-build-on-linux` — story 239 removed the Library
+  "Add existing" button. **Fixed**: the flows use `openLibraryAddEntry`.
+- `replays-filter-search` — story 242 (folder view). `replays-mod-warning` — story 238 (scope reset drops the selection).
+  `replays-play-q2pro` — story 237 (the extra `+set s_volume` token). **Fixed** in the flows. Stories 237, 241, 244 and 246
+  had reported such reds as "pre-existing, not ours"; they were caused by earlier stories of the same sprint.
+- Quarantine: `scripts/flows/quarantine.json` stays `[]`; no entry written, no unexpected pass.
+- Unattributed / blockers: none. Story 234's D2 (the real rehearsal) is not part of the gate: Docker is down.

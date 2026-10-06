@@ -397,3 +397,5 @@
 - 2026-10-06T00:39:16 · gate-fix · 8 flows re-run green; ui:verify screens next
 - 2026-10-06T00:46:12 · gate-fix · screens.mjs replays screens show all installations (238) + flat filter view (242) · done
 - 2026-10-06T00:57:11 · gate-fix · re-verified: 4 unit files, typecheck, lint, comments+architecture, 21 helper/changed flows, ui:verify exit 0 (116 shots, 0 unreachable) · done
+- 2026-10-06T00:57:27 · gate · e2e-all (confirmation) · started
+- 2026-10-06T02:02:54 · gate · e2e-all (confirmation) · done (169/169)
