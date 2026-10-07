@@ -64,6 +64,9 @@ jobs:
     # needs a display (`xvfb-run`) and a real build, neither of which the unit-test leg needs.
     name: linux user journey (ubuntu-latest, xvfb)
     runs-on: ubuntu-latest
+    # Advisory on GitHub: a red Linux job must not block a PR or a release. Under act (the local
+    # `verify:release` / `rehearse` gate) it stays strict, so the local run still reports it.
+    continue-on-error: ${{ github.actor != 'nektos/act' }}
     steps:
       - uses: actions/checkout@v4
 

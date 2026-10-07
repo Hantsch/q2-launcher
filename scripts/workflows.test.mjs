@@ -80,6 +80,30 @@ describe('ui-flows workflow', () => {
   })
 })
 
+describe('Linux jobs are advisory on GitHub', () => {
+  // Strict under act so the local verify:release / rehearse gate still reports a red Linux job.
+  const ADVISORY = "${{ github.actor != 'nektos/act' }}"
+  const LINUX_JOBS = [
+    ['ci.yml', 'linux-journey'],
+    ['ui-flows.yml', 'ui-flows'],
+    ['linux-verify.yml', 'verify'],
+    ['linux-update.yml', 'update'],
+  ]
+
+  test.each(LINUX_JOBS)('%s %s does not block a PR or release', (file, job) => {
+    const def = loadWorkflows().find((w) => w.file === file).doc.jobs[job]
+    expect(def['runs-on']).toBe('ubuntu-latest')
+    expect(def['continue-on-error']).toBe(ADVISORY)
+  })
+
+  test('Windows jobs and the release pipeline stay blocking', () => {
+    const { doc: ui } = loadWorkflows().find((w) => w.file === 'ui-flows.yml')
+    expect(ui.jobs['windows-verify']['continue-on-error']).toBeUndefined()
+    const { doc: release } = loadWorkflows().find((w) => w.file === 'release.yml')
+    for (const def of Object.values(release.jobs)) expect(def['continue-on-error']).toBeUndefined()
+  })
+})
+
 describe('workflow setup', () => {
   test('no workflow job runs setup-node, npm ci or electron install.js itself', () => {
     const offenders = allSteps()
