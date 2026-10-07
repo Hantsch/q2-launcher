@@ -24,7 +24,7 @@ export const DMFLAG_BITS = [
   'allow-exit',
   'infinite-ammo',
   'quad-drop',
-  'fixed-fov'
+  'fixed-fov',
 ] as const
 
 export type DmflagId = (typeof DMFLAG_BITS)[number]
@@ -33,8 +33,7 @@ const MAX_INT32 = 2 ** 31 - 1
 const NON_NEGATIVE_INTEGER_PATTERN = /^\d+$/
 
 export type DecodedDmflags =
-  | { ok: true; value: number; rules: DmflagId[]; unknownBits: number[] }
-  | { ok: false; raw: string }
+  { ok: true; value: number; rules: DmflagId[]; unknownBits: number[] } | { ok: false; raw: string }
 
 /**
  * Decodes a raw `dmflags` string into the vanilla rule ids its set bits carry, never throwing.

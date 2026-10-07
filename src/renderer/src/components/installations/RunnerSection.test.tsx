@@ -2,10 +2,12 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AppInfo, Installation } from '@shared/types'
+import type { AppInfo } from '@shared/types'
 import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
 import { RunnerSection } from './RunnerSection'
+import { makeInstallation } from '../../../../test-support/fixtures'
+const POSIX_ROOT = '/home/user/Games/Q2'
 
 /**
  * Story 103 D7. `RunnerSection` imports the real `useLauncher` store (not a mock, mirroring
@@ -22,27 +24,6 @@ const { invokeMock } = vi.hoisted(() => {
   }
   return { invokeMock }
 })
-
-function makeInstallation(overrides: Partial<Installation> = {}): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: '/home/user/Games/Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-    ...overrides,
-  }
-}
 
 const linuxAppInfo: AppInfo = {
   appVersion: '1.2.3',
@@ -91,7 +72,10 @@ beforeEach(() => {
     }
     return Promise.resolve({ ok: true, value: null })
   })
-  useLauncher.setState({ appInfo: linuxAppInfo, installations: [makeInstallation()] })
+  useLauncher.setState({
+    appInfo: linuxAppInfo,
+    installations: [makeInstallation({ rootPath: POSIX_ROOT })],
+  })
 })
 
 afterEach(() => {
@@ -100,7 +84,11 @@ afterEach(() => {
 
 describe('RunnerSection', () => {
   it('an unavailable runner renders its reason as visible text', async () => {
-    render(createElement(RunnerSection, { installation: makeInstallation() }))
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT }),
+      }),
+    )
 
     const wineOption = await screen.findByTestId('installation-runner-option-wine')
     expect((wineOption as HTMLButtonElement).disabled).toBe(true)
@@ -109,22 +97,24 @@ describe('RunnerSection', () => {
     // CLAUDE.md's platform-parity rule, first implementation in the app.
     const reason = screen.getByTestId('installation-runner-reason-wine')
     expect(reason.textContent).toBe('wine not found — install wine to run Windows builds')
-    expect(
-      screen.getByText('wine not found — install wine to run Windows builds'),
-    ).toBeTruthy()
+    expect(screen.getByText('wine not found — install wine to run Windows builds')).toBeTruthy()
     expect(wineOption.getAttribute('title')).toBeNull()
   })
 
   it('renders on win32 with Native checked - Steam is a second real runner choice there too (story 104)', async () => {
     useLauncher.setState({
       appInfo: { ...linuxAppInfo, platform: 'win32' },
-      installations: [makeInstallation()],
+      installations: [makeInstallation({ rootPath: POSIX_ROOT })],
     })
     // No `runner` stored at all - a real, freshly-added installation never has one until a user
     // actively picks a runner. `resolveRunner()` (`src/main/services/runners.ts`) defaults an
     // unset choice to native; the renderer's checked state must mirror that default rather than
     // rendering nothing as selected.
-    render(createElement(RunnerSection, { installation: makeInstallation() }))
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT }),
+      }),
+    )
 
     const nativeOption = await screen.findByTestId('installation-runner-option-native')
     expect(nativeOption.getAttribute('aria-checked')).toBe('true')
@@ -134,7 +124,11 @@ describe('RunnerSection', () => {
     // `resolveRunner()`'s unset-choice default is platform- and executableKind-dependent off
     // win32 (wine/umu, not native) - the renderer must not default-check Native there, or it
     // would show a runner the preview below it does not actually match.
-    render(createElement(RunnerSection, { installation: makeInstallation() }))
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT }),
+      }),
+    )
 
     const nativeOption = await screen.findByTestId('installation-runner-option-native')
     expect(nativeOption.getAttribute('aria-checked')).toBe('false')
@@ -143,7 +137,11 @@ describe('RunnerSection', () => {
   })
 
   it('selecting an available runner calls installations:update with the new runner id', async () => {
-    render(createElement(RunnerSection, { installation: makeInstallation() }))
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT }),
+      }),
+    )
 
     const nativeOption = await screen.findByTestId('installation-runner-option-native')
     expect((nativeOption as HTMLButtonElement).disabled).toBe(false)
@@ -158,7 +156,11 @@ describe('RunnerSection', () => {
   })
 
   it('shows the resolved command from launch:plan', async () => {
-    render(createElement(RunnerSection, { installation: makeInstallation() }))
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT }),
+      }),
+    )
 
     const preview = await screen.findByTestId('installation-runner-preview')
     expect(preview.textContent).toContain('wine /home/user/Games/Q2/r1q2')
@@ -182,7 +184,8 @@ describe('RunnerSection', () => {
             executablePath: '/home/user/Games/Q2/r1q2',
             args: [],
             workingDirectory: '/home/user/Games/Q2',
-            preview: planCalls === 1 ? 'wine /home/user/Games/Q2/r1q2' : 'native /home/user/Games/Q2/r1q2',
+            preview:
+              planCalls === 1 ? 'wine /home/user/Games/Q2/r1q2' : 'native /home/user/Games/Q2/r1q2',
           },
         })
       }
@@ -190,7 +193,9 @@ describe('RunnerSection', () => {
     })
 
     const { rerender } = render(
-      createElement(RunnerSection, { installation: makeInstallation({ runner: 'wine' }) }),
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT, runner: 'wine' }),
+      }),
     )
 
     const firstPreview = await screen.findByTestId('installation-runner-preview')
@@ -199,7 +204,11 @@ describe('RunnerSection', () => {
     // Simulate the store round-trip a real runner selection causes: `updateInstallation` writes
     // the choice, `installations:changed` pushes a fresh list, and the parent re-renders this
     // component with a new `installation` object whose `.runner` differs.
-    rerender(createElement(RunnerSection, { installation: makeInstallation({ runner: 'native' }) }))
+    rerender(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT, runner: 'native' }),
+      }),
+    )
 
     await waitFor(() => {
       expect(screen.getByTestId('installation-runner-preview').textContent).toContain(
@@ -213,8 +222,12 @@ describe('RunnerSection', () => {
       createElement(
         'div',
         null,
-        createElement(RunnerSection, { installation: makeInstallation({ id: 'inst-1' }) }),
-        createElement(RunnerSection, { installation: makeInstallation({ id: 'inst-2' }) }),
+        createElement(RunnerSection, {
+          installation: makeInstallation({ rootPath: POSIX_ROOT, id: 'inst-1' }),
+        }),
+        createElement(RunnerSection, {
+          installation: makeInstallation({ rootPath: POSIX_ROOT, id: 'inst-2' }),
+        }),
       ),
     )
 
@@ -242,13 +255,17 @@ describe('RunnerSection', () => {
       return Promise.resolve({ ok: true, value: null })
     })
 
-    render(createElement(RunnerSection, { installation: makeInstallation() }))
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT }),
+      }),
+    )
 
     // Assert the resolved sentence, not just non-empty text - a raw, unresolved i18n key would
     // also satisfy a truthiness check, hiding a real i18n-resolution regression.
     const preview = await screen.findByTestId('installation-runner-preview')
     expect(preview.textContent).toBe(
-      'quake2.exe is a Windows program and nothing on this machine can run it. Install wine or umu-run and pick it as the runner, or add this folder\'s game data to a native engine instead.',
+      "quake2.exe is a Windows program and nothing on this machine can run it. Install wine or umu-run and pick it as the runner, or add this folder's game data to a native engine instead.",
     )
   })
 
@@ -283,7 +300,11 @@ describe('RunnerSection', () => {
       return Promise.resolve({ ok: true, value: null })
     })
 
-    render(createElement(RunnerSection, { installation: makeInstallation() }))
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT }),
+      }),
+    )
 
     const steamOption = await screen.findByTestId('installation-runner-option-steam')
     expect((steamOption as HTMLButtonElement).disabled).toBe(true)
@@ -327,7 +348,9 @@ describe('RunnerSection', () => {
     })
 
     const { rerender } = render(
-      createElement(RunnerSection, { installation: makeInstallation({ runner: 'wine' }) }),
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT, runner: 'wine' }),
+      }),
     )
     await screen.findByTestId('installation-runner-option-steam')
     expect(screen.queryByTestId('installation-runner-steam-caveat')).toBeNull()
@@ -335,7 +358,7 @@ describe('RunnerSection', () => {
     // Steam becomes the selected runner: the caveat now appears.
     rerender(
       createElement(RunnerSection, {
-        installation: makeInstallation({ runner: 'steam' }),
+        installation: makeInstallation({ rootPath: POSIX_ROOT, runner: 'steam' }),
       }),
     )
     await waitFor(() => {
@@ -370,7 +393,11 @@ describe('RunnerSection', () => {
 
     render(
       createElement(RunnerSection, {
-        installation: makeInstallation({ runner: 'steam', steamAppId: '2320' }),
+        installation: makeInstallation({
+          rootPath: POSIX_ROOT,
+          runner: 'steam',
+          steamAppId: '2320',
+        }),
       }),
     )
 
@@ -401,7 +428,10 @@ describe('RunnerSection', () => {
       if (channel === 'installations:listRunners') {
         return Promise.resolve({
           ok: true,
-          value: [...RUNNERS, { kind: 'steam', id: 'steam', labelKey: 'runner.kind.steam', available: true }],
+          value: [
+            ...RUNNERS,
+            { kind: 'steam', id: 'steam', labelKey: 'runner.kind.steam', available: true },
+          ],
         })
       }
       if (channel === 'launch:plan') {
@@ -424,7 +454,12 @@ describe('RunnerSection', () => {
 
     const { rerender } = render(
       createElement(RunnerSection, {
-        installation: makeInstallation({ runner: 'steam', steamAppId: '2320', steamClient: 2 }),
+        installation: makeInstallation({
+          rootPath: POSIX_ROOT,
+          runner: 'steam',
+          steamAppId: '2320',
+          steamClient: 2,
+        }),
       }),
     )
 
@@ -433,7 +468,12 @@ describe('RunnerSection', () => {
 
     rerender(
       createElement(RunnerSection, {
-        installation: makeInstallation({ runner: 'steam', steamAppId: '2320', steamClient: 4 }),
+        installation: makeInstallation({
+          rootPath: POSIX_ROOT,
+          runner: 'steam',
+          steamAppId: '2320',
+          steamClient: 4,
+        }),
       }),
     )
 
@@ -474,7 +514,11 @@ describe('RunnerSection', () => {
       return Promise.resolve({ ok: true, value: null })
     })
 
-    render(createElement(RunnerSection, { installation: makeInstallation() }))
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ rootPath: POSIX_ROOT }),
+      }),
+    )
 
     const protonOption = await screen.findByTestId('installation-runner-option-proton')
     expect((protonOption as HTMLButtonElement).disabled).toBe(true)
@@ -492,8 +536,15 @@ describe('RunnerSection', () => {
   ])(
     'AC4: an unavailable runner keeps a visible, describedby-linked reason on %s',
     async (_label, appInfo) => {
-      useLauncher.setState({ appInfo, installations: [makeInstallation()] })
-      render(createElement(RunnerSection, { installation: makeInstallation() }))
+      useLauncher.setState({
+        appInfo,
+        installations: [makeInstallation({ rootPath: POSIX_ROOT })],
+      })
+      render(
+        createElement(RunnerSection, {
+          installation: makeInstallation({ rootPath: POSIX_ROOT }),
+        }),
+      )
 
       const wineOption = await screen.findByTestId('installation-runner-option-wine')
       expect((wineOption as HTMLButtonElement).disabled).toBe(true)

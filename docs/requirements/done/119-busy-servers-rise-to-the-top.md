@@ -126,7 +126,7 @@ Out of scope: filters/search ([[120]]), list states ([[121]]), what a row shows 
       - players: `knownPlayerCount`
       - map: `map`
       - ping: `rttMs`
-      An undefined value sorts last in **both** directions.
+        An undefined value sorts last in **both** directions.
     - `export const NATURAL_DIRECTION: Record<ServerSortColumn, ServerSortDirection>` =
       name/mod/map `asc`, players `desc`, ping `asc`.
     - `nextSort(current: ServerListSort | undefined, column): ServerListSort | undefined` cycles:
@@ -189,7 +189,7 @@ Out of scope: filters/search ([[120]]), list states ([[121]]), what a row shows 
   - In `src/renderer/src/modules/servers/client.ts`, add:
     - `getListSort(): Promise<Outcome<ServerListSort | null>>`
     - `setListSort(sort: ServerListSort | null): Promise<Outcome<ServerListSort | null>>`
-    Both use `callModule`, like `getScanSettings`.
+      Both use `callModule`, like `getScanSettings`.
   - Create `src/renderer/src/modules/servers/ServerSortBar.tsx`:
     - Props: `{ sort: ServerListSort | undefined; onSort(column) }`.
     - Render one `Button` (`variant="neutral"`, default size) per column, with testid

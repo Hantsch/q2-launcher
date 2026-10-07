@@ -42,6 +42,7 @@ a second, separate profile.
 ### Case 1 — Binding a catalogue entry writes the reduced tag
 
 **Steps**
+
 1. Still on **Controls → Movement**, find the **Forward** row.
 2. Click its **Primary** cell (reads "Empty"). It switches to "Press a key…". Press `G`.
 3. The top save bar now reads **"Unsaved changes"**. Click **Save**.
@@ -49,6 +50,7 @@ a second, separate profile.
    rendered `.cfg`. Use its search field (magnifying-glass icon) to find `+forward`.
 
 **Expected result**
+
 - A line reads `bind g "+forward"   // Forward [q2l cid=movement:forward]` (key may render lower-
   or upper-case, that's fine).
 - The comment carries only `cid=`. There is no `e=`, no `k=`, and no `slot=` anywhere in the file —
@@ -58,6 +60,7 @@ a second, separate profile.
 ### Case 2 — An entry with no catalogue link gets the bare `[q2l]` marker
 
 **Steps**
+
 1. Back on **Controls**, click **+ New category** in the category rail. Name it `S10 Test`, click
    **Create category**. It becomes the selected category.
 2. Click **Add action**. Name `Ping`, **Entry kind** `Bind`, click **Create action**.
@@ -69,18 +72,21 @@ a second, separate profile.
 7. **Raw file** tab → search for `Ping`.
 
 **Expected result**
+
 - A line reads `bind p "screenshot"   // Ping [q2l]` — the bare marker tag, no `cid=` at all (this
   entry has no catalogue link).
 
 ### Case 3 — A second, modified key writes an anchor line
 
 **Steps**
+
 1. Still on **Controls → S10 Test**, click **Ping**'s **Secondary** cell ("Press a key…").
 2. Hold **Alt**, then press `R`, release both. The cell now reads `ALT` + `R`.
 3. Click **Save** in the top bar.
 4. **Raw file** tab → search for `Ping` again.
 
 **Expected result**
+
 - Ping's own command line is unchanged.
 - A second, comment-only line appears in the `S10 Test` section (no matching `bind` line for that
   key — a modifier can't be written as a plain `bind`): `// Ping [q2l key=r mod=ALT]` (or
@@ -89,6 +95,7 @@ a second, separate profile.
 ### Case 4 — A hand-added third key survives a reload (multi-slot from file order)
 
 **Steps**
+
 1. **Raw file** tab → under **"This profile's file"**, click the **Open in editor** icon (external-
    link icon) next to the path. Your OS's default text editor opens the file.
 2. Find the line `bind g "+forward"` (from case 1). Directly below it, add a new line:
@@ -100,6 +107,7 @@ a second, separate profile.
 5. **Raw file** tab → search for `+forward` again.
 
 **Expected result**
+
 - Step 3: after Reload, no error toast, and the **Sync** row for "This profile's file" now reads
   **"In sync"**.
 - Step 4: the hand-added `bind h "+forward"` line is **not** listed as an unrecognised/preserved
@@ -113,6 +121,7 @@ a second, separate profile.
 ### Case 5 — Known, accepted drift: an inconsistently renamed anchor splits the entry
 
 **Steps**
+
 1. **Raw file** tab → **"This profile's file"** → **Open in editor**.
 2. Find the comment-only anchor line from case 3: `// Ping [q2l key=r mod=ALT]`. Change **only this
    line's** display name from `Ping` to `Pong`, leaving Ping's own command line's comment untouched.
@@ -122,6 +131,7 @@ a second, separate profile.
 4. **Controls** tab → **S10 Test** category.
 
 **Expected result**
+
 - Two separate rows now exist in this category: **Ping** (Primary = P only, no more Secondary) and
   a new row named **Pong** carrying the `Alt+R` key with no commands of its own.
 - No crash, no lost line, no error toast — this is the documented accepted drift (the anchor lost
@@ -135,6 +145,7 @@ a second, separate profile.
 ### Case 6 — Create and bind a toggle
 
 **Steps**
+
 1. **Controls** tab → **+ New category** → name `S10 Idioms` → **Create category**.
 2. **+ Add action** → Name `Zoom`, **Entry kind** `Toggle` → **Create action**.
 3. On the new **Zoom** row, click **Edit commands…**.
@@ -147,6 +158,7 @@ a second, separate profile.
 9. **Overview** tab → find the `V` keycap on the board.
 
 **Expected result**
+
 - Step 8: three `alias` lines plus one `bind` line, e.g. (exact command text may wrap differently):
   `alias zoom_s1 "echo zoom-in; alias zoom zoom_s2"   // Zoom [q2l lbl=In]`
   `alias zoom_s2 "echo zoom-out; alias zoom zoom_s1"   // Zoom [q2l lbl=Out]`
@@ -159,6 +171,7 @@ a second, separate profile.
 ### Case 7 — Create, rename and delete a press/release entry
 
 **Steps**
+
 1. **Controls → S10 Idioms** → **+ Add action** → Name `slow`, **Entry kind** `Press/release` →
    **Create action**.
 2. On the **slow** row, **Edit commands…**. Under **Press**: raw command `echo press`, **Add**.
@@ -173,6 +186,7 @@ a second, separate profile.
 9. **Raw file** tab → search for `walk` and for `slow` again.
 
 **Expected result**
+
 - Step 5: `alias +slow "echo press"   // slow [q2l]`, `alias -slow "echo release"   // slow [q2l]`,
   and `bind t "+slow"` — exactly one entry rendered as an `+x`/`-x` pair, no `cid`/`e`/`k`/`slot`.
 - Step 7: both alias lines and the bind now read `+walk` / `-walk` — renaming moved both halves at
@@ -183,6 +197,7 @@ a second, separate profile.
 ### Case 8 — Adding a `wait` without typing it
 
 **Steps**
+
 1. **Controls → S10 Idioms** → **+ Add action** → Name `Jump wait`, **Entry kind** `Bind` →
    **Create action**.
 2. **Edit commands…** → under **Frames**, the field already shows `5`; click **Add wait**. A row
@@ -193,6 +208,7 @@ a second, separate profile.
 6. Back in **Controls**, click **Edit commands…** on the **Jump wait** row again.
 
 **Expected result**
+
 - Step 5: `bind j "wait; wait; wait; wait; wait"   // Jump wait [q2l]` — five literal `wait`
   segments, never the word "wait" typed by you.
 - Step 6: the command list still shows exactly **one** row, "Wait × 5" — not five separate rows.
@@ -203,6 +219,7 @@ a second, separate profile.
 This case creates its own, separate profile — it does not touch `S10 Test`.
 
 **Preparation**
+
 1. Locate the `baseq2` folder inside the Quake II installation you registered in step 2 of the
    overall preparation. **If that installation already has a `config.cfg` you care about, back it
    up first** — this step overwrites it.
@@ -228,6 +245,7 @@ This case creates its own, separate profile — it does not touch `S10 Test`.
 3. Save the file.
 
 **Steps**
+
 1. Config module → profile list → **New profile** → **Start from** → **Import from installation** →
    **Continue**.
 2. **Installation** → pick the installation you just edited. **Game directory** → `baseq2` (should
@@ -238,6 +256,7 @@ This case creates its own, separate profile — it does not touch `S10 Test`.
    none of these commands match the movement/weapons/drops guesses).
 
 **Expected result**
+
 - Exactly one row named **zoom** — not three separate `zoom`/`zoomin`/`zoomout` rows. Opening its
   **Edit commands…** shows the two-state **Toggle** editor (State 1/State 2), confirming it was
   recognised as a toggle, not left as a plain alias.
@@ -245,7 +264,7 @@ This case creates its own, separate profile — it does not touch `S10 Test`.
   `+slow`/`-slow` rows.
 - One row named **wait5** whose editor shows a single "Wait × 5" row, not a raw 5-`wait` command
   chain.
-- Three **separate** rows: **badstate1**, **badstate2**, **badtoggle** — the broken trio was *not*
+- Three **separate** rows: **badstate1**, **badstate2**, **badtoggle** — the broken trio was _not_
   merged into a toggle; each imports as its own plain alias entry, per AC4's "falls back rather than
   guessing".
 
@@ -270,6 +289,7 @@ to show anything at all (see the note at the end of this case).
    panel (titled with your installation's engine, e.g. **r1q2**).
 
 **Expected result**
+
 - The engine panel lists a warning naming `zoom`/`zoom_s1`/`zoom_s2` (or your own state names),
   saying the two states are cross-wired and never loop between the two — the message says to
   recreate it as a toggle entry or fix the trailing `alias zoom …` line.
@@ -288,6 +308,7 @@ to show anything at all (see the note at the end of this case).
 4. Check the engine panel again.
 
 **Expected result**
+
 - A warning names `+crouch` as a press command with no matching release alias — and this is a real,
   key-bound entry (`K` is still bound to `+crouch` on the Controls tab, now shown as a plain **Bind**
   row named `+crouch`, not an orphaned, unbound alias sitting unreferenced anywhere).
@@ -301,6 +322,7 @@ to show anything at all (see the note at the end of this case).
 3. Check the engine panel again.
 
 **Expected result**
+
 - A warning names `-limp` as a release command with no matching press alias.
 
 **Note on why the profile must be assigned:** these three checks are part of the per-engine
@@ -313,12 +335,12 @@ from an earlier sprint.
 
 ## Known, out-of-scope edge cases (do not chase these as bugs)
 
-- **050:** two entries in the same category whose *display names* both derive the same alias slug
+- **050:** two entries in the same category whose _display names_ both derive the same alias slug
   (e.g. an entry named `Fire` and one named `fire!` both derive the alias `fire`) can still lose one
   of them if you hand-edit the file to create that exact collision and then reload — a warning toast
   now fires when this happens, but the dropped entry is not recovered. This needs a hand-crafted
   name collision; it will not come up from normal use.
-- **045:** three entries whose *full, never-truncated* display names form an exact prefix chain
+- **045:** three entries whose _full, never-truncated_ display names form an exact prefix chain
   (e.g. "Creep" / "Creep along" / "Creep along slowly"), each on a long enough line, can still merge
   into one entry on reload under specific conditions. This also needs deliberately hand-crafted
   names; it is not reachable through ordinary use of the app or its own generated names.

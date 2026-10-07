@@ -1,12 +1,14 @@
 import { copyFile, readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
-import { isLauncherOwnedFile } from '@shared/config/file-ownership'
-import type { Installation } from '@shared/types'
+import { isLauncherOwnedFile } from '@shared/config/render/file-ownership'
+import type { CleanupApplyResult } from '@shared/modules/config'
+import { fail, ok, type Installation, type LaunchState, type Outcome } from '@shared/types'
 import { fileSize, isFile, listDir, pathExists } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX, backupOnce } from './backup'
 import { gameDirBelongsToInstallation } from './import'
 import { isSafeGameDirName, LOADER_FILE_NAME } from './writer'
+import { isInstallationRunning } from './write-plan'
 
 /**
  * Story 010's redundancy scan: a mod-folder `.cfg` file is redundant when the
@@ -15,7 +17,7 @@ import { isSafeGameDirName, LOADER_FILE_NAME } from './writer'
  * than something they rely on.
  *
  * `scanRedundantCopies()` is read-only by construction. `removeRedundantCopies()`
- * and `restoreRemovedCopies()` (D2) are the only things in this module that
+ * and `restoreRemovedCopies()` are the only things in this module that
  * touch the disk, and they are the one irreversible step of the whole feature,
  * so they are built the same conservative way `writer.ts` is:
  *
@@ -61,11 +63,11 @@ const BARE_CFG_NAME = /^[A-Za-z0-9_.-]+\.cfg$/
 /**
  * One mod-folder `.cfg` file that duplicates a same-named `baseq2` file.
  *
- * Kept local and minimal for D1: `gameDir`/`fileName`/`identical` are what
+ * Kept local and minimal: `gameDir`/`fileName`/`identical` are what
  * the acceptance criteria require. `size` is added too - `fileSize()` is
  * already in scope for this scan and later Ds (the review UI) want it for
  * free rather than re-reading the file - but nothing else is speculative.
- * D3 may re-shape/re-export this as the module's shared contract type.
+ * It may be re-shaped/re-exported later as the module's shared contract type.
  */
 export interface CleanupFinding {
   /** One of `installation.gameDirs` - the mod folder the redundant copy lives in. */
@@ -151,7 +153,7 @@ export async function scanRedundantCopies(installation: Installation): Promise<C
  * Both results echo this same minimal shape back, so `result.removed` can be
  * handed straight to `restoreRemovedCopies()` for the undo.
  *
- * D3 will mirror this in `src/shared/modules/config.ts`; it is local for now.
+ * The shared contract will mirror this in `src/shared/modules/config.ts`; it is local for now.
  */
 export interface CleanupEntry {
   /** One of `installation.gameDirs`, never `baseq2`, never a path. */
@@ -329,4 +331,39 @@ export async function restoreRemovedCopies(
   }
 
   return { restored, rejected }
+}
+
+/**
+ * Story 010, decision 12: `apply`/`restore` refuse a currently-running
+ * installation - unlike a profile write (story 079: a running game defers
+ * nothing), a cleanup delete/restore actually removes files out from under
+ * the running engine, so this stays a hard refusal rather than a deferred
+ * write. `scan` is deliberately NOT gated by this (it is read-only and always
+ * safe) and so has no equivalent wrapper - `configModule.setup()`'s
+ * `cleanupScan` handler calls `scanRedundantCopies` directly.
+ *
+ * Pulled out of the handler closure so the running-guard itself is testable
+ * without booting `configModule.setup()`.
+ */
+export async function applyCleanupIfNotRunning(
+  installation: Installation,
+  entries: CleanupEntry[],
+  launchState: LaunchState,
+): Promise<Outcome<CleanupApplyResult>> {
+  if (isInstallationRunning(launchState, installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+  return ok(await removeRedundantCopies(installation, entries))
+}
+
+/** Restore's half of the same running-guard - see `applyCleanupIfNotRunning` above. */
+export async function restoreCleanupIfNotRunning(
+  installation: Installation,
+  entries: CleanupEntry[],
+  launchState: LaunchState,
+): Promise<Outcome<CleanupRestoreResult>> {
+  if (isInstallationRunning(launchState, installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+  return ok(await restoreRemovedCopies(installation, entries))
 }

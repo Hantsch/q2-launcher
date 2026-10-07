@@ -2,7 +2,7 @@ import type { LaunchState, Outcome } from '@shared/types'
 import { fail, ok } from '@shared/types'
 import { NO_SESSION, type PlaybackControl } from './playback-control'
 
-/** Story 173 D1: how long the game gets to act on `quit` before it is terminated. */
+/** Story 173: how long the game gets to act on `quit` before it is terminated. */
 export const STOP_EXIT_TIMEOUT_MS = 5000
 
 /** The slice of `LaunchService` the stop needs - a fake stands in for it in tests. */
@@ -13,7 +13,7 @@ export interface PlaybackStopLaunch {
 }
 
 /**
- * Story 173 D1: `playback.stop` - quit first, then terminate. The game is asked to `quit` over the
+ * Story 173: `playback.stop` - quit first, then terminate. The game is asked to `quit` over the
  * playback channel; if it has not exited after `timeoutMs` it is terminated. A refused quit (the
  * demo already finished, the Windows loop stopped) terminates at once. Either way the end arrives
  * as that launch's ordinary exit, so there is no cleanup here: the pending stop and its timer are
@@ -22,6 +22,8 @@ export interface PlaybackStopLaunch {
  */
 export interface PlaybackStop {
   stop(): Outcome<void>
+  /** Drops the launch observer and any pending timer; a stop after this never resubscribes. */
+  dispose(): void
 }
 
 export function createPlaybackStop(deps: {
@@ -43,16 +45,19 @@ export function createPlaybackStop(deps: {
   // Subscribed on first use, like the playback control, so a module that never stops a demo never
   // touches the launch service's observers.
   let subscribed = false
+  let disposed = false
+  let unsubscribe: (() => void) | null = null
   const subscribe = (): void => {
-    if (subscribed) return
+    if (subscribed || disposed) return
     subscribed = true
-    launch.onStateChange((state) => {
+    unsubscribe = launch.onStateChange((state) => {
       if (state.phase === 'exited' || state.phase === 'failed') settle()
     })
   }
 
   return {
     stop() {
+      if (disposed) return fail(NO_SESSION)
       if (!launch.isPlaybackRunning()) return fail(NO_SESSION)
       if (pending) return ok(undefined)
       subscribe()
@@ -68,6 +73,12 @@ export function createPlaybackStop(deps: {
         if (!launch.terminatePlayback()) settle()
       }, timeoutMs)
       return ok(undefined)
+    },
+    dispose() {
+      disposed = true
+      settle()
+      unsubscribe?.()
+      unsubscribe = null
     },
   }
 }

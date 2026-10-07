@@ -513,14 +513,18 @@ export default async function configHeaderGeometry({ page, app, shot, step }) {
   // `isFindOpen`-keyed focus effect never re-runs on its own. Before the fix, this left focus
   // stranded on `.cfg-code` and Ctrl+F did nothing observable.
   await lockedCodeView.click({ timeout: TIMEOUT_MS })
-  const focusedOnCfgCodeAfterClick = await lockedCodeView.evaluate((el) => el === document.activeElement)
+  const focusedOnCfgCodeAfterClick = await lockedCodeView.evaluate(
+    (el) => el === document.activeElement,
+  )
   if (!focusedOnCfgCodeAfterClick) {
     throw new Error(
       'clicking .cfg-code did not move focus onto it - cannot exercise the already-open regression',
     )
   }
   await page.keyboard.press('Control+f')
-  const inputFocusedWhenAlreadyOpen = await searchInput.evaluate((el) => el === document.activeElement)
+  const inputFocusedWhenAlreadyOpen = await searchInput.evaluate(
+    (el) => el === document.activeElement,
+  )
   if (!inputFocusedWhenAlreadyOpen) {
     throw new Error(
       'Ctrl+F while the find bar was already open (focus moved to .cfg-code) did not refocus the ' +
@@ -528,7 +532,9 @@ export default async function configHeaderGeometry({ page, app, shot, step }) {
         'already true, so the isFindOpen-keyed focus effect never re-runs on its own',
     )
   }
-  console.log('a second Ctrl+F while the bar was already open (focus on .cfg-code) refocused the input')
+  console.log(
+    'a second Ctrl+F while the bar was already open (focus on .cfg-code) refocused the input',
+  )
 
   step('press Escape again to leave the find bar closed before restoring the fixture')
   await page.keyboard.press('Escape')
@@ -541,9 +547,7 @@ export default async function configHeaderGeometry({ page, app, shot, step }) {
 
   step('restore the fixture: discard the writeUnbindall change (D-15)')
   await page.getByTestId('config-discard').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByRole('button', { name: 'Discard changes' })
-    .click({ timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Discard changes' }).click({ timeout: TIMEOUT_MS })
   await page.getByTestId('config-tab-unsaved').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   // --- AC1/AC3: one header row, identical chrome, on every tab -----------------------------------
@@ -552,7 +556,10 @@ export default async function configHeaderGeometry({ page, app, shot, step }) {
   for (const tabId of CLEAN_TABS) {
     await page.getByTestId(`config-tab-${tabId}`).click({ timeout: TIMEOUT_MS })
     if (tabId === 'raw') {
-      await page.locator('.cfg-code').first().waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+      await page
+        .locator('.cfg-code')
+        .first()
+        .waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
     }
     byTab[tabId] = await captureZoneRects(page)
   }
@@ -844,7 +851,9 @@ export default async function configHeaderGeometry({ page, app, shot, step }) {
   await page.getByTestId('config-tab-unsaved').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('config-tab-unsaved').click({ timeout: TIMEOUT_MS })
 
-  const indicator = page.getByTestId('config-profile-identity').getByTestId('config-unsaved-indicator')
+  const indicator = page
+    .getByTestId('config-profile-identity')
+    .getByTestId('config-unsaved-indicator')
   await indicator.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   // AC1 again, in the state the criterion actually names: "line 1 = profile name + unsaved/saved
@@ -902,7 +911,11 @@ export default async function configHeaderGeometry({ page, app, shot, step }) {
   }
 
   const header = page.getByTestId('config-profile-header')
-  await assertHitTestable(page, header.getByRole('button', { name: 'Back to profiles' }), 'back button')
+  await assertHitTestable(
+    page,
+    header.getByRole('button', { name: 'Back to profiles' }),
+    'back button',
+  )
   await assertHitTestable(page, page.getByTestId('config-save'), 'Save button')
   await assertHitTestable(page, page.getByTestId('config-discard'), 'Discard button')
   const actions = page.getByTestId('config-profile-actions')

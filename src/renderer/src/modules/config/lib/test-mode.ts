@@ -1,5 +1,5 @@
 /**
- * Test-mode press resolution and layer-switch reducer — story 018 D1.
+ * Test-mode press resolution and layer-switch reducer — story 018.
  *
  * Test mode answers "what happens when I press this key". Before this module
  * existed, the readout only ever looked at `profile.binds`, so a layer's
@@ -14,8 +14,8 @@
  * Pure by contract, like `trigger-keys.ts`: no React, no DOM, no electron.
  */
 
-import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
-import { generateLayerAliases } from '@shared/config/alt-layers'
+import type { AltLayer, AltLayerMode } from '@shared/config/aliases/alt-layers'
+import { generateLayerAliases } from '@shared/config/aliases/alt-layers'
 import type { ConfigAction } from '@shared/modules/config'
 import { triggerSelectTarget } from './trigger-keys'
 
@@ -32,7 +32,13 @@ export interface TestModeProfile {
  * layer's own override → the base bind → unbound.
  */
 export type TestPress = { key: string } & (
-  | { kind: 'trigger'; layerId: string; layerName: string; mode: AltLayerMode; alias: string | null }
+  | {
+      kind: 'trigger'
+      layerId: string
+      layerName: string
+      mode: AltLayerMode
+      alias: string | null
+    }
   | { kind: 'override' | 'base'; command: string; layerName?: string }
   | { kind: 'unbound' }
 )
@@ -40,7 +46,7 @@ export type TestPress = { key: string } & (
 /**
  * Resolve what pressing `key` means. A layer's trigger key outranks
  * everything else — it is what puts the layer on the board in the first
- * place, exactly the precedence 014 D3 already established for the keycap's
+ * place, exactly the precedence 014 already established for the keycap's
  * own appearance — so every layer's `triggerKey` is checked before the
  * displayed layer's overrides or the base binds.
  *
@@ -105,7 +111,7 @@ export interface TestModeSwitchState {
  * A `hold` layer's trigger puts that layer on the board and remembers what
  * was displayed before, so release can restore it; a second hold press
  * (whichever layer it belongs to) replaces the currently held trigger rather
- * than stacking — Q2 has no nested layers (016 D1 already refuses two held
+ * than stacking — Q2 has no nested layers (016 already refuses two held
  * modifiers), so a stack would model something the engine cannot do.
  *
  * A `toggle` layer's trigger flips between its own layer and base via
@@ -129,7 +135,11 @@ export function applyTriggerPress(
 
   // toggle: flip between this layer and base, unaffected by any held trigger.
   const isActive = state.displayedLayerId === press.layerId
-  const target = triggerSelectTarget({ layerId: press.layerId, layerName: press.layerName, isActive })
+  const target = triggerSelectTarget({
+    layerId: press.layerId,
+    layerName: press.layerName,
+    isActive,
+  })
   return { ...state, displayedLayerId: target }
 }
 
@@ -139,10 +149,7 @@ export function applyTriggerPress(
  * that was displayed before it was pressed; releasing any other key
  * (including a toggle trigger, which has no hold state) is a no-op.
  */
-export function applyTriggerRelease(
-  state: TestModeSwitchState,
-  key: string,
-): TestModeSwitchState {
+export function applyTriggerRelease(state: TestModeSwitchState, key: string): TestModeSwitchState {
   if (!state.heldTrigger || state.heldTrigger.key !== key) return state
 
   return { displayedLayerId: state.heldTrigger.restoreLayerId, heldTrigger: null }

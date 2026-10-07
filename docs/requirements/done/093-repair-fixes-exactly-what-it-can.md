@@ -7,7 +7,7 @@ created: 2026-09-12
 
 ## Requirement
 
-The [install-module concept](../concepts/install-module.md) §11 (INST-R1–R3) redeems
+The [install-module concept](../../systems/install-module.md) §11 (INST-R1–R3) redeems
 `ValidationFix`'s `install-game-files`, reserved since the installation model was built for
 "the install/update module". Repair reads `inspectInstallation`'s own findings — it never
 invents a second diagnosis — and offers exactly what the manifest can supply (engine
@@ -27,7 +27,7 @@ Downloads tab; this story makes it do something.
       retail-copy action; when no store installation is detected, it says so plainly instead of
       offering a picker with nothing in it.
 - [x] **AC5** — An installation not writable at its current location (e.g. under `Program
-      Files`) offers the existing `set-write-dir` fix as its repair, unchanged.
+Files`) offers the existing `set-write-dir` fix as its repair, unchanged.
 - [x] **AC6** — When `inspectInstallation` reports nothing repairable, the UI says so instead of
       showing an action that would do nothing.
 - [x] **AC7** — Every repair action is driven by re-reading `inspectInstallation`'s current
@@ -45,7 +45,7 @@ All taken during refine; none needed the user.
   (`openDialog({ kind: 'module', moduleId: 'downloads', view: 'repair', installationId })`), exactly
   as [[090]] opens `'retail-upgrade'`. Reason: CLAUDE.md's "a feature is a module — never edit the
   shell"; the shell only changes the two lines that today call `setRoute('/downloads')`.
-- **A `RepairPlan` is computed main-side from a *fresh* `inspectInstallation`, twice** — once when
+- **A `RepairPlan` is computed main-side from a _fresh_ `inspectInstallation`, twice** — once when
   the dialog asks (`repair.plan`) and again inside the job before it writes (`repair.start`).
   Reason: AC7 forbids acting on a snapshot, and the renderer's copy of `Installation.checks` is by
   definition older than the moment the user clicks.
@@ -83,7 +83,7 @@ All taken during refine; none needed the user.
   (`bootstrap/job.ts:773`, ~800 lines) also registers/adopts an installation and drives the wizard's
   phase model; carving an engine-only path out of it is a bigger regression risk than this story
   buys, while the ports it uses are already reusable.
-- **Repair narrows the *existing* allowlist, it never adds entries.** `assembleInstallation` gains
+- **Repair narrows the _existing_ allowlist, it never adds entries.** `assembleInstallation` gains
   an optional `restrictTo?: { roles?: AssembleFileRole[]; targets?: string[] }` that filters the
   plan `buildAssemblePlan` produced (engine repair → `roles: ['engine']`; pak2 repair →
   `targets: ['baseq2/pak2.pak']`), with `includeVideoAndPlayers: false`. Reason: `assemble.ts`'s
@@ -133,72 +133,72 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7. D3 may run in parallel with
 ## Deliverables
 
 - [x] **D1 — The inspector separates the two paks cases and marks them fixable.**
-  `src/main/services/inspector.ts` (+ `inspector.test.ts`),
-  `src/renderer/src/i18n/locales/en.json`. Mirror the existing `check(...)` calls at
-  `inspector.ts:183-199`. *Acceptance:* a baseq2 with a retail-size `pak0.pak` + `pak1.pak` and no
-  `pak2.pak` yields `validation.pointReleaseMissing` (warn, `fix: 'install-game-files'`); the same
-  folder without `pak1.pak` still yields `validation.retailPaksMissing` (now with the fix);
-  `validation.pak0NotRetail` keeps severity `info` and gains the fix; installation *status* is
-  unchanged in every case. Tests in `inspector.test.ts`.
+      `src/main/services/inspector.ts` (+ `inspector.test.ts`),
+      `src/renderer/src/i18n/locales/en.json`. Mirror the existing `check(...)` calls at
+      `inspector.ts:183-199`. _Acceptance:_ a baseq2 with a retail-size `pak0.pak` + `pak1.pak` and no
+      `pak2.pak` yields `validation.pointReleaseMissing` (warn, `fix: 'install-game-files'`); the same
+      folder without `pak1.pak` still yields `validation.retailPaksMissing` (now with the fix);
+      `validation.pak0NotRetail` keeps severity `info` and gains the fix; installation _status_ is
+      unchanged in every case. Tests in `inspector.test.ts`.
 - [x] **D2 — Repair plan, contract and the `repair.plan` handler.**
-  `src/main/modules/downloads/repair/plan.ts` (+ `plan.test.ts`),
-  `src/shared/modules/downloads.ts`, `src/main/modules/downloads/schemas.ts`,
-  `src/main/modules/downloads/index.ts`, `src/renderer/src/modules/downloads/client.ts`.
-  Mirror [[090]] D1 (`retail.upgradeStart` wiring, `index.ts:257`). *Acceptance:* `buildRepairPlan`
-  maps `noExecutable`/`executableMissing` + a manifest-supplied engine → `reinstall-engine`;
-  `pointReleaseMissing` → `install-point-release`; `pak0NotRetail` / `pak0Missing` /
-  `baseDirMissing` / `retailPaksMissing` → `retail-copy`; `notWritable` → `set-write-dir`;
-  `engineUnknown` alone → no offer; nothing repairable → an empty offer list carrying the findings.
-  The handler re-runs `inspectInstallation` on every call (never reads stored checks) and carries a
-  zod schema. Proves AC1–AC6's "which offer" half and AC7's plan half. Tests: `plan.test.ts`.
+      `src/main/modules/downloads/repair/plan.ts` (+ `plan.test.ts`),
+      `src/shared/modules/downloads.ts`, `src/main/modules/downloads/schemas.ts`,
+      `src/main/modules/downloads/index.ts`, `src/renderer/src/modules/downloads/client.ts`.
+      Mirror [[090]] D1 (`retail.upgradeStart` wiring, `index.ts:257`). _Acceptance:_ `buildRepairPlan`
+      maps `noExecutable`/`executableMissing` + a manifest-supplied engine → `reinstall-engine`;
+      `pointReleaseMissing` → `install-point-release`; `pak0NotRetail` / `pak0Missing` /
+      `baseDirMissing` / `retailPaksMissing` → `retail-copy`; `notWritable` → `set-write-dir`;
+      `engineUnknown` alone → no offer; nothing repairable → an empty offer list carrying the findings.
+      The handler re-runs `inspectInstallation` on every call (never reads stored checks) and carries a
+      zod schema. Proves AC1–AC6's "which offer" half and AC7's plan half. Tests: `plan.test.ts`.
 - [x] **D3 — The allowlist can be narrowed.** `src/main/modules/downloads/bootstrap/assemble.ts`
-  (+ `assemble.test.ts`). *Acceptance:* `restrictTo: { roles: ['engine'] }` copies engine entries
-  only; `restrictTo: { targets: ['baseq2/pak2.pak'] }` copies exactly that one file;
-  `missingRequired` is computed over the filtered plan, not the full one; omitting `restrictTo`
-  leaves every existing caller's result byte-identical (existing tests unchanged).
+      (+ `assemble.test.ts`). _Acceptance:_ `restrictTo: { roles: ['engine'] }` copies engine entries
+      only; `restrictTo: { targets: ['baseq2/pak2.pak'] }` copies exactly that one file;
+      `missingRequired` is computed over the filtered plan, not the full one; omitting `restrictTo`
+      leaves every existing caller's result byte-identical (existing tests unchanged).
 - [x] **D4 — The repair job.** `src/main/modules/downloads/repair/job.ts` (+ `job.test.ts`),
-  `src/main/modules/downloads/bootstrap/errors.ts`, `schemas.ts`/`index.ts` (`repair.start`).
-  Mirror `src/main/modules/downloads/retail/upgrade-job.ts` (job creation, cancel, error mapping,
-  host seams `…JobsHost`/`InstallationsHost`/`LaunchHost`, final `installations.validate`), and use
-  [[091]]'s write guard rather than `upgrade-job.ts`'s interim refusal. *Acceptance (with the
-  fetcher, extractor, manifest and launch state faked, real `JobsService` + real
-  `InstallationsService` over an in-memory store, as `upgrade-job.test.ts:26-46` does):*
-  re-inspects at start and performs only what the fresh verdict justifies (an offer that has since
-  become unnecessary is skipped, one that has since appeared is honoured); engine repair writes only
-  engine-role files; pak2 repair writes only `baseq2/pak2.pak`; a manifest that cannot supply the
-  package fails with `downloads.error.packageUnavailable` before writing; the write phase waits per
-  [[091]] while that installation's game runs and resumes when it exits; the job ends by calling
-  `installations.validate()` and never sets a status. Proves AC1, AC2, AC7, AC8, AC9.
+      `src/main/modules/downloads/bootstrap/errors.ts`, `schemas.ts`/`index.ts` (`repair.start`).
+      Mirror `src/main/modules/downloads/retail/upgrade-job.ts` (job creation, cancel, error mapping,
+      host seams `…JobsHost`/`InstallationsHost`/`LaunchHost`, final `installations.validate`), and use
+      [[091]]'s write guard rather than `upgrade-job.ts`'s interim refusal. _Acceptance (with the
+      fetcher, extractor, manifest and launch state faked, real `JobsService` + real
+      `InstallationsService` over an in-memory store, as `upgrade-job.test.ts:26-46` does):_
+      re-inspects at start and performs only what the fresh verdict justifies (an offer that has since
+      become unnecessary is skipped, one that has since appeared is honoured); engine repair writes only
+      engine-role files; pak2 repair writes only `baseq2/pak2.pak`; a manifest that cannot supply the
+      package fails with `downloads.error.packageUnavailable` before writing; the write phase waits per
+      [[091]] while that installation's game runs and resumes when it exits; the job ends by calling
+      `installations.validate()` and never sets a status. Proves AC1, AC2, AC7, AC8, AC9.
 - [x] **D5 — The repair dialog.** `src/renderer/src/modules/downloads/repair/RepairDialog.tsx`
-  (+ `RepairDialog.test.tsx`), `src/renderer/src/modules/downloads/bootstrap/Dialogs.tsx` (`view`
-  switch), `src/renderer/src/modules/downloads/client.ts`,
-  `src/renderer/src/i18n/locales/en.json`. Mirror `retail/RetailUpgradeDialog.tsx` (dialog shape,
-  `RunningStep` handover once a `jobId` exists). *Acceptance:* the dialog fetches the plan on open
-  and renders one row per offer; `retail-copy` switches to the `'retail-upgrade'` view;
-  `set-write-dir` calls `useFixAction(installation, 'set-write-dir')`; an empty plan renders the
-  findings plus the "nothing can be repaired automatically" message and no action button;
-  `data-testid`s for the flow. Proves AC3/AC4's entry, AC5, AC6.
+      (+ `RepairDialog.test.tsx`), `src/renderer/src/modules/downloads/bootstrap/Dialogs.tsx` (`view`
+      switch), `src/renderer/src/modules/downloads/client.ts`,
+      `src/renderer/src/i18n/locales/en.json`. Mirror `retail/RetailUpgradeDialog.tsx` (dialog shape,
+      `RunningStep` handover once a `jobId` exists). _Acceptance:_ the dialog fetches the plan on open
+      and renders one row per offer; `retail-copy` switches to the `'retail-upgrade'` view;
+      `set-write-dir` calls `useFixAction(installation, 'set-write-dir')`; an empty plan renders the
+      findings plus the "nothing can be repaired automatically" message and no action button;
+      `data-testid`s for the flow. Proves AC3/AC4's entry, AC5, AC6.
 - [x] **D6 — The two triggers stop navigating and start repairing.**
-  `src/renderer/src/components/shell/ActionBar.tsx` (`case 'repair'`, ~line 62),
-  `src/renderer/src/components/installations/ChecksList.tsx` (`install-game-files` branch, ~line
-  120). Mirror `ActionBar.tsx:145`'s `openDialog({ kind: 'module', … })` call. *Acceptance:* both
-  open the repair dialog for that installation; no shell file imports a downloads component;
-  `setRoute('/downloads')` is gone from both places.
+      `src/renderer/src/components/shell/ActionBar.tsx` (`case 'repair'`, ~line 62),
+      `src/renderer/src/components/installations/ChecksList.tsx` (`install-game-files` branch, ~line
+      120). Mirror `ActionBar.tsx:145`'s `openDialog({ kind: 'module', … })` call. _Acceptance:_ both
+      open the repair dialog for that installation; no shell file imports a downloads component;
+      `setRoute('/downloads')` is gone from both places.
 - [x] **D7 — Offline end-to-end proof.** `scripts/flows/repair.mjs` (new), `scripts/lib/fixture.mjs`
-  (installations that are: engine-executable-less, pak2-less, demo-pak0, retail-pak-less, in a
-  non-writable location, and one with a finding nothing can repair),
-  `docs/UI-VERIFICATION.md`. Mirror `scripts/flows/retail-upgrade.mjs` (dev-channel seeding,
-  on-disk assertions, `dev:simulateLaunch`). *Acceptance:* `npm run ui:flow -- repair` walks the
-  Repair action from the action bar and the checks list for each fixture, sees the right offer each
-  time, runs the engine and pak2 repairs against the loopback fixture server and asserts on disk
-  that exactly the expected files appeared, sees the AC4 "no store installation detected" state,
-  the AC6 message, and — with `dev:simulateLaunch` — the AC8 waiting state and its resume. No
-  outbound network access.
+      (installations that are: engine-executable-less, pak2-less, demo-pak0, retail-pak-less, in a
+      non-writable location, and one with a finding nothing can repair),
+      `docs/UI-VERIFICATION.md`. Mirror `scripts/flows/retail-upgrade.mjs` (dev-channel seeding,
+      on-disk assertions, `dev:simulateLaunch`). _Acceptance:_ `npm run ui:flow -- repair` walks the
+      Repair action from the action bar and the checks list for each fixture, sees the right offer each
+      time, runs the engine and pak2 repairs against the loopback fixture server and asserts on disk
+      that exactly the expected files appeared, sees the AC4 "no store installation detected" state,
+      the AC6 message, and — with `dev:simulateLaunch` — the AC8 waiting state and its resume. No
+      outbound network access.
 
 ## Model Hints
 
 - `D4 → deliverable-hard` — it downloads and overwrites binaries inside an already-registered,
-  possibly playable installation, has to act on a *re-read* verdict rather than the one it was
+  possibly playable installation, has to act on a _re-read_ verdict rather than the one it was
   started with, and is the first consumer of [[091]]'s brand-new wait-then-continue guard: a
   mis-scoped `restrictTo`, a stale plan or a skipped guard corrupts a working install.
 - All other deliverables: default tier.
@@ -276,11 +276,13 @@ allowlist-narrowed file set for its offer (`assembleInstallation`'s new `restric
 a real bug before this shipped (see Decisions below) that has since been fixed and re-verified.
 
 **Commit message:**
+
 ```
 093: repair fixes exactly what it can
 ```
 
 **Verification:**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `npm test` — 214 files, 3822 passed, 1 skipped (pre-existing, unrelated), 0 failed.
@@ -315,11 +317,12 @@ longer shows Repair" wording, per the corrected mapping above and the reason giv
 manual residue.
 
 **Decisions (Build).**
+
 - **A clean review caught a real AC1 bug: `engineKind` is not stable memory.** `plan.ts`'s
   `reinstall-engine` gate originally read `installation.engineKind` for "can the manifest supply
   the recorded engine" — but `installations.ts`'s revalidation overwrites `engineKind` to
   `'unknown'` on the very next `validate()` (which runs on every app startup) once the executable
-  that is r1q2/q2pro's only detection marker is gone, for any *ordinary* installation (the
+  that is r1q2/q2pro's only detection marker is gone, for any _ordinary_ installation (the
   `lastFailure`-scoped exception from an earlier story deliberately doesn't cover this case). That
   silently made AC1 unreachable after a restart — exactly its canonical scenario. Fixed by adding
   `Installation.recordedEngineKind?: EngineKind`, a one-way memory set at bootstrap creation, at
@@ -327,7 +330,7 @@ manual residue.
   touched by revalidation, never overwriting the `lastFailure` guard's existing logic. Both
   `plan.ts` (the offer) and `job.ts` (the execution) now read `recordedEngineKind ?? engineKind`
   consistently. Residual, deliberately accepted: installations that existed before this story
-  shipped have no `recordedEngineKind` yet, so they degrade to the *pre-fix* behavior (the offer
+  shipped have no `recordedEngineKind` yet, so they degrade to the _pre-fix_ behavior (the offer
   gates false once their engine kind is unknown) rather than the bug being reintroduced — a sane
   degrade, not a regression, and it self-heals the next time that installation is bootstrapped,
   re-added, or successfully repaired.

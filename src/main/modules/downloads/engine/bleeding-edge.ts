@@ -1,13 +1,14 @@
 import type { ManifestPackage } from '@shared/modules/downloads'
 import type { EngineKind } from '@shared/types/engine'
+import { fetchWithPolicy, type FetchImpl } from '../../../lib/http'
 
 /**
- * Story 092 D4 (AC4/AC5): probes Q2PRO's own nightly-build feed for "what does bleeding-edge
+ * Story 092: probes Q2PRO's own nightly-build feed for "what does bleeding-edge
  * currently mean" - a `version.txt` published next to the pinned package's moving-target asset
  * (Decisions (Sprint): "Fetch Q2PRO's version.txt next to the nightly release asset ... not the
  * GitHub Releases API - no rate limit, simpler parsing").
  *
- * Deliberately not routed through `harness.ts`'s `DownloadSource`/`fetchContentJson()`: that
+ * Deliberately not routed through `services/content/source.ts`'s `DownloadSource`/`fetchContentJson()`: that
  * abstraction exists to redirect the *curated content repo's own fixed host* (`CONTENT_REPO_RAW_
  * BASE`) under the UI harness's gate. This probe's URL is never a hardcoded host to begin with -
  * it is derived, at call time, from the manifest's own pinned `ManifestPackage.url` (INST-M1: "no
@@ -23,7 +24,10 @@ const VERSION_FILE_NAME = 'version.txt'
 /** Same per-request timeout budget `fetchContentJson`/`ManifestService` use for a manifest fetch. */
 const PROBE_TIMEOUT_MS = 10_000
 
-/** `probeBleedingEdge`'s answer (AC5): what "latest" currently resolves to, and its size. */
+/** A version string; anything bigger is not a `version.txt`. */
+const MAX_VERSION_BYTES = 64 * 1024
+
+/** `probeBleedingEdge`'s answer: what "latest" currently resolves to, and its size. */
 export interface BleedingEdgeProbe {
   /** The version `version.txt` reported, trimmed. */
   version: string
@@ -75,7 +79,7 @@ function versionTxtUrlFor(assetUrl: string): string {
 }
 
 /**
- * Story 092 D4 (AC4): probes the bleeding-edge channel for `engine` - Q2PRO only. `pinnedPackage`
+ * Story 092: probes the bleeding-edge channel for `engine` - Q2PRO only. `pinnedPackage`
  * is the caller's own `manifestService.pinnedEnginePackage(engine)` result: this function makes no
  * manifest call of its own (Decisions (Sprint), INST-M1) and never chooses a host by itself.
  *
@@ -90,7 +94,9 @@ export async function probeBleedingEdge(
   pinnedPackage: ManifestPackage | undefined,
 ): Promise<BleedingEdgeProbe> {
   if (engine !== 'q2pro') {
-    throw new BleedingEdgeUnsupportedError(`engine "${engine}" does not offer a bleeding-edge channel`)
+    throw new BleedingEdgeUnsupportedError(
+      `engine "${engine}" does not offer a bleeding-edge channel`,
+    )
   }
   if (pinnedPackage === undefined) {
     throw new BleedingEdgeUnsupportedError('no pinned Q2PRO package to derive the probe URL from')
@@ -99,39 +105,46 @@ export async function probeBleedingEdge(
   const assetUrl = pinnedPackage.url
   const versionUrl = versionTxtUrlFor(assetUrl)
 
-  let version: string
-  try {
-    const response = await fetch(versionUrl, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
-    if (!response.ok) {
-      throw new Error(`unexpected status ${response.status}`)
-    }
-    version = (await response.text()).trim()
-  } catch (error) {
-    throw new BleedingEdgeProbeFailedError(`fetching ${versionUrl} failed: ${String(error)}`)
+  // `fetch` is read per call so a stubbed global is honoured.
+  const fetchImpl: FetchImpl = (u, i) => fetch(u, i)
+
+  const versionOutcome = await fetchWithPolicy(versionUrl, {
+    fetchImpl,
+    timeoutMs: PROBE_TIMEOUT_MS,
+    retries: 0,
+    maxBytes: MAX_VERSION_BYTES,
+  })
+  if (!versionOutcome.ok) {
+    throw new BleedingEdgeProbeFailedError(
+      `fetching ${versionUrl} failed: ${versionOutcome.reason}`,
+    )
   }
+  const version = new TextDecoder().decode(versionOutcome.body).trim()
   if (version.length === 0) {
     throw new BleedingEdgeProbeFailedError(`${versionUrl} did not contain a version`)
   }
 
-  let sizeBytes: number
-  try {
-    const response = await fetch(assetUrl, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-    })
-    if (!response.ok) {
-      throw new Error(`unexpected status ${response.status}`)
-    }
-    const contentLength = response.headers.get('content-length')
-    if (contentLength === null) {
-      throw new Error('response carried no Content-Length header')
-    }
-    sizeBytes = Number(contentLength)
-    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
-      throw new Error(`unusable Content-Length "${contentLength}"`)
-    }
-  } catch (error) {
-    throw new BleedingEdgeProbeFailedError(`HEAD ${assetUrl} failed: ${String(error)}`)
+  const headOutcome = await fetchWithPolicy(assetUrl, {
+    fetchImpl,
+    timeoutMs: PROBE_TIMEOUT_MS,
+    retries: 0,
+    maxBytes: 0,
+    method: 'HEAD',
+  })
+  if (!headOutcome.ok) {
+    throw new BleedingEdgeProbeFailedError(`HEAD ${assetUrl} failed: ${headOutcome.reason}`)
+  }
+  const contentLength = headOutcome.headers.get('content-length')
+  if (contentLength === null) {
+    throw new BleedingEdgeProbeFailedError(
+      `HEAD ${assetUrl} failed: response carried no Content-Length header`,
+    )
+  }
+  const sizeBytes = Number(contentLength)
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+    throw new BleedingEdgeProbeFailedError(
+      `HEAD ${assetUrl} failed: unusable Content-Length "${contentLength}"`,
+    )
   }
 
   return { version, sizeBytes, url: assetUrl }

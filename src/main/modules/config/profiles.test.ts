@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { bindValueFor } from '@shared/config/action-mirror'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -10,21 +10,17 @@ import {
   type ConfigAction,
   type ConfigActionCategory,
 } from '@shared/modules/config'
-import { allCatalogRows } from '@shared/config/catalog-rows'
-import { ALL_CVARS } from '@shared/config/cvar-catalog'
-import type { AltLayer } from '@shared/config/alt-layers'
+import { allCatalogRows } from '@shared/config/catalog/catalog-rows'
+import { ALL_CVARS } from '@shared/config/catalog/cvar-catalog'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import { StateStore } from '../../services/state'
-import { aliasNameFor } from '@shared/config/alias-render'
-import { captureBaseline } from '@shared/config/profile-baseline'
-import { keySlotAt } from '@shared/config/action-slots'
-import { diffProfileAgainstBaseline } from '@shared/config/profile-diff'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
+import { captureBaseline } from '@shared/config/profile/profile-baseline'
+import { keySlotAt } from '@shared/config/catalog/action-slots'
+import { diffProfileAgainstBaseline } from '@shared/config/profile/profile-diff'
 import { ProfilesStore } from './profiles'
-import { renderProfileFile } from './render'
-import {
-  setProfileActionsInputSchema,
-  setProfileBindsInputSchema,
-  setProfileLayersInputSchema,
-} from './schemas'
+import { renderProfileFile } from '@shared/config/render/render'
+import { configState } from './persisted'
 
 /**
  * One rendered bind/alias line stripped back to the bare command: story 040 D3's trailing
@@ -44,7 +40,7 @@ describe('ProfilesStore', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-config-profiles-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     profiles = new ProfilesStore(state)
   })
@@ -155,7 +151,12 @@ describe('ProfilesStore', () => {
     const [created] = profiles.create({ name: 'Vanilla', from: 'template-right' })
 
     expect(created!.categories).toHaveLength(4)
-    expect(created!.categories!.map((c) => c.id).sort()).toEqual(['demo', 'drops', 'movement', 'weapons'])
+    expect(created!.categories!.map((c) => c.id).sort()).toEqual([
+      'demo',
+      'drops',
+      'movement',
+      'weapons',
+    ])
     for (const category of created!.categories!) {
       const template = TEMPLATE_ACTION_CATEGORIES.find((t) => t.id === category.id)!
       expect(category.name).toBe(template.label)
@@ -282,8 +283,8 @@ describe('ProfilesStore', () => {
   it('persists changes through the state store', () => {
     profiles.create({ name: 'Persisted', from: 'empty' })
 
-    expect(state.configProfiles()).toHaveLength(1)
-    expect(state.configProfiles()[0]!.name).toBe('Persisted')
+    expect(configState(state).profiles.get()).toHaveLength(1)
+    expect(configState(state).profiles.get()[0]!.name).toBe('Persisted')
   })
 
   it("replaces a profile's whole binds map, touching only binds and updatedAt", async () => {
@@ -521,7 +522,7 @@ describe('ProfilesStore', () => {
       })
       await state.settle()
 
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       const reloadedProfiles = new ProfilesStore(reloaded)
 
@@ -652,7 +653,7 @@ describe('ProfilesStore', () => {
   // (`applyActionLayerMirror`), and `setActions` stops writing a base bind for
   // a slot that carries a modifier. Own `category`/`action` fixtures rather
   // than reaching into the `setActions` block above's scope.
-  describe('story 016: modifier-bound slots', () => {
+  describe('modifier-bound slots', () => {
     const category: ConfigActionCategory = { id: 'drops', name: 'Weapon dropping' }
 
     function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
@@ -959,7 +960,7 @@ describe('ProfilesStore', () => {
   // Story 019 D2: an alias entry renders as its own alias and is never bound -
   // neither into `binds` nor into a layer override. Own fixtures, like the
   // story 016 block above.
-  describe('story 019: alias entries', () => {
+  describe('alias entries', () => {
     const category: ConfigActionCategory = { id: 'jumps', name: 'Jumps' }
 
     function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
@@ -1076,7 +1077,7 @@ describe('ProfilesStore', () => {
   // stored alongside the existing `cvars`/`binds`/`unrecognized` rather than
   // replacing them, and the pre-existing story 034 bind-adoption pass must not
   // double-count an imported alias entry.
-  describe('createFromImport (story 041 D6)', () => {
+  describe('createFromImport', () => {
     it('stores actions/categories/layers alongside cvars/binds/unrecognized', () => {
       const category: ConfigActionCategory = { id: 'imported', name: 'Imported' }
       const aliasAction: ConfigAction = {
@@ -1155,7 +1156,7 @@ describe('ProfilesStore', () => {
     })
   })
 
-  describe('story 034: raw binds are adopted into catalogue actions', () => {
+  describe('raw binds are adopted into catalogue actions', () => {
     it('adopts a bind saved from the Overview keyboard into its Controls row', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
 
@@ -1172,7 +1173,12 @@ describe('ProfilesStore', () => {
       expect(keySlotAt(jump, 0)?.key).toBe('MOUSE2')
       expect(keySlotAt(jump, 1)?.key).toBe('SPACE')
       // The binds themselves still say what they said - adoption re-encodes, it does not re-bind.
-      expect(updated.binds).toEqual({ w: '+forward', SPACE: '+moveup', MOUSE2: '+moveup', x: 'kill' })
+      expect(updated.binds).toEqual({
+        w: '+forward',
+        SPACE: '+moveup',
+        MOUSE2: '+moveup',
+        x: 'kill',
+      })
     })
 
     it('adopts a template profile the moment it is created', () => {
@@ -1186,7 +1192,13 @@ describe('ProfilesStore', () => {
       const result = profiles.setLayers({
         profileId: created!.id,
         layers: [
-          { id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { q: 'drop shotgun; drop shells' } },
+          {
+            id: 'l1',
+            name: 'Alt',
+            mode: 'hold',
+            triggerKey: 'ALT',
+            overrides: { q: 'drop shotgun; drop shells' },
+          },
         ],
       })
 
@@ -1204,11 +1216,13 @@ describe('ProfilesStore', () => {
       profiles.setBinds({ profileId: created!.id, binds: { q: 'use railgun' } })
       await state.settle()
 
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       const persisted = new ProfilesStore(reloaded).find(created!.id)!
 
-      const railgun = (persisted.actions ?? []).find((a) => a.catalogId === 'weaponUse:use_railgun')!
+      const railgun = (persisted.actions ?? []).find(
+        (a) => a.catalogId === 'weaponUse:use_railgun',
+      )!
       expect(keySlotAt(railgun, 0)?.key).toBe('q')
       expect(persisted.binds['q']).toBe(aliasNameFor(railgun))
     })
@@ -1220,7 +1234,7 @@ describe('ProfilesStore', () => {
    * over everything. A snapshot taken before that pass would differ from the stored profile in
    * `binds`/`actions` and make a freshly adopted profile report unsaved changes it does not have.
    */
-  describe('story 049: the last-saved baseline', () => {
+  describe('the last-saved baseline', () => {
     it('is absent on a profile whose file has never been confirmed', () => {
       const [created] = profiles.create({ name: 'Never saved', from: 'template-right' })
       expect(created!.baseline).toBeUndefined()
@@ -1294,7 +1308,7 @@ describe('ProfilesStore', () => {
       expect(rebuilt.baseline).toEqual(captureBaseline(rebuilt))
       await state.settle()
 
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       const persisted = new ProfilesStore(reloaded).find('rebuilt-1')!
       expect(persisted.baseline).toEqual(rebuilt.baseline)
@@ -1311,7 +1325,7 @@ describe('ProfilesStore', () => {
    * `StateStore` pair the rest of this file already uses - no real filesystem profile file is ever
    * created for these tests, so there is nothing for `discard` to have touched.
    */
-  describe('discard (story 049 D3)', () => {
+  describe('discard', () => {
     it('restores every baseline-covered field, clears dirty, and bumps updatedAt', async () => {
       const [created] = profiles.create({ name: 'Saved', from: 'empty' })
       const seen = profiles
@@ -1408,111 +1422,5 @@ describe('ProfilesStore', () => {
     it('throws for an unknown profile id', () => {
       expect(() => profiles.discard('missing')).toThrow('config profile not found: missing')
     })
-  })
-})
-
-describe('setProfileBindsInputSchema / setProfileLayersInputSchema (IPC payload validation)', () => {
-  it('rejects a binds payload whose value is not a map of strings', () => {
-    expect(setProfileBindsInputSchema.safeParse({ profileId: 'p1', binds: { w: 1 } }).success).toBe(
-      false,
-    )
-  })
-
-  it('rejects a binds payload missing profileId', () => {
-    expect(setProfileBindsInputSchema.safeParse({ binds: {} }).success).toBe(false)
-  })
-
-  it('accepts a well-formed binds payload', () => {
-    expect(
-      setProfileBindsInputSchema.safeParse({ profileId: 'p1', binds: { w: '+forward' } }).success,
-    ).toBe(true)
-  })
-
-  it('rejects a layers payload with a garbage shape (string instead of array)', () => {
-    expect(setProfileLayersInputSchema.safeParse({ profileId: 'p1', layers: 'nope' }).success).toBe(
-      false,
-    )
-  })
-
-  it('rejects a layers payload with an invalid mode', () => {
-    expect(
-      setProfileLayersInputSchema.safeParse({
-        profileId: 'p1',
-        layers: [{ id: 'l1', name: 'Drops', mode: 'sticky', triggerKey: 'ALT', overrides: {} }],
-      }).success,
-    ).toBe(false)
-  })
-
-  it('accepts a well-formed layers payload', () => {
-    expect(
-      setProfileLayersInputSchema.safeParse({
-        profileId: 'p1',
-        layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: {} }],
-      }).success,
-    ).toBe(true)
-  })
-
-  // Story 011: triggerKey becomes nullable - null means "no trigger assigned yet".
-  it('accepts a layers payload with triggerKey: null', () => {
-    expect(
-      setProfileLayersInputSchema.safeParse({
-        profileId: 'p1',
-        layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: null, overrides: {} }],
-      }).success,
-    ).toBe(true)
-  })
-
-  it('rejects a layers payload with triggerKey: "" (empty string)', () => {
-    expect(
-      setProfileLayersInputSchema.safeParse({
-        profileId: 'p1',
-        layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: '', overrides: {} }],
-      }).success,
-    ).toBe(false)
-  })
-})
-
-// Story 015 (decisions 1 + 2): the payload gains two optional fields and no new channel.
-describe('setProfileActionsInputSchema (IPC payload validation)', () => {
-  function payload(action: Record<string, unknown>): unknown {
-    return {
-      profileId: 'p1',
-      categories: [{ id: 'movement', name: 'Movement' }],
-      actions: [
-        {
-          id: 'a1',
-          categoryId: 'movement',
-          name: 'Jump',
-          kind: 'bind',
-          commands: [{ kind: 'raw', text: '+moveup' }],
-          ...action,
-        },
-      ],
-    }
-  }
-
-  it('accepts an actions payload carrying secondaryKey and catalogId', () => {
-    expect(
-      setProfileActionsInputSchema.safeParse(
-        payload({ key: 'f', secondaryKey: 'MOUSE2', catalogId: 'movement.jump' }),
-      ).success,
-    ).toBe(true)
-  })
-
-  it('accepts an actions payload with neither field (a pre-015 action)', () => {
-    expect(setProfileActionsInputSchema.safeParse(payload({ key: 'f' })).success).toBe(true)
-  })
-
-  it('rejects a secondaryKey longer than the key limit, same as key', () => {
-    const tooLong = 'x'.repeat(21)
-    expect(setProfileActionsInputSchema.safeParse(payload({ secondaryKey: tooLong })).success).toBe(
-      false,
-    )
-    // The point is that the second slot is no laxer than the first.
-    expect(setProfileActionsInputSchema.safeParse(payload({ key: tooLong })).success).toBe(false)
-  })
-
-  it('rejects an empty catalogId', () => {
-    expect(setProfileActionsInputSchema.safeParse(payload({ catalogId: '' })).success).toBe(false)
   })
 })

@@ -82,7 +82,7 @@ mode button.
 7. **`testLayerId` is seeded from the currently selected layer when test mode starts and dropped
    when it stops** — starting test mode must not silently change what you were looking at.
 8. **A `hold` trigger's release restores the layer that was displayed before the press** (stored
-   with the held trigger), not unconditionally `null` — in the normal flow that *is* base, which
+   with the held trigger), not unconditionally `null` — in the normal flow that _is_ base, which
    is what AC 2 asks for, and it stays truthful if you started on a layer.
 9. **Exactly one hold trigger is tracked at a time; a second one replaces it** — Q2 has no nested
    layers (016 D1 already refuses two held modifiers), so a stack would model something the engine
@@ -95,7 +95,7 @@ mode button.
     reading "Base" would be a worse lie than the one this story removes, and there is no reason to
     disable a control that can simply stay coherent.
 12. **`keyVisual`/`keyLabel`/`capture` switch from `activeLayer` to a derived `displayedLayer`** —
-    otherwise 013/014's override, dim and trigger visuals would keep describing the *selected*
+    otherwise 013/014's override, dim and trigger visuals would keep describing the _selected_
     layer while the board claims to show another one. The `KeyBindDialog` mount keeps `activeLayer`:
     editing scope belongs to 017, not to test mode.
 
@@ -270,7 +270,7 @@ keycap wins the readout" rule.
 - Mirror: D4's `pressedKeys` handling — a mouse button is just another entry in the same set.
 - Acceptance: in test mode, holding left/right/middle/back/forward highlights `MOUSE1`/`MOUSE2`/
   `MOUSE3`/`MOUSE4`/`MOUSE5` respectively and releasing clears them; a mouse press over empty panel
-  space fills the readout with that button's bind; clicking a keycap still reports the *key* (not
+  space fills the readout with that button's bind; clicking a keycap still reports the _key_ (not
   `MOUSE1`) while `MOUSE1` highlights; the wheel changes nothing; blur clears mouse highlights too.
 - Covers: AC 4 (mouse).
 
@@ -353,11 +353,12 @@ entering/leaving test mode no longer shifts the keyboard.
 
 A clean review (story-review-hard tier) found three confirmed bugs before
 close, all fixed:
+
 1. The `editHint` paragraph was unmounted (not just hidden) outside test
    mode, so the header column's height — and therefore the keyboard below
    it — shifted by one line when toggling test mode (AC 6). Fixed by
    keeping the paragraph mounted and toggling `invisible` instead.
-2. `blur` only released a *held* trigger, leaving a *toggled* layer
+2. `blur` only released a _held_ trigger, leaving a _toggled_ layer
    displayed and the readout stale after a focus loss. Fixed to fully
    tear down test-mode display state on blur (restores `activeLayer`,
    clears `press`/`pressedKeys`), matching stop-test-mode/profile-switch.
@@ -380,6 +381,7 @@ both are covered by D1's unit tests, which exercise the exact same
 resolver/reducer code the UI calls.
 
 **Decisions**
+
 - Decision 4's "`triggerBind` is null" branch is unreachable through the
   real `generateLayerAliases` (it returns `null` only when `triggerKey`
   itself is blank, which `resolveTestPress` can never match on) — kept

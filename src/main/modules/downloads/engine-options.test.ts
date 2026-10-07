@@ -1,16 +1,18 @@
+import { unwrapOk } from '../../../test-support/outcome'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  DOWNLOADS_HANDLERS,
-  type BootstrapEngineOptionsResult,
-} from '@shared/modules/downloads'
+import { DOWNLOADS_HANDLERS, type BootstrapEngineOptionsResult } from '@shared/modules/downloads'
 import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
+import { resolveUiHarness } from '../../lib/ui-harness'
+import { ManifestService } from '../../services/content/manifest-service'
+import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { fail } from '@shared/types'
 import { stubPlatform } from '../../../test-support/platform'
+import { fakeSectionState } from '../../../test-support/state-sections'
 import { downloadsModule } from './index'
 
 /**
@@ -37,7 +39,7 @@ vi.mock('electron', () => ({
 }))
 
 function jsonResponse(body: unknown): Response {
-  return { ok: true, status: 200, json: () => Promise.resolve(body) } as unknown as Response
+  return new Response(JSON.stringify(body), { status: 200 })
 }
 
 function fakeLogger(): Logger {
@@ -162,7 +164,9 @@ const noPinsAtAllManifest = {
 function serveWin32OnlyAllEnginesManifest(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockImplementation((url: unknown) =>
     Promise.resolve(
-      jsonResponse(String(url).includes('engines/') ? win32OnlyAllEnginesManifest : gamedataManifest),
+      jsonResponse(
+        String(url).includes('engines/') ? win32OnlyAllEnginesManifest : gamedataManifest,
+      ),
     ),
   )
 }
@@ -196,9 +200,15 @@ beforeEach(async () => {
   vi.stubGlobal('fetch', fetchMock)
 })
 
+/** Disposers the module registered during `setup()`, run newest-first like `MainModuleRegistry.disposeAll()`. */
+const disposers: Array<() => void | Promise<void>> = []
+async function releaseAll(): Promise<void> {
+  for (const dispose of disposers.splice(0).reverse()) await dispose()
+}
+
 afterEach(async () => {
   vi.unstubAllGlobals()
-  await downloadsModule.dispose?.()
+  await releaseAll()
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
@@ -207,7 +217,16 @@ async function setUpModule(): Promise<Map<string, ModuleHandler>> {
   await downloadsModule.setup({
     handle: collectHandlers(handlers),
     emit: vi.fn(),
-    app: { jobs: new JobsService(() => {}) } as unknown as ModuleSetup['app'],
+    onDispose: (cb) => void disposers.push(cb),
+    app: {
+      jobs: new JobsService(() => {}),
+      harness: resolveUiHarness({}),
+      env: {},
+      isPackaged: false,
+      persistence: new PersistenceRegistry(),
+      content: { manifest: new ManifestService({ log: fakeLogger() }) },
+      state: fakeSectionState(),
+    } as unknown as ModuleSetup['app'],
     log: fakeLogger(),
   })
   return handlers
@@ -226,7 +245,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const handlers = await setUpModule()
     const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+    const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
     expect(result.options).toHaveLength(1)
     expect(result.options[0]).toMatchObject({
@@ -244,7 +263,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const handlers = await setUpModule()
     const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+    const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
     expect(result.options).toHaveLength(2)
     expect(result.options).toContainEqual({
@@ -269,7 +288,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
       const handlers = await setUpModule()
       const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-      const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+      const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
       expect(result.options.some((option) => option.engine === 'r1q2')).toBe(false)
       expect(result.options).toContainEqual({
@@ -288,7 +307,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const handlers = await setUpModule()
     const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+    const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
     expect(result.options).toEqual([])
     expect(result.emptyReason).toBe('none-pinned')
@@ -306,7 +325,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
       const handlers = await setUpModule()
       const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-      const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+      const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
       expect(result.options).toEqual([])
       expect(result.emptyReason).toBe('none-for-platform')
@@ -319,7 +338,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const noPinHandlers = await setUpModule()
     const noPinHandler = noPinHandlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const noPinResult = (await noPinHandler(undefined)) as BootstrapEngineOptionsResult
+    const noPinResult = unwrapOk<BootstrapEngineOptionsResult>(await noPinHandler(undefined))
 
     expect(noPinResult.options).toEqual([])
     expect(noPinResult.emptyReason).toBe('none-pinned')
@@ -329,7 +348,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const normalHandlers = await setUpModule()
     const normalHandler = normalHandlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const normalResult = (await normalHandler(undefined)) as BootstrapEngineOptionsResult
+    const normalResult = unwrapOk<BootstrapEngineOptionsResult>(await normalHandler(undefined))
 
     expect(normalResult.options.length).toBeGreaterThan(0)
     expect(normalResult.emptyReason).toBeNull()

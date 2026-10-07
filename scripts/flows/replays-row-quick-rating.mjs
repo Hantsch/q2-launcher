@@ -12,34 +12,20 @@
 
 import { readFileSync } from 'node:fs'
 import { REPLAYS_ROWS_DUEL_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
+import { openDemosRoot, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
 export const variant = 'replays-rows'
 
-function rowFor(page, text) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: text })
-}
-
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('replays-row-quick-rating: timed out waiting for replays-refresh to become enabled')
-}
-
 export default async function replaysRowQuickRating({ page, shot, step }) {
-  step('noting the duel row\'s sidecar before any quick edit')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  step("noting the duel row's sidecar before any quick edit")
+  await openDemosRoot(page)
   const before = JSON.parse(readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_DUEL_DEMO), 'utf8'))
   if (before.favourite === true) {
-    throw new Error('replays-row-quick-rating: fixture precondition - duel demo must not start as a favourite')
+    throw new Error(
+      'replays-row-quick-rating: fixture precondition - duel demo must not start as a favourite',
+    )
   }
 
   const row = rowFor(page, REPLAYS_ROWS_DUEL_DEMO)
@@ -63,13 +49,19 @@ export default async function replaysRowQuickRating({ page, shot, step }) {
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   if (written.favourite !== true) {
-    throw new Error(`replays-row-quick-rating: sidecar favourite expected true, got ${JSON.stringify(written.favourite)}`)
+    throw new Error(
+      `replays-row-quick-rating: sidecar favourite expected true, got ${JSON.stringify(written.favourite)}`,
+    )
   }
   if (written.rating !== 7) {
-    throw new Error(`replays-row-quick-rating: sidecar rating expected 7, got ${JSON.stringify(written.rating)}`)
+    throw new Error(
+      `replays-row-quick-rating: sidecar rating expected 7, got ${JSON.stringify(written.rating)}`,
+    )
   }
   if (JSON.stringify(written.sides) !== JSON.stringify(before.sides)) {
-    throw new Error('replays-row-quick-rating: a quick edit must never touch the sidecar\'s other fields')
+    throw new Error(
+      "replays-row-quick-rating: a quick edit must never touch the sidecar's other fields",
+    )
   }
 
   step('the row now sorts ahead of a non-favourite row (favourites-first)')
@@ -86,6 +78,8 @@ export default async function replaysRowQuickRating({ page, shot, step }) {
     throw new Error('replays-row-quick-rating: expected both the duel and mvd rows to be visible')
   }
   if (duelIndex >= mvdIndex) {
-    throw new Error('replays-row-quick-rating: the newly-favourited row must sort ahead of a non-favourite row')
+    throw new Error(
+      'replays-row-quick-rating: the newly-favourited row must sort ahead of a non-favourite row',
+    )
   }
 }

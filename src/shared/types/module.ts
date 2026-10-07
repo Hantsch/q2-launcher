@@ -1,3 +1,5 @@
+import { DEV_MODULES, DEV_MODULE_IDS } from '../dev-modules'
+
 /**
  * The module seam.
  *
@@ -6,22 +8,11 @@
  * (shared manifest), then registered twice - a service half in the main process
  * and a view half in the renderer - both keyed by `id`.
  *
- * Adding a module therefore never means editing the shell:
- *   1. add the id to `ModuleId`
- *   2. add a manifest to `MODULE_MANIFESTS`
- *   3. register a main-process service in `src/main/modules/index.ts`
- *   4. register a renderer view in `src/renderer/src/modules/index.ts`
- *   5. add its i18n keys
+ * Adding a module never means editing the shell; the steps are in
+ * docs/ARCHITECTURE.md#adding-a-module.
  */
 export type ModuleId =
-  | 'home'
-  | 'library'
-  | 'config'
-  | 'downloads'
-  | 'mods'
-  | 'assets'
-  | 'servers'
-  | 'replays'
+  'home' | 'library' | 'config' | 'downloads' | 'mods' | 'assets' | 'servers' | 'replays'
 
 /**
  * What a module needs from the host. Declared up front so the shell can tell
@@ -72,23 +63,23 @@ export interface ModuleManifest {
   requiresInstallation: boolean
 }
 
-export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
+const ALL_MODULE_MANIFESTS: readonly ModuleManifest[] = [
   {
     id: 'home',
-    titleKey: 'module.home.title',
+    titleKey: 'common.label.home',
     descriptionKey: 'module.home.description',
     icon: 'Home',
     route: '/home',
     nav: null,
     status: 'available',
-    // Story 082 D6: the community news feed fetches over the network at startup and on demand.
+    // Story 082: the community news feed fetches over the network at startup and on demand.
     capabilities: ['network'],
     ipcNamespace: 'module:home',
     requiresInstallation: false,
   },
   {
     id: 'library',
-    titleKey: 'module.library.title',
+    titleKey: 'common.label.library',
     descriptionKey: 'module.library.description',
     icon: 'LayoutGrid',
     route: '/library',
@@ -100,7 +91,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'downloads',
-    titleKey: 'module.downloads.title',
+    titleKey: 'common.label.downloads',
     descriptionKey: 'module.downloads.description',
     plannedIntroKey: 'module.planned.downloads.intro',
     plannedHighlightKeys: [
@@ -118,7 +109,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'config',
-    titleKey: 'module.config.title',
+    titleKey: 'common.label.config',
     descriptionKey: 'module.config.description',
     icon: 'SlidersHorizontal',
     route: '/config',
@@ -141,7 +132,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     icon: 'Boxes',
     route: '/mods',
     nav: { section: 'primary', order: 40 },
-    status: 'planned',
+    status: 'available',
     capabilities: ['mutates-installation', 'long-running-jobs', 'network', 'game-lifecycle'],
     ipcNamespace: 'module:mods',
     requiresInstallation: true,
@@ -166,7 +157,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'servers',
-    titleKey: 'module.servers.title',
+    titleKey: 'common.label.servers',
     descriptionKey: 'module.servers.description',
     plannedIntroKey: 'module.planned.servers.intro',
     plannedHighlightKeys: [
@@ -184,7 +175,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'replays',
-    titleKey: 'replays.module.title',
+    titleKey: 'common.label.demos',
     descriptionKey: 'replays.module.description',
     plannedIntroKey: 'replays.planned.intro',
     plannedHighlightKeys: [
@@ -201,6 +192,11 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     requiresInstallation: false,
   },
 ]
+
+/** Every manifest this build ships: a release build drops the `DEV_MODULE_IDS` modules entirely. */
+export const MODULE_MANIFESTS: readonly ModuleManifest[] = DEV_MODULES
+  ? ALL_MODULE_MANIFESTS
+  : ALL_MODULE_MANIFESTS.filter((manifest) => !DEV_MODULE_IDS.includes(manifest.id))
 
 export function getModuleManifest(id: ModuleId): ModuleManifest | undefined {
   return MODULE_MANIFESTS.find((m) => m.id === id)

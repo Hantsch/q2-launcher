@@ -1,6 +1,7 @@
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fail, ok, type Outcome } from '@shared/types'
+import { createListenerSet } from '../../../lib/listeners'
 import type { Logger } from '../../../lib/logger'
 import {
   BACK_TO_WINDOW_CFG,
@@ -15,22 +16,22 @@ import {
 import type { EngineIo, PlaybackChannel } from './types'
 
 /**
- * Story 164 D3: the Linux playback channel - console over the game's own stdin/stdout pipes
+ * Story 164: the Linux playback channel - console over the game's own stdin/stdout pipes
  * (`+set sys_console 1`). A 100 ms timer asks the engine for its position and fullscreen flag.
  *
- * Story 172 D5: the fullscreen switch is a plain `vid_fullscreen 1` over stdin; the display follows
+ * Story 172: the fullscreen switch is a plain `vid_fullscreen 1` over stdin; the display follows
  * the `FS` flag of every `pos` line both ways. The only file is `q2l_back.cfg` (the Back to window
  * bind's target), written at `start` and removed at `close`.
  */
 export function createLinuxChannel(deps: {
   io: EngineIo
-  log: Pick<Logger, 'debug' | 'warn'>
+  log: Pick<Logger, 'debug' | 'warn' | 'error'>
   gameDirPath: string
 }): PlaybackChannel {
   const { io, log } = deps
   const backCfgPath = join(deps.gameDirPath, BACK_TO_WINDOW_CFG)
   let display: 'stage' | 'fullscreen' = 'stage'
-  const displayCbs = new Set<(d: 'stage' | 'fullscreen') => void>()
+  const displayCbs = createListenerSet<'stage' | 'fullscreen'>(log, 'playback onDisplayChange')
   const args = linuxLaunchArgs()
   let unsubscribe: (() => void) | null = null
   let timer: ReturnType<typeof setInterval> | null = null
@@ -62,13 +63,7 @@ export function createLinuxChannel(deps: {
         const next = parsed.fullscreen ? 'fullscreen' : 'stage'
         if (next !== display) {
           display = next
-          for (const cb of [...displayCbs]) {
-            try {
-              cb(next)
-            } catch (e) {
-              log.warn('playback: onDisplayChange listener threw', e)
-            }
-          }
+          displayCbs.emit(next)
         }
       }
     } else if (parsed.kind === 'finished' && !finished) {
@@ -101,8 +96,7 @@ export function createLinuxChannel(deps: {
       return display
     },
     onDisplayChange(cb) {
-      displayCbs.add(cb)
-      return () => displayCbs.delete(cb)
+      return displayCbs.add(cb)
     },
     send(line): Outcome<void> {
       if (finished || closed) return fail('replays.playback.error.noSession')
@@ -129,7 +123,8 @@ export function createLinuxChannel(deps: {
       try {
         unlinkSync(backCfgPath)
       } catch (e) {
-        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') log.warn('playback: could not remove q2l_back.cfg', e)
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT')
+          log.warn('playback: could not remove q2l_back.cfg', e)
       }
       // SIGPIPE: when the launcher quits, the game's stdout is closed while the engine keeps running.
       // An engine that does not ignore SIGPIPE could die on its next print. While the session is still

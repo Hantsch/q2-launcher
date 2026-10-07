@@ -1,0 +1,412 @@
+- 2026-10-05T08:00:17 · clarification · started
+- 2026-10-05T08:11:45 · refine · 232-250 · started
+- 2026-10-05T08:22:32 · refine · 232-250 · done
+- 2026-10-05T08:22:32 · 232 · build · started
+- 2026-10-05 08:22 · 232 · D1 library convert · started
+- 2026-10-05 08:23 · 232 · D1 library convert · done
+- 2026-10-05 08:23 · 232 · D2 mods contract+main · started
+- 2026-10-05 08:24 · 232 · D2 mods contract+main · done
+- 2026-10-05 08:24 · 232 · D3 mods client · started
+- 2026-10-05 08:25 · 232 · D3 mods client · done
+- 2026-10-05 08:25 · 232 · D4 downloads contract+main · started
+- 2026-10-05 08:27 · 232 · D4 downloads contract+main · done
+- 2026-10-05 08:27 · 232 · D5 downloads client · started
+- 2026-10-05 08:27 · 232 · D5 downloads client · done
+- 2026-10-05 08:27 · 232 · D6 config schemas move · started
+- 2026-10-05 08:28 · 232 · D6 config schemas move · done
+- 2026-10-05 08:28 · 232 · D7 config contract+main (hard) · started
+- 2026-10-05 08:31 · 232 · D7 config contract+main (hard) · done
+- 2026-10-05 08:31 · 232 · D8 config client · started
+- 2026-10-05 08:32 · 232 · D8 config client · done
+- 2026-10-05 08:32 · 232 · D9 replays contract+main · started
+- 2026-10-05 08:33 · 232 · D9 replays contract+main · done
+- 2026-10-05 08:33 · 232 · D10 replays client · started
+- 2026-10-05 08:34 · 232 · D10 replays client · done
+- 2026-10-05 08:34 · 232 · D11 close gates+docs · started
+- 2026-10-05 08:35 · 232 · D11 close gates+docs · done
+- 2026-10-05 08:35 · 232 · verify · started
+- 2026-10-05 08:44 · 232 · verify · blocked: systems-docs mods-module.md Handlers; 4 flows red (possible overlap)
+- 2026-10-05 08:44 · 232 · verify (rerun) · started
+- 2026-10-05 08:49 · 232 · verify (rerun) · done
+- 2026-10-05 08:49 · 232 · review 1 · started
+- 2026-10-05 08:52 · 232 · review 1 · done
+- 2026-10-05 08:53 · 232 · story · done
+- 2026-10-05T08:53:13 · 236 · build · started
+- 2026-10-05 08:53 · 236 · D1 electron-backed shell lib rule · started
+- 2026-10-05 08:54 · 236 · D1 electron-backed shell lib rule · done
+- 2026-10-05 08:54 · 236 · D2 oxlint builtin list · started
+- 2026-10-05 08:55 · 236 · D2 oxlint builtin list · done
+- 2026-10-05 08:55 · 236 · D3 literal key records · started
+- 2026-10-05 08:55 · 236 · D4 nested Outcome check · started
+- 2026-10-05 08:55 · 236 · D6 unlock feature fallback · started
+- 2026-10-05 08:57 · 236 · D3 literal key records · done
+- 2026-10-05 08:57 · 236 · D4 nested Outcome check · done
+- 2026-10-05 08:57 · 236 · D6 unlock feature fallback · done
+- 2026-10-05 08:57 · 236 · D5 comment paths exist · started
+- 2026-10-05 08:58 · 236 · D5 comment paths exist · done
+- 2026-10-05 08:58 · 236 · verify · started
+- 2026-10-05 08:59 · 236 · verify · done
+- 2026-10-05 08:59 · 236 · review 1 · started
+- 2026-10-05 09:01 · 236 · review 1 · done
+- 2026-10-05 09:01 · 236 · story · done
+- 2026-10-05T09:02:02 · 235 · build · started
+- 2026-10-05 09:02 · 235 · D1 cinema dispose · started
+- 2026-10-05 09:04 · 235 · D1 cinema dispose · done
+- 2026-10-05 09:04 · 235 · D2 quitAndInstall test · started
+- 2026-10-05 09:04 · 235 · D2 quitAndInstall test · done
+- 2026-10-05 09:04 · 235 · D3 StateStore migrations required · started
+- 2026-10-05 09:06 · 235 · D3 StateStore migrations required · done
+- 2026-10-05 09:06 · 235 · D4 setEngineState on service · started
+- 2026-10-05 09:07 · 235 · D4 setEngineState on service · done
+- 2026-10-05 09:07 · 235 · D5 commitAdoption failure (hard) · started
+- 2026-10-05 09:10 · 235 · D5 commitAdoption failure (hard) · done
+- 2026-10-05 09:10 · 235 · D6 debounce race test · started
+- 2026-10-05 09:10 · 235 · D7 bleeding-edge pin · started
+- 2026-10-05 09:11 · 235 · D6 debounce race test · done
+- 2026-10-05 09:11 · 235 · D7 bleeding-edge pin · done
+- 2026-10-05 09:11 · 235 · verify · started
+- 2026-10-05 09:12 · 235 · verify · done
+- 2026-10-05 09:12 · 235 · review 1 · started
+- 2026-10-05 09:13 · 235 · review 1 · done
+- 2026-10-05 09:14 · 235 · story · done
+- 2026-10-05T09:14:14 · 233 · build · started
+- 2026-10-05 09:14 · 233 · D1 mods-view name assertion · started
+- 2026-10-05 09:15 · 233 · D1 mods-view name assertion · done
+- 2026-10-05 09:15 · 233 · D2 --repeat · started
+- 2026-10-05 09:24 · 233 · D2 --repeat · done
+- 2026-10-05 09:24 · 233 · D3 fixture downloads cache · started
+- 2026-10-05 09:25 · 233 · D3 fixture downloads cache · done
+- 2026-10-05 09:25 · 233 · D4 flow-select lib (hard) · started
+- 2026-10-05 09:37 · 233 · D4 flow-select lib (hard) · done
+- 2026-10-05 09:37 · 233 · D5 wire --affected · started
+- 2026-10-05 09:49 · 233 · D5 wire --affected · done
+- 2026-10-05 09:49 · 233 · verify · started
+- 2026-10-05 09:53 · 233 · verify · done
+- 2026-10-05 09:53 · 233 · review 1 · started
+- 2026-10-05 09:54 · 233 · review 1 · done
+- 2026-10-05 09:54 · 233 · story · done
+- 2026-10-05T09:54:25 · 234 · build · started
+- 2026-10-05 09:54 · 234 · D1 detached rehearsal runner · started
+- 2026-10-05 10:02 · 234 · D1 detached rehearsal runner · done
+- 2026-10-05 10:02 · 234 · D3 sprint notes · started
+- 2026-10-05 10:03 · 234 · D3 sprint notes · done
+- 2026-10-05 10:03 · 234 · D2 real rehearsal · started
+- 2026-10-05 10:03 · 234 · D2 real rehearsal · blocked: Docker daemon down
+- 2026-10-05 10:03 · 234 · verify · started
+- 2026-10-05 10:04 · 234 · verify · done
+- 2026-10-05 10:04 · 234 · story · blocked: Docker daemon down, D2 not runnable
+- 2026-10-05T10:04:25 · 245 · build · started
+- 2026-10-05 10:04 · 245 · D1 Roster collector · started
+- 2026-10-05 10:10 · 245 · D1 Roster collector · done
+- 2026-10-05 10:10 · 245 · D2 Roster in index · started
+- 2026-10-05 10:13 · 245 · D2 Roster in index · done
+- 2026-10-05 10:13 · 245 · D3 Effective sides · started
+- 2026-10-05 10:15 · 245 · D3 Effective sides · done
+- 2026-10-05 10:15 · 245 · D4 Search and detail model · started
+- 2026-10-05 10:16 · 245 · D4 Search and detail model · done
+- 2026-10-05 10:16 · 245 · D5 Players panel · started
+- 2026-10-05 10:24 · 245 · D5 Players panel · done
+- 2026-10-05 10:24 · 245 · verify · started
+- 2026-10-05 10:36 · 245 · verify · blocked: typecheck:web error DemoDetailEditor.test.tsx, e2e selection too wide
+- 2026-10-05 10:41 · 245 · verify · done
+- 2026-10-05 10:41 · 245 · review 1 · started
+- 2026-10-05 10:42 · 245 · review 1 · done
+- 2026-10-05 10:42 · 245 · review 1 fixes · started
+- 2026-10-05 10:43 · 245 · review 1 fixes · done
+- 2026-10-05 10:43 · 245 · story · done
+- 2026-10-05T10:43:46 · 243 · build · started
+- 2026-10-05 10:44 · 243 · D1 Field validation and sidecar changes · started
+- 2026-10-05 10:44 · 243 · D1 Field validation and sidecar changes · done
+- 2026-10-05 10:44 · 243 · D2 One queued write path (hard) · started
+- 2026-10-05 10:52 · 243 · D2 One queued write path (hard) · done
+- 2026-10-05 10:52 · 243 · D3 InPlaceField and tag refusal · started
+- 2026-10-05 10:54 · 243 · D3 InPlaceField and tag refusal · done
+- 2026-10-05 10:54 · 243 · D4 The detail is one view · started
+- 2026-10-05 11:00 · 243 · D4 The detail is one view · done
+- 2026-10-05 11:00 · 243 · D5 Sides in place and replace flow · started
+- 2026-10-05 11:04 · 243 · D5 Sides in place and replace flow · done
+- 2026-10-05 11:04 · 243 · verify · started
+- 2026-10-05 11:31 · 243 · verify · done
+- 2026-10-05 11:31 · 243 · review 1 · started
+- 2026-10-05 11:33 · 243 · review 1 · done
+- 2026-10-05 11:33 · 243 · review 1 fixes · started
+- 2026-10-05 11:35 · 243 · review 1 fixes · done
+- 2026-10-05 11:35 · 243 · story · done
+- 2026-10-05T11:36:04 · 242 · build · started
+- 2026-10-05 11:36 · 242 · D1 shared folder logic · started
+- 2026-10-05 11:38 · 242 · D1 shared folder logic · done
+- 2026-10-05 11:38 · 242 · D2 recursive discovery · started
+- 2026-10-05 11:45 · 242 · D2 recursive discovery · done
+- 2026-10-05 11:45 · 242 · D3 folder view in list · started
+- 2026-10-05 11:48 · 242 · D3 folder view in list · done
+- 2026-10-05 11:48 · 242 · D4 flows follow folder view (helper+screens+replays-folders) · started
+- 2026-10-05 11:56 · 242 · D4 flows follow folder view (helper+screens+replays-folders) · done
+- 2026-10-05 11:56 · 242 · D4 migrate flows batch 1 · started
+- 2026-10-05 12:10 · 242 · D4 migrate flows batch 1 · done
+- 2026-10-05 12:10 · 242 · D4 migrate flows batch 2 · started
+- 2026-10-05 12:22 · 242 · D4 migrate flows batch 2 · done
+- 2026-10-05 12:22 · 242 · D4 migrate flows batch 3 · started
+- 2026-10-05 12:34 · 242 · D4 migrate flows batch 3 · done
+- 2026-10-05 12:34 · 242 · D5 search across folders · started
+- 2026-10-05 12:37 · 242 · D5 search across folders · done
+- 2026-10-05 12:37 · 242 · D6 move one demo (main) · started
+- 2026-10-05 12:41 · 242 · D6 move one demo (main) · done
+- 2026-10-05 12:41 · 242 · D7 create/rename folder main (hard) · started
+- 2026-10-05 12:51 · 242 · D7 create/rename folder main (hard) · done
+- 2026-10-05 12:51 · 242 · D8 create/rename folder UI · started
+- 2026-10-05 12:59 · 242 · D8 create/rename folder UI · done
+- 2026-10-05 12:59 · 242 · D9 drag a demo onto a folder · started
+- 2026-10-05 13:04 · 242 · D9 drag a demo onto a folder · done
+- 2026-10-05 13:04 · 242 · D10 scale · started
+- 2026-10-05 13:06 · 242 · D10 scale · done
+- 2026-10-05 13:06 · 242 · verify · started
+- 2026-10-05 13:30 · 242 · verify · blocked: systems-docs line cap, ui:verify replays-list axe nested-interactive, replays-list-loading unreachable (fix cycle)
+- 2026-10-05 13:30 · 242 · verify fixes · started
+- 2026-10-05 13:38 · 242 · verify fixes · done
+- 2026-10-05 13:38 · 242 · review 1 · started
+- 2026-10-05 13:42 · 242 · review 1 · done
+- 2026-10-05 13:42 · 242 · review 1 fixes · started
+- 2026-10-05 13:49 · 242 · review 1 fixes · done
+- 2026-10-05 13:49 · 242 · verify 2 · started
+- 2026-10-05 14:12 · 242 · verify 2 · done
+- 2026-10-05 14:12 · 242 · story · done
+- 2026-10-05T14:13:10 · 238 · build · started
+- 2026-10-05 14:13 · 238 · D1 reachedBy in discovery · started
+- 2026-10-05 14:18 · 238 · D1 reachedBy in discovery · done
+- 2026-10-05 14:18 · 238 · D2 demoFoldersRead · started
+- 2026-10-05 14:19 · 238 · D2 demoFoldersRead · done
+- 2026-10-05 14:19 · 238 · D3 scoped list view · started
+- 2026-10-05 14:29 · 238 · D3 scoped list view · done
+- 2026-10-05 14:29 · 238 · D4 empty states · started
+- 2026-10-05 14:36 · 238 · D4 empty states · done
+- 2026-10-05 14:36 · 238 · verify · started
+- 2026-10-05 15:08 · 238 · verify · blocked: 3 vitest + 27 replays flows red, fix D dispatched
+- 2026-10-05 15:08 · 238 · D5 fix red verify · started
+- 2026-10-05 15:47 · 238 · D5 fix red verify · done
+- 2026-10-05 15:47 · 238 · verify 2 · started
+- 2026-10-05 15:53 · 238 · verify 2 · done
+- 2026-10-05 15:53 · 238 · review 1 · started
+- 2026-10-05 15:55 · 238 · review 1 · done
+- 2026-10-05 15:55 · 238 · D6 review 1 fixes · started
+- 2026-10-05 15:59 · 238 · D6 review 1 fixes · done
+- 2026-10-05 15:59 · 238 · verify 3 · started
+- 2026-10-05 15:59 · 238 · verify 3 · done
+- 2026-10-05 15:59 · 238 · story · done
+- 2026-10-05T16:00:17 · 244 · build · started
+- 2026-10-05 16:00 · 244 · D1 demo delete/move service · started
+- 2026-10-05 16:07 · 244 · D1 demo delete/move service · done
+- 2026-10-05 16:07 · 244 · D2 bulk tag service · started
+- 2026-10-05 16:07 · 244 · D3 folder delete service · started
+- 2026-10-05 16:09 · 244 · D2 bulk tag service · done
+- 2026-10-05 16:09 · 244 · D3 folder delete service · done
+- 2026-10-05 16:09 · 244 · D4 contract handlers client docs · started
+- 2026-10-05 16:14 · 244 · D4 contract handlers client docs · done
+- 2026-10-05 16:14 · 244 · D5 multi-select renderer · started
+- 2026-10-05 16:18 · 244 · D5 multi-select renderer · done
+- 2026-10-05 16:18 · 244 · D6 bulk bar summary delete outcome · started
+- 2026-10-05 16:31 · 244 · D6 bulk bar summary delete outcome · done
+- 2026-10-05 16:31 · 244 · D7 tag and move dialogs · started
+- 2026-10-05 16:37 · 244 · D7 tag and move dialogs · done
+- 2026-10-05 16:37 · 244 · D8 single-demo menu folder delete changelog · started
+- 2026-10-05 16:49 · 244 · D8 single-demo menu folder delete changelog · done
+- 2026-10-05 16:49 · 244 · verify · started
+- 2026-10-05 17:16 · 244 · verify · blocked: replays-filter-search, replays-mod-warning red (attribution pending)
+- 2026-10-05 17:19 · 244 · verify · done
+- 2026-10-05 17:19 · 244 · review 1 · started
+- 2026-10-05 17:22 · 244 · review 1 · done
+- 2026-10-05 17:22 · 244 · review 1 fixes · started
+- 2026-10-05 17:25 · 244 · review 1 fixes · done
+- 2026-10-05 17:25 · 244 · story · done
+- 2026-10-05T17:25:49 · 241 · build · started
+- 2026-10-05 17:26 · 241 · D1 sidecar comments + ops · started
+- 2026-10-05 17:27 · 241 · D1 sidecar comments + ops · done
+- 2026-10-05 17:27 · 241 · D2 comments in detail · started
+- 2026-10-05 17:34 · 241 · D2 comments in detail · done
+- 2026-10-05 17:34 · 241 · D3 timeline comments (hard) · started
+- 2026-10-05 17:43 · 241 · D3 timeline comments (hard) · done
+- 2026-10-05 17:43 · 241 · D4 zip demos no comments · started
+- 2026-10-05 17:45 · 241 · D4 zip demos no comments · done
+- 2026-10-05 17:45 · 241 · verify · started
+- 2026-10-05 18:13 · 241 · verify · blocked: 4 unit reds (error-keys, systems-docs length, i18n bundle snapshot, duplicate Cancel)
+- 2026-10-05 18:13 · 241 · fix unit reds · started
+- 2026-10-05 18:16 · 241 · fix unit reds · done
+- 2026-10-05 18:17 · 241 · verify · done
+- 2026-10-05 18:17 · 241 · review 1 · started
+- 2026-10-05 18:18 · 241 · review 1 · done
+- 2026-10-05 18:18 · 241 · review 1 fixes · started
+- 2026-10-05 18:22 · 241 · review 1 fixes · done
+- 2026-10-05 18:23 · 241 · story · done
+- 2026-10-05T18:23:29 · 237 · build · started
+- 2026-10-05 18:23 · 237 · D1 playback.volume main path · started
+- 2026-10-05 18:26 · 237 · D1 playback.volume main path · done
+- 2026-10-05 18:26 · 237 · D2 start value, restore, memory · started
+- 2026-10-05 18:38 · 237 · D2 start value, restore, memory · done
+- 2026-10-05 18:38 · 237 · D3 VolumeControl renderer · started
+- 2026-10-05 18:43 · 237 · D3 VolumeControl renderer · done
+- 2026-10-05 18:43 · 237 · D4 e2e flow replays-volume · started
+- 2026-10-05 18:52 · 237 · D4 e2e flow replays-volume · done
+- 2026-10-05 18:52 · 237 · verify · started
+- 2026-10-05 19:04 · 237 · verify · blocked: 4 unit reds (golden, doc length, i18n dup, bundle snapshot), flows replays-timeline-optimistic + replays-cinema red
+- 2026-10-05 19:04 · 237 · fix verify reds · started
+- 2026-10-05 19:21 · 237 · fix verify reds · done
+- 2026-10-05 19:21 · 237 · verify · done
+- 2026-10-05 19:21 · 237 · review 1 · started
+- 2026-10-05 19:22 · 237 · review 1 · done
+- 2026-10-05 19:22 · 237 · review 1 fixes · started
+- 2026-10-05 19:24 · 237 · review 1 fixes · done
+- 2026-10-05 19:24 · 237 · story · done
+- 2026-10-05T19:24:39 · 239 · build · started
+- 2026-10-05 19:24 · 239 · D1 entry list · started
+- 2026-10-05 19:29 · 239 · D1 entry list · done
+- 2026-10-05 19:29 · 239 · D2 remove create dialog · started
+- 2026-10-05 19:30 · 239 · D2 remove create dialog · done
+- 2026-10-05 19:30 · 239 · D3 remove create channel · started
+- 2026-10-05 19:31 · 239 · D3 remove create channel · done
+- 2026-10-05 19:31 · 239 · D4 name in wizard · started
+- 2026-10-05 19:32 · 239 · D4 name in wizard · done
+- 2026-10-05 19:32 · 239 · D5 flows via add menu · started
+- 2026-10-05 19:33 · 239 · D5 flows via add menu · done
+- 2026-10-05 19:33 · 239 · D6 retire create surface · started
+- 2026-10-05 19:44 · 239 · D6 retire create surface · done
+- 2026-10-05 19:44 · 239 · D7 acceptance flow + docs · started
+- 2026-10-05 19:46 · 239 · D7 acceptance flow + docs · done
+- 2026-10-05 19:46 · 239 · verify · started
+- 2026-10-05 20:03 · 239 · verify · done
+- 2026-10-05 20:03 · 239 · review 1 · started
+- 2026-10-05 20:05 · 239 · review 1 · done
+- 2026-10-05 20:05 · 239 · review 1 fixes · started
+- 2026-10-05 20:06 · 239 · review 1 fixes · done
+- 2026-10-05 20:06 · 239 · verify 2 · started
+- 2026-10-05 20:07 · 239 · verify 2 · done
+- 2026-10-05 20:08 · 239 · story · done
+- 2026-10-05T20:08:17 · 240 · build · started
+- 2026-10-05 20:08 · 240 · D1 target proposal in main · started
+- 2026-10-05 20:10 · 240 · D1 target proposal in main · done
+- 2026-10-05 20:10 · 240 · D2 job creates and removes folder · started
+- 2026-10-05 20:14 · 240 · D2 job creates and removes folder · done
+- 2026-10-05 20:14 · 240 · D3 renderer target step · started
+- 2026-10-05 20:18 · 240 · D3 renderer target step · done
+- 2026-10-05 20:18 · 240 · D4 subfolder flow and doc · started
+- 2026-10-05 20:20 · 240 · D4 subfolder flow and doc · done
+- 2026-10-05 20:20 · 240 · D5 bootstrap flows sweep · started
+- 2026-10-05 20:26 · 240 · D5 bootstrap flows sweep · done
+- 2026-10-05 20:26 · 240 · verify · started
+- 2026-10-05 20:41 · 240 · verify · done
+- 2026-10-05 20:41 · 240 · review 1 · started
+- 2026-10-05 20:42 · 240 · review 1 · done
+- 2026-10-05 20:42 · 240 · review 1 fixes · started
+- 2026-10-05 20:45 · 240 · review 1 fixes · done
+- 2026-10-05 20:45 · 240 · story · done
+- 2026-10-05T20:46:04 · 249 · build · started
+- 2026-10-05 20:46 · 249 · D1 launch input map + game type · started
+- 2026-10-05 20:46 · 249 · D2 pak entries offsets + bsp title · started
+- 2026-10-05 20:47 · 249 · D1 launch input map + game type · done
+- 2026-10-05 20:47 · 249 · D2 pak entries offsets + bsp title · done
+- 2026-10-05 20:47 · 249 · D3 map listing · started
+- 2026-10-05 20:47 · 249 · D4 remembered launch (hard) · started
+- 2026-10-05 20:48 · 249 · D3 map listing · done
+- 2026-10-05 20:48 · 249 · D4 remembered launch (hard, sequential after D3) · started
+- 2026-10-05 20:51 · 249 · D4 remembered launch (hard, sequential after D3) · done
+- 2026-10-05 20:51 · 249 · D5 Play with dialog · started
+- 2026-10-05 20:53 · 249 · D5 Play with dialog · done
+- 2026-10-05 20:53 · 249 · D6 trigger + flow + docs · started
+- 2026-10-05 20:57 · 249 · D6 trigger + flow + docs · done
+- 2026-10-05 20:57 · 249 · verify · started
+- 2026-10-05 21:04 · 249 · verify · blocked: systems-docs, i18n bundle snapshot, i18n keys dup, flow mods-view
+- 2026-10-05 21:04 · 249 · verify fixes · started
+- 2026-10-05 21:09 · 249 · verify fixes · done
+- 2026-10-05 21:09 · 249 · verify · done (reds fixed; mods-view order-dependent, reseed per flow)
+- 2026-10-05 21:09 · 249 · review 1 · started
+- 2026-10-05 21:10 · 249 · review 1 · done (PASS, minor findings)
+- 2026-10-05 21:10 · 249 · review fixes · started
+- 2026-10-05 21:11 · 249 · review fixes · done
+- 2026-10-05 21:11 · 249 · story · done
+- 2026-10-05T21:11:52 · 246 · build · started
+- 2026-10-05 21:12 · 246 · D1 inspector reports every engine · started
+- 2026-10-05 21:14 · 246 · D1 inspector reports every engine · done
+- 2026-10-05 21:14 · 246 · D2 installation stores/chooses engine (hard) · started
+- 2026-10-05 21:19 · 246 · D2 installation stores/chooses engine (hard) · done
+- 2026-10-05 21:19 · 246 · D3 library card engine choice · started
+- 2026-10-05 21:25 · 246 · D3 library card engine choice · done
+- 2026-10-05 21:25 · 246 · D4 launch engine override · started
+- 2026-10-05 21:27 · 246 · D4 launch engine override · done
+- 2026-10-05 21:27 · 246 · D5 demos play with detected Q2PRO · started
+- 2026-10-05 21:29 · 246 · D5 demos play with detected Q2PRO · done
+- 2026-10-05 21:29 · 246 · D6 replays view note + flow · started
+- 2026-10-05 21:33 · 246 · D6 replays view note + flow · done
+- 2026-10-05 21:33 · 246 · verify · started
+- 2026-10-05 21:53 · 246 · verify · done
+- 2026-10-05 21:53 · 246 · review 1 · started
+- 2026-10-05 21:57 · 246 · review 1 · done
+- 2026-10-05 21:57 · 246 · verify · started
+- 2026-10-05 22:00 · 246 · verify · done
+- 2026-10-05 22:00 · 246 · story · done
+- 2026-10-05T22:00:55 · 247 · build · started
+- 2026-10-05 22:01 · 247 · D1 shared filter engine · started
+- 2026-10-05 22:02 · 247 · D1 shared filter engine · done
+- 2026-10-05 22:02 · 247 · D2 Max ping select · started
+- 2026-10-05 22:03 · 247 · D2 Max ping select · done
+- 2026-10-05 22:03 · 247 · D3 e2e flows · started
+- 2026-10-05 22:05 · 247 · D3 e2e flows · done
+- 2026-10-05 22:05 · 247 · verify · started
+- 2026-10-05 22:16 · 247 · verify · blocked: servers/index.test.ts quick filter handlers red
+- 2026-10-05 22:16 · 247 · review 1 · started
+- 2026-10-05 22:17 · 247 · review 1 · done
+- 2026-10-05 22:17 · 247 · verify · done
+- 2026-10-05 22:17 · 247 · story · done
+- 2026-10-05T22:17:50 · 250 · build · started
+- 2026-10-05 22:18 · 250 · D1 addresses scan scope · started
+- 2026-10-05 22:23 · 250 · D1 addresses scan scope · done
+- 2026-10-05 22:23 · 250 · D2 toolbar refresh shown · started
+- 2026-10-05 22:28 · 250 · D2 toolbar refresh shown · done
+- 2026-10-05 22:28 · 250 · D3 flows docs changelog · started
+- 2026-10-05 22:30 · 250 · D3 flows docs changelog · done
+- 2026-10-05 22:30 · 250 · verify · started
+- 2026-10-05 22:41 · 250 · verify · done
+- 2026-10-05 22:41 · 250 · review 1 · started
+- 2026-10-05 22:42 · 250 · review 1 · done
+- 2026-10-05 22:42 · 250 · story · done
+- 2026-10-05T22:42:59 · 248 · build · started
+- 2026-10-05 22:43 · 248 · D1 MultiSelect primitive · started
+- 2026-10-05 22:44 · 248 · D1 MultiSelect primitive · done
+- 2026-10-05 22:44 · 248 · D2 shared model sets · started
+- 2026-10-05 22:46 · 248 · D2 shared model sets · done
+- 2026-10-05 22:46 · 248 · D3 filter bar MultiSelect · started
+- 2026-10-05 22:47 · 248 · D3 filter bar MultiSelect · done
+- 2026-10-05 22:47 · 248 · D4 flows and docs · started
+- 2026-10-05 22:51 · 248 · D4 flows and docs · done
+- 2026-10-05 22:51 · 248 · verify · started
+- 2026-10-05 23:13 · 248 · verify · done
+- 2026-10-05 23:13 · 248 · review 1 · started
+- 2026-10-05 23:14 · 248 · review 1 · done
+- 2026-10-05 23:14 · 248 · D5 review fixes · started
+- 2026-10-05 23:16 · 248 · D5 review fixes · done
+- 2026-10-05 23:16 · 248 · story · done
+- 2026-10-05T23:17:02 · gate · short suites · started
+- 2026-10-05T23:21:47 · gate · short suites · done (npm test 4 red, ui:verify red: 14 replays screens unreachable)
+- 2026-10-05T23:21:47 · gate · e2e-all · started
+- 2026-10-06T00:27:14 · gate · e2e-all · done (161/169, 8 red)
+- 2026-10-06T00:27:14 · gate · attribution · started
+- 2026-10-06T00:27:51 · gate-fix · docs links (check-docs --fix to done/ paths) · done
+- 2026-10-06T00:28:28 · gate-fix · areas.json split (downloads-bootstrap, replays-playback rows) · done
+- 2026-10-06T00:31:01 · gate-fix · flow-helper duplication moved to scripts/lib (replays-copy-in, servers-flow) · done
+- 2026-10-06T00:31:50 · gate-fix · Add-existing flows (linux-user-journey, runner-choice-compact, steam-handoff, windows-build-on-linux) use openLibraryAddEntry · done
+- 2026-10-06T00:33:01 · gate-fix · add-installation-one-flow follows 240 (picks parent, proposed subfolder) · done
+- 2026-10-06T00:36:19 · gate-fix · replays-play-q2pro (237 s_volume arg), replays-filter-search (242 folder view) flows adapted · done
+- 2026-10-06T00:38:01 · gate-fix · replays-mod-warning reselects the demo after the scope reset (238) · done
+- 2026-10-06T00:39:16 · gate-fix · 8 flows re-run green; ui:verify screens next
+- 2026-10-06T00:46:12 · gate-fix · screens.mjs replays screens show all installations (238) + flat filter view (242) · done
+- 2026-10-06T00:57:11 · gate-fix · re-verified: 4 unit files, typecheck, lint, comments+architecture, 21 helper/changed flows, ui:verify exit 0 (116 shots, 0 unreachable) · done
+- 2026-10-06T00:57:27 · gate · e2e-all (confirmation) · started
+- 2026-10-06T02:02:54 · gate · e2e-all (confirmation) · done (169/169)
+- 2026-10-06T05:25:14 · 234 · build (resume D2) · started
+- 2026-10-06 05:25 · 234 · D2 real rehearsal · started
+- 2026-10-06 06:26 · 234 · D2 triage run 1 (verify:release red: prettier 99 files + 1 flaky test; ci:local red: prettier; ci:local:flows red: act copies ignored 7za.exe + 4.5GB tree) · done
+- 2026-10-06 06:29 · 234 · D2 fixes (prettier --write 99 branch files, .actrc honours .gitignore) · done
+- 2026-10-06 07:20 · 234 · D2 triage run 2 (40 red flows: 29x 7za.exe missing -> fixture extractor path platform-aware; rest to triage) · done
+- 2026-10-06 07:45 · 234 · D2 triage run 3 (flow fixes + 25 linux quarantine entries) · done
+- 2026-10-06 08:50 · 234 · D2 triage run 4 (stub-engine parent check, mods fixture host platform; 20 quarantine entries; run 3 record: all green, shards 1211-1268s over margin) · done
+- 2026-10-06 09:39 · 234 · D2 run 4 record: all green, shards 973-1147s still over margin -> ui-flows 6 shards · done
+- 2026-10-06 10:28 · 234 · D2 real rehearsal passed (6 shards <= 820s) · done
+- 2026-10-06 10:38 · 234 · review 1 (default tier, PASS, minor findings fixed) · done
+- 2026-10-06 10:39 · 234 · story · done

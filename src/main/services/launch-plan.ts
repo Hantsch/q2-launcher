@@ -1,5 +1,6 @@
 import { BASE_GAME_DIR } from '@shared/constants'
 import { CONNECT_CFG_NAME, type LaunchUserinfo } from '@shared/launch/userinfo'
+import { isSafeGameName } from '@shared/mods/server-local-content'
 import { parseServerAddress } from '@shared/servers/address'
 import { getEngineDefinition, type Installation, type LaunchInput } from '@shared/types'
 
@@ -92,13 +93,16 @@ export interface BuildLaunchArgsResult {
 
 export function buildLaunchArgs(
   installation: Installation,
-  input: Pick<LaunchInput, 'gameDir' | 'connect' | 'extraArgs' | 'userinfo' | 'spectate'> = {},
+  input: Pick<
+    LaunchInput,
+    'gameDir' | 'connect' | 'extraArgs' | 'userinfo' | 'spectate' | 'map' | 'gameType' | 'engine'
+  > = {},
 ): BuildLaunchArgsResult {
   const args: string[] = []
   const dropped: BuildLaunchArgsResult['dropped'] = []
 
   // Engine switches first, by convention.
-  const engine = getEngineDefinition(installation.engineKind)
+  const engine = getEngineDefinition(input.engine ?? installation.engineKind)
   args.push(...(engine?.defaultArgs ?? []))
 
   // Mod / mission pack. `baseq2` is the default and must never be set.
@@ -111,8 +115,14 @@ export function buildLaunchArgs(
     }
   }
 
+  const map =
+    input.map && isSafeGameName(input.map) && isSafeEarlyToken(input.map) ? input.map : null
+  if (input.map && !map) dropped.push({ reason: 'unsafe-token', value: input.map })
+  if (map) args.push('+set', 'deathmatch', input.gameType === 'single' ? '0' : '1')
+
   args.push(...installation.launchArgs)
   if (input.extraArgs) args.push(...input.extraArgs)
+  if (map) args.push('+map', map)
 
   // `+connect` last: it is a late command, so it runs after the config has been
   // applied, and its argument may safely contain a colon and a port. Story 125: the

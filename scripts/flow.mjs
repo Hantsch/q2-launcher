@@ -86,7 +86,8 @@ async function runFlow(name, requestedVariant, executablePath) {
   //     threaded back.
   //   export async function teardown()
   //     Runs after the app is closed, pass or fail, so a fixture server cannot outlive the run.
-  const setupResult = typeof flow.setup === 'function' ? ((await flow.setup({ variant })) ?? {}) : {}
+  const setupResult =
+    typeof flow.setup === 'function' ? ((await flow.setup({ variant })) ?? {}) : {}
 
   try {
     await withApp(
@@ -95,6 +96,7 @@ async function runFlow(name, requestedVariant, executablePath) {
         viewport: VIEWPORT_DEFAULT,
         env: setupResult.env,
         extraArgs: setupResult.args,
+        expectExit: flow.expectExit === true,
         executablePath,
       },
       async ({ page, app, log }) => {

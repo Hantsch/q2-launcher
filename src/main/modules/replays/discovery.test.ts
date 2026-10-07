@@ -5,9 +5,9 @@ import { join } from 'node:path'
 import type { ReplaysExtraFolder } from '@shared/modules/replays'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ZipDeps } from '../../lib/zip-entries'
-import { resolveExtractorPath } from '../downloads/7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import type { DiscoverableInstallation } from './discovery'
-import { discoverDemos, effectiveWriteDirs, recogniseDemoFile } from './discovery'
+import { discoverDemos, demoFolderPaths, effectiveWriteDirs, recogniseDemoFile } from './discovery'
 
 /** No zip fixtures in most tests here - `extractorExists: false` fails closed, harmlessly. */
 const ZIP_DEPS: ZipDeps = { extractorPath: 'unused', extractorExists: false }
@@ -47,8 +47,15 @@ async function writeDemo(demosDir: string, fileName: string, content = 'x'): Pro
   await writeFile(join(demosDir, fileName), content)
 }
 
-function extraFolder(path: string, overrides: Partial<ReplaysExtraFolder> = {}): ReplaysExtraFolder {
-  return { id: overrides.id ?? 'extra-1', path, addedAt: overrides.addedAt ?? '2024-01-01T00:00:00.000Z' }
+function extraFolder(
+  path: string,
+  overrides: Partial<ReplaysExtraFolder> = {},
+): ReplaysExtraFolder {
+  return {
+    id: overrides.id ?? 'extra-1',
+    path,
+    addedAt: overrides.addedAt ?? '2024-01-01T00:00:00.000Z',
+  }
 }
 
 describe('recogniseDemoFile', () => {
@@ -68,33 +75,66 @@ describe('recogniseDemoFile', () => {
   })
 })
 
+describe('demoFolderPaths', () => {
+  it("demo folders list every game dir's demos folder and, on Linux Q2PRO, the write dir's", () => {
+    const inst = installation({
+      rootPath: join('/games', 'q2'),
+      gameDirs: ['baseq2', 'ctf'],
+      engineKind: 'q2pro',
+    })
+    const linux = { platform: 'linux' as const, homeDir: '/home/x', zipDeps: ZIP_DEPS }
+    expect(demoFolderPaths(inst, linux)).toEqual([
+      join('/games', 'q2', 'baseq2', 'demos'),
+      join('/games', 'q2', 'ctf', 'demos'),
+      join('/home/x', '.q2pro', 'baseq2', 'demos'),
+      join('/home/x', '.q2pro', 'ctf', 'demos'),
+    ])
+    expect(demoFolderPaths(inst, { ...linux, platform: 'win32' })).toEqual([
+      join('/games', 'q2', 'baseq2', 'demos'),
+      join('/games', 'q2', 'ctf', 'demos'),
+    ])
+  })
+})
+
 describe('effectiveWriteDirs', () => {
   it('yields ~/.q2pro only for a q2pro installation on linux', () => {
     const inst = installation({ engineKind: 'q2pro' })
-    expect(effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS })).toEqual([
-      join('/home/x', '.q2pro'),
-    ])
+    expect(
+      effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS }),
+    ).toEqual([join('/home/x', '.q2pro')])
   })
 
   it('honours recordedEngineKind as well as engineKind', () => {
     const inst = installation({ engineKind: 'unknown' as never, recordedEngineKind: 'q2pro' })
-    expect(effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS })).toEqual([
-      join('/home/x', '.q2pro'),
-    ])
+    expect(
+      effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS }),
+    ).toEqual([join('/home/x', '.q2pro')])
   })
 
   it('never reads writeDirPath', () => {
     const inst = installation({ engineKind: 'q2pro', writeDirPath: '/somewhere/else' })
-    const dirs = effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS })
+    const dirs = effectiveWriteDirs(inst, {
+      platform: 'linux',
+      homeDir: '/home/x',
+      zipDeps: ZIP_DEPS,
+    })
     expect(dirs).not.toContain('/somewhere/else')
   })
 
   it('yields nothing on windows, for r1q2, or without a homedir match', () => {
     expect(
-      effectiveWriteDirs(installation({ engineKind: 'q2pro' }), { platform: 'win32', homeDir: '/home/x', zipDeps: ZIP_DEPS }),
+      effectiveWriteDirs(installation({ engineKind: 'q2pro' }), {
+        platform: 'win32',
+        homeDir: '/home/x',
+        zipDeps: ZIP_DEPS,
+      }),
     ).toEqual([])
     expect(
-      effectiveWriteDirs(installation({ engineKind: 'r1q2' }), { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS }),
+      effectiveWriteDirs(installation({ engineKind: 'r1q2' }), {
+        platform: 'linux',
+        homeDir: '/home/x',
+        zipDeps: ZIP_DEPS,
+      }),
     ).toEqual([])
   })
 })
@@ -139,12 +179,11 @@ describe('discoverDemos', () => {
     expect(result.demos.map((d) => d.fileName).sort()).toEqual(['FINAL.DM2', 'Match.MVD2.GZ'])
   })
 
-  it('sidecars, _launcher and subfolders are never listed', async () => {
+  it('sidecars and _launcher copies are never listed', async () => {
     const root = join(dir, 'inst')
     const demosDir = join(root, 'baseq2', 'demos')
     await writeDemo(demosDir, 'x.dm2.json')
     await writeDemo(join(demosDir, '_launcher'), 'y.dm2')
-    await writeDemo(join(demosDir, 'sub'), 'z.dm2')
     await writeDemo(demosDir, 'notes.txt')
     await writeDemo(demosDir, 'a.zip')
 
@@ -171,7 +210,11 @@ describe('discoverDemos', () => {
       { platform: 'linux', homeDir: home, zipDeps: ZIP_DEPS },
     )
 
-    expect(result.demos.map((d) => d.fileName).sort()).toEqual(['mod.dm2', 'root.dm2', 'writedir.dm2'])
+    expect(result.demos.map((d) => d.fileName).sort()).toEqual([
+      'mod.dm2',
+      'root.dm2',
+      'writedir.dm2',
+    ])
   })
 
   it('no write dir is scanned on Windows, for r1q2, or from writeDirPath', async () => {
@@ -252,7 +295,8 @@ describe('discoverDemos', () => {
     const first = await discoverDemos([installation({ rootPath: root })], [], ctx)
     const second = await discoverDemos([installation({ rootPath: root })], [], ctx)
 
-    const idOf = (list: typeof first, name: string) => list.demos.find((d) => d.fileName === name)?.id
+    const idOf = (list: typeof first, name: string) =>
+      list.demos.find((d) => d.fileName === name)?.id
     expect(idOf(first, 'one.dm2')).toBe(idOf(second, 'one.dm2'))
     expect(idOf(first, 'one.dm2')).not.toBe(idOf(first, 'two.dm2'))
   })
@@ -270,35 +314,211 @@ describe('discoverDemos', () => {
   describe('zip expansion (story 143 D3)', () => {
     const realBinary = resolveExtractorPath({ isPackaged: false })
 
-    it.skipIf(!realBinary.exists)(
-      'a scanned folder expands its zips into entry rows',
-      async () => {
-        const root = join(dir, 'inst')
-        const demosDir = join(root, 'baseq2', 'demos')
-        await writeDemo(demosDir, 'loose.dm2')
+    it.skipIf(!realBinary.exists)('a scanned folder expands its zips into entry rows', async () => {
+      const root = join(dir, 'inst')
+      const demosDir = join(root, 'baseq2', 'demos')
+      await writeDemo(demosDir, 'loose.dm2')
 
-        const zipSrc = join(dir, 'zip-src')
-        await mkdir(zipSrc, { recursive: true })
-        await writeFile(join(zipSrc, 'a.dm2'), 'a-bytes')
-        await writeFile(join(zipSrc, 'b.mvd2'), 'b-bytes')
-        execFileSync(
-          realBinary.path,
-          ['a', '-tzip', '-y', '-spd', '--', join(demosDir, 'pack.zip'), 'a.dm2', 'b.mvd2'],
-          { cwd: zipSrc },
-        )
+      const zipSrc = join(dir, 'zip-src')
+      await mkdir(zipSrc, { recursive: true })
+      await writeFile(join(zipSrc, 'a.dm2'), 'a-bytes')
+      await writeFile(join(zipSrc, 'b.mvd2'), 'b-bytes')
+      execFileSync(
+        realBinary.path,
+        ['a', '-tzip', '-y', '-spd', '--', join(demosDir, 'pack.zip'), 'a.dm2', 'b.mvd2'],
+        { cwd: zipSrc },
+      )
 
-        const result = await discoverDemos([installation({ rootPath: root })], [], {
-          platform: 'win32',
-          homeDir: join(dir, 'home'),
-          zipDeps: { extractorPath: realBinary.path, extractorExists: true },
-        })
+      const result = await discoverDemos([installation({ rootPath: root })], [], {
+        platform: 'win32',
+        homeDir: join(dir, 'home'),
+        zipDeps: { extractorPath: realBinary.path, extractorExists: true },
+      })
 
-        expect(result.demos).toHaveLength(3)
-        const zipRows = result.demos.filter((d) => d.archiveEntry !== null)
-        expect(zipRows).toHaveLength(2)
-        expect(zipRows.map((d) => d.fileName).sort()).toEqual(['a.dm2', 'b.mvd2'])
-      },
+      expect(result.demos).toHaveLength(3)
+      const zipRows = result.demos.filter((d) => d.archiveEntry !== null)
+      expect(zipRows).toHaveLength(2)
+      expect(zipRows.map((d) => d.fileName).sort()).toEqual(['a.dm2', 'b.mvd2'])
+    })
+  })
+})
+
+describe('discoverDemos - which installations reach a row', () => {
+  const linux = (home: string, zipDeps: ZipDeps = ZIP_DEPS) => ({
+    platform: 'linux' as const,
+    homeDir: home,
+    zipDeps,
+  })
+  const twoQ2pro = () => [
+    installation({ id: 'inst-a', name: 'A', rootPath: join(dir, 'a'), engineKind: 'q2pro' }),
+    installation({ id: 'inst-b', name: 'B', rootPath: join(dir, 'b'), engineKind: 'q2pro' }),
+  ]
+
+  it('a Q2PRO write dir shared by two installations is reached by both', async () => {
+    const home = join(dir, 'home')
+    await writeDemo(join(home, '.q2pro', 'baseq2', 'demos'), 'x.dm2')
+
+    const result = await discoverDemos(twoQ2pro(), [], linux(home))
+
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].source).toMatchObject({ installationId: 'inst-a' })
+    expect(result.demos[0].reachedBy).toEqual(['inst-a', 'inst-b'])
+  })
+
+  it('a demo nested in a shared write dir is reached by both installations', async () => {
+    const home = join(dir, 'home')
+    await writeDemo(join(home, '.q2pro', 'baseq2', 'demos', 'cup', 'final'), 'deep.dm2')
+
+    const result = await discoverDemos(twoQ2pro(), [], linux(home))
+
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].folder).toEqual(['cup', 'final'])
+    expect(result.demos[0].reachedBy).toEqual(['inst-a', 'inst-b'])
+  })
+
+  it('a file reached once lists only its own installation', async () => {
+    await writeDemo(join(dir, 'a', 'baseq2', 'demos'), 'only-a.dm2')
+    await writeDemo(join(dir, 'b', 'baseq2', 'demos'), 'only-b.dm2')
+
+    const result = await discoverDemos(twoQ2pro(), [], linux(join(dir, 'home')))
+
+    expect(result.demos.map((d) => [d.fileName, d.reachedBy])).toEqual([
+      ['only-a.dm2', ['inst-a']],
+      ['only-b.dm2', ['inst-b']],
+    ])
+  })
+
+  it('a write-dir demo shadowing a root demo is still reached by its installation', async () => {
+    const home = join(dir, 'home')
+    await writeDemo(join(dir, 'b', 'baseq2', 'demos'), 'x.dm2', 'root-bytes')
+    await writeDemo(join(home, '.q2pro', 'baseq2', 'demos'), 'x.dm2', 'writedir-bytes')
+
+    const [, b] = twoQ2pro()
+    const result = await discoverDemos([b], [], linux(home))
+
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].absolutePath).toBe(join(home, '.q2pro', 'baseq2', 'demos', 'x.dm2'))
+    expect(result.demos[0].reachedBy).toEqual(['inst-b'])
+  })
+
+  it('an extra-folder row is reached by no installation', async () => {
+    const extra = join(dir, 'extra')
+    await writeDemo(extra, 'e.dm2')
+
+    const result = await discoverDemos(twoQ2pro(), [extraFolder(extra)], linux(join(dir, 'home')))
+
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].reachedBy).toEqual([])
+  })
+
+  const realBinary = resolveExtractorPath({ isPackaged: false })
+
+  it.skipIf(!realBinary.exists)(
+    'a zip in a shared write dir has its entries reached by both installations',
+    async () => {
+      const home = join(dir, 'home')
+      const demosDir = join(home, '.q2pro', 'baseq2', 'demos')
+      await mkdir(demosDir, { recursive: true })
+      const zipSrc = join(dir, 'zip-src')
+      await mkdir(zipSrc, { recursive: true })
+      await writeFile(join(zipSrc, 'a.dm2'), 'a-bytes')
+      execFileSync(
+        realBinary.path,
+        ['a', '-tzip', '-y', '-spd', '--', join(demosDir, 'pack.zip'), 'a.dm2'],
+        { cwd: zipSrc },
+      )
+
+      const result = await discoverDemos(
+        twoQ2pro(),
+        [],
+        linux(home, { extractorPath: realBinary.path, extractorExists: true }),
+      )
+
+      expect(result.demos).toHaveLength(1)
+      expect(result.demos[0].archiveEntry).not.toBeNull()
+      expect(result.demos[0].reachedBy).toEqual(['inst-a', 'inst-b'])
+    },
+  )
+})
+
+describe('discoverDemos - subfolders', () => {
+  it('a demo three folders deep is found with its folder path', async () => {
+    const demos = join(dir, 'root', 'baseq2', 'demos')
+    await writeDemo(join(demos, 'a', 'b', 'c'), 'deep.dm2')
+    await writeDemo(demos, 'top.dm2')
+
+    const result = await discoverDemos([installation()], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos.map((d) => [d.fileName, d.folder])).toEqual([
+      ['deep.dm2', ['a', 'b', 'c']],
+      ['top.dm2', []],
+    ])
+    expect(result.folders.map((f) => f.path)).toEqual([[], ['a'], ['a', 'b'], ['a', 'b', 'c']])
+  })
+
+  it('a junction loop does not hang the scan', async () => {
+    const demos = join(dir, 'root', 'baseq2', 'demos')
+    await writeDemo(join(demos, 'loop'), 'once.dm2')
+    await symlink(demos, join(demos, 'loop', 'back'), 'junction')
+
+    const result = await discoverDemos([installation()], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos.map((d) => d.fileName)).toEqual(['once.dm2'])
+  })
+
+  it('a root nested inside another root is only walked as its own root', async () => {
+    const outer = join(dir, 'outer')
+    await writeDemo(join(outer, 'inner'), 'nested.dm2')
+
+    const result = await discoverDemos(
+      [],
+      [extraFolder(outer), extraFolder(join(outer, 'inner'), { id: 'extra-2' })],
+      { platform: 'win32', homeDir: join(dir, 'home'), zipDeps: ZIP_DEPS },
     )
+
+    expect(result.demos.map((d) => [d.source, d.folder])).toEqual([
+      [{ kind: 'extraFolder', path: join(outer, 'inner') }, []],
+    ])
+  })
+
+  it('an empty subfolder is listed', async () => {
+    const demos = join(dir, 'root', 'baseq2', 'demos')
+    await mkdir(join(demos, 'empty'), { recursive: true })
+
+    const result = await discoverDemos([installation()], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos).toEqual([])
+    expect(result.folders.map((f) => [f.path, f.archive])).toEqual([
+      [[], false],
+      [['empty'], false],
+    ])
+  })
+
+  it('_launcher copies are not listed', async () => {
+    const demos = join(dir, 'root', 'baseq2', 'demos')
+    await writeDemo(join(demos, '_LAUNCHER'), 'copy.dm2')
+    await writeDemo(demos, 'real.dm2')
+
+    const result = await discoverDemos([installation()], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos.map((d) => d.fileName)).toEqual(['real.dm2'])
+    expect(result.folders.map((f) => f.path)).toEqual([[]])
   })
 })
 
@@ -318,7 +538,7 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
     expect(result.demos[0].source).toEqual({ kind: 'extraFolder', path: extra })
   })
 
-  it('an extra folder is scanned top-level only with the same formats and exclusions as installations', async () => {
+  it('an extra folder is scanned with the same formats and exclusions as installations', async () => {
     const extra = join(dir, 'my-demos')
     await writeDemo(join(extra, 'sub'), 'deep.dm2')
     await writeDemo(extra, 'x.dm2.json')
@@ -331,7 +551,10 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
       zipDeps: ZIP_DEPS,
     })
 
-    expect(result.demos.map((d) => d.fileName)).toEqual(['FINAL.DM2'])
+    expect(result.demos.map((d) => [d.fileName, d.folder])).toEqual([
+      ['deep.dm2', ['sub']],
+      ['FINAL.DM2', []],
+    ])
   })
 
   it("an extra folder that is an installation's demos folder yields no duplicate demos", async () => {
@@ -426,7 +649,11 @@ describe('discoverDemos - per-source errors (story 151 D1)', () => {
 
     expect(result.demos).toEqual([])
     expect(result.sourceErrors).toEqual([
-      { source: { kind: 'extraFolder', path: extraAsFile }, archiveName: null, reason: 'notAFolder' },
+      {
+        source: { kind: 'extraFolder', path: extraAsFile },
+        archiveName: null,
+        reason: 'notAFolder',
+      },
     ])
   })
 
@@ -448,7 +675,7 @@ describe('discoverDemos - per-source errors (story 151 D1)', () => {
     const realBinary = resolveExtractorPath({ isPackaged: false })
 
     it.skipIf(!realBinary.exists)(
-      'is reported with its archive name while its folder\'s loose demos still list',
+      "is reported with its archive name while its folder's loose demos still list",
       async () => {
         const root = join(dir, 'inst')
         const demosDir = join(root, 'baseq2', 'demos')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SAFE_NEWS_IMAGE_EXTENSIONS } from '../modules/home/images/paths'
+import { SAFE_NEWS_IMAGE_EXTENSIONS } from './news-image-paths'
 import {
   createRendererProtocolHandler,
   DEV_CSP,
@@ -227,9 +227,10 @@ describe('createRendererProtocolHandler news-image route', () => {
   }
 
   /** Records every path the image root was asked for, so a rejected name can be shown to read nothing. */
-  function imageHandler(
-    imageFiles: Record<string, string>,
-  ): { handler: (request: Request) => Promise<Response>; reads: string[] } {
+  function imageHandler(imageFiles: Record<string, string>): {
+    handler: (request: Request) => Promise<Response>
+    reads: string[]
+  } {
     const reads: string[] = []
     const read = fakeFileSystem(imageFiles)
     const handler = createRendererProtocolHandler({

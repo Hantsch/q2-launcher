@@ -47,10 +47,12 @@
 // `servers-detail-join` (this deliverable's own placement in `ServerDetailHeader.tsx`).
 // `module:invoke` reads `history.read` directly - the authoritative, main-side proof of AC5, since
 // a screenshot alone cannot prove ordering across two joins.
-import { createSocket } from 'node:dgram'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { SERVERS_DISABLED_SOURCES, writeJoinFixture } from '../lib/fixture.mjs'
+import { makeResponderBinder, closeResponder } from '../lib/servers-stub.mjs'
+import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
+import { invoke, readLog } from '../lib/flow-common.mjs'
 
 export const variant = 'servers-join'
 
@@ -63,68 +65,16 @@ const LOG_POLL_TIMEOUT_MS = 10_000
 const CONNECT_CFG_NAME = 'q2launcher-connect.cfg'
 const BASE_GAME_DIR = 'baseq2'
 
-const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
-
-function encodeLatin1(text) {
-  const bytes = Buffer.alloc(text.length)
-  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff
-  return bytes
-}
-
-function buildInfoReplyBytes(serverinfoLine) {
-  // A real `info` reply is not an infostring but Quake II's `"%16s %8s %2i/%2i\n"` summary line
-  // (`src/shared/servers/reply-fixtures.ts`'s `formatInfoLine`) - only these four keys survive.
-  const parts = serverinfoLine.split('\\').slice(1)
-  const kv = {}
-  for (let i = 0; i + 1 < parts.length; i += 2) kv[parts[i]] = parts[i + 1]
-  const count = (value) => (/^\d+$/.test(value ?? '') ? value : '0') // `%2i` always prints a number
-  const line =
-    `${(kv.hostname ?? '').padStart(16)} ${(kv.mapname ?? '').padStart(8)} ` +
-    `${count(kv.clients).padStart(2)}/${count(kv.maxclients).padStart(2)}\n`
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
-}
-
-function buildStatusReplyBytes(serverinfoLine, playerLines) {
-  const players = playerLines.map((line) => `\n${line}`).join('')
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}${players}`)])
-}
-
-function decodeQueryKind(message) {
-  const text = message.subarray(4).toString('latin1')
-  if (text.startsWith('info')) return 'info'
-  if (text.startsWith('status')) return 'status'
-  return 'unknown'
-}
-
 /** Binds one loopback responder with an explicit `gamename` (this flow's mismatch/no-mismatch
  * split is judged on that field, not a gametype flag - see file header). */
-async function bindResponder(hostname, playerLines, { gamename = 'baseq2', needpass = false } = {}) {
-  const socket = createSocket('udp4')
-  await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
-  const port = socket.address().port
-  const address = `127.0.0.1:${port}`
-  const infoLine =
-    `\\gamename\\${gamename}\\hostname\\${hostname}\\mapname\\q2dm1\\clients\\${playerLines.length}` +
-    `\\maxclients\\8\\version\\3.20${needpass ? '\\needpass\\1' : ''}`
-  const responder = { socket, port, address, closed: false }
-
-  socket.on('message', (message, rinfo) => {
-    const kind = decodeQueryKind(message)
-    if (kind === 'info') {
-      socket.send(buildInfoReplyBytes(infoLine), rinfo.port, rinfo.address)
-    } else if (kind === 'status') {
-      socket.send(buildStatusReplyBytes(infoLine, playerLines), rinfo.port, rinfo.address)
-    }
-  })
-
-  return responder
-}
-
-async function closeResponder(responder) {
-  if (responder.closed) return
-  responder.closed = true
-  await new Promise((resolve) => responder.socket.close(() => resolve()))
-}
+const bindResponder = makeResponderBinder(
+  (hostname, playerLines, { gamename = 'baseq2', needpass = false } = {}) => ({
+    infoLine:
+      `\\gamename\\${gamename}\\hostname\\${hostname}\\mapname\\q2dm1\\clients\\${playerLines.length}` +
+      `\\maxclients\\8\\version\\3.20${needpass ? '\\needpass\\1' : ''}`,
+    playerLines,
+  }),
+)
 
 const FIXED_ADDED_AT = '2026-01-01T00:00:00.000Z'
 
@@ -189,39 +139,12 @@ async function invokeModule(page, type) {
   )
 }
 
-async function invoke(page, channel, payload) {
-  return page.evaluate(({ ch, p }) => window.q2.invoke(ch, p), { ch: channel, p: payload })
-}
-
 async function readHistory(page) {
   const result = await invokeModule(page, 'history.read')
   if (result?.ok !== true) {
     throw new Error(`expected history.read to succeed, got ${JSON.stringify(result)}`)
   }
   return result.value
-}
-
-function scanStatusLocator(page) {
-  return page.getByTestId('servers-scan-status')
-}
-
-async function readFinishedAt(page) {
-  return (await scanStatusLocator(page).getAttribute('data-finished-at')) ?? ''
-}
-
-async function waitForFinishedAtChange(page, previous, timeout) {
-  await page.waitForFunction(
-    (before) => {
-      const el = document.querySelector('[data-testid="servers-scan-status"]')
-      return (
-        el?.getAttribute('data-running') === 'false' &&
-        (el?.getAttribute('data-finished-at') ?? '') !== before &&
-        (el?.getAttribute('data-finished-at') ?? '') !== ''
-      )
-    },
-    previous,
-    { timeout },
-  )
 }
 
 /** Arms a fresh `launch:state` phase collector, replacing whatever was armed before - each of the
@@ -244,11 +167,9 @@ async function readPhases(page) {
 }
 
 async function waitForPhase(page, phase, timeout) {
-  await page.waitForFunction(
-    (expected) => (window.__q2lPhases ?? []).includes(expected),
-    phase,
-    { timeout },
-  )
+  await page.waitForFunction((expected) => (window.__q2lPhases ?? []).includes(expected), phase, {
+    timeout,
+  })
 }
 
 /** Polls `logPath` until its contents contain `substring`, or throws once `timeoutMs` elapses -
@@ -267,10 +188,6 @@ async function waitForLogContains(logPath, substring, timeoutMs) {
     }
     await new Promise((resolve) => setTimeout(resolve, 150))
   }
-}
-
-function readLog(logPath) {
-  return existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
 }
 
 /** The most recent line containing "launching", or `null` if there is none yet. */
@@ -369,9 +286,17 @@ export default async function serversJoin({ page, step, shot }) {
   await waitForPhase(page, 'running', LAUNCH_TIMEOUT_MS)
   await waitForPhase(page, 'exited', LAUNCH_TIMEOUT_MS)
 
-  const logAfterB = await waitForLogContains(logPath, `+connect ${serverB.address}`, LOG_POLL_TIMEOUT_MS)
+  const logAfterB = await waitForLogContains(
+    logPath,
+    `+connect ${serverB.address}`,
+    LOG_POLL_TIMEOUT_MS,
+  )
   const launchLineB = lastLaunchingLine(logAfterB)
-  if (!launchLineB || !launchLineB.includes('launching') || !launchLineB.includes(`+connect ${serverB.address}`)) {
+  if (
+    !launchLineB ||
+    !launchLineB.includes('launching') ||
+    !launchLineB.includes(`+connect ${serverB.address}`)
+  ) {
     throw new Error(
       `expected the newest "launching" line to contain "+connect ${serverB.address}", got ` +
         JSON.stringify(launchLineB),
@@ -399,7 +324,9 @@ export default async function serversJoin({ page, step, shot }) {
   await mismatchDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const mismatchText = (await mismatchDialog.textContent()) ?? ''
   if (!mismatchText.includes('ctf') || !mismatchText.includes('baseq2')) {
-    throw new Error(`expected the mismatch dialog to name both "ctf" and "baseq2", got ${JSON.stringify(mismatchText)}`)
+    throw new Error(
+      `expected the mismatch dialog to name both "ctf" and "baseq2", got ${JSON.stringify(mismatchText)}`,
+    )
   }
   await shot('join-mismatch-dialog')
 
@@ -422,16 +349,22 @@ export default async function serversJoin({ page, step, shot }) {
 
   const logAfterCancel = readLog(logPath)
   if (countLaunchingLines(logAfterCancel) !== launchingCountAfterB) {
-    throw new Error('expected no new "launching" line in main.log after cancelling the password step (AC4)')
+    throw new Error(
+      'expected no new "launching" line in main.log after cancelling the password step (AC4)',
+    )
   }
   const historyAfterCancel = await readHistory(page)
   if (JSON.stringify(historyAfterCancel) !== JSON.stringify(historyAfterB)) {
-    throw new Error('expected history.read to be unchanged after cancelling the password step (AC4/AC5)')
+    throw new Error(
+      'expected history.read to be unchanged after cancelling the password step (AC4/AC5)',
+    )
   }
 
   // --- Step 3: join A for real, with a password - never in argv or main.log (AC6) ---
 
-  step('press Join on A again (still selected - clicking a selected row would deselect it), confirm the mismatch, and submit a password with a space in it')
+  step(
+    'press Join on A again (still selected - clicking a selected row would deselect it), confirm the mismatch, and submit a password with a space in it',
+  )
   await armPhaseListener(page)
   await listJoinButton(page).click({ timeout: TIMEOUT_MS })
   await mismatchDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -455,10 +388,14 @@ export default async function serversJoin({ page, step, shot }) {
 
   // AC6's other half: the password went through the cfg, which was really on disk for the launch.
   if (!cfgWatch.seen.existed) {
-    throw new Error(`expected ${cfgPath} to exist while the password join was starting/running - it never appeared`)
+    throw new Error(
+      `expected ${cfgPath} to exist while the password join was starting/running - it never appeared`,
+    )
   }
   if (!cfgWatch.seen.mentionsPassword) {
-    throw new Error(`expected ${CONNECT_CFG_NAME} to set the join password, but its content never mentions "password"`)
+    throw new Error(
+      `expected ${CONNECT_CFG_NAME} to set the join password, but its content never mentions "password"`,
+    )
   }
 
   const expectedTail = `+exec ${CONNECT_CFG_NAME} +connect ${serverA.address}`

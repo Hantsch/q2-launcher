@@ -9,23 +9,23 @@ sidecar > content > name > file time with each value's source — proven by test
 minimal surface the stories themselves require. This is the first of three sprints for phase 10
 (S26 data layer → S27 list/detail UI → S28 playback).
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 135 — a demos module exists with its own nav entry | done | `5a7d747` |
-| 136 — a dm2 tells its map and players | done | `d0fe465` |
-| 137 — an mvd2 tells its map and players | done | `84a3609` |
-| 138 — a demo knows how long it is | done | `8b80cae` |
-| 139 — a file name gives away what it can | done | `134efc0` |
-| 140 — I teach the browser a name pattern | done (regression fixed at gate) | `16d9551` + `01bb0c3` |
-| 141 — demos are found in every installation and mod | done | `ff0854c` |
-| 142 — I add my own demo folders | done | `4f9d280` |
-| 143 — each demo in a zip is its own row | done (regression fixed at gate) | `3cce3a7` + `951be08` |
-| 144 — the index only re-reads what changed | done (cross-story fix included) | `294b463` |
-| 145 — a demo I cannot parse still shows up | done (rescoped) | `62a9dbd` |
-| 146 — what I write about a demo lives next to it | done | `42bbe42` |
-| 147 — a broken sidecar is reported, never overwritten | done | `53934c4` |
-| 148 — every value says where it came from | done | `7686241` |
-| 149 — a guessed gamemode says it is guessed | done | `000b3b8` |
+| Story                                                 | Status                          | Commit                |
+| ----------------------------------------------------- | ------------------------------- | --------------------- |
+| 135 — a demos module exists with its own nav entry    | done                            | `5a7d747`             |
+| 136 — a dm2 tells its map and players                 | done                            | `d0fe465`             |
+| 137 — an mvd2 tells its map and players               | done                            | `84a3609`             |
+| 138 — a demo knows how long it is                     | done                            | `8b80cae`             |
+| 139 — a file name gives away what it can              | done                            | `134efc0`             |
+| 140 — I teach the browser a name pattern              | done (regression fixed at gate) | `16d9551` + `01bb0c3` |
+| 141 — demos are found in every installation and mod   | done                            | `ff0854c`             |
+| 142 — I add my own demo folders                       | done                            | `4f9d280`             |
+| 143 — each demo in a zip is its own row               | done (regression fixed at gate) | `3cce3a7` + `951be08` |
+| 144 — the index only re-reads what changed            | done (cross-story fix included) | `294b463`             |
+| 145 — a demo I cannot parse still shows up            | done (rescoped)                 | `62a9dbd`             |
+| 146 — what I write about a demo lives next to it      | done                            | `42bbe42`             |
+| 147 — a broken sidecar is reported, never overwritten | done                            | `53934c4`             |
+| 148 — every value says where it came from             | done                            | `7686241`             |
+| 149 — a guessed gamemode says it is guessed           | done                            | `000b3b8`             |
 
 All 15 stories are done; nothing is blocked. No story was omitted from the sprint list.
 
@@ -79,15 +79,14 @@ All 15 stories are done; nothing is blocked. No story was omitted from the sprin
   §17.2 (name-template syntax) by 139/140; §17.4 (duration cost) by 138, measured on the real
   fixtures; §17.5 (gamemode heuristic) by 149; §17.16 (nav icon/order) by 135.
 - **Two cross-story regressions surfaced only once multiple stories' code ran together** — exactly
-  the case the regression gate exists for (see below); one was caught and fixed *during* the build
+  the case the regression gate exists for (see below); one was caught and fixed _during_ the build
   phase (144 breaking 140's test file), the other two only surfaced once the e2e harness could
   actually run at the gate (see next point).
 - **The session's `ui:flow`/`ui:verify` timeouts all sprint were not a permanent environment
   limitation** — they were four orphaned Electron processes left running from early diagnostic
   runs, holding a lock. Killing them let the harness run cleanly and immediately surfaced two real
-  bugs (a Settings-crashing double-wrapped `Outcome` in story 140, and a zip-fixture leak in story
-  143) that ten separate stories' build-phase "environment gap" label had been quietly masking.
-  Lesson for future sprints: a *consistent* first-locator timeout across unrelated flows is worth
+  bugs (a Settings-crashing double-wrapped `Outcome` in story 140, and a zip-fixture leak in story 143) that ten separate stories' build-phase "environment gap" label had been quietly masking.
+  Lesson for future sprints: a _consistent_ first-locator timeout across unrelated flows is worth
   a leftover-process check before it's accepted as environment noise, even mid-sprint, not only in
   the phase 2b gate.
 
@@ -116,7 +115,7 @@ afterward, at `01bb0c3` and `951be08`).
     layers, matching `ServersSettingsSection.tsx`'s `mutate()`. The same pass fixed a real
     `scrollable-region-focusable` axe violation on `replays-list@940x620` (story 141).
   - **Story 143, fixed** (`951be08`), attributed to `replays-discovered-list` and
-    `replays-incremental-scan`: the zip test fixture was built unconditionally into the *shared*
+    `replays-incremental-scan`: the zip test fixture was built unconditionally into the _shared_
     `baseq2/demos` folder on every populated-variant fixture write, leaking two extra files into
     every other flow's demo listing. Scoped the zip's build/teardown to its own flow.
   - `replays-extra-folders`, `servers-master-sources` — environment flake (a bare locator/
@@ -134,47 +133,47 @@ Every acceptance criterion maps to a named test (see each story's own `## Accept
 Done section for the exact file and test name — kept there, not duplicated here, per each story's
 own record). Summary by story:
 
-| Story | Criteria proven by | Gaps named |
-| --- | --- | --- |
-| 135 | unit + `replays-module-shell` e2e flow | — |
-| 136 | unit, incl. real `test.dm2` fixture | — |
-| 137 | unit, incl. real MVD2 fixture; a review-caught bounds bug fixed before merge | — |
-| 138 | unit, exact-count cross-checked against an independent oracle on both real fixtures | — |
-| 139 | unit, incl. a brute-force ambiguity oracle | — |
-| 140 | unit + e2e (`replays-name-templates`, `replays-module-shell`) — both now provably green | — |
-| 141 | unit + e2e (`replays-discovered-list`) — now green | write-dir case (Linux-only) has no e2e, unit-covered |
-| 142 | unit + e2e (`replays-extra-folders`) | e2e flaky in the gate run (environment, not code) |
-| 143 | unit + e2e (`replays-zip-entries`) — now green after the fixture-leak fix | — |
-| 144 | unit + e2e (`replays-incremental-scan`) — now green | — |
-| 145 | unit only (data-layer rescope; UI half moves to 150/155/159 in S27/S28) | by design, see Decisions |
-| 146 | unit only (editor surface is story 155, S27) | AC7's reason text has no UI yet |
-| 147 | unit only (confirm-dialog UI is S27) | — |
-| 148 | unit only (source label isn't mounted until 155, S27) | — |
-| 149 | unit only (row/detail/filter surfaces are 150/153/155, S27) | — |
+| Story | Criteria proven by                                                                      | Gaps named                                           |
+| ----- | --------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 135   | unit + `replays-module-shell` e2e flow                                                  | —                                                    |
+| 136   | unit, incl. real `test.dm2` fixture                                                     | —                                                    |
+| 137   | unit, incl. real MVD2 fixture; a review-caught bounds bug fixed before merge            | —                                                    |
+| 138   | unit, exact-count cross-checked against an independent oracle on both real fixtures     | —                                                    |
+| 139   | unit, incl. a brute-force ambiguity oracle                                              | —                                                    |
+| 140   | unit + e2e (`replays-name-templates`, `replays-module-shell`) — both now provably green | —                                                    |
+| 141   | unit + e2e (`replays-discovered-list`) — now green                                      | write-dir case (Linux-only) has no e2e, unit-covered |
+| 142   | unit + e2e (`replays-extra-folders`)                                                    | e2e flaky in the gate run (environment, not code)    |
+| 143   | unit + e2e (`replays-zip-entries`) — now green after the fixture-leak fix               | —                                                    |
+| 144   | unit + e2e (`replays-incremental-scan`) — now green                                     | —                                                    |
+| 145   | unit only (data-layer rescope; UI half moves to 150/155/159 in S27/S28)                 | by design, see Decisions                             |
+| 146   | unit only (editor surface is story 155, S27)                                            | AC7's reason text has no UI yet                      |
+| 147   | unit only (confirm-dialog UI is S27)                                                    | —                                                    |
+| 148   | unit only (source label isn't mounted until 155, S27)                                   | —                                                    |
+| 149   | unit only (row/detail/filter surfaces are 150/153/155, S27)                             | —                                                    |
 
 No manual residue anywhere in this sprint — every story's own Done section says so explicitly.
 `testplan.md` is therefore not written (per `testplan: optional`).
 
 ## Tier record
 
-| Story | D | hard | Review | Cycles | Agents |
-| --- | --- | --- | --- | --- | --- |
-| 135 | 3 | 0 | default | 0 | 5 |
-| 136 | 2 | 0 | default | 1 | 4 |
-| 137 | 2 | 0 | default | 1 | 6 |
-| 138 | 4 | 1 | default | 0 | 6 |
-| 139 | 2 | 1 | default | 1 | 4 |
-| 140 | 3 | 0 | default | 1 | 5 |
-| 141 | 5 | 0 | default | 1 | 7 |
-| 142 | 5 | 0 | default | 1 | 9 |
-| 143 | 4 | 1 | default | 1 | 8 |
-| 144 | 4 | 1 | default | 0 | 6 |
-| 145 | 3 | 0 | default | 1 | 5 |
-| 146 | 3 | 0 | default | 0 | 5 |
-| 147 | 3 | 1 | default | 1 | 5 |
-| 148 | 2 | 0 | default | 0 | 4 |
-| 149 | 2 | 0 | default | 1 | 4 |
-| **Total** | **47** | **5** | | **10** | **83** |
+| Story     | D      | hard  | Review  | Cycles | Agents |
+| --------- | ------ | ----- | ------- | ------ | ------ |
+| 135       | 3      | 0     | default | 0      | 5      |
+| 136       | 2      | 0     | default | 1      | 4      |
+| 137       | 2      | 0     | default | 1      | 6      |
+| 138       | 4      | 1     | default | 0      | 6      |
+| 139       | 2      | 1     | default | 1      | 4      |
+| 140       | 3      | 0     | default | 1      | 5      |
+| 141       | 5      | 0     | default | 1      | 7      |
+| 142       | 5      | 0     | default | 1      | 9      |
+| 143       | 4      | 1     | default | 1      | 8      |
+| 144       | 4      | 1     | default | 0      | 6      |
+| 145       | 3      | 0     | default | 1      | 5      |
+| 146       | 3      | 0     | default | 0      | 5      |
+| 147       | 3      | 1     | default | 1      | 5      |
+| 148       | 2      | 0     | default | 0      | 4      |
+| 149       | 2      | 0     | default | 1      | 4      |
+| **Total** | **47** | **5** |         | **10** | **83** |
 
 No story used a hard-tier (second-pass) review this sprint — every Model Hints line judged
 "default" sufficient, and the two real regressions the gate found were both integration bugs a
@@ -187,17 +186,17 @@ agents: 15 (one per story; 145 needed a second round after its scope question wa
 
 - Refine (15 stories, one message, foreground): completed without incident; one story (145)
   correctly escalated a scope question instead of guessing.
-- Build (15 stories sequential): one cross-story regression caught *during* the build phase itself
+- Build (15 stories sequential): one cross-story regression caught _during_ the build phase itself
   (144 → 140's test file) by the standing instruction to sweep the wider replays test surface on
   every story, not just `--changed HEAD` — this worked as intended and should stay standard
   practice for sprints that build many stories on the same module in sequence.
-- The two regressions the *gate* caught (not the per-story sweep) were both integration-level:
+- The two regressions the _gate_ caught (not the per-story sweep) were both integration-level:
   a nested-Outcome unwrap depth and a shared-fixture leak. Neither is the kind of thing a
   per-story narrow gate could have caught, by design — they needed the full suites running
   together, which is the regression gate's entire reason to exist, restated here because this
   sprint is direct evidence for it.
 - The apparent "environment gap" that recurred across ten stories' build reports was in fact one
   root cause (orphaned processes) that nobody thought to check until the gate — a reminder that a
-  *pattern* of identical failures across unrelated code is itself a signal worth a two-minute
+  _pattern_ of identical failures across unrelated code is itself a signal worth a two-minute
   process check, even under the "don't over-verify" discipline this workflow otherwise correctly
   enforces.

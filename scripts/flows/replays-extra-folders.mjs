@@ -26,6 +26,8 @@ import { join } from 'node:path'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
 import { replaysExtraFolderFixturePath } from '../lib/fixture.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
+import { openFolder, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -61,24 +63,11 @@ async function openDemosView(page) {
     state: 'visible',
     timeout: TIMEOUT_MS,
   })
-}
-
-/**
- * Story 144 D4: opening the Demos view now renders whatever `index.read` already has (possibly a
- * stale snapshot from an earlier visit in this same app instance) before its own just-triggered
- * scan replaces it. Waiting for `replays-refresh` to go back to its enabled "Refresh" label is the
- * real signal that scan has finished and the list reflects the current on-disk state - a bare
- * `.count()` right after `openDemosView` can otherwise race an in-flight scan.
- */
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
+  await waitForDemosScanToFinish(page)
+  if ((await page.getByTestId('replays-breadcrumb').count()) > 0) {
+    await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
+    await page.getByTestId('replays-breadcrumb').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
 export default async function replaysExtraFolders({ page, shot, step, variant }) {
@@ -93,6 +82,7 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
 
   step('the Demos view lists both files under the extra-folder source, and no decoys (AC2)')
   await openDemosView(page)
+  await openFolder(page, extraFolder)
   const expectedSourceText = `extra folder: ${extraFolder}`
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     const row = page.locator('[data-testid="replays-demo-row"]').filter({ hasText: fileName })
@@ -116,6 +106,11 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   const restartVariant = `${variant}-extra-folders-restart`
   const restartUserDataDir = variantUserDataDir(restartVariant)
   mkdirSync(restartUserDataDir, { recursive: true })
+  await waitForStateJson(
+    userDataDir,
+    (doc) => doc.replays?.extraFolders?.some((row) => row.path === extraFolder),
+    'the extra folder in replays.extraFolders',
+  )
   copyFileSync(join(userDataDir, 'state.json'), join(restartUserDataDir, 'state.json'))
 
   await withApp(
@@ -127,28 +122,42 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
         timeout: TIMEOUT_MS,
       })
       await secondPage.screenshot({
-        path: join(REPO_ROOT, '.ui-verify', 'screenshots', 'flows', 'replays-extra-folders-restarted.png'),
+        path: join(
+          REPO_ROOT,
+          '.ui-verify',
+          'screenshots',
+          'flows',
+          'replays-extra-folders-restarted.png',
+        ),
       })
     },
   )
 
   step('re-adding the same folder is refused, and the Demos view still shows each file once (AC4)')
+  // The first window is still on the Demos view from AC2; the add button lives in Settings.
+  await openReplaysSettings(page)
+  await rowForPath(page, extraFolder).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('replays-extra-folders-add').click({ timeout: TIMEOUT_MS })
   const errorText = page.getByTestId('replays-extra-folders-error')
   await errorText.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if ((await foldersList(page).count()) !== 1) {
-    throw new Error('re-adding the same folder produced a second row - expected the add to be refused')
+    throw new Error(
+      're-adding the same folder produced a second row - expected the add to be refused',
+    )
   }
   await shot('replays-extra-folder-duplicate-refused')
 
   await openDemosView(page)
+  await openFolder(page, extraFolder)
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     const count = await page
       .locator('[data-testid="replays-demo-row"]')
       .filter({ hasText: fileName })
       .count()
     if (count !== 1) {
-      throw new Error(`expected ${fileName} to appear exactly once after the refused re-add, got ${count}`)
+      throw new Error(
+        `expected ${fileName} to appear exactly once after the refused re-add, got ${count}`,
+      )
     }
   }
 
@@ -160,25 +169,37 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   await rowForPath(page, extraFolder).waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   await openDemosView(page)
-  await waitForDemosScanToFinish(page)
+  const rootRows = await page
+    .getByTestId('replays-folder-name')
+    .filter({ hasText: extraFolder })
+    .count()
+  if (rootRows !== 0) {
+    throw new Error(`expected the removed extra folder's root row to be gone, got ${rootRows}`)
+  }
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     const count = await page
       .locator('[data-testid="replays-demo-row"]')
       .filter({ hasText: fileName })
       .count()
     if (count !== 0) {
-      throw new Error(`expected ${fileName} to be gone from the Demos list after removing its folder`)
+      throw new Error(
+        `expected ${fileName} to be gone from the Demos list after removing its folder`,
+      )
     }
   }
   await shot('replays-extra-folder-removed')
 
   if (!existsSync(extraFolder)) {
-    throw new Error(`expected the fixture folder ${extraFolder} to still exist on disk after removal`)
+    throw new Error(
+      `expected the fixture folder ${extraFolder} to still exist on disk after removal`,
+    )
   }
   const filesOnDisk = readdirSync(extraFolder)
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     if (!filesOnDisk.includes(fileName)) {
-      throw new Error(`expected ${fileName} to still be present on disk under ${extraFolder} after removal`)
+      throw new Error(
+        `expected ${fileName} to still be present on disk under ${extraFolder} after removal`,
+      )
     }
   }
 

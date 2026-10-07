@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import { getModuleManifest } from '@shared/types'
-import type { AppContext } from '../../context'
+import { fakeAppContext } from '../../../test-support/app-context'
+import { fakeSectionState } from '../../../test-support/state-sections'
 import { MainModuleRegistry } from '../registry'
 import { homeModule } from './index'
 
@@ -35,10 +36,6 @@ vi.mock('electron', () => ({
   app: { getPath: () => userDataBox.current },
 }))
 
-function fakeAppContext(): AppContext {
-  return { isDev: true } as unknown as AppContext
-}
-
 describe('home module', () => {
   let dir: string
 
@@ -64,7 +61,7 @@ describe('home module', () => {
     expect(manifest?.capabilities).toEqual(['network'])
 
     const registry = new MainModuleRegistry()
-    await registry.register(homeModule, fakeAppContext())
+    await registry.register(homeModule, fakeAppContext({ isDev: true, state: fakeSectionState() }))
 
     const registeredManifest = registry.manifests().find((m) => m.id === 'home')
     expect(registeredManifest?.status).toBe('available')
@@ -74,8 +71,27 @@ describe('home module', () => {
     const outcome = await registry.invoke({ moduleId: 'home', type: 'news.get' })
     expect(outcome).toEqual({
       ok: true,
-      value: { slides: [], retrievedAt: expect.any(String), schemaAhead: false, lastRefreshFailed: false },
+      value: {
+        slides: [],
+        retrievedAt: expect.any(String),
+        schemaAhead: false,
+        lastRefreshFailed: false,
+      },
     })
+  })
+
+  it('a refused slide url arrives as a failure, not as a success wrapping one', async () => {
+    vi.stubEnv(UI_HARNESS_ENV, '1')
+    const registry = new MainModuleRegistry()
+    await registry.register(homeModule, fakeAppContext({ isDev: true, state: fakeSectionState() }))
+
+    const outcome = await registry.invoke({
+      moduleId: 'home',
+      type: 'slide.openUrl',
+      payload: 'https://not-on-the-allowlist.invalid/x',
+    })
+
+    expect(outcome).toEqual({ ok: false, error: { key: 'app.error.invalidUrl' } })
   })
 
   /**
@@ -83,7 +99,7 @@ describe('home module', () => {
    * (called *inside* `refreshNews()`) that decides whether that turns into a real network request
    * or a no-op, based on the harness gate and whether a loopback base is configured
    * (`news/harness.ts`). An earlier version of `index.ts` gated the call itself behind
-   * `isUiHarnessEnabled()`, which broke any harness-gated launch that *did* name a loopback base
+   * the harness gate, which broke any harness-gated launch that *did* name a loopback base
    * (`scripts/flows/news-feed.mjs`) by never calling `refreshNews()` at all - a regression found by
    * running that flow against the full sprint branch. This test replaces `news/news-service` with a
    * bare double (`createNewsService` returning `refreshNews`/`getNews` spies, same shape
@@ -113,7 +129,10 @@ describe('home module', () => {
 
       const { homeModule: testedHomeModule } = await import('./index')
       const registry = new MainModuleRegistry()
-      await registry.register(testedHomeModule, fakeAppContext())
+      await registry.register(
+        testedHomeModule,
+        fakeAppContext({ isDev: true, state: fakeSectionState() }),
+      )
 
       expect(refreshNews).toHaveBeenCalledTimes(1)
     })

@@ -1,18 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pencil, Star, X } from 'lucide-react'
+import { Star, X } from 'lucide-react'
 import type { DemoRow, SidecarState } from '@shared/modules/replays'
 import { buildDemoDetail, type DemoDetailField } from '@shared/replays/demo-detail'
-import type { SidecarSide } from '@shared/replays/sidecar'
+import {
+  addTagChange,
+  fieldPatchFromText,
+  isoToDraftText,
+  removeTagChange,
+  setFields,
+  suggestTags,
+  validateTag,
+  type SidecarField,
+} from '@shared/replays/sidecar-draft'
 import { describeGamemode } from '@shared/demos/gamemode'
 import { IconButton } from '../../../components/ui/Button'
 import { cn } from '../../../lib/cn'
 import { sidecarRead } from '../client'
-import { sidesText, formatDemoDate } from '../row-format'
+import { formatDemoDate } from '../row-format'
+import { DemoCommentsList } from './DemoCommentsList'
 import { DemoFileActions } from './DemoFileActions'
+import { SidesField } from './SidesField'
 import { StarRating } from './StarRating'
-import { DemoDetailEditor, DemoDetailNameInput } from './DemoDetailEditor'
-import { DiscardDemoNotesDialog } from './DiscardDemoNotesDialog'
+import { InPlaceField, type CommitResult } from './InPlaceField'
+import { TagInput } from './TagInput'
 import { effectiveQuickValues, useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
 
 export interface DemoDetailPanelProps {
@@ -20,26 +31,48 @@ export interface DemoDetailPanelProps {
   onClose: () => void
   /** Patches this row's `sidecar` part in the view's list after a save - never a rescan. */
   onRowPatched: RowPatcher
-  /** Story 157 D4: a rename swapped this row's id (and file name) out from under the selection -
-   * threaded straight through to `DemoFileActions`/`RenameDemoDialog`. */
-  onRenamed: (oldId: string, newRow: DemoRow) => void
+  /** Rename, move and delete open the list's own dialogs; threaded straight to `DemoFileActions`. */
+  onRename: (row: DemoRow) => void
+  onMove: (row: DemoRow) => void
+  onDelete: (row: DemoRow) => void
   /** Every other demo's sidecar tags, threaded down to the notes editor's tag-suggestion input. */
   otherDemosTags?: string[][]
 }
 
 const NO_OTHER_TAGS: string[][] = []
 
+/** The fields whose empty input shows the lower-source effective value as its placeholder. */
+type PlaceholderFieldId = 'name' | 'map' | 'mod' | 'gamemode' | 'date'
+
+/**
+ * An empty input's placeholder. When the value the facts show comes from a lower source (the demo,
+ * the file name, the file time), that value itself is the cue - with no source prefix; a value that
+ * is the sidecar's own (or none at all) falls back to the generic hint. (story 178)
+ */
+export function editorPlaceholder(
+  row: DemoRow,
+  field: PlaceholderFieldId,
+  t: (key: string) => string,
+): string {
+  const { value, source } = row.effective[field]
+  if (source !== null && source !== 'sidecar' && value !== null && value !== '') {
+    if (field === 'date' && typeof value === 'number' && Number.isFinite(value)) {
+      return isoToDraftText(new Date(value).toISOString()).slice(0, 16)
+    }
+    if (typeof value === 'string') return value
+  }
+  return t(`replays.editor.placeholder.${field}`)
+}
+
 /** Renders one `DemoDetailField`'s value as text - mirrors each field's own natural formatting
- * (`sidesText` for `sides`, a localised date for `date`) rather than a
- * generic `String(value)`, which would print `[object Object]` for a `sides` array. */
+ * (a localised date for `date`) rather than a generic `String(value)`. `sides` never reaches here:
+ * `DemoPlayersPanel` renders it. */
 function fieldValueText(
   field: DemoDetailField,
   t: (key: string, params?: Record<string, unknown>) => string,
   locale: string,
 ): string {
   switch (field.id) {
-    case 'sides':
-      return sidesText((field.value as SidecarSide[]).map((side) => ({ ...side })))
     case 'gamemode': {
       const { labelKey, text } = describeGamemode({
         value: field.value as string | null,
@@ -64,17 +97,19 @@ function fieldValueText(
 }
 
 /**
- * Story 155 D1: the read-only facts panel for a selected demo - sticky header
- * (mirrors `ServerDetailView.tsx`'s), two `<dl>`s of `buildDemoDetail`'s fields (file facts, match facts), and the sidecar's specific issues (when its live state is `'error'`) - the
- * row's own `sidecar.state` only ever says `'error'`, never which problem, so this panel calls
- * `sidecarRead(row.id)` itself to get the itemized `issues` (story 147's `replays.sidecar.issue.*`
- * keys) rather than trusting the row.
+ * The one detail view of a selected demo: sticky header, the facts, the sidecar's specific issues
+ * (when its live state is `'error'`) - the row's own `sidecar.state` only ever says `'error'`, never
+ * which problem, so this panel calls `sidecarRead(row.id)` itself to get the itemized `issues`.
+ * Every sidecar field is an `InPlaceField` that saves itself per field through the editor store
+ * (story 243); an archive entry shows the same view read-only.
  */
 export function DemoDetailPanel({
   row,
   onClose,
   onRowPatched,
-  onRenamed,
+  onRename,
+  onMove,
+  onDelete,
   otherDemosTags = NO_OTHER_TAGS,
 }: DemoDetailPanelProps) {
   const { t, i18n } = useTranslation()
@@ -90,46 +125,86 @@ export function DemoDetailPanel({
     })
   }, [row.id])
 
-  // Edit mode needs both the flag and the draft it binds - the header and body switch together.
-  const editing = useDemoEditorStore(
-    (state) => state.editingId === row.id && state.drafts[row.id] !== undefined,
-  )
-  const pendingLeave = useDemoEditorStore((state) => state.pendingLeave)
   const favourite = useDemoEditorStore(
     (state) => effectiveQuickValues(state.quickPending[row.id], row.sidecar.values).favourite,
   )
   const rating = useDemoEditorStore(
     (state) => effectiveQuickValues(state.quickPending[row.id], row.sidecar.values).rating,
   )
-  const { keepEditing, discardAndLeave } = useDemoEditorStore.getState()
   const archived = row.archiveEntry !== null
   const detail = buildDemoDetail(row, row.sidecar.values)
   const title = row.effective.name.value ?? row.fileName
-  const description = row.sidecar.values.description?.trim()
-  const tags = row.sidecar.values.tags
+  const values = row.sidecar.values
+  const tags = values.tags ?? []
+  const [tagText, setTagText] = useState('')
   const factText = (id: DemoDetailField['id']): string | undefined => {
     const field = detail.fields.find((candidate) => candidate.id === id)
     return field === undefined ? undefined : fieldValueText(field, t, i18n.language)
   }
 
+  const textField = (id: SidecarField, multiline = false) => {
+    const label = id === 'name' ? t('common.label.name') : t(`replays.detail.field.${id}`)
+    const sidecarText =
+      id === 'date'
+        ? values.date === undefined
+          ? ''
+          : isoToDraftText(values.date)
+        : (values[id] ?? '')
+    return (
+      <InPlaceField
+        value={sidecarText}
+        display={id === 'name' || id === 'description' ? undefined : factText(id)}
+        placeholder={id === 'description' ? '' : editorPlaceholder(row, id, t)}
+        label={label}
+        multiline={multiline}
+        readOnly={archived}
+        size={id === 'name' ? 'title' : 'sm'}
+        validate={(text) => {
+          const parsed = fieldPatchFromText(id, text)
+          return parsed.ok ? null : parsed.error
+        }}
+        onCommit={async (text): Promise<CommitResult> => {
+          const parsed = fieldPatchFromText(id, text)
+          if (!parsed.ok) return 'failed'
+          return useDemoEditorStore.getState().edit(row.id, setFields(parsed.patch), onRowPatched)
+        }}
+        testId={`replays-detail-input-${id}`}
+      />
+    )
+  }
+
+  const factRow = (id: string, content: ReactNode) => (
+    <div
+      key={id}
+      className="flex items-baseline justify-between gap-3 text-sm"
+      data-testid={`replays-detail-field-${id}`}
+    >
+      <dt className="text-ink-muted">{t(`replays.detail.field.${id}`)}</dt>
+      <dd className="min-w-0 w-3/5 text-right text-ink">{content}</dd>
+    </div>
+  )
+
+  const plainFact = (id: 'fileName' | 'duration' | 'pov') => {
+    const text = factText(id)
+    return text === undefined ? null : factRow(id, <span className="block truncate">{text}</span>)
+  }
+  const editableFact = (id: Exclude<SidecarField, 'name' | 'description'>) =>
+    factRow(id, textField(id))
+  const tagChange = (change: ReturnType<typeof addTagChange>): void => {
+    void useDemoEditorStore.getState().edit(row.id, change, onRowPatched)
+  }
+
   return (
-    <section aria-labelledby={editing ? undefined : 'replays-detail-title'} aria-label={editing ? title : undefined} data-testid="replays-detail">
-      <div className="sticky top-0 z-10 border-b border-line bg-panel px-4 py-2" data-testid="replays-detail-header">
+    <section aria-labelledby="replays-detail-title" data-testid="replays-detail">
+      <div
+        className="sticky top-0 z-10 border-b border-line bg-panel px-4 py-2"
+        data-testid="replays-detail-header"
+      >
         <div className="flex min-h-8 flex-wrap items-center gap-2">
-          {editing ? (
-            <>
-              <h2 className="sr-only">{title}</h2>
-              <DemoDetailNameInput row={row} />
-            </>
-          ) : (
-            <h2
-              id="replays-detail-title"
-              data-testid="replays-detail-title"
-              className="min-w-0 flex-1 truncate text-lg font-semibold text-ink"
-            >
-              {title}
-            </h2>
-          )}
+          <h2 id="replays-detail-title" data-testid="replays-detail-title" className="sr-only">
+            {title}
+          </h2>
+          <div className="min-w-0 flex-1">{textField('name')}</div>
           <IconButton
             label={t('replays.detail.favourite.ariaLabel', { name: title })}
             size="sm"
@@ -137,30 +212,23 @@ export function DemoDetailPanel({
             disabled={archived}
             aria-describedby={archived ? 'replays-archive-readonly-edit' : undefined}
             onClick={() => {
-              void useDemoEditorStore.getState().quickEdit(row.id, { favourite: !favourite }, onRowPatched)
+              void useDemoEditorStore
+                .getState()
+                .quickEdit(row.id, { favourite: !favourite }, onRowPatched)
             }}
             data-testid="replays-detail-favourite"
           >
             <Star
-              className={cn('size-3.5', favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted')}
+              className={cn(
+                'size-3.5',
+                favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted',
+              )}
               aria-hidden="true"
             />
           </IconButton>
-          {!editing && <DemoFileActions demo={row} onRenamed={onRenamed} />}
-          {!editing && (
-            <IconButton
-              label={t('replays.detail.edit')}
-              size="sm"
-              disabled={archived}
-              aria-describedby={archived ? 'replays-archive-readonly-edit' : undefined}
-              onClick={() => useDemoEditorStore.getState().startEdit(row.id, row.sidecar.values)}
-              data-testid="replays-detail-edit"
-            >
-              <Pencil className="size-3.5" aria-hidden="true" />
-            </IconButton>
-          )}
+          <DemoFileActions demo={row} onRename={onRename} onMove={onMove} onDelete={onDelete} />
           <IconButton
-            label={t('replays.detail.close')}
+            label={t('common.action.close')}
             size="sm"
             onClick={onClose}
             data-testid="replays-detail-close"
@@ -168,13 +236,19 @@ export function DemoDetailPanel({
             <X className="size-3.5" aria-hidden="true" />
           </IconButton>
         </div>
-        {archived && !editing && (
-          <div className="mt-2 space-y-1 text-xs text-ink-dim" data-testid="replays-archive-readonly">
+        {archived && (
+          <div
+            className="mt-2 space-y-1 text-xs text-ink-dim"
+            data-testid="replays-archive-readonly"
+          >
             <p id="replays-archive-readonly-edit" data-testid="replays-archive-readonly-edit">
               {t('replays.archive.readOnly.edit')}
             </p>
             <p id="replays-archive-readonly-rename" data-testid="replays-archive-readonly-rename">
               {t('replays.archive.readOnly.rename')}
+            </p>
+            <p id="replays-archive-readonly-change" data-testid="replays-archive-readonly-change">
+              {t('replays.archive.readOnly.change')}
             </p>
           </div>
         )}
@@ -192,48 +266,45 @@ export function DemoDetailPanel({
             }}
           />
           <span className="numeric text-sm text-ink-dim" data-testid="replays-detail-rating-value">
-            {rating === null ? t('replays.detail.rating.none') : t('replays.row.ratingValue', { rating })}
+            {rating === null
+              ? t('replays.detail.rating.none')
+              : t('replays.row.ratingValue', { rating })}
           </span>
         </div>
-        {editing ? (
-          <DemoDetailEditor
-            row={row}
-            onRowPatched={onRowPatched}
-            readOnlyText={{ duration: factText('duration'), pov: factText('pov') }}
-            knownPlayers={detail.knownPlayers}
-            otherDemosTags={otherDemosTags}
-          />
-        ) : (
-          <div className="space-y-5">
-            {(['file', 'match'] as const).map((group) => {
-              const fields = detail.fields.filter((field) => field.group === group)
-              if (fields.length === 0) return null
-              return (
-                <dl key={group} className="space-y-2" data-testid={`replays-detail-facts-${group}`}>
-                  {fields.map((field) => (
-                    <div
-                      key={field.id}
-                      className="flex items-baseline justify-between gap-3 text-sm"
-                      data-testid={`replays-detail-field-${field.id}`}
-                    >
-                      <dt className="text-ink-muted">{t(`replays.detail.field.${field.id}`)}</dt>
-                      <dd className="min-w-0 truncate text-right text-ink">
-                        {fieldValueText(field, t, i18n.language)}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              )
-            })}
-            {description !== undefined && description !== '' && (
-              <p
-                className="whitespace-pre-wrap wrap-break-word text-sm text-ink"
-                data-testid="replays-detail-description"
-              >
-                {description}
-              </p>
-            )}
-            {tags !== undefined && tags.length > 0 && (
+        <div className="space-y-5">
+          <dl className="space-y-2" data-testid="replays-detail-facts-file">
+            {plainFact('fileName')}
+            {plainFact('duration')}
+            {editableFact('date')}
+          </dl>
+          <dl className="space-y-2" data-testid="replays-detail-facts-match">
+            {editableFact('map')}
+            {editableFact('mod')}
+            {editableFact('gamemode')}
+            {plainFact('pov')}
+          </dl>
+          {(!archived ||
+            detail.playerGroups.groups.length > 0 ||
+            detail.playerGroups.spectators.length > 0) && (
+            <div data-testid="replays-detail-field-sides">
+              <SidesField
+                row={row}
+                detail={detail}
+                readOnly={archived}
+                onRowPatched={onRowPatched}
+              />
+            </div>
+          )}
+          {(!archived || (values.description ?? '').trim() !== '') && (
+            <div className="space-y-1" data-testid="replays-detail-field-description">
+              <span className="text-sm text-ink-muted">
+                {t('replays.detail.field.description')}
+              </span>
+              {textField('description', true)}
+            </div>
+          )}
+          {archived ? (
+            tags.length > 0 && (
               <ul className="flex flex-wrap gap-1.5" data-testid="replays-detail-tags">
                 {tags.map((tag) => (
                   <li
@@ -244,9 +315,22 @@ export function DemoDetailPanel({
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
-        )}
+            )
+          ) : (
+            <div className="space-y-1" data-testid="replays-detail-tags">
+              <span className="text-sm text-ink-muted">{t('replays.detail.field.tags')}</span>
+              <TagInput
+                tags={tags}
+                suggestions={suggestTags(otherDemosTags, tagText, tags)}
+                validate={validateTag}
+                onAddTag={(tag) => tagChange(addTagChange(tag))}
+                onRemoveTag={(tag) => tagChange(removeTagChange(tag))}
+                onInputChange={setTagText}
+              />
+            </div>
+          )}
+          <DemoCommentsList row={row} onRowPatched={onRowPatched} />
+        </div>
 
         {row.format === 'mvd2' && (
           <p className="text-xs text-ink-muted" data-testid="demo-detail-mvd2-note">
@@ -261,12 +345,7 @@ export function DemoDetailPanel({
             ))}
           </ul>
         )}
-
       </div>
-
-      {pendingLeave !== null && (
-        <DiscardDemoNotesDialog onKeepEditing={keepEditing} onDiscard={discardAndLeave} />
-      )}
     </section>
   )
 }

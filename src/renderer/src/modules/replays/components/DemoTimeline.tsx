@@ -1,7 +1,19 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AppWindow, Maximize2, MonitorPlay, Pause, Play, RotateCcw, RotateCw, Square } from 'lucide-react'
+import {
+  AppWindow,
+  Maximize2,
+  MessageSquarePlus,
+  MonitorPlay,
+  Pause,
+  Play,
+  RotateCcw,
+  RotateCw,
+  Square,
+} from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
+import type { DemoRow } from '@shared/modules/replays'
+import { SIDECAR_LIMITS } from '@shared/replays/sidecar'
 import {
   JUMP_STEP_S,
   PAGE_STEP_S,
@@ -15,7 +27,15 @@ import { Select } from '../../../components/ui/controls'
 import { useOverlayRegistration } from '../../../lib/overlay-registry'
 import { cn } from '../../../lib/cn'
 import { usePlaybackStore } from '../playback-store'
-import { createTimeline, expected, type ExpectedTimeline, type OptimisticTimeline } from '../optimistic-timeline'
+import type { RowPatcher } from '../demo-editor-store'
+import { VolumeControl } from './VolumeControl'
+import { CommentField, CommentMarks } from './TimelineComments'
+import {
+  createTimeline,
+  expected,
+  type ExpectedTimeline,
+  type OptimisticTimeline,
+} from '../optimistic-timeline'
 
 // `outline-solid` re-enables the outline style the shared Select's `focus:outline-none` switches off.
 // Only read when there is no session, where the component renders nothing anyway.
@@ -25,10 +45,13 @@ const FOCUS_RING =
   'focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flame-500'
 
 /**
- * Story 184 D3: the expected timeline at this instant. While the demo plays in the window the
+ * Story 184: the expected timeline at this instant. While the demo plays in the window the
  * position moves between readbacks, so the component re-renders once per animation frame.
  */
-export function useExpectedTimeline(optimistic: OptimisticTimeline, running: boolean): ExpectedTimeline {
+export function useExpectedTimeline(
+  optimistic: OptimisticTimeline,
+  running: boolean,
+): ExpectedTimeline {
   const [, setFrame] = useState(0)
   const now = Date.now()
   const current = expected(optimistic, now)
@@ -44,18 +67,25 @@ export function useExpectedTimeline(optimistic: OptimisticTimeline, running: boo
   return current
 }
 
+export interface DemoTimelineProps {
+  /** The session's demo row, when the list holds it; without it the strip offers no comments. */
+  demo?: DemoRow | null
+  onRowPatched?: RowPatcher
+}
+
 /**
- * Story 165 D3: the timeline strip docked at the bottom of the Demos view while a demo session
+ * Story 165: the timeline strip docked at the bottom of the Demos view while a demo session
  * exists. The seek bar is one `role="slider"` element (keyboard + click); without a known duration
  * it is `aria-disabled` and says why as visible text. Every action goes through `playbackTimeline`
  * as a fixed action object, never console text; a refusal or a rejected call shows inline.
  */
-export function DemoTimeline() {
+export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
   const { t } = useTranslation()
   const session = usePlaybackStore((state) => state.session)
   const sendTimeline = usePlaybackStore((state) => state.sendTimeline)
   const requestStop = usePlaybackStore((state) => state.requestStop)
   const setCinema = usePlaybackStore((state) => state.setCinema)
+  const setVolume = usePlaybackStore((state) => state.setVolume)
   const [error, setError] = useState<LocalizedMessage | null>(null)
   // The native speed popup paints above the page (and the game window): park the game while it is open.
   const [speedOpen, setSpeedOpen] = useState(false)
@@ -63,10 +93,13 @@ export function DemoTimeline() {
   useOverlayRegistration(speedOpen, noElement, true)
   const waitingId = useId()
   const cinemaReasonId = useId()
+  const commentReasonId = useId()
+  const [composing, setComposing] = useState<{ demoId: string; atMs: number } | null>(null)
+  const addCommentRef = useRef<HTMLButtonElement>(null)
   const optimistic = session?.optimistic
   const shown = useExpectedTimeline(
     optimistic ?? createEmpty,
-    session !== null && !session.fullscreen && !(session.view?.ended ?? false)
+    session !== null && !session.fullscreen && !(session.view?.ended ?? false),
   )
 
   if (session === null) return null
@@ -79,12 +112,16 @@ export function DemoTimeline() {
   const paused = shown.paused
   const fullscreen = session.fullscreen
   const inCinema = session.mode === 'cinema'
-  const cinemaReason = session.cinemaAvailability.available ? null : session.cinemaAvailability.reason
+  const cinemaReason = session.cinemaAvailability.available
+    ? null
+    : session.cinemaAvailability.reason
   const ended = view?.ended ?? false
   // Leaving cinema is always possible; entering needs availability and a demo that has not ended.
   const cinemaBlocked = !inCinema && (cinemaReason !== null || ended)
   const positionText = formatPlaybackPosition(positionMs)
-  const durationText = hasDuration ? formatPlaybackPosition(durationMs) : t('replays.timeline.durationUnknown')
+  const durationText = hasDuration
+    ? formatPlaybackPosition(durationMs)
+    : t('replays.timeline.durationUnknown')
   const durationS = hasDuration ? Math.floor(durationMs / 1000) : 0
   const positionS = Math.min(durationS, Math.floor(positionMs / 1000))
   const fraction = hasDuration ? Math.min(1, positionMs / durationMs) : 0
@@ -106,6 +143,32 @@ export function DemoTimeline() {
   const busy = (chain: 'pause' | 'seek' | 'speed') =>
     waitingChain === chain ? { 'aria-busy': true as const, 'aria-describedby': waitingId } : {}
 
+  const comments = demo?.sidecar.values.comments ?? []
+  const commentReason =
+    demo === null
+      ? null
+      : session.archived
+        ? 'replays.comments.archiveReadOnly'
+        : comments.length >= SIDECAR_LIMITS.comments
+          ? 'replays.comments.error.limit'
+          : null
+  const canComment = demo !== null && onRowPatched !== undefined && session.demoId === demo.id
+  const showMarks = canComment && hasDuration && !fullscreen && comments.length > 0
+
+  async function startComment(): Promise<void> {
+    if (!canComment || fullscreen || commentReason !== null) return
+    // Pinned to what the strip shows at the click, before the pause round-trip moves the clock.
+    const clicked = hasDuration ? Math.min(durationMs, displayedMs) : displayedMs
+    const atMs = Math.max(0, Math.round(clicked))
+    if (!paused && !ended && !(await send({ kind: 'togglePause' }))) return
+    setComposing({ demoId: demo.id, atMs })
+  }
+
+  function closeComment(): void {
+    setComposing(null)
+    addCommentRef.current?.focus()
+  }
+
   async function stop(): Promise<void> {
     setError(null)
     const refusal = await requestStop()
@@ -116,6 +179,12 @@ export function DemoTimeline() {
     // A paused demo would sit frozen behind the fullscreen window with no visible way to resume.
     if (paused && !(await send({ kind: 'togglePause' }))) return
     await send({ kind: 'fullscreen' })
+  }
+
+  async function changeVolume(volume: { percent: number; muted: boolean }): Promise<void> {
+    setError(null)
+    const refusal = await setVolume(volume)
+    if (refusal) setError(refusal)
   }
 
   async function toggleCinema(): Promise<void> {
@@ -169,51 +238,69 @@ export function DemoTimeline() {
   return (
     <section
       className="flex flex-col gap-1 border-t border-line bg-panel px-5 pt-1 pb-2"
-      aria-label={t('replays.timeline.label')}
+      aria-label={t('common.label.demoPlayback')}
       data-testid="replays-timeline"
     >
       {/* YouTube-style: the seek bar spans the full strip above the controls; the element itself is
           a taller hit area around a thin track that thickens on hover. */}
-      <div
-        role="slider"
-        tabIndex={0}
-        aria-label={t('replays.timeline.seek')}
-        aria-valuemin={0}
-        aria-valuemax={durationS}
-        aria-valuenow={positionS}
-        aria-valuetext={t('replays.timeline.seekValueText', {
-          position: positionText,
-          duration: durationText,
-        })}
-        aria-disabled={!hasDuration || fullscreen}
-        onClick={handleSeekClick}
-        onKeyDown={handleSeekKey}
-        className={cn(
-          'group relative flex h-5 items-center rounded-sm',
-          hasDuration && !fullscreen ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
-          FOCUS_RING,
-        )}
-        data-testid="replays-timeline-seek"
-        data-position-ms={Math.round(displayedMs)}
-        {...busy('seek')}
-      >
-        <div className="pointer-events-none relative h-1.5 w-full rounded-full bg-line-strong transition-[height] group-hover:h-2.5">
-          <div
-            className="h-full rounded-full bg-flame-500"
-            style={{ width: `${fullscreen ? 0 : fraction * 100}%` }}
-          />
-          {hasDuration && !fullscreen && (
-            <div
-              className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-flame-500 opacity-0 transition-opacity group-hover:opacity-100"
-              style={{ left: `${fraction * 100}%` }}
-            />
+      <div className="relative">
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label={t('replays.timeline.seek')}
+          aria-valuemin={0}
+          aria-valuemax={durationS}
+          aria-valuenow={positionS}
+          aria-valuetext={t('replays.timeline.seekValueText', {
+            position: positionText,
+            duration: durationText,
+          })}
+          aria-disabled={!hasDuration || fullscreen}
+          onClick={handleSeekClick}
+          onKeyDown={handleSeekKey}
+          className={cn(
+            'group relative flex h-5 items-center rounded-sm',
+            hasDuration && !fullscreen ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
+            FOCUS_RING,
           )}
+          data-testid="replays-timeline-seek"
+          data-position-ms={Math.round(displayedMs)}
+          {...busy('seek')}
+        >
+          <div className="pointer-events-none relative h-1.5 w-full rounded-full bg-line-strong transition-[height] group-hover:h-2.5">
+            <div
+              className="h-full rounded-full bg-flame-500"
+              style={{ width: `${fullscreen ? 0 : fraction * 100}%` }}
+            />
+            {hasDuration && !fullscreen && (
+              <div
+                className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-flame-500 opacity-0 transition-opacity group-hover:opacity-100"
+                style={{ left: `${fraction * 100}%` }}
+              />
+            )}
+          </div>
         </div>
+        {showMarks && (
+          <CommentMarks
+            comments={comments}
+            durationMs={durationMs}
+            onSeek={(seconds) => void send({ kind: 'seekTo', seconds })}
+            focusRing={FOCUS_RING}
+          />
+        )}
       </div>
+      {canComment && composing !== null && composing.demoId === demo.id && !fullscreen && (
+        <CommentField
+          demoId={demo.id}
+          atMs={composing.atMs}
+          onRowPatched={onRowPatched}
+          onClose={closeComment}
+        />
+      )}
       <div className="flex items-center gap-1">
         <IconButton
           size="lg"
-          label={paused ? t('replays.timeline.play') : t('replays.timeline.pause')}
+          label={paused ? t('common.action.play') : t('replays.timeline.pause')}
           disabled={fullscreen}
           onClick={() => void send({ kind: 'togglePause' })}
           className={FOCUS_RING}
@@ -251,7 +338,10 @@ export function DemoTimeline() {
             <span data-testid="replays-timeline-duration">{durationText}</span>
           </span>
         )}
-        <span className="ml-4 min-w-0 flex-1 truncate text-sm text-ink-muted" title={session.demoName}>
+        <span
+          className="ml-4 min-w-0 flex-1 truncate text-sm text-ink-muted"
+          title={session.demoName}
+        >
           {session.demoName}
         </span>
         {waitingChain === null ? (
@@ -267,13 +357,20 @@ export function DemoTimeline() {
             {t(`replays.timeline.waiting.${waitingChain}`)}
           </span>
         )}
+        <VolumeControl
+          volume={session.volume}
+          disabled={fullscreen}
+          focusRing={FOCUS_RING}
+          onChange={(volume) => void changeVolume(volume)}
+        />
         <Select
           disabled={fullscreen}
           aria-label={t('replays.timeline.speed')}
           value={String(shown.speed)}
           onMouseDown={() => setSpeedOpen(true)}
           onKeyDown={(event) => {
-            if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4') setSpeedOpen(true)
+            if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4')
+              setSpeedOpen(true)
           }}
           onBlur={() => setSpeedOpen(false)}
           onChange={(event) => {
@@ -289,12 +386,30 @@ export function DemoTimeline() {
           data-testid="replays-timeline-speed"
           {...busy('speed')}
         />
+        {canComment && (
+          <IconButton
+            ref={addCommentRef}
+            size="lg"
+            label={t('replays.comments.add')}
+            disabled={fullscreen}
+            // Stays focusable when refused so its reason is reachable.
+            aria-disabled={commentReason !== null || undefined}
+            aria-describedby={commentReason !== null ? commentReasonId : undefined}
+            onClick={() => void startComment()}
+            className={cn(FOCUS_RING, commentReason !== null && 'cursor-not-allowed opacity-45')}
+            data-testid="replays-timeline-add-comment"
+          >
+            <MessageSquarePlus className="size-6" />
+          </IconButton>
+        )}
         {/* Story 187: YouTube-style view buttons - cinema (theater) and fullscreen; none once fullscreen. */}
         {!fullscreen && (
           <>
             <IconButton
               size="lg"
-              label={inCinema ? t('replays.timeline.cinema.leave') : t('replays.timeline.cinema.enter')}
+              label={
+                inCinema ? t('replays.timeline.cinema.leave') : t('replays.timeline.cinema.enter')
+              }
               // Stays focusable when unavailable so its reason is reachable.
               aria-disabled={cinemaBlocked || undefined}
               aria-describedby={cinemaReason !== null && !inCinema ? cinemaReasonId : undefined}
@@ -309,7 +424,7 @@ export function DemoTimeline() {
             </IconButton>
             <IconButton
               size="lg"
-              label={t('replays.timeline.fullscreen')}
+              label={t('common.label.fullscreen')}
               disabled={ended}
               onClick={() => void enterFullscreen()}
               className={FOCUS_RING}
@@ -321,7 +436,7 @@ export function DemoTimeline() {
         )}
         <IconButton
           size="lg"
-          label={session.stopping ? t('replays.timeline.stopping') : t('replays.timeline.stop')}
+          label={session.stopping ? t('common.action.stopping') : t('common.action.stopDemo')}
           disabled={session.stopping}
           onClick={() => void stop()}
           className={FOCUS_RING}
@@ -336,8 +451,21 @@ export function DemoTimeline() {
         </p>
       )}
       {cinemaReason !== null && !fullscreen && !inCinema && (
-        <p id={cinemaReasonId} className="text-xs text-ink-muted" data-testid="replays-timeline-cinema-reason">
+        <p
+          id={cinemaReasonId}
+          className="text-xs text-ink-muted"
+          data-testid="replays-timeline-cinema-reason"
+        >
           {t(cinemaReason.key)}
+        </p>
+      )}
+      {canComment && commentReason !== null && !fullscreen && (
+        <p
+          id={commentReasonId}
+          className="text-xs text-ink-muted"
+          data-testid="replays-timeline-comment-reason"
+        >
+          {t(commentReason)}
         </p>
       )}
       {!hasDuration && !fullscreen && (

@@ -13,6 +13,11 @@
 //   replays-demo-name       DemoRow.tsx - the row's file name text
 
 import { REPLAYS_SCALE_LAST_FILE_NAME } from '../lib/fixture.mjs'
+import {
+  openDemosRoot,
+  showAllInstallations,
+  waitForDemosScanToFinish,
+} from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 /** However many rows the virtualised list may ever mount at once - well above the actual window
@@ -22,22 +27,13 @@ const MAX_MOUNTED_ROWS = 100
 
 export const variant = 'replays-scale'
 
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS * 4
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
-}
-
 export default async function replaysListScale({ page, shot, step }) {
   step('navigating to the Demos view renders the discovered list')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
+  await showAllInstallations(page)
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await waitForDemosScanToFinish(page, { timeout: TIMEOUT_MS * 4 })
+  await openDemosRoot(page)
 
   step('fewer than 100 rows are mounted in the DOM at once')
   const mountedCount = await page.getByTestId('replays-demo-row').count()

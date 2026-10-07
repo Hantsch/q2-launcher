@@ -10,9 +10,6 @@ import { fileURLToPath } from 'node:url'
 /** `<repo>/scripts/lib/paths.mjs` -> `<repo>`. */
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-/** The one git-ignored folder every run may write to (fixtures, screenshots, reports). */
-export const UI_VERIFY_ROOT = join(REPO_ROOT, '.ui-verify')
-
 /**
  * The harness's own error type. It lives here rather than in `harness.mjs`
  * because the containment guard below throws it and `paths.mjs` must not import
@@ -26,6 +23,23 @@ export class HarnessError extends Error {
     super(message, options)
     this.name = 'HarnessError'
   }
+}
+
+/**
+ * The one git-ignored folder every run may write to (fixtures, screenshots, reports).
+ * `Q2L_UI_VERIFY_ROOT` redirects it - a unit test seeds fixtures into a temp dir that way - and is
+ * read once, at module load, so it must be set before this file is first imported. Declared below
+ * `HarnessError` because a bad override throws one while the module is still initialising.
+ */
+export const UI_VERIFY_ROOT = resolveUiVerifyRoot(process.env.Q2L_UI_VERIFY_ROOT)
+
+function resolveUiVerifyRoot(override) {
+  if (override === undefined || override === '') return join(REPO_ROOT, '.ui-verify')
+  // A relative override would resolve against `process.cwd()`, which this file refuses to depend on.
+  if (!isAbsolute(override)) {
+    throw new HarnessError(`Q2L_UI_VERIFY_ROOT must be an absolute path, got "${override}"`)
+  }
+  return resolve(override)
 }
 
 /**

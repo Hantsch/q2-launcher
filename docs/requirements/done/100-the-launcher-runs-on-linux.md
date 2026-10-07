@@ -18,7 +18,7 @@ The gaps that remain are the ones that make Linux unusable rather than merely de
 suite that cannot run at all, a Steam probe that only reads the registry, an executable heuristic
 that matches `README`, and an extractor binary that only exists as `7za.exe`.
 
-The scope here deliberately stops before *shipping* a Linux build. A user on Linux gets the
+The scope here deliberately stops before _shipping_ a Linux build. A user on Linux gets the
 launcher by running it from source; producing, publishing and self-updating a Linux artifact is
 story 101, which is blocked on decisions this story does not need. The dividing line is what the
 existing test suite can prove on a CI runner.
@@ -27,8 +27,8 @@ Engine decision taken 2026-09-21: **Q2PRO is the Linux primary engine, R1Q2 stay
 R1Q2's pinned build is an MSVC Windows binary and its setup path probes the Visual C++ runtime and
 seeds a Windows-only renderer cvar. Because no Linux Q2PRO binary exists in the content repo yet
 (story 101 AC1), the honest outcome of this story on Linux is a bootstrap wizard with nothing to
-offer — which must be *said*, not shown as an empty list. Background and verified external facts:
-[linux-support-analysis.md](../linux-support-analysis.md).
+offer — which must be _said_, not shown as an empty list. Background and verified external facts:
+[linux-support-analysis.md](../../linux-support-analysis.md).
 
 ## Acceptance Criteria
 
@@ -151,7 +151,7 @@ D2/D3/D4 are independent of each other.
   `q2pro`; on Windows the same root offers nothing and a root with `q2pro.exe` offers it.
 
 - **D4 — Linux engines classify.** Q2PRO and yquake2 gain their Linux markers and extension-less
-  executables *alongside* the existing Windows ones (`ref_gl3.so`, `baseq2/game.so`, `q2pro`,
+  executables _alongside_ the existing Windows ones (`ref_gl3.so`, `baseq2/game.so`, `q2pro`,
   `quake2`). No platform branch in the data — a `.so` marker never matches on a Windows install.
   Files: `src/shared/types/engine.ts:95-122`, `src/main/services/inspector.test.ts` (new, covering
   `classifyEngine` at `inspector.ts:61-85`).
@@ -182,7 +182,7 @@ D2/D3/D4 are independent of each other.
   Acceptance: on linux the engine options exclude r1q2; the setup functions do nothing there; an
   existing R1Q2 folder still classifies and labels (covered by D4's test file).
 
-- **D7 — the wizard learns *why* the list is empty.** `bootstrapEngineOptions` returns the options
+- **D7 — the wizard learns _why_ the list is empty.** `bootstrapEngineOptions` returns the options
   plus an `emptyReason` (`'none-for-platform' | 'none-pinned' | null`) instead of a bare array.
   Files: `src/shared/modules/downloads.ts:22-100` (handler map + response type),
   `src/main/modules/downloads/index.ts:171-190`,
@@ -243,7 +243,7 @@ D2/D3/D4 are independent of each other.
 - D1, D2, D4, D6, D7, D8, D9, D10 → default tier.
 - Review: → `story-review-hard` — every deliverable is a new platform branch in a Windows-first
   app, so the failure this review has to catch is a Windows regression hidden behind an `if
-  (process.platform === 'linux')` that looked additive.
+(process.platform === 'linux')` that looked additive.
 
 ## Acceptance Tests
 
@@ -292,6 +292,7 @@ Linux 7-Zip binary (D9); and an end-to-end Linux user-journey e2e flow plus an u
 **Commit message:** `100: the launcher runs on linux`
 
 **Verification.**
+
 - `npm run typecheck` — clean (both `tsconfig.node.json` and `tsconfig.web.json`).
 - `npm test` — 4103 passed; 2 pre-existing failures unrelated to this story (locale-dependent
   relative-time strings in `UpdateCheckRow.test.tsx`/`NewsHero.test.tsx` on a de-DE host,
@@ -314,6 +315,7 @@ Linux 7-Zip binary (D9); and an end-to-end Linux user-journey e2e flow plus an u
   warnings logged. Independently reran both e2e flows and the full test/typecheck/build set.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `.github/workflows/ci.yml` job `test` (ubuntu-latest + windows-latest) running typecheck +
   test; `scripts/platform-assertions.test.mjs` — passed locally.
 - AC2 → `src/main/services/detection/providers.test.ts` › "finds the Steam root under the native

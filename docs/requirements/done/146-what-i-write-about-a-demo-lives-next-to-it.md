@@ -68,7 +68,7 @@ over parsed ones is [[148]].
 - **Unchanged bytes are not rewritten** — a save whose serialised output equals the file on disk
   returns `unchanged` without touching it, so mtime stays put for [[144]]'s change detection.
 - **The schema is `.strict()` and every field but `schemaVersion` is optional** — "exactly the
-  fields above" (AC1) means an unknown key is a schema failure; how a *read* copes with that is
+  fields above" (AC1) means an unknown key is a schema failure; how a _read_ copes with that is
   [[147]]'s partial-use rule, not this story's.
 - **`schemaVersion` is `z.literal(1)` and stamped by main** — the renderer sends only the user
   fields; it can never claim a version.
@@ -124,7 +124,7 @@ Storage only — no renderer surface, no new IPC channel (rides `module:invoke`)
    `schemaVersion: z.literal(1)`), `normalizeSidecarFields()`, `isEmptySidecar()`,
    `serializeSidecar()` (canonical order, 2-space, `\n`), `sidecarFileName()`.
 2. **Main store** (D2) — `src/main/modules/replays/sidecar-store.ts`: `createSidecarStore({
-   resolveDemo, fs? })` with `read(id)` and `write(id, fields)`; guards → normalise → delete /
+resolveDemo, fs? })` with `read(id)` and `write(id, fields)`; guards → normalise → delete /
    unchanged / atomic write; fs error mapping.
 3. **Handlers** (D3) — `sidecar.read` / `sidecar.write` in `src/shared/modules/replays.ts`, wired
    in `src/main/modules/replays/index.ts` to the store with the real index lookup; the
@@ -141,12 +141,12 @@ kinds) being built — sprint numeric order guarantees it.
   pure-module + colocated-test shape of `src/shared/servers/dmflags.ts`. No `node:*`, no
   `electron`, no DOM (shared-layer rule). zod 4.
   Exports: `SIDECAR_SCHEMA_VERSION = 1`; `sidecarSideSchema = z.object({ team?: string ≤64,
-  result?: string ≤32, players: string(≤64)[] ≤64 }).strict()`; `sidecarFieldsSchema =
-  z.object({ name?: ≤200, description?: ≤4000, mod?: ≤64, gamemode?: ≤64, map?: ≤64, sides?:
-  side[] ≤16, tags?: string(1..40)[] ≤50, favourite?: boolean, rating?: z.number().int().min(1)
-  .max(10), date?: z.iso.datetime({ offset: true }) }).strict()` with types `SidecarFields`,
+result?: string ≤32, players: string(≤64)[] ≤64 }).strict()`; `sidecarFieldsSchema =
+z.object({ name?: ≤200, description?: ≤4000, mod?: ≤64, gamemode?: ≤64, map?: ≤64, sides?:
+side[] ≤16, tags?: string(1..40)[] ≤50, favourite?: boolean, rating?: z.number().int().min(1)
+.max(10), date?: z.iso.datetime({ offset: true }) }).strict()` with types `SidecarFields`,
   `SidecarSide`; `sidecarFileSchema = sidecarFieldsSchema.extend({ schemaVersion:
-  z.literal(SIDECAR_SCHEMA_VERSION) }).strict()` + `SidecarFile`.
+z.literal(SIDECAR_SCHEMA_VERSION) }).strict()` + `SidecarFile`.
   `normalizeSidecarFields(f): SidecarFields` — trims strings and drops empty ones; tags trimmed,
   empties dropped, de-duplicated case-insensitively keeping the first spelling; player names
   trimmed, empties dropped; a side with no team, no result and no players dropped; empty arrays
@@ -154,7 +154,7 @@ kinds) being built — sprint numeric order guarantees it.
   `serializeSidecar(f): string` — builds `{ schemaVersion: 1, ...fields }` in the fixed order
   `schemaVersion, name, description, mod, gamemode, map, sides, tags, favourite, rating, date`
   (side keys `team, result, players`), omitting absent keys, then `JSON.stringify(x, null, 2) +
-  '\n'` (LF only). `sidecarFileName(demoFileName) = demoFileName + '.json'` (verbatim, no case
+'\n'` (LF only). `sidecarFileName(demoFileName) = demoFileName + '.json'` (verbatim, no case
   change).
   Tests in `sidecar.test.ts`: › "the sidecar schema accepts exactly the story's fields" (a full
   valid object parses; an extra key, `rating` 0/11/5.5, a non-boolean `favourite`, a non-ISO
@@ -171,13 +171,13 @@ kinds) being built — sprint numeric order guarantees it.
   `@shared/replays/sidecar`, `writeFileAtomic`/`isFile` from `src/main/lib/fs-utils.ts`, and
   `ok`/`fail` + `Outcome` from `src/shared/types/common.ts`.
   API: `createSidecarStore({ resolveDemo, fs })` where `resolveDemo(id: string) => { kind: 'file';
-  absolutePath: string } | { kind: 'archive-entry' } | undefined` and `fs` is an optional
+absolutePath: string } | { kind: 'archive-entry' } | undefined` and `fs` is an optional
   injectable `{ readFile, rm, writeAtomic }` (defaults to the real ones) so tests can inject errors.
   `read(id): Promise<Outcome<{ state: 'none' } | { state: 'ok'; sidecar: SidecarFile } | { state:
-  'invalid' }>>` — ENOENT → `none`; unparseable JSON or `sidecarFileSchema` failure → `invalid`
+'invalid' }>>` — ENOENT → `none`; unparseable JSON or `sidecarFileSchema` failure → `invalid`
   (story 147 enriches this state; do not add detail here).
   `write(id, fields): Promise<Outcome<{ state: 'written' | 'deleted' | 'unchanged'; sidecar:
-  SidecarFile | null }>>`, in this order: unknown id → `fail('replays.sidecar.error.unknownDemo')`;
+SidecarFile | null }>>`, in this order: unknown id → `fail('replays.sidecar.error.unknownDemo')`;
   archive entry → `fail('replays.sidecar.error.archiveEntry')`; demo file not a file any more →
   `fail('replays.sidecar.error.demoMissing')`; existing sidecar `invalid` →
   `fail('replays.sidecar.error.existingInvalid')` (file untouched); `normalizeSidecarFields` →
@@ -187,8 +187,8 @@ kinds) being built — sprint numeric order guarantees it.
   `resolved.absolutePath + '.json'` — the store accepts no path from its caller. On any thrown
   write/delete error: `rm(sidecarPath + '.tmp', { force: true })` (ignore its failure), then map
   `err.code` `EACCES`/`EPERM`/`EROFS` → `fail('replays.sidecar.error.notWritable', { folder:
-  dirname(absolutePath) })`, anything else → `fail('replays.sidecar.error.writeFailed', { code:
-  err.code ?? 'unknown' })`. Never writes to any other location. No `process.platform` branch.
+dirname(absolutePath) })`, anything else → `fail('replays.sidecar.error.writeFailed', { code:
+err.code ?? 'unknown' })`. Never writes to any other location. No `process.platform` branch.
   Tests in `sidecar-store.test.ts`: › "a first save creates the sidecar next to the demo with only
   the set fields" (AC2: `final.dm2` → `final.dm2.json`, content = `schemaVersion` + the non-empty
   fields; `x.dm2` and `x.mvd2` side by side get separate files), › "a second save replaces the
@@ -201,7 +201,7 @@ kinds) being built — sprint numeric order guarantees it.
   injected `EACCES` and `EPERM` → `notWritable` with `folder` = the demo's directory; a `EBUSY` →
   `writeFailed` with `code`; directory listing before/after identical; plus a real
   `chmod 0o555` directory case, `it.skipIf(process.platform === 'win32' || process.getuid?.() ===
-  0)`), › "clearing every field deletes the sidecar" (AC8: existing sidecar + all-empty payload →
+0)`), › "clearing every field deletes the sidecar" (AC8: existing sidecar + all-empty payload →
   `deleted`, file gone; no sidecar + all-empty payload → `unchanged`, nothing created), › "the
   store refuses unknown ids, archive entries, vanished demos and unreadable sidecars" (each guard's
   key; for `existingInvalid` the broken file's bytes are unchanged), › "read reports none, ok or
@@ -210,12 +210,12 @@ kinds) being built — sprint numeric order guarantees it.
 
 - **D3 — `sidecar.read` / `sidecar.write` handlers, strings, and the no-write and id-only guards.**
   Files: `src/shared/modules/replays.ts` (edit: add `sidecarRead: 'sidecar.read'`, `sidecarWrite:
-  'sidecar.write'` to `REPLAYS_HANDLERS`; payload schemas `replaysSidecarReadSchema = z.object({
-  demoId })` and `replaysSidecarWriteSchema = z.object({ demoId, fields: sidecarFieldsSchema
-  }).strict()` in `REPLAYS_HANDLER_SCHEMAS`; `demoId` uses the demo-id schema the index story
+'sidecar.write'` to `REPLAYS_HANDLERS`; payload schemas `replaysSidecarReadSchema = z.object({
+demoId })` and `replaysSidecarWriteSchema = z.object({ demoId, fields: sidecarFieldsSchema
+}).strict()` in `REPLAYS_HANDLER_SCHEMAS`; `demoId` uses the demo-id schema the index story
   already exports from this file — only if none exists, add `replaysDemoIdSchema =
-  z.string().min(1).max(512)`; export `REPLAYS_SIDECAR_WRITING_HANDLERS: readonly string[] =
-  ['sidecar.write']` with a doc comment: only handlers on this list may create, change or delete a
+z.string().min(1).max(512)`; export `REPLAYS_SIDECAR_WRITING_HANDLERS: readonly string[] =
+['sidecar.write']` with a doc comment: only handlers on this list may create, change or delete a
   sidecar), `src/shared/modules/replays.test.ts` (no edit expected — its existing "every replays
   handler has a zod schema" / "no replays handler payload carries a filesystem path" tests must
   keep passing with the new handlers), `src/main/modules/replays/index.ts` (edit:
@@ -241,7 +241,7 @@ kinds) being built — sprint numeric order guarantees it.
   (each `replays.sidecar.error.*` key the store can return exists in `en.json`, non-empty, and
   `notWritable` contains `{{folder}}`).
   Acceptance: those tests plus the existing `src/shared/modules/replays.test.ts` pass; `npm run
-  typecheck` clean.
+typecheck` clean.
 
 ## Model Hints
 
@@ -276,7 +276,7 @@ kinds) being built — sprint numeric order guarantees it.
   fails with a specific reason and writes nothing" (D2) and unit
   `src/main/modules/replays/index.test.ts` › "sidecar error keys resolve to specific English text"
   (D3). **Gap, named for the sprint review:** no UI saves a sidecar before [[155]]; the reason being
-  *shown* is proven at the IPC seam here and must be asserted by [[155]]'s e2e flow.
+  _shown_ is proven at the IPC seam here and must be asserted by [[155]]'s e2e flow.
 - AC8 → unit `src/main/modules/replays/sidecar-store.test.ts` › "clearing every field deletes the
   sidecar" (D2).
 
@@ -292,6 +292,7 @@ second index was built; `resolveDemo` is answered purely from the existing scan'
 Commit message: `146: what I write about a demo lives next to it`
 
 Decisions (in addition to the ones already in the story):
+
 - `scan-service.ts` gained `fileById: Map<string, ReplaysScanFile>`, populated only on a successful
   scan alongside `snapshot`/`lastCache`, and a `resolveFile(id)` accessor — the one seam `index.ts`
   wires the sidecar store's `resolveDemo` to. Before this process's first successful scan,
@@ -305,10 +306,11 @@ Decisions (in addition to the ones already in the story):
   `replaysDemoIdSchema = z.string().min(1).max(512)` in `src/shared/modules/replays.ts`.
 
 Verification: narrow gate only (this build was not run with `--full`).
+
 - `npm run build` — green. `npm run typecheck` — green (node + web).
 - `test-story` (`npx vitest run --changed HEAD`) — green, 110 files / 1647 tests.
 - Extra required surface: `npx vitest run src/main/modules/replays src/shared/modules/replays.test.ts
-  src/shared/demos src/shared/replays` — green, 22 files / 245 tests, no pre-existing red found.
+src/shared/demos src/shared/replays` — green, 22 files / 245 tests, no pre-existing red found.
 - No e2e run: every AC in `## Acceptance Tests` maps to a unit test only; this story has no
   user-facing surface yet ([[155]] is the editor).
 - AC1-AC8 all confirmed against their named tests (see `## Acceptance Tests`), all passed.

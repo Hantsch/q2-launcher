@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { serverAddressSchema } from '../schemas'
@@ -12,9 +9,9 @@ import {
 } from './address'
 // A static import, not a runtime `fs.readFile`: `src/shared` may never import `node:*`
 // (docs/ARCHITECTURE.md), even in a test, since this file type-checks under `tsconfig.web.json`
-// too (which carries no node types at all). See `src/shared/config/comment-labels.test.ts` for the
+// too (which carries no node types at all). See `src/shared/config/render/comment-labels.test.ts` for the
 // same pattern.
-import en from '../../renderer/src/i18n/locales/en.json'
+import { en } from '../../renderer/src/i18n/bundle'
 
 describe('parseServerAddress', () => {
   it('accepts a hostname and an IPv4 literal with a port', () => {
@@ -70,16 +67,37 @@ describe('parseServerAddress', () => {
 
   it('rejects a host outside the documented character set', () => {
     expect(parseServerAddress(':27910')).toEqual({ ok: false, reason: 'host-empty' })
-    expect(parseServerAddress(`${'a'.repeat(254)}:27910`)).toEqual({ ok: false, reason: 'host-too-long' })
-    expect(parseServerAddress('bad_host.com:27910')).toEqual({ ok: false, reason: 'host-label-invalid' })
-    expect(parseServerAddress('-leading.com:27910')).toEqual({ ok: false, reason: 'host-label-invalid' })
-    expect(parseServerAddress('trailing-.com:27910')).toEqual({ ok: false, reason: 'host-label-invalid' })
-    expect(parseServerAddress(`${'a'.repeat(64)}.com:27910`)).toEqual({ ok: false, reason: 'host-label-invalid' })
+    expect(parseServerAddress(`${'a'.repeat(254)}:27910`)).toEqual({
+      ok: false,
+      reason: 'host-too-long',
+    })
+    expect(parseServerAddress('bad_host.com:27910')).toEqual({
+      ok: false,
+      reason: 'host-label-invalid',
+    })
+    expect(parseServerAddress('-leading.com:27910')).toEqual({
+      ok: false,
+      reason: 'host-label-invalid',
+    })
+    expect(parseServerAddress('trailing-.com:27910')).toEqual({
+      ok: false,
+      reason: 'host-label-invalid',
+    })
+    expect(parseServerAddress(`${'a'.repeat(64)}.com:27910`)).toEqual({
+      ok: false,
+      reason: 'host-label-invalid',
+    })
   })
 
   it('rejects an IPv4 octet out of range, including a leading-zero octet', () => {
-    expect(parseServerAddress('1.2.3.300:27910')).toEqual({ ok: false, reason: 'ipv4-octet-out-of-range' })
-    expect(parseServerAddress('10.0.0.010:27910')).toEqual({ ok: false, reason: 'ipv4-octet-out-of-range' })
+    expect(parseServerAddress('1.2.3.300:27910')).toEqual({
+      ok: false,
+      reason: 'ipv4-octet-out-of-range',
+    })
+    expect(parseServerAddress('10.0.0.010:27910')).toEqual({
+      ok: false,
+      reason: 'ipv4-octet-out-of-range',
+    })
   })
 
   it('rejects a non-4-label all-numeric host as an invalid hostname', () => {
@@ -144,26 +162,28 @@ describe('every rejection reason has its own i18n key', () => {
   function stringAt(path: string): string | undefined {
     const value: unknown = path
       .split('.')
-      .reduce<unknown>((acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined), en)
+      .reduce<unknown>(
+        (acc, key) =>
+          acc && typeof acc === 'object' && key in acc
+            ? (acc as Record<string, unknown>)[key]
+            : undefined,
+        en,
+      )
     return typeof value === 'string' ? value : undefined
   }
+
+  it('every address rejection maps to a literal servers.address.reject key', () => {
+    for (const reason of ALL_REASONS) {
+      const key = serverAddressRejectionKey(reason)
+      expect(key.startsWith('servers.address.reject.')).toBe(true)
+      expect(stringAt(key)).toBeTruthy()
+    }
+  })
 
   it.each(ALL_REASONS)('%s resolves to a non-empty en.json string', (reason) => {
     const key = serverAddressRejectionKey(reason)
     const message = stringAt(key)
     expect(typeof message).toBe('string')
     expect(message?.length).toBeGreaterThan(0)
-  })
-})
-
-describe('purity', () => {
-  it('imports nothing from node, electron or the IPC layer', () => {
-    const here = dirname(fileURLToPath(import.meta.url))
-    const source = readFileSync(join(here, 'address.ts'), 'utf-8')
-
-    expect(source).not.toMatch(/from\s+['"]node:/)
-    expect(source).not.toMatch(/from\s+['"]electron['"]/)
-    expect(source).not.toMatch(/from\s+['"][^'"]*\/(ipc|preload)[^'"]*['"]/)
-    expect(source).not.toMatch(/from\s+['"]\.\.\/ipc['"]/)
   })
 })

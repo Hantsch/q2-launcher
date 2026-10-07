@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Installation } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
-import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from './render'
+import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from '@shared/config/render/render'
 import { BACKUP_SUFFIX, reconcileOwnedProfileFiles, writeInstallationFiles } from './writer'
 import type { WriteInstallationFilesOptions } from './writer'
 
@@ -317,7 +317,7 @@ describe('reconcileOwnedProfileFiles', () => {
     expect(await read('baseq2', 'Name.cfg')).toBe(bannerOwn)
   })
 
-  it("backs up a hand-written file sitting at the rename destination before replacing it", async () => {
+  it('backs up a hand-written file sitting at the rename destination before replacing it', async () => {
     // Review finding: a migrating file's destination name is not guaranteed
     // to be empty - the user may have their own hand-written cfg that happens
     // to share the profile's new name. `rename()` replaces a destination

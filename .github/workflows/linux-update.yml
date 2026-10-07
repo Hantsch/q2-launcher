@@ -46,22 +46,14 @@ jobs:
   update:
     name: AppImage self-update (ubuntu-latest, xvfb)
     runs-on: ubuntu-latest
+    # Advisory on GitHub: a red Linux job must not block a PR or a release. Under act (the local
+    # `verify:release` / `rehearse` gate) it stays strict, so the local run still reports it.
+    continue-on-error: ${{ github.actor != 'nektos/act' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      # Same race every other workflow in this repo guards against: Playwright's `_electron` driver
-      # resolves the local `electron` devDependency, whose binary is otherwise downloaded lazily on
-      # first use.
-      - name: Install Electron binary
-        run: node node_modules/electron/install.js
+      - uses: ./.github/actions/setup-node-electron
 
       # Mirrors `linux-verify.yml`: `ubuntu-latest` ships neither a display nor (as of the 24.04
       # image) libfuse2, and an AppImage's own runtime needs both - `xvfb-run` for a display, and

@@ -18,6 +18,7 @@ import {
   vendoredExtractorExists,
   writeReplaysPlayFixture,
 } from '../lib/fixture.mjs'
+import { openAllDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play'
 
@@ -30,24 +31,11 @@ export async function setup() {
 }
 const LAUNCH_TIMEOUT_MS = 15_000
 
-function rowFor(page, fileName) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: fileName })
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refresh.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('replays-play-q2pro: timed out waiting for the demo scan to finish')
-}
-
 async function selectDemo(page, fileName) {
   await rowFor(page, fileName).first().click({ timeout: TIMEOUT_MS })
-  await page.locator('[data-testid="actionbar-play"][data-action="view"]').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .locator('[data-testid="actionbar-play"][data-action="view"]')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }
 
 async function waitForLog(logPath, substring) {
@@ -55,22 +43,24 @@ async function waitForLog(logPath, substring) {
   for (;;) {
     const content = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
     if (content.includes(substring)) return content
-    if (Date.now() >= deadline) throw new Error(`replays-play-q2pro: main.log never contained ${substring}`)
+    if (Date.now() >= deadline)
+      throw new Error(`replays-play-q2pro: main.log never contained ${substring}`)
     await new Promise((resolve) => setTimeout(resolve, 150))
   }
 }
 
 export default async function replaysPlayQ2pro({ page, step, shot }) {
   if (process.platform === 'win32' && !vendoredExtractorExists()) {
-    console.log('replays-play-q2pro: SKIPPING LOUDLY - resources/bin/7za.exe was not vendored (npm run fetch:7za)')
+    console.log(
+      'replays-play-q2pro: SKIPPING LOUDLY - resources/bin/7za.exe was not vendored (npm run fetch:7za)',
+    )
     return
   }
 
   step('open Demos; the fixture lists three demos')
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openAllDemos(page)
+  await openFolder(page, 'ctf')
 
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
 
@@ -79,7 +69,9 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   if (await play.isDisabled()) {
     const reason = await page.getByTestId('actionbar-action-reason').textContent()
-    throw new Error(`replays-play-q2pro: View should be enabled for the ctf demo, reason: ${reason}`)
+    throw new Error(
+      `replays-play-q2pro: View should be enabled for the ctf demo, reason: ${reason}`,
+    )
   }
   await shot('play-enabled')
   await page.evaluate(() => {
@@ -100,26 +92,41 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   // Story 170: the stage args (borderless window at `vid_geometry`) come after the channel's setup
   // args and before +demo. Story 172: the channel also marks the session (`+set q2l_session 1`) right
   // after its setup args.
-  const head = process.platform === 'win32' ? '+set logfile 2 +set logfile_flush 3 +set logfile_name q2l_demo.log' : '+set sys_console 1'
-  const tail = process.platform === 'win32' ? `+demo ${REPLAYS_PLAY_CTF_DEMO} +exec q2l_loop.cfg` : `+demo ${REPLAYS_PLAY_CTF_DEMO}`
+  const head =
+    process.platform === 'win32'
+      ? '+set logfile 2 +set logfile_flush 3 +set logfile_name q2l_demo.log'
+      : '+set sys_console 1'
+  const tail =
+    process.platform === 'win32'
+      ? `+demo ${REPLAYS_PLAY_CTF_DEMO} +exec q2l_loop.cfg`
+      : `+demo ${REPLAYS_PLAY_CTF_DEMO}`
   const trimmed = (line ?? '').trimEnd()
   const geometryAt = trimmed.search(/ \+set vid_geometry \d+x\d+\+-?\d+\+-?\d+ /)
   const okOrder =
-    trimmed.includes(` +set game ctf ${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set in_grab 2 +set vid_fullscreen 0 `) &&
+    trimmed.includes(
+      ` +set game ctf ${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set in_grab 2 `,
+    ) &&
+    // The session may carry the remembered `s_volume` before the window args. (story 237)
+    /\+set in_grab 2 (?:\+set s_volume [\d.]+ )?\+set vid_fullscreen 0 /.test(trimmed) &&
     geometryAt !== -1 &&
     trimmed.endsWith(` ${tail}`) &&
     trimmed.indexOf('+set vid_geometry') < trimmed.indexOf('+demo ')
   if (!okOrder) {
-    throw new Error(`replays-play-q2pro: expected game, ${head}, stage args, then ${tail}; got ${JSON.stringify(line)}`)
+    throw new Error(
+      `replays-play-q2pro: expected game, ${head}, stage args, then ${tail}; got ${JSON.stringify(line)}`,
+    )
   }
-  if (line.includes('demomap')) throw new Error('replays-play-q2pro: launching line must not use demomap')
+  if (line.includes('demomap'))
+    throw new Error('replays-play-q2pro: launching line must not use demomap')
   await page.waitForFunction(() => (window.__q2lPhases ?? []).includes('running'), undefined, {
     timeout: LAUNCH_TIMEOUT_MS,
   })
   await page.waitForFunction(
     () => {
       const phases = window.__q2lPhases ?? []
-      return phases.lastIndexOf('running') !== -1 && phases.length > phases.lastIndexOf('running') + 1
+      return (
+        phases.lastIndexOf('running') !== -1 && phases.length > phases.lastIndexOf('running') + 1
+      )
     },
     undefined,
     { timeout: LAUNCH_TIMEOUT_MS },
@@ -127,13 +134,18 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
 
   step('a demo whose mod no installation has keeps View enabled and asks for confirmation')
   const launchCount = () => (readFileSync(logPath, 'utf8').match(/launching/g) ?? []).length
+  await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
+  await openFolder(page, 'baseq2')
   await selectDemo(page, REPLAYS_PLAY_MISSING_MOD_DEMO)
   if (await play.isDisabled()) {
     throw new Error('replays-play-q2pro: View must stay enabled for the missing-mod demo')
   }
   // Story 182: the warning lives only in the dialog - the readout carries no permanent modMissing text.
   const reasonNode = page.getByTestId('actionbar-action-reason')
-  if ((await reasonNode.count()) > 0 && /not fully installed/i.test((await reasonNode.textContent()) ?? '')) {
+  if (
+    (await reasonNode.count()) > 0 &&
+    /not fully installed/i.test((await reasonNode.textContent()) ?? '')
+  ) {
     throw new Error('replays-play-q2pro: the action bar must not carry a permanent mod warning')
   }
   const launchesBefore = launchCount()
@@ -149,7 +161,8 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   await page.getByTestId('replays-mod-missing-cancel').click({ timeout: TIMEOUT_MS })
   await dialog.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   await new Promise((resolve) => setTimeout(resolve, 1_500))
-  if (launchCount() !== launchesBefore) throw new Error('replays-play-q2pro: Cancel must not launch anything')
+  if (launchCount() !== launchesBefore)
+    throw new Error('replays-play-q2pro: Cancel must not launch anything')
 
   step('Play anyway launches with +set game opentdm')
   await play.click({ timeout: TIMEOUT_MS })
@@ -158,17 +171,23 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   await page.waitForFunction(
     () => {
       const phases = window.__q2lPhases ?? []
-      return phases.lastIndexOf('running') !== -1 && phases.length > phases.lastIndexOf('running') + 1
+      return (
+        phases.lastIndexOf('running') !== -1 && phases.length > phases.lastIndexOf('running') + 1
+      )
     },
     undefined,
     { timeout: LAUNCH_TIMEOUT_MS },
   )
 
   step('selecting the r1q2 installation disables View with the notQ2pro reason')
-  await selectDemo(page, REPLAYS_PLAY_BASE_DEMO)
-  // The rail lists installations by sortOrder: q2pro first, r1q2 second.
+  // The rail lists installations by sortOrder: q2pro first, r1q2 second. Switching it returns the
+  // list to its root, so the demo is picked again from the q2pro folder (story 238).
   await page.getByTestId('installation-tile').nth(1).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('actionbar-action-reason').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await openFolder(page, 'Fixture Play Q2PRO · baseq2')
+  await selectDemo(page, REPLAYS_PLAY_BASE_DEMO)
+  await page
+    .getByTestId('actionbar-action-reason')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (!(await play.isDisabled())) {
     throw new Error('replays-play-q2pro: View must be disabled with the r1q2 installation active')
   }

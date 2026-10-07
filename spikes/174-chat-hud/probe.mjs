@@ -6,7 +6,15 @@
 // Ends the game with WM_CLOSE (CloseMainWindow), never a kill: the logfile only flushes on a clean exit.
 
 import { spawn, execFileSync } from 'node:child_process'
-import { copyFileSync, createReadStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,7 +36,10 @@ const SHOTS = [4, 7, 10, 13, 16] // seconds after launch
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const sha = (p) => createHash('sha256').update(readFileSync(p)).digest('hex')
-const ps = (args) => execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args], { encoding: 'utf-8' }).trim()
+const ps = (args) =>
+  execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args], {
+    encoding: 'utf-8',
+  }).trim()
 
 function writeAtomic(path, text) {
   const tmp = `${path}.${process.pid}.tmp`
@@ -52,13 +63,42 @@ async function main() {
     const original = readFileSync(CONFIG, 'utf-8')
     writeFileSync(CONFIG, `${original.replace(/\s*$/, '')}\nseta con_notifylines "4"\n`)
     writeAtomic(join(GAME_DIR, CTL_CFG), 'echo POS $cl_demopos\n')
-    writeAtomic(join(GAME_DIR, LOOP_CFG), `alias q2l_probe_loop "exec ${CTL_CFG}; wait 5; q2l_probe_loop"\nq2l_probe_loop\n`)
+    writeAtomic(
+      join(GAME_DIR, LOOP_CFG),
+      `alias q2l_probe_loop "exec ${CTL_CFG}; wait 5; q2l_probe_loop"\nq2l_probe_loop\n`,
+    )
     const args = [
-      '+set', 'game', GAME,
-      '+set', 'vid_fullscreen', '0', '+set', 'vid_geometry', '800x600+100+100', '+set', 'win_alwaysontop', '1',
-      '+set', 'logfile', '2', '+set', 'logfile_flush', '1', '+set', 'logfile_name', LOG_NAME,
-      '+set', 'con_notifylines', '0', '+set', 'scr_chathud', '1',
-      '+demo', DEMO, '+exec', LOOP_CFG,
+      '+set',
+      'game',
+      GAME,
+      '+set',
+      'vid_fullscreen',
+      '0',
+      '+set',
+      'vid_geometry',
+      '800x600+100+100',
+      '+set',
+      'win_alwaysontop',
+      '1',
+      '+set',
+      'logfile',
+      '2',
+      '+set',
+      'logfile_flush',
+      '1',
+      '+set',
+      'logfile_name',
+      LOG_NAME,
+      '+set',
+      'con_notifylines',
+      '0',
+      '+set',
+      'scr_chathud',
+      '1',
+      '+demo',
+      DEMO,
+      '+exec',
+      LOOP_CFG,
     ]
     console.log('launch', args.join(' '))
     const child = spawn(Q2PRO, args, { cwd: ROOT, stdio: 'ignore' })
@@ -69,7 +109,10 @@ async function main() {
     const geo = JSON.parse(ps(['-File', WIN_PROBE, '-ProcessId', String(child.pid)]))
     result.geometry = geo
     // From here on the control file also reads back the two cvars once per loop pass.
-    writeAtomic(join(GAME_DIR, CTL_CFG), 'echo POS $cl_demopos\necho NL $con_notifylines CH $scr_chathud\n')
+    writeAtomic(
+      join(GAME_DIR, CTL_CFG),
+      'echo POS $cl_demopos\necho NL $con_notifylines CH $scr_chathud\n',
+    )
     for (const s of SHOTS) {
       await sleep(Math.max(0, t0 + s * 1000 - Date.now()))
       const out = join(SPIKE_DIR, 'results', `shot-${s}s.png`)
@@ -98,7 +141,9 @@ async function main() {
   const lines = text.split('\n').map((l) => l.replace(/^\[[^\]]*\] /, '').replace(/\r$/, ''))
   result.nlLines = [...new Set(lines.filter((l) => l.startsWith('NL ')))]
   result.chatSeenInLog = lines.filter((l) => /lamb shanker/.test(l)).slice(0, 3)
-  result.posSamples = lines.filter((l) => l.startsWith('POS ')).filter((_, i, a) => i % Math.ceil(a.length / 8) === 0)
+  result.posSamples = lines
+    .filter((l) => l.startsWith('POS '))
+    .filter((_, i, a) => i % Math.ceil(a.length / 8) === 0)
   writeFileSync(join(SPIKE_DIR, 'results', 'result.json'), JSON.stringify(result, null, 2))
   console.log(JSON.stringify(result, null, 2))
 }

@@ -1,26 +1,35 @@
 import type { ReplaysScanProgress } from '@shared/modules/replays'
+import type { DemoListScope } from '@shared/replays/list-scope'
 
 /**
- * Story 151 D3: pure derivation of the demo list's own display state - mirrors
+ * Story 151: pure derivation of the demo list's own display state - mirrors
  * `servers/list-state.ts`'s `deriveListState`/`describeScanProgress` shape so
  * `ReplaysListStatus.tsx` stays a thin renderer and this stays unit-testable without React/i18n.
  *
  * `'loading'` wins over everything else while a scan is running - even if rows already exist from
  * a previous round (the panel above the rows communicates progress, the rows themselves keep
- * showing whatever they last had). `'empty'` only applies once a scan is not running and there are
- * no rows; `'populated'` otherwise.
+ * showing whatever they last had). Once a scan is not running and there are no rows, the empty
+ * state says why: no installation registered, none selected, the selected one has no demos, or (with
+ * every installation shown) nothing anywhere. `'populated'` otherwise. (story 238)
  */
-export type ReplaysListState = 'loading' | 'empty' | 'populated'
+export type ReplaysListState =
+  'loading' | 'empty' | 'noInstallation' | 'noneSelected' | 'emptyForInstallation' | 'populated'
 
 export function deriveReplaysListState({
   scanning,
   rowCount,
+  scope,
+  installationCount,
 }: {
   scanning: boolean
   rowCount: number
+  scope: DemoListScope['kind']
+  installationCount: number
 }): ReplaysListState {
   if (scanning) return 'loading'
   if (rowCount > 0) return 'populated'
+  if (scope === 'none') return installationCount === 0 ? 'noInstallation' : 'noneSelected'
+  if (scope === 'installation') return 'emptyForInstallation'
   return 'empty'
 }
 
@@ -35,7 +44,9 @@ export interface ReplaysScanProgressLine {
  * Describes a running scan's progress: a single "reading demos" line with no numbers while no
  * source has reported a total yet, otherwise the scanned/total counts summed across every source.
  */
-export function describeReplaysScanProgress(progress: ReplaysScanProgress): ReplaysScanProgressLine {
+export function describeReplaysScanProgress(
+  progress: ReplaysScanProgress,
+): ReplaysScanProgressLine {
   const hasTotal = progress.sources.some((source) => source.total > 0)
   if (!hasTotal) return { key: 'replays.list.loading' }
 

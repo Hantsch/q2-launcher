@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AliasIndexRow } from '@shared/config/alias-references'
+import type { AliasIndexRow } from '@shared/config/aliases/alias-references'
 import {
   filterAliasRows,
   isDuplicateAliasRow,
@@ -29,17 +29,29 @@ function wrap(r: AliasIndexRow): HasAliasIndexRow {
 
 describe('sortAliasRows', () => {
   it('sorts ascending by name by default', () => {
-    const rows = [wrap(row({ name: 'zoom' })), wrap(row({ name: 'attack' })), wrap(row({ name: 'move' }))]
+    const rows = [
+      wrap(row({ name: 'zoom' })),
+      wrap(row({ name: 'attack' })),
+      wrap(row({ name: 'move' })),
+    ]
     expect(sortAliasRows(rows).map((r) => r.row.name)).toEqual(['attack', 'move', 'zoom'])
   })
 
   it('sorts case-insensitively, mixed case interleaves by letter not by case', () => {
-    const rows = [wrap(row({ name: 'Zoom' })), wrap(row({ name: 'attack' })), wrap(row({ name: 'Move' }))]
+    const rows = [
+      wrap(row({ name: 'Zoom' })),
+      wrap(row({ name: 'attack' })),
+      wrap(row({ name: 'Move' })),
+    ]
     expect(sortAliasRows(rows).map((r) => r.row.name)).toEqual(['attack', 'Move', 'Zoom'])
   })
 
   it('reverses order when direction is desc', () => {
-    const rows = [wrap(row({ name: 'attack' })), wrap(row({ name: 'zoom' })), wrap(row({ name: 'move' }))]
+    const rows = [
+      wrap(row({ name: 'attack' })),
+      wrap(row({ name: 'zoom' })),
+      wrap(row({ name: 'move' })),
+    ]
     expect(sortAliasRows(rows, 'desc').map((r) => r.row.name)).toEqual(['zoom', 'move', 'attack'])
   })
 

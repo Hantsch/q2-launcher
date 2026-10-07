@@ -30,4 +30,14 @@ describe('module registration', () => {
     expect(manifest?.plannedIntroKey).toBe('module.planned.downloads.intro')
     expect(manifest?.plannedHighlightKeys?.length).toBeGreaterThan(0)
   })
+
+  it('the mods module is registered with a real View', () => {
+    const module = rendererModule('mods')
+    expect(module).toBeDefined()
+    expect(module?.View).toBeDefined()
+  })
+
+  it("the mods module's manifest status is available", () => {
+    expect(getModuleManifest('mods')?.status).toBe('available')
+  })
 })

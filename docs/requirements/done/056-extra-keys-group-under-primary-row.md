@@ -14,7 +14,7 @@ columns, Primary and Secondary (`src/renderer/src/styles/controls-grid.css:52-59
 "an N-slot editing surface" as a story of its own (`docs/requirements/050-...md:161-168`); today a
 hand-added third key is visible only in Care's tidy-up rows ("slot 3").
 
-Two equal columns also read wrong: my main key is not one of two peers, it is *the* key, and further
+Two equal columns also read wrong: my main key is not one of two peers, it is _the_ key, and further
 keys are extras.
 
 What I want: one key per line. The row shows the primary key; each additional key is its own
@@ -135,7 +135,7 @@ Not touched: `src/shared/**` (already N-ary), `BindSlot.tsx` (reused as-is), mai
 than write `{ key: '' }`; `deriveRowState` gains `keys: readonly ActionKeySlot[]` (empty-key slots
 filtered) and loses `primary`/`secondary`/`*Modifier`. Update the non-Controls callers
 (`ActionEditor`, `editorKeySlot`, `bind-slot-collision.ts` if it re-declares the union).
-*Acceptance:* unit tests cover — clearing slot 0 of a 3-key action promotes keys 2/3 to 0/1 and
+_Acceptance:_ unit tests cover — clearing slot 0 of a 3-key action promotes keys 2/3 to 0/1 and
 touches nothing else; clearing a middle slot removes only it; append lands after the last key; a
 legacy `{ key: '' }` slot is not returned by `deriveRowState` and is gone after the next write;
 `isEmptyAction`/pruning still behaves as before. `npm test`/`npm run typecheck` green.
@@ -148,9 +148,9 @@ swaps `primarySlot`/`secondarySlot` for `keyCell: ReactNode` + `extraKeyRows?: R
 a `rowId` it stamps as `data-row-id` on `.ctrl-row`, the prompt-host row, the extra-key rows and the
 message row. New classes `.ctrl-keycell`, `.ctrl-keysub-row`, `.ctrl-keysub` (30px slot, indented on
 the `.ctrl-msgrow` `padding-left: calc(16px + 34px + 10px)` pattern), `.ctrl-keymore`.
-*Mirror:* `.ctrl-msgrow-row`/`.ctrl-msgrow` (`controls-grid.css:330-351`) for the sub-row shape and
+_Mirror:_ `.ctrl-msgrow-row`/`.ctrl-msgrow` (`controls-grid.css:330-351`) for the sub-row shape and
 `ControlsRow.tsx:156-162` for how an optional sub-row is rendered.
-*Acceptance:* the tab renders with one Key column, 1120px stage, 40px rows and unchanged zebra
+_Acceptance:_ the tab renders with one Key column, 1120px stage, 40px rows and unchanged zebra
 parity; no extra-key content yet. Build/typecheck green.
 
 **D3 — primary key, extra-key sub-rows, fold and add**
@@ -163,7 +163,7 @@ keyed by `catalogId`/`action.id`, mirroring `revealedMessageRows` (`ControlsTab.
 exactly one extra always renders, two or more start collapsed. `+` starts capture on
 `appendKeySlot`'s index with the unchanged collision/modifier plumbing. Alias rows keep
 `BindSlotPlaceholder` and get neither sub-rows nor `+`.
-*Acceptance:* a row with three keys shows one key plus a "+2" chevron; expanding shows two indented
+_Acceptance:_ a row with three keys shows one key plus a "+2" chevron; expanding shows two indented
 sub-rows each with cap, modifier cap, conflict marker and clear, in file order, plus the `+`; the
 fold survives switching category and back within the tab; `+` captures into a new slot and the
 Cancel/Replace prompt still renders in the row's prompt host.
@@ -174,7 +174,7 @@ Cancel/Replace prompt still renders in the row's prompt host.
 (`ControlsTab.tsx:550-556`); `renderCatalogOptionsCell`/`renderPlainOptionsCell` scan every slot in
 order for the modifier/layer name and the "also: <owner>" conflict instead of slots 0/1; the row
 reset clears all slots.
-*Acceptance:* clearing the primary of a 3-key row promotes key 2 into the Key column and leaves key
+_Acceptance:_ clearing the primary of a 3-key row promotes key 2 into the Key column and leaves key
 3 as the single extra; clearing a sub-row removes only that key; the footer's "m bound" counts a row
 whose only key is a third slot; a modifier or conflict on slot 3 shows in Options.
 
@@ -185,7 +185,7 @@ whose only key is a third slot; a modifier or conflict on slot 3 shows in Option
 action with three keys; add two screen-registry entries (extras folded, extras unfolded) mirroring
 an existing entry in `scripts/lib/screens.mjs`; add a `ui:flow` that adds a third key and clears the
 primary through the real UI, mirroring `scripts/flows/open-keycap-dialog.mjs`.
-*Acceptance:* no "Primary"/"Secondary" string remains in `en.json` or the UI; `npm run ui:verify` is
+_Acceptance:_ no "Primary"/"Secondary" string remains in `en.json` or the UI; `npm run ui:verify` is
 green with zero axe violations at every impact level and both new screens shot;
 `npm run ui:flow -- controls-extra-keys` completes and its screenshots show the third key added and
 the primary cleared/promoted.
@@ -233,7 +233,7 @@ Built across five deliverables:
   clearing a slot now **compacts** `action.keys` (removes the entry, later keys shift down) instead
   of writing story 050's in-place `{ key: '' }` marker, reusing `action-slots.ts`'s existing
   `clearKeySlot`. New `appendKeySlot`. `deriveRowState` now exposes `keys: readonly
-  ActionKeySlot[]` (every real slot, legacy blanks filtered) instead of `primary`/`secondary`/
+ActionKeySlot[]` (every real slot, legacy blanks filtered) instead of `primary`/`secondary`/
   `*Modifier`.
 - **D2** (`controls-grid.css`, `ControlsGrid.tsx`, `ControlsRow.tsx`): one Key column
   (`minmax(220px, 1fr) 34px 224px 190px`); `ControlsRow` takes `keyCell`/`extraKeyRows`/`rowId`
@@ -260,7 +260,7 @@ Built across five deliverables:
   compacting clear semantics, numeric slot vocabulary, grid template, `BindSlot` reuse, flat-sibling
   row markup, alias rows staying inert, wording) was implemented as written; no deviation from the
   story's own `## Decisions (Sprint)` section was needed.
-- `applyModifierReplace`'s release of a *different* action's colliding slot
+- `applyModifierReplace`'s release of a _different_ action's colliding slot
   (`lib/bind-slot-collision.ts`) deliberately stays an in-place `{ key: '' }` blank rather than a
   compacting `clearKeySlot` call — `collision.actionSlot` is a raw index from a scan of that other
   action, and the released row's own next write (or its own `deriveRowState`/`plainKeySlots` read)
@@ -272,7 +272,7 @@ Built across five deliverables:
   index-incrementing loop would skip every other slot under compaction.
 - A **review-cycle regression was found and fixed before this story could pass**: the collision
   self-exclusion (`findSlotCollision`'s `ignore.slot`) was initially passed the UI-facing
-  *compacted* slot index, while the shared `findBindCollision` (`src/shared/config/bind-collision.ts`,
+  _compacted_ slot index, while the shared `findBindCollision` (`src/shared/config/bind-collision.ts`,
   out of this story's scope) compares against **raw** `action.keys` indices. On a row carrying an
   in-place blank left by a Replace-release elsewhere, this mismatch could silently duplicate a bind
   with no collision prompt, or silently destroy a different key on the same row. Fixed by adding
@@ -283,11 +283,11 @@ Built across five deliverables:
 ### Known, accepted residuals (not blocking, documented rather than silently absorbed)
 
 - `ActionEditor.tsx`/`MessageEditor.tsx` still read a row's slot 0 via the **raw** `keySlotAt(action,
-  0)`, not the compacted view Controls now renders. On a row carrying a raw leading blank (left by a
+0)`, not the compacted view Controls now renders. On a row carrying a raw leading blank (left by a
   Replace-release elsewhere) the two can briefly disagree about which key is "the" key; no data is
   lost (the write only ever adds/replaces that one raw slot) and the row self-heals on its next
   Controls-side write, which recompacts it. Out of this story's file list (D1 named `ActionEditor`
-  as a caller to update for the *type* change only, not this edge case); left as a follow-up.
+  as a caller to update for the _type_ change only, not this edge case); left as a follow-up.
 - The Options column track is 190px, 10px narrower than its pre-story 200px, not wider — the
   story's own Decisions computed "150→190" from a stale quote of the pre-story template. Action
   gained the width instead (~126px). All Options content still fits at the 940px minimum width.

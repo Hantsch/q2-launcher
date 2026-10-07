@@ -129,7 +129,7 @@ describe('news fixture contract (real content/q2_community_content/news/)', () =
     expect(banner.buttons).toHaveLength(3)
   })
 
-  it('every delivered button url passes the pipeline\'s own allowlist predicate', () => {
+  it("every delivered button url passes the pipeline's own allowlist predicate", () => {
     const result = resolveFeed({ index: readIndex(), documents: readDocuments() })
     const urls = result.slides.flatMap((slide) => slide.buttons.map((button) => button.url))
     expect(urls.length).toBeGreaterThan(0)

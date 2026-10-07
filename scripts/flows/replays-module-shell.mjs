@@ -7,7 +7,7 @@
 // `src/renderer/src/modules/replays/ReplaysSettingsSection.tsx` and
 // `src/renderer/src/views/SettingsView.tsx` before changing any of these:
 //   nav-replays                TitleBar.tsx - primary nav entry, `nav-${module.id}`, labelled
-//                              "Demos" (`replays.module.title`)
+//                              "Demos" (`common.label.demos`)
 //   settings-section-replays  SettingsView.tsx - the shell's own Panel wrapper around the
 //                              contributed section, `settings-section-${id}`
 //   replays-name-templates    NameTemplatesList.tsx - story 140 D3's naming-pattern list, which

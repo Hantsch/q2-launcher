@@ -41,14 +41,23 @@ function codeFromJson(json: string): string {
 }
 
 function options(overrides: Partial<VerifyUnlockOptions> = {}): VerifyUnlockOptions {
-  return { publicKey: issuer.publicKey, launcherInstallId: INSTALL_ID, now: NOW, mode: 'redeem', ...overrides }
+  return {
+    publicKey: issuer.publicKey,
+    launcherInstallId: INSTALL_ID,
+    now: NOW,
+    mode: 'redeem',
+    ...overrides,
+  }
 }
 
 describe('verifyUnlockCode', () => {
   it('a validly signed code for this installation inside its window is accepted', () => {
     const p = payload({ features: ['servers-pro', 'mods'], expiresAt: NOW_S + 3600, label: 'Beta' })
     expect(verifyUnlockCode(code(p), options())).toEqual({ ok: true, payload: p })
-    expect(verifyUnlockCode(code(p), options({ mode: 'reverify' }))).toEqual({ ok: true, payload: p })
+    expect(verifyUnlockCode(code(p), options({ mode: 'reverify' }))).toEqual({
+      ok: true,
+      payload: p,
+    })
     // Surrounding whitespace from a paste is tolerated; a PEM string key works too.
     const pem = issuer.publicKey.export({ type: 'spki', format: 'pem' }).toString()
     expect(verifyUnlockCode(`  ${code(p)}\n`, options({ publicKey: pem })).ok).toBe(true)
@@ -60,7 +69,7 @@ describe('verifyUnlockCode', () => {
     expect(verifyUnlockCode(codeFromJson(json), options()).ok).toBe(true)
   })
 
-  it('a tampered payload or a foreign key\'s signature is rejected as badSignature', () => {
+  it("a tampered payload or a foreign key's signature is rejected as badSignature", () => {
     // Payload changed after signing: the issuer's signature over the original stays attached.
     const original = code()
     const sig = original.split('.')[2]
@@ -86,7 +95,10 @@ describe('verifyUnlockCode', () => {
     const rsaCode = `${rsaSigned}.${sign(null, Buffer.from(rsaSigned, 'ascii'), rsa.privateKey).toString('base64url')}`
     for (const publicKey of ['not a key', '', rsa.publicKey] as const) {
       expect(() => verifyUnlockCode(code(), options({ publicKey }))).not.toThrow()
-      expect(verifyUnlockCode(code(), options({ publicKey }))).toEqual({ ok: false, reason: 'badSignature' })
+      expect(verifyUnlockCode(code(), options({ publicKey }))).toEqual({
+        ok: false,
+        reason: 'badSignature',
+      })
     }
     expect(verifyUnlockCode(rsaCode, options({ publicKey: rsa.publicKey }))).toEqual({
       ok: false,
@@ -108,7 +120,10 @@ describe('verifyUnlockCode', () => {
 
   it('redeeming after redeem-by is rejected as redemptionWindowElapsed', () => {
     const p = payload({ issuedAt: NOW_S - 7200, redeemBy: NOW_S - 1 })
-    expect(verifyUnlockCode(code(p), options())).toEqual({ ok: false, reason: 'redemptionWindowElapsed' })
+    expect(verifyUnlockCode(code(p), options())).toEqual({
+      ok: false,
+      reason: 'redemptionWindowElapsed',
+    })
     // The redeem-by second itself is still inside the window.
     expect(verifyUnlockCode(code(payload({ redeemBy: NOW_S })), options()).ok).toBe(true)
     // An invalid clock fails closed.
@@ -120,17 +135,28 @@ describe('verifyUnlockCode', () => {
 
   it('reverifying a code past its redeem-by still accepts it (the window is redeem-only)', () => {
     const p = payload({ issuedAt: NOW_S - 7200, redeemBy: NOW_S - 3600 })
-    expect(verifyUnlockCode(code(p), options({ mode: 'reverify' }))).toEqual({ ok: true, payload: p })
+    expect(verifyUnlockCode(code(p), options({ mode: 'reverify' }))).toEqual({
+      ok: true,
+      payload: p,
+    })
   })
 
   it('a code past its feature expiry is rejected as featureExpired in both modes', () => {
     const expired = code(payload({ expiresAt: NOW_S }))
     for (const mode of ['redeem', 'reverify'] as const) {
-      expect(verifyUnlockCode(expired, options({ mode }))).toEqual({ ok: false, reason: 'featureExpired' })
+      expect(verifyUnlockCode(expired, options({ mode }))).toEqual({
+        ok: false,
+        reason: 'featureExpired',
+      })
     }
     // Past both redeem-by and expiry: reverify reports the expiry, not the window.
-    const both = code(payload({ issuedAt: NOW_S - 7200, redeemBy: NOW_S - 3600, expiresAt: NOW_S - 60 }))
-    expect(verifyUnlockCode(both, options({ mode: 'reverify' }))).toEqual({ ok: false, reason: 'featureExpired' })
+    const both = code(
+      payload({ issuedAt: NOW_S - 7200, redeemBy: NOW_S - 3600, expiresAt: NOW_S - 60 }),
+    )
+    expect(verifyUnlockCode(both, options({ mode: 'reverify' }))).toEqual({
+      ok: false,
+      reason: 'featureExpired',
+    })
     expect(verifyUnlockCode(both, options({ mode: 'redeem' }))).toEqual({
       ok: false,
       reason: 'redemptionWindowElapsed',
@@ -167,7 +193,9 @@ describe('verifyUnlockCode', () => {
       codeFromJson(JSON.stringify({ ...base, features: ['mods', 'mods'] })),
       codeFromJson(JSON.stringify({ ...base, features: [] })),
       codeFromJson(JSON.stringify({ ...base, features: ['Mods'] })),
-      codeFromJson(JSON.stringify({ ...base, features: Array.from({ length: 17 }, (_, i) => `f${i}`) })),
+      codeFromJson(
+        JSON.stringify({ ...base, features: Array.from({ length: 17 }, (_, i) => `f${i}`) }),
+      ),
       codeFromJson(JSON.stringify({ ...base, launcherInstallId: 'abcdefghjk23' })),
       codeFromJson(JSON.stringify({ ...base, redeemBy: base.issuedAt - 1 })),
       codeFromJson(JSON.stringify({ ...base, expiresAt: base.issuedAt })),
@@ -175,7 +203,9 @@ describe('verifyUnlockCode', () => {
       codeFromJson(JSON.stringify({ ...base, issuedAt: -1 })),
       codeFromJson(JSON.stringify({ ...base, label: '' })),
       codeFromJson(JSON.stringify({ ...base, label: 'x'.repeat(65) })),
-      codeFromJson(JSON.stringify({ features: base.features, launcherInstallId: INSTALL_ID, issuedAt: 1 })),
+      codeFromJson(
+        JSON.stringify({ features: base.features, launcherInstallId: INSTALL_ID, issuedAt: 1 }),
+      ),
       codeFromJson('[]'),
       codeFromJson('null'),
     ]

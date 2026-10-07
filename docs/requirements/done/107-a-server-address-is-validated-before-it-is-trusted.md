@@ -13,7 +13,7 @@ proven to actually be an address: a host or IPv4 literal plus a port, and nothin
 with it.
 
 The concept is explicit about why this cannot be an afterthought (§10.1): r1q2's `+connect` argument
-is handled by a *late* command parser that is re-tokenized normally — unlike `+set`, it honours
+is handled by a _late_ command parser that is re-tokenized normally — unlike `+set`, it honours
 quotes and spaces. An address string that reaches `buildLaunchArgs` unvalidated is not just a wrong
 hostname risk, it is a way for foreign data (a master's reply, a pasted string) to inject additional
 tokens into the argument vector the launcher hands to the game. This is CLAUDE.md's "paths from the
@@ -74,16 +74,16 @@ answer without discussion.
   `parseServerAddress(input)` yields `{ ok: true, host, port, kind: 'ipv4' | 'hostname', normalized }`
   or `{ ok: false, reason }` — because a boolean plus a thrown error would force every one of the
   three later callers to re-derive the parsed host/port they all need anyway.
-- **Rejection carries a reason *code* (a string-literal union) plus an i18n key, never prose** —
+- **Rejection carries a reason _code_ (a string-literal union) plus an i18n key, never prose** —
   the same rule `src/shared/config/validation.ts`'s `Finding.messageKey` already follows, so a
   caller in the renderer resolves the text and the main process never ships English across IPC.
 - **Thirteen distinct reason codes** (`empty`, `extra-tokens`, `forbidden-character`,
   `argument-token`, `missing-port`, `port-not-numeric`, `port-out-of-range`, `too-many-colons`,
   `ipv6-not-supported`, `host-empty`, `host-too-long`, `host-label-invalid`,
-  `ipv4-octet-out-of-range`) — AC5 asks for a reason per failure *class*, and these are exactly the
+  `ipv4-octet-out-of-range`) — AC5 asks for a reason per failure _class_, and these are exactly the
   classes AC2/AC3 name, each mapping to one message a user could act on.
 - **An IPv6 literal gets its own `ipv6-not-supported` code** — it is still rejected, exactly as the
-  (User) decision above requires; a dedicated code only decides *which sentence* the rejection
+  (User) decision above requires; a dedicated code only decides _which sentence_ the rejection
   shows and does not reopen the scope question.
 - **Host character set: lowercase `[a-z0-9-]` labels, 1–63 characters each, no leading or trailing
   hyphen, 253 characters total, no underscore** — the classic hostname rule, and it is strictly
@@ -94,7 +94,7 @@ answer without discussion.
   all-numeric TLD would be invalid anyway; a leading zero in an octet is rejected too, because
   `010` is octal to some resolvers and would resolve differently from what the user read.
 - **Outer whitespace is trimmed, inner whitespace is a rejection** — a pasted address routinely
-  carries a trailing newline, whereas whitespace *inside* the string is precisely the `+connect`
+  carries a trailing newline, whereas whitespace _inside_ the string is precisely the `+connect`
   token-injection vector §10.1 warns about.
 - **The normalized form is lowercase host + `:` + decimal port** — favourites, history and manual
   servers are all keyed by address (concept §11), so one canonical spelling has to exist before the
@@ -141,24 +141,24 @@ component code, no IPC channel, no shell edit.
 ## Deliverables
 
 - [x] **D1 — the pure address validator, with its unit tests.**
-  Files: `src/shared/servers/address.ts` (new), `src/shared/servers/address.test.ts` (new).
-  Mirror: `src/shared/config/alias-names.ts` (pure shared validator with a documented character
-  rule) and `src/shared/config/validation.ts` (i18n-key-not-prose result shape).
-  Acceptance: `parseServerAddress` accepts `host:port` and `a.b.c.d:port` and returns host, port,
-  `kind` and `normalized`; it rejects with the correct one of the thirteen reason codes for every
-  class in AC2/AC3; the test file carries at least one accept case per `kind`, one reject case per
-  reason code, and an assertion that the module's source imports nothing from `node:*`, `electron`
-  or the IPC layer.
+      Files: `src/shared/servers/address.ts` (new), `src/shared/servers/address.test.ts` (new).
+      Mirror: `src/shared/config/alias-names.ts` (pure shared validator with a documented character
+      rule) and `src/shared/config/validation.ts` (i18n-key-not-prose result shape).
+      Acceptance: `parseServerAddress` accepts `host:port` and `a.b.c.d:port` and returns host, port,
+      `kind` and `normalized`; it rejects with the correct one of the thirteen reason codes for every
+      class in AC2/AC3; the test file carries at least one accept case per `kind`, one reject case per
+      reason code, and an assertion that the module's source imports nothing from `node:*`, `electron`
+      or the IPC layer.
 - [x] **D2 — the zod primitive later `servers` handlers validate with.**
-  Files: `src/shared/schemas.ts`, `src/shared/servers/address.test.ts` (extend).
-  Mirror: `absolutePathSchema` in the same file.
-  Acceptance: `serverAddressSchema` parses a valid address into its normalized string and fails a
-  malformed one with the reason code as the issue message; no other schema in the file changes.
+      Files: `src/shared/schemas.ts`, `src/shared/servers/address.test.ts` (extend).
+      Mirror: `absolutePathSchema` in the same file.
+      Acceptance: `serverAddressSchema` parses a valid address into its normalized string and fails a
+      malformed one with the reason code as the issue message; no other schema in the file changes.
 - [x] **D3 — every rejection has a message key.**
-  Files: `src/renderer/src/i18n/locales/en.json`, `src/shared/servers/address.test.ts` (extend).
-  Mirror: `src/shared/config/comment-labels.test.ts` (a shared test that reads `en.json`).
-  Acceptance: every `ServerAddressRejection` code resolves through `serverAddressRejectionKey()` to
-  a key present in `en.json`, proven by a test iterating the union; no existing key is renamed.
+      Files: `src/renderer/src/i18n/locales/en.json`, `src/shared/servers/address.test.ts` (extend).
+      Mirror: `src/shared/config/comment-labels.test.ts` (a shared test that reads `en.json`).
+      Acceptance: every `ServerAddressRejection` code resolves through `serverAddressRejectionKey()` to
+      a key present in `en.json`, proven by a test iterating the union; no existing key is renamed.
 
 ## Model Hints
 
@@ -193,11 +193,13 @@ on the same parser; and an i18n key per rejection reason under a new `servers.ad
 section in `en.json`. No IPC channel, no UI, no `buildLaunchArgs` change, exactly as planned.
 
 **Commit message:**
+
 ```
 107: validate a server address before it is trusted
 ```
 
 **Verification — narrow gate.**
+
 - `npm run build` — green.
 - `npm run typecheck` — green after one incidental fix: `address.test.ts`'s purity check reads
   `address.ts`'s own source via `node:fs`/`node:path`/`node:url`, which the renderer's
@@ -213,7 +215,7 @@ section in `en.json`. No IPC channel, no UI, no `buildLaunchArgs` change, exactl
   machine/parallel-run contention, not caused by this story — none of its own logic touches that
   test's import path.
 - Story's own tests in isolation: `npx vitest run src/shared/servers/address.test.ts
-  src/shared/config/comment-labels.test.ts` — 121/121 passed.
+src/shared/config/comment-labels.test.ts` — 121/121 passed.
 - e2e-story: skipped, as planned — the story has no user-facing surface (see Decisions: "No e2e
   flow"); confirmed still true, nothing in D1–D3 added a route, IPC channel or UI component.
 - Code review (clean agent, default tier): **PASS**, no findings. AC1–AC5 each verified against
@@ -225,6 +227,7 @@ section in `en.json`. No IPC channel, no UI, no `buildLaunchArgs` change, exactl
   no IO) and not fixed.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `address.test.ts` › "accepts a hostname and an IPv4 literal with a port" — passed.
 - AC2 → `address.test.ts` › "rejects each malformed address with its own reason" — passed.
 - AC3 → `address.test.ts` › "rejects a host outside the documented character set" — passed.
@@ -234,6 +237,7 @@ section in `en.json`. No IPC channel, no UI, no `buildLaunchArgs` change, exactl
 - No manual residue — the story declares none, and nothing found during build needed one.
 
 **Decisions made during build (beyond the story's own Decisions section):**
+
 - `tsconfig.web.json` gained a narrow, documented `exclude` for `src/shared/servers/address.test.ts`
   so its node-only purity self-check can typecheck under `tsconfig.node.json` instead — mirrors the
   existing `shell-home-ownership.test.ts` precedent in the same file.

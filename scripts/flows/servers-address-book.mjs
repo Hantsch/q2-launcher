@@ -6,10 +6,8 @@
 // ## Wire protocol - mirrored, not imported
 //
 // `scripts/*.mjs` never imports `src/` TypeScript (`scripts/lib/fixture.mjs`'s own header comment)
-// - `encodeLatin1`/`buildInfoReplyBytes`/`buildStatusReplyBytes`/`decodeQueryKind` and
-// `bindResponder`/`closeResponder` below are copied verbatim from `scripts/flows/
-// servers-scoped-refresh.mjs`, which itself mirrors `src/main/modules/servers/
-// scan-integration.test.ts`.
+// - the reply builders and responder helpers come from `scripts/lib/servers-stub.mjs`, which
+// mirrors `src/main/modules/servers/scan-integration.test.ts`.
 //
 // ## Fixture: the populated fixture's real config profiles, one manual server
 //
@@ -39,7 +37,6 @@
 // tsx`, D1), `config-profile-row` (ConfigView.tsx, filtered by profile name, mirrors `unsaved-
 // diff.mjs`'s `openConfig()`), `config-unsaved-indicator` (`UnsavedIndicator.tsx`), `config-tab-
 // unsaved`/`config-save-changes` (ConfigView.tsx/`ProfileChangeList.tsx`).
-import { createSocket } from 'node:dgram'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
@@ -49,6 +46,8 @@ import {
   installationConfigFilePath,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { makeResponderBinder, closeResponder } from '../lib/servers-stub.mjs'
+import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
 
 export const variant = 'servers-address-book'
 
@@ -57,69 +56,15 @@ const SCAN_SETTLE_TIMEOUT_MS = 15_000
 const RAW_TAB_LOAD_TIMEOUT_MS = 20_000
 const EDITED_SENSITIVITY = '7.25'
 
-const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
-
-function encodeLatin1(text) {
-  const bytes = Buffer.alloc(text.length)
-  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff
-  return bytes
-}
-
-function buildInfoReplyBytes(serverinfoLine) {
-  // A real `info` reply is not an infostring but Quake II's `"%16s %8s %2i/%2i\n"` summary line
-  // (`src/shared/servers/reply-fixtures.ts`'s `formatInfoLine`) - only these four keys survive.
-  const parts = serverinfoLine.split('\\').slice(1)
-  const kv = {}
-  for (let i = 0; i + 1 < parts.length; i += 2) kv[parts[i]] = parts[i + 1]
-  const count = (value) => (/^\d+$/.test(value ?? '') ? value : '0') // `%2i` always prints a number
-  const line =
-    `${(kv.hostname ?? '').padStart(16)} ${(kv.mapname ?? '').padStart(8)} ` +
-    `${count(kv.clients).padStart(2)}/${count(kv.maxclients).padStart(2)}\n`
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
-}
-
-function buildStatusReplyBytes(serverinfoLine, playerLines) {
-  const players = playerLines.map((line) => `\n${line}`).join('')
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}${players}`)])
-}
-
-function decodeQueryKind(message) {
-  const text = message.subarray(4).toString('latin1')
-  if (text.startsWith('info')) return 'info'
-  if (text.startsWith('status')) return 'status'
-  return 'unknown'
-}
-
 /** One loopback responder answering both `info` and `status` queries - mirrors
  * `servers-scoped-refresh.mjs`'s `bindResponder`, minus the per-kind packet log this flow never
  * needs (it never asserts on who got queried, only on what the address-book dialog does). */
-async function bindResponder(hostname, playerLines) {
-  const socket = createSocket('udp4')
-  await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
-  const port = socket.address().port
-  const address = `127.0.0.1:${port}`
-  const infoLine =
+const bindResponder = makeResponderBinder((hostname, playerLines) => ({
+  infoLine:
     `\\gamename\\baseq2\\hostname\\${hostname}\\mapname\\q2dm1\\clients\\${playerLines.length}` +
-    `\\maxclients\\8\\version\\3.20`
-  const responder = { socket, port, address, closed: false }
-
-  socket.on('message', (message, rinfo) => {
-    const kind = decodeQueryKind(message)
-    if (kind === 'info') {
-      socket.send(buildInfoReplyBytes(infoLine), rinfo.port, rinfo.address)
-    } else if (kind === 'status') {
-      socket.send(buildStatusReplyBytes(infoLine, playerLines), rinfo.port, rinfo.address)
-    }
-  })
-
-  return responder
-}
-
-async function closeResponder(responder) {
-  if (responder.closed) return
-  responder.closed = true
-  await new Promise((resolve) => responder.socket.close(() => resolve()))
-}
+    `\\maxclients\\8\\version\\3.20`,
+  playerLines,
+}))
 
 const FIXED_ADDED_AT = '2026-01-01T00:00:00.000Z'
 
@@ -156,29 +101,6 @@ export async function teardown() {
   if (server) await closeResponder(server)
 }
 
-function scanStatusLocator(page) {
-  return page.getByTestId('servers-scan-status')
-}
-
-async function readFinishedAt(page) {
-  return (await scanStatusLocator(page).getAttribute('data-finished-at')) ?? ''
-}
-
-async function waitForFinishedAtChange(page, previous, timeout) {
-  await page.waitForFunction(
-    (before) => {
-      const el = document.querySelector('[data-testid="servers-scan-status"]')
-      return (
-        el?.getAttribute('data-running') === 'false' &&
-        (el?.getAttribute('data-finished-at') ?? '') !== before &&
-        (el?.getAttribute('data-finished-at') ?? '') !== ''
-      )
-    },
-    previous,
-    { timeout },
-  )
-}
-
 /** Opens the config module and clicks the profile row whose name matches `name` - mirrors
  * `unsaved-diff.mjs`'s own `openConfig()`, parameterised on the profile name since this flow visits
  * two different profiles. */
@@ -193,7 +115,9 @@ async function openConfig(page, name) {
 }
 
 export default async function serversAddressBook({ page, step, shot }) {
-  step('navigate to Servers, run a refresh, select the fixture row and open the address-book dialog')
+  step(
+    'navigate to Servers, run a refresh, select the fixture row and open the address-book dialog',
+  )
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
   const refreshAll = page.getByTestId('servers-refresh')
   await refreshAll.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -211,7 +135,9 @@ export default async function serversAddressBook({ page, step, shot }) {
     .locator('option', { hasText: 'Plain Profile' })
     .evaluate((option) => option.selected)
   if (!preselectedLabel) {
-    throw new Error('expected "Plain Profile" to be preselected - it is the active installation\'s own profile')
+    throw new Error(
+      'expected "Plain Profile" to be preselected - it is the active installation\'s own profile',
+    )
   }
 
   for (let index = 0; index < 9; index++) {
@@ -219,7 +145,9 @@ export default async function serversAddressBook({ page, step, shot }) {
     await slotRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     const text = (await slotRow.innerText()).trim()
     if (!text.includes('Empty')) {
-      throw new Error(`expected slot ${index} to show the empty placeholder before any write, got ${JSON.stringify(text)}`)
+      throw new Error(
+        `expected slot ${index} to show the empty placeholder before any write, got ${JSON.stringify(text)}`,
+      )
     }
   }
   await shot('address-book-dialog-plain-profile-empty')
@@ -229,14 +157,20 @@ export default async function serversAddressBook({ page, step, shot }) {
     timeout: TIMEOUT_MS,
   })
   await page.getByTestId('servers-address-book-confirm').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   step('reopening from the detail pane shows slot 0 now holding the address')
   await page.getByTestId('servers-detail-address-book-open').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const slot0AfterWrite = (await page.getByTestId('servers-address-book-slot-0').innerText()).trim()
   if (!slot0AfterWrite.includes(server.address)) {
-    throw new Error(`expected slot 0 to show the written address ${server.address}, got ${JSON.stringify(slot0AfterWrite)}`)
+    throw new Error(
+      `expected slot 0 to show the written address ${server.address}, got ${JSON.stringify(slot0AfterWrite)}`,
+    )
   }
   await shot('address-book-dialog-plain-profile-written')
 
@@ -261,17 +195,29 @@ export default async function serversAddressBook({ page, step, shot }) {
 
   step('Cancel the dialog; "Plain Profile" is clean and the address is already on disk (story 175)')
   await page.getByRole('button', { name: 'Cancel' }).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   await openConfig(page, 'Plain Profile')
   await page.getByTestId('config-tab-raw').click({ timeout: TIMEOUT_MS })
-  await page.locator('.cfg-code-textarea, .cfg-code').first().waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
-  await page.getByText('On disk', { exact: true }).first().waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+  await page
+    .locator('.cfg-code-textarea, .cfg-code')
+    .first()
+    .waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+  await page
+    .getByText('On disk', { exact: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
   if ((await page.getByTestId('config-unsaved-indicator').count()) !== 0) {
-    throw new Error('expected "Plain Profile" to show no unsaved indicator after the address-book write')
+    throw new Error(
+      'expected "Plain Profile" to show no unsaved indicator after the address-book write',
+    )
   }
   if ((await page.getByText(/unsaved changes? (is|are) not in this file yet/).count()) !== 0) {
-    throw new Error('expected the Raw file tab to show no unsaved notice after the address-book write')
+    throw new Error(
+      'expected the Raw file tab to show no unsaved notice after the address-book write',
+    )
   }
   await shot('plain-profile-clean-on-disk')
 
@@ -279,12 +225,16 @@ export default async function serversAddressBook({ page, step, shot }) {
   const adrLine = new RegExp(`set adr0 "?${server.address.replace(/[.:]/g, '\\$&')}`)
   const canonical = readFileSync(canonicalPath, 'latin1')
   if (!adrLine.test(canonical)) {
-    throw new Error(`expected ${canonicalPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(canonical.slice(-300))}`)
+    throw new Error(
+      `expected ${canonicalPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(canonical.slice(-300))}`,
+    )
   }
   const copyPath = installationConfigFilePath(INSTALL_ONE_ID, 'Plain-Profile.cfg')
   const copy = readFileSync(copyPath, 'latin1')
   if (!adrLine.test(copy)) {
-    throw new Error(`expected the installation copy ${copyPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(copy.slice(-300))}`)
+    throw new Error(
+      `expected the installation copy ${copyPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(copy.slice(-300))}`,
+    )
   }
 
   step('leave an unsaved Settings edit on "Layered Profile"')
@@ -302,8 +252,13 @@ export default async function serversAddressBook({ page, step, shot }) {
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
   await page.getByTestId(`servers-row-${server.address}`).click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-detail-address-book-open').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').locator('select').selectOption({ label: 'Layered Profile' })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .locator('select')
+    .selectOption({ label: 'Layered Profile' })
   await page.waitForFunction(
     () => {
       const el = document.querySelector('[data-testid="servers-address-book-slot-0"]')
@@ -312,32 +267,54 @@ export default async function serversAddressBook({ page, step, shot }) {
     null,
     { timeout: TIMEOUT_MS },
   )
-  await page.getByTestId('servers-address-book-slot-0').locator('input[type="radio"]').check({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-slot-0')
+    .locator('input[type="radio"]')
+    .check({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-address-book-confirm').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
-  step('"Layered Profile" stays unsaved for the Settings edit only; adr0 is on disk, the edit is not')
+  step(
+    '"Layered Profile" stays unsaved for the Settings edit only; adr0 is on disk, the edit is not',
+  )
   await openConfig(page, 'Layered Profile')
-  await page.getByTestId('config-unsaved-indicator').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('config-unsaved-indicator')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('config-tab-unsaved').click({ timeout: TIMEOUT_MS })
   const changeList = page.getByTestId('config-save-changes')
   await changeList.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const changeListText = await changeList.innerText()
   if (!changeListText.includes('sensitivity')) {
-    throw new Error(`expected the Unsaved tab to list the sensitivity edit, got ${JSON.stringify(changeListText)}`)
+    throw new Error(
+      `expected the Unsaved tab to list the sensitivity edit, got ${JSON.stringify(changeListText)}`,
+    )
   }
   if (changeListText.includes('adr0')) {
-    throw new Error(`expected the Unsaved tab not to list adr0, got ${JSON.stringify(changeListText)}`)
+    throw new Error(
+      `expected the Unsaved tab not to list adr0, got ${JSON.stringify(changeListText)}`,
+    )
   }
   await shot('layered-profile-unsaved-excludes-adr0')
 
   const layeredPath = join(variantUserDataDir(variant), 'Layered-Profile.cfg')
   const layered = readFileSync(layeredPath, 'latin1')
   if (!adrLine.test(layered)) {
-    throw new Error(`expected ${layeredPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(layered.slice(-300))}`)
+    throw new Error(
+      `expected ${layeredPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(layered.slice(-300))}`,
+    )
   }
-  if (new RegExp(String.raw`sensitivity\s+"?${EDITED_SENSITIVITY.replace(/\./g, '\\.')}"?\s*$`, 'm').test(layered)) {
-    throw new Error(`expected ${layeredPath} not to hold the unsaved sensitivity edit ${EDITED_SENSITIVITY}`)
+  if (
+    new RegExp(
+      String.raw`sensitivity\s+"?${EDITED_SENSITIVITY.replace(/\./g, '\\.')}"?\s*$`,
+      'm',
+    ).test(layered)
+  ) {
+    throw new Error(
+      `expected ${layeredPath} not to hold the unsaved sensitivity edit ${EDITED_SENSITIVITY}`,
+    )
   }
 
   console.log(

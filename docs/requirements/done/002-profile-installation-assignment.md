@@ -11,7 +11,7 @@ As a user, I want to assign a config profile to one or more of my installations,
 assigned profile per installation as the default, so the launcher knows which profile belongs
 on which installation and which one applies at launch.
 
-Per [docs/concepts/config-module.md](../concepts/config-module.md), assignment is many-to-many:
+Per [docs/concepts/config-module.md](../../systems/config-module.md), assignment is many-to-many:
 a profile can be assigned to several installations, and an installation can have several
 assigned profiles. Builds on story 001 (profile CRUD exists). Does not write anything to disk
 yet — that is story 004.
@@ -116,32 +116,32 @@ Patterns to mirror: `src/shared/modules/library.ts` (contract), `src/main/module
 ## Deliverables
 
 - [x] **D1 — Assignment contract.** `src/shared/modules/config.ts`: `ProfileAssignment
-      { installationId: string; isDefault: boolean }`, `assignments: ProfileAssignment[]` on
+{ installationId: string; isDefault: boolean }`, `assignments: ProfileAssignment[]` on
       `ConfigProfile`, three new `CONFIG_HANDLERS` entries + payload types.
-      *Mirror:* `src/shared/modules/library.ts`.
-      *Acceptance:* `npm run build` green; no entry added to `src/shared/ipc.ts`.
+      _Mirror:_ `src/shared/modules/library.ts`.
+      _Acceptance:_ `npm run build` green; no entry added to `src/shared/ipc.ts`.
 - [x] **D2 — Pure assignment rules + tests.** `src/main/modules/config/assignments.ts` and
-      `assignments.test.ts`. *Mirror:* `src/main/services/launch-plan.ts` / `launch-plan.test.ts`.
-      *Acceptance:* `npm test` green with cases for: a profile assigned to several installations;
+      `assignments.test.ts`. _Mirror:_ `src/main/services/launch-plan.ts` / `launch-plan.test.ts`.
+      _Acceptance:_ `npm test` green with cases for: a profile assigned to several installations;
       an installation carrying several profiles; the first assignment becoming default; setting a
       new default clearing the previous one **for that installation only**; unassigning the default
       promoting the next remaining assignment; unassigning the last one leaving no default;
       `reconcileAssignments` dropping assignments whose installation id is unknown.
 - [x] **D3 — Main wiring + persistence.** `src/main/modules/config/index.ts` (extend 001's module),
-      `src/main/modules/config/schemas.ts`. *Mirror:* `src/main/modules/library/index.ts`,
-      `src/main/lib/schemas.ts`. *Acceptance:* the three handlers mutate through the pure functions
+      `src/main/modules/config/schemas.ts`. _Mirror:_ `src/main/modules/library/index.ts`,
+      `src/main/lib/schemas.ts`. _Acceptance:_ the three handlers mutate through the pure functions
       of D2 and persist via 001's store; a malformed payload returns
       `fail('ipc.error.invalidPayload')`, an unknown profile/installation id a `config.error.*`
       failure; the reconcile sweep runs at `setup()`; assignment + default survive an app restart.
 - [x] **D4 — Profile-side assignment UI.** `src/renderer/src/modules/config/client.ts`,
       `src/renderer/src/components/config/ProfileAssignmentsPanel.tsx`,
       `src/renderer/src/views/ConfigView.tsx`, `src/renderer/src/i18n/locales/en.json`.
-      *Mirror:* `src/renderer/src/modules/library/client.ts`, `LibraryView.tsx`.
-      *Acceptance:* from an open profile I can assign it to and unassign it from every registered
+      _Mirror:_ `src/renderer/src/modules/library/client.ts`, `LibraryView.tsx`.
+      _Acceptance:_ from an open profile I can assign it to and unassign it from every registered
       installation, and mark it default for any installation it is assigned to — all through the
       real UI, built only from existing design-system primitives.
 - [x] **D5 — Installation-side overview.** `src/renderer/src/components/config/InstallationProfilesPanel.tsx`,
-      `ConfigView.tsx`, `en.json`. *Acceptance:* a panel lists every registered installation with
+      `ConfigView.tsx`, `en.json`. _Acceptance:_ a panel lists every registered installation with
       its assigned profiles and a badge on the default one, empty state when none; it updates
       immediately after a D4 action and shows nothing for a deleted profile.
 
@@ -151,7 +151,7 @@ AC5 → D5 · AC6 → D2+D3 (assignments are part of the profile record, plus th
 ## Model Hints
 
 - D2 → `deliverable-hard` — the cross-profile invariant ("exactly one default per installation"
-  spans *all* profiles, plus auto-default and promotion-on-unassign) is the one place where a
+  spans _all_ profiles, plus auto-default and promotion-on-unassign) is the one place where a
   subtle off-by-one leaves an installation with two defaults or none, which no later story checks.
 - D1, D3, D4, D5 → default tier.
 - Review: → default (contained new module surface, no shell or IPC-channel changes).
@@ -188,6 +188,7 @@ inherited code), (3) a fresh-agent review pass, (4) three small review-driven fi
 filling in this section and the AC/D checkboxes above.
 
 **Review-driven fixes (this session):**
+
 - Added a regression test pinning Decision 3 ("deleting a profile needs no sweep") -
   `src/main/modules/config/profiles.test.ts`: removing a profile that carries an assignment
   drops the assignment with it, while a second profile's own assignment for the same
@@ -201,6 +202,7 @@ filling in this section and the AC/D checkboxes above.
   `ProfileAssignmentsPanel` uses the installation name as the checkbox label instead).
 
 **Decisions (implementation-detail, made without user reachability):**
+
 - Confirmed the inherited code follows all 12 sprint Decisions as written - verified in
   particular Decision 4 (auto-default + promotion), Decision 5 (no `src/shared/ipc.ts` change),
   and Decision 6 (`Outcome<ConfigProfile[]>` return convention, flattened once in
@@ -220,6 +222,7 @@ session's added regression test). No lint/typecheck commands defined for this pr
 no Electron display available (P2, expected/acceptable per project policy).
 
 **Suggested commit message:**
+
 ```
 002: profile-installation assignment and default profile
 

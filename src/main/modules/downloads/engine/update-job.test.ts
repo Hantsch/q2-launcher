@@ -1,30 +1,33 @@
 import { existsSync } from 'node:fs'
-import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BASE_GAME_DIR } from '@shared/constants'
 import type { EngineBackupInfo, ManifestPackage } from '@shared/modules/downloads'
-import {
-  IDLE_LAUNCH_STATE,
-  ok,
-  type Installation,
-  type Job,
-  type LaunchState,
-  type LauncherSettings,
-} from '@shared/types'
+import type { Installation, Job } from '@shared/types'
+import { downloadPackage } from '../../../lib/net/fetcher'
+import type { StageDownloadFn } from '../../../services/package-staging'
 import { InstallationsService } from '../../../services/installations'
-import { JobsService } from '../../../services/jobs'
-import type { StateStore } from '../../../services/state'
-import { InstallationWriteGuard, type LaunchHost } from '../../../services/write-guard'
-import type { Extractor, ManifestSource } from '../bootstrap/ports'
-import type { ExtractorHandle } from '../extractor'
-import { readEngineState } from './installation-state'
+import { JobRunner } from '../../../services/job-runner'
+import { makeJobRunner } from '../../../../test-support/job-runner'
+import type { ManifestSource } from '../bootstrap/ports'
+import { fakeExtractor, fakeState } from '../test-support'
+import { readEngineState } from '../../../services/engine-state'
 import {
   ENGINE_BACKUP_DIR_NAME,
   ENGINE_UPDATE_JOB_KIND,
   startEngineUpdate,
-  type EngineArchiveDownload,
   type EngineUpdateDeps,
 } from './update-job'
 
@@ -146,44 +149,6 @@ async function writeTree(root: string, files: Record<string, string>): Promise<v
   }
 }
 
-/** In-memory stand-in for the four `StateStore` methods `InstallationsService` reaches for. */
-function fakeState(): StateStore {
-  let installations: Installation[] = []
-  let settings = { activeInstallationId: null } as LauncherSettings
-  return {
-    installations: () => installations,
-    setInstallations: (next: Installation[]) => {
-      installations = next
-    },
-    settings: () => settings,
-    patchSettings: (patch: Partial<LauncherSettings>) => {
-      settings = { ...settings, ...patch }
-      return settings
-    },
-  } as unknown as StateStore
-}
-
-/** Mirrors `services/write-guard.test.ts`'s own `fakeLaunch`. */
-function fakeLaunch(): { host: LaunchHost; set: (next: LaunchState) => void } {
-  let state: LaunchState = IDLE_LAUNCH_STATE
-  const listeners = new Set<(next: LaunchState) => void>()
-  return {
-    host: {
-      getState: () => state,
-      onStateChange: (listener) => {
-        listeners.add(listener)
-        return () => {
-          listeners.delete(listener)
-        }
-      },
-    },
-    set: (next) => {
-      state = next
-      for (const listener of [...listeners]) listener(next)
-    },
-  }
-}
-
 /** Mirrors `pipeline.test.ts`'s helper - a job that waits has no promise to await. */
 async function waitFor(condition: () => boolean, what: string): Promise<void> {
   const deadline = Date.now() + 5000
@@ -195,32 +160,26 @@ async function waitFor(condition: () => boolean, what: string): Promise<void> {
 }
 
 /** A download that produces nothing but a path - the archive itself is the extractor fake's fiction. */
-function fakeDownload(): EngineArchiveDownload {
-  return async ({ userDataPath: cache, target }) => {
-    const path = join(cache, target.fileName)
+function fakeDownload(): StageDownloadFn {
+  return async (source, { userDataPath: cache }) => {
+    const path = join(cache, source.fileName)
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, 'archive')
-    return { ok: true, path }
-  }
-}
-
-/** Writes `staged` into the extract dir, exactly as 7za would have unpacked the real archive. */
-function fakeExtractor(staged: Record<string, string>): Extractor {
-  return {
-    extract: ({ extractDir }): ExtractorHandle => ({
-      result: (async () => {
-        await writeTree(extractDir, staged)
-        return ok(undefined)
-      })(),
-      kill: () => {},
-    }),
+    return {
+      ok: true,
+      path,
+      sizeBytes: 7,
+      sha256: 'f'.repeat(64),
+      url: source.url,
+      attempts: [{ url: source.url, requests: 1, outcome: 'verified' }],
+    }
   }
 }
 
 interface Harness {
   deps: EngineUpdateDeps
-  jobs: JobsService
-  launch: ReturnType<typeof fakeLaunch>
+  jobs: ReturnType<typeof makeJobRunner>['jobs']
+  launch: ReturnType<typeof makeJobRunner>['launch']
   installations: InstallationsService
   installation: Installation
   validateCalls: string[]
@@ -231,7 +190,9 @@ interface Harness {
 async function harness(
   options: {
     staged?: Record<string, string>
-    download?: EngineArchiveDownload
+    download?: StageDownloadFn
+    /** Opts the installation into the bleeding-edge channel, probed at this size. */
+    bleedingEdgeSize?: number
     /** Runs inside `runWrite`, before the job's own swap - see the suite comment. */
     beforeWrite?: (extractDir: string) => Promise<void>
     /** The version the installation has on record before the update; `undefined` means none. */
@@ -243,7 +204,13 @@ async function harness(
 ): Promise<Harness> {
   await writeTree(installRoot, { ...OLD_FILES, ...UNRELATED_FILES })
 
-  const jobs = new JobsService(() => {})
+  const validateCalls: string[] = []
+  const harnessRunner = makeJobRunner({
+    validate: (id) => {
+      validateCalls.push(id)
+      return service.validate(id)
+    },
+  })
   const service = new InstallationsService({
     state: fakeState(),
     onChange: () => {},
@@ -265,18 +232,15 @@ async function harness(
   const recorded = service.setEngineState(added.value.id, {
     version: recordedVersion,
     packageId: `q2pro-${recordedVersion}`,
+    ...(options.bleedingEdgeSize !== undefined ? { bleedingEdge: true } : {}),
     ...(options.recordedBackup ? { backup: options.recordedBackup } : {}),
   })
   if (!recorded.ok) throw new Error('the fixture engine state could not be recorded')
 
-  const validateCalls: string[] = []
   const installations = {
     find: (id: string) => service.find(id),
-    validate: (id: string) => {
-      validateCalls.push(id)
-      return service.validate(id)
-    },
-    setEngineState: (id: string, patch: Parameters<InstallationsService['setEngineState']>[1]) =>
+    validate: harnessRunner.installations.validate,
+    setEngineState: (id: string, patch: Parameters<typeof service.setEngineState>[1]) =>
       service.setEngineState(id, patch),
   }
 
@@ -286,22 +250,25 @@ async function harness(
     resolveGameDataPackage: () => Promise.resolve(undefined),
   }
 
-  const launch = fakeLaunch()
-  const guard = new InstallationWriteGuard({ launch: launch.host, jobs })
+  // The sabotage hook runs inside the guarded write, so the runner gets a guard that calls it first.
+  const runner = new JobRunner({
+    jobs: harnessRunner.jobs,
+    installations: harnessRunner.installations,
+    writeGuard: {
+      runWrite: (installationId, jobId, signal, fn) =>
+        harnessRunner.writeGuard.runWrite(installationId, jobId, signal, async () => {
+          if (options.beforeWrite) await options.beforeWrite(extractDirs[0])
+          await fn()
+        }),
+    },
+  })
   const extractDirs: string[] = []
-  const inner = fakeExtractor(options.staged ?? NEW_FILES)
+  const inner = fakeExtractor(() => options.staged ?? NEW_FILES)
 
   return {
     deps: {
-      jobs,
+      runner,
       installations,
-      writeGuard: {
-        runWrite: (installationId, jobId, signal, fn) =>
-          guard.runWrite(installationId, jobId, signal, async () => {
-            if (options.beforeWrite) await options.beforeWrite(extractDirs[0])
-            await fn()
-          }),
-      },
       manifest,
       extractor: {
         extract: (input) => {
@@ -312,9 +279,19 @@ async function harness(
       userDataPath,
       resolveExtractor: () => ({ path: join(dir, '7za.exe'), exists: true }),
       download: options.download ?? fakeDownload(),
+      ...(options.bleedingEdgeSize !== undefined
+        ? {
+            probeBleedingEdge: () =>
+              Promise.resolve({
+                version: 'nightly-1',
+                sizeBytes: options.bleedingEdgeSize!,
+                url: PINNED_PACKAGE.url,
+              }),
+          }
+        : {}),
     },
-    jobs,
-    launch,
+    jobs: harnessRunner.jobs,
+    launch: harnessRunner.launch,
     installations: service,
     installation: recorded.value,
     validateCalls,
@@ -376,7 +353,9 @@ describe('the engine update job', () => {
     }
     // ...and the previous ones are in the one backup slot, byte for byte.
     for (const [relativePath, content] of Object.entries(OLD_FILES)) {
-      expect(await contentsOf(installRoot, join(ENGINE_BACKUP_DIR_NAME, relativePath))).toBe(content)
+      expect(await contentsOf(installRoot, join(ENGINE_BACKUP_DIR_NAME, relativePath))).toBe(
+        content,
+      )
     }
     // Nothing outside the engine allowlist moved - not the game data, not the user's own files.
     for (const [relativePath, content] of Object.entries(UNRELATED_FILES)) {
@@ -429,12 +408,13 @@ describe('the engine update job', () => {
   })
 
   it('a verification failure leaves every engine file untouched and creates no backup', async () => {
-    const failingDownload: EngineArchiveDownload = () =>
+    const failingDownload: StageDownloadFn = () =>
       Promise.resolve({
         ok: false,
         key: 'downloads.error.verificationFailed',
         reason: 'sha256: expected a..., got b...',
         cancelled: false,
+        attempts: [],
       })
     const test = await harness({ download: failingDownload })
     const before = await snapshotTree(installRoot)
@@ -456,6 +436,60 @@ describe('the engine update job', () => {
     )
     expect(test.validateCalls).toEqual([])
   })
+
+  it('a bleeding-edge update downloads through downloadPackage in size-only mode', async () => {
+    const received: unknown[] = []
+    const inner = fakeDownload()
+    const test = await harness({
+      bleedingEdgeSize: 1234,
+      download: (source, options) => {
+        received.push({ source, verify: options.verify })
+        return inner(source, options)
+      },
+    })
+
+    const started = await startEngineUpdate(test.deps, { installationId: test.installation.id })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await expect(started.value.settled).resolves.toMatchObject({ status: 'succeeded' })
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toMatchObject({
+      verify: { sizeOnly: true },
+      source: { sizeBytes: 1234, fileName: 'nightly-q2pro-2.0.zip' },
+    })
+    expect(received[0]).not.toHaveProperty('source.sha256')
+  })
+
+  it.each([
+    ['answers 5xx', () => Promise.resolve(new Response('unavailable', { status: 503 }))],
+    ['refuses the connection', () => Promise.reject(new TypeError('fetch failed'))],
+  ])(
+    'a bleeding-edge transport failure ends as downloads.error.allMirrorsFailed (%s)',
+    async (_name, answer) => {
+      const requests: string[] = []
+      const test = await harness({
+        bleedingEdgeSize: 1234,
+        download: (source, options) =>
+          downloadPackage(source, {
+            ...options,
+            retryDelayMs: 0,
+            fetchImpl: (url) => {
+              requests.push(String(url))
+              return answer()
+            },
+          }),
+      })
+
+      const started = await startEngineUpdate(test.deps, { installationId: test.installation.id })
+      expect(started.ok).toBe(true)
+      if (!started.ok) return
+      const settled = await started.value.settled
+
+      expect(requests.length).toBeGreaterThan(0)
+      expect(settled).toEqual({ status: 'failed', key: 'downloads.error.allMirrorsFailed' })
+    },
+  )
 
   it('a failure during the copy restores the backup, leaving a complete previous engine', async () => {
     // Sabotage after the completeness check has passed and inside the write phase: the second
@@ -524,6 +558,36 @@ describe('the engine update job', () => {
     })
     expect(test.jobs.list()).toEqual([])
     expect(existsSync(join(installRoot, ENGINE_BACKUP_DIR_NAME))).toBe(false)
+  })
+
+  it('the engine update is refused while another job targets the installation', async () => {
+    const test = await harness()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const other = test.deps.runner.run(
+      {
+        moduleId: 'mods',
+        kind: 'test-other',
+        labelKey: 'jobs.simulatedWrite',
+        installationId: test.installation.id,
+      },
+      async () => {
+        await held
+        return { status: 'succeeded' }
+      },
+    )
+    if (!other.ok) throw new Error('the other job did not start')
+    const jobsBefore = test.jobs.list().map((job) => job.id)
+
+    const started = await startEngineUpdate(test.deps, { installationId: test.installation.id })
+
+    expect(started).toMatchObject({ ok: false, error: { key: 'jobs.error.installationBusy' } })
+    expect(test.jobs.list().map((job) => job.id)).toEqual(jobsBefore)
+
+    release()
+    await other.value.settled
   })
 
   it('refuses an installation the library no longer holds', async () => {
@@ -646,6 +710,7 @@ describe('the engine update job', () => {
     await expect(started.value.settled).resolves.toEqual({
       status: 'failed',
       key: 'downloads.error.packageIncomplete',
+      params: { packageId: 'q2pro-2.0' },
     })
 
     expect(changedPaths(before, await snapshotTree(installRoot))).toEqual([])

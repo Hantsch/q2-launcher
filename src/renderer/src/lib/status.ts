@@ -21,14 +21,14 @@ export const STATUS_TONES: Record<InstallationStatus, StatusTone> = {
     dot: 'bg-success',
     wash: 'bg-success/8',
     border: 'border-success/35',
-    labelKey: 'installation.status.ok',
+    labelKey: 'common.label.ready',
   },
   warning: {
     text: 'text-warning',
     dot: 'bg-warning',
     wash: 'bg-warning/8',
     border: 'border-warning/35',
-    labelKey: 'installation.status.warning',
+    labelKey: 'common.label.needsAttention',
   },
   invalid: {
     text: 'text-danger',

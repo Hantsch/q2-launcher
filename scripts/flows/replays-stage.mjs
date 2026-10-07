@@ -14,54 +14,30 @@ import {
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import {
+  commands,
+  makeEngineCommandsExpecter,
+  openDemos,
+  openFolder,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
 const TIMEOUT_MS = 8_000
-const ENGINE_TIMEOUT_MS = 5_000
 const SETTLE_MS = 700
 
 const files = replaysTimelineEngineFiles()
 
 export async function setup() {
   writeReplaysTimelineFixture()
-  return { env: { Q2L_UI_ENGINE_COMMAND_LOG: files.commandLog, Q2L_UI_ENGINE_QUIT_FILE: files.quitFile } }
-}
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-stage: ${message}`)
-}
-
-function commands() {
-  if (!existsSync(files.commandLog)) return []
-  return readFileSync(files.commandLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
-
-async function expectCommands(expected, label) {
-  const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (commands().length < expected.length) {
-    if (Date.now() >= deadline) fail(`${label}: engine ran ${JSON.stringify(commands())}, expected ${JSON.stringify(expected)}`)
-    await sleep(50)
-  }
-  await sleep(SETTLE_MS)
-  const ran = commands()
-  if (JSON.stringify(ran) !== JSON.stringify(expected)) {
-    fail(`${label}: engine ran ${JSON.stringify(ran)}, expected exactly ${JSON.stringify(expected)}`)
+  return {
+    env: { Q2L_UI_ENGINE_COMMAND_LOG: files.commandLog, Q2L_UI_ENGINE_QUIT_FILE: files.quitFile },
   }
 }
 
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
-}
+const fail = makeFail('replays-stage')
+const expectCommands = makeEngineCommandsExpecter(files.commandLog, fail)
 
 async function launchLine(logPath) {
   const deadline = Date.now() + 10_000
@@ -82,11 +58,14 @@ export default async function replaysStage({ page, app, step, shot }) {
   const timeline = page.getByTestId('replays-timeline')
 
   step('Play arms the stage: the picture shows, list and detail hide')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   // The picture's box is recorded every frame together with whether the session is live (the console
@@ -99,7 +78,12 @@ export default async function replaysStage({ page, app, step, shot }) {
       const input = document.querySelector('[data-testid=replays-console-input]')
       if (el) {
         const r = el.getBoundingClientRect()
-        const rect = { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }
+        const rect = {
+          x: Math.round(r.x),
+          y: Math.round(r.y),
+          width: Math.round(r.width),
+          height: Math.round(r.height),
+        }
         window.__stageRects.push({ rect, live: !!input && !input.disabled })
       }
       requestAnimationFrame(tick)
@@ -114,15 +98,21 @@ export default async function replaysStage({ page, app, step, shot }) {
   if (Math.abs(box.width - (box.height * 4) / 3) > 1) {
     fail(`the picture box ${box.width}x${box.height} is not 4:3 within 1 px`)
   }
-  if (await page.getByTestId('replays-demo-list').isVisible()) fail('the demo list must be hidden on the stage')
-  const dBox = (await page.getByTestId('replays-detail').isVisible()) ? await page.getByTestId('replays-detail').boundingBox() : null
+  if (await page.getByTestId('replays-demo-list').isVisible())
+    fail('the demo list must be hidden on the stage')
+  const dBox = (await page.getByTestId('replays-detail').isVisible())
+    ? await page.getByTestId('replays-detail').boundingBox()
+    : null
   if (!dBox) fail('the detail of the playing demo must stay visible beside the stage')
-  if (dBox.x < box.x + box.width - 1) fail(`the detail (x ${dBox.x}) must sit right of the picture (right ${box.x + box.width})`)
+  if (dBox.x < box.x + box.width - 1)
+    fail(`the detail (x ${dBox.x}) must sit right of the picture (right ${box.x + box.width})`)
   const bottom = box.y + box.height
   const tBox = await timeline.boundingBox()
   const cBox = await page.getByTestId('replays-console-field').boundingBox()
-  if (!tBox || tBox.y < bottom - 1) fail(`the timeline (y ${tBox?.y}) must sit below the picture (bottom ${bottom})`)
-  if (!cBox || cBox.y < bottom - 1) fail(`the console field (y ${cBox?.y}) must sit below the picture (bottom ${bottom})`)
+  if (!tBox || tBox.y < bottom - 1)
+    fail(`the timeline (y ${tBox?.y}) must sit below the picture (bottom ${bottom})`)
+  if (!cBox || cBox.y < bottom - 1)
+    fail(`the console field (y ${cBox?.y}) must sit below the picture (bottom ${bottom})`)
   await shot('stage-playing')
 
   step('steering and a console command reach the engine exactly once')
@@ -146,7 +136,9 @@ export default async function replaysStage({ page, app, step, shot }) {
   if (!final) fail('the stage picture has no box after the session is live')
   for (const k of ['x', 'y', 'width', 'height']) {
     if (Math.abs(final[k] - armed[k]) > 1) {
-      fail(`the box moved after the session started: armed ${JSON.stringify(armed)}, final ${JSON.stringify(final)}`)
+      fail(
+        `the box moved after the session started: armed ${JSON.stringify(armed)}, final ${JSON.stringify(final)}`,
+      )
     }
   }
   // Expected geometry: content origin + rect converted the way the app does it (`screen.dipToScreenRect`
@@ -162,23 +154,33 @@ export default async function replaysStage({ page, app, step, shot }) {
       width: rect.width * zoom,
       height: rect.height * zoom,
     }
-    const p = typeof screen.dipToScreenRect === 'function' ? screen.dipToScreenRect(win, dip) : {
-      x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale,
-    }
+    const p =
+      typeof screen.dipToScreenRect === 'function'
+        ? screen.dipToScreenRect(win, dip)
+        : {
+            x: dip.x * scale,
+            y: dip.y * scale,
+            width: dip.width * scale,
+            height: dip.height * scale,
+          }
     return `${Math.round(p.width)}x${Math.round(p.height)}+${Math.round(p.x)}+${Math.round(p.y)}`
   }, armed)
   const m = /\+set vid_geometry (\d+x\d+\+-?\d+\+-?\d+)/.exec(line)
   if (!m) fail(`the launching line has no vid_geometry: ${JSON.stringify(line)}`)
   if (m[1] !== wanted) {
-    fail(`vid_geometry ${m[1]} is not the geometry ${wanted} of the box measured before play ${JSON.stringify(armed)}`)
+    fail(
+      `vid_geometry ${m[1]} is not the geometry ${wanted} of the box measured before play ${JSON.stringify(armed)}`,
+    )
   }
   // The box did not change, so no re-placement may have reached the engine.
-  const stray = commands().filter((c) => c.includes('vid_geometry'))
-  if (stray.length > 0) fail(`an unchanged box must not re-place the game, command log has ${JSON.stringify(stray)}`)
+  const stray = commands(files.commandLog).filter((c) => c.includes('vid_geometry'))
+  if (stray.length > 0)
+    fail(`an unchanged box must not re-place the game, command log has ${JSON.stringify(stray)}`)
   for (const arg of ['+set vid_fullscreen 0', '+set win_noborder 1', '+set win_alwaysontop 1']) {
     if (!line.includes(arg)) fail(`the launching line lacks ${arg}: ${JSON.stringify(line)}`)
   }
-  if (line.indexOf('vid_geometry') > line.indexOf('+demo ')) fail('the stage args must come before +demo')
+  if (line.indexOf('vid_geometry') > line.indexOf('+demo '))
+    fail('the stage args must come before +demo')
 
   step('after the game exits the list is back')
   writeFileSync(files.quitFile, '')

@@ -92,6 +92,8 @@ describe('buildScanAddressSet', () => {
   })
 
   it('returns an empty list when every input is empty', () => {
-    expect(buildScanAddressSet({ sourceAddresses: [], favourites: [], manualServers: [] })).toEqual([])
+    expect(buildScanAddressSet({ sourceAddresses: [], favourites: [], manualServers: [] })).toEqual(
+      [],
+    )
   })
 })

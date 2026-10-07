@@ -12,7 +12,7 @@ import type { ParsedServerAddress } from './address'
 // (docs/ARCHITECTURE.md), even in a test, since this file type-checks under `tsconfig.web.json`
 // too (which carries no node types at all). See `src/shared/servers/address.test.ts` for the same
 // pattern.
-import en from '../../renderer/src/i18n/locales/en.json'
+import { en } from '../../renderer/src/i18n/bundle'
 
 function record(a: number, b: number, c: number, d: number, port: number): number[] {
   return [a, b, c, d, (port >> 8) & 0xff, port & 0xff]
@@ -139,11 +139,7 @@ describe('assembleMasterAddresses', () => {
 
     const combined = assembleMasterAddresses([a, b, c])
 
-    expect(combined.map((x) => x.normalized)).toEqual([
-      '10.0.0.1:1',
-      '10.0.0.2:2',
-      '10.0.0.3:3',
-    ])
+    expect(combined.map((x) => x.normalized)).toEqual(['10.0.0.1:1', '10.0.0.2:2', '10.0.0.3:3'])
   })
 })
 
@@ -161,7 +157,13 @@ describe('masterSourceFailureKey', () => {
   function stringAt(path: string): string | undefined {
     const value: unknown = path
       .split('.')
-      .reduce<unknown>((acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined), en)
+      .reduce<unknown>(
+        (acc, key) =>
+          acc && typeof acc === 'object' && key in acc
+            ? (acc as Record<string, unknown>)[key]
+            : undefined,
+        en,
+      )
     return typeof value === 'string' ? value : undefined
   }
 

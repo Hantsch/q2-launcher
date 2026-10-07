@@ -48,15 +48,15 @@ flow failed at step 'measure the visible line count from real geometry'
 So `scripts/flows/config-header-geometry.mjs` — the guard AC4 says must "stay green" — is **red
 today, before story 069 changes a single line**, and it is short by 42px (2.5 editor lines), not
 "about two lines of headroom" as the S15 sprint note assumes. The sprint note's premise ("the
-current baseline is 32 lines") is story 061's *pre*-change baseline; 061's own Done section records
-its *final* result as `lines=31 margin=18px`.
+current baseline is 32 lines") is story 061's _pre_-change baseline; 061's own Done section records
+its _final_ result as `lines=31 margin=18px`.
 
 **Why it is red** (throwaway probe, two measurements in one run on the freshly seeded fixture):
 
-| Raw file tab state | editor `clientHeight` | visible lines | margin |
-| --- | --- | --- | --- |
-| Plain Profile **as seeded** (`mode === 'lockedByChanges'`) | 480px | **27** | **-42px** |
-| Same profile after discarding its unsaved change (`mode === 'editable'`) | 540px | **31** | **+18px** |
+| Raw file tab state                                                       | editor `clientHeight` | visible lines | margin    |
+| ------------------------------------------------------------------------ | --------------------- | ------------- | --------- |
+| Plain Profile **as seeded** (`mode === 'lockedByChanges'`)               | 480px                 | **27**        | **-42px** |
+| Same profile after discarding its unsaved change (`mode === 'editable'`) | 540px                 | **31**        | **+18px** |
 
 The 60px difference is entirely the `lockedByChanges` shape of the raw tab, none of it the header:
 `config-raw-locked-hint` (`RawFileTab.tsx:304-308`, 16px) plus the read-only `searchable` branch's
@@ -73,8 +73,8 @@ profile (its only post-061 edit is story 065's third installation), and `ConfigV
 `RawFileTab.tsx`, `ConfigCodeView.tsx` and `config-syntax.css` are byte-identical to 061.
 
 **Why this blocks rather than being decided in refine.** Story 069's second identity line costs
-about 10-14px (see Decision D-2). In the *editable* shape that fits: 18px headroom - ~14px = 30
-lines, still green. In the *locked* shape nothing fits, because the deficit is 42px before the story
+about 10-14px (see Decision D-2). In the _editable_ shape that fits: 18px headroom - ~14px = 30
+lines, still green. In the _locked_ shape nothing fits, because the deficit is 42px before the story
 starts. Funding ~56px "inside the header", as the sprint note requires, is arithmetically impossible
 — the whole chrome above the panel is only ~71px (header 28px + tab strip 27px + `pt-2` 8px + ~8px
 of gaps) and story 061 already spent every lever in it (`pt-4`→`pt-2`, strip `pb-1`→none,
@@ -82,7 +82,7 @@ of gaps) and story 061 already spent every lever in it (`pt-4`→`pt-2`, strip `
 they differ in scope, risk and user-visible behaviour:
 
 - **Option A — 069 stays header-only; the guard is pinned to the shape 061 measured.** AC4 keeps its
-  30-line floor but asserts it in the `editable` shape, and the flow additionally *records* the
+  30-line floor but asserts it in the `editable` shape, and the flow additionally _records_ the
   `lockedByChanges` number and asserts it does not regress below today's 27 lines. The 60px is filed
   as its own defect story. Cheapest, keeps 069 small — but it narrows what the guard covers, which
   is close to the "do not weaken the guard" line.
@@ -104,7 +104,7 @@ A does not.)
 
 ~~OQ1~~ answered → Decisions (Sprint)
 
-**Correction (second refine pass), because the diagnosis above was wrong about *why* it was red:**
+**Correction (second refine pass), because the diagnosis above was wrong about _why_ it was red:**
 the guard is **green on a freshly seeded fixture** — re-measured today, `npm run ui:seed` followed by
 `npm run ui:flow -- config-header-geometry`, output `lines=31 margin=18px` … `flow OK`. See
 **D-10**: the red run was measuring a fixture an earlier session had left `dirty`, not a regression
@@ -136,7 +136,7 @@ whichever of A/B/C is chosen, these hold.
 - **D-3 Line 2 is `KeyValue`'s existing `text-xs text-ink-dim`, line 1 keeps the `h2`.** Line 2
   reuses the two `KeyValue`s already in the zone (`primitives.tsx:87-101`, label = `stencil`, value
   = `text-xs text-ink-dim`) and line 1 keeps today's `font-display text-sm tracking-[0.06em]
-  text-ink uppercase` `h2` plus `UnsavedIndicator`. Reason: AC2's "smaller and dimmer" is already
+text-ink uppercase` `h2` plus `UnsavedIndicator`. Reason: AC2's "smaller and dimmer" is already
   satisfied by the existing token pair, so no new primitive, no new i18n key and no new token —
   `/frontend-guidelines`' reuse rule and CLAUDE.md's "no prose across the i18n boundary".
 - **D-4 The zone stays one `config-profile-identity` element, now with two child rows.** The two
@@ -167,7 +167,7 @@ whichever of A/B/C is chosen, these hold.
 Added in the second refine pass, after OQ1 was answered:
 
 - **D-10 The guard is green; OQ1's red run measured a polluted fixture, not story 064.** The raw
-  tab's mode reads the *persisted* `profile.dirty` flag (`rawEditingMode`, `lib/raw-draft.tsx:57-65`
+  tab's mode reads the _persisted_ `profile.dirty` flag (`rawEditingMode`, `lib/raw-draft.tsx:57-65`
   via `isProfileDirty`, `lib/save-bar.ts:17-19`), and the seeded fixture writes `dirty: false` with a
   `baseline` present for all three profiles (verified in
   `.ui-verify/fixture/populated/userdata/state.json`; `scripts/lib/fixture.mjs` never sets `dirty`).
@@ -210,7 +210,7 @@ Added in the second refine pass, after OQ1 was answered:
   `src/main/modules/config/index.ts:616`) and left again via `config-discard` +
   `DiscardChangesDialog`, which restores `writeUnbindall` from the baseline the fixture already
   seeds. The flow's header comment gains the `npm run ui:seed` precondition note
-  `raw-inline-edit.mjs` carries. Reason: measuring one shape *by fixture accident* is what produced
+  `raw-inline-edit.mjs` carries. Reason: measuring one shape _by fixture accident_ is what produced
   OQ1 in the first place — after this story both shapes are measured on purpose, in one run.
 
 ## Plan
@@ -256,7 +256,7 @@ Regression surface to re-run after D1/D2 (both touch the raw tab): `npm run ui:s
   of state for both branches — no new prop (D-13).
 - `scripts/flows/config-header-geometry.mjs` — after the existing measurement, add a
   `lockedByChanges` block: toggle the raw tab's `writeUnbindall` checkbox, wait for the read-only
-  view, measure `lines`/`margin` with the *same* helper the first measurement uses (extract it, do
+  view, measure `lines`/`margin` with the _same_ helper the first measurement uses (extract it, do
   not copy the formula), assert `>= MIN_VISIBLE_LINES`, assert `.cfg-code-search` is absent, press
   Ctrl+F and assert it appears, press Escape and assert it is gone again, then restore via
   `config-discard` + the discard dialog's confirm and assert `config-tab-unsaved` disappears
@@ -293,7 +293,7 @@ Regression surface to re-run after D1/D2 (both touch the raw tab): `npm run ui:s
   they remain the leftmost/rightmost header children (AC3); at 940x620 the identity zone wraps
   inside the header (existing no-overflow check) while `config-profile-actions` stays on screen and
   hit-testable (AC5). Update the file's `single row` comment block (`:204-230`) — the ceiling still
-  holds at 36px vs 56px, but the reason it is a *two-line identity zone in a one-row header* has to
+  holds at 36px vs 56px, but the reason it is a _two-line identity zone in a one-row header_ has to
   be written down, or the next reader reads the assertion as forbidding what this story just built.
 - Acceptance: `lines >= 30` in both shapes, all AC1-AC5 assertions green, screenshots show the two
   lines.
@@ -307,7 +307,7 @@ Regression surface to re-run after D1/D2 (both touch the raw tab): `npm run ui:s
   `leading-*`, `items-start` instead of `items-center`) silently costs one editor line or breaks
   story 061's still-binding "identical chrome on every tab", and it is also where the AC2/AC3
   geometry assertions have to be written without magic numbers.
-- Review: → `story-review-hard` — the diff changes a *shared* code view's find behaviour for a
+- Review: → `story-review-hard` — the diff changes a _shared_ code view's find behaviour for a
   second caller (`ConfigConflictDialog`) and hardens the very guard that proves its own acceptance,
   which is the combination where a reviewer has to check that the guard was not quietly made easier
   instead of the layout made smaller.
@@ -371,11 +371,13 @@ no-op — and in the editable branch, destructive — whenever the bar was alrea
 fix closed that gap and a third review pass returned PASS.
 
 **Commit message:**
+
 ```
 069: profile header breathes in two lines
 ```
 
 **Decisions (made during build, not pre-existing in the story):**
+
 - The two review-fix cycles both stayed inside D1's `ConfigCodeView.tsx` scope (the shared find-bar
   find/focus mechanics) — `RawFileTab.tsx` (D2) and `ConfigView.tsx` (D3) were never touched by
   either fix, confirmed clean by all three review passes.
@@ -394,13 +396,14 @@ fix closed that gap and a third review pass returned PASS.
   test that would fail if it were removed in isolation (Escape's `setQuery('')` already clears
   highlights) — a coverage gap, not a behaviour bug; (4) the pre-existing asymmetry where the
   read-only branch clears its query on Escape and the editable branch does not was left as found —
-  out of scope for both fix cycles, and D-13's "mirrored 1:1" targets the on-demand *visibility*
+  out of scope for both fix cycles, and D-13's "mirrored 1:1" targets the on-demand _visibility_
   behaviour, not this pre-existing quirk.
 - The locked hint's lock-reason `HoverCard` (D2/D-14) is mouse-hover-only for keyboard/AT users in
   the `changeSet.count > 0` case (the badge itself has no focusable child) — accepted as spec-exact
   per D-14, flagged by review as real but non-blocking information loss, not fixed in this story.
 
 **Verification:**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `npm test` — 2712 tests, 1 pre-existing unrelated flaky timeout in

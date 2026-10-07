@@ -5,11 +5,11 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { REPLAYS_HANDLERS } from '@shared/modules/replays'
 import { nameTemplatesFingerprint, type NameTemplatesView } from '@shared/replays/name-templates'
-import type { AppContext } from '../../context'
-import { createFeatureGate } from '../../features/gate'
+import { fakeAppContext } from '../../../test-support/app-context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { replaysModule } from './index'
+import { replaysState } from './persisted'
 
 /**
  * Story 144 D3 made module setup construct a `ReplaysIndexCache`, which resolves its file path
@@ -28,13 +28,6 @@ vi.mock('electron', () => ({
  * via a second, independent `StateStore` - the only way to prove a mutation both persisted and
  * survived `parseReplaysState`. Mirrors `src/main/modules/servers/index.test.ts`'s `sources.*` block.
  */
-function fakeAppContext(state: StateStore): AppContext {
-  const broadcast = { emit: () => {} }
-  const launch = { getState: () => undefined, onStateChange: () => () => {} }
-  const features = createFeatureGate([])
-  return { state, broadcast, launch, features } as unknown as AppContext
-}
-
 type NameTemplatesOutcome =
   | { ok: true; value: NameTemplatesView }
   | { ok: false; error: { key: string; params?: Record<string, unknown> } }
@@ -47,12 +40,12 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-name-templates-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     userDataDirPath = await mkdtemp(join(tmpdir(), 'q2-launcher-name-templates-userdata-'))
     userDataBox.current = userDataDirPath
     registry = new MainModuleRegistry()
-    await registry.register(replaysModule, fakeAppContext(state))
+    await registry.register(replaysModule, fakeAppContext({ state }))
   })
 
   afterEach(async () => {
@@ -63,16 +56,9 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     await rm(userDataDirPath, { recursive: true, force: true })
   })
 
-  /** Every handler's outcome is wrapped once by the registry (`ok(await handler(...))`) and, on
-   * top of that, the handler itself already returns an `Outcome<T>` (same "flattening" convention
-   * `config`'s import handlers use) - so a successful call looks like
-   * `{ ok: true, value: { ok: true, value: T } }` and a refusal like
-   * `{ ok: true, value: { ok: false, error } }`. This unwraps the outer layer only, returning the
-   * handler's own `Outcome`. */
+  /** The registry passes each handler's own `Outcome<T>` through unchanged. */
   async function invoke(type: string, payload?: unknown): Promise<NameTemplatesOutcome> {
-    const outcome = await registry.invoke({ moduleId: 'replays', type, payload })
-    expect(outcome.ok).toBe(true)
-    return (outcome as { ok: true; value: NameTemplatesOutcome }).value
+    return (await registry.invoke({ moduleId: 'replays', type, payload })) as NameTemplatesOutcome
   }
 
   async function listIds(): Promise<string[]> {
@@ -89,17 +75,17 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     const beforeTemplates = added.value.entries.map((entry) => entry.template)
 
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     const reloadedRegistry = new MainModuleRegistry()
-    await reloadedRegistry.register(replaysModule, fakeAppContext(reloaded))
+    await reloadedRegistry.register(replaysModule, fakeAppContext({ state: reloaded }))
 
     const outcome = await reloadedRegistry.invoke({
       moduleId: 'replays',
       type: REPLAYS_HANDLERS.nameTemplatesList,
       payload: undefined,
     })
-    const result = (outcome as { ok: true; value: NameTemplatesOutcome }).value
+    const result = outcome as NameTemplatesOutcome
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.value.entries.map((entry) => entry.id)).toEqual(beforeIds)
@@ -125,7 +111,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
   })
 
   it('a payload over the length cap or with a non-printable character is rejected at the seam', async () => {
-    const beforeState = state.replaysState()
+    const beforeState = replaysState(state).get()
 
     const tooLong = await registry.invoke({
       moduleId: 'replays',
@@ -141,7 +127,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     })
     expect(nonPrintable).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
 
-    expect(state.replaysState()).toEqual(beforeState)
+    expect(replaysState(state).get()).toEqual(beforeState)
   })
 
   it('reorder, remove, reset and restore persist', async () => {
@@ -200,9 +186,9 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
 
     // Persisted, not just in-memory.
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
-    expect(reloaded.replaysState().nameTemplates.removedShippedIds).toEqual([])
+    expect(replaysState(reloaded).get().nameTemplates.removedShippedIds).toEqual([])
   })
 
   it("an unknown id on update/remove/reset returns 'notFound'", async () => {

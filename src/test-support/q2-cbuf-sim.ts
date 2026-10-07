@@ -51,7 +51,8 @@ export function createCbufSim(
   let cbuf = ''
   let waiting = false
 
-  const macro = (name: string): string => (name === 'cl_demopos' ? demoPos : (cvars.get(name) ?? ''))
+  const macro = (name: string): string =>
+    name === 'cl_demopos' ? demoPos : (cvars.get(name) ?? '')
 
   function expandMacros(line: string): string {
     let out = ''

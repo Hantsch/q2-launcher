@@ -60,7 +60,9 @@ export default async function rawSaveCascades({ page, shot, step }) {
   const textarea = page.locator('.cfg-code-textarea')
   await textarea.waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
 
-  step('type a hand-formatted line at the end of the editor (deliberately not a render fixed point)')
+  step(
+    'type a hand-formatted line at the end of the editor (deliberately not a render fixed point)',
+  )
   await textarea.click({ timeout: TIMEOUT_MS })
   await page.keyboard.press('Control+End')
   // A tab, extra spaces and no trailing newline - hand formatting `renderProfileFile` would never
@@ -91,7 +93,7 @@ export default async function rawSaveCascades({ page, shot, step }) {
   }
 
   step(
-    'assert BOTH of Plain Profile\'s assigned installations now hold a byte-identical copy of the ' +
+    "assert BOTH of Plain Profile's assigned installations now hold a byte-identical copy of the " +
       'canonical file (AC1) - never a re-render of it',
   )
   for (const installId of [INSTALL_ONE_ID, INSTALL_TWO_ID]) {

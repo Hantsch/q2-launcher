@@ -2,10 +2,10 @@ import type { ServerHistoryEntry } from '@shared/modules/servers'
 import { SERVER_HISTORY_CAP } from '@shared/modules/servers'
 
 /**
- * Story 113 D3: the connection history's pure rules (mirrors
+ * Story 113: the connection history's pure rules (mirrors
  * `main/modules/downloads/failure-log.ts` - no I/O, no electron, plain-array-in/plain-array-out).
  * `entry.address` is already a normalized address string by the time it reaches this module; the
- * manual-servers store (a different deliverable) owns validating/normalizing raw user input, not
+ * address validation/normalization of raw user input happens elsewhere, not
  * this one.
  */
 
@@ -13,7 +13,7 @@ import { SERVER_HISTORY_CAP } from '@shared/modules/servers'
  * Records a visit to `entry.address`. Dedupes by address (D-E): if the address already exists
  * anywhere in `log`, its old row is dropped rather than kept alongside the new one. The
  * fresh/updated entry is then prepended (`[fresh, ...rest]`), so the result is always newest-first,
- * and capped at `SERVER_HISTORY_CAP`, oldest (tail) evicted first (AC3).
+ * and capped at `SERVER_HISTORY_CAP`, oldest (tail) evicted first.
  */
 export function recordServerVisit(
   log: readonly ServerHistoryEntry[],
@@ -29,7 +29,7 @@ export function recordServerVisit(
 }
 
 /**
- * Reads the history back in most-recent-first order (AC4). `recordServerVisit` already always
+ * Reads the history back in most-recent-first order. `recordServerVisit` already always
  * maintains that order, so this is a copy of `log` as-is - the explicit function (rather than
  * callers reading `log` directly) is what documents the ordering guarantee.
  */

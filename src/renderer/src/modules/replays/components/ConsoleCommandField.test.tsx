@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 
 /** Story 166 D4. Stubbed client, real store - same idiom as `DemoTimeline.test.tsx`. */
@@ -10,14 +11,16 @@ vi.hoisted(() => {
 })
 
 const consoleSend = vi.fn()
-vi.mock('../client', () => ({
-  consoleSend: (...args: unknown[]) => consoleSend(...args),
-  playbackTimeline: vi.fn(),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-  playbackDisplayRead: () => new Promise(() => {}),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    consoleSend: (...args: unknown[]) => consoleSend(...args),
+    playbackTimeline: vi.fn(),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+    playbackDisplayRead: () => new Promise(() => {}),
+  }),
+)
 
 let ConsoleCommandField: typeof import('./ConsoleCommandField').ConsoleCommandField
 let usePlaybackStore: typeof import('../playback-store').usePlaybackStore
@@ -45,8 +48,10 @@ function begin(): void {
   act(() => usePlaybackStore.getState().beginSession('a.dm2', 60_000))
 }
 
-const input = (): HTMLInputElement => screen.getByTestId('replays-console-input') as HTMLInputElement
-const send = (): HTMLButtonElement => screen.getByTestId('replays-console-send') as HTMLButtonElement
+const input = (): HTMLInputElement =>
+  screen.getByTestId('replays-console-input') as HTMLInputElement
+const send = (): HTMLButtonElement =>
+  screen.getByTestId('replays-console-send') as HTMLButtonElement
 
 describe('ConsoleCommandField (story 166 D4)', () => {
   it('a rejected line is not sent and shows its reason', () => {
@@ -108,7 +113,8 @@ describe('ConsoleCommandField (story 166 D4)', () => {
 
   describe('stage input hint (story 173 D4)', () => {
     const hint = (): HTMLElement | null => screen.queryByTestId('replays-console-stage-hint')
-    const platform = (p: string): void => useLauncher.setState({ appInfo: { platform: p } as never })
+    const platform = (p: string): void =>
+      useLauncher.setState({ appInfo: { platform: p } as never })
 
     it('on Windows the stage hint names the alternatives', () => {
       platform('win32')

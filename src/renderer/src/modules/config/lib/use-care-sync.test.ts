@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
+import { makeConfigProfile } from '../../../../../test-support/fixtures'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { ConfigProfile } from '@shared/modules/config'
 import { ok } from '@shared/types'
 import type { CareItemAction } from './care-items'
@@ -30,24 +32,12 @@ vi.mock('../../../store/useLauncher', () => ({
     selector({ pushToast }),
 }))
 
-vi.mock('../client', () => ({
-  writeConfigProfile: vi.fn(),
-  openProfileFile: vi.fn(),
-  refreshProfilesFromFiles: vi.fn(),
-  saveConfigProfile: vi.fn(),
-}))
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('../client', (importOriginal) => mockClient<typeof import('../client')>(importOriginal))
 
 const write = vi.mocked(writeConfigProfile)
 
-const PROFILE: ConfigProfile = {
-  id: 'p1',
-  name: 'Profile One',
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-  cvars: {},
-  binds: {},
-  assignments: [],
-}
+const PROFILE: ConfigProfile = makeConfigProfile()
 
 const RETRY_ACTION: CareItemAction = { key: 'canonical:retry', kind: 'retry', labelKey: 'unused' }
 

@@ -96,7 +96,7 @@ export function DetectDialog({ autoStart = false }: { autoStart?: boolean }) {
         cancelScan()
         closeDialog()
       }}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button
@@ -106,7 +106,7 @@ export function DetectDialog({ autoStart = false }: { autoStart?: boolean }) {
               closeDialog()
             }}
           >
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           {scanning ? (
             <Button variant="neutral" onClick={cancelScan}>
@@ -125,7 +125,7 @@ export function DetectDialog({ autoStart = false }: { autoStart?: boolean }) {
             // primary action becomes "add it by hand" rather than a disabled
             // "Add 0 selected".
             <Button variant="primary" onClick={() => openDialog({ kind: 'add-existing' })}>
-              {t('rail.addExisting')}
+              {t('common.action.addExistingInstallation')}
             </Button>
           ) : (
             <Button
@@ -157,7 +157,7 @@ export function DetectDialog({ autoStart = false }: { autoStart?: boolean }) {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-ink-dim">
               <Spinner />
-              {progress ? t(`dialog.detect.phase.${progress.phase}`) : t('common.loading')}
+              {progress ? t(`dialog.detect.phase.${progress.phase}`) : t('common.label.loading')}
             </div>
             <ProgressBar
               ratio={progress?.ratio ?? null}

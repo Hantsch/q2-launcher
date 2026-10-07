@@ -201,6 +201,41 @@
   letter-spacing: 0.06em;
 }
 
+/* --- mod card banner ------------------------------------------------------
+   The top plate of a mod card: rust steel with a faint amber glow and
+   machined diagonal grooves, the gamedir stencilled across it as a watermark.
+   Brightens on hover and when the card is selected. */
+.mod-card-banner {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-line);
+  background:
+    radial-gradient(120% 160% at 100% 0%, rgb(255 138 31 / 0.16), transparent 60%),
+    repeating-linear-gradient(135deg, rgb(255 255 255 / 0.025) 0 2px, transparent 2px 10px),
+    linear-gradient(180deg, var(--color-rust-900), var(--color-panel));
+  transition: filter var(--dur-base) var(--ease-out-quart);
+}
+.group:hover .mod-card-banner,
+[data-selected] .mod-card-banner {
+  filter: brightness(1.35) saturate(1.15);
+}
+.mod-card-watermark {
+  position: absolute;
+  left: 1rem;
+  bottom: -0.14em;
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-flame-500);
+  opacity: 0.16;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* --- typography helpers -------------------------------------------------- */
 /* Stencilled equipment label: the small uppercase text on every panel. */
 .stencil {

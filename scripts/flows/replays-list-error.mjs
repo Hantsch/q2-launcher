@@ -18,6 +18,11 @@ import {
   replaysListErrorMissingFolderPath,
   writeReplaysListErrorFixture,
 } from '../lib/fixture.mjs'
+import {
+  openFolder,
+  waitForDemosScanToFinish,
+  showAllInstallations,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-list-error'
 
@@ -32,21 +37,10 @@ export async function setup() {
   return {}
 }
 
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS * 4
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
-}
-
 export default async function replaysListError({ page, shot, step }) {
   step('opening the Demos view runs a scan that finds two failing sources')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await waitForDemosScanToFinish(page, { timeout: TIMEOUT_MS * 4 })
 
   const errors = page.getByTestId('replays-list-source-error')
   await errors.first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -78,7 +72,9 @@ export default async function replaysListError({ page, shot, step }) {
         )
       }
     } else {
-      throw new Error(`replays-list-error: unexpected data-reason "${reason}" on a source-error row`)
+      throw new Error(
+        `replays-list-error: unexpected data-reason "${reason}" on a source-error row`,
+      )
     }
   }
   if (missingCount !== 1 || archiveCount !== 1) {
@@ -87,7 +83,15 @@ export default async function replaysListError({ page, shot, step }) {
     )
   }
   step('every fixture demo is still listed despite the two failing sources')
-  const names = await page.getByTestId('replays-demo-name').allTextContents()
+  await showAllInstallations(page)
+  const names = []
+  const rootLabel = (demo) => `${demo.installationName} · ${demo.gameDir}`
+  for (const root of new Set(REPLAYS_FIXTURE_DEMOS.map(rootLabel))) {
+    await openFolder(page, root)
+    names.push(...(await page.getByTestId('replays-demo-name').allTextContents()))
+    await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
+    await page.getByTestId('replays-breadcrumb').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  }
   const expectedNames = REPLAYS_FIXTURE_DEMOS.map((demo) => demo.fileName)
   const sortedActual = [...names].sort()
   const sortedExpected = [...expectedNames].sort()

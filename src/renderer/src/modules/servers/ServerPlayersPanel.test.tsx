@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { ServerListRow } from '@shared/modules/servers'
-import enJson from '../../i18n/locales/en.json'
+import { en as enJson } from '../../i18n/bundle'
 import { initI18n } from '../../i18n'
 
 let ServerPlayersPanel: typeof import('./ServerPlayersPanel').ServerPlayersPanel
@@ -85,6 +85,28 @@ describe('ServerPlayersPanel (story 122 D4)', () => {
     expect(pingSort.closest('th')?.getAttribute('aria-sort')).toBe('descending')
   })
 
+  it('a third click on a column returns to score descending', () => {
+    renderPanel(
+      baseRow({
+        players: [
+          { name: 'Alpha1', score: 12, ping: 5 },
+          { name: 'Alpha2', score: 0, ping: 0 },
+          { name: 'Alpha3', score: 5, ping: 8 },
+        ],
+      }),
+    )
+
+    const pingSort = screen.getByTestId('servers-detail-players-sort-ping')
+    fireEvent.click(pingSort)
+    fireEvent.click(pingSort)
+    fireEvent.click(pingSort)
+
+    const rows = screen.getAllByTestId('servers-detail-player-row')
+    expect(rows[0]?.textContent).toContain('Alpha1') // score 12, the default order
+    const scoreSort = screen.getByTestId('servers-detail-players-sort-score')
+    expect(scoreSort.closest('th')?.getAttribute('aria-sort')).toBe('descending')
+  })
+
   it('a known zero shows the empty state; an unknown count does not', () => {
     renderPanel(baseRow({ players: 0 }))
     expect(screen.getByTestId('servers-detail-players-empty')).toBeTruthy()
@@ -140,7 +162,10 @@ describe('ServerPlayersPanel (story 122 D4)', () => {
     expect(zeroRow).toBeTruthy()
     expect(zeroRow?.className).toBe(scoringRow?.className)
 
-    const attrNames = (el: Element) => Array.from(el.attributes).map((a) => a.name).sort()
+    const attrNames = (el: Element) =>
+      Array.from(el.attributes)
+        .map((a) => a.name)
+        .sort()
     expect(attrNames(zeroRow as Element)).toEqual(attrNames(scoringRow as Element))
 
     const strings = collectStrings(

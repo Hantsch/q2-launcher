@@ -50,7 +50,7 @@ bundle a TextMate grammar and a highlighting engine into the app.
   Folding alias bodies / jump-to-bind-by-key stay out of scope — not requested, would add UI
   surface beyond a find-in-text control.
 - The reference extension is **GPL-3.0** (`api.github.com/repos/amokmen/quake2-config-syntax/
-  license` → `gpl-3.0`), this repo is MIT: nothing is read from or derived from its grammar, and
+license` → `gpl-3.0`), this repo is MIT: nothing is read from or derived from its grammar, and
   the tokenizer is written from the engine facts already in this repo (`config-parser.ts`'s
   tokenizer header, `alt-layers.ts` §quoting, `key-names.ts`) — a copyleft grammar cannot be
   carried into an MIT app.
@@ -107,9 +107,9 @@ search, then the swap-in. Nothing before D4 changes an existing surface.
 
 1. **Tokenizer** — new `src/shared/config/config-syntax.ts`:
    `tokenizeConfigText(text): ConfigSyntaxLine[]`, `ConfigSyntaxLine = { number, tokens,
-   terminator }`, `ConfigSyntaxToken = { kind, text }` with
+terminator }`, `ConfigSyntaxToken = { kind, text }` with
    `kind: 'comment' | 'command' | 'key' | 'cvar' | 'number' | 'string' | 'plusCommand' |
-   'separator' | 'space' | 'text'`. Scanning rules copied in behaviour (not in code) from
+'separator' | 'space' | 'text'`. Scanning rules copied in behaviour (not in code) from
    `config-parser.ts:110-193`: split on `\r\n|\r|\n`, `//` only outside quotes, `;` only outside
    quotes, `"…"` with no escaping and an unterminated quote running to end of line. Known commands
    as a local set (`bind`, `unbind`, `unbindall`, `alias`, `set`/`seta`/`setu`/`sets`, `exec`,
@@ -137,66 +137,66 @@ tokens only (step 2); the module is never the shell (all new files under `module
 ## Deliverables
 
 - [x] **D1 — Pure Quake 2 config tokenizer.**
-  Files: new `src/shared/config/config-syntax.ts`, new `src/shared/config/config-syntax.test.ts`.
-  Mirror: `src/main/modules/config/core/config-parser.ts:1-193` for the scanning rules and the
-  doc-header style; `src/shared/config/alt-layers.ts:32-50` for the quoting facts to cite.
-  Accept: every token kind above is produced; a round-trip test reassembles the exact input for
-  (a) `renderProfileFile` output, (b) a hand-written config with `alias`, `;`-chains, `//` inside
-  a quoted value, an unterminated quote, a trailing comment, CRLF line ends, latin1 high-ASCII
-  and one garbled line; an unrecognised line yields only `text`/`space` tokens and its neighbours
-  still classify normally; a 2000-line input tokenizes well under 100 ms (loose bound, asserted);
-  the file header records the GPL-3.0 finding and that nothing is derived; `src/shared` purity
-  intact (no imports outside `@shared`). → AC 1, 2, 4, 5, 8
+      Files: new `src/shared/config/config-syntax.ts`, new `src/shared/config/config-syntax.test.ts`.
+      Mirror: `src/main/modules/config/core/config-parser.ts:1-193` for the scanning rules and the
+      doc-header style; `src/shared/config/alt-layers.ts:32-50` for the quoting facts to cite.
+      Accept: every token kind above is produced; a round-trip test reassembles the exact input for
+      (a) `renderProfileFile` output, (b) a hand-written config with `alias`, `;`-chains, `//` inside
+      a quoted value, an unterminated quote, a trailing comment, CRLF line ends, latin1 high-ASCII
+      and one garbled line; an unrecognised line yields only `text`/`space` tokens and its neighbours
+      still classify normally; a 2000-line input tokenizes well under 100 ms (loose bound, asserted);
+      the file header records the GPL-3.0 finding and that nothing is derived; `src/shared` purity
+      intact (no imports outside `@shared`). → AC 1, 2, 4, 5, 8
 
 - [x] **D2 — Token style layer + read-only highlighted viewer.**
-  Files: new `src/renderer/src/styles/config-syntax.css`, `src/renderer/src/styles/index.css`
-  (import), new `src/renderer/src/modules/config/components/ConfigCodeView.tsx`,
-  `src/renderer/src/i18n/locales/en.json`.
-  Mirror: `src/renderer/src/styles/controls-grid.css` (composed stylesheet, tokens only),
-  `src/renderer/src/components/ui/primitives.tsx:152-163` (the `CodeBlock` surface it replaces).
-  Accept: content renders as one `<pre>` of token spans with a `select-none`, `aria-hidden`
-  line-number gutter aligned line-for-line; no soft wrap, horizontal + vertical scroll, the same
-  bounded height as the old `CodeBlock`; comment italic and command semibold so kinds differ by
-  more than colour; no hex value and no raw palette class in the new files; selecting the block
-  and copying yields the file text without gutter numbers; high-ASCII glyphs render unchanged; a
-  ~2000-line profile paints without perceptible delay and tokenization is memoized on `text`;
-  `singleLine` renders one snippet with no gutter. → AC 3, 4, 5
+      Files: new `src/renderer/src/styles/config-syntax.css`, `src/renderer/src/styles/index.css`
+      (import), new `src/renderer/src/modules/config/components/ConfigCodeView.tsx`,
+      `src/renderer/src/i18n/locales/en.json`.
+      Mirror: `src/renderer/src/styles/controls-grid.css` (composed stylesheet, tokens only),
+      `src/renderer/src/components/ui/primitives.tsx:152-163` (the `CodeBlock` surface it replaces).
+      Accept: content renders as one `<pre>` of token spans with a `select-none`, `aria-hidden`
+      line-number gutter aligned line-for-line; no soft wrap, horizontal + vertical scroll, the same
+      bounded height as the old `CodeBlock`; comment italic and command semibold so kinds differ by
+      more than colour; no hex value and no raw palette class in the new files; selecting the block
+      and copying yields the file text without gutter numbers; high-ASCII glyphs render unchanged; a
+      ~2000-line profile paints without perceptible delay and tokenization is memoized on `text`;
+      `singleLine` renders one snippet with no gutter. → AC 3, 4, 5
 
 - [x] **D3 — Find in file.**
-  Files: new `src/renderer/src/modules/config/lib/config-search.ts` +
-  `config-search.test.ts`, `modules/config/components/ConfigCodeView.tsx`,
-  `src/renderer/src/styles/config-syntax.css`, `src/renderer/src/i18n/locales/en.json`.
-  Mirror: `modules/config/ControlsTab.tsx:917-923` (filter-input idiom),
-  `components/ui/controls.tsx:41` (`Input`), `components/ui/Button.tsx:68` (`IconButton`),
-  `modules/config/lib/bind-conflicts.ts` (pure-helper-plus-test idiom).
-  Accept: an always-visible search input in the viewer header; case-insensitive substring
-  matching; "n of m" count with `aria-live="polite"`; next/previous buttons plus
-  `Enter`/`Shift+Enter`, wrapping around; `Escape` clears the query and the marks; the current
-  match is visually distinct from the others and scrolled into view; no match → count reads 0,
-  nothing marked, no crash; a match spanning a token boundary is marked in both spans without
-  altering a character, so copying is still byte-identical; `Ctrl+F` inside the viewer focuses the
-  input and does not leak to the window; helper tests cover token-boundary spans, overlapping
-  candidates, empty query, regex-special characters and a high-ASCII query. → AC 7 (and AC 3's
-  "stays copyable" under an active search)
+      Files: new `src/renderer/src/modules/config/lib/config-search.ts` +
+      `config-search.test.ts`, `modules/config/components/ConfigCodeView.tsx`,
+      `src/renderer/src/styles/config-syntax.css`, `src/renderer/src/i18n/locales/en.json`.
+      Mirror: `modules/config/ControlsTab.tsx:917-923` (filter-input idiom),
+      `components/ui/controls.tsx:41` (`Input`), `components/ui/Button.tsx:68` (`IconButton`),
+      `modules/config/lib/bind-conflicts.ts` (pure-helper-plus-test idiom).
+      Accept: an always-visible search input in the viewer header; case-insensitive substring
+      matching; "n of m" count with `aria-live="polite"`; next/previous buttons plus
+      `Enter`/`Shift+Enter`, wrapping around; `Escape` clears the query and the marks; the current
+      match is visually distinct from the others and scrolled into view; no match → count reads 0,
+      nothing marked, no crash; a match spanning a token boundary is marked in both spans without
+      altering a character, so copying is still byte-identical; `Ctrl+F` inside the viewer focuses the
+      input and does not leak to the window; helper tests cover token-boundary spans, overlapping
+      candidates, empty query, regex-special characters and a high-ASCII query. → AC 7 (and AC 3's
+      "stays copyable" under an active search)
 
 - [x] **D4 — One renderer in all three places.**
-  Files: `src/renderer/src/modules/config/RawConfigPanel.tsx`,
-  `src/renderer/src/modules/config/ImportProfileDialog.tsx:227-273`,
-  `src/renderer/src/components/ui/primitives.tsx` (only to drop `CodeBlock` if it ends up with no
-  importer).
-  Accept: the Raw File tab and the write-preview dialog render file content through
-  `ConfigCodeView` (the per-file path/badge/reveal header from 023 untouched); the import
-  preview's preserved-line and duplicate-bind snippets render through the same component's
-  `singleLine` variant; a grep for `CodeBlock` over `src/` leaves either no importer and the
-  primitive removed, or exactly one named in the Done section with its reason; if the pre-existing
-  double-unwrapped-`Outcome` crash on `config-raw` is still present, it is fixed by that one
-  unwrap and nothing else; build + typecheck + tests green. → AC 6
+      Files: `src/renderer/src/modules/config/RawConfigPanel.tsx`,
+      `src/renderer/src/modules/config/ImportProfileDialog.tsx:227-273`,
+      `src/renderer/src/components/ui/primitives.tsx` (only to drop `CodeBlock` if it ends up with no
+      importer).
+      Accept: the Raw File tab and the write-preview dialog render file content through
+      `ConfigCodeView` (the per-file path/badge/reveal header from 023 untouched); the import
+      preview's preserved-line and duplicate-bind snippets render through the same component's
+      `singleLine` variant; a grep for `CodeBlock` over `src/` leaves either no importer and the
+      primitive removed, or exactly one named in the Done section with its reason; if the pre-existing
+      double-unwrapped-`Outcome` crash on `config-raw` is still present, it is fixed by that one
+      unwrap and nothing else; build + typecheck + tests green. → AC 6
 
 ## Model Hints
 
 - D2 → `deliverable-hard` — it is the only D whose real constraints cannot be unit-tested in this
   repo (vitest is node-only): copy-yields-the-original-bytes, a gutter that stays aligned without
-  wrapping, and 2000 lines without virtualization all fail *silently* if they are got wrong.
+  wrapping, and 2000 lines without virtualization all fail _silently_ if they are got wrong.
 - D1, D3, D4 → default tier (pure logic with its own tests; a pure search helper plus a small
   control; a three-call-site swap).
 - Review: → `story-review-hard` — byte-fidelity of a read-only view is exactly the kind of
@@ -249,6 +249,7 @@ the plan's two named files didn't list but AC 6's own "in Raw File" wording cove
 remaining importers and was deleted from `primitives.tsx`.
 
 **Decisions (during build):**
+
 - D1's own instructions (written by this build's orchestrator, not the story text) initially
   over-restricted `plusCommand` to a segment's first word, which the review caught as making the
   kind dead for the story's own test-plan example (`bind s +back`). Fixed in the review-fix cycle

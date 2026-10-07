@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { SidecarIssue } from '@shared/modules/replays'
-import { Button } from '../../../components/ui/Button'
-import { Modal } from '../../../components/ui/Modal'
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 
 /**
  * Story 155: a save found a broken notes file on disk and touched nothing (`needsConfirmation`).
@@ -21,31 +20,26 @@ export function ReplaceSidecarDialog({
 }) {
   const { t } = useTranslation()
   return (
-    <Modal
-      open
-      size="sm"
+    <ConfirmDialog
       title={t('replays.editor.replaceDialog.title')}
-      onClose={onCancel}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onCancel} data-testid="replays-replace-cancel">
-            {t('common.cancel')}
-          </Button>
-          <Button variant="danger" onClick={onConfirm} data-testid="replays-replace-confirm">
-            {t('replays.editor.replaceDialog.confirm')}
-          </Button>
-        </>
+      body={
+        <div
+          className="space-y-2 text-sm leading-relaxed text-ink-dim"
+          data-testid="replays-replace-sidecar-dialog"
+        >
+          <p>{t('replays.editor.replaceDialog.body', { fileName })}</p>
+          <ul className="list-disc space-y-1 pl-5 text-xs text-danger">
+            {issues.map((issue, index) => (
+              <li key={`${issue.kind}-${index}`}>{t(issue.key, issue.params)}</li>
+            ))}
+          </ul>
+        </div>
       }
-    >
-      <div className="space-y-2 text-sm leading-relaxed text-ink-dim" data-testid="replays-replace-sidecar-dialog">
-        <p>{t('replays.editor.replaceDialog.body', { fileName })}</p>
-        <ul className="list-disc space-y-1 pl-5 text-xs text-danger">
-          {issues.map((issue, index) => (
-            <li key={`${issue.kind}-${index}`}>{t(issue.key, issue.params)}</li>
-          ))}
-        </ul>
-      </div>
-    </Modal>
+      confirmLabel={t('replays.editor.replaceDialog.confirm')}
+      tone="danger"
+      onConfirm={onConfirm}
+      onClose={onCancel}
+      testIds={{ confirm: 'replays-replace-confirm', cancel: 'replays-replace-cancel' }}
+    />
   )
 }

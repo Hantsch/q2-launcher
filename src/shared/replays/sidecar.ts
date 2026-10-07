@@ -13,35 +13,62 @@ import { z } from 'zod'
 
 export const SIDECAR_SCHEMA_VERSION = 1
 
+/** One source for the maximum lengths, shared by the schema and the editor's field validation. */
+export const SIDECAR_LIMITS = {
+  name: 200,
+  description: 4000,
+  map: 64,
+  mod: 64,
+  gamemode: 64,
+  tag: 40,
+  tags: 50,
+  sideTeam: 64,
+  result: 32,
+  player: 64,
+  players: 64,
+  sides: 16,
+  comment: 500,
+  comments: 200,
+} as const
+
 export const sidecarSideSchema = z
   .object({
-    team: z.string().max(64).optional(),
-    result: z.string().max(32).optional(),
-    players: z.array(z.string().max(64)).max(64)
+    team: z.string().max(SIDECAR_LIMITS.sideTeam).optional(),
+    result: z.string().max(SIDECAR_LIMITS.result).optional(),
+    players: z.array(z.string().max(SIDECAR_LIMITS.player)).max(SIDECAR_LIMITS.players),
+  })
+  .strict()
+
+export const sidecarCommentSchema = z
+  .object({
+    atMs: z.number().int().min(0),
+    text: z.string().min(1).max(SIDECAR_LIMITS.comment),
   })
   .strict()
 
 export const sidecarFieldsSchema = z
   .object({
-    name: z.string().max(200).optional(),
-    description: z.string().max(4000).optional(),
-    mod: z.string().max(64).optional(),
-    gamemode: z.string().max(64).optional(),
-    map: z.string().max(64).optional(),
-    sides: z.array(sidecarSideSchema).max(16).optional(),
-    tags: z.array(z.string().min(1).max(40)).max(50).optional(),
+    name: z.string().max(SIDECAR_LIMITS.name).optional(),
+    description: z.string().max(SIDECAR_LIMITS.description).optional(),
+    mod: z.string().max(SIDECAR_LIMITS.mod).optional(),
+    gamemode: z.string().max(SIDECAR_LIMITS.gamemode).optional(),
+    map: z.string().max(SIDECAR_LIMITS.map).optional(),
+    sides: z.array(sidecarSideSchema).max(SIDECAR_LIMITS.sides).optional(),
+    tags: z.array(z.string().min(1).max(SIDECAR_LIMITS.tag)).max(SIDECAR_LIMITS.tags).optional(),
     favourite: z.boolean().optional(),
     rating: z.number().int().min(1).max(10).optional(),
-    date: z.iso.datetime({ offset: true }).optional()
+    date: z.iso.datetime({ offset: true }).optional(),
+    comments: z.array(sidecarCommentSchema).max(SIDECAR_LIMITS.comments).optional(),
   })
   .strict()
 
 export type SidecarSide = z.infer<typeof sidecarSideSchema>
+export type SidecarComment = z.infer<typeof sidecarCommentSchema>
 export type SidecarFields = z.infer<typeof sidecarFieldsSchema>
 
 export const sidecarFileSchema = sidecarFieldsSchema
   .extend({
-    schemaVersion: z.literal(SIDECAR_SCHEMA_VERSION)
+    schemaVersion: z.literal(SIDECAR_SCHEMA_VERSION),
   })
   .strict()
 
@@ -68,6 +95,14 @@ function normalizeStringList(values: string[] | undefined): string[] | undefined
     result.push(trimmed)
   }
   return result.length === 0 ? undefined : result
+}
+
+/** Trims each text, drops blank ones and orders by time; equal times keep their given order. */
+export function normalizeComments(comments: SidecarComment[]): SidecarComment[] {
+  return comments
+    .map((c) => ({ atMs: c.atMs, text: c.text.trim() }))
+    .filter((c) => c.text !== '')
+    .sort((a, b) => a.atMs - b.atMs)
 }
 
 function normalizeSide(side: SidecarSide): SidecarSide | undefined {
@@ -122,6 +157,11 @@ export function normalizeSidecarFields(f: SidecarFields): SidecarFields {
 
   if (f.date !== undefined) out.date = f.date
 
+  if (f.comments !== undefined) {
+    const comments = normalizeComments(f.comments)
+    if (comments.length > 0) out.comments = comments
+  }
+
   return out
 }
 
@@ -156,6 +196,8 @@ export function serializeSidecar(f: SidecarFields): string {
   if (f.favourite !== undefined) out.favourite = f.favourite
   if (f.rating !== undefined) out.rating = f.rating
   if (f.date !== undefined) out.date = f.date
+  if (f.comments !== undefined)
+    out.comments = f.comments.map((c) => ({ atMs: c.atMs, text: c.text }))
 
   return JSON.stringify(out, null, 2) + '\n'
 }

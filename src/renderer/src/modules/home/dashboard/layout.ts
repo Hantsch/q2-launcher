@@ -7,32 +7,31 @@ import {
 } from '@shared/modules/home'
 
 /**
- * Story 086 D2: the dashboard's pure layout engine. No React, no Electron, no `@dnd-kit`, no IPC -
+ * Story 086: the dashboard's pure layout engine. No React, no Electron, no `@dnd-kit`, no IPC -
  * `place`/`move`/`resize`/`collides`/`stack`/`firstFreeSpot` only ever read/derive from a
- * `HomeLayout` value and never mutate it (AC13). D3+ (the renderer surface) and D5/D6 (pointer and
- * keyboard interaction) call into this file; it does not call into them.
+ * `HomeLayout` value and never mutate it. The renderer surface and the pointer and
+ * keyboard interaction call into this file; it does not call into them.
  */
 
 /** A plain cell rectangle - what every geometry check below actually operates on. */
 type Rect = { x: number; y: number; w: number; h: number }
 
 /**
- * Shared result shape for `place`/`move`/`resize` (AC5). On success, `layout` is a brand-new
+ * Shared result shape for `place`/`move`/`resize`. On success, `layout` is a brand-new
  * `HomeLayout` (the input is never mutated). On refusal, `reason` is a non-empty, human-readable
  * explanation, and `layout` is the *same* value that was passed in - not a copy - so a caller (and
  * `layout.test.ts`) can assert "a refused operation returns the input layout untouched" with
  * `result.layout === input`, not just a deep-equal.
  */
 export type LayoutOperationResult =
-  | { ok: true; layout: HomeLayout }
-  | { ok: false; reason: string; layout: HomeLayout }
+  { ok: true; layout: HomeLayout } | { ok: false; reason: string; layout: HomeLayout }
 
 /** True if two cell rectangles' areas actually overlap - touching edges do not count. */
 function rectsOverlap(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 }
 
-/** True if the two tiles' cell rectangles overlap (AC13). Touching edges (e.g. one tile's right
+/** True if the two tiles' cell rectangles overlap. Touching edges (e.g. one tile's right
  * edge flush with another's left edge) do not count as a collision. */
 export function collides(a: TilePlacement, b: TilePlacement): boolean {
   return rectsOverlap(a, b)
@@ -42,11 +41,11 @@ export function collides(a: TilePlacement, b: TilePlacement): boolean {
  * Checks a candidate rect against the min-size floor, the grid's column bounds and every tile in
  * `others`, returning the first refusal reason found, or `null` if the rect is acceptable.
  *
- * Vertical bound (Decisions (Sprint), AC1/AC5): the grid is hard-bounded at `GRID_COLUMNS` (12)
- * columns, but AC5 only lists three refusal grounds - overlap, "leave the grid", and sub-minimum
+ * Vertical bound (Decisions (Sprint)): the grid is hard-bounded at `GRID_COLUMNS` (12)
+ * columns, but only three refusal grounds - overlap, "leave the grid", and sub-minimum
  * size. "Leave the grid" has an unambiguous horizontal reading (`x`/`x+w` vs `0`/`GRID_COLUMNS`);
  * there is no symmetric hard ceiling on `y` - the story's "extends to the lowest occupied row plus
- * 2 spare rows" is how *many rows arrange mode displays* (a rendering concern for D3+), not a
+ * 2 spare rows" is how *many rows arrange mode displays* (a rendering concern), not a
  * refusal boundary here. So the only vertical check is `y >= 0` (a tile cannot move above row 0);
  * how far down a tile can go is limited only by collision with other tiles, never by an invented
  * `maxRow` refusal.
@@ -93,7 +92,7 @@ export function place(
 /**
  * Relocates the existing tile for `moduleId` to `to` (same `w`/`h`), refusing on collision with
  * any OTHER tile or leaving the grid. A refusal changes nothing - every other tile keeps its exact
- * `x`/`y`/`w`/`h` (nothing is ever compacted, AC1/AC13).
+ * `x`/`y`/`w`/`h` (nothing is ever compacted).
  */
 export function move(
   layout: HomeLayout,
@@ -139,24 +138,28 @@ export function resize(
 
 /**
  * Returns the tiles in row-major reading order (top-to-bottom, then left-to-right: sorted by `y`
- * then `x`) - what the narrow single-column rendering (D3) walks for AC2's "renders as a single
+ * then `x`) - what the narrow single-column rendering walks for "renders as a single
  * column in layout order". A pure sort into a new array; it never changes any tile's own
- * `x`/`y`/`w`/`h` - D3 is what actually stacks them visually.
+ * `x`/`y`/`w`/`h` - the renderer is what actually stacks them visually.
  */
 export function stack(layout: HomeLayout): TilePlacement[] {
   return [...layout.tiles].sort((a, b) => a.y - b.y || a.x - b.x)
 }
 
 /**
- * Scans row-major (`y` ascending, then `x` ascending, AC6/AC13) for the first `x`/`y` where a
+ * Scans row-major (`y` ascending, then `x` ascending) for the first `x`/`y` where a
  * `w`x`h` rect fits within the grid's column bound and doesn't collide with any existing tile.
- * Used by the catalog's "Enter places at the first free spot that fits it" (D4).
+ * Used by the catalog's "Enter places at the first free spot that fits it".
  *
  * The row scan is capped rather than unbounded: it searches from row 0 up to the lowest occupied
  * row plus a generous margin (100 rows), which is always enough room to find a spot for any
  * `w`x`h` that can fit on the grid at all, and guarantees termination.
  */
-export function firstFreeSpot(layout: HomeLayout, w: number, h: number): { x: number; y: number } | null {
+export function firstFreeSpot(
+  layout: HomeLayout,
+  w: number,
+  h: number,
+): { x: number; y: number } | null {
   const lowestOccupiedRow = layout.tiles.reduce((max, tile) => Math.max(max, tile.y + tile.h), 0)
   const rowSearchBound = lowestOccupiedRow + 100
   for (let y = 0; y <= rowSearchBound; y++) {

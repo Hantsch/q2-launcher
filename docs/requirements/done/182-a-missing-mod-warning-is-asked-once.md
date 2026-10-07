@@ -34,7 +34,7 @@ to never warn about a missing mod when playing a demo.
 
 ## Open Questions
 
-- ~~Q1: Scope of "remembered" — per mod name (recommended: "opentdm is fine for me"), per mod *and*
+- ~~Q1: Scope of "remembered" — per mod name (recommended: "opentdm is fine for me"), per mod _and_
   installation, or per demo?~~ answered → Decisions (Sprint)
 - ~~Q2: Does the Servers join's mod-mismatch warning ([[125]]) share the same global switch and
   remembering, or stay a separate question? Recommendation: separate — joining a server without its
@@ -96,17 +96,17 @@ Order D1 → D2 → D3. Servers' join mod-mismatch warning ([[125]]) is untouche
 ## Deliverables
 
 - **D1 — Persisted mod-warning state + IPC (shared + main).** Add `modWarning: { enabled: boolean;
-  trustedMods: string[] }` to `ReplaysState` in `src/main/lib/schemas.ts` (type ~:1474, forgiving
-  parser ~:1582 — add a `parseModWarning` next to `parseExtraFolders` ~:1554: non-boolean `enabled` →
+trustedMods: string[] }` to `ReplaysState` in `src/main/lib/schemas.ts` (type ~:1474, forgiving
+  parser ~~:1582 — add a `parseModWarning` next to `parseExtraFolders` ~~:1554: non-boolean `enabled` →
   `true`, drop non-string/invalid entries, lowercase ASCII, dedupe) and its default in
-  `src/main/services/state.ts` (~:158). In `src/shared/modules/replays.ts` add to `REPLAYS_HANDLERS`
+  `src/main/services/state.ts` (~~:158). In `src/shared/modules/replays.ts` add to `REPLAYS_HANDLERS`
   (mirror `listGetFilter: 'listFilter.read'` at :68) `modWarningRead: 'modWarning.read'`,
   `modWarningSetEnabled: 'modWarning.setEnabled'`, `modWarningTrustMod: 'modWarning.trustMod'`,
   `modWarningResetTrusted: 'modWarning.resetTrusted'`; export a `ReplaysModWarning` type; zod
-  payloads (read/reset `z.void()` like `listFilter.read` ~:503; `setEnabled { enabled: boolean }`;
+  payloads (read/reset `z.void()` like `listFilter.read` ~~:503; `setEnabled { enabled: boolean }`;
   `trustMod { gameDir }` with `gameDir` 1–64 chars matching `/^[A-Za-z0-9_.-]+$/` and not `.`/`..`),
-  registered in the schema-by-handler map (~:519). Handlers in `src/main/modules/replays/index.ts`
-  mirror the `listFilter` get/set pair (~:450: read `replaysState()`, spread, `setReplaysState`);
+  registered in the schema-by-handler map (~~:519). Handlers in `src/main/modules/replays/index.ts`
+  mirror the `listFilter` get/set pair (~~:450: read `replaysState()`, spread, `setReplaysState`);
   `trustMod` lowercases and dedupes; every handler returns the full `ReplaysModWarning`. Do **not**
   touch `demo-play.ts`'s eligibility: main keeps refusing a mod-missing play without
   `acknowledgeModMissing`. Tests: `src/main/lib/schemas.test.ts` › "modWarning loads forgivingly and
@@ -142,7 +142,7 @@ Order D1 → D2 → D3. Servers' join mod-mismatch warning ([[125]]) is untouche
   from `scripts/lib/fixture.mjs` ~:3706, win32 7za skip): select the demo → no modMissing text in the
   detail panel or action bar (AC1); View → dialog names `opentdm`, shows checkbox, Play anyway, Cancel
   (AC2); tick + Cancel → View asks again (AC3); tick + Play anyway → launches (main.log `+demo
-  play-tdm.dm2`), wait for exit, View → launches with no dialog, and `state.json`'s
+play-tdm.dm2`), wait for exit, View → launches with no dialog, and `state.json`'s
   `replays.modWarning.trustedMods` contains `opentdm` (AC4); end by `resetModWarningTrusted` via
   `window.q2.invoke` so the flow leaves defaults. Update `scripts/flows/replays-play-q2pro.mjs`'s
   "missing mod" step (:127–136) to the dialog instead of the removed reason text. Files: client.ts,
@@ -196,6 +196,7 @@ Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vit
 AC -> test, all passed: AC1-AC6 flow `replays-mod-warning` steps as named in Acceptance Tests; AC3 also ReplaysView.test "Cancel with don't ask again ticked remembers nothing"; AC4 schemas.test round-trip + index.test "modWarning handlers persist…"; AC5 ReplaysView.test "switched off, a missing mod plays without asking"; AC6 ReplaysSettingsSection.test; AC7 demo-play.test "a mod-missing play without acknowledgement is refused even when the mod is trusted" + ReplaysView.test "a trusted mod plays without asking". No manual residue.
 
 Decisions:
+
 - `replays.play.unavailable.modMissing` stays in en.json (main's refusal/shared demo-play use it); only the action-bar reason is dropped for acknowledgeable demos. `replays.play.anyway` never existed (button uses `modMissingConfirm.confirm`).
 - `gameDir` exempted in the path-leak heuristic of `src/shared/modules/replays.test.ts` (schema pins it to a bare name; comment in place).
 - Unfixed, minor: demo-play.test AC7 test's StateStore is not wired into main (proves the flag is required, not that trust is ignored); `runPlay` has no re-entry guard during the async read; a failed `trustMod` still plays; `replays.modWarning.error` key likely unused; ': '/', ' joined outside i18n in the trusted list.

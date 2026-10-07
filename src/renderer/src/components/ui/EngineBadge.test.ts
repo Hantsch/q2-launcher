@@ -93,7 +93,7 @@ describe('EngineBadge', () => {
     }
   })
 
-  it('keeps an unsupported engine\'s own name rather than degrading to a generic string', () => {
+  it("keeps an unsupported engine's own name rather than degrading to a generic string", () => {
     render(createElement(EngineBadge, { engineKind: 'q2rtx' }))
     expect(screen.getByTestId('engine-badge').textContent).toBe('Quake II RTX (unsupported)')
   })

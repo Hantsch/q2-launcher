@@ -17,13 +17,13 @@ import { createServer } from 'node:http'
 
 const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
 
-function encodeLatin1(text) {
+export function encodeLatin1(text) {
   const bytes = Buffer.alloc(text.length)
   for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff
   return bytes
 }
 
-function buildInfoReplyBytes(serverinfoLine) {
+export function buildInfoReplyBytes(serverinfoLine) {
   // A real `info` reply is not an infostring but Quake II's `"%16s %8s %2i/%2i\n"` summary line
   // (`src/shared/servers/reply-fixtures.ts`'s `formatInfoLine`) - only these four keys survive.
   const parts = serverinfoLine.split('\\').slice(1)
@@ -36,16 +36,44 @@ function buildInfoReplyBytes(serverinfoLine) {
   return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
 }
 
-function buildStatusReplyBytes(serverinfoLine, playerLines) {
+// `trailer` is appended verbatim after the last player line - a flow whose status reply must end
+// in a newline of its own passes '\n'.
+export function buildStatusReplyBytes(serverinfoLine, playerLines = [], trailer = '') {
   const players = playerLines.map((line) => `\n${line}`).join('')
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}${players}`)])
+  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}${players}${trailer}`)])
 }
 
-function decodeQueryKind(message) {
+export function decodeQueryKind(message) {
   const text = message.subarray(4).toString('latin1')
   if (text.startsWith('info')) return 'info'
   if (text.startsWith('status')) return 'status'
   return 'unknown'
+}
+
+/**
+ * Binds a loopback UDP socket on `port` (0 = ephemeral). `onQuery(kind, message, rinfo)` decides
+ * the reply per `info`/`status` query: a returned Buffer is sent back, anything else stays silent.
+ * Resolves to `{ socket, port, address, closed }`; a caller may add fields to it and read them
+ * from `onQuery` through the responder it closes over.
+ */
+export async function bindResponder(port, onQuery) {
+  const socket = createSocket('udp4')
+  await new Promise((resolve) => socket.bind(port, '127.0.0.1', resolve))
+  const boundPort = socket.address().port
+  socket.on('message', (message, rinfo) => {
+    const kind = decodeQueryKind(message)
+    if (kind === 'unknown') return
+    const reply = onQuery(kind, message, rinfo)
+    if (reply) socket.send(reply, rinfo.port, rinfo.address)
+  })
+  return { socket, port: boundPort, address: `127.0.0.1:${boundPort}`, closed: false }
+}
+
+/** Idempotent: a flow's teardown and a mid-flow close may both reach the same responder. */
+export async function closeResponder(responder) {
+  if (responder.closed) return
+  responder.closed = true
+  await new Promise((resolve) => responder.socket.close(() => resolve()))
 }
 
 // --- fixed ports/defaults ---------------------------------------------------
@@ -62,6 +90,21 @@ export const SERVERS_STUB_RESPONDERS = [
   { port: 27951, hostname: 'Fixture Stub Server B', map: 'q2dm2', players: ['7 15 "Bravo1"'] },
   { port: 27952, hostname: 'Fixture Stub Server C', map: 'q2dm3', players: [] },
 ]
+
+/** Port of the responder the `servers-lan` fixture seeds as a favourite (= stub server A). */
+export const SERVERS_STUB_FAVOURITE_PORT = 27950
+
+/** Story 196 D5: the LAN-only fake game server - never in a source, favourite or manual list, so
+ * only a LAN scan (`Q2L_UI_LAN_TARGETS`) can ever surface it. */
+export const SERVERS_STUB_LAN_RESPONDER = {
+  port: 27955,
+  hostname: 'Fixture LAN Server',
+  map: 'q2lan1',
+  players: ['4 9 "Lana"'],
+}
+
+/** A loopback UDP port nothing binds - a LAN target that never answers (story 196 AC6). */
+export const SERVERS_LAN_DEAD_PORT = 27956
 
 /** The stub `http-list` server's fixed port - a fixture writer (`scripts/lib/fixture.mjs`) needs
  * this value at seed time, before the app (and therefore before `startListServer`) ever runs, so
@@ -155,7 +198,7 @@ export async function startServerResponders(specs) {
  * (`src/shared/servers/http-list.ts`) reads. A non-`raw=1` request gets a 404 (never exercised by
  * this repo's own `http-list-source.ts`, which always appends `?raw=1`/`?raw=2` itself).
  *
- * Returns `{ setAddresses(list), close() }`. An empty `list` produces an empty response body,
+ * Returns `{ setAddresses(list), requestCount(), close() }`. An empty `list` produces an empty response body,
  * which `parseHttpListText` deterministically reports as `empty-body`.
  */
 export async function startListServer(port = SERVERS_STUB_LIST_PORT) {
@@ -168,6 +211,7 @@ export async function startListServer(port = SERVERS_STUB_LIST_PORT) {
         res.end()
         return
       }
+      instance.requestCount += 1
       res.writeHead(200, { 'Content-Type': 'text/plain' })
       res.end(instance.addresses.join('\n'))
     })
@@ -176,7 +220,7 @@ export async function startListServer(port = SERVERS_STUB_LIST_PORT) {
       server.listen(port, '127.0.0.1', () => resolve())
     })
     server.unref()
-    instance = { server, addresses: [] }
+    instance = { server, addresses: [], requestCount: 0 }
     listServerInstances.set(port, instance)
   }
 
@@ -184,9 +228,42 @@ export async function startListServer(port = SERVERS_STUB_LIST_PORT) {
     setAddresses(list) {
       instance.addresses = list
     },
+    /** Number of `?raw=1` list requests served so far (story 196: a LAN scan must add none). */
+    requestCount() {
+      return instance.requestCount
+    },
     close() {
       listServerInstances.delete(port)
       instance.server.close()
     },
+  }
+}
+
+/**
+ * Builds a flow's `bindResponder(...)`: `describe(...args)` returns `{ infoLine, statusLine?,
+ * playerLines?, trailer?, extra? }`; the responder answers `info` and `status` queries on an
+ * ephemeral port, `extra` is merged onto it, and `counted` adds a `log` tallying each kind served.
+ */
+export function makeResponderBinder(describe, { counted = false } = {}) {
+  return async (...args) => {
+    const {
+      infoLine,
+      statusLine = infoLine,
+      playerLines = [],
+      trailer = '',
+      extra = {},
+    } = describe(...args)
+    const log = { info: 0, status: 0 }
+    const responder = await bindResponder(0, (kind) => {
+      if (kind === 'info') {
+        log.info += 1
+        return buildInfoReplyBytes(infoLine)
+      }
+      if (kind === 'status') {
+        log.status += 1
+        return buildStatusReplyBytes(statusLine, playerLines, trailer)
+      }
+    })
+    return Object.assign(responder, extra, counted ? { log } : {})
   }
 }

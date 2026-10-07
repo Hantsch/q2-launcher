@@ -8,7 +8,7 @@ import type {
   DownloadFailure,
 } from '@shared/modules/downloads'
 import type { AppInfo } from '@shared/types/common'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { buildFailureReport } from './report'
 
 /**
@@ -56,8 +56,20 @@ const appInfo: AppInfo = {
 }
 
 const packages: DownloadDiagnosticsPackage[] = [
-  { id: 'q2pro-1.0', url: 'https://example.test/q2pro.zip', sizeBytes: 4_500_000, verified: true, extracted: true },
-  { id: 'demo-data', url: 'https://mirror.test/demo.zip', sizeBytes: 12_000_000, verified: true, extracted: false },
+  {
+    id: 'q2pro-1.0',
+    url: 'https://example.test/q2pro.zip',
+    sizeBytes: 4_500_000,
+    verified: true,
+    extracted: true,
+  },
+  {
+    id: 'demo-data',
+    url: 'https://mirror.test/demo.zip',
+    sizeBytes: 12_000_000,
+    verified: true,
+    extracted: false,
+  },
 ]
 
 const target: DownloadDiagnosticsTarget = {
@@ -252,5 +264,24 @@ describe('buildFailureReport', () => {
     expect(report).not.toContain(appInfo.userDataPath)
     expect(report).not.toMatch(/[A-Za-z]:\\Users\\[^\\]+/)
     expect(report).not.toMatch(/\/home\/[^/]+/)
+  })
+
+  it('a check with params renders no placeholder in the report', async () => {
+    const { t } = await makeT()
+    const withParams = makeFailure({
+      diagnostics: {
+        ...diagnostics,
+        target: {
+          ...target,
+          missingChecks: [
+            { id: 'base-paks', messageKey: 'validation.rootMissing', params: { path: 'Quake II' } },
+          ],
+        },
+      },
+    })
+    const report = buildFailureReport({ failure: withParams, appInfo, t })
+
+    expect(report).toContain('The installation folder is gone: Quake II')
+    expect(report).not.toContain('{{')
   })
 })

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { AltLayerMode } from '@shared/config/alt-layers'
+import type { AltLayerMode } from '@shared/config/aliases/alt-layers'
 import type { ConfigAction } from '@shared/modules/config'
 import { resolveCommandLabel } from '../lib/command-catalog'
 import { resolveAliasChain } from '../lib/keyboard-layout'
@@ -12,7 +12,7 @@ import type { TestPress } from '../lib/test-mode'
  * chain scrolls inside the strip instead.
  *
  * Moved out of `OverviewKeyboardPanel.tsx` along with the strip itself
- * (story 018 D2, decision 23) - the value and the reasoning are unchanged.
+ * (story 018, decision 23) - the value and the reasoning are unchanged.
  */
 export const CAPTURE_MAX_HEIGHT_REM = 3.5
 
@@ -21,7 +21,7 @@ export const CAPTURE_MAX_HEIGHT_REM = 3.5
  * `TestPress` kind instead of the pre-018 code that only ever looked at
  * `profile.binds` (`lib/test-mode.ts`'s header explains why that lied about
  * trigger keys). Presentational only - `OverviewKeyboardPanel.tsx` owns the
- * state machine that produces `press` (story 018 D3).
+ * state machine that produces `press` (story 018).
  *
  * Renders unconditionally (decision 20): outside test mode it shows an
  * inactive hint instead of the press placeholder, so the strip is never a
@@ -46,7 +46,7 @@ export function TestModeReadout({
   const renderChain = (command: string) => {
     const chain = resolveAliasChain(command, actions)
     if (chain.length === 0) {
-      return <span className="text-ink-muted">{t('config.overview.testMode.noBind')}</span>
+      return <span className="text-ink-muted">{t('common.label.notBound')}</span>
     }
     return chain.map((step, index) => {
       const resolved = resolveCommandLabel(step)
@@ -71,7 +71,7 @@ export function TestModeReadout({
       return (
         <>
           <span className="stencil shrink-0">{press.key}</span>
-          <span className="text-ink-muted">{t('config.overview.testMode.noBind')}</span>
+          <span className="text-ink-muted">{t('common.label.notBound')}</span>
         </>
       )
     }

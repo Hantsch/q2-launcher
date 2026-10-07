@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { bindValueFor } from '@shared/config/action-mirror'
-import type { AltLayer } from '@shared/config/alt-layers'
-import type { ModifierTrigger } from '@shared/config/modifier-layers'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
+import type { ModifierTrigger } from '@shared/config/aliases/modifier-layers'
 import type { ActionKeySlot, ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { findBindConflicts, findSlotConflictOwner, indexBindConflicts } from './bind-conflicts'
 import { buildMovementRows, type CatalogRow } from './catalog-binds'
@@ -74,7 +74,11 @@ describe('findBindConflicts', () => {
     const result = findBindConflicts(profile({ actions: [forwardAction, jumpAction] }))
 
     expect(result).toHaveLength(1)
-    expect(result[0]).toEqual({ key: 'f', scope: 'base', owners: [forwardAction.name, jumpAction.name] })
+    expect(result[0]).toEqual({
+      key: 'f',
+      scope: 'base',
+      owners: [forwardAction.name, jumpAction.name],
+    })
   })
 
   it("does not double-count an action's own key against its profile.binds mirror", () => {
@@ -125,7 +129,9 @@ describe('findBindConflicts', () => {
     const layer = altLayer({ id: 'alt-9', overrides: { r: bindValueFor(second) } })
     const result = findBindConflicts(profile({ actions: [first, second], layers: [layer] }))
 
-    expect(result).toEqual([{ key: 'r', scope: { layerId: 'alt-9' }, owners: [first.name, second.name] }])
+    expect(result).toEqual([
+      { key: 'r', scope: { layerId: 'alt-9' }, owners: [first.name, second.name] },
+    ])
   })
 
   it('reports an action vs. a hand-made override in the same layer', () => {
@@ -147,16 +153,31 @@ describe('findBindConflicts', () => {
   it('keeps a base conflict and a same-layer modifier conflict on the same physical key separate', () => {
     const baseOwnerA = catalogAction(forward, { keys: oneKey('r') })
     const baseOwnerB = catalogAction(jump, { keys: oneKey('r') })
-    const modifierOwnerA = catalogAction(forward, { id: 'mod-a', name: 'Mod A', keys: oneKey('r', 'ALT') })
-    const modifierOwnerB = catalogAction(jump, { id: 'mod-b', name: 'Mod B', keys: oneKey('r', 'ALT') })
+    const modifierOwnerA = catalogAction(forward, {
+      id: 'mod-a',
+      name: 'Mod A',
+      keys: oneKey('r', 'ALT'),
+    })
+    const modifierOwnerB = catalogAction(jump, {
+      id: 'mod-b',
+      name: 'Mod B',
+      keys: oneKey('r', 'ALT'),
+    })
     const layer = altLayer({ id: 'alt-9', overrides: { r: bindValueFor(modifierOwnerB) } })
 
     const result = findBindConflicts(
-      profile({ actions: [baseOwnerA, baseOwnerB, modifierOwnerA, modifierOwnerB], layers: [layer] }),
+      profile({
+        actions: [baseOwnerA, baseOwnerB, modifierOwnerA, modifierOwnerB],
+        layers: [layer],
+      }),
     )
 
     expect(result).toHaveLength(2)
-    expect(result).toContainEqual({ key: 'r', scope: 'base', owners: [baseOwnerA.name, baseOwnerB.name] })
+    expect(result).toContainEqual({
+      key: 'r',
+      scope: 'base',
+      owners: [baseOwnerA.name, baseOwnerB.name],
+    })
     expect(result).toContainEqual({
       key: 'r',
       scope: { layerId: 'alt-9' },
@@ -169,7 +190,12 @@ describe('findBindConflicts', () => {
     const ctrlAction = catalogAction(jump, { keys: oneKey('r', 'CTRL') })
     const layers: AltLayer[] = [
       altLayer({ id: 'alt-1', triggerKey: 'ALT', overrides: { r: bindValueFor(altAction) } }),
-      altLayer({ id: 'ctrl-1', name: 'Ctrl', triggerKey: 'CTRL', overrides: { r: bindValueFor(ctrlAction) } }),
+      altLayer({
+        id: 'ctrl-1',
+        name: 'Ctrl',
+        triggerKey: 'CTRL',
+        overrides: { r: bindValueFor(ctrlAction) },
+      }),
     ]
     expect(findBindConflicts(profile({ actions: [altAction, ctrlAction], layers }))).toEqual([])
   })
@@ -179,10 +205,16 @@ describe('findSlotConflictOwner', () => {
   it('names the other base-layer owner, excluding the caller itself', () => {
     const forwardAction = catalogAction(forward, { keys: oneKey('f') })
     const jumpAction = catalogAction(jump, { keys: oneKey('f') })
-    const index = indexBindConflicts(findBindConflicts(profile({ actions: [forwardAction, jumpAction] })))
+    const index = indexBindConflicts(
+      findBindConflicts(profile({ actions: [forwardAction, jumpAction] })),
+    )
 
-    expect(findSlotConflictOwner(index, [], 'f', undefined, forwardAction.name)).toBe(jumpAction.name)
-    expect(findSlotConflictOwner(index, [], 'f', undefined, jumpAction.name)).toBe(forwardAction.name)
+    expect(findSlotConflictOwner(index, [], 'f', undefined, forwardAction.name)).toBe(
+      jumpAction.name,
+    )
+    expect(findSlotConflictOwner(index, [], 'f', undefined, jumpAction.name)).toBe(
+      forwardAction.name,
+    )
   })
 
   it('returns undefined for an unbound or unconflicted slot', () => {
@@ -195,7 +227,9 @@ describe('findSlotConflictOwner', () => {
     const first = catalogAction(forward, { keys: oneKey('r', 'ALT') })
     const second = catalogAction(jump, { keys: oneKey('r', 'ALT') })
     const layer = altLayer({ id: 'alt-9' })
-    const index = indexBindConflicts(findBindConflicts(profile({ actions: [first, second], layers: [layer] })))
+    const index = indexBindConflicts(
+      findBindConflicts(profile({ actions: [first, second], layers: [layer] })),
+    )
 
     expect(findSlotConflictOwner(index, [layer], 'r', 'ALT', first.name)).toBe(second.name)
   })

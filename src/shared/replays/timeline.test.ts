@@ -9,7 +9,7 @@ import {
   seekSecondsForFraction,
   timelineActionSchema,
   type PlaybackSample,
-  type PlaybackView
+  type PlaybackView,
 } from './timeline'
 
 const sample = (over: Partial<PlaybackSample> = {}): PlaybackSample => ({
@@ -17,7 +17,7 @@ const sample = (over: Partial<PlaybackSample> = {}): PlaybackSample => ({
   engineDurationMs: null,
   knownDurationMs: null,
   ended: false,
-  ...over
+  ...over,
 })
 
 describe('constants', () => {
@@ -39,7 +39,7 @@ describe('timelineActionSchema', () => {
       { kind: 'seekTo', seconds: 0 },
       { kind: 'seekTo', seconds: 754 },
       { kind: 'fullscreen' },
-      ...SPEED_STEPS.map((value) => ({ kind: 'speed', value }))
+      ...SPEED_STEPS.map((value) => ({ kind: 'speed', value })),
     ]) {
       expect(timelineActionSchema.safeParse(a).success).toBe(true)
     }
@@ -66,7 +66,7 @@ describe('timelineActionSchema', () => {
   it('refuses extra keys, unknown kinds and missing fields', () => {
     expect(timelineActionSchema.safeParse({ kind: 'togglePause', extra: 1 }).success).toBe(false)
     expect(
-      timelineActionSchema.safeParse({ kind: 'seekTo', seconds: 3, cmd: 'quit' }).success
+      timelineActionSchema.safeParse({ kind: 'seekTo', seconds: 3, cmd: 'quit' }).success,
     ).toBe(false)
     expect(timelineActionSchema.safeParse({ kind: 'quit' }).success).toBe(false)
     expect(timelineActionSchema.safeParse({ kind: 'jump' }).success).toBe(false)
@@ -158,7 +158,8 @@ describe('reducePlaybackView', () => {
 
   it("the engine's own pause state wins over a still position (Windows log bursts)", () => {
     let v = reducePlaybackView(null, sample({ positionMs: 5000, enginePaused: false }))
-    for (let i = 0; i < 5; i++) v = reducePlaybackView(v, sample({ positionMs: 5000, enginePaused: false }))
+    for (let i = 0; i < 5; i++)
+      v = reducePlaybackView(v, sample({ positionMs: 5000, enginePaused: false }))
     expect(v.paused).toBe(false)
     v = reducePlaybackView(v, sample({ positionMs: 5000, enginePaused: true }))
     expect(v.paused).toBe(true)
@@ -185,10 +186,10 @@ describe('reducePlaybackView', () => {
     expect(v.positionMs).toBe(5250)
   })
 
-  it('the known duration wins over the engine\'s', () => {
+  it("the known duration wins over the engine's", () => {
     const both = reducePlaybackView(
       null,
-      sample({ knownDurationMs: 90_000, engineDurationMs: 80_000 })
+      sample({ knownDurationMs: 90_000, engineDurationMs: 80_000 }),
     )
     expect(both.durationMs).toBe(90_000)
     const engineOnly = reducePlaybackView(null, sample({ engineDurationMs: 80_000 }))

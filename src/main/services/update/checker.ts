@@ -10,7 +10,7 @@ import type {
 } from './service'
 
 /**
- * Story 097 D4: the only file in the repo that imports `electron-updater`. Mirrors
+ * Story 097: the only file in the repo that imports `electron-updater`. Mirrors
  * `news-service.ts`'s `fetchImpl` seam - `service.ts` never sees `electron-updater`, only the
  * plain {@link UpdateChecker} function this file produces.
  *
@@ -90,7 +90,7 @@ export function configureAutoUpdater(target: AutoUpdaterLike, log: Logger): void
  *
  * Symptom before this existed: every update check on a packaged build died with "Cannot set
  * properties of undefined (setting 'autoDownload')" in `configureAutoUpdater()`. Caught by
- * `scripts/linux-update-e2e.mjs` (story 101 D6), not by any unit test - the shape being worked
+ * `scripts/linux-update-e2e.mjs` (story 101), not by any unit test - the shape being worked
  * around here only exists in a real packaged bundle, which is also why the explicit `throw` below
  * is worth its two lines: if a future `electron-updater` changes shape again, this says so instead
  * of failing four frames later on a property assignment.
@@ -103,8 +103,7 @@ async function importAutoUpdater(): Promise<AutoUpdaterLike> {
   // retry logic in `createUpdateChecker` exists to recover from).
   const resolved = (mod.autoUpdater ??
     (mod as { default?: { autoUpdater?: unknown } }).default?.autoUpdater) as
-    | AutoUpdaterLike
-    | undefined
+    AutoUpdaterLike | undefined
   if (resolved === undefined) {
     throw new Error(
       'electron-updater exposed no `autoUpdater`, neither as a named export nor on `default`',
@@ -164,7 +163,10 @@ function htmlToText(html: string): string {
 export function releaseNotesHtmlToMarkdown(notes: string): string {
   if (!HTML_TAG.test(notes)) return notes
   return notes
-    .replace(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi, (_, inner: string) => `\n### ${htmlToText(inner)}\n`)
+    .replace(
+      /<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi,
+      (_, inner: string) => `\n### ${htmlToText(inner)}\n`,
+    )
     .replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_, inner: string) => `\n- ${htmlToText(inner)}\n`)
     .split('\n')
     .map((line) => (/^(###|-) /.test(line) ? line : htmlToText(line)))
@@ -175,7 +177,7 @@ export function releaseNotesHtmlToMarkdown(notes: string): string {
 
 /** `UpdateInfo` -> `UpdateState['update']`: joins array-form notes, maps an HTML body back onto
  * markdown, caps at {@link NOTES_MAX_LENGTH}, and defaults a missing release date to `null` rather
- * than an empty string (AC2 + the story's "array notes joined and capped"). */
+ * than an empty string ("array notes joined and capped"). */
 function normalizeUpdateInfo(info: AutoUpdaterUpdateInfo): NonNullable<UpdateState['update']> {
   const joined = releaseNotesHtmlToMarkdown(joinNotes(info.releaseNotes))
   const notes = joined.length > NOTES_MAX_LENGTH ? joined.slice(0, NOTES_MAX_LENGTH) : joined
@@ -315,7 +317,7 @@ interface CancellationTokenLike {
 }
 
 /**
- * Classifies a failed download into one of story 098 AC7's reasons. `'cancelled'` is checked first:
+ * Classifies a failed download into one of story 098's reasons. `'cancelled'` is checked first:
  * `electron-updater` reports a cancelled download as a rejection like any other, and telling the
  * user their own cancel was a network failure would be actively misleading.
  */
@@ -354,12 +356,12 @@ export interface CreateUpdateBackendOptions {
 }
 
 /**
- * Builds the {@link UpdateBackend} the update service drives (story 098 D1).
+ * Builds the {@link UpdateBackend} the update service drives (story 098).
  *
  * `autoInstallOnAppQuit` is an accessor rather than a plain field because the real updater is
  * resolved lazily: the service sets the flag the moment it is constructed, which can be before the
  * dynamic import has happened, so the value is remembered and applied to the real `autoUpdater` as
- * soon as one exists. Getting this wrong is exactly the failure story 098 AC4 is about - a
+ * soon as one exists. Getting this wrong is exactly the failure story 098 is about - a
  * downloaded update installing itself on the next ordinary quit - so the flag is never merely
  * stored here.
  */

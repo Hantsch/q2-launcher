@@ -1,6 +1,6 @@
 /**
  * Catalogue knowledge about a Controls row, and the write paths that edit one
- * (story 015 D3; lazy materialisation removed by story 052 D8).
+ * (story 015; lazy materialisation removed by story 052).
  *
  * A row used to be able to exist without a `ConfigAction` behind it: the
  * Movement/Weapons/Weapon-dropping categories rendered one row per catalogue
@@ -11,7 +11,7 @@
  * `profile.actions` (`controls-row-entries.ts`) - so both halves of that are
  * gone: nothing here creates an action, and nothing here deletes one. An entry
  * the user clears simply becomes an unbound entry, which is a shape the file
- * itself can now carry (story 052 D2/D3's unbound line).
+ * itself can now carry (story 052's unbound line).
  *
  * What stays is the catalogue's *knowledge* about an entry that names one of
  * its rows: `CatalogRow` says what the row's engine commands are and whether it
@@ -26,10 +26,10 @@
  * this module has to stay hook-free so both a component and this file's own
  * vitest suite can import it without a DOM environment.
  *
- * Story 016 D9: a modifier held during a capture ("Alt+R") is an ordinary
+ * Story 016: a modifier held during a capture ("Alt+R") is an ordinary
  * property of the row's action - the `modifier` of the key slot it was captured
  * for (`ActionKeySlot`, story 050: one entry of `action.keys`, read through
- * `@shared/config/action-slots`) - so `RowState` carries it and `applySlot`
+ * `@shared/config/catalog/action-slots`) - so `RowState` carries it and `applySlot`
  * writes it, and that is the whole of the renderer's involvement. Nothing here
  * touches `layers`: main derives every modifier layer's `overrides` from the
  * actions array on save (`applyActionLayerMirror`, called inside `setActions`).
@@ -41,7 +41,7 @@
  * `id`; command text is never an identifier.
  *
  * Pure, like `trigger-keys.ts` and `bind-collision.ts` - no DOM, no store, no
- * IPC, and (since story 052 D8 stopped minting actions here) no
+ * IPC, and (since story 052 stopped minting actions here) no
  * `crypto.randomUUID()` either.
  */
 
@@ -51,16 +51,16 @@ import {
   keySlotAt,
   keySlotCount,
   withKeySlot,
-} from '@shared/config/action-slots'
-import { aliasNameFor } from '@shared/config/alias-render'
-import { commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
-import { withDropAmmo, withDropMessage } from '@shared/config/drop-entries'
-import type { ModifierTrigger } from '@shared/config/modifier-layers'
+} from '@shared/config/catalog/action-slots'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
+import { commandsForRow, type CatalogRow } from '@shared/config/catalog/catalog-rows'
+import { withDropAmmo, withDropMessage } from '@shared/config/aliases/drop-entries'
+import type { ModifierTrigger } from '@shared/config/aliases/modifier-layers'
 import type { ActionKeySlot, ConfigAction, ConfigCommand } from '@shared/modules/config'
 
 /**
  * Story 034: the row model itself (`CatalogRow`, the three builders, the
- * `catalogId` format) moved to `@shared/config/catalog-rows` - main's bind
+ * `catalogId` format) moved to `@shared/config/catalog/catalog-rows` - main's bind
  * adoption has to mint the identical `catalogId` for a raw bind it recognises,
  * and two implementations of that id format would drift. Re-exported here so
  * this module stays the one place the rest of the renderer imports the row
@@ -72,11 +72,11 @@ export {
   buildWeaponRows,
   type CatalogRow,
   type CatalogRowKind,
-} from '@shared/config/catalog-rows'
+} from '@shared/config/catalog/catalog-rows'
 
 export interface RowState {
   /**
-   * Every key the row actually has, in file/array order (story 056 D1). This replaces the
+   * Every key the row actually has, in file/array order (story 056). This replaces the
    * `primary`/`secondary`/`primaryModifier`/`secondaryModifier` quartet: the Controls grid renders
    * one key per line - `keys[0]` in the Key column, `keys[1..n]` as sub-rows - so a row's slot
    * count is data now, not a fixed pair of columns.
@@ -87,7 +87,7 @@ export interface RowState {
    * makes an index into this array a *compacted* index, which is exactly the index the write
    * functions below take - they compact the same way before writing, so the two can never disagree.
    *
-   * Story 016 D9: a slot's `modifier` (the modifier held while it was captured) rides along on the
+   * Story 016: a slot's `modifier` (the modifier held while it was captured) rides along on the
    * slot itself, so a sub-row renders `Alt+R` from the pair and `R` without it. A modifier can
    * never appear without its key here, since a slot with no key is not in this list at all.
    */
@@ -150,9 +150,9 @@ function withoutEmptySlots(action: ConfigAction): ConfigAction {
 /**
  * Read a row's current state back out of its `ConfigAction`.
  *
- * Story 052 D8: the action is no longer optional - a row *is* an entry, so there is no
+ * Story 052: the action is no longer optional - a row *is* an entry, so there is no
  * "unmaterialised row" state left to model. What is left of decision 3's "nothing bound yet" is an
- * entry that carries no commands at all (`commands: []`), the shape the template seed and D6's
+ * entry that carries no commands at all (`commands: []`), the shape the template seed and the
  * migration give a still-unbound catalogue row; see the ammo rule below.
  */
 /**
@@ -184,18 +184,18 @@ export function rawKeyIndex(action: ConfigAction, compactedIndex: number): numbe
 }
 
 export function deriveRowState(action: ConfigAction, row: CatalogRow): RowState {
-  // First occurrence, not last: `@shared/config/drop-entries#withDropMessage` removes the FIRST
+  // First occurrence, not last: `@shared/config/aliases/drop-entries#withDropMessage` removes the FIRST
   // `say`/`say_team` command it finds (`dropStateFor`'s `messageIndex` locks onto the first match
   // and never overwrites it), so a body with two message commands - an edge case this story's own
   // entries never produce, but an imported/hand-written one could - has to show the same one here
   // that turning the toggle off would delete. Showing the last one instead would let a user see text
-  // that a follow-up "turn off" then fails to remove (story 055 review, finding 2).
+  // that a follow-up "turn off" then fails to remove (story 055.
   const firstMessage = action.commands.find((command) => command.kind === 'message')
 
   // Decision 7: ammo defaults to ON. An entry with no commands at all has not had its catalogue
   // body written yet (`withCatalogBody` below does that on the first real assignment), so reading
   // "no `drop <ammo>` command" off it as "the user turned ammo off" would flip the checkbox of
-  // every seeded/migrated drop row to unchecked - which is not what it showed before story 052 D8,
+  // every seeded/migrated drop row to unchecked - which is not what it showed before story 052,
   // when the same row had no action at all and took the default. Only an entry that *does* carry a
   // body answers the question from its own commands.
   const withAmmo = row.ammoCommand
@@ -205,9 +205,9 @@ export function deriveRowState(action: ConfigAction, row: CatalogRow): RowState 
 
   return {
     // Story 056: the whole slot list, minus the empty-key ones (see `RowState.keys`). Read through
-    // `@shared/config/action-slots` like every other access to `action.keys` in this codebase, and
+    // `@shared/config/catalog/action-slots` like every other access to `action.keys` in this codebase, and
     // a straight passthrough of each slot - the `modifier` is stored on the slot, so there is
-    // nothing to look up in `layers` and no command text to parse (story 016 D9).
+    // nothing to look up in `layers` and no command text to parse (story 016).
     keys: actionKeySlots(action).filter((slot) => hasKey(slot)),
     withAmmo,
     message: firstMessage?.kind === 'message' ? firstMessage.text : '',
@@ -225,11 +225,11 @@ function lastMessageCommand(commands: ConfigCommand[]): ConfigCommand | undefine
 
 /**
  * Give a catalogue-backed entry the commands its row stands for, if it does not carry any yet
- * (story 052 D8).
+ * (story 052).
  *
  * A seeded or migrated catalogue entry exists in the profile with `commands: []` - present as a
  * row, running nothing (`STANDARD_TEMPLATE`'s `buildTemplateActions`, `migrations.ts`'s
- * `materialiseTemplateCategories`). Before D8 that state had no action at all and the first
+ * `materialiseTemplateCategories`). Before the action existed that state had no action at all and the first
  * assignment created one from the catalogue (`freshAction`, with `commandsForRow`), so the key the
  * user had just captured always ran something. Now the entry is already there, and *nothing else*
  * in the Controls tab would ever fill in its body - binding it would produce a key wired to an
@@ -257,12 +257,12 @@ export function withCatalogBody(
 /**
  * Set or clear one bind slot of the entry `actionId` names.
  *
- * Story 052 D8: this is `applyPlainSlot` under its old, shorter name - the one write path for every
+ * Story 052: this is `applyPlainSlot` under its old, shorter name - the one write path for every
  * row, catalogue-backed or free-form, since neither kind is lazily created or pruned any more.
  * `actionId` must already name an entry in `actions`; if it does not, the array is returned
  * unchanged (defensive - every caller reads the id straight off an action it is rendering).
  *
- * Story 016 D9: `modifier` is the modifier that was held while capturing `key`
+ * Story 016: `modifier` is the modifier that was held while capturing `key`
  * ("Alt+R"), and it is stored on the action next to the key itself - there is
  * no second write path for a modifier capture, and nothing about the action's
  * `commands` differs because of one. Whether main mirrors the slot as a base
@@ -286,7 +286,7 @@ export function withCatalogBody(
  *
  * And a clear now **removes** the slot (`clearKeySlot`), so every later key moves up one: with each
  * slot editable in its own right, story 050's "blank it in place so a hand-added slot at index 2+
- * never shifts column" has nothing left to protect, and AC 5's "clearing the primary key promotes
+ * never shifts column" has nothing left to protect, and "clearing the primary key promotes
  * the next key" is precisely that removal. Clearing an index the entry does not have is a no-op.
  */
 export function applySlot(
@@ -305,14 +305,12 @@ export function applySlot(
       ? { key: normalizedKey, modifier }
       : { key: normalizedKey }
     : undefined
-  const updated = nextSlot
-    ? withKeySlot(base, slotIndex, nextSlot)
-    : clearKeySlot(base, slotIndex)
+  const updated = nextSlot ? withKeySlot(base, slotIndex, nextSlot) : clearKeySlot(base, slotIndex)
   return actions.map((action, i) => (i === index ? updated : action))
 }
 
 /**
- * Add one more key to the entry `actionId` names, after its last one (story 056 AC 4's "add key"
+ * Add one more key to the entry `actionId` names, after its last one (story 056's "add key"
  * affordance).
  *
  * A thin wrapper around `applySlot` rather than a second write path: the index it appends at is the
@@ -343,7 +341,7 @@ export function appendKeySlot(
  * above, where the *absence* of a `modifier` argument is a real user statement ("this capture was
  * plain, clear whatever was there") because that UI does capture modifiers.
  *
- * Extracted here (story-050 review, finding 2) because it was inlined in `ActionEditor.save` and
+ * Extracted here (story-050 because it was inlined in `ActionEditor.save` and
  * *missing* from `ControlsTab`'s `MessageEditor` save, which wrote a fresh `{ key }` instead: an
  * entry bound to `Alt+F1` silently became one bound to plain `F1` the moment its message text was
  * edited, and that plain `F1` then overwrote whatever else held it. One helper, one behaviour, one
@@ -378,10 +376,10 @@ export function editorKeySlot(action: ConfigAction, key: string | undefined): Ac
  * removed. The entry's trailing message survives (it is not a catalogue command and is carried over
  * explicitly), so the drops row's two options stay independent of each other.
  *
- * Story 052 D8: no creation and no prune any more - the entry exists (it is the row) and turning
+ * Story 052: no creation and no prune any more - the entry exists (it is the row) and turning
  * ammo on or off never adds or removes one. Turning ammo off on an entry with no body yet writes
  * the body without the ammo command, which is the same array `freshAction` + the old prune bypass
- * produced before D8.
+ * produced before then.
  */
 export function applyAmmo(
   actions: ConfigAction[],
@@ -404,7 +402,7 @@ export function applyAmmo(
 
 /**
  * Set, replace or clear the trailing message command of the entry `actionId` names. Setting `text`
- * to `''` removes the message entirely; the entry itself stays either way (story 052 D8 - an entry
+ * to `''` removes the message entirely; the entry itself stays either way (story 052 - an entry
  * with nothing assigned is an unbound row, not a row to delete). `channel` defaults to `'say_team'`
  * so existing callers that don't pass one keep writing exactly what they always did.
  *
@@ -424,14 +422,16 @@ export function applyMessage(
   const base = actions[index]!
   const withoutMessage = base.commands.filter((command) => command.kind !== 'message')
   const commands: ConfigCommand[] =
-    text.trim().length > 0 ? [...withoutMessage, { kind: 'message', channel, text }] : withoutMessage
+    text.trim().length > 0
+      ? [...withoutMessage, { kind: 'message', channel, text }]
+      : withoutMessage
 
   return actions.map((action, i) => (i === index ? { ...action, commands } : action))
 }
 
 /**
- * Story 055 D3: `applyAmmo`'s action-based sibling - toggles the ammo command of the entry
- * `actionId` names by delegating to D1's `withDropAmmo` (`@shared/config/drop-entries`), which
+ * Story 055: `applyAmmo`'s action-based sibling - toggles the ammo command of the entry
+ * `actionId` names by delegating to `withDropAmmo` (`@shared/config/aliases/drop-entries`), which
  * splices the command in or out by index rather than rebuilding the row from `commandsForRow`.
  *
  * Needed because `isDropEntry` now recognises a drop wherever it sits - a `drop_` alias imported
@@ -451,7 +451,7 @@ export function applyDropAmmo(
 }
 
 /**
- * Story 055 D3: `applyMessage`'s action-based-and-surgical sibling, delegating to D1's
+ * Story 055: `applyMessage`'s action-based-and-surgical sibling, delegating to
  * `withDropMessage` - same reasoning as `applyDropAmmo` above. Unlike `applyMessage` (which always
  * rebuilds the message command from `text`/`channel`), `on: false` here is a pure removal call with
  * no text argument needed, mirroring `withDropMessage`'s own on/off shape.
@@ -471,8 +471,8 @@ export function applyDropMessage(
 }
 
 /**
- * Story 063 D4: the Controls row menu's manual repair for an already-inert `kind: 'alias'` row - a
- * profile that picked up the pre-D1/D2 writer/reader bug (a keyless bind/message entry silently
+ * Story 063: the Controls row menu's manual repair for an already-inert `kind: 'alias'` row - a
+ * profile that picked up the earlier writer/reader bug (a keyless bind/message entry silently
  * misread back as `kind: 'alias'`, story 063's root cause) or one that carries a deliberately
  * hand-made alias entry with no key, both land in the same shape and neither heals on its own:
  * `state.json` is the live copy, so the file→file-format fix only reaches an entry the next time it

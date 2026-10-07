@@ -4,7 +4,7 @@
  * Some Steam apps bundle several launchable clients under one appid, selected by
  * `steam://launch/<appid>/client/<index>`. Quake II's appid 2320 is the seed
  * entry: the 2023 remaster, the original release, and the two mission packs
- * each launch through their own index. Story 104 D1.
+ * each launch through their own index. Story 104.
  */
 export interface SteamAppClient {
   /** The `client/<index>` segment of the launch URL. */

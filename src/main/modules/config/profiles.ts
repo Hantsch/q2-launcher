@@ -2,9 +2,6 @@ import { randomUUID } from 'node:crypto'
 import {
   STANDARD_TEMPLATE,
   type AssignProfileInput,
-  type ConfigAction,
-  type ConfigActionCategory,
-  type ConfigCvarSection,
   type ConfigProfile,
   type CreateConfigProfileInput,
   type ProfileFileState,
@@ -21,19 +18,20 @@ import {
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
-import type { AltLayer } from '@shared/config/alt-layers'
-import type { StateStore } from '../../services/state'
-import { applyActionBindMirror } from '@shared/config/action-mirror'
-import { adoptRawBinds } from '@shared/config/bind-adoption'
-import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
-import { applyActionLayerMirror } from '@shared/config/modifier-layers'
-import { captureBaseline } from '@shared/config/profile-baseline'
+import type { StateSection, StateStore } from '../../services/state'
+import { applyActionBindMirror } from '@shared/config/aliases/action-mirror'
+import { adoptRawBinds } from '@shared/config/profile/bind-adoption'
+import { stripCatalogDefaults } from '@shared/config/catalog/cvar-defaults'
+import type { RestoredProfileFields } from '@shared/config/profile/profile-restore-input'
+import { applyActionLayerMirror } from '@shared/config/aliases/modifier-layers'
+import { captureBaseline } from '@shared/config/profile/profile-baseline'
 import {
   assign as assignProfile,
   unassign as unassignProfile,
   setDefault as setDefaultProfile,
   reconcileAssignments,
 } from './assignments'
+import { configState } from './persisted'
 
 /**
  * CRUD over config profiles.
@@ -46,18 +44,18 @@ import {
  * functions).
  */
 export class ProfilesStore {
-  private readonly state: StateStore
+  private readonly profiles: StateSection<ConfigProfile[]>
 
   constructor(state: StateStore) {
-    this.state = state
+    this.profiles = configState(state).profiles
   }
 
   list(): ConfigProfile[] {
-    return this.state.configProfiles()
+    return this.profiles.get()
   }
 
   find(id: string): ConfigProfile | undefined {
-    return this.state.configProfiles().find((profile) => profile.id === id)
+    return this.profiles.get().find((profile) => profile.id === id)
   }
 
   create(input: CreateConfigProfileInput): ConfigProfile[] {
@@ -67,10 +65,10 @@ export class ProfilesStore {
       name: input.name,
       createdAt: now,
       updatedAt: now,
-      // Story 066 D3: `ConfigProfileSeed` split `'template'` into `'template-right'`/
+      // Story 066: `ConfigProfileSeed` split `'template'` into `'template-right'`/
       // `'template-left'` - both still seed identically from `STANDARD_TEMPLATE` for now (the two
       // handed layouts are a later story's content), so this branch keeps its pre-split behaviour
-      // for either value. Story 066 D6 additionally records *which* one was asked for
+      // for either value. Story 066 additionally records *which* one was asked for
       // (`seedFrom`) so a later story can fill in distinct content without re-touching this create
       // path again - never set for `'empty'`, which has no handedness to remember
       // (`ConfigProfile.seedFrom`'s own doc comment).
@@ -79,7 +77,7 @@ export class ProfilesStore {
             seedFrom: input.from,
             cvars: { ...STANDARD_TEMPLATE.cvars },
             binds: { ...STANDARD_TEMPLATE.binds },
-            // Story 052 D1: the template's own categories/actions, deep-copied (never the shared
+            // Story 052: the template's own categories/actions, deep-copied (never the shared
             // seed's own arrays/objects - `STANDARD_TEMPLATE` is reused by every "create from
             // template" call) with a fresh id per action so two profiles created from the template
             // never share an action id.
@@ -89,7 +87,7 @@ export class ProfilesStore {
               id: randomUUID(),
               commands: action.commands.map((command) => ({ ...command })),
             })),
-            // Story 059 D1: the template's own cvar sections, deep-copied for the same reason
+            // Story 059: the template's own cvar sections, deep-copied for the same reason
             // `categories`/`actions` are right above - `STANDARD_TEMPLATE` is one shared, reused
             // object, so a profile must never end up holding its arrays/objects by reference. Ids
             // are stable per group already (`buildTemplateCvarSections`), so - unlike `actions` -
@@ -98,7 +96,12 @@ export class ProfilesStore {
               ...section,
               cvars: [...section.cvars],
               ...(section.subsections
-                ? { subsections: section.subsections.map((sub) => ({ ...sub, cvars: [...sub.cvars] })) }
+                ? {
+                    subsections: section.subsections.map((sub) => ({
+                      ...sub,
+                      cvars: [...sub.cvars],
+                    })),
+                  }
                 : {}),
             })),
           }
@@ -106,7 +109,7 @@ export class ProfilesStore {
       assignments: [],
     }
 
-    return this.commit([...this.state.configProfiles(), profile])
+    return this.commit([...this.profiles.get(), profile])
   }
 
   /**
@@ -117,31 +120,20 @@ export class ProfilesStore {
    * nothing downstream needs to know it came from an import rather than the
    * create-profile dialog.
    *
-   * Story 041 (D6): `actions`/`categories`/`layers` - `buildImportedActions`'s
+   * Story 041: `actions`/`categories`/`layers` - `buildImportedActions`'s
    * result (`import.ts#commitImport`) - are stored alongside `cvars`/`binds`/
    * `unrecognized`, never replacing them; a raw bind that merely *references*
    * one of these alias entries by name is left as a raw bind pointing at it
    * (decision from story 041), which is exactly what `commit`'s
    * `adoptProfileBinds` pass already guarantees: `adoptRawBinds`'s
-   * `isAliasReference` check (`@shared/config/bind-adoption`) skips any raw
+   * `isAliasReference` check (`@shared/config/profile/bind-adoption`) skips any raw
    * entry whose value is some action's own alias name - imported or not -
    * before it ever consults the catalogue, so this call cannot end up with two
    * entries for one bare-token bind.
    */
-  createFromImport(input: {
-    name: string
-    cvars: Record<string, string>
-    binds: Record<string, string>
-    unrecognized: UnrecognizedConfigLine[]
-    actions: ConfigAction[]
-    categories: ConfigActionCategory[]
-    layers: AltLayer[]
-    /** Story 059 D5: `restoreProfileParts`'s own cvar sections, stored alongside `categories`/
-     * `actions` above instead of being silently dropped - the Settings tab's own grouping for an
-     * imported profile, filed by the cvar-group banner each `set` line actually sat under in the
-     * source file. */
-    cvarSections: ConfigCvarSection[]
-  }): ConfigProfile[] {
+  createFromImport(
+    input: RestoredProfileFields & { name: string; unrecognized: UnrecognizedConfigLine[] },
+  ): ConfigProfile[] {
     const now = new Date().toISOString()
     const profile: ConfigProfile = {
       id: randomUUID(),
@@ -158,18 +150,18 @@ export class ProfilesStore {
       cvarSections: input.cvarSections,
     }
 
-    return this.commit([...this.state.configProfiles(), profile])
+    return this.commit([...this.profiles.get(), profile])
   }
 
   /**
-   * Story 043 D3: appends an already-fully-built record - one `rebuild.ts` reconstructed from a
+   * Story 043: appends an already-fully-built record - one `rebuild.ts` reconstructed from a
    * launcher-owned `.cfg` file whose `state.json` record was lost or unreadable - through the same
    * `commit()` path `create`/`createFromImport` use, so a rebuilt profile is an ordinary profile by
    * construction (the `adoptRawBinds` pass included) and nothing about its persistence semantics
    * differs from a normally-created one.
    *
    * Deliberately **not** `createFromImport`, and deliberately not id-generating: that path mints a
-   * fresh id (story 042 AC4's import rule - importing a foreign file is a new profile), while a
+   * fresh id (story 042's import rule - importing a foreign file is a new profile), while a
    * rebuild has to keep the id the file's own ownership sentinel carries, or every installation
    * assignment and every other reference to that profile id would break (story 043's own decision:
    * "a rebuild from the launcher's own file keeps the sentinel id"). That is why the two stay
@@ -181,10 +173,10 @@ export class ProfilesStore {
    */
   addRebuilt(profile: ConfigProfile): ConfigProfile[] {
     if (this.find(profile.id)) throw new Error(`config profile already exists: ${profile.id}`)
-    // Story 049 D1: a rebuild reads the file and seeds `fileHash` from it, so it is one of the
+    // Story 049: a rebuild reads the file and seeds `fileHash` from it, so it is one of the
     // points the baseline is seeded at too - see `seedBaseline` for why the seeding happens here,
     // after the adoption pass, rather than inside `rebuild.ts#buildRebuiltProfile` next to the hash.
-    return this.commit([...this.state.configProfiles(), this.seedBaseline(profile)])
+    return this.commit([...this.profiles.get(), this.seedBaseline(profile)])
   }
 
   rename(input: RenameConfigProfileInput): ConfigProfile[] {
@@ -196,14 +188,14 @@ export class ProfilesStore {
       name: input.name,
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   remove(input: RemoveConfigProfileInput): ConfigProfile[] {
     const current = this.find(input.id)
     if (!current) throw new Error(`config profile not found: ${input.id}`)
 
-    return this.commit(this.state.configProfiles().filter((p) => p.id !== input.id))
+    return this.commit(this.profiles.get().filter((p) => p.id !== input.id))
   }
 
   assign(input: AssignProfileInput): ConfigProfile[] {
@@ -221,10 +213,10 @@ export class ProfilesStore {
   /**
    * Replaces a profile's entire `cvars` map with `input.cvars`. Not a partial
    * merge - the renderer is expected to send the full map it wants persisted
-   * (see D4's debounced save), so a caller wanting to keep existing entries
+   * (see the debounced save), so a caller wanting to keep existing entries
    * must include them.
    *
-   * Story 059 D8: `input.cvarSections`, when sent, replaces the profile's own section list the
+   * Story 059: `input.cvarSections`, when sent, replaces the profile's own section list the
    * same whole-array way - optional and additive (the shared-layer doc comment on
    * `SetProfileCvarsInput.cvarSections`): a caller not yet updated to send it (every call site
    * before this deliverable) simply omits it, which leaves the profile's stored `cvarSections`
@@ -240,7 +232,7 @@ export class ProfilesStore {
       ...(input.cvarSections !== undefined ? { cvarSections: input.cvarSections } : {}),
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -256,7 +248,7 @@ export class ProfilesStore {
       binds: { ...input.binds },
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -292,10 +284,15 @@ export class ProfilesStore {
 
     const next: ConfigProfile = {
       ...current,
-      layers: applyActionLayerMirror(input.layers, current.actions ?? [], randomUUID, current.actions ?? []),
+      layers: applyActionLayerMirror(
+        input.layers,
+        current.actions ?? [],
+        randomUUID,
+        current.actions ?? [],
+      ),
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -317,7 +314,7 @@ export class ProfilesStore {
    * entirely) is untouched.
    *
    * Story 015 (decision 1), story 050: "every key an action carries" is every
-   * slot of `action.keys` (read through `@shared/config/action-slots`, no cap of
+   * slot of `action.keys` (read through `@shared/config/catalog/action-slots`, no cap of
    * two), all of them pointing at the same `aliasNameFor(action)` - the alias is
    * per action, not per slot, so an N-slot row costs one alias and N bind lines. The consequences fall out of that single rule rather than needing
    * their own branches: clearing one slot drops only that key's bind (the whole
@@ -372,14 +369,19 @@ export class ProfilesStore {
       categories: [...input.categories],
       actions: [...input.actions],
       binds: applyActionBindMirror(current.binds, input.actions, current.actions ?? []),
-      layers: applyActionLayerMirror(current.layers ?? [], input.actions, randomUUID, current.actions ?? []),
+      layers: applyActionLayerMirror(
+        current.layers ?? [],
+        input.actions,
+        randomUUID,
+        current.actions ?? [],
+      ),
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
-   * Sets a profile's `writeUnbindall` flag outright (story 040 D4) - a single boolean, so this is
+   * Sets a profile's `writeUnbindall` flag outright (story 040) - a single boolean, so this is
    * a dedicated setter rather than routed through `setCvars`/`setBinds`/`setLayers`/`setActions`
    * (each of those replaces a whole field of its own). Mirrors `setCvars`/`setBinds` above: throws
    * if the profile is unknown, bumps `updatedAt`, and goes through the same `commit`.
@@ -393,11 +395,11 @@ export class ProfilesStore {
       writeUnbindall: input.writeUnbindall,
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
-   * Sets a profile's `writeCatalogDefaults` flag outright (story 059 D9) - mirrors
+   * Sets a profile's `writeCatalogDefaults` flag outright (story 059) - mirrors
    * `setWriteUnbindall` above exactly, just a different boolean field: throws if the profile is
    * unknown, bumps `updatedAt`, and goes through the same `commit`.
    */
@@ -410,11 +412,11 @@ export class ProfilesStore {
       writeCatalogDefaults: input.writeCatalogDefaults,
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
-   * Sets a profile's `sectionHeaderStyle` outright (story 042 D7) - mirrors `setWriteUnbindall`
+   * Sets a profile's `sectionHeaderStyle` outright (story 042) - mirrors `setWriteUnbindall`
    * right above exactly, just a 3-way enum in place of a boolean: throws if the profile is
    * unknown, bumps `updatedAt`, and goes through the same `commit`.
    */
@@ -427,11 +429,11 @@ export class ProfilesStore {
       sectionHeaderStyle: input.sectionHeaderStyle,
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
-   * Story 049 D3: restores a profile's render-relevant fields to its `baseline` - the "go back to
+   * Story 049: restores a profile's render-relevant fields to its `baseline` - the "go back to
    * what I last saved" discard, and the only thing that survives the removal of 048's reset
    * affordances.
    *
@@ -454,7 +456,9 @@ export class ProfilesStore {
    * so a discarded profile is adopted exactly as it would be if this same content had just been
    * loaded from a file - never a discard-specific code path that could drift from the ordinary one.
    */
-  discard(profileId: string): { outcome: 'discarded'; profiles: ConfigProfile[] } | { outcome: 'noBaseline' } {
+  discard(
+    profileId: string,
+  ): { outcome: 'discarded'; profiles: ConfigProfile[] } | { outcome: 'noBaseline' } {
     const current = this.find(profileId)
     if (!current) throw new Error(`config profile not found: ${profileId}`)
     if (!current.baseline) return { outcome: 'noBaseline' }
@@ -462,7 +466,7 @@ export class ProfilesStore {
     const { baseline } = current
     const next: ConfigProfile = {
       ...current,
-      // Review finding (story 049): a `rename` marks the profile dirty and leaves both the header
+      // A `rename` marks the profile dirty and leaves both the header
       // banner and the file rename to the next save (story 043), so an un-restored name is a pending
       // edit the discard would have kept - the one field of the snapshot that is edited outside the
       // config tabs, and no less part of "the last saved state" for it.
@@ -475,8 +479,8 @@ export class ProfilesStore {
         ...action,
         commands: action.commands.map((command) => ({ ...command })),
       })),
-      // Story 054 D11: `cvarSections` is render-relevant exactly like `categories`/`actions` (story
-      // 059 D8 made `setCvars` replace it wholesale) and was missing from this restore entirely - a
+      // Story 0541: `cvarSections` is render-relevant exactly like `categories`/`actions` (story
+      // a later change made `setCvars` replace it wholesale) and was missing from this restore entirely - a
       // section/sub-section reorder, or a cvar moved between sections, survived a Discard untouched.
       cvarSections: baseline.cvarSections.map((section) => ({
         ...section,
@@ -493,12 +497,12 @@ export class ProfilesStore {
     }
     return {
       outcome: 'discarded',
-      profiles: this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p))),
+      profiles: this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p))),
     }
   }
 
   /**
-   * Story 043 D4: marks whether the profile carries edits that are not in its canonical `.cfg` yet.
+   * Story 043: marks whether the profile carries edits that are not in its canonical `.cfg` yet.
    *
    * Same shape as `setWriteUnbindall`/`setSectionHeaderStyle` above (one field, full replace, throws
    * on an unknown id) with one deliberate difference: `updatedAt` is NOT bumped. This flag is the
@@ -511,11 +515,11 @@ export class ProfilesStore {
     if (!current) throw new Error(`config profile not found: ${profileId}`)
 
     const next: ConfigProfile = { ...current, dirty }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
-   * Story 043 D2/D4: records that the profile's canonical file was just confirmed to hold exactly
+   * Story 043: records that the profile's canonical file was just confirmed to hold exactly
    * `fileHash`'s bytes, at `fileSeenAt` (epoch ms) - the baseline `readFileState` compares the next
    * read against, and the reason the launcher's own write is never mistaken for an external edit.
    *
@@ -525,7 +529,7 @@ export class ProfilesStore {
    * Clearing `dirty` is `save`'s own explicit step, through `setDirty` above. `updatedAt` is not
    * bumped either, same reasoning as `setDirty`.
    *
-   * Story 049 D1: this is also where the profile's `baseline` is reseeded, from `current` - the
+   * Story 049: this is also where the profile's `baseline` is reseeded, from `current` - the
    * record as it stands, which is exactly what the file was just confirmed to hold (this method is
    * only ever reached from a sync run that wrote or verified those bytes). Every save's write-back
    * comes through here (`index.ts`'s `syncAndPersist` -> `markFileSeen`), so the save path needs no
@@ -542,12 +546,12 @@ export class ProfilesStore {
       fileState: 'unchanged',
     }
     return this.commit(
-      this.state.configProfiles().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
+      this.profiles.get().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
     )
   }
 
   /**
-   * Story 175 D1: records that `patch`'s cvars were just written into the profile's canonical file
+   * Story 175: records that `patch`'s cvars were just written into the profile's canonical file
    * on top of its last-saved baseline (`index.ts`'s `commitCvars`), and that the file now holds
    * exactly `fileHash`'s bytes, confirmed at `fileSeenAt`.
    *
@@ -570,7 +574,7 @@ export class ProfilesStore {
    * Known limitation: `writeCatalogDefaults` is a render-relevant field that `captureBaseline` does
    * not snapshot, so a pending catalog-defaults toggle is rendered from the live value and would
    * land on disk with the commit. Follow-up: add the field to `captureBaseline` in
-   * `src/shared/config/profile-baseline.ts`.
+   * `src/shared/config/profile/profile-baseline.ts`.
    */
   commitSavedCvars(
     profileId: string,
@@ -591,11 +595,11 @@ export class ProfilesStore {
       fileState: 'unchanged',
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
-   * Story 043 D5: records `readFileState`'s classification as a display hint only, for the two
+   * Story 043: records `readFileState`'s classification as a display hint only, for the two
    * branches `refreshFromFiles` must never do anything else for:
    *
    * - `missing` - the file is gone outside the launcher; the story's own decision keeps the profile
@@ -613,11 +617,11 @@ export class ProfilesStore {
     if (!current) throw new Error(`config profile not found: ${profileId}`)
 
     const next: ConfigProfile = { ...current, fileState }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
-   * Story 043 D5: overlays freshly-read file content onto an EXISTING profile record - the "adopt"
+   * Story 043: overlays freshly-read file content onto an EXISTING profile record - the "adopt"
    * case of `refreshFromFiles` (the file changed on disk, no unsaved edits to lose). Mirrors
    * `rebuild.ts#buildRebuiltProfile`'s field mapping (same fields the file actually carries: the
    * recovered name, `cvars`/`binds`/`actions`/`categories`/`layers`, `writeUnbindall`,
@@ -632,13 +636,13 @@ export class ProfilesStore {
    * `updatedAt` IS bumped: unlike `setFileState`/`setDirty`/`markFileSeen` above (pure cache
    * bookkeeping), this genuinely replaces the profile's content with what is now on disk.
    *
-   * ## Story 048 D3: `cvars` is stripped back to the deviations on the way in
+   * ## Story 048: `cvars` is stripped back to the deviations on the way in
    *
-   * Since 048 D2 the writer emits a `set` line for EVERY catalogue cvar (`render.ts`'s
+   * Now the writer emits a `set` line for EVERY catalogue cvar (`render.ts`'s
    * `buildCvarSections`, `writeValueFor`), so a launcher-written file carries ~30 of them where the
    * profile stored one. Storing that map verbatim would turn "this was a default" into "the user
    * chose this" for every cvar the user never touched - which is what story 049's edited-and-unsaved
-   * indicator and story 042 AC3's round-trip both forbid. `stripCatalogDefaults` (048 D1, the same
+   * indicator and story 042's round-trip both forbid. `stripCatalogDefaults` (the same
    * module `writeValueFor` comes from, so the two rules cannot drift) removes exactly the catalogue
    * cvars sitting at `def.default` again, leaving genuine deviations and every foreign/unknown cvar
    * untouched.
@@ -651,16 +655,8 @@ export class ProfilesStore {
    */
   adoptFromFile(
     profileId: string,
-    fields: {
+    fields: RestoredProfileFields & {
       name: string
-      cvars: Record<string, string>
-      binds: Record<string, string>
-      actions: ConfigAction[]
-      categories: ConfigActionCategory[]
-      /** Story 059 D3: the cvar sections the file's own banners state, adopted exactly like
-       * `categories` - the file is the source of truth for the grouping too. */
-      cvarSections: ConfigCvarSection[]
-      layers: AltLayer[]
       writeUnbindall: boolean
       sectionHeaderStyle: ConfigProfile['sectionHeaderStyle']
     },
@@ -687,25 +683,25 @@ export class ProfilesStore {
       fileSeenAt,
       fileState: 'unchanged',
     }
-    // Story 049 D1: the second of the two seeding points in this class, and the one AC9 rests on -
+    // The second of the two seeding points in this class, and the one that guarantee rests on -
     // "take the file" (and the ordinary adopt) must leave the baseline describing the file as it NOW
     // stands, or the very next edit would be measured against a snapshot that predates the external
     // change. Captured from `next`, i.e. from the *stripped* cvars and the adopted fields as they
     // are about to be stored - never from `fields` as read.
     return this.commit(
-      this.state.configProfiles().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
+      this.profiles.get().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
     )
   }
 
   /**
    * Commits an already-fully-built profile in place of the one with the same
-   * `id` - the smallest thing story 025 D3's `tidyUp.apply` needs, and
+   * `id` - the smallest thing story 025's `tidyUp.apply` needs, and
    * deliberately *not* a fifth field setter.
    *
    * A tidy-up batch mutates several fields at once (a re-classify writes
    * `unrecognized` plus one of `cvars`/`binds`/`actions`; `unrecognized` has no
    * setter at all otherwise), and it computes the whole next profile in one pure
-   * pass (`applyTidyUpOps`, `@shared/config/tidy-up`) precisely so that batch
+   * pass (`applyTidyUpOps`, `@shared/config/profile/tidy-up`) precisely so that batch
    * lands as one commit with one `updatedAt`. So this method takes the finished
    * object and does the one thing the four setters above all end in - swap it
    * into the list and `commit` - rather than re-deriving any field logic.
@@ -717,7 +713,7 @@ export class ProfilesStore {
    */
   replaceProfile(profile: ConfigProfile): ConfigProfile[] {
     if (!this.find(profile.id)) throw new Error(`config profile not found: ${profile.id}`)
-    return this.commit(this.state.configProfiles().map((p) => (p.id === profile.id ? profile : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === profile.id ? profile : p)))
   }
 
   reconcile(knownInstallationIds: string[]): ConfigProfile[] {
@@ -730,7 +726,7 @@ export class ProfilesStore {
    * enforced rather than merely intended.
    *
    * Every profile about to be persisted goes through `adoptRawBinds`
-   * (`@shared/config/bind-adoption`): a raw `bind w "+forward"` - hand-bound on
+   * (`@shared/config/profile/bind-adoption`): a raw `bind w "+forward"` - hand-bound on
    * the Overview keyboard, seeded from `STANDARD_TEMPLATE`, or read out of an
    * imported `config.cfg` - becomes the Movement row's own `ConfigAction`, so
    * the keyboard and the Controls grid can no longer show two different answers
@@ -744,11 +740,11 @@ export class ProfilesStore {
    * is a re-encoding of what the profile already said, not a user edit.
    */
   private commit(profiles: ConfigProfile[]): ConfigProfile[] {
-    return this.state.setConfigProfiles(profiles.map((profile) => adoptProfileBinds(profile)))
+    return this.profiles.update(() => profiles.map((profile) => adoptProfileBinds(profile)))
   }
 
   /**
-   * Story 049 D1: `profile` with its `baseline` reseeded - the one place that snapshot is taken, so
+   * Story 049: `profile` with its `baseline` reseeded - the one place that snapshot is taken, so
    * the three seeding call sites above (`markFileSeen`, `adoptFromFile`, `addRebuilt`) cannot
    * disagree about how.
    *

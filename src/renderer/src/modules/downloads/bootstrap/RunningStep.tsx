@@ -7,25 +7,19 @@ import { Badge } from '../../../components/ui/primitives'
 import { FailureCauseDetail } from '../components/FailureCauseDetail'
 
 /**
- * Story 074 D6, step 4: the D4 job's live progress, read from the store's `jobs` slice - no new
+ * Story 074, step 4: the download job's live progress, read from the store's `jobs` slice - no new
  * plumbing, `jobs:changed` already keeps that array current. Deliberately a small summary, not the
  * action bar's full readout (bytes/speed/ETA belong to the action bar, which is still visible once
  * this dialog closes).
  *
- * Story 078 D7 (AC4): `failure` is the `DownloadFailure` entry `BootstrapWizard` matched to this
+ * Story 078: `failure` is the `DownloadFailure` entry `BootstrapWizard` matched to this
  * job (fetched once when the job turns `failed` - see that file). Mounting the same
  * `FailureCauseDetail` here as `FailureLogEntry` mounts in the Downloads tab means a failed
  * bootstrap reads its cause without switching tabs. `FailureCauseDetail` itself renders `null`
  * without diagnostics, so an undefined/diagnostics-less `failure` leaves today's single error line
  * unchanged - no extra branching needed here.
  */
-export function RunningStep({
-  job,
-  failure,
-}: {
-  job: Job | undefined
-  failure?: DownloadFailure
-}) {
+export function RunningStep({ job, failure }: { job: Job | undefined; failure?: DownloadFailure }) {
   const { t } = useTranslation()
 
   if (!job) {
@@ -55,7 +49,11 @@ export function RunningStep({
         </Badge>
       </div>
 
-      <ProgressBar ratio={ratio} active={job.status === 'running'} label={t(job.labelKey, job.labelParams ?? {})} />
+      <ProgressBar
+        ratio={ratio}
+        active={job.status === 'running'}
+        label={t(job.labelKey, job.labelParams ?? {})}
+      />
 
       <p className="numeric text-xs text-ink-muted">
         {ratio !== null
@@ -69,11 +67,13 @@ export function RunningStep({
         <p className="text-xs text-danger">{t(job.error.key, job.error.params ?? {})}</p>
       )}
 
-      {/* Story 091 D3 (AC2): same `t(key, params ?? {})` rendering as `job.error` above, so the
+      {/* Story 091: same `t(key, params ?? {})` rendering as `job.error` above, so the
           bootstrap running step names why the assemble pass paused instead of leaving the
           `jobs.status.waiting` badge as the only signal. */}
       {job.status === 'waiting' && job.waitingReason && (
-        <p className="text-xs text-warning">{t(job.waitingReason.key, job.waitingReason.params ?? {})}</p>
+        <p className="text-xs text-warning">
+          {t(job.waitingReason.key, job.waitingReason.params ?? {})}
+        </p>
       )}
 
       <FailureCauseDetail diagnostics={failure?.diagnostics} />

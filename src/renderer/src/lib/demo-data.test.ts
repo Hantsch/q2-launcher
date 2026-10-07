@@ -34,8 +34,8 @@ describe('isDemoData', () => {
   })
 
   it('is true alongside other unrelated checks', () => {
-    expect(
-      isDemoData([check('validation.rootExists'), check('validation.pak0NotRetail')]),
-    ).toBe(true)
+    expect(isDemoData([check('validation.rootExists'), check('validation.pak0NotRetail')])).toBe(
+      true,
+    )
   })
 })

@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { initI18n } from '../../i18n'
-import { ProfileChangesProvider } from './lib/profile-changes'
+import { act } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ConfigAction, ConfigActionCategory } from '@shared/modules/config'
+import { stubBridge } from './test/bridge'
+import { profileFixture } from './test/fixtures'
+import { renderWithProviders } from './test/render'
+import { ControlsTab } from './ControlsTab'
+import { useConfigProfiles } from './config-profiles-store'
 
 /**
  * Story 054 D6: sub-category headers reorder by drag.
@@ -14,19 +16,6 @@ import { ProfileChangesProvider } from './lib/profile-changes'
  * sub-category's own grip has to move it among its category's other sub-categories, persist
  * through the same path the header's move up/down buttons already use, and never touch a row.
  */
-
-const bridge = vi.hoisted(() => {
-  const stub = {
-    invoke: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
-    on: () => () => {},
-  }
-  ;(globalThis as unknown as { q2: unknown }).q2 = stub
-  return stub
-})
-
-// eslint-disable-next-line import/first -- must be imported after the bridge stub above exists.
-const { ControlsTab } = await import('./ControlsTab')
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const CATEGORIES: ConfigActionCategory[] = [
   {
@@ -54,31 +43,9 @@ function action(id: string, subcategoryId?: string): ConfigAction {
 // render once a category has at least one entry) - it is never itself a drag target here.
 const ACTIONS: ConfigAction[] = [action('w0'), action('w1', 'sub-1'), action('w2', 'sub-2')]
 
-function profileFixture(): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    cvars: {},
-    binds: {},
-    assignments: [],
-    categories: CATEGORIES.map((category) => ({
-      ...category,
-      subcategories: category.subcategories?.map((subcategory) => ({ ...subcategory })),
-    })),
-    actions: ACTIONS.map((entry) => ({ ...entry })),
-  }
-}
-
-let container: HTMLDivElement
-let root: Root
+let container: HTMLElement
 /** Every `categories` array `ControlsTab` tried to persist, in order. */
 let savedCategories: ConfigActionCategory[][]
-
-beforeAll(async () => {
-  await initI18n('en')
-})
 
 function rect(left: number, top: number, width: number, height: number): DOMRect {
   return {
@@ -135,30 +102,16 @@ async function step(fire: () => void): Promise<void> {
   })
 }
 
-function Harness() {
-  const [draft, setDraft] = useState<ConfigProfile>(profileFixture)
-  const profile = profileFixture()
-  return (
-    <ProfileChangesProvider profile={profile}>
-      <ControlsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
-    </ProfileChangesProvider>
-  )
-}
-
 function renderTab(): void {
-  act(() => {
-    root.render(<Harness />)
-  })
+  ;({ container } = renderWithProviders(<ControlsTab />, {
+    profile: profileFixture({
+      categories: CATEGORIES.map((category) => ({
+        ...category,
+        subcategories: category.subcategories?.map((subcategory) => ({ ...subcategory })),
+      })),
+      actions: ACTIONS.map((entry) => ({ ...entry })),
+    }),
+  }))
 }
 
 /** The sub-category headers the grid is showing right now, in rendered order. */
@@ -197,26 +150,19 @@ async function release(x: number, y: number): Promise<void> {
 }
 
 beforeEach(() => {
+  useConfigProfiles.setState({ profiles: [] })
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   HTMLElement.prototype.scrollIntoView = () => {}
-  container = document.createElement('div')
-  document.body.appendChild(container)
-  root = createRoot(container)
   savedCategories = []
-  bridge.invoke = vi.fn((_channel: string, payload: unknown) => {
-    const envelope = payload as {
-      type: string
-      payload?: { categories?: ConfigActionCategory[] }
-    }
+  stubBridge().invoke.mockImplementation((...args: unknown[]) => {
+    const envelope = args[1] as { payload?: { categories?: ConfigActionCategory[] } }
     if (envelope.payload?.categories) savedCategories.push(envelope.payload.categories)
     return Promise.resolve({ ok: true, value: [] })
-  }) as unknown as typeof bridge.invoke
+  })
   stubRects()
 })
 
 afterEach(() => {
-  act(() => root.unmount())
-  container.remove()
   vi.restoreAllMocks()
   vi.useRealTimers()
 })
@@ -234,10 +180,7 @@ describe('ControlsTab sub-category header drag (story 054 D6)', () => {
     expect(renderedSubcategoryIds()).toEqual(['sub-2', 'sub-1'])
     expect(savedCategories).toHaveLength(1)
     const weapons = savedCategories[0]!.find((category) => category.id === 'weapons')!
-    expect(weapons.subcategories?.map((subcategory) => subcategory.id)).toEqual([
-      'sub-2',
-      'sub-1',
-    ])
+    expect(weapons.subcategories?.map((subcategory) => subcategory.id)).toEqual(['sub-2', 'sub-1'])
   })
 
   it('leaves sub-category order untouched when the header is dropped back where it started', async () => {

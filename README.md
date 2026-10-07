@@ -13,10 +13,12 @@ Built around the [r1q2](https://www.r1ch.net/projects/r1q2) client, with Q2PRO
 and vanilla 3.20 as first-class citizens. Ships no game content — you bring your
 own Quake II, or start from the freely downloadable demo.
 
-> **Status: pre-release (0.3.0).** Library, installs, launching, the config
-> editor, the home screen and self-updates work on Windows and Linux. The game
-> browser and the Linux runners (wine, umu-run, Steam) are built and ship with
-> the next release. Mods and asset packs are not started.
+> **Status: pre-release (0.6.0).** Library, installs, launching, the config
+> editor, the home screen, the server browser, demo replays, mod installs and
+> self-updates work on Windows; Linux is experimental and untested (see
+> [Compatibility](#compatibility)). The Linux runners (wine, umu-run, Steam)
+> are built and ship with the next release. Further mod features (milestone
+> 5.2) and asset packs are not started.
 
 ## Why
 
@@ -29,11 +31,18 @@ belongs to which — and where the game is actually being played tonight.
 
 ## Compatibility
 
-| Platform              | Status                                          |
-| --------------------- | ----------------------------------------------- |
-| Windows 10 / 11 (x64) | **Supported** — the primary target              |
-| Linux (x86_64)        | **Supported** — AppImage, see the caveats below |
-| macOS                 | Not supported, not planned                      |
+| Platform              | Status                                                              |
+| --------------------- | ------------------------------------------------------------------- |
+| Windows 10 / 11 (x64) | **Supported** — the primary target, developed and tested here       |
+| Linux (x86_64)        | **Experimental** — AppImage, built but not regularly tested (below) |
+| macOS                 | Not supported, not planned                                          |
+
+**Linux is not tested to the same standard as Windows.** The code is written to
+run there and the AppImage is built, but the maintainer does not run or test
+Linux themselves. Expect rough edges, and treat it as best-effort: bug reports
+are welcome, but there is no support commitment, and fixes depend on someone who
+can reproduce the problem. If you can help test on Linux, please say so in an
+issue.
 
 On Linux the launcher finds native and Flatpak Steam installations and runs
 native engine builds directly. A Windows build (the Steam copy, a GOG folder, a
@@ -123,7 +132,7 @@ R1Q2, Q2PRO and vanilla 3.20; the installer downloads R1Q2 and Q2PRO (Windows).
 - **Switch while playing** — a bindable key cycles through an installation's
   assigned profiles and echoes the new one to the console.
 
-### Servers (next release)
+### Servers
 
 - **Server list** — pulled from master and list sources you can add, remove,
   reorder and switch off. Rows stream in live during a scan and show name, mod,
@@ -157,7 +166,7 @@ About tab shows the release notes of what you have and what is available.
 
 | Feature          | What it is                                                                                                                                             | Status      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| **Mods**         | Discover, install and enable/disable game directories with their own config. The `+set game` half already exists.                                      | Not started |
+| **Mods**         | Discover, install and enable/disable game directories with their own config. The `+set game` half already exists.                                      | In progress |
 | **Asset packs**  | Texture, model and sound packs, with conflict detection between packs touching the same files and a record of what a pack changed so it can be undone. | Not started |
 | **Linux engine** | A self-built, mirrored Linux Q2PRO so the bootstrap wizard can install a native engine on Linux too.                                                   | Open        |
 
@@ -172,8 +181,9 @@ Grab a build from the
 - **Windows** — the NSIS installer (`.exe`) or the portable zip. Builds are
   unsigned, so Windows SmartScreen will warn — "Windows protected your PC" →
   "More info" → "Run anyway".
-- **Linux** — the AppImage (x86_64). Make it executable (`chmod +x`) and run it;
-  it updates itself the same way the Windows build does.
+- **Linux (experimental, untested)** — the AppImage (x86_64). Make it
+  executable (`chmod +x`) and run it; it updates itself the same way the
+  Windows build does.
 
 Prefer to build it yourself? See [CONTRIBUTING.md](CONTRIBUTING.md).
 

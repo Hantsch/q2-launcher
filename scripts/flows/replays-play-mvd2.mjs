@@ -10,6 +10,7 @@ import {
   vendoredExtractorExists,
   writeReplaysPlayMvd2Fixture,
 } from '../lib/fixture.mjs'
+import { openDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play-mvd2'
 
@@ -21,27 +22,13 @@ export async function setup() {
   return {}
 }
 
-function rowFor(page, fileName) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: fileName })
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refresh.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('replays-play-mvd2: timed out waiting for the demo scan to finish')
-}
-
 async function waitForLog(logPath, substring) {
   const deadline = Date.now() + 10_000
   for (;;) {
     const content = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
     if (content.includes(substring)) return content
-    if (Date.now() >= deadline) throw new Error(`replays-play-mvd2: main.log never contained ${substring}`)
+    if (Date.now() >= deadline)
+      throw new Error(`replays-play-mvd2: main.log never contained ${substring}`)
     await new Promise((resolve) => setTimeout(resolve, 150))
   }
 }
@@ -74,18 +61,24 @@ async function playAndCheck(page, logPath, fileName) {
     process.platform === 'win32'
       ? `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set logfile 2 +set logfile_flush 3 +set logfile_name q2l_demo.log`
       : `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set sys_console 1`
-  const tail = process.platform === 'win32' ? `+demo ${fileName} +exec q2l_loop.cfg` : `+demo ${fileName}`
+  const tail =
+    process.platform === 'win32' ? `+demo ${fileName} +exec q2l_loop.cfg` : `+demo ${fileName}`
   const trimmed = (line ?? '').trimEnd()
   const session = `${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set in_grab 2 `
   if (!line || !trimmed.includes(session) || !trimmed.endsWith(` ${tail}`)) {
-    throw new Error(`replays-play-mvd2: expected launching line with ${session}... ${tail}, got ${JSON.stringify(line)}`)
+    throw new Error(
+      `replays-play-mvd2: expected launching line with ${session}... ${tail}, got ${JSON.stringify(line)}`,
+    )
   }
-  if (line.includes('demomap')) throw new Error('replays-play-mvd2: launching line must not use demomap')
+  if (line.includes('demomap'))
+    throw new Error('replays-play-mvd2: launching line must not use demomap')
   // The stand-in exits on its own; wait for that so the next Play is not refused as "game running".
   await page.waitForFunction(
     () => {
       const phases = window.__q2lPhases ?? []
-      return phases.lastIndexOf('running') !== -1 && phases.length > phases.lastIndexOf('running') + 1
+      return (
+        phases.lastIndexOf('running') !== -1 && phases.length > phases.lastIndexOf('running') + 1
+      )
     },
     undefined,
     { timeout: LAUNCH_TIMEOUT_MS },
@@ -94,21 +87,24 @@ async function playAndCheck(page, logPath, fileName) {
 
 export default async function replaysPlayMvd2({ page, step }) {
   if (process.platform === 'win32' && !vendoredExtractorExists()) {
-    console.log('replays-play-mvd2: SKIPPING LOUDLY - resources/bin/7za.exe was not vendored (npm run fetch:7za)')
+    console.log(
+      'replays-play-mvd2: SKIPPING LOUDLY - resources/bin/7za.exe was not vendored (npm run fetch:7za)',
+    )
     return
   }
 
   step('open Demos; the fixture install lists an .mvd2 and an .mvd2.gz')
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'baseq2')
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
 
   step('the mvd2 detail note is visible')
   for (const name of [REPLAYS_PLAY_MVD2_DEMO, REPLAYS_PLAY_MVD2_GZ_DEMO]) {
     await rowFor(page, name).first().click({ timeout: TIMEOUT_MS })
-    await page.getByTestId('demo-detail-mvd2-note').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    await page
+      .getByTestId('demo-detail-mvd2-note')
+      .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   }
 
   step('an mvd2 and an mvd2.gz play in Q2PRO with +set game and +demo')

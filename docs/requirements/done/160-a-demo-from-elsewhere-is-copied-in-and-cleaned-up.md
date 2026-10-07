@@ -46,7 +46,7 @@ up is concept open point §17.8.
 
 - **(User, sprint-level)** Playback goes through Q2PRO only for now; no r1q2 playback. → AC3's
   "decompress for r1q2" half is cut: every `.gz` is copied as-is, nothing is ever decompressed.
-- **Q1 — Sweep all of `_launcher/`.** At launcher start the replays module deletes every *file*
+- **Q1 — Sweep all of `_launcher/`.** At launcher start the replays module deletes every _file_
   directly inside each known `…/<gamedir>/demos/_launcher/` (not recursive, never outside that
   folder); per-file failures (e.g. EBUSY on Windows) are logged and skipped. Reason: `_launcher/` is
   a launcher-reserved folder that [[141]] already hides from the list, so nothing in it is a user's
@@ -88,8 +88,8 @@ play/playback file(s) in the same folder, `src/renderer/src/i18n/locales/en.json
 ## Deliverables
 
 - [x] **D1 — Staging core + unit tests.** New `src/main/modules/replays/demo-staging.ts` and
-  `demo-staging.test.ts` (mirror the temp-dir style of `src/main/modules/replays/discovery.test.ts`;
-  outcomes use `Outcome`/`fail` from `src/shared/types/common.ts`). Exports:
+      `demo-staging.test.ts` (mirror the temp-dir style of `src/main/modules/replays/discovery.test.ts`;
+      outcomes use `Outcome`/`fail` from `src/shared/types/common.ts`). Exports:
   - `LAUNCHER_DIR_NAME = '_launcher'`.
   - `stagedFileName(demo)` → `<demo.id>` + the original's extension, lower-cased
     (`.dm2`/`.mvd2`/`.dm2.gz`/`.mvd2.gz`; for a zip entry, the entry name's extension).
@@ -112,20 +112,20 @@ play/playback file(s) in the same folder, `src/renderer/src/i18n/locales/en.json
   - `sweepLauncherDirs(demosDirs, log)` — deletes every regular file directly inside
     `<dir>/_launcher/` for each dir; missing folders are fine; per-file errors logged and skipped;
     never recursive, never touches anything outside `_launcher/`.
-  Tests (names below): original file and archive unchanged in bytes and mtime after staging; `.gz`
-  copy is byte-identical with `.gz` name; same file name from two sources stages to two files and
-  staging B leaves A's copy intact; first candidate blocked (a *file* named `_launcher` in it) falls
-  through to the second; all candidates blocked → `copyDirNotWritable`, nothing written; sweep
-  removes `_launcher/` files and leaves `demos/*.dm2` and subfolders alone.
+    Tests (names below): original file and archive unchanged in bytes and mtime after staging; `.gz`
+    copy is byte-identical with `.gz` name; same file name from two sources stages to two files and
+    staging B leaves A's copy intact; first candidate blocked (a _file_ named `_launcher` in it) falls
+    through to the second; all candidates blocked → `copyDirNotWritable`, nothing written; sweep
+    removes `_launcher/` files and leaves `demos/*.dm2` and subfolders alone.
 - [x] **D2 — Wire staging into play + cleanup + startup sweep.** Files: 159's play handler module in
-  `src/main/modules/replays/` (the one that builds `+demo <relative path>` and today refuses a demo
-  outside the chosen installation's demos folder), `src/main/modules/replays/index.ts` (module
-  `setup`), `src/main/modules/replays/playback-sessions.ts` only if the copy path is tracked there,
-  `src/renderer/src/i18n/locales/en.json` (keys `replays.play.error.copyDirNotWritable` — e.g.
-  "Can't write a temporary copy to {{path}}. Nothing was started." — and
-  `replays.play.error.archiveEntry`), `CHANGELOG.md` (one `### Added` line), plus a test next to the
-  play handler (mirror 159's play-handler test; fake `LaunchService` as in
-  `src/main/ipc/dev.test.ts`). Behaviour:
+      `src/main/modules/replays/` (the one that builds `+demo <relative path>` and today refuses a demo
+      outside the chosen installation's demos folder), `src/main/modules/replays/index.ts` (module
+      `setup`), `src/main/modules/replays/playback-sessions.ts` only if the copy path is tracked there,
+      `src/renderer/src/i18n/locales/en.json` (keys `replays.play.error.copyDirNotWritable` — e.g.
+      "Can't write a temporary copy to {{path}}. Nothing was started." — and
+      `replays.play.error.archiveEntry`), `CHANGELOG.md` (one `### Added` line), plus a test next to the
+      play handler (mirror 159's play-handler test; fake `LaunchService` as in
+      `src/main/ipc/dev.test.ts`). Behaviour:
   - Not in place → build candidates (`<root>/<gamedir>/demos`, then
     `effectiveWriteDirs(installation, ctx)` from `discovery.ts` joined with `<gamedir>/demos`) and
     call `stageDemo`. On fail → return that fail, **no** `launch:start`. On success → launch with
@@ -136,15 +136,15 @@ play/playback file(s) in the same folder, `src/renderer/src/i18n/locales/en.json
   - In-place plays (159) never get a copy and never trigger any delete.
   - `setup`: fire-and-forget `sweepLauncherDirs` over every installation × `gameDirs` demos dir
     (plus the effective write dirs), logged, never blocks module start or throws.
-  Tests: not-writable → fail key and launch never called; copy removed on `exited` and on `failed`
-  and on start failure; in-place play → no file deleted; setup runs the sweep over all
-  installations' dirs.
+    Tests: not-writable → fail key and launch never called; copy removed on `exited` and on `failed`
+    and on start failure; in-place play → no file deleted; setup runs the sweep over all
+    installations' dirs.
 - [x] **D3 — E2E flows.** New `scripts/flows/replays-copy-in.mjs`, `replays-copy-in-sweep.mjs`,
-  `replays-copy-in-not-writable.mjs`; fixture additions in `scripts/lib/fixture.mjs` only if a
-  needed source is missing (existing: extra folder `replaysExtraFolderFixturePath()`, zip
-  `writeReplaysZipPackArchive()`, decoy `_launcher/leftover.dm2` in `REPLAYS_FIXTURE_DECOYS`). Mirror
-  159's play flow (`scripts/flows/replays-play*.mjs`) for opening a demo, clicking Play and the
-  stubbed engine process — no real engine; the flow must be able to observe the stub's exit.
+      `replays-copy-in-not-writable.mjs`; fixture additions in `scripts/lib/fixture.mjs` only if a
+      needed source is missing (existing: extra folder `replaysExtraFolderFixturePath()`, zip
+      `writeReplaysZipPackArchive()`, decoy `_launcher/leftover.dm2` in `REPLAYS_FIXTURE_DECOYS`). Mirror
+      159's play flow (`scripts/flows/replays-play*.mjs`) for opening a demo, clicking Play and the
+      stubbed engine process — no real engine; the flow must be able to observe the stub's exit.
   - `replays-copy-in`: an extra-folder demo → while the stub runs, `<gamedir>/demos/_launcher/<id>.dm2`
     exists and the stub's args contain `+demo _launcher/<id>.dm2`; after exit the copy is gone; the
     original's bytes + mtime equal their pre-play values. Same for a `pack.zip` entry (archive
@@ -152,10 +152,10 @@ play/playback file(s) in the same folder, `src/renderer/src/i18n/locales/en.json
   - `replays-copy-in-sweep`: at launcher start the seeded `_launcher/leftover.dm2` is removed while
     `demos/*.dm2` of that installation is untouched (wait for the file to disappear, bounded).
   - `replays-copy-in-not-writable`: the flow replaces the target installation's `demos/_launcher`
-    with a plain *file* of that name, clicks Play on an extra-folder demo → the
+    with a plain _file_ of that name, clicks Play on an extra-folder demo → the
     `copyDirNotWritable` text is visible and no stub process started.
-  Before finishing, grep `scripts/flows/` for `leftover.dm2` / `_launcher` and make sure no existing
-  flow depends on the decoy surviving start-up.
+    Before finishing, grep `scripts/flows/` for `leftover.dm2` / `_launcher` and make sure no existing
+    flow depends on the decoy surviving start-up.
 
 ## Model Hints
 
@@ -200,9 +200,10 @@ Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest ru
 AC → test (all ran and passed): AC1/2/5 unit `demo-staging.test.ts` + flow `replays-copy-in`; AC3 unit "a .gz is copied byte-identical…"; AC4 flow `replays-copy-in` + unit `demo-play.test.ts` "the copy is removed when the game exits, fails or never starts"; AC5 also "an in-place play never deletes a file"; AC6 flow `replays-copy-in-sweep` + unit sweep test; AC7 flow `replays-copy-in-not-writable` + unit + "a staging failure never calls launch"; AC8 unit "same file name from two sources…". No manual residue.
 
 Decisions:
+
 - Plan gap: the shared eligibility rule (`src/shared/replays/demo-play.ts`) still refused demos from elsewhere (`notInInstallation`), keeping Play disabled. Added D2b: rule now returns ok with `inPlace` flag; reason key removed; 159's refusal tests rewritten to assert the copy launch.
 - Additions in `demo-play.ts`: second play while one is in flight is refused as `gameRunning`; play awaits the startup sweep before staging; file-exists and console-safe staged-name checks.
 - D3 flows use a ~3 s lingering stub (`cmd.exe` copy on Windows, sleep script on Linux — Linux path unrun) via new `scripts/lib/replays-copy-in.mjs` and `writeReplaysCopyInFixture`.
-Unfixed review notes (accepted): zip unit tests use `it.skipIf` when the vendored 7za is missing (present here, flow throws instead of skipping); an extra folder that is itself an installation's `_launcher` dir is swept at start (Decision Q1); not-writable flow is Windows-shaped; `unsafeName` branch has no direct main test.
+  Unfixed review notes (accepted): zip unit tests use `it.skipIf` when the vendored 7za is missing (present here, flow throws instead of skipping); an extra folder that is itself an installation's `_launcher` dir is swept at start (Decision Q1); not-writable flow is Windows-shaped; `unsafeName` branch has no direct main test.
 
 tiers: D 4 / hard 1 · review default · cycles 1 · agents 6

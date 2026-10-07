@@ -3,7 +3,8 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UnlockPayload } from '@shared/unlock'
 import type { AppContext } from '../context'
-import type { UnlockState as StoredUnlockState } from '../lib/schemas'
+import { fakeSectionState } from '../../test-support/state-sections'
+import { unlockState } from '../services/unlock/persisted'
 import { resolveFeatureGate } from '../features/gate'
 import { encodeUnlockPayload } from '../services/unlock/code'
 import {
@@ -11,6 +12,7 @@ import {
   UI_HARNESS_UNLOCK_PUBLIC_KEY_ENV,
   UNLOCK_PUBLIC_KEY_PEM,
 } from '../services/unlock/public-key'
+import type { StateStore } from '../services/state'
 import { createUnlockService, type UnlockService } from '../services/unlock/service'
 
 /**
@@ -41,13 +43,18 @@ const fakeEvent = {} as unknown as IpcMainInvokeEvent
 const issuer = generateKeyPairSync('ed25519')
 const foreign = generateKeyPairSync('ed25519')
 const issuerPublicPem = issuer.publicKey.export({ type: 'spki', format: 'pem' }).toString()
-const issuerPublicBase64 = issuer.publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
+const issuerPublicBase64 = issuer.publicKey
+  .export({ type: 'spki', format: 'der' })
+  .toString('base64')
 
 const INSTALL_ID = 'ABCDEFGHJKLM'
 const NOW = new Date('2026-06-01T00:00:00.000Z')
 const NOW_S = Math.floor(NOW.getTime() / 1000)
 
-function issueCode(payload: Partial<UnlockPayload> = {}, key: KeyObject = issuer.privateKey): string {
+function issueCode(
+  payload: Partial<UnlockPayload> = {},
+  key: KeyObject = issuer.privateKey,
+): string {
   const unsigned = encodeUnlockPayload({
     features: ['pro-servers'],
     launcherInstallId: INSTALL_ID,
@@ -59,22 +66,17 @@ function issueCode(payload: Partial<UnlockPayload> = {}, key: KeyObject = issuer
   return `${unsigned}.${signature.toString('base64url')}`
 }
 
-function memoryState(initial: StoredUnlockState = { codes: [] }): {
-  unlockState(): StoredUnlockState
-  setUnlockState(next: StoredUnlockState): StoredUnlockState
-} {
-  let current = initial
-  return {
-    unlockState: () => current,
-    setUnlockState: (next) => (current = next),
-  }
+function memoryState(): StateStore {
+  return fakeSectionState()
 }
 
-async function startService(options: {
-  state?: ReturnType<typeof memoryState>
-  publicKey?: string
-  now?: Date
-} = {}): Promise<UnlockService> {
+async function startService(
+  options: {
+    state?: StateStore
+    publicKey?: string
+    now?: Date
+  } = {},
+): Promise<UnlockService> {
   const service = createUnlockService({
     state: options.state ?? memoryState(),
     publicKey: options.publicKey ?? issuerPublicPem,
@@ -142,7 +144,11 @@ describe('unlock:redeem', () => {
     const service = await startService()
     const { redeem, getState } = await setup(service)
     const expiresAt = NOW_S + 86_400
-    const code = issueCode({ features: ['pro-servers', 'beta-feed'], expiresAt, label: 'Beta tester' })
+    const code = issueCode({
+      features: ['pro-servers', 'beta-feed'],
+      expiresAt,
+      label: 'Beta tester',
+    })
 
     const result = await redeem(fakeEvent, `  ${code}\n`)
 
@@ -176,14 +182,23 @@ describe('unlock:redeem', () => {
     expect(await getState(fakeEvent, undefined)).toEqual({
       installationId: 'ABCD-EFGH-JKLM',
       codes: [
-        { features: ['pro-servers'], featureExpiry: expiresAt * 1000, label: 'Trial', status: 'expired' },
+        {
+          features: ['pro-servers'],
+          featureExpiry: expiresAt * 1000,
+          label: 'Trial',
+          status: 'expired',
+        },
       ],
     })
     const gate = resolveFeatureGate(restarted)
     expect(gate.unlockedFeatures()).not.toContain('pro-servers')
     expect(restarted.isUnlocked('pro-servers')).toBe(false)
     // Kept, not deleted: the record is still in storage.
-    expect(state.unlockState().codes.map((entry) => entry.code)).toEqual([code])
+    expect(
+      unlockState(state)
+        .get()
+        .codes.map((entry) => entry.code),
+    ).toEqual([code])
   })
 
   it('re-redeeming a stored code does not duplicate it', async () => {
@@ -195,7 +210,7 @@ describe('unlock:redeem', () => {
     const once = await firstIpc.redeem(fakeEvent, code)
     const twice = await firstIpc.redeem(fakeEvent, ` ${code} `)
     expect(twice).toEqual(once)
-    const storedRow = state.unlockState().codes[0]
+    const storedRow = unlockState(state).get().codes[0]
 
     // Even once its redemption window has closed, the stored code is still an idempotent success.
     registered.clear()
@@ -204,7 +219,7 @@ describe('unlock:redeem', () => {
     const { redeem } = await setup(later)
     expect(await redeem(fakeEvent, code)).toEqual(once)
 
-    expect(state.unlockState().codes).toEqual([storedRow])
+    expect(unlockState(state).get().codes).toEqual([storedRow])
   })
 
   it('the test public key is ignored outside the harness double gate', async () => {
@@ -226,11 +241,16 @@ describe('unlock:redeem', () => {
 
       registered.clear()
       vi.resetModules()
-      const { redeem } = await setup(await startService({ publicKey: override ?? UNLOCK_PUBLIC_KEY_PEM }))
+      const { redeem } = await setup(
+        await startService({ publicKey: override ?? UNLOCK_PUBLIC_KEY_PEM }),
+      )
       const result = await redeem(fakeEvent, code)
       expect(result).toEqual(
         gate.accepted
-          ? { ok: true, value: { ok: true, code: expect.objectContaining({ features: ['pro-servers'] }) } }
+          ? {
+              ok: true,
+              value: { ok: true, code: expect.objectContaining({ features: ['pro-servers'] }) },
+            }
           : { ok: true, value: { ok: false, reason: 'bad-signature' } },
       )
     }

@@ -15,9 +15,8 @@
 // two non-favourites newest-first - and AC5 ("a column sort never re-pins favourites") is provable
 // because sort-nonfav-newest's map (q2dm5) sits alphabetically/numerically BETWEEN the two
 // favourites' maps (q2dm2, q2dm10), so a map sort only groups it there if favourites are not pinned.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR_MAP,
   REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR_MAP,
@@ -26,10 +25,9 @@ import {
   REPLAYS_SORT_ORDER_VARIANT,
   writeReplaysSortOrderFixture,
 } from '../lib/fixture.mjs'
+import { openDemosRoot, waitForRowCount } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
-const STATE_WRITE_POLL_TIMEOUT_MS = 4_000
-const STATE_WRITE_POLL_INTERVAL_MS = 100
 
 export const variant = REPLAYS_SORT_ORDER_VARIANT
 
@@ -41,67 +39,23 @@ export async function setup() {
   return {}
 }
 
-function statePath() {
-  return join(variantUserDataDir(variant), 'state.json')
-}
-
-function readStateJson() {
-  return JSON.parse(readFileSync(statePath(), 'utf8'))
-}
-
-/** Polls `state.json` until `predicate` is satisfied or the timeout elapses - a sort click updates
- * the DOM optimistically (`ReplaysView.tsx`'s `handleSort`) before the `list.setSort` IPC round
- * trip that actually writes the file resolves, so a single immediate read can race the write. */
-async function waitForStateJson(predicate, label) {
-  const deadline = Date.now() + STATE_WRITE_POLL_TIMEOUT_MS
-  let last
-  for (;;) {
-    last = readStateJson()
-    if (predicate(last)) return last
-    if (Date.now() >= deadline) {
-      throw new Error(`timed out waiting for ${label}, last state.json replays: ${JSON.stringify(last.replays)}`)
-    }
-    await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_POLL_INTERVAL_MS))
-  }
-}
-
-/** Same reasoning as `replays-demo-rows.mjs`'s own helper: the first `index.read` on mount can
- * render a stale/empty snapshot before the scan this same mount triggers finishes and swaps the
- * whole list in - waiting for `replays-refresh` to re-enable is the real "settled" signal. */
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
-}
-
 /** Reads the DOM order of every mounted `replays-demo-row`, as the `map` value each one shows -
  * the fixture's four maps are distinct and known, so this is a stable stand-in for "which fixture
  * row is this" without depending on the row's content-derived id (opaque/unpredictable) or its
  * effective name (unset here - no sidecar `name` field). */
 async function rowOrder(page) {
   return page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-testid="replays-demo-row"]')).map((row) =>
-      row.querySelector('[data-testid="replays-demo-map"]')?.textContent?.trim() ?? null,
+    Array.from(document.querySelectorAll('[data-testid="replays-demo-row"]')).map(
+      (row) => row.querySelector('[data-testid="replays-demo-map"]')?.textContent?.trim() ?? null,
     ),
-  )
-}
-
-async function waitForRowCount(page, count) {
-  await page.waitForFunction(
-    (expected) => document.querySelectorAll('[data-testid="replays-demo-row"]').length >= expected,
-    count,
-    { timeout: TIMEOUT_MS },
   )
 }
 
 function assertOrder(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`expected ${label} order ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
+    throw new Error(
+      `expected ${label} order ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    )
   }
 }
 
@@ -112,8 +66,9 @@ async function clickSort(page, column) {
 async function waitForPressed(page, column, pressed) {
   await page.waitForFunction(
     ({ column, pressed }) =>
-      document.querySelector(`[data-testid="replays-sort-${column}"]`)?.getAttribute('aria-pressed') ===
-      String(pressed),
+      document
+        .querySelector(`[data-testid="replays-sort-${column}"]`)
+        ?.getAttribute('aria-pressed') === String(pressed),
     { column, pressed },
     { timeout: TIMEOUT_MS },
   )
@@ -123,12 +78,17 @@ async function assertNoSortCaption(page, label) {
   const captions = await page.getByTestId('replays-sort-current').count()
   const defaultText = await page.getByText('Favourites first, then newest').count()
   if (captions !== 0 || defaultText !== 0) {
-    throw new Error(`expected no sort caption in ${label}, got ${captions} testid / ${defaultText} text matches`)
+    throw new Error(
+      `expected no sort caption in ${label}, got ${captions} testid / ${defaultText} text matches`,
+    )
   }
 }
 
 async function assertDirectionText(page, column, expected) {
-  const text = await page.getByTestId(`replays-sort-${column}`).getByTestId('replays-sort-direction').textContent()
+  const text = await page
+    .getByTestId(`replays-sort-${column}`)
+    .getByTestId('replays-sort-direction')
+    .textContent()
   if (text !== expected) {
     throw new Error(`expected ${column} direction text "${expected}", got "${text}"`)
   }
@@ -136,9 +96,7 @@ async function assertDirectionText(page, column, expected) {
 
 export default async function replaysSortOrder({ page, step, shot }) {
   step('navigate to Demos and wait for the scan to settle')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await waitForRowCount(page, 4)
 
   step('the default order groups favourites first (newest of the two first), then newest-first')
@@ -177,8 +135,12 @@ export default async function replaysSortOrder({ page, step, shot }) {
     ascOrder.indexOf(REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR_MAP),
     ascOrder.indexOf(REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR_MAP),
   ]
-  if (!(newestNonFavIndex > Math.min(...favIndices) && newestNonFavIndex < Math.max(...favIndices))) {
-    throw new Error('expected the newest non-favourite to sit between the two favourites under a map sort')
+  if (!(
+    newestNonFavIndex > Math.min(...favIndices) && newestNonFavIndex < Math.max(...favIndices)
+  )) {
+    throw new Error(
+      'expected the newest non-favourite to sit between the two favourites under a map sort',
+    )
   }
   await assertNoSortCaption(page, 'map ascending')
   await assertDirectionText(page, 'map', 'ascending')
@@ -187,7 +149,9 @@ export default async function replaysSortOrder({ page, step, shot }) {
   step('clicking the map column again reverses to descending')
   await clickSort(page, 'map')
   await waitForStateJson(
-    (state) => state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
+    variantUserDataDir(variant),
+    (state) =>
+      state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
     'state.json to persist map/desc',
   )
   const descOrder = await rowOrder(page)
@@ -211,7 +175,9 @@ export default async function replaysSortOrder({ page, step, shot }) {
   )
   await clickSort(page, 'date')
   await waitForStateJson(
-    (state) => state.replays?.listSort?.column === 'date' && state.replays?.listSort?.direction === 'asc',
+    variantUserDataDir(variant),
+    (state) =>
+      state.replays?.listSort?.column === 'date' && state.replays?.listSort?.direction === 'asc',
     'state.json to persist date/asc',
   )
   const dateAscOrder = await rowOrder(page)
@@ -220,11 +186,17 @@ export default async function replaysSortOrder({ page, step, shot }) {
 
   step('a third click on date resets to default, then two clicks on map sets map/desc again')
   await clickSort(page, 'date')
-  await waitForStateJson((state) => !('listSort' in (state.replays ?? {})), 'state.json to drop replays.listSort')
+  await waitForStateJson(
+    variantUserDataDir(variant),
+    (state) => state.replays?.listSort === null,
+    'state.json replays.listSort to be null',
+  )
   await clickSort(page, 'map')
   await clickSort(page, 'map')
   await waitForStateJson(
-    (state) => state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
+    variantUserDataDir(variant),
+    (state) =>
+      state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
     'state.json to persist map/desc again',
   )
   const mapDescAgain = await rowOrder(page)
@@ -232,17 +204,17 @@ export default async function replaysSortOrder({ page, step, shot }) {
 
   step('reloading the page keeps the map/descending order and the pressed state')
   await page.reload()
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await waitForRowCount(page, 4)
   await waitForPressed(page, 'map', true)
   const afterReloadOrder = await rowOrder(page)
   assertOrder(afterReloadOrder, descOrder, 'map descending after a page reload')
-  const persisted = readStateJson()
+  const persisted = readStateJson(variantUserDataDir(variant))
   const persistedSort = persisted.replays?.listSort
   if (persistedSort?.column !== 'map' || persistedSort?.direction !== 'desc') {
-    throw new Error(`expected state.json's replays.listSort to be map/desc, got ${JSON.stringify(persistedSort)}`)
+    throw new Error(
+      `expected state.json's replays.listSort to be map/desc, got ${JSON.stringify(persistedSort)}`,
+    )
   }
   await shot('after-reload')
 
@@ -251,12 +223,16 @@ export default async function replaysSortOrder({ page, step, shot }) {
   await waitForPressed(page, 'map', false)
   const clearedOrder = await rowOrder(page)
   assertOrder(clearedOrder, defaultOrder, 'the default (after clearing the sort)')
-  await waitForStateJson((state) => !('listSort' in (state.replays ?? {})), 'state.json to drop replays.listSort')
+  await waitForStateJson(
+    variantUserDataDir(variant),
+    (state) => state.replays?.listSort === null,
+    'state.json replays.listSort to be null',
+  )
   await shot('cleared-back-to-default')
 
   console.log(
     'replays-sort-order: the default order groups favourites first then newest-first, a column ' +
       'click cycles asc -> desc -> default without ever re-pinning favourites, the choice survives ' +
-      'a full reload, is persisted in state.json, and clearing it removes the persisted key',
+      'a full reload, is persisted in state.json, and clearing it persists null',
   )
 }

@@ -1,7 +1,7 @@
 # Demo Browser — Library, Metadata and Remote-Controlled Playback — Concept
 
-Status: **Draft** (vision + requirements; v1 cut into stories 133–167 under
-`docs/requirements/`, no sprint yet). This document fixes what the launcher's
+Status: **Implemented** (v1 shipped in S26-S30, Phase 10 done; section 9.2 browser playback deferred; stories 133–167 under
+`docs/requirements/`). This document fixes what the launcher's
 demo browser becomes: a new top-level module that finds Quake II demo files across every
 installation, every game directory and any extra folders the user adds, derives what it can from the
 file name and the demo content, lets the user annotate each demo with a **sidecar file next to it**,
@@ -19,7 +19,7 @@ on the existing launch path ([launch-plan.ts](../../src/main/services/launch-pla
 and game-dir discovery ([inspector.ts](../../src/main/services/inspector.ts)), the `config` module
 ([config-module.md](../systems/config-module.md)) for the in-game demo key binds, the game
 browser's shared filter engine ([list-filter.ts](../../src/shared/servers/list-filter.ts)) and its
-concept ([game-browser.md](game-browser.md)), whose planned 2D live observer shares parser code with
+concept ([game-browser.md](../systems/game-browser.md)), whose planned 2D live observer shares parser code with
 this module's 2D analyser.
 
 ---
@@ -148,45 +148,45 @@ better at taking them apart over time, and the user can teach it patterns it doe
 
 ## 3. Design decisions taken (from the requirements interview)
 
-| Topic | Decision | Rationale (user's) |
-| --- | --- | --- |
-| Placement | Own module, **primary** nav entry | Same level as Library, Config, Servers |
-| Naming | UI **"Demos"**, code/module id **`replays`** | The Q2 community says "demo"; the code already uses "demo" for the shareware installation and fixture data |
-| Sources | All installations × all game dirs, **extra folders**, **`.mvd2`**, **`.gz` / `.zip`** | "demos von allen installationen und allen gamemods" plus downloaded and server-side demos |
-| Index freshness | **Scan on open (incremental) + manual refresh**, no watcher | No new dependency, no platform-dependent watcher behaviour |
-| Sidecar name/format | **`<file>.dm2.json`** (full file name + `.json`) | Unambiguous when `x.dm2` and `x.mvd2` sit side by side; zod-validatable, versionable |
-| Filesystem as master | Sidecar holds **only user-entered data**; parsed data lives in a **disposable app-data cache**; untouched demos get **no sidecar** | "das filesystem der master ist und das nicht irgendwo anders ist" — without writing thousands of files uninvited |
-| Players in the sidecar | **Sides/teams with players** (optional team name and final result) | Covers duel, TDM and CTF — "wer gegen wen gespielt hat" |
-| Extra sidecar fields | **Tags**, **favourite** and **rating 1–10**, **date override** | Favourite *and* a finer rating; date override for copied/downloaded files |
-| Name patterns | **Shipped patterns + user-defined templates in Settings** | Covers servers we do not know yet |
-| Precedence | **Sidecar > demo content > file name > file time** | What the user entered always wins; the content is reliable for map/gamedir/players |
-| Gamemode | **File-name pattern + mod heuristic + sidecar**, heuristic marked as "guessed" | The demo content carries no `deathmatch`/`dmflags` |
-| File actions | **Reveal in file manager / copy path**, **rename** (demo + sidecar together) | Delete and move were not selected |
-| Filters | **Mod, gamemode, map, date (presets + custom range), favourite, rating ≥ n, tags**, plus full-text search | "ähnlich wie beim server"; "last 30 days, oder custom date range"; player-name search |
-| Default sort | **Favourites on top, then newest** | Same pinning as server favourites |
-| Playback v1 | **Native Q2PRO + launcher timeline already in v1** | The "like YouTube" experience is the point |
-| Windows risk | **Spike first; if cfg-polling fails, build a native helper** | Windows is ~80% of users; the timeline must not be Linux-only |
-| Fullscreen | **Three modes: preview (windowed stage) by default; cinema mode (whole display + launcher overlay) and fullscreen (in-game keys only) by choice**, fullscreen with a bindable way back (revised 2026-09-29 after live use, spike [[169]]; cinema mode added 2026-09-30) | Fullscreen covers the launcher, so the timeline was unusable; cinema mode keeps the "like YouTube" control over the full picture |
-| Demo key binds | **Maintained in the config profile** (Controls tab), bound by the user | Visible and permanent instead of a launcher silently rebinding keys |
-| Timeline controls | Play/pause, ±jump, click-to-seek, **speed**, **position/duration**, **free console commands** | All picked |
-| Engine choice | **Auto:** a Q2PRO installation with the demo's game dir (active preferred), overridable; missing game dir → "mod X missing" | No dialog on every play |
-| r1q2-only | **r1q2 fallback with a visible hint** ("seeking needs Q2PRO"); `.gz`/MVD2 disabled with reason | Platform-parity rule applied to engines |
-| Demos outside the playing installation | **Temporary copy** into its `<gamedir>/demos/`, removed after the game exits | Original stays untouched |
-| Zip archives | **Each entry a row, archive read-only**; sidecar/rename disabled with reason | Keeps sidecar naming simple |
-| Viewer staging | **2D analyser next; 3D left open** | 2D shares work with the game browser's observer |
-| Recording | **Not part of the module** | Browser + viewer only |
-| Dashboard tile | **None in v1** | — |
+| Topic                                  | Decision                                                                                                                                                                                                                                                                | Rationale (user's)                                                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Placement                              | Own module, **primary** nav entry                                                                                                                                                                                                                                       | Same level as Library, Config, Servers                                                                                           |
+| Naming                                 | UI **"Demos"**, code/module id **`replays`**                                                                                                                                                                                                                            | The Q2 community says "demo"; the code already uses "demo" for the shareware installation and fixture data                       |
+| Sources                                | All installations × all game dirs, **extra folders**, **`.mvd2`**, **`.gz` / `.zip`**                                                                                                                                                                                   | "demos von allen installationen und allen gamemods" plus downloaded and server-side demos                                        |
+| Index freshness                        | **Scan on open (incremental) + manual refresh**, no watcher                                                                                                                                                                                                             | No new dependency, no platform-dependent watcher behaviour                                                                       |
+| Sidecar name/format                    | **`<file>.dm2.json`** (full file name + `.json`)                                                                                                                                                                                                                        | Unambiguous when `x.dm2` and `x.mvd2` sit side by side; zod-validatable, versionable                                             |
+| Filesystem as master                   | Sidecar holds **only user-entered data**; parsed data lives in a **disposable app-data cache**; untouched demos get **no sidecar**                                                                                                                                      | "das filesystem der master ist und das nicht irgendwo anders ist" — without writing thousands of files uninvited                 |
+| Players in the sidecar                 | **Sides/teams with players** (optional team name and final result)                                                                                                                                                                                                      | Covers duel, TDM and CTF — "wer gegen wen gespielt hat"                                                                          |
+| Extra sidecar fields                   | **Tags**, **favourite** and **rating 1–10**, **date override**                                                                                                                                                                                                          | Favourite _and_ a finer rating; date override for copied/downloaded files                                                        |
+| Name patterns                          | **Shipped patterns + user-defined templates in Settings**                                                                                                                                                                                                               | Covers servers we do not know yet                                                                                                |
+| Precedence                             | **Sidecar > demo content > file name > file time**                                                                                                                                                                                                                      | What the user entered always wins; the content is reliable for map/gamedir/players                                               |
+| Gamemode                               | **File-name pattern + mod heuristic + sidecar**, heuristic marked as "guessed"                                                                                                                                                                                          | The demo content carries no `deathmatch`/`dmflags`                                                                               |
+| File actions                           | **Reveal in file manager / copy path**, **rename** (demo + sidecar together)                                                                                                                                                                                            | Delete and move were not selected                                                                                                |
+| Filters                                | **Mod, gamemode, map, date (presets + custom range), favourite, rating ≥ n, tags**, plus full-text search                                                                                                                                                               | "ähnlich wie beim server"; "last 30 days, oder custom date range"; player-name search                                            |
+| Default sort                           | **Favourites on top, then newest**                                                                                                                                                                                                                                      | Same pinning as server favourites                                                                                                |
+| Playback v1                            | **Native Q2PRO + launcher timeline already in v1**                                                                                                                                                                                                                      | The "like YouTube" experience is the point                                                                                       |
+| Windows risk                           | **Spike first; if cfg-polling fails, build a native helper**                                                                                                                                                                                                            | Windows is ~80% of users; the timeline must not be Linux-only                                                                    |
+| Fullscreen                             | **Three modes: preview (windowed stage) by default; cinema mode (whole display + launcher overlay) and fullscreen (in-game keys only) by choice**, fullscreen with a bindable way back (revised 2026-09-29 after live use, spike [[169]]; cinema mode added 2026-09-30) | Fullscreen covers the launcher, so the timeline was unusable; cinema mode keeps the "like YouTube" control over the full picture |
+| Demo key binds                         | **Maintained in the config profile** (Controls tab), bound by the user                                                                                                                                                                                                  | Visible and permanent instead of a launcher silently rebinding keys                                                              |
+| Timeline controls                      | Play/pause, ±jump, click-to-seek, **speed**, **position/duration**, **free console commands**                                                                                                                                                                           | All picked                                                                                                                       |
+| Engine choice                          | **Auto:** a Q2PRO installation with the demo's game dir (active preferred), overridable; missing game dir → "mod X missing"                                                                                                                                             | No dialog on every play                                                                                                          |
+| r1q2-only                              | **r1q2 fallback with a visible hint** ("seeking needs Q2PRO"); `.gz`/MVD2 disabled with reason                                                                                                                                                                          | Platform-parity rule applied to engines                                                                                          |
+| Demos outside the playing installation | **Temporary copy** into its `<gamedir>/demos/`, removed after the game exits                                                                                                                                                                                            | Original stays untouched                                                                                                         |
+| Zip archives                           | **Each entry a row, archive read-only**; sidecar/rename disabled with reason                                                                                                                                                                                            | Keeps sidecar naming simple                                                                                                      |
+| Viewer staging                         | **2D analyser next; 3D left open**                                                                                                                                                                                                                                      | 2D shares work with the game browser's observer                                                                                  |
+| Recording                              | **Not part of the module**                                                                                                                                                                                                                                              | Browser + viewer only                                                                                                            |
+| Dashboard tile                         | **None in v1**                                                                                                                                                                                                                                                          | —                                                                                                                                |
 
 ## 4. Tech decisions
 
-| Area | Choice | Rationale |
-| --- | --- | --- |
-| Demo parsing | A pure TypeScript header parser in the shared/main layer (no native code), gzip via `node:zlib`, zip via a main-side reader | Demos are protocol 34 on disk (§6.1), so the parser needs neither r1q2's `svc_zpacket` nor Q2PRO's stream opcodes; pure code is unit-testable |
-| Reference code | **packetflinger/libq2** (Go, Apache-2.0) as the porting reference; aq2replay (MIT) for MVD2/BSP; demoscope has no licence → reference only | License-compatible sources; nothing GPL copied |
-| Playback engine | **Q2PRO** `+demo` (never `demomap`) | `demomap` executes stufftext from the demo — a file from a stranger could run commands |
-| Remote channel | Linux: `+set sys_console 1` + stdin/stdout; Windows: cfg-polling spike, fallback native helper | §12.3 |
-| Persistence | Module settings (extra folders, user patterns, remembered sort) in a module-owned `state.json` key; parse cache in its own app-data file | `home`/`servers` precedent for module keys; the cache can be large and is disposable |
-| Tests | Parser, name-pattern engine, precedence resolver, sidecar schema and filter engine are pure modules with unit tests; the fixture serves sample demos from a local folder | Acceptance lives in pure code; no test touches a real installation |
+| Area            | Choice                                                                                                                                                                   | Rationale                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Demo parsing    | A pure TypeScript header parser in the shared/main layer (no native code), gzip via `node:zlib`, zip via a main-side reader                                              | Demos are protocol 34 on disk (§6.1), so the parser needs neither r1q2's `svc_zpacket` nor Q2PRO's stream opcodes; pure code is unit-testable |
+| Reference code  | **packetflinger/libq2** (Go, Apache-2.0) as the porting reference; aq2replay (MIT) for MVD2/BSP; demoscope has no licence → reference only                               | License-compatible sources; nothing GPL copied                                                                                                |
+| Playback engine | **Q2PRO** `+demo` (never `demomap`)                                                                                                                                      | `demomap` executes stufftext from the demo — a file from a stranger could run commands                                                        |
+| Remote channel  | Linux: `+set sys_console 1` + stdin/stdout; Windows: cfg-polling spike, fallback native helper                                                                           | §12.3                                                                                                                                         |
+| Persistence     | Module settings (extra folders, user patterns, remembered sort) in a module-owned `state.json` key; parse cache in its own app-data file                                 | `home`/`servers` precedent for module keys; the cache can be large and is disposable                                                          |
+| Tests           | Parser, name-pattern engine, precedence resolver, sidecar schema and filter engine are pure modules with unit tests; the fixture serves sample demos from a local folder | Acceptance lives in pure code; no test touches a real installation                                                                            |
 
 ## 5. Core terms & model
 
@@ -242,13 +242,13 @@ untested.
 
 ### 6.2 Cheap metadata (header only)
 
-| Fact | Source | |
-| --- | --- | --- |
-| Map | configstring `CS_MODELS+1` (`maps/xxx.bsp`; `CS_MODELS` = 32 in protocol 34) | [V] |
-| Level name | `CS_NAME` (0) | [V] |
-| POV (recording player) | `CS_PLAYERSKINS + playernum`, up to the first `\` (`CS_PLAYERSKINS` = 1312) | [V] |
-| All player names | every `CS_PLAYERSKINS` slot | [V] |
-| Game dir | `svc_serverdata` | [V] |
+| Fact                   | Source                                                                       |     |
+| ---------------------- | ---------------------------------------------------------------------------- | --- |
+| Map                    | configstring `CS_MODELS+1` (`maps/xxx.bsp`; `CS_MODELS` = 32 in protocol 34) | [V] |
+| Level name             | `CS_NAME` (0)                                                                | [V] |
+| POV (recording player) | `CS_PLAYERSKINS + playernum`, up to the first `\` (`CS_PLAYERSKINS` = 1312)  | [V] |
+| All player names       | every `CS_PLAYERSKINS` slot                                                  | [V] |
+| Game dir               | `svc_serverdata`                                                             | [V] |
 
 ### 6.3 Not in the header — and what follows
 
@@ -276,14 +276,14 @@ untested.
   — the module must scan the installation's effective write directory, not only the root.
 - **Shipped patterns** (v1 set, refined by releases):
 
-  | Origin | Pattern | Example | Template | |
-  | --- | --- | --- | --- | --- |
-  | r1q2 `cl_autorecord 1` | `%Y-%m-%d-%H%M-<map>.dm2` | `2026-09-26-2130-q2dm1.dm2` | `{year}-{month}-{day}-{hour}{min}-{map}.dm2` | [V] |
-  | Q2PRO `cl_beginmapcmd` recipe (below) | `<map>_%Y-%m-%d_%H-%M-%S.dm2` | `q2dm1_2026-09-26_21-30-00.dm2` | `{map}_{date}_{time}.dm2` | [V] |
-  | OpenTDM (`g_force_record` / `autorecord`) | `<player>-<teamA>-<teamB>-<hostname>-<map>_YYYY-MM-DD_HH-MM-SS`, unsafe characters → `_` | — | `{pov}-{teamA}-{teamB}-{host}-{map}_{date}_{time}` | [V] |
-  | AQ2-TNG with `use_mvd2` | `YYYYMMDD-HHMMSS-<map>.mvd2` | `20260926-213000-urban.mvd2` | `{year}{month}{day}-{hour}{min}{sec}-{map}.mvd2` | [V] |
-  | Q2PRO `sv_mvd_autorecord` | follows the mod's `record` name, `.mvd2` | — | — | [V] |
-  | TastySpleen, Q2Admin | unknown | — | — | [I] → §17.3 |
+  | Origin                                    | Pattern                                                                                  | Example                         | Template                                           |             |
+  | ----------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------- | ----------- |
+  | r1q2 `cl_autorecord 1`                    | `%Y-%m-%d-%H%M-<map>.dm2`                                                                | `2026-09-26-2130-q2dm1.dm2`     | `{year}-{month}-{day}-{hour}{min}-{map}.dm2`       | [V]         |
+  | Q2PRO `cl_beginmapcmd` recipe (below)     | `<map>_%Y-%m-%d_%H-%M-%S.dm2`                                                            | `q2dm1_2026-09-26_21-30-00.dm2` | `{map}_{date}_{time}.dm2`                          | [V]         |
+  | OpenTDM (`g_force_record` / `autorecord`) | `<player>-<teamA>-<teamB>-<hostname>-<map>_YYYY-MM-DD_HH-MM-SS`, unsafe characters → `_` | —                               | `{pov}-{teamA}-{teamB}-{host}-{map}_{date}_{time}` | [V]         |
+  | AQ2-TNG with `use_mvd2`                   | `YYYYMMDD-HHMMSS-<map>.mvd2`                                                             | `20260926-213000-urban.mvd2`    | `{year}{month}{day}-{hour}{min}{sec}-{map}.mvd2`   | [V]         |
+  | Q2PRO `sv_mvd_autorecord`                 | follows the mod's `record` name, `.mvd2`                                                 | —                               | —                                                  | [V]         |
+  | TastySpleen, Q2Admin                      | unknown                                                                                  | —                               | —                                                  | [I] → §17.3 |
 
 - Q2PRO has **no autorecord cvar**, but its `cl_beginmapcmd` trigger does the job — a recipe
   circulating among players (2026-09-27) and verified in source [V]:
@@ -306,6 +306,7 @@ untested.
   - r1q2's `cl_autorecord` names to the minute and opens with `"wb"`: rejoining the same map within
     a minute overwrites the earlier demo. [V]
   - Offering either as a profile setting is story 168.
+
 - Mods can additionally request a client recording through the userinfo `uf` flag. [V]
 - **User-defined templates** live in the module settings: a template of named tokens (e.g.
   `{date}_{map}_{p1}_vs_{p2}`) matched against the file name. Token vocabulary, date formats and
@@ -509,16 +510,16 @@ loop) is not affected.
 
 ## 13. Platform parity
 
-| Capability | Windows | Linux |
-| --- | --- | --- |
-| Browse, parse, sidecars, filters | yes | yes |
-| Reveal in file manager | `shell.showItemInFolder` | same |
-| Q2PRO playback | yes | only where a Q2PRO exists — see [linux-support-analysis.md](../linux-support-analysis.md) B1; otherwise Play disabled with the reason |
-| r1q2 fallback | yes | **not available** — no r1q2 on Linux; shown as "Not available on Linux: r1q2 is not supported" where the engine choice would appear |
-| Remote timeline | cfg polling (verified by spike 133; native helper not needed) | stdin (verified) |
-| Stage (placed borderless window) | yes (verified by spike 169) | X11 expected, unverified; Wayland cannot position windows — reason shown, normal window ([[170]] Q3) |
-| Cinema mode (overlay over the game) | spike [[186]] | X11 per spike [[186]]; Wayland — no stage, so the control is disabled with its reason |
-| Q2PRO `homedir` = `~/.q2pro` | n/a | scanned as the write directory for distro/Flatpak builds |
+| Capability                          | Windows                                                       | Linux                                                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Browse, parse, sidecars, filters    | yes                                                           | yes                                                                                                                                   |
+| Reveal in file manager              | `shell.showItemInFolder`                                      | same                                                                                                                                  |
+| Q2PRO playback                      | yes                                                           | only where a Q2PRO exists — see [linux-support-analysis.md](../linux-support-analysis.md) B1; otherwise Play disabled with the reason |
+| r1q2 fallback                       | yes                                                           | **not available** — no r1q2 on Linux; shown as "Not available on Linux: r1q2 is not supported" where the engine choice would appear   |
+| Remote timeline                     | cfg polling (verified by spike 133; native helper not needed) | stdin (verified)                                                                                                                      |
+| Stage (placed borderless window)    | yes (verified by spike 169)                                   | X11 expected, unverified; Wayland cannot position windows — reason shown, normal window ([[170]] Q3)                                  |
+| Cinema mode (overlay over the game) | spike [[186]]                                                 | X11 per spike [[186]]; Wayland — no stage, so the control is disabled with its reason                                                 |
+| Q2PRO `homedir` = `~/.q2pro`        | n/a                                                           | scanned as the write directory for distro/Flatpak builds                                                                              |
 
 Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 
@@ -554,6 +555,7 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 ## 15. Requirements
 
 **Discovery & index**
+
 - DEMO-1 The module lists demos from every installation's game-dir `demos/` folders (and write
   directory), and from every user-added extra folder.
 - DEMO-2 `.dm2`, `.mvd2`, `.dm2.gz`, `.mvd2.gz` are recognised; each demo entry inside a `.zip`
@@ -563,6 +565,7 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 - DEMO-4 The parse cache lives in app data and can be deleted without losing any user data.
 
 **Parsing**
+
 - DEMO-5 The header parser extracts map, level name, game dir, POV and all player names from
   protocol-34 `.dm2` (and the 343x variant) and from MVD2, including gzip-compressed files.
 - DEMO-6 Duration is shown for every parsable demo (method per §17.4).
@@ -574,6 +577,7 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
   next scan.
 
 **Sidecar & precedence**
+
 - DEMO-10 Editing a demo's metadata creates or updates `<file>.json` next to it, containing only
   user-entered fields and a schema version; untouched demos get no sidecar.
 - DEMO-11 Sidecar fields: name, description, mod, gamemode, map, sides (team name, result, players),
@@ -586,6 +590,7 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 - DEMO-15 Sidecar editing and rename are visible but disabled, with the reason, for zip entries.
 
 **List, search, filters**
+
 - DEMO-16 Default order: favourites first, then newest effective date; column sorting is remembered.
 - DEMO-17 Full-text search matches sidecar name, description, tags, player names from every source,
   map and file name.
@@ -595,6 +600,7 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 - DEMO-20 Reveal in file manager and copy path work for every demo.
 
 **Playback**
+
 - DEMO-21 Play picks a Q2PRO installation with the demo's game dir (active preferred); the user can
   override; a missing game dir disables Play with its reason.
 - DEMO-22 Playback uses `+set game` and `+demo`, never `demomap`, on Q2PRO.
@@ -605,6 +611,7 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 - DEMO-25 On Linux the r1q2 fallback is shown as not available, with its reason.
 
 **Timeline**
+
 - DEMO-26 While a demo plays, the launcher shows play/pause, ±jump, click-to-seek, speed,
   position/duration and a console-command field that act on the running engine.
 - DEMO-27 The Windows channel is proven by a spike before any timeline story; if cfg polling fails, a
@@ -698,6 +705,7 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
    `.mvd2` → 6201 frames, 10:20. Implementation: `src/main/lib/demo-bytes.ts`'s `readDemoDuration`
    (streams the file, gzip-transparent, same sniffing as the header readers), backed by
    `src/shared/demos/{dm2,mvd2}-frames.ts` and `frame-count.ts`.
+
 5. **Gamemode heuristic table** — **resolved** (story [[149]], `src/shared/demos/gamemode.ts`):
    `resolveGamemode` tries, in order, a non-blank sidecar value, a non-blank name-fact value, then
    the ordered `GAMEMODE_HEURISTICS` table (first match wins, all three rules yield

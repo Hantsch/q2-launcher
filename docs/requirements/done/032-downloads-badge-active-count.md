@@ -19,7 +19,7 @@ truth to bind to instead of a placeholder.
 
 ## Acceptance Criteria
 
-- [x] **AC1** — The Downloads icon shows a small badge with the current number of *active*
+- [x] **AC1** — The Downloads icon shows a small badge with the current number of _active_
       downloads whenever that number is greater than zero. "Active" is `isJobActive` —
       `queued`, `running` or `paused` (see Decisions: D-paused).
 - [x] **AC2** — The badge disappears when no downloads are active.
@@ -49,7 +49,7 @@ truth to bind to instead of a placeholder.
 - **D-scope: every active `downloads`-module job counts, including repair and engine-update
   jobs.** Reason: the concept has repair and update ride the same job machinery inside the same
   module (§9, §11), which is exactly AC3's "unless the downloads module explicitly folds them
-  in"; only *other* modules' jobs are excluded.
+  in"; only _other_ modules' jobs are excluded.
 - **D-paused: `paused` counts as active, i.e. the shared `isJobActive` predicate is reused
   verbatim.** Reason: a second, competing definition of "active" in the codebase is worse than
   the wording gap, and a paused download is precisely the state whose pointer to the Downloads
@@ -105,25 +105,25 @@ no `webPreferences`/CSP/IPC surface change.
 ## Deliverables
 
 - [x] **D1 — shared active-job count.** `countActiveJobs(jobs, moduleId)` in
-  `src/shared/types/jobs.ts`, plus its test in `src/shared/types/jobs.test.ts` (new; mirror
-  `src/shared/types/engine.test.ts`). Accepted when the test proves: other modules' jobs are
-  excluded, `queued`/`running`/`paused` count, `succeeded`/`failed`/`cancelled` do not.
-  *(AC3)*
+      `src/shared/types/jobs.ts`, plus its test in `src/shared/types/jobs.test.ts` (new; mirror
+      `src/shared/types/engine.test.ts`). Accepted when the test proves: other modules' jobs are
+      excluded, `queued`/`running`/`paused` count, `succeeded`/`failed`/`cancelled` do not.
+      _(AC3)_
 - [x] **D2 — the badge itself.** New `src/renderer/src/components/shell/NavJobBadge.tsx` +
-  `NavJobBadge.test.tsx` (jsdom docblock, `@testing-library/react`; mirror
-  `src/renderer/src/components/installations/InstallationTile.test.tsx`), plus the two
-  `nav.activeJobs_*` keys in `src/renderer/src/i18n/locales/en.json`. Accepted when the test
-  proves: nothing rendered at 0, `3` at 3, `99+` at 120, and the rendered node is the shared
-  `Badge` (no bespoke pill markup/colour). *(AC2, AC4)*
+      `NavJobBadge.test.tsx` (jsdom docblock, `@testing-library/react`; mirror
+      `src/renderer/src/components/installations/InstallationTile.test.tsx`), plus the two
+      `nav.activeJobs_*` keys in `src/renderer/src/i18n/locales/en.json`. Accepted when the test
+      proves: nothing rendered at 0, `3` at 3, `99+` at 120, and the rendered node is the shared
+      `Badge` (no bespoke pill markup/colour). _(AC2, AC4)_
 - [x] **D3 — wire it to real job state.** `useActiveJobCount` in
-  `src/renderer/src/store/useLauncher.ts` and the badge + count-aware `aria-label` in
-  `src/renderer/src/components/shell/TitleBar.tsx` (`UtilityButton` gains `relative` and
-  `badge`). Accepted when the Downloads button carries `nav-downloads-badge` whenever
-  `downloads` jobs are active, driven only by the store's `jobs`. *(AC1, AC3)*
+      `src/renderer/src/store/useLauncher.ts` and the badge + count-aware `aria-label` in
+      `src/renderer/src/components/shell/TitleBar.tsx` (`UtilityButton` gains `relative` and
+      `badge`). Accepted when the Downloads button carries `nav-downloads-badge` whenever
+      `downloads` jobs are active, driven only by the store's `jobs`. _(AC1, AC3)_
 - [x] **D4 — machine-verified through the real app.** New `scripts/flows/downloads-badge-count.mjs`
-  (mirror `scripts/flows/import-from-files.mjs`) and a `downloads-badge` screen entry in
-  `scripts/lib/screens.mjs`. Accepted when `npm run ui:flow downloads-badge-count` exits 0 and
-  `npm run ui:verify` is green (screenshot + axe on the badged titlebar). *(AC1, AC2)*
+      (mirror `scripts/flows/import-from-files.mjs`) and a `downloads-badge` screen entry in
+      `scripts/lib/screens.mjs`. Accepted when `npm run ui:flow downloads-badge-count` exits 0 and
+      `npm run ui:verify` is green (screenshot + axe on the badged titlebar). _(AC1, AC2)_
 
 ## Model Hints
 
@@ -164,13 +164,14 @@ count-aware, pluralised `aria-label`. No IPC channel, no main-process change.
 **Commit message:** `032: downloads icon shows a running-count badge`
 
 **Verification:**
+
 - `npm run build` — green.
 - `npm run typecheck` — green (node + web).
 - `npm test` — 3029/3030 passed; 1 pre-existing flaky timeout in
   `src/main/modules/config/core/import-reader.test.ts` › "refuses further exec once 512 files
   have been opened" — unrelated to this story's files. Re-ran in isolation
   (`npx vitest run src/main/modules/config/core/import-reader.test.ts -t "refuses further exec
-  once"` → 1 passed), confirming a timing flake on this machine, not a regression from this
+once"` → 1 passed), confirming a timing flake on this machine, not a regression from this
   change.
 - `npm run ui:flow downloads-badge-count` — exit 0, both flow steps passed.
 - `npm run ui:verify` — green: 68/68 screenshots, 0 axe violations, includes the new
@@ -181,6 +182,7 @@ count-aware, pluralised `aria-label`. No IPC channel, no main-process change.
   implementation is correct by inspection — accepted as-is, not worth a fix cycle.
 
 **AC → test mapping, as verified:**
+
 - AC1 → e2e `scripts/flows/downloads-badge-count.mjs` › "two active downloads badge the
   Downloads button with 2" (passed), backed by unit `NavJobBadge.test.tsx` › "renders the
   count" (passed).
@@ -194,6 +196,7 @@ count-aware, pluralised `aria-label`. No IPC channel, no main-process change.
 No manual residue. No open points or blockers.
 
 **Decisions (implementation-level, not already in the story's Decisions section):**
+
 - `UtilityButton` was split into a small `UtilityModuleButton` wrapper in `TitleBar.tsx` so
   `useActiveJobCount(module.id)` — a hook — is called once per module item rather than inside
   a loop; reviewed and accepted as required plumbing for D-generic, not scope creep.

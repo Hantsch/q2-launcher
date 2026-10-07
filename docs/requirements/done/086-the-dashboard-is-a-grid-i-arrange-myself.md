@@ -18,7 +18,7 @@ and the app tells me what happened while I do it. What I arrange is saved as it 
 a restart, and can be put back to the default in one step.
 
 This story is the grid, the mode and the persistence — the tiles that go in it are story 087. See
-[concepts/home-screen.md](../concepts/home-screen.md) §8.
+[systems/home-screen.md](../../systems/home-screen.md) §8.
 
 ## Acceptance Criteria
 
@@ -87,8 +87,8 @@ This story is the grid, the mode and the persistence — the tiles that go in it
 - Vertical bound: the grid is hard-bounded at 12 columns, and in arrange mode extends to the lowest
   occupied row plus 2 spare rows — otherwise a tile at the bottom edge could never move down.
 - Refusal is silent state-wise: an invalid move/resize marks the drag ghost invalid (data attribute
-  + status line text) and the tile itself never leaves its stored placement, so "shown as invalid"
-  and "not applied" are the same code path (AC5).
+  - status line text) and the tile itself never leaves its stored placement, so "shown as invalid"
+    and "not applied" are the same code path (AC5).
 - Reset uses the existing `Modal` primitive with a `danger` confirm, mirroring
   `RemoveInstallationDialog.tsx` — no new dialog primitive.
 - Container width comes from a new `useElementWidth` ResizeObserver hook kept **inside** the home
@@ -142,50 +142,50 @@ Order matters: 1 → 2 are independent of the renderer surface, 3 unblocks 4, an
 ## Deliverables
 
 - [x] **D1 — `homeLayout` persists, unknown ids do not.** `src/shared/modules/home.ts` (new: constants,
-  ids, types, `DEFAULT_HOME_LAYOUT`, `HOME_HANDLERS`), `src/main/lib/schemas.ts` (`parseHomeLayout`),
-  `src/main/services/state.ts` (key, `defaults()`, parse block, getter/setter),
-  `src/main/modules/home/index.ts` + `schemas.ts` (three handlers),
-  `src/renderer/src/modules/home/client.ts` (typed client). Mirror: `configProfiles` in
-  `state.ts` / `schemas.ts` and `downloads.getSettings`/`patchSettings` in
-  `src/main/modules/downloads/index.ts`. Plus its tests in `src/main/lib/schemas.test.ts`
-  (unknown id dropped, missing module not inserted, garbage → default) and
-  `src/main/services/state.test.ts` (default + round-trip).
-  Acceptance: `home.setLayout` round-trips through `state.json`; a record for `"nope"` is gone after
-  reload; `LauncherSettings` is untouched.
+      ids, types, `DEFAULT_HOME_LAYOUT`, `HOME_HANDLERS`), `src/main/lib/schemas.ts` (`parseHomeLayout`),
+      `src/main/services/state.ts` (key, `defaults()`, parse block, getter/setter),
+      `src/main/modules/home/index.ts` + `schemas.ts` (three handlers),
+      `src/renderer/src/modules/home/client.ts` (typed client). Mirror: `configProfiles` in
+      `state.ts` / `schemas.ts` and `downloads.getSettings`/`patchSettings` in
+      `src/main/modules/downloads/index.ts`. Plus its tests in `src/main/lib/schemas.test.ts`
+      (unknown id dropped, missing module not inserted, garbage → default) and
+      `src/main/services/state.test.ts` (default + round-trip).
+      Acceptance: `home.setLayout` round-trips through `state.json`; a record for `"nope"` is gone after
+      reload; `LauncherSettings` is untouched.
 - [x] **D2 — the layout engine.** `src/renderer/src/modules/home/dashboard/layout.ts` +
-  `layout.test.ts`. Pure: `place`, `move`, `resize`, `collides`, `stack`, `firstFreeSpot`, min-size
-  floor, 12-column and row bounds, refusal reasons. Acceptance: a refused operation returns the
-  input layout untouched and a reason; nothing is ever compacted; `firstFreeSpot` scans row-major.
+      `layout.test.ts`. Pure: `place`, `move`, `resize`, `collides`, `stack`, `firstFreeSpot`, min-size
+      floor, 12-column and row bounds, refusal reasons. Acceptance: a refused operation returns the
+      input layout untouched and a reason; nothing is ever compacted; `firstFreeSpot` scans row-major.
 - [x] **D3 — the dashboard renders, and shrinks.** `src/renderer/src/modules/home/dashboard/`
-  (`Dashboard.tsx`, `DashboardGrid.tsx`, `DashboardTile.tsx`, `dashboard-modules.tsx` registry with
-  placeholder bodies, `useElementWidth.ts`), `src/renderer/src/modules/home/HomeView.tsx` (mount it
-  below the hero), `src/renderer/src/styles/dashboard.css` (imported into the `components` layer like
-  `controls-grid.css`), `src/renderer/src/i18n/locales/en.json`. Plus `scripts/lib/fixture.mjs`
-  (seed a gapped, non-default `homeLayout`) and two `scripts/lib/screens.mjs` entries
-  (`home-dashboard`, `home-dashboard-narrow` at `VIEWPORT_MIN`) plus `scripts/flows/home-dashboard-arrange.mjs`
-  with its first two steps ("no drag outside arrange mode", "narrow stacks and widening restores"),
-  which D4/D5 then extend. Acceptance: the seeded layout
-  renders at its stored cells with its gap intact; at a 940px window it is one column in row-major
-  order; no drag can start.
+      (`Dashboard.tsx`, `DashboardGrid.tsx`, `DashboardTile.tsx`, `dashboard-modules.tsx` registry with
+      placeholder bodies, `useElementWidth.ts`), `src/renderer/src/modules/home/HomeView.tsx` (mount it
+      below the hero), `src/renderer/src/styles/dashboard.css` (imported into the `components` layer like
+      `controls-grid.css`), `src/renderer/src/i18n/locales/en.json`. Plus `scripts/lib/fixture.mjs`
+      (seed a gapped, non-default `homeLayout`) and two `scripts/lib/screens.mjs` entries
+      (`home-dashboard`, `home-dashboard-narrow` at `VIEWPORT_MIN`) plus `scripts/flows/home-dashboard-arrange.mjs`
+      with its first two steps ("no drag outside arrange mode", "narrow stacks and widening restores"),
+      which D4/D5 then extend. Acceptance: the seeded layout
+      renders at its stored cells with its gap intact; at a 940px window it is one column in row-major
+      order; no drag can start.
 - [x] **D4 — arrange mode, catalog, reset.** `ArrangeBar.tsx` (catalog + status line, docked),
-  `HomeHeader.tsx` (arrange toggle, disabled while single-column), `ResetLayoutDialog.tsx` (mirror
-  `src/renderer/src/components/installations/RemoveInstallationDialog.tsx`), tile grip/remove
-  affordances in `DashboardTile.tsx`, `en.json`, one `scripts/lib/screens.mjs` entry
-  (`home-dashboard-arrange`) and further steps in `scripts/flows/home-dashboard-arrange.mjs` (mode
-  entry moves no tile, catalog lists exactly the unplaced modules, Enter places, remove returns, reset confirms).
-  Acceptance: tile rects are byte-identical before and after entering arrange mode.
+      `HomeHeader.tsx` (arrange toggle, disabled while single-column), `ResetLayoutDialog.tsx` (mirror
+      `src/renderer/src/components/installations/RemoveInstallationDialog.tsx`), tile grip/remove
+      affordances in `DashboardTile.tsx`, `en.json`, one `scripts/lib/screens.mjs` entry
+      (`home-dashboard-arrange`) and further steps in `scripts/flows/home-dashboard-arrange.mjs` (mode
+      entry moves no tile, catalog lists exactly the unplaced modules, Enter places, remove returns, reset confirms).
+      Acceptance: tile rects are byte-identical before and after entering arrange mode.
 - [x] **D5 — pointer move and resize.** `DashboardGrid.tsx` (`DndContext`, `PointerSensor`,
-  drag-from-catalog), `DashboardTile.tsx` (resize grip), `layout.ts` untouched, plus the drag steps
-  in `scripts/flows/home-dashboard-arrange.mjs`. Mirror the sensor/overlay wiring in
-  `src/renderer/src/components/dnd/SortableList.tsx`. Acceptance: an overlapping or out-of-grid drop
-  shows the ghost invalid and leaves the tile where it was; an accepted drop writes `state.json`
-  immediately.
+      drag-from-catalog), `DashboardTile.tsx` (resize grip), `layout.ts` untouched, plus the drag steps
+      in `scripts/flows/home-dashboard-arrange.mjs`. Mirror the sensor/overlay wiring in
+      `src/renderer/src/components/dnd/SortableList.tsx`. Acceptance: an overlapping or out-of-grid drop
+      shows the ghost invalid and leaves the tile where it was; an accepted drop writes `state.json`
+      immediately.
 - [x] **D6 — keyboard parity and announcements.** `useTileLift.ts` (lift state machine),
-  `DashboardTile.tsx` (grip key handling), `ArrangeBar.tsx` (`aria-live="polite"` region the visible
-  status line mirrors), `en.json`, plus `scripts/flows/home-dashboard-keyboard.mjs` and
-  `useTileLift.test.tsx` (`// @vitest-environment jsdom`). Acceptance: Space lifts, arrows move one
-  cell, Shift+arrows resize one cell, Enter drops, Esc / blur / Tab restore the pre-lift placement,
-  and every one of those emits an announcement.
+      `DashboardTile.tsx` (grip key handling), `ArrangeBar.tsx` (`aria-live="polite"` region the visible
+      status line mirrors), `en.json`, plus `scripts/flows/home-dashboard-keyboard.mjs` and
+      `useTileLift.test.tsx` (`// @vitest-environment jsdom`). Acceptance: Space lifts, arrows move one
+      cell, Shift+arrows resize one cell, Enter drops, Esc / blur / Tab restore the pre-lift placement,
+      and every one of those emits an announcement.
 
 ## Model Hints
 
@@ -317,7 +317,7 @@ documented as deliberately unfixed with reasons.
     regression test (`Dashboard.test.tsx`) reproduces the exact race and was verified to fail against
     the pre-fix code and pass against the fix.
 - **Review-fix cycle — deliberately left unfixed, with reasons:**
-  - *"The only axe-audited arrange screen has an empty catalog"* (the seeded fixture places both
+  - _"The only axe-audited arrange screen has an empty catalog"_ (the seeded fixture places both
     known modules, so `screens.mjs`'s `home-dashboard-arrange` entry never shows a catalog chip, the
     drag ghost, or the reset dialog under axe). Making that screen mutate the shared `populated`
     fixture's on-disk layout to force a populated catalog would leave later screens in the same
@@ -325,8 +325,8 @@ documented as deliberately unfixed with reasons.
     risk for marginal coverage gain, especially since the catalog chip, ghost and reset dialog are
     all already screenshotted (just not axe-audited) by the two `ui:flow` scripts. Left as a known
     gap rather than risking the harness's session-ordering guarantees for it.
-  - *`useTileLift.test.tsx`'s "cancel restores the pre-lift placement" unit test only proves the hook
-    hands `origin` to a mocked `onCancel`, not that `Dashboard.tsx`'s real revert logic works* — true,
+  - _`useTileLift.test.tsx`'s "cancel restores the pre-lift placement" unit test only proves the hook
+    hands `origin` to a mocked `onCancel`, not that `Dashboard.tsx`'s real revert logic works_ — true,
     but the real revert is now proven twice over: end-to-end by `home-dashboard-keyboard.mjs`'s three
     Esc/blur/Tab sub-cases (each committing a real move first), and at the unit level by the new
     `Dashboard.test.tsx` added in the fix cycle for the race itself. No gap in what's actually proven.

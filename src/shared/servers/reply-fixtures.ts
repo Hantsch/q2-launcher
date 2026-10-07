@@ -5,7 +5,7 @@
  * (GB-A5, story 108): a well-formed sample plus a small builder so a test can assemble its own
  * variant without hand-rolling the connectionless envelope itself.
  *
- * This file is `info`-reply-only for now (deliverable D3). Deliverable D4 (`status-reply.ts` /
+ * This file is `info`-reply-only for now (so far). The status-reply deliverable (`status-reply.ts` /
  * `status-reply.test.ts`) extends this same module with its own `status`-reply builder/samples
  * (e.g. `buildStatusReplyBytes` / `SAMPLE_STATUS_REPLY`) — names below are deliberately prefixed
  * `Info`/`INFO` so the two sets of exports never collide.
@@ -31,12 +31,19 @@ export function buildInfoReplyBytes(infoLine: string): Uint8Array {
 }
 
 /** Formats an `info` body exactly like Quake II's `SVC_Info`: `"%16s %8s %2i/%2i\n"`. */
-export function formatInfoLine(hostname: string, map: string, clients: number, maxClients: number): string {
+export function formatInfoLine(
+  hostname: string,
+  map: string,
+  clients: number,
+  maxClients: number,
+): string {
   return `${hostname.padStart(16)} ${map.padStart(8)} ${String(clients).padStart(2)}/${String(maxClients).padStart(2)}\n`
 }
 
 /** A realistic, well-formed `info` reply: a short hostname padded to 16 columns, as real servers send. */
-export const SAMPLE_INFO_REPLY: Uint8Array = buildInfoReplyBytes(formatInfoLine('Test Server', 'q2dm1', 3, 8))
+export const SAMPLE_INFO_REPLY: Uint8Array = buildInfoReplyBytes(
+  formatInfoLine('Test Server', 'q2dm1', 3, 8),
+)
 
 /**
  * Assembles a `status` connectionless reply datagram: `OOB_PREFIX` + `"print\n"` (a `status`

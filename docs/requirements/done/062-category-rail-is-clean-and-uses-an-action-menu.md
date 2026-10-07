@@ -60,7 +60,7 @@ None — everything below was decided in refine.
 - **The action menu holds `Move up` / `Move down` next to `Rename…` / `Delete…`.** This mirrors
   story 054 D8's row kebab exactly (`ControlsRowMenu.tsx` — inline arrows removed from the row,
   ordering commands moved into the menu), which is the pattern AC3 asks for; AC2 is therefore read
-  as "no arrow *icon buttons* on the chip, and drag-and-drop is the only *pointer* mechanism", not
+  as "no arrow _icon buttons_ on the chip, and drag-and-drop is the only _pointer_ mechanism", not
   as "keyboard users lose reordering" (AC5/AC6 forbid that).
 - **Existing i18n keys are reused**, `config.controls.categoryMoveUp`/`categoryMoveDown`/`rename`/
   `delete` become the menu item labels; only the trigger needs a new key
@@ -126,7 +126,7 @@ green untouched, which is the AC2 "drag-and-drop still works" guard.
       for the rail's 28px icon buttons), plus its test in new
       `src/renderer/src/modules/config/ControlsTab.category-menu.test.tsx` (mirror:
       `ControlsTab.row-menu.test.tsx`).
-      *Acceptance:* the rail has no `ArrowUp`/`ArrowDown`/`Pencil`/`Trash2` icon buttons left; one
+      _Acceptance:_ the rail has no `ArrowUp`/`ArrowDown`/`Pencil`/`Trash2` icon buttons left; one
       kebab per chip opens a `role="menu"` with four named items; move up/down are disabled on the
       first/last chip and reorder + persist as before; rename opens the rename dialog; delete opens
       the delete-or-move modal for a non-empty category and the inline confirm for an empty one;
@@ -142,7 +142,7 @@ green untouched, which is the AC2 "drag-and-drop still works" guard.
       border/background and keeps `aria-pressed`; the selected chip is marked by semibold label +
       accent marker, not colour alone; the kebab reveals on hover/focus-within/dragging and stays
       visible while its menu is open or the chip is selected.
-      *Acceptance:* clicking a chip still selects it and the grid header follows; no nested bordered
+      _Acceptance:_ clicking a chip still selects it and the grid header follows; no nested bordered
       box in the chip; selected state readable with colour ignored; drag still starts from the grip
       and `ControlsTab.category-drag.test.tsx` / `ControlsTab.dnd.test.tsx` stay green unmodified;
       a row dropped on a chip still moves category (story 054 D5 path intact).
@@ -152,7 +152,7 @@ green untouched, which is the AC2 "drag-and-drop still works" guard.
       chip click, order asserted via `data-category-name`), `scripts/lib/screens.mjs`
       (`config-controls`: hover a chip so grip + kebab are on the screenshot; mirror: story 054
       D12's row-grip hover), `docs/UI-VERIFICATION.md` only if it lists the flow's steps.
-      *Acceptance:* `npm run ui:flow -- controls-category-rename-reorder` green against the running
+      _Acceptance:_ `npm run ui:flow -- controls-category-rename-reorder` green against the running
       app, its screenshots show the clean chip with an open action menu, and `npm run ui:verify` is
       green with zero axe findings.
 
@@ -207,6 +207,7 @@ screenshot shows grip + kebab.
 
 **Decisions taken during build (none required re-derivation from the Decisions section, but two
 implementation-level calls came up that the plan didn't spell out):**
+
 - Selected/weight styling on the label button is applied via an inner `<span>` rather than directly
   on the ghost button element, since this repo's `clsx` usage has no tailwind-merge, so stacking a
   "ghost, no background" class with a "semibold when selected" class on the same element would be
@@ -214,7 +215,7 @@ implementation-level calls came up that the plan didn't spell out):**
 - `.ctrl-chip-drop-over` (story 054 D5's drop-target affordance) and the new
   `.ctrl-category-chip[data-selected='true']` rule are equal-specificity selectors; the drop-over
   rule was requalified to `.ctrl-category-chip.ctrl-chip-drop-over` and kept later in source order so
-  it still wins — a row dragged over the *selected* chip still shows the dashed drop affordance
+  it still wins — a row dragged over the _selected_ chip still shows the dashed drop affordance
   instead of losing it to the new selected-state styling.
 - D3's real-app run surfaced that the new kebab's accessible name (`Actions for "Weapons"`)
   substring-matched three unrelated, pre-existing `getByRole('button', { name: 'Weapons' })`
@@ -223,11 +224,12 @@ implementation-level calls came up that the plan didn't spell out):**
   keep those unrelated screens passing.
 
 **Verification:**
+
 - `npm run build` — green.
 - `npm run typecheck` (node + web) — green.
 - `npm test` (`vitest run`) — 2614/2615 passed on the full run; the one failure
   (`src/main/modules/config/file-source-pipeline.test.ts › rebuilds a record whose persisted row is
-  corrupt, keeping the id`, `EBUSY: resource busy or locked`) is an unrelated Windows temp-file-lock
+corrupt, keeping the id`, `EBUSY: resource busy or locked`) is an unrelated Windows temp-file-lock
   flake in the main-process config pipeline (untouched by this story) — re-run of that file in
   isolation: 85/85 passed.
 - `npm run ui:flow -- controls-category-rename-reorder` — PASS against the real running app;
@@ -241,6 +243,7 @@ implementation-level calls came up that the plan didn't spell out):**
   one ref-composed node and that the drop-over/selected CSS specificity fix resolves correctly.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `ControlsTab.category-menu.test.tsx` › "a category chip is one level…" (D2) — PASS; + e2e
   `ui:verify` screen `config-controls` (chip hovered) (D3) — PASS.
 - AC2 → `ControlsTab.category-menu.test.tsx` › "has no move-up or move-down icon buttons left…"

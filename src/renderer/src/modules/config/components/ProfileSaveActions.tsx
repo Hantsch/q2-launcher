@@ -1,23 +1,25 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Save, Undo2 } from 'lucide-react'
-import type { ConfigProfile, SaveProfileConflict } from '@shared/modules/config'
+import type { SaveProfileConflict } from '@shared/modules/config'
 import { Button } from '../../../components/ui/Button'
+import { toastOutcomeError } from '../../../lib/toast'
 import { useLauncher } from '../../../store/useLauncher'
 import { ConfigConflictDialog } from '../ConfigConflictDialog'
 import { DiscardChangesDialog } from '../DiscardChangesDialog'
 import { saveConfigProfile } from '../client'
+import { useProfileDraftContext } from '../lib/ProfileDraftProvider'
 import { useRawDraft } from '../lib/raw-draft'
 import { resolveSaveOutcome } from '../lib/save-bar'
 import { useUnsavedState } from '../lib/unsaved-state'
 
 /**
- * The explicit Save + Discard pair (stories 043 D6 / 049 D6 / 057 D5), now living in the detail
+ * The explicit Save + Discard pair (stories 043 / 049 / 057), now living in the detail
  * header's right-hand control cluster instead of the dedicated save-bar row that used to sit above
  * the tabs - the row itself is gone, its status went to the indicator next to the profile name
  * (`UnsavedIndicator`) and its change list became the Unsaved tab (`UnsavedChangesTab`).
  *
- * Renders nothing at all while there is nothing to save. Story 043 D6 deliberately kept Save
+ * Renders nothing at all while there is nothing to save. Story 043 deliberately kept Save
  * visible-but-disabled ("a stable layout beats a control that pops in and out"), which held while
  * this pair owned a row of its own; in the header cluster the opposite is true - a permanently
  * disabled primary button next to Rename/Delete reads as part of the profile's chrome, and the
@@ -29,21 +31,13 @@ import { useUnsavedState } from '../lib/unsaved-state'
  * still owned here (the same reason as before: this component triggers them, unlike
  * `DeleteProfileDialog`, which the header's delete button owns at `ConfigView` level).
  *
- * The "no baseline to discard back to" sentence (story 049 D6) is not repeated here - the header row
+ * The "no baseline to discard back to" sentence (story 049) is not repeated here - the header row
  * has no room for a sentence, and a `title` on a disabled button is unreachable by keyboard. Discard
  * renders disabled in that case and `UnsavedChangesTab` states the reason in readable text instead.
  */
-export function ProfileSaveActions({
-  profile,
-  onSaved,
-  onDiscarded,
-}: {
-  profile: ConfigProfile
-  onSaved: (profile: ConfigProfile) => void
-  /** The full, updated profile list, per the config module's discard contract. */
-  onDiscarded: (profiles: ConfigProfile[]) => void
-}) {
+export function ProfileSaveActions() {
   const { t } = useTranslation()
+  const { profile, save, resetDraft } = useProfileDraftContext()
   const pushToast = useLauncher((state) => state.pushToast)
   const [saving, setSaving] = useState(false)
   const [conflict, setConflict] = useState<SaveProfileConflict | null>(null)
@@ -58,7 +52,7 @@ export function ProfileSaveActions({
 
     const action = resolveSaveOutcome(outcome)
     if (action.type === 'saved') {
-      onSaved(action.profile)
+      save(action.profile)
       return
     }
 
@@ -68,14 +62,9 @@ export function ProfileSaveActions({
     }
 
     // `action.type === 'toast'`: covers the transport-level error and the unreadable-file cases -
-    // neither calls `onSaved`, so `dirty` is left exactly as it was and nothing the user typed is
+    // neither calls `save`, so `dirty` is left exactly as it was and nothing the user typed is
     // lost.
-    pushToast({
-      level: 'error',
-      messageKey: action.messageKey,
-      timeoutMs: 0,
-      ...(action.params ? { params: action.params } : {}),
-    })
+    toastOutcomeError(pushToast, { ok: false, error: action.error })
   }
 
   const canDiscard = dirty && profile.baseline !== undefined
@@ -118,7 +107,7 @@ export function ProfileSaveActions({
             disabled={saving || rawDraft.saving}
             onClick={() => (rawEdited ? rawDraft.save() : void handleSave())}
           >
-            {saving || rawDraft.saving ? t('config.save.saving') : t('config.save.action')}
+            {saving || rawDraft.saving ? t('common.action.saving') : t('common.action.save')}
           </Button>
         </div>
       )}
@@ -129,7 +118,12 @@ export function ProfileSaveActions({
           onClose={() => setShowDiscard(false)}
           onDiscarded={(profiles) => {
             setShowDiscard(false)
-            onDiscarded(profiles)
+            save(profiles)
+            // `discard` returns the full list; the reverted profile comes from it, not from `profile`
+            // (still pre-discard here), so the draft force-adopts the reverted baseline instead of
+            // keeping stale locally-patched values (story 218).
+            const discarded = profiles.find((candidate) => candidate.id === profile.id)
+            if (discarded) resetDraft(discarded)
           }}
         />
       )}
@@ -141,7 +135,7 @@ export function ProfileSaveActions({
           onClose={() => setConflict(null)}
           onResolved={(resolved) => {
             setConflict(null)
-            onSaved(resolved)
+            save(resolved)
           }}
         />
       )}

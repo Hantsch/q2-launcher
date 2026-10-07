@@ -2,7 +2,10 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
+import type { DemoRow } from '@shared/modules/replays'
+import type { SidecarComment } from '@shared/replays/sidecar'
 
 /** Story 165 D3. Stubbed client, real store - same idiom as `DemoPlayAction.test.tsx`. */
 vi.hoisted(() => {
@@ -12,27 +15,31 @@ vi.hoisted(() => {
 const playbackTimeline = vi.fn()
 const playbackStop = vi.fn()
 const playbackCinema = vi.fn()
-vi.mock('../client', () => ({
-  playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
-  playbackStop: (...args: unknown[]) => playbackStop(...args),
-  playbackCinema: (...args: unknown[]) => playbackCinema(...args),
-  playbackDisplayRead: () => new Promise(() => {}),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
+    playbackStop: (...args: unknown[]) => playbackStop(...args),
+    playbackCinema: (...args: unknown[]) => playbackCinema(...args),
+    playbackDisplayRead: () => new Promise(() => {}),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+  }),
+)
 
 let DemoTimeline: typeof import('./DemoTimeline').DemoTimeline
 let usePlaybackStore: typeof import('../playback-store').usePlaybackStore
+let useDemoEditorStore: typeof import('../demo-editor-store').useDemoEditorStore
 
 beforeAll(async () => {
   await initI18n('en')
   ;({ DemoTimeline } = await import('./DemoTimeline'))
   ;({ usePlaybackStore } = await import('../playback-store'))
+  ;({ useDemoEditorStore } = await import('../demo-editor-store'))
 })
 
 beforeEach(() => {
-  playbackTimeline.mockResolvedValue({ ok: true, value: { ok: true, value: undefined } })
+  playbackTimeline.mockResolvedValue({ ok: true, value: undefined })
 })
 
 afterEach(() => {
@@ -172,8 +179,8 @@ describe('DemoTimeline (story 165 D3)', () => {
     begin(60_000, 0)
     render(createElement(DemoTimeline))
     playbackTimeline.mockResolvedValueOnce({
-      ok: true,
-      value: { ok: false, error: { key: 'replays.timeline.error' } },
+      ok: false,
+      error: { key: 'replays.timeline.error' },
     })
     fireEvent.click(testid('toggle'))
     expect((await screen.findByTestId('replays-timeline-error')).textContent).toContain('could not')
@@ -200,8 +207,8 @@ describe('DemoTimeline (story 165 D3)', () => {
     begin(60_000, 1000)
     render(createElement(DemoTimeline))
     playbackTimeline.mockResolvedValueOnce({
-      ok: true,
-      value: { ok: false, error: { key: 'replays.playback.error.fullscreen' } },
+      ok: false,
+      error: { key: 'replays.playback.error.fullscreen' },
     })
     fireEvent.click(testid('fullscreen'))
     expect((await screen.findByTestId('replays-timeline-error')).textContent).toBeTruthy()
@@ -291,7 +298,10 @@ describe('DemoTimeline (story 187 D6)', () => {
       usePlaybackStore.getState().applyDisplay({
         fullscreen: false,
         cinema: false,
-        cinemaAvailability: { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } },
+        cinemaAvailability: {
+          available: false,
+          reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+        },
       }),
     )
     const cinema = testid('cinema')
@@ -300,5 +310,151 @@ describe('DemoTimeline (story 187 D6)', () => {
     expect(testid('cinema-reason').textContent).toContain('not on the primary display')
     fireEvent.click(cinema)
     expect(playbackCinema).not.toHaveBeenCalled()
+  })
+})
+
+describe('DemoTimeline comments', () => {
+  const DEMO_ID = 'd1'
+  const commentEdit = vi.fn()
+  const onRowPatched = vi.fn()
+
+  function demoRow(comments: SidecarComment[]): DemoRow {
+    return {
+      id: DEMO_ID,
+      archiveEntry: null,
+      sidecar: { state: 'ok', values: { comments } },
+    } as unknown as DemoRow
+  }
+
+  function playDemo(comments: SidecarComment[], positionMs = 65_000): void {
+    useDemoEditorStore.setState({ commentEdit } as never)
+    commentEdit.mockResolvedValue({ status: 'saved' })
+    act(() => {
+      usePlaybackStore.getState().beginSession('a.dm2', 125_000, { id: DEMO_ID, archived: false })
+      usePlaybackStore.getState().applyPosition(positionMs, null, false)
+    })
+    render(createElement(DemoTimeline, { demo: demoRow(comments), onRowPatched }))
+  }
+
+  afterEach(() => {
+    commentEdit.mockReset()
+  })
+
+  it('add comment while playing pauses first and pins the clicked position', async () => {
+    playDemo([])
+    const clickedMs = Number(testid('seek').getAttribute('data-position-ms'))
+
+    await act(async () => {
+      fireEvent.click(testid('add-comment'))
+    })
+    expect(playbackTimeline).toHaveBeenCalledTimes(1)
+    expect(playbackTimeline).toHaveBeenCalledWith({ kind: 'togglePause' })
+    // The pause lands later and further on; the comment stays where the click was.
+    act(() => usePlaybackStore.getState().applyPosition(70_000, null, true))
+
+    expect(testid('comment-form').textContent).toContain('Comment at 1:05')
+    const field = testid('comment-field') as HTMLInputElement
+    expect(field.maxLength).toBe(500)
+    fireEvent.change(field, { target: { value: 'flag grab' } })
+    await act(async () => {
+      fireEvent.keyDown(field, { key: 'Enter' })
+    })
+
+    expect(commentEdit).toHaveBeenCalledTimes(1)
+    const [id, op, patcher] = commentEdit.mock.calls[0]!
+    expect(id).toBe(DEMO_ID)
+    expect(patcher).toBe(onRowPatched)
+    expect(op).toMatchObject({ kind: 'add', text: 'flag grab' })
+    expect(op.atMs).toBeGreaterThanOrEqual(clickedMs)
+    expect(op.atMs).toBeLessThan(66_000)
+    expect(screen.queryByTestId('replays-timeline-comment-field')).toBeNull()
+  })
+
+  it('a refused pause opens no comment field', async () => {
+    playbackTimeline.mockResolvedValue({ ok: false, error: { key: 'replays.timeline.error' } })
+    playDemo([])
+
+    await act(async () => {
+      fireEvent.click(testid('add-comment'))
+    })
+
+    expect(screen.queryByTestId('replays-timeline-comment-field')).toBeNull()
+    expect(testid('error')).toBeTruthy()
+  })
+
+  it('Escape closes the field without saving', async () => {
+    playDemo([])
+    act(() => usePlaybackStore.getState().applyPosition(65_000, null, true))
+    await act(async () => {
+      fireEvent.click(testid('add-comment'))
+    })
+    expect(playbackTimeline).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(testid('comment-field'), { key: 'Escape' })
+
+    expect(screen.queryByTestId('replays-timeline-comment-field')).toBeNull()
+    expect(commentEdit).not.toHaveBeenCalled()
+  })
+
+  it('each comment is a mark beside the slider that shows its text and seeks to its time', () => {
+    playDemo([{ atMs: 62_900, text: 'flag grab' }])
+
+    const mark = testid('comment-mark')
+    expect(testid('seek').contains(mark)).toBe(false)
+    expect(mark.style.left).toBe(`${(62_900 / 125_000) * 100}%`)
+    expect(mark.getAttribute('aria-label')).toBe('Comment at 1:02: flag grab')
+    expect(mark.getAttribute('data-at-ms')).toBe('62900')
+
+    fireEvent.mouseEnter(mark)
+    expect(testid('comment-bubble').textContent).toContain('flag grab')
+    fireEvent.mouseLeave(mark)
+    expect(screen.queryByTestId('replays-timeline-comment-bubble')).toBeNull()
+    fireEvent.focus(mark)
+    expect(testid('comment-bubble').textContent).toContain('flag grab')
+
+    fireEvent.click(mark)
+    expect(playbackTimeline).toHaveBeenCalledTimes(1)
+    expect(playbackTimeline).toHaveBeenCalledWith({ kind: 'seekTo', seconds: 62 })
+  })
+
+  it('at 200 comments Add comment is disabled and says why', () => {
+    playDemo(Array.from({ length: 200 }, (_, i) => ({ atMs: i * 100, text: `c${i}` })))
+
+    expect(testid('add-comment').getAttribute('aria-disabled')).toBe('true')
+    expect(testid('comment-reason').textContent).toBe('A demo holds at most 200 comments.')
+  })
+
+  it("a zip demo's Add comment is disabled, focusable and says why", async () => {
+    useDemoEditorStore.setState({ commentEdit } as never)
+    act(() => {
+      usePlaybackStore.getState().beginSession('a.dm2', 125_000, { id: DEMO_ID, archived: true })
+    })
+    render(createElement(DemoTimeline, { demo: demoRow([]), onRowPatched }))
+
+    const add = testid('add-comment') as HTMLButtonElement
+    expect(add.getAttribute('aria-disabled')).toBe('true')
+    expect(add.disabled).toBe(false)
+    expect(add.getAttribute('aria-describedby')).toBe(testid('comment-reason').id)
+    expect(testid('comment-reason').textContent).toContain('zip')
+    await act(async () => {
+      fireEvent.click(add)
+    })
+    expect(screen.queryByTestId('replays-timeline-comment-field')).toBeNull()
+    expect(playbackTimeline).not.toHaveBeenCalled()
+  })
+
+  it('fullscreen shows no marks and disables Add comment', () => {
+    playDemo([{ atMs: 10_000, text: 'x' }])
+    act(() => usePlaybackStore.getState().applyDisplay({ fullscreen: true }))
+
+    expect(screen.queryByTestId('replays-timeline-comment-mark')).toBeNull()
+    expect((testid('add-comment') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('offers no comments for a session without its demo row', () => {
+    begin(125_000, 1000)
+    render(createElement(DemoTimeline))
+
+    expect(screen.queryByTestId('replays-timeline-add-comment')).toBeNull()
   })
 })

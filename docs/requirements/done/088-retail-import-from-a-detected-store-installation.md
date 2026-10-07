@@ -9,7 +9,7 @@ created: 2026-09-11
 
 The bootstrap wizard ([[074]]) can only ever produce a demo installation today — its one data
 source is the free download. This story adds the wizard's second data source, described in
-[concepts/install-module.md §8](../concepts/install-module.md) step 2 and required by INST-D1,
+[concepts/install-module.md §8](../../systems/install-module.md) step 2 and required by INST-D1,
 INST-D2 and the "copy from a detected store installation" half of INST-W2: a user who owns Quake
 II on Steam, GOG or Epic picks that installation instead of downloading, and the wizard copies its
 retail `pak0.pak`/`pak1.pak` (plus, behind the same optional toggle [[074]] introduced,
@@ -19,8 +19,8 @@ installation from the very first run — turning an existing demo installation i
 
 This story reuses the store detection the launcher already has (Steam's `libraryfolders.vdf`,
 GOG's registry entries, Epic's manifests) rather than scanning again, and reuses the engine
-step, target-folder step and job/registration machinery [[074]] built — this is a new *data
-source*, not a new wizard.
+step, target-folder step and job/registration machinery [[074]] built — this is a new _data
+source_, not a new wizard.
 
 ## Acceptance Criteria
 
@@ -68,7 +68,7 @@ source*, not a new wizard.
   root is passed as an `AssembleSource` like an extraction dir. Reason: reuses the allowlist that
   already makes AC7 a property of the code (`assemble.ts`'s module doc), plus its diagnostics and
   glob-dir handling, instead of a second copier with its own AC7 risk.
-- **`pak2.pak` is copied when it is present *and* matches `RETAIL_PAK_SIZES['pak2.pak']`** (an
+- **`pak2.pak` is copied when it is present _and_ matches `RETAIL_PAK_SIZES['pak2.pak']`** (an
   optional, non-`required` entry). Reason: a 3.20-patched retail install carries it and dropping
   point-release data the user already owns would make this source worse than the free download;
   size-gating it keeps the "only verified retail data is copied" promise of AC3.
@@ -86,10 +86,10 @@ source*, not a new wizard.
   and `manual`/`unknown` hits are [[089]]'s existing-folder source, not this one.
 - **An unverifiable source stays in the list, not selectable** — it is shown with the AC3 reason
   rather than hidden. Reason: AC3 says "tells the user this installation's data could not be
-  verified", which a hidden entry cannot do; AC1's "absent" rule is about the data-source *option*,
+  verified", which a hidden entry cannot do; AC1's "absent" rule is about the data-source _option_,
   which is absent only when no store installation exists at all.
 - **The video/players toggle is rendered disabled with a reason line** when the chosen source has
-  neither `baseq2/video` nor `baseq2/players` (the binding user decision above says hide *or*
+  neither `baseq2/video` nor `baseq2/players` (the binding user decision above says hide _or_
   disable). Reason: a toggle that vanishes reads as a bug, a disabled one with "this installation
   has no videos/player models" explains itself.
 - **Default installation name for this source** is the engine's display name (e.g. `Q2PRO`), not
@@ -119,7 +119,7 @@ Both later stories of this sprint build on one main-side file, `src/main/modules
   (`app.detection.scan({})` → store sources → `inspectRetailSource`), 088-specific.
 - `copyRetailGameData({ sourceRoot, targetRoot, includeVideoAndPlayers }): Promise<AssembleInstallationResult>`
   — copies pak0/pak1 (+ optional pak2, + video/players) through `assemble.ts`'s allowlist copier,
-  onto *any* installation root. **[[090]]** calls exactly this on an already-registered
+  onto _any_ installation root. **[[090]]** calls exactly this on an already-registered
   installation; it needs neither the job's download half nor the wizard.
 
 Shared types (`RetailSourceInspection`, `DetectedRetailSource`, `BootstrapDataSource`) live in
@@ -154,52 +154,52 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D5 may start once D2's contract ex
 ## Deliverables
 
 - [x] **D1 — Retail source inspection.** `src/main/modules/downloads/bootstrap/retail-source.ts`
-  (+ `retail-source.test.ts`), types in `src/shared/modules/downloads.ts`. Mirror
-  `bootstrap/target.ts` (+ `target.test.ts`) for shape and doc style, `src/main/services/inspector.ts:194`
-  for the size comparison. *Acceptance:* over temp dirs — a folder with exact-`RETAIL_PAK_SIZES`
-  pak0+pak1 verifies; a wrong-size pak0 does not and carries an `unverifiedReason` key plus the
-  actual size; a missing pak1 does not verify; `hasVideo`/`hasPlayers` reflect `baseq2/video` and
-  `baseq2/players`; no `rerelease/` probing. Proves AC3 (core).
+      (+ `retail-source.test.ts`), types in `src/shared/modules/downloads.ts`. Mirror
+      `bootstrap/target.ts` (+ `target.test.ts`) for shape and doc style, `src/main/services/inspector.ts:194`
+      for the size comparison. _Acceptance:_ over temp dirs — a folder with exact-`RETAIL_PAK_SIZES`
+      pak0+pak1 verifies; a wrong-size pak0 does not and carries an `unverifiedReason` key plus the
+      actual size; a missing pak1 does not verify; `hasVideo`/`hasPlayers` reflect `baseq2/video` and
+      `baseq2/players`; no `rerelease/` probing. Proves AC3 (core).
 - [x] **D2 — Detected store sources over the module seam.** `retail-source.ts`
-  (`listDetectedRetailSources`), `src/main/modules/downloads/index.ts`, `schemas.ts`,
-  `src/shared/modules/downloads.ts` (handler name `bootstrap.retailSources`),
-  `src/renderer/src/modules/downloads/client.ts`, `src/main/modules/downloads/harness.ts`
-  (+ `harness.test.ts`, mirroring its existing four gate cases). *Acceptance:* the handler returns
-  one entry per `steam`/`gog`/`epic` candidate with `{ source, rootPath, inspection }` and nothing
-  else; a non-store candidate is dropped; the harness override is provably unreachable without
-  `Q2L_UI_HARNESS === '1' && isDev`. Test: `retail-source.test.ts` (fake detection) +
-  `harness.test.ts`. Proves AC1/AC2 (data).
+      (`listDetectedRetailSources`), `src/main/modules/downloads/index.ts`, `schemas.ts`,
+      `src/shared/modules/downloads.ts` (handler name `bootstrap.retailSources`),
+      `src/renderer/src/modules/downloads/client.ts`, `src/main/modules/downloads/harness.ts`
+      (+ `harness.test.ts`, mirroring its existing four gate cases). _Acceptance:_ the handler returns
+      one entry per `steam`/`gog`/`epic` candidate with `{ source, rootPath, inspection }` and nothing
+      else; a non-store candidate is dropped; the harness override is provably unreachable without
+      `Q2L_UI_HARNESS === '1' && isDev`. Test: `retail-source.test.ts` (fake detection) +
+      `harness.test.ts`. Proves AC1/AC2 (data).
 - [x] **D3 — Copy retail game data through the allowlist.** `bootstrap/assemble.ts` (+
-  `assemble.test.ts`), `bootstrap/retail-source.ts` (`copyRetailGameData`, + its test).
-  *Acceptance:* with a fixture "store installation" that also contains `ctf/`, `xatrix/`, `rogue/`,
-  `baseq2/pak3.pak` and loose files, the target afterwards holds `baseq2` with pak0/pak1 (+pak2 when
-  size-matching) only; `pak2.pak` at a wrong size is skipped; the toggle off leaves
-  `video/`+`players/` out and on brings them in; the `store-copy` plan contains no demo/point-release
-  entry and the `free-download` plan is unchanged. Proves AC4 (copy) + AC7.
+      `assemble.test.ts`), `bootstrap/retail-source.ts` (`copyRetailGameData`, + its test).
+      _Acceptance:_ with a fixture "store installation" that also contains `ctf/`, `xatrix/`, `rogue/`,
+      `baseq2/pak3.pak` and loose files, the target afterwards holds `baseq2` with pak0/pak1 (+pak2 when
+      size-matching) only; `pak2.pak` at a wrong size is skipped; the toggle off leaves
+      `video/`+`players/` out and on brings them in; the `store-copy` plan contains no demo/point-release
+      entry and the `free-download` plan is unchanged. Proves AC4 (copy) + AC7.
 - [x] **D4 — Job, summary and start input for the copy source.** `bootstrap/job.ts` (+
-  `job.test.ts`), `src/shared/modules/downloads.ts`, `src/main/modules/downloads/schemas.ts`,
-  `bootstrap/errors.ts`. *Acceptance:* with fake ports — `dataSource: 'store-copy'` resolves the
-  engine package only (no demo, no point release) and `buildBootstrapSummary` reports it plus the
-  copy source and the target; a `copySourcePath` that is not among the freshly listed detected
-  sources, or no longer verifies, fails with a `downloads.error.*` key and registers nothing; the
-  job copies game data before the playability revalidation, still takes every status from
-  `inspectInstallation`, and the created installation's default name is the engine's, not
-  `'Q2PRO Demo'`. Proves AC4 (orchestration), AC5, AC6.
+      `job.test.ts`), `src/shared/modules/downloads.ts`, `src/main/modules/downloads/schemas.ts`,
+      `bootstrap/errors.ts`. _Acceptance:_ with fake ports — `dataSource: 'store-copy'` resolves the
+      engine package only (no demo, no point release) and `buildBootstrapSummary` reports it plus the
+      copy source and the target; a `copySourcePath` that is not among the freshly listed detected
+      sources, or no longer verifies, fails with a `downloads.error.*` key and registers nothing; the
+      job copies game data before the playability revalidation, still takes every status from
+      `inspectInstallation`, and the created installation's default name is the engine's, not
+      `'Q2PRO Demo'`. Proves AC4 (orchestration), AC5, AC6.
 - [x] **D5 — The wizard's game-data step.** `src/renderer/src/modules/downloads/bootstrap/BootstrapWizard.tsx`,
-  new `GameDataStep.tsx`, `ConfirmStep.tsx`, `src/renderer/src/i18n/locales/en.json`, `data-testid`s.
-  Mirror `EngineStep.tsx` for step shape and `TargetStep.tsx` for verdict rendering. *Acceptance:*
-  the copy option is absent when the list is empty and present otherwise; multiple sources render as
-  a picker showing store + path; an unverified source is listed but not selectable and states the
-  reason; the video/players toggle is disabled with a reason when the chosen source has neither dir;
-  the confirm step names the copy source, the engine-only download + size and the target. Proves
-  AC1/AC2/AC3/AC5 (surface).
+      new `GameDataStep.tsx`, `ConfirmStep.tsx`, `src/renderer/src/i18n/locales/en.json`, `data-testid`s.
+      Mirror `EngineStep.tsx` for step shape and `TargetStep.tsx` for verdict rendering. _Acceptance:_
+      the copy option is absent when the list is empty and present otherwise; multiple sources render as
+      a picker showing store + path; an unverified source is listed but not selectable and states the
+      reason; the video/players toggle is disabled with a reason when the chosen source has neither dir;
+      the confirm step names the copy source, the engine-only download + size and the target. Proves
+      AC1/AC2/AC3/AC5 (surface).
 - [x] **D6 — Offline end-to-end proof.** `scripts/lib/fixture.mjs` (verified + wrong-size fixture
-  store installs, `truncate`d paks), `scripts/flows/bootstrap-retail-import.mjs`, `scripts/lib/harness.mjs`
-  (env wiring), `docs/UI-VERIFICATION.md`. Mirror `scripts/flows/bootstrap-wizard.mjs`. *Acceptance:*
-  `npm run ui:flow -- bootstrap-retail-import` walks engine → game data (copy) → target → confirm →
-  run against the loopback fixture server, asserts the picker, the unverified entry, the summary, the
-  finished installation carrying **no** Demo marker, and on disk that the target holds `baseq2` only
-  with byte-identical pak0/pak1 — with no outbound network access.
+      store installs, `truncate`d paks), `scripts/flows/bootstrap-retail-import.mjs`, `scripts/lib/harness.mjs`
+      (env wiring), `docs/UI-VERIFICATION.md`. Mirror `scripts/flows/bootstrap-wizard.mjs`. _Acceptance:_
+      `npm run ui:flow -- bootstrap-retail-import` walks engine → game data (copy) → target → confirm →
+      run against the loopback fixture server, asserts the picker, the unverified entry, the summary, the
+      finished installation carrying **no** Demo marker, and on disk that the target holds `baseq2` only
+      with byte-identical pak0/pak1 — with no outbound network access.
 
 ## Model Hints
 
@@ -259,11 +259,13 @@ in the same phase slot free-download's assemble step used, ahead of the first `i
 revalidation.
 
 **Commit message:**
+
 ```
 088: retail import from a detected store installation
 ```
 
 **Verification.**
+
 - `npm run typecheck` — clean.
 - `npm test` — 198 files / 3627 tests passed (one `fan-out cannot blow up combinatorially` test
   flaked once mid-run in an unrelated exec-expansion suite untouched by this story; reran alone and
@@ -292,6 +294,7 @@ revalidation.
   `assemble.test.ts` + the e2e's on-disk assertion. No manual residue.
 
 **Decisions made during build (beyond the story's own "Decisions (Sprint)" section).**
+
 - Reusable-piece naming matches the story's plan exactly: `inspectRetailSource`,
   `listDetectedRetailSources`, `copyRetailGameData` all live in
   `src/main/modules/downloads/bootstrap/retail-source.ts`; shared types
@@ -317,5 +320,6 @@ revalidation.
 (new) + its test, `assemble.ts`/`assemble.test.ts`, `job.ts`/`job.test.ts`, `errors.ts`,
 `harness.ts`/`harness.test.ts`, `index.ts`, `schemas.ts`, `archive-layouts.test.ts` (type-fix only);
 shared: `src/shared/modules/downloads.ts`; renderer: `GameDataStep.tsx` (new), `BootstrapWizard.tsx`
-+ its test, `ConfirmStep.tsx`, `client.ts`, `en.json`; e2e: `scripts/flows/bootstrap-retail-import.mjs`
-(new), `scripts/lib/fixture.mjs`, `scripts/lib/harness.mjs` (doc-only), `docs/UI-VERIFICATION.md`.
+
+- its test, `ConfirmStep.tsx`, `client.ts`, `en.json`; e2e: `scripts/flows/bootstrap-retail-import.mjs`
+  (new), `scripts/lib/fixture.mjs`, `scripts/lib/harness.mjs` (doc-only), `docs/UI-VERIFICATION.md`.

@@ -37,7 +37,7 @@
 // flow already uses (`Q2L_UI_HARNESS === '1' && isDev`, `src/main/lib/ui-harness.ts`):
 //
 //   Q2L_UI_CONTENT_REPO_BASE  the manifest/package base URL (`resolveDownloadSource()`,
-//                             `src/main/modules/downloads/harness.ts`). Refused unless it names a
+//                             `src/main/services/content/source.ts`). Refused unless it names a
 //                             `127.0.0.1` origin.
 //
 // The fixture server (`startBootstrapFixtureServer()`) serves `/engines/manifest.json` pinning the
@@ -69,6 +69,7 @@
 // the bleeding-edge toggle              a plain `Switch`, addressed by role="switch"/accessible name
 //                                       ("Bleeding edge", `engineUpdate.bleedingEdge.label`)
 import { existsSync, readFileSync } from 'node:fs'
+import { libraryCard } from '../lib/flow-common.mjs'
 import {
   BOOTSTRAP_ENGINE_FIXTURE_VERSION,
   ENGINE_FIXTURE_FILES,
@@ -136,14 +137,6 @@ export async function teardown() {
   }
 }
 
-/** The library row - no dedicated testid, so this locates the same `items-start` wrapper
- * `retail-upgrade.mjs`'s own `libraryCard()` helper does. */
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
-
 /**
  * The three engine files, as `{ archiveRelative, path }` - `archiveRelative` is `ENGINE_FIXTURE_
  * FILES`'s own key (what the fixture archive itself contains, and where its `sizeBytes`/`fillByte`
@@ -154,7 +147,10 @@ function libraryCard(page, name) {
 function engineFilePaths() {
   return Object.keys(ENGINE_FIXTURE_FILES).map((archiveRelative) => ({
     archiveRelative,
-    path: installationRootFilePath(INSTALL_ENGINE_UPDATE_ID, ENGINE_INSTALLED_RELATIVE[archiveRelative]),
+    path: installationRootFilePath(
+      INSTALL_ENGINE_UPDATE_ID,
+      ENGINE_INSTALLED_RELATIVE[archiveRelative],
+    ),
   }))
 }
 
@@ -162,7 +158,10 @@ function engineFilePaths() {
  * update job itself resolves and backs it up (`update-job.ts`'s `PlannedSwap.backupPath`). */
 function backupPathFor(archiveRelative) {
   const installedRelative = ENGINE_INSTALLED_RELATIVE[archiveRelative]
-  return installationRootFilePath(INSTALL_ENGINE_UPDATE_ID, `${ENGINE_BACKUP_DIR_NAME}/${installedRelative}`)
+  return installationRootFilePath(
+    INSTALL_ENGINE_UPDATE_ID,
+    `${ENGINE_BACKUP_DIR_NAME}/${installedRelative}`,
+  )
 }
 
 /**
@@ -216,7 +215,9 @@ async function closeDialog(page) {
 
 async function runJob(page, shot, testId, label) {
   await page.getByTestId(testId).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('bootstrap-running-step').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('bootstrap-running-step')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot(`${label}-in-progress`)
   await page
     .locator('[data-testid="bootstrap-running-step"][data-status="succeeded"]')
@@ -254,7 +255,9 @@ export default async function engineUpdate({ page, shot, step }) {
 
   step('AC1: nothing has been downloaded yet, and the on-disk engine is still the old build')
   if (packageRequested(server, '/packages/q2pro-fixture-client.zip')) {
-    throw new Error('the fixture Q2PRO archive was already requested before Update was clicked (AC1)')
+    throw new Error(
+      'the fixture Q2PRO archive was already requested before Update was clicked (AC1)',
+    )
   }
   if (existsSync(backupDir)) {
     throw new Error('a backup directory already exists before any update ran (AC1)')
@@ -266,7 +269,9 @@ export default async function engineUpdate({ page, shot, step }) {
   const currentBefore = await dialog.getByTestId('engine-update-current').innerText()
   const targetBefore = await dialog.getByTestId('engine-update-target').innerText()
   if (currentBefore !== ENGINE_UPDATE_OLD_VERSION) {
-    throw new Error(`expected the current version to read "${ENGINE_UPDATE_OLD_VERSION}", got "${currentBefore}" (AC7)`)
+    throw new Error(
+      `expected the current version to read "${ENGINE_UPDATE_OLD_VERSION}", got "${currentBefore}" (AC7)`,
+    )
   }
   if (targetBefore !== BOOTSTRAP_ENGINE_FIXTURE_VERSION) {
     throw new Error(
@@ -282,7 +287,9 @@ export default async function engineUpdate({ page, shot, step }) {
   step('AC2: click Update and wait for the real job to succeed')
   await runJob(page, shot, 'engine-update-confirm', 'updated')
 
-  step('AC2: on disk, the engine files are now the new fixture bytes, and the old ones are backed up')
+  step(
+    'AC2: on disk, the engine files are now the new fixture bytes, and the old ones are backed up',
+  )
   for (const { archiveRelative } of engineFilePaths()) {
     const { sizeBytes } = ENGINE_FIXTURE_FILES[archiveRelative]
     const backupBytes = readFileSync(backupPathFor(archiveRelative))
@@ -312,7 +319,9 @@ export default async function engineUpdate({ page, shot, step }) {
   }
   await runJob(page, shot, 'engine-update-rollback', 'rolled-back')
 
-  step('AC3: on disk, the engine files are back to the old fixture bytes, and the backup slot is empty')
+  step(
+    'AC3: on disk, the engine files are back to the old fixture bytes, and the backup slot is empty',
+  )
   assertEngineFilesFilled(oldFillByteFor, 'after the rollback')
   if (existsSync(backupDir)) {
     throw new Error('the backup directory survived the rollback (AC3)')
@@ -331,7 +340,9 @@ export default async function engineUpdate({ page, shot, step }) {
   step('AC4: toggle bleeding edge on and assert the target becomes the probed nightly version')
   const bleedingEdgeSwitch = dialog.getByRole('switch', { name: BLEEDING_EDGE_LABEL })
   await bleedingEdgeSwitch.click({ timeout: TIMEOUT_MS })
-  const targetOn = dialog.getByTestId('engine-update-target').filter({ hasText: BLEEDING_EDGE_VERSION })
+  const targetOn = dialog
+    .getByTestId('engine-update-target')
+    .filter({ hasText: BLEEDING_EDGE_VERSION })
   await targetOn.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await dialog.getByTestId('engine-update-bleeding-edge-error').count()) {
     const message = await dialog.getByTestId('engine-update-bleeding-edge-error').innerText()

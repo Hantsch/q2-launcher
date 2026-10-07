@@ -7,8 +7,8 @@ created: 2026-09-07
 
 ## Requirement
 
-**Bug.** In Controls > Weapons the two grenade rows — *Hand grenades* (`use grenades`,
-`weaponUse:use_grenades`) and *Grenade Launcher* (`use grenade launcher`,
+**Bug.** In Controls > Weapons the two grenade rows — _Hand grenades_ (`use grenades`,
+`weaponUse:use_grenades`) and _Grenade Launcher_ (`use grenade launcher`,
 `weaponUse:use_glauncher`, see
 [action-catalog.ts:213-226](../../src/shared/config/action-catalog.ts#L213-L226)) — cannot be
 assigned a key. Every other weapon row in the same category can. A user who wants a direct
@@ -33,9 +33,9 @@ Fix the cause, not the symptom, and cover it with a regression test at the level
 
 ## Acceptance Criteria
 
-- [x] **AC1** — A key can be assigned to the *Hand grenades* row in Controls > Weapons, the same way
+- [x] **AC1** — A key can be assigned to the _Hand grenades_ row in Controls > Weapons, the same way
       as for any other weapon row.
-- [x] **AC2** — A key can be assigned to the *Grenade Launcher* row.
+- [x] **AC2** — A key can be assigned to the _Grenade Launcher_ row.
 - [x] **AC3** — Both binds survive a save/reload round trip and appear in the written cfg as the
       correct commands (`use grenades`, `use grenade launcher`), correctly quoted.
 - [x] **AC4** — Assigning one of the two does not disturb the other, and neither collides with the
@@ -60,19 +60,19 @@ Fix the cause, not the symptom, and cover it with a regression test at the level
 button, no capture), and its **only** caller is `ControlsTab.tsx:1536` —
 `const inertSlots = action.kind === 'alias'`. So the row is an entry of `kind: 'alias'`, which by
 story 019's decision can never be bound through the UI. A catalogue row (`weaponUse:use_grenades`
-etc.) is *not* affected: it renders through `renderCatalogRow` with a live slot, and a fresh
+etc.) is _not_ affected: it renders through `renderCatalogRow` with a live slot, and a fresh
 `STANDARD_TEMPLATE` profile round-trips clean (probed).
 
 What the live profile actually holds (read from `%APPDATA%/Q2 Launcher/state.json` +
-`Hantsch-Test.cfg`): two hand-made Weapons entries of the *same* shape —
+`Hantsch-Test.cfg`): two hand-made Weapons entries of the _same_ shape —
 `SSG + SG` (`use super shotgun; use shotgun`, key `q`, `kind: 'bind'`) and
 `Grenade + Launcher` (`use grenade launcher; use grenades`, **no key**, `kind: 'alias'`).
 Both were created as `kind: 'bind'` (`ControlsTab.tsx:2404`, the create dialog's default). The
 keyless one flipped kind on a file→state pass:
 
 - the writer gives a keyless entry with a body an alias line only (`alias grenade_launcher "use
-  grenade launcher; use grenades"  // Grenade + Launcher [q2l]`) — no bind line, no anchor, and
-  `isUnboundEntry` (`render.ts:1123-1134`) explicitly *excludes* anything that got an alias line,
+grenade launcher; use grenades"  // Grenade + Launcher [q2l]`) — no bind line, no anchor, and
+  `isUnboundEntry` (`render.ts:1123-1134`) explicitly _excludes_ anything that got an alias line,
   so no unbound line either. Nothing in the file records that this is a bind entry with an empty
   key slot.
 - the reader therefore has no signal: `inferKind` (`profile-restore.ts:2245-2251`) returns
@@ -93,16 +93,16 @@ are simply the ones this user left keyless. The file→state pass happens withou
 
 1. **AC1/AC2 are read as the reproduced row**, per the user's binding answer: the affected row is
    the one showing `[-]`, i.e. the keyless entry that carries the grenade `use` commands — not the
-   catalogue `weaponUse:*` rows, which already take a key today. The two grenade *commands* still
+   catalogue `weaponUse:*` rows, which already take a key today. The two grenade _commands_ still
    have to end up bindable, which is what the ACs are about.
 2. **Fixed in the shared file contract, not in the renderer.** `inertSlots` for a `kind: 'alias'`
    entry stays exactly as story 019 decided (the mirrors skip an alias entry, `profiles.ts:339`, so
    a key on one would never reach the file). What is wrong is that the file loses the fact "this is
    a bind entry with an empty key slot" — and per the milestone's own rule (052: the file is the
-   source of truth) the fix is to *state* that fact in the file.
+   source of truth) the fix is to _state_ that fact in the file.
 3. **Spelled with the existing idiom, not a new tag field.** Story 052 D2/D3's unbound line
    (`//bind "<value>"  // <prose> [q2l …]`) already means exactly "entry, no key"; its body is
-   `bindValueFor(action)` (`render.ts:1155-1165`), which for a bodied entry *is* its alias name.
+   `bindValueFor(action)` (`render.ts:1155-1165`), which for a bodied entry _is_ its alias name.
    Re-adding `k=` to the tag (removed by story 050) is rejected: the line shapes can say it.
 4. **Already-damaged profiles need a user-driven repair.** `state.json` is the live copy
    (file→state only on refresh/rebuild), so no writer fix heals the existing `kind: 'alias'` entry,
@@ -120,12 +120,12 @@ are simply the ones this user left keyless. The file→state pass happens withou
 ## Plan
 
 1. **D1 writer** — `render.ts#isUnboundEntry`: a `bind`/`message` entry with no owned bind line and
-   no anchor also gets its unbound line *when it has an alias line*, so the file states "this entry
+   no anchor also gets its unbound line _when it has an alias line_, so the file states "this entry
    has an empty key slot" next to the alias that holds its body. Only the `aliasLineActionIds`
    early return goes; the `alias`/`toggle`/`press-release` exclusion stays (those kinds are
    legitimately keyless — "one fact, one place" still holds for them).
 2. **D2 reader** — `profile-restore.ts#inferKind` gets that signal: a group carrying an unbound
-   line is a `bind`/`message` entry even with no key claim; only an alias line *without* one stays
+   line is a `bind`/`message` entry even with no key claim; only an alias line _without_ one stays
    `kind: 'alias'`. Includes checking that an alias line and an unbound line for the same entry
    land in **one** group (group key / `an=` field) instead of two entries.
 3. **D3 adversarial round-trip pass** — new fixtures + object-level assertions through the real
@@ -149,39 +149,39 @@ Affected files: `src/shared/config/render.ts`, `src/shared/config/profile-restor
 ## Deliverables
 
 - [x] **D1 — the file says "bind entry, no key".** `src/shared/config/render.ts` (`isUnboundEntry`,
-  and its doc comment, which currently argues the opposite) + `docs/systems/profile-file-format.md`.
-  Acceptance: a keyless `kind: 'bind'`/`'message'` entry that has an alias line renders **both** its
-  alias line and an unbound line `//bind "<aliasName>"  // <prose> [q2l …]` in the `Entries: <cat>`
-  section; a `kind: 'alias'`/`'toggle'`/`'press-release'` entry is unchanged; a keyless entry with
-  no body is unchanged (`//bind ""`). Test in `src/shared/config/render.test.ts` (mirror the
-  existing unbound-line cases) — expect fixture-driven expectations in
-  `src/shared/config/render-invariants.test.ts` / `fixtures/profiles.ts` to need updating.
+      and its doc comment, which currently argues the opposite) + `docs/systems/profile-file-format.md`.
+      Acceptance: a keyless `kind: 'bind'`/`'message'` entry that has an alias line renders **both** its
+      alias line and an unbound line `//bind "<aliasName>"  // <prose> [q2l …]` in the `Entries: <cat>`
+      section; a `kind: 'alias'`/`'toggle'`/`'press-release'` entry is unchanged; a keyless entry with
+      no body is unchanged (`//bind ""`). Test in `src/shared/config/render.test.ts` (mirror the
+      existing unbound-line cases) — expect fixture-driven expectations in
+      `src/shared/config/render-invariants.test.ts` / `fixtures/profiles.ts` to need updating.
 - [x] **D2 — the reader believes it.** `src/shared/config/profile-restore.ts` (`inferKind` + its call
-  site at ~2353, and the entry grouping so alias line + unbound line merge into one entry).
-  Acceptance: render → parse → restore of a keyless bodied `kind: 'bind'` entry returns
-  `kind: 'bind'`, one entry, body and `aliasName` intact; a genuine `kind: 'alias'` entry still
-  returns `'alias'`; `keepEmptyAlias`, `toggle` and `press-release` restores are untouched. Tests in
-  `src/shared/config/profile-restore.test.ts` plus the failing-first regression case in
-  `src/main/modules/config/round-trip.test.ts` (mirror the "story 045 … survive as objects" block,
-  reuse its `reimportProfile`).
+      site at ~2353, and the entry grouping so alias line + unbound line merge into one entry).
+      Acceptance: render → parse → restore of a keyless bodied `kind: 'bind'` entry returns
+      `kind: 'bind'`, one entry, body and `aliasName` intact; a genuine `kind: 'alias'` entry still
+      returns `'alias'`; `keepEmptyAlias`, `toggle` and `press-release` restores are untouched. Tests in
+      `src/shared/config/profile-restore.test.ts` plus the failing-first regression case in
+      `src/main/modules/config/round-trip.test.ts` (mirror the "story 045 … survive as objects" block,
+      reuse its `reimportProfile`).
 - [x] **D3 — adversarial round-trip pass.** `src/shared/config/fixtures/profiles.ts` (new fixtures added
-  to `ROUND_TRIP_FIXTURES`) + `src/main/modules/config/round-trip.test.ts`. Acceptance: the fixed
-  point `render(parse(render(p))) === render(p)` holds for every new fixture, **and** each entry's
-  `kind`/`keys`/`commands`/`aliasName` come back identical as objects; the two `use grenade*` rows
-  and the two `drop grenades` rows stay four distinct entries with their own `catalogId`s.
+      to `ROUND_TRIP_FIXTURES`) + `src/main/modules/config/round-trip.test.ts`. Acceptance: the fixed
+      point `render(parse(render(p))) === render(p)` holds for every new fixture, **and** each entry's
+      `kind`/`keys`/`commands`/`aliasName` come back identical as objects; the two `use grenade*` rows
+      and the two `drop grenades` rows stay four distinct entries with their own `catalogId`s.
 - [x] **D4 — an inert row can be made bindable.** `src/renderer/src/modules/config/lib/catalog-binds.ts`
-  (new pure `applyEntryKindBindable(actions, actionId)`: `kind: 'bind'` +
-  `aliasName: aliasNameFor(action)`), `ControlsTab.tsx` (`renderRowMenu` item, only for
-  `kind === 'alias'`), `src/renderer/src/i18n/locales/en.json`, and one keyless
-  `kind: 'alias'` Weapons entry per grenade command added to the populated fixture
-  (`scripts/lib/fixture.mjs`). Acceptance: the menu item appears only on an inert row, the entry
-  becomes bindable in place, its alias name does not change (incl. a `+signed` one), and no other
-  entry is touched. Unit test in `src/renderer/src/modules/config/lib/catalog-binds.test.ts`.
+      (new pure `applyEntryKindBindable(actions, actionId)`: `kind: 'bind'` +
+      `aliasName: aliasNameFor(action)`), `ControlsTab.tsx` (`renderRowMenu` item, only for
+      `kind === 'alias'`), `src/renderer/src/i18n/locales/en.json`, and one keyless
+      `kind: 'alias'` Weapons entry per grenade command added to the populated fixture
+      (`scripts/lib/fixture.mjs`). Acceptance: the menu item appears only on an inert row, the entry
+      becomes bindable in place, its alias name does not change (incl. a `+signed` one), and no other
+      entry is touched. Unit test in `src/renderer/src/modules/config/lib/catalog-binds.test.ts`.
 - [x] **D5 — proof on the real surface.** `scripts/flows/grenade-rows-take-a-key.mjs` (mirror
-  `scripts/flows/custom-action-row.mjs` / `controls-extra-keys.mjs`). Acceptance:
-  `npm run ui:flow -- grenade-rows-take-a-key` opens Controls > Weapons, finds both seeded inert
-  rows (`.ctrl-slot.is-inert`), makes each bindable, captures a key on each, asserts the cap shows
-  the key, and drops a screenshot per step; `npm run ui:verify` stays at 0 axe violations.
+      `scripts/flows/custom-action-row.mjs` / `controls-extra-keys.mjs`). Acceptance:
+      `npm run ui:flow -- grenade-rows-take-a-key` opens Controls > Weapons, finds both seeded inert
+      rows (`.ctrl-slot.is-inert`), makes each bindable, captures a key on each, asserts the cap shows
+      the key, and drops a screenshot per step; `npm run ui:verify` stays at 0 axe violations.
 
 ## Model Hints
 
@@ -196,7 +196,7 @@ Affected files: `src/shared/config/render.ts`, `src/shared/config/profile-restor
 
 ## Acceptance Tests
 
-- AC1 → e2e `npm run ui:flow -- grenade-rows-take-a-key` (D5) drives the *Hand grenades* fixture
+- AC1 → e2e `npm run ui:flow -- grenade-rows-take-a-key` (D5) drives the _Hand grenades_ fixture
   row (`fixture-action-inert-grenades`) through "Make bindable" then a real key capture; the row's
   write path is also unit-covered by `src/renderer/src/modules/config/lib/catalog-binds.test.ts` ›
   `applyEntryKindBindable` › "turns an inert alias entry into a bind entry, pinning its derived
@@ -221,7 +221,7 @@ Affected files: `src/shared/config/render.ts`, `src/shared/config/profile-restor
 
 ## Done
 
-**Summary.** The *Hand grenades* / *Grenade Launcher* rows were stuck inert because a keyless
+**Summary.** The _Hand grenades_ / _Grenade Launcher_ rows were stuck inert because a keyless
 `kind: 'bind'`/`'message'` entry with a body earned only an alias line, never an unbound line, so
 the file carried no signal that its key slot was deliberately empty — the next file→state read
 misread it as `kind: 'alias'`, permanently unbindable through the UI. Fixed at the file contract:
@@ -238,6 +238,7 @@ profiles (a real `kind: 'alias'` entry that is actually this bug, not a delibera
 key capture.
 
 **Decisions made during this final push:**
+
 - D5's flow script had leftover debug scaffolding (a row-id dump step, a menu-items console.log)
   from the interrupted prior session; both were removed once the flow was confirmed green, so it
   matches the style of `controls-extra-keys.mjs`/`custom-action-row.mjs` — no stray logging.
@@ -259,12 +260,13 @@ key capture.
   `kind: 'message'` — a narrow, pre-existing-file-only regression into the same "inert until D4's
   repair" state the story removes for grenades, already asserted as intended at
   `profile-restore.test.ts:1295-1307` and repairable the same way; (2) the grenade fixtures used for
-  AC3/AC4's object-level round-trip assertions are all keyless (the D5 flow proves the *keyed* case
+  AC3/AC4's object-level round-trip assertions are all keyless (the D5 flow proves the _keyed_ case
   live but doesn't reload from disk), so AC3's "survive a save/reload round trip" for an already-keyed
   grenade row rests on generic pre-existing bound-entry coverage rather than a story-specific fixture
   — both are non-blocking and did not fail any acceptance test.
 
 **Verification.**
+
 - `npm run build` — green.
 - `npm test` — 2607 tests / 101 files, all green.
 - `npm run typecheck` — green (node + web projects).

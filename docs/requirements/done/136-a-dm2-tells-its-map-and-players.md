@@ -117,11 +117,24 @@ Result shape (D1 exports it):
 
 ```ts
 type Dm2Protocol = 34 | 3434 | 3435 | 3436
-type Dm2Header = { ok: true; protocol: Dm2Protocol; layout: 'original' | 'extended'
-  gameDir: string; levelName: string; map: string | null; pov: string | null
-  players: string[]; largestBlockBytes: number; bytesConsumed: number }
-type Dm2Unparsable = { ok: false; reason: 'empty' | 'truncated' | 'not-a-demo'
-  | 'unknown-protocol' | 'header-too-large' | 'unreadable'; protocol?: number }
+type Dm2Header = {
+  ok: true
+  protocol: Dm2Protocol
+  layout: 'original' | 'extended'
+  gameDir: string
+  levelName: string
+  map: string | null
+  pov: string | null
+  players: string[]
+  largestBlockBytes: number
+  bytesConsumed: number
+}
+type Dm2Unparsable = {
+  ok: false
+  reason:
+    'empty' | 'truncated' | 'not-a-demo' | 'unknown-protocol' | 'header-too-large' | 'unreadable'
+  protocol?: number
+}
 type Dm2HeaderResult = Dm2Header | Dm2Unparsable
 ```
 
@@ -164,13 +177,13 @@ type Dm2HeaderResult = Dm2Header | Dm2Unparsable
   Files: new `src/main/lib/demo-bytes.ts`, `src/main/lib/demo-bytes.test.ts`. Mirror the
   temp-dir test style of `src/main/lib/fs-utils.test.ts`.
   Spec: `readDemoPrefix(path, maxBytes): Promise<{ ok: true; bytes: Uint8Array; compressed:
-  boolean } | { ok: false }>` — open the file, sniff the first two bytes; plain → one
+boolean } | { ok: false }>` — open the file, sniff the first two bytes; plain → one
   `FileHandle.read` of at most `maxBytes`; gzip (`1f 8b`) → `createReadStream` (64 KiB
   `highWaterMark`) piped through `zlib.createGunzip()`, collect output until `maxBytes`, then
   destroy both streams; a gunzip error returns what was decompressed so far (`ok: true`); an I/O
   error (missing file, EACCES) → `ok: false`. `readDm2Header(path): Promise<Dm2HeaderResult>` =
   `readDemoPrefix(path, DM2_HEADER_MAX_BYTES)` → `parseDm2Header`, `ok: false` → `{ ok: false,
-  reason: 'unreadable' }`. Never rejects.
+reason: 'unreadable' }`. Never rejects.
   Tests: the real `docs/fixtures/demos/test.dm2` (resolve from repo root) yields protocol 34,
   `map` `q2rdm2`, `gameDir` `opentdm`, `levelName` `The Chastity Belt Duel  -  by JaLisK0`
   (two spaces around the dash), `pov` `sd.kgm/sauDove` (playernum 1), `players`
@@ -221,6 +234,7 @@ proves the parser never throws.
 Commit message: `136: parse a .dm2's map, level, game dir and players from its header`
 
 Decisions (implementation detail, not in story):
+
 - `levelName` falls back to serverdata's level string when `CS_NAME` is absent OR empty (spec
   said "absent"); no AC depends on the distinction, left as the more defensive reading.
 - D2's plain-file path does a 2-byte gzip-magic peek then one further bounded read (two `read()`

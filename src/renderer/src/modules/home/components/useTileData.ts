@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
+import { ok } from '@shared/types'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 
 /**
- * Story 087 D2. The one hook every dashboard tile body (Playtime, Config profiles, ...) uses to
+ * Story 087. The one hook every dashboard tile body (Playtime, Config profiles, ...) uses to
  * fetch its own data, independently of every other tile - `DashboardTileFrame.tsx` (same directory)
  * is the frame those tiles render through once they have this.
  *
@@ -24,45 +26,26 @@ export interface UseTileDataResult<T> {
 }
 
 /**
- * `fetcher`'s identity is not assumed stable across renders: it is read from a ref and called only
- * on mount and again on an explicit `retry()`, never because the calling component re-rendered with
- * a new closure (e.g. an inline arrow function passed as `fetcher`).
+ * `fetcher`'s identity is not assumed stable across renders: it is called only on mount and again
+ * on an explicit `retry()`. A thin alias of `useModuleQuery`; a rejection is kept as-is for `error`.
  */
 export function useTileData<T>(fetcher: () => Promise<T>): UseTileDataResult<T> {
-  const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
-
-  const [state, setState] = useState<TileDataState>('loading')
-  const [data, setData] = useState<T | undefined>(undefined)
-  const [error, setError] = useState<unknown>(undefined)
-  const [attempt, setAttempt] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    setState('loading')
-    setError(undefined)
-
-    fetcherRef
-      .current()
-      .then((result) => {
-        if (cancelled) return
-        setData(result)
-        setState('success')
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return
-        setError(caught)
-        setState('error')
-      })
-
-    return () => {
-      cancelled = true
+  const rejection = useRef<unknown>(undefined)
+  const query = useModuleQuery<T>(async () => {
+    try {
+      const value = await fetcher()
+      rejection.current = undefined
+      return ok(value)
+    } catch (caught) {
+      rejection.current = caught
+      return { ok: false, error: { key: 'ipc.error.unreachable' } }
     }
-    // `attempt` is the only intentional trigger - see the doc comment above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attempt])
+  })
 
-  const retry = useCallback(() => setAttempt((n) => n + 1), [])
-
-  return { state, data, error, retry }
+  return {
+    state: query.state,
+    data: query.data,
+    error: query.state === 'error' ? rejection.current : undefined,
+    retry: query.reload,
+  }
 }

@@ -1,8 +1,8 @@
 import { readdir, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ConfigProfile } from '@shared/modules/config'
-import { isLauncherOwnedFile } from '@shared/config/file-ownership'
-import { renderProfileFile } from '@shared/config/render'
+import { isLauncherOwnedFile } from '@shared/config/render/file-ownership'
+import { renderProfileFile } from '@shared/config/render/render'
 import { backupOnce } from './backup'
 import { ownedProfileIdFromContent, writeTargetFile } from './writer'
 import type { WriteFileOutcome } from './writer'
@@ -19,7 +19,7 @@ import type { WriteFileOutcome } from './writer'
  * reading a `*.cfg` file's whole content and running it through `writer.ts`'s
  * `ownedProfileIdFromContent` - the same forgiving ownership reader every
  * other ownership check in this codebase uses (banner or legacy sentinel,
- * `@shared/config/file-ownership`) - and comparing the id it returns to
+ * `@shared/config/render/file-ownership`) - and comparing the id it returns to
  * `profileId`. This is deliberately stricter than plain
  * `isLauncherOwnedFile` matching (`writer.ts`, `cleanup.ts`): a file that is
  * launcher-owned but for a *different* profile id is still one of ours,
@@ -28,7 +28,7 @@ import type { WriteFileOutcome } from './writer'
  * one. Going through `ownedProfileIdFromContent` rather than an exact-string
  * sentinel comparison is what lets a file written with an older sentinel
  * wording, or the newer banner shape, still be recognised as this profile's
- * own (story 043 D1, story 051 D3): only the id is load-bearing, never the
+ * own (story 043, story 051): only the id is load-bearing, never the
  * surrounding wording or shape.
  */
 
@@ -44,7 +44,7 @@ export interface WriteCanonicalProfileFileResult {
  * so a file that cannot be read is never a match - the conservative
  * direction, since it means "leave it alone", not "delete it". Whole content,
  * not just the first line, is what `ownedProfileIdFromContent` needs to
- * recognise a banner-shape header (story 051 D3) - its `id` field lives on
+ * recognise a banner-shape header (story 051) - its `id` field lives on
  * line 4, never line 1.
  */
 async function contentOf(filePath: string): Promise<string | null> {
@@ -94,7 +94,7 @@ async function readExistingIfAny(filePath: string): Promise<string | null> {
  * never a bare `isLauncherOwnedFile` match, which would also match a
  * different profile's file. Tolerant of either ownership shape and the
  * sentinel's trailing wording: only the id decides ownership, so a file
- * written before story 043 D1's wording change, or before story 051's banner
+ * written before story 043's wording change, or before story 051's banner
  * shape, is still found. Returns null when `baseDir` does not exist yet, or
  * no `*.cfg` file in it matches.
  */
@@ -158,15 +158,15 @@ export async function readCanonicalOwnership(baseDir: string): Promise<Map<strin
  * file (two different profile names can resolve to a target another user
  * file already sits at) or by stale output from an earlier partial
  * migration. `rename()` replaces an existing destination unconditionally, so
- * a foreign file there is backed up first (review finding: this is exactly
+ * a foreign file there is backed up first (this is exactly
  * the boundary decision 7 says must not weaken - "a file that is not ours is
  * the user's" applies to a rename's destination just as much as to a plain
  * write). A destination that is already launcher-owned (either shape, story
- * 051 D3) is one of ours (this profile's own stale output) and is never worth
+ * 051) is one of ours (this profile's own stale output) and is never worth
  * backing up.
  *
  * `liveProfileIds`, when given, turns the one case that used to be waved away
- * into a hard refusal (review finding): a destination whose content names
+ * into a hard refusal: a destination whose content names
  * a DIFFERENT profile that still exists is that profile's canonical file, and
  * `rename()`/an overwrite would destroy it. It happens whenever a rename
  * makes this profile claim a name another profile currently occupies on disk
@@ -178,7 +178,7 @@ export async function readCanonicalOwnership(baseDir: string): Promise<Map<strin
  * keeps the previous behaviour - a marker-carrying destination whose owner is
  * gone is still stale output, and is still replaced.
  *
- * Separate from the write (story 079 review, finding 1) because the two
+ * Separate from the write (story 079) because the two
  * questions have different answers: "may this run replace what the file says"
  * is a content decision that a hand-formatted, launcher-known file has to be
  * able to refuse (story 057: a raw save is never re-rendered), while "may this

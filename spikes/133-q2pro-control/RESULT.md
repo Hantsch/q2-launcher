@@ -17,26 +17,26 @@ run-by-hand (see "Harness fixes found during the run" below) and are not evidenc
 
 Latency = ACK observed in the logfile minus control file written.
 
-| Command | Took effect (y/n) | Latency dm2 (ms) | Latency MVD (ms) |
-| --- | --- | --- | --- |
-| `pause` (on) | y — position freezes (0:03.0 / 0:03.1) | 446 | 587 |
-| `pause` (off) | y — position runs again | 701 | 379 |
-| `seek +10` / `seek +30` (MVD) | y — 0:04.1 → 0:14.5 / 0:06.5 → 0:39.6 | 569 | 442 |
-| `seek -10` / `seek -20` (MVD) | y — 0:15.1 → 0:05.7 / 0:39.8 → ~0:20 | 619 | 366 |
-| absolute: `seek 30` / `seek 50%` (MVD) | y — → 0:30.4 / → 5:02.8 | 581 | 506 |
-| `timescale 2` | y — position advances ~2× | 633 | 502 |
-| `timescale 1` | y — back to normal speed | 575 | 423 |
+| Command                                | Took effect (y/n)                      | Latency dm2 (ms) | Latency MVD (ms) |
+| -------------------------------------- | -------------------------------------- | ---------------- | ---------------- |
+| `pause` (on)                           | y — position freezes (0:03.0 / 0:03.1) | 446              | 587              |
+| `pause` (off)                          | y — position runs again                | 701              | 379              |
+| `seek +10` / `seek +30` (MVD)          | y — 0:04.1 → 0:14.5 / 0:06.5 → 0:39.6  | 569              | 442              |
+| `seek -10` / `seek -20` (MVD)          | y — 0:15.1 → 0:05.7 / 0:39.8 → ~0:20   | 619              | 366              |
+| absolute: `seek 30` / `seek 50%` (MVD) | y — → 0:30.4 / → 5:02.8                | 581              | 506              |
+| `timescale 2`                          | y — position advances ~2×              | 633              | 502              |
+| `timescale 1`                          | y — back to normal speed               | 575              | 423              |
 
 MVD only — switching the view (all took effect, answered by `[MVD] ...` log lines):
 
-| Command | Engine reply | Latency (ms) |
-| --- | --- | --- |
-| `cmd invnext` ×3 | `[MVD] Chasing sycr0z.` / `lamb shanker.` / `sycr0z.` | 350 / 384 / 319 |
-| `cmd invprev` | `[MVD] Chasing lamb shanker.` | 446 |
-| `cmd chase` (off → free camera) | — | 378 |
-| `cmd chase` (on) | `[MVD] Chasing lamb shanker.` | 320 |
-| `cmd chase q` (quad carrier) | `[MVD] No players matching 'q' found.` (no quad at that moment) | 318 |
-| `seek 10%` | — | 395 |
+| Command                         | Engine reply                                                    | Latency (ms)    |
+| ------------------------------- | --------------------------------------------------------------- | --------------- |
+| `cmd invnext` ×3                | `[MVD] Chasing sycr0z.` / `lamb shanker.` / `sycr0z.`           | 350 / 384 / 319 |
+| `cmd invprev`                   | `[MVD] Chasing lamb shanker.`                                   | 446             |
+| `cmd chase` (off → free camera) | —                                                               | 378             |
+| `cmd chase` (on)                | `[MVD] Chasing lamb shanker.`                                   | 320             |
+| `cmd chase q` (quad carrier)    | `[MVD] No players matching 'q' found.` (no quad at that moment) | 318             |
+| `seek 10%`                      | —                                                               | 395             |
 
 p95 latency: **701 ms** (dm2), **587 ms** (MVD). Range 318–701 ms.
 
@@ -117,7 +117,7 @@ What the implementation in [[164]] must do the same way:
    `if $spike133_seq != N then "<command>; set spike133_seq N; echo ACK N"`, with
    `set spike133_seq 0` in the loop cfg.
 4. **Position:** `$cl_demopos`; `$time` does not exist in Q2PRO.
-5. **MVD files:** pass the file name *with* `.mvd2`; `demo` then hands it to `mvdplay`. Without
+5. **MVD files:** pass the file name _with_ `.mvd2`; `demo` then hands it to `mvdplay`. Without
    an extension `demo` assumes `.dm2`.
 
 **Decision: go** — cfg polling works on Windows for client demos and MVDs; [[164]] builds on it,

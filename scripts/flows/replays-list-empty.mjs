@@ -6,6 +6,8 @@
 // Selectors - read `src/renderer/src/modules/replays/ReplaysListStatus.tsx` and
 // `src/renderer/src/modules/replays/ReplaysView.tsx` before changing any of these:
 //   nav-replays                    TitleBar.tsx - primary nav entry
+//   replays-list-no-installation   ReplaysListStatus.tsx - no installation registered (story 238)
+//   replays-scope-all              ReplaysView.tsx - the "All installations" toggle
 //   replays-list-empty             ReplaysListStatus.tsx - the empty state
 //   replays-list-empty-settings    ReplaysListStatus.tsx - its "open source settings" button
 //   settings-section-replays       SettingsView.tsx - the shell's own Panel wrapper
@@ -18,6 +20,16 @@ export default async function replaysListEmpty({ page, shot, step }) {
   step('opening the Demos view with nothing to scan shows the empty state')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
 
+  step('with no installation registered the list says so')
+  const noInstallation = page.getByTestId('replays-list-no-installation')
+  await noInstallation.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  if (!(await noInstallation.innerText()).includes('No installation yet')) {
+    throw new Error('replays-list-empty: expected the no-installation line to name the reason')
+  }
+  await shot('replays-list-no-installation')
+
+  step('with every installation shown, the plain empty state tells where to add folders')
+  await page.getByTestId('replays-scope-all').click({ timeout: TIMEOUT_MS })
   const empty = page.getByTestId('replays-list-empty')
   await empty.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const text = await empty.innerText()

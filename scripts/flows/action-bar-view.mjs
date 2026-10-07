@@ -7,6 +7,7 @@
 // Selectors: `actionbar-play` (+ `data-action`), `nav-home|library|replays`, `replays-demo-row`,
 // `replays-demo-play`, `replays-demo-play-anyway` (both must be gone), `installation-tile`.
 import { REPLAYS_PLAY_CTF_DEMO, writeReplaysPlayFixture } from '../lib/fixture.mjs'
+import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play'
 
@@ -23,22 +24,13 @@ async function expectAction(page, action, label, disabled) {
   await button.waitFor({ state: 'visible', timeout: SHORT_MS })
   const text = ((await button.textContent()) ?? '').trim()
   if (label !== undefined && text !== label) {
-    throw new Error(`action-bar-view: expected label ${JSON.stringify(label)} for ${action}, got ${JSON.stringify(text)}`)
+    throw new Error(
+      `action-bar-view: expected label ${JSON.stringify(label)} for ${action}, got ${JSON.stringify(text)}`,
+    )
   }
   if (disabled !== undefined && (await button.isDisabled()) !== disabled) {
     throw new Error(`action-bar-view: expected ${action} disabled=${disabled}`)
   }
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refresh.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('action-bar-view: timed out waiting for the demo scan to finish')
 }
 
 export default async function actionBarView({ page, step, shot }) {
@@ -49,9 +41,8 @@ export default async function actionBarView({ page, step, shot }) {
   await expectAction(page, 'play', 'Play')
 
   step('Demos with no selection: "View", disabled')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
+  await openDemos(page)
+  await openFolder(page, 'ctf')
   await expectAction(page, 'view', 'View', true)
   await shot('view-disabled')
 
@@ -66,7 +57,8 @@ export default async function actionBarView({ page, step, shot }) {
     timeout: TIMEOUT_MS,
   })
   for (const id of ['replays-demo-play', 'replays-demo-play-anyway']) {
-    if ((await page.getByTestId(id).count()) !== 0) throw new Error(`action-bar-view: ${id} must not exist any more`)
+    if ((await page.getByTestId(id).count()) !== 0)
+      throw new Error(`action-bar-view: ${id} must not exist any more`)
   }
   await shot('view-enabled')
 
@@ -78,7 +70,10 @@ export default async function actionBarView({ page, step, shot }) {
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('installation-tile').nth(2).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('installation-tile').nth(2).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('installation-tile')
+    .nth(2)
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await expectAction(page, 'repair')
   await shot('repair-wins')
 }

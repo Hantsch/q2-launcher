@@ -18,7 +18,7 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 // A direct `expect(...)` assertion against `process.platform` - the pattern this guard forbids.
 // Conditional branches like `if (process.platform === 'win32')` or a ternary that picks a
 // platform-appropriate fixture value are not assertions about the host and are fine; several
-// existing tests (e.g. `src/main/modules/downloads/extractor.test.ts`,
+// existing tests (e.g. `src/main/lib/archive/extractor.test.ts`,
 // `src/main/services/installations.test.ts`) rely on exactly that pattern to build
 // platform-correct behaviour rather than to assert the test host is a given platform.
 const FORBIDDEN_PATTERN = /expect\((?:[^()]|\([^()]*\))*process\.platform/g
@@ -32,13 +32,15 @@ const ALLOWED_FILES = [
   join('scripts', 'platform-assertions.test.mjs'),
 ]
 
-function walk(dir, matches) {
+const TEST_FILE = (name) => /\.test\.(ts|tsx|mjs)$/.test(name)
+
+function walk(dir, matches, accept = TEST_FILE) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
     const full = join(dir, entry.name)
     if (entry.isDirectory()) {
-      walk(full, matches)
-    } else if (entry.isFile() && /\.test\.(ts|tsx|mjs)$/.test(entry.name)) {
+      walk(full, matches, accept)
+    } else if (entry.isFile() && accept(entry.name)) {
       matches.push(full)
     }
   }
@@ -72,5 +74,34 @@ describe('no test asserts the host platform', () => {
       `Found direct assertions against process.platform. Stub the platform with ` +
         `stubPlatform() from src/test-support/platform.ts instead:\n${offenders.join('\n')}`,
     ).toEqual([])
+  })
+})
+
+describe('direct platform reads in main services and modules', () => {
+  it('keeps direct process.platform reads in services and modules below 10, each with a reason', () => {
+    const files = []
+    const accept = (name) => name.endsWith('.ts') && !name.includes('.test.ts')
+    walk(join(repoRoot, 'src', 'main', 'services'), files, accept)
+    walk(join(repoRoot, 'src', 'main', 'modules'), files, accept)
+
+    let count = 0
+    const unexplained = []
+    for (const file of files) {
+      const lines = readFileSync(file, 'utf8').split(/\r?\n/)
+      lines.forEach((line, i) => {
+        if (!line.includes('process.platform')) return
+        count += line.split('process.platform').length - 1
+        if (!line.includes('platform-read:') && !(lines[i - 1] ?? '').includes('platform-read:')) {
+          unexplained.push(`${relative(repoRoot, file).split(sep).join('/')}:${i + 1}`)
+        }
+      })
+    }
+
+    expect(count, 'Use isWindows()/isLinux() from src/main/lib/platform.ts instead.').toBeLessThan(
+      10,
+    )
+    expect(unexplained, 'Annotate each read with a "// platform-read: <reason>" comment.').toEqual(
+      [],
+    )
   })
 })

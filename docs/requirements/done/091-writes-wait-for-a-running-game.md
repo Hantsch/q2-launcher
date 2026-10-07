@@ -7,7 +7,7 @@ created: 2026-09-12
 
 ## Requirement
 
-The [install-module concept](../concepts/install-module.md) fixes INST-J7: while an
+The [install-module concept](../../systems/install-module.md) fixes INST-J7: while an
 installation's own Quake II process is running, no job may write into that installation's
 files — the job reports why it is waiting and continues by itself once the process exits.
 Nothing in the codebase implements this wait-then-continue mechanism today. The gap is
@@ -84,7 +84,7 @@ existing retail-upgrade job so that pre-existing gap closes too.
   lock and holds it until cancelled.** Reason: AC5's user action (pressing Play while a job copies)
   needs a deterministic write phase on the real surface; a fixture copy finishes too fast to click
   against. Same dev-only affordance class as `dev:simulateLaunch` ([[090]] D5), behind the same
-  `DEV_ONLY_CHANNELS` allowlist, and it takes the *real* lock so main's refusal is exercised, not
+  `DEV_ONLY_CHANNELS` allowlist, and it takes the _real_ lock so main's refusal is exercised, not
   faked.
 - **No concurrency/queue work here.** `JobsService` still has no admission control (INST-J2 is
   unbuilt); this story only adds waiting, not queueing. Reason: keeping the guard orthogonal to the
@@ -125,69 +125,69 @@ D4/D5 once D2 lands.
 ## Deliverables
 
 - [x] **D1 — The job model learns to wait.** `src/shared/types/jobs.ts`,
-  `src/main/services/jobs.ts`, `src/main/services/jobs.test.ts`,
-  `src/renderer/src/i18n/locales/en.json`. Mirror `markPlayable()` (`jobs.ts:118`) for the shape of
-  a non-progress mutator. *Acceptance:* `setWaiting` puts a job into `'waiting'` with its reason and
-  `setWriteLock(id, true)` clears the reason and returns it to `'running'`; `isJobActive`/
-  `countActiveJobs` count `'waiting'`; typecheck green across every exhaustive `JobStatus` switch.
-  Test in `jobs.test.ts` — "a waiting job names its reason and still counts as active".
+      `src/main/services/jobs.ts`, `src/main/services/jobs.test.ts`,
+      `src/renderer/src/i18n/locales/en.json`. Mirror `markPlayable()` (`jobs.ts:118`) for the shape of
+      a non-progress mutator. _Acceptance:_ `setWaiting` puts a job into `'waiting'` with its reason and
+      `setWriteLock(id, true)` clears the reason and returns it to `'running'`; `isJobActive`/
+      `countActiveJobs` count `'waiting'`; typecheck green across every exhaustive `JobStatus` switch.
+      Test in `jobs.test.ts` — "a waiting job names its reason and still counts as active".
 - [x] **D2 — `InstallationWriteGuard` + the inverse launch refusal.**
-  `src/main/services/write-guard.ts` (new) + `write-guard.test.ts` (new),
-  `src/main/services/launch.ts` (+ new `launch.test.ts`), `src/main/context.ts`,
-  `src/renderer/src/i18n/locales/en.json`. Mirror `JobsService.onChange` (`jobs.ts:65`) for the
-  additive observer and `LaunchService.start`'s `fail('launch.error.alreadyRunning')`
-  (`launch.ts:76`) for the refusal shape. *Acceptance (with a fake launch host and a fake jobs
-  service):* `runWrite` calls `fn` immediately when nothing runs; defers it and marks the job
-  `waiting` when that installation runs; calls `fn` exactly once after the process exits; releases
-  the lock and unsubscribes on success, failure and abort alike; an abort while waiting rejects
-  without ever calling `fn`; `isWriting` is true only between acquire and release, and
-  `LaunchService.start()` then fails with `launch.error.installationBusy`. Proves AC1, AC3, AC5
-  (main half) and AC6 (main half).
+      `src/main/services/write-guard.ts` (new) + `write-guard.test.ts` (new),
+      `src/main/services/launch.ts` (+ new `launch.test.ts`), `src/main/context.ts`,
+      `src/renderer/src/i18n/locales/en.json`. Mirror `JobsService.onChange` (`jobs.ts:65`) for the
+      additive observer and `LaunchService.start`'s `fail('launch.error.alreadyRunning')`
+      (`launch.ts:76`) for the refusal shape. _Acceptance (with a fake launch host and a fake jobs
+      service):_ `runWrite` calls `fn` immediately when nothing runs; defers it and marks the job
+      `waiting` when that installation runs; calls `fn` exactly once after the process exits; releases
+      the lock and unsubscribes on success, failure and abort alike; an abort while waiting rejects
+      without ever calling `fn`; `isWriting` is true only between acquire and release, and
+      `LaunchService.start()` then fails with `launch.error.installationBusy`. Proves AC1, AC3, AC5
+      (main half) and AC6 (main half).
 - [x] **D3 — The waiting state is visible.** `src/renderer/src/components/shell/ActionBar.tsx`,
-  `src/renderer/src/modules/downloads/components/JobRow.tsx`,
-  `src/renderer/src/modules/downloads/bootstrap/RunningStep.tsx`,
-  `src/renderer/src/modules/downloads/DownloadsView.test.tsx`, plus a test for `JobReadout`.
-  Mirror `RunningStep.tsx:35-59`'s `t(job.error.key, job.error.params ?? {})` rendering.
-  *Acceptance:* a job with `status: 'waiting'` renders its `waitingReason` (not a bare "queued")
-  in the Downloads tab row, the action-bar readout and the bootstrap running step; a job with
-  `writeLock` on installation X makes `resolvePrimaryAction` return a disabled Play with a reason;
-  no colour-only status indication. Proves AC2 and AC5's renderer half.
+      `src/renderer/src/modules/downloads/components/JobRow.tsx`,
+      `src/renderer/src/modules/downloads/bootstrap/RunningStep.tsx`,
+      `src/renderer/src/modules/downloads/DownloadsView.test.tsx`, plus a test for `JobReadout`.
+      Mirror `RunningStep.tsx:35-59`'s `t(job.error.key, job.error.params ?? {})` rendering.
+      _Acceptance:_ a job with `status: 'waiting'` renders its `waitingReason` (not a bare "queued")
+      in the Downloads tab row, the action-bar readout and the bootstrap running step; a job with
+      `writeLock` on installation X makes `resolvePrimaryAction` return a disabled Play with a reason;
+      no colour-only status indication. Proves AC2 and AC5's renderer half.
 - [x] **D4 — The retail-upgrade job waits instead of refusing.**
-  `src/main/modules/downloads/retail/upgrade-job.ts`, `upgrade-job.test.ts`. The pre-`jobs.create`
-  guard at `upgrade-job.ts:213-224` is removed; the copy+promote block (`runUpgrade`, `:371-430`)
-  runs inside `runWrite`, with the job's existing `onCancel` also aborting the controller.
-  *Acceptance:* with the installation running the job is created, enters `waiting`, and no byte is
-  written; on exit it copies and promotes exactly as before; cancelling while waiting removes the
-  staging dir and finishes the job `cancelled`, same path as cancelling mid-copy. Proves AC5's
-  retrofit and AC6.
+      `src/main/modules/downloads/retail/upgrade-job.ts`, `upgrade-job.test.ts`. The pre-`jobs.create`
+      guard at `upgrade-job.ts:213-224` is removed; the copy+promote block (`runUpgrade`, `:371-430`)
+      runs inside `runWrite`, with the job's existing `onCancel` also aborting the controller.
+      _Acceptance:_ with the installation running the job is created, enters `waiting`, and no byte is
+      written; on exit it copies and promotes exactly as before; cancelling while waiting removes the
+      staging dir and finishes the job `cancelled`, same path as cancelling mid-copy. Proves AC5's
+      retrofit and AC6.
 - [x] **D5 — The triggers stop being disabled.** `src/renderer/src/views/LibraryView.tsx`,
-  `src/renderer/src/components/shell/ActionBar.tsx`,
-  `src/renderer/src/components/shell/InstallationRail.tsx`, `scripts/flows/retail-upgrade.mjs`.
-  *Acceptance:* the import-retail action is enabled on all three surfaces while that installation's
-  game runs; `npm run ui:flow -- retail-upgrade` passes again with its running-state assertion
-  rewritten to "the action starts a job that waits" (every other assertion of [[090]] untouched).
+      `src/renderer/src/components/shell/ActionBar.tsx`,
+      `src/renderer/src/components/shell/InstallationRail.tsx`, `scripts/flows/retail-upgrade.mjs`.
+      _Acceptance:_ the import-retail action is enabled on all three surfaces while that installation's
+      game runs; `npm run ui:flow -- retail-upgrade` passes again with its running-state assertion
+      rewritten to "the action starts a job that waits" (every other assertion of [[090]] untouched).
 - [x] **D6 — The bootstrap's assemble passes ride the guard.**
-  `src/main/modules/downloads/bootstrap/job.ts`, `job.test.ts` (or the nearest existing bootstrap
-  job test). Wrap step 6 (`ASSEMBLE_CORE_RATIO`, `job.ts:225-245`) and step 8 (`ASSEMBLE_AUX_RATIO`)
-  in `runWrite`; leave step 5's download/extract loop outside it. *Acceptance:* with a blocked
-  guard the download and extract steps still run to completion and only the assemble call is
-  deferred; once unblocked, assembly runs once and the job finishes normally. Proves AC4.
+      `src/main/modules/downloads/bootstrap/job.ts`, `job.test.ts` (or the nearest existing bootstrap
+      job test). Wrap step 6 (`ASSEMBLE_CORE_RATIO`, `job.ts:225-245`) and step 8 (`ASSEMBLE_AUX_RATIO`)
+      in `runWrite`; leave step 5's download/extract loop outside it. _Acceptance:_ with a blocked
+      guard the download and extract steps still run to completion and only the assemble call is
+      deferred; once unblocked, assembly runs once and the job finishes normally. Proves AC4.
 - [x] **D7 — A dev-only writing job.** `src/shared/ipc.ts` (payload + `DEV_ONLY_CHANNELS`),
-  `src/shared/ipc-schemas.ts`, `src/main/ipc/dev.ts` + `dev.test.ts`, preload channel arrays.
-  Mirror `dev:simulateLaunch` ([[090]] D5) exactly. *Acceptance:* `dev:simulateJob({ scenario:
-  'writing', installationId })` creates a job that acquires the **real** write lock for that
-  installation, reports `writeLock: true`, and holds until cancelled; the channel stays in
-  `DEV_ONLY_CHANNELS` and is not registered outside dev.
+      `src/shared/ipc-schemas.ts`, `src/main/ipc/dev.ts` + `dev.test.ts`, preload channel arrays.
+      Mirror `dev:simulateLaunch` ([[090]] D5) exactly. _Acceptance:_ `dev:simulateJob({ scenario:
+'writing', installationId })` creates a job that acquires the **real** write lock for that
+      installation, reports `writeLock: true`, and holds until cancelled; the channel stays in
+      `DEV_ONLY_CHANNELS` and is not registered outside dev.
 - [x] **D8 — Offline end-to-end proof.** `scripts/flows/job-waits-for-running-game.mjs` (new),
-  `scripts/lib/fixture.mjs` if a fixture is missing, `docs/UI-VERIFICATION.md`. Mirror
-  `scripts/flows/retail-upgrade.mjs` (surface locators + on-disk assertions) and
-  `scripts/flows/downloads-badge-count.mjs` (dev-channel seeding). *Acceptance:*
-  `npm run ui:flow -- job-waits-for-running-game` passes with no network: with `dev:simulateLaunch`
-  running, the import-retail action starts a job that shows the waiting reason in the Downloads tab
-  and the action bar; simulating `idle` makes it finish on its own with the paks changed on disk;
-  a second run cancels the waiting job and asserts nothing was written; and with a `'writing'` job
-  held on that installation, Play is disabled and `launch:start` refuses with
-  `launch.error.installationBusy`.
+      `scripts/lib/fixture.mjs` if a fixture is missing, `docs/UI-VERIFICATION.md`. Mirror
+      `scripts/flows/retail-upgrade.mjs` (surface locators + on-disk assertions) and
+      `scripts/flows/downloads-badge-count.mjs` (dev-channel seeding). _Acceptance:_
+      `npm run ui:flow -- job-waits-for-running-game` passes with no network: with `dev:simulateLaunch`
+      running, the import-retail action starts a job that shows the waiting reason in the Downloads tab
+      and the action bar; simulating `idle` makes it finish on its own with the paks changed on disk;
+      a second run cancels the waiting job and asserts nothing was written; and with a `'writing'` job
+      held on that installation, Play is disabled and `launch:start` refuses with
+      `launch.error.installationBusy`.
 
 ## Model Hints
 
@@ -249,11 +249,13 @@ and a new offline flow (`job-waits-for-running-game.mjs`) proves the whole story
 alongside a rewritten `retail-upgrade.mjs`.
 
 **Commit message:**
+
 ```
 091: writes wait for a running game
 ```
 
 **Verification:**
+
 - `npm run build` — green.
 - `npm test` — 205 files, 3718 passed / 1 skipped; one file
   (`config/core/import-reader.test.ts`'s 512-file fan-out test) times out only under full-suite
@@ -266,6 +268,7 @@ alongside a rewritten `retail-upgrade.mjs`.
   below) and re-verified (typecheck/tests/both e2e flows re-run green after the fixes).
 
 **AC → test mapping, as verified:**
+
 - AC1 → `write-guard.test.ts` › "a write into a running installation is deferred and the job is
   marked waiting, without calling the write function" (pass) + e2e `job-waits-for-running-game`
   (pass).
@@ -288,6 +291,7 @@ alongside a rewritten `retail-upgrade.mjs`.
 No manual residue — every criterion has an automated test, as planned.
 
 **Decisions (post-review fixes):**
+
 - Added a second `signal.aborted` re-check in `write-guard.ts`'s `runWrite`, right before
   `acquire()`, closing a narrow window where a cancel landing in the same microtask the wait
   resolved in could still take the lock and start a doomed write (cleaned up correctly either

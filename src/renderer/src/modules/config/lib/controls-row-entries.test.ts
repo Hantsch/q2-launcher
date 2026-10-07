@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { allCatalogRows } from '@shared/config/catalog-rows'
+import { allCatalogRows } from '@shared/config/catalog/catalog-rows'
 import { STANDARD_TEMPLATE } from '@shared/modules/config'
 import type { ConfigAction } from '@shared/modules/config'
-import { applyAmmo, applyMessage, applySlot, deriveRowState, withCatalogBody } from './catalog-binds'
+import {
+  applyAmmo,
+  applyMessage,
+  applySlot,
+  deriveRowState,
+  withCatalogBody,
+} from './catalog-binds'
 import {
   buildControlsRowEntries,
   catalogRowInfo,
@@ -44,7 +50,7 @@ describe('buildControlsRowEntries', () => {
     expect(allCatalogRows().length).toBeGreaterThan(50)
   })
 
-  it('renders one row per entry of the category, in the profile\'s own array order', () => {
+  it("renders one row per entry of the category, in the profile's own array order", () => {
     const actions = [
       seeded('movement:back', 'movement', 'b'),
       action({ id: 'free', categoryId: 'movement', name: 'My own bind' }),
@@ -111,7 +117,7 @@ describe('buildControlsRowEntries', () => {
     expect(moved.map((entry: ConfigAction) => entry.id)).toEqual(['b', 'f', 'w'])
   })
 
-  it('builds a full template profile\'s rows out of its own actions, one per seeded entry', () => {
+  it("builds a full template profile's rows out of its own actions, one per seeded entry", () => {
     const actions = STANDARD_TEMPLATE.actions.map((entry) => ({ ...entry }))
 
     const movement = buildControlsRowEntries('movement', actions)
@@ -123,7 +129,9 @@ describe('buildControlsRowEntries', () => {
     expect(movement.length + weapons.length + drops.length + demo.length).toBe(
       STANDARD_TEMPLATE.actions.length,
     )
-    expect([...movement, ...weapons, ...drops, ...demo].every((entry) => entry.kind === 'catalog')).toBe(true)
+    expect(
+      [...movement, ...weapons, ...drops, ...demo].every((entry) => entry.kind === 'catalog'),
+    ).toBe(true)
   })
 })
 
@@ -226,13 +234,13 @@ describe('catalogRowInfo / controlsRowEntryFor', () => {
  * Every subcategory the category has gets its own group, in the category's own order, even one
  * with no rows yet (so it stays visible for D6's CRUD) - the ungrouped run is always first.
  */
-describe('groupControlsRowEntries over the profile\'s own rows', () => {
+describe("groupControlsRowEntries over the profile's own rows", () => {
   const dropsCategory = STANDARD_TEMPLATE.categories.find((category) => category.id === 'drops')!
   const subcategories = dropsCategory.subcategories ?? []
   const weaponsSubId = subcategories.find((sub) => sub.name === 'Weapons')!.id
   const ammoSubId = subcategories.find((sub) => sub.name === 'Ammunition')!.id
 
-  it('emits a group per subcategory, in the category\'s own order, including an empty one', () => {
+  it("emits a group per subcategory, in the category's own order, including an empty one", () => {
     const actions = [
       action({ id: 'a', categoryId: 'drops', name: 'Rockets', subcategoryId: ammoSubId }),
       action({ id: 'w', categoryId: 'drops', name: 'Launcher', subcategoryId: weaponsSubId }),

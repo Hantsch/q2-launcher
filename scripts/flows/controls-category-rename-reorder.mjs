@@ -58,8 +58,8 @@ async function chipOrder(page) {
   return page.evaluate(() => {
     const rail = document.querySelector('.ctrl-category-rail')
     if (!rail) return []
-    return [...rail.querySelectorAll('[data-category-name]')].map(
-      (chip) => chip.getAttribute('data-category-name'),
+    return [...rail.querySelectorAll('[data-category-name]')].map((chip) =>
+      chip.getAttribute('data-category-name'),
     )
   })
 }
@@ -88,7 +88,9 @@ export default async function controlsCategoryRenameReorder({ page, shot, step }
     .getByRole('button', { name: OLD_NAME, exact: true })
     .click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
-    (name) => document.querySelector(`[data-category-name="${name}"]`)?.getAttribute('data-selected') === 'true',
+    (name) =>
+      document.querySelector(`[data-category-name="${name}"]`)?.getAttribute('data-selected') ===
+      'true',
     OLD_NAME,
     { timeout: TIMEOUT_MS },
   )

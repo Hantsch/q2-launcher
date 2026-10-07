@@ -7,12 +7,12 @@
 handlers backed by zod schemas. No scan engine and no server list exist yet — this sprint proves
 the data survives a restart, not that it is ever shown.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 110 — the browser's data lives in its own state key | done | `4f7135a` |
-| 111 — master sources are a list i edit | done | `a8e1087` |
-| 112 — favourites are always there | done | `c38a71a` |
-| 113 — a server i add by hand, and where i've been | done | `6302ccb` |
+| Story                                               | Status | Commit    |
+| --------------------------------------------------- | ------ | --------- |
+| 110 — the browser's data lives in its own state key | done   | `4f7135a` |
+| 111 — master sources are a list i edit              | done   | `a8e1087` |
+| 112 — favourites are always there                   | done   | `c38a71a` |
+| 113 — a server i add by hand, and where i've been   | done   | `6302ccb` |
 
 All four stories done, no blockers. Two follow-up fix commits landed after the sprint-wide
 regression gate: `4002e7b` (111) and `bb3c805` (110) — see Regression gate below.
@@ -102,12 +102,12 @@ Two flows did regress from this sprint's own work, both attributed and fixed on 
 Acceptance is the test suite — every criterion below was proven by a named, passing test before
 its story moved to `done`.
 
-| Story | AC | Proven by |
-| --- | --- | --- |
-| 110 | AC1–AC7 | `state.test.ts`, `servers.test.ts`, `schemas.test.ts` (unit; no e2e — no user-facing surface) |
-| 111 | AC1–AC5 | unit tests in `master-sources.test.ts`/`servers.test.ts` + `scripts/flows/servers-master-sources.mjs` (e2e: defaults → CRUD → refusal → restart round-trip) |
-| 112 | AC1–AC5 | `favourites.test.ts`, `index.test.ts` (unit; no e2e — no list UI yet, story 118 owns the surface) |
-| 113 | AC1–AC6 | `manual-servers.test.ts`, `history-log.test.ts`, `index.test.ts`, `state.test.ts` (unit; no e2e — same reason as 112) |
+| Story | AC      | Proven by                                                                                                                                                   |
+| ----- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 110   | AC1–AC7 | `state.test.ts`, `servers.test.ts`, `schemas.test.ts` (unit; no e2e — no user-facing surface)                                                               |
+| 111   | AC1–AC5 | unit tests in `master-sources.test.ts`/`servers.test.ts` + `scripts/flows/servers-master-sources.mjs` (e2e: defaults → CRUD → refusal → restart round-trip) |
+| 112   | AC1–AC5 | `favourites.test.ts`, `index.test.ts` (unit; no e2e — no list UI yet, story 118 owns the surface)                                                           |
+| 113   | AC1–AC6 | `manual-servers.test.ts`, `history-log.test.ts`, `index.test.ts`, `state.test.ts` (unit; no e2e — same reason as 112)                                       |
 
 No manual residue in any story — every criterion was automatable at the level it was written for.
 

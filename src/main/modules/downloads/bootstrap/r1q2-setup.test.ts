@@ -40,18 +40,19 @@ describe('probeX86Runtime', () => {
   })
 
   it('reports true when a candidate path exists', async () => {
-    const present = await probeX86Runtime({ fileExists: () => Promise.resolve(true) })
+    const present = await probeX86Runtime({ fileExists: () => Promise.resolve(true), env: {} })
     expect(present).toBe(true)
   })
 
   it('reports false when no candidate path exists', async () => {
-    const present = await probeX86Runtime({ fileExists: () => Promise.resolve(false) })
+    const present = await probeX86Runtime({ fileExists: () => Promise.resolve(false), env: {} })
     expect(present).toBe(false)
   })
 
   it('checks SysWOW64 before falling back to System32', async () => {
     const checked: string[] = []
     const present = await probeX86Runtime({
+      env: {},
       fileExists: (path) => {
         checked.push(path)
         return Promise.resolve(path.toLowerCase().includes('system32'))
@@ -102,7 +103,7 @@ describe('off Windows', () => {
   it('the runtime probe and the vid_ref seeding do nothing off Windows', async () => {
     const restore = stubPlatform('linux')
     try {
-      const present = await probeX86Runtime({ fileExists: () => Promise.resolve(true) })
+      const present = await probeX86Runtime({ fileExists: () => Promise.resolve(true), env: {} })
       expect(present).toBe(false)
 
       await seedR1glConfig(dir)

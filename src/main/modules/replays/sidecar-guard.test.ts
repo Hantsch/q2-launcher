@@ -24,7 +24,9 @@ describe('sidecar replace guard', () => {
     await writeFile(demoPath, 'demo-bytes')
     const sidecarPath = `${demoPath}.json`
     if (sidecar !== undefined) await writeFile(sidecarPath, sidecar)
-    const store = createSidecarStore({ resolveDemo: (id) => (id === 'final' ? { kind: 'file', absolutePath: demoPath } : undefined) })
+    const store = createSidecarStore({
+      resolveDemo: (id) => (id === 'final' ? { kind: 'file', absolutePath: demoPath } : undefined),
+    })
     return { store, sidecarPath }
   }
 
@@ -34,7 +36,8 @@ describe('sidecar replace guard', () => {
 
   function needsConfirmation(outcome: Outcome<SidecarSaveResult>) {
     if (!outcome.ok) throw new Error(`expected ok, got ${outcome.error.key}`)
-    if (outcome.value.status !== 'needsConfirmation') throw new Error(`expected needsConfirmation, got ${outcome.value.status}`)
+    if (outcome.value.status !== 'needsConfirmation')
+      throw new Error(`expected needsConfirmation, got ${outcome.value.status}`)
     return outcome.value
   }
 
@@ -74,7 +77,11 @@ describe('sidecar replace guard', () => {
     const outcome = await store.write('final', { name: 'mine', tags: ['clutch'] }, fingerprint)
 
     expect(outcome).toEqual({ ok: true, value: { status: 'saved', state: 'written' } })
-    expect(JSON.parse(await readFile(sidecarPath, 'utf8'))).toEqual({ schemaVersion: 1, name: 'mine', tags: ['clutch'] })
+    expect(JSON.parse(await readFile(sidecarPath, 'utf8'))).toEqual({
+      schemaVersion: 1,
+      name: 'mine',
+      tags: ['clutch'],
+    })
   })
 
   it('a fingerprint taken before the file changed is stale and asks again', async () => {
@@ -117,7 +124,9 @@ describe('sidecar replace guard', () => {
     const before = await snapshot(sidecarPath)
 
     const value = needsConfirmation(await store.write('final', { name: 'overwrite?' }))
-    expect(value.issues).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'invalidJson' })]))
+    expect(value.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: 'invalidJson' })]),
+    )
     expect(value.fingerprint).toBe(sha256Hex(before.bytes))
     expect(await snapshot(sidecarPath)).toEqual(before)
   })
@@ -147,7 +156,10 @@ describe('sidecar replace guard', () => {
         throw new Error('must not write')
       },
     }
-    const store = createSidecarStore({ resolveDemo: () => ({ kind: 'file', absolutePath: demoPath }), fs })
+    const store = createSidecarStore({
+      resolveDemo: () => ({ kind: 'file', absolutePath: demoPath }),
+      fs,
+    })
     const before = await snapshot(sidecarPath)
 
     for (const confirm of [undefined, sha256Hex(''), sha256Hex(before.bytes)]) {
@@ -166,10 +178,19 @@ describe('sidecar replace guard', () => {
   it('a valid or absent sidecar saves and deletes without any confirmation (story 146 unchanged)', async () => {
     const { store, sidecarPath } = await setup()
 
-    expect(await store.write('final', { name: 'first' })).toEqual({ ok: true, value: { status: 'saved', state: 'written' } })
-    expect(await store.write('final', { name: 'second' })).toEqual({ ok: true, value: { status: 'saved', state: 'written' } })
+    expect(await store.write('final', { name: 'first' })).toEqual({
+      ok: true,
+      value: { status: 'saved', state: 'written' },
+    })
+    expect(await store.write('final', { name: 'second' })).toEqual({
+      ok: true,
+      value: { status: 'saved', state: 'written' },
+    })
     expect(JSON.parse(await readFile(sidecarPath, 'utf8')).name).toBe('second')
-    expect(await store.write('final', { name: 'second' })).toEqual({ ok: true, value: { status: 'saved', state: 'unchanged' } })
+    expect(await store.write('final', { name: 'second' })).toEqual({
+      ok: true,
+      value: { status: 'saved', state: 'unchanged' },
+    })
 
     // A stray confirmation on a valid file changes nothing about the outcome either.
     expect(await store.write('final', { name: 'third' }, 'not-a-fingerprint')).toEqual({
@@ -177,8 +198,14 @@ describe('sidecar replace guard', () => {
       value: { status: 'saved', state: 'written' },
     })
 
-    expect(await store.write('final', {})).toEqual({ ok: true, value: { status: 'saved', state: 'deleted' } })
+    expect(await store.write('final', {})).toEqual({
+      ok: true,
+      value: { status: 'saved', state: 'deleted' },
+    })
     await expect(stat(sidecarPath)).rejects.toMatchObject({ code: 'ENOENT' })
-    expect(await store.write('final', {})).toEqual({ ok: true, value: { status: 'saved', state: 'unchanged' } })
+    expect(await store.write('final', {})).toEqual({
+      ok: true,
+      value: { status: 'saved', state: 'unchanged' },
+    })
   })
 })

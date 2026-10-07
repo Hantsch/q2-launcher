@@ -7,10 +7,11 @@ import {
   generateLayerAliases,
   sanitizeCommand,
   type AltLayer,
-} from '@shared/config/alt-layers'
+} from '@shared/config/aliases/alt-layers'
 import { Button } from '../../../components/ui/Button'
 import { Field, Input, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 import { COMMAND_CATALOG } from '../lib/command-catalog'
 import { updateProfileBinds, updateProfileLayers } from '../client'
 
@@ -22,12 +23,12 @@ import { updateProfileBinds, updateProfileLayers } from '../client'
 const DOUBLY_PLACED_KEYS = new Set(['SHIFT', 'CTRL', 'ALT'])
 
 /**
- * Edits one key's bind (story 006 D4): the current command, a filterable
+ * Edits one key's bind (story 006): the current command, a filterable
  * pick list drawn from `COMMAND_CATALOG`, and the raw-command field that
  * actually gets saved - picking a catalog entry only populates that field,
  * since not every real bind (`use blaster`, `weapon 3`, chained commands) has
  * a catalog entry. Mirrors `RenameProfileDialog`'s shape; saves through the
- * same `updateProfileBinds` replace-whole-map client D2 added, same as
+ * same `updateProfileBinds` replace-whole-map client added, same as
  * `SettingsTab`'s `updateProfileCvars` flow but committed on a click
  * (Assign/Clear) rather than debounced.
  */
@@ -42,7 +43,7 @@ export function KeyBindDialog({
   profile: ConfigProfile
   keyName: string
   keyLabel: string
-  /** Set when editing a layer's own override instead of the base bind (story 006 D6). `null`/omitted = base layer, D4's original behavior. */
+  /** Set when editing a layer's own override instead of the base bind (story 006). `null`/omitted = base layer, the original behavior. */
   layer?: AltLayer | null
   onClose: () => void
   /** The full, updated profile list, per this module's save-through-client contract. */
@@ -59,7 +60,6 @@ export function KeyBindDialog({
 
   const [command, setCommand] = useState(currentCommand)
   const [filter, setFilter] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   const plusbindIssue = useMemo(() => {
     if (!layer) return null
@@ -74,7 +74,7 @@ export function KeyBindDialog({
     )
   }, [layer, profile.binds, keyName, command])
 
-  // --- layer trigger (story 011 D5) ---------------------------------------
+  // --- layer trigger (story 011) ---------------------------------------
   //
   // Only on the base-layer view: a trigger *is* a base-layer bind (`render.ts`
   // emits it in the bind block), so offering it while a layer's own overrides
@@ -89,16 +89,15 @@ export function KeyBindDialog({
   const [pickedTriggerLayerId, setPickedTriggerLayerId] = useState(
     triggerOwner?.id ?? layers[0]?.id ?? '',
   )
-  const [triggerSubmitting, setTriggerSubmitting] = useState(false)
-
   /**
    * One "a save is in flight" flag across both paths: they both write to the
    * same profile, and `onSaved` replaces the whole profile list, so letting the
    * bind save and the trigger save overlap would mean the second one persists a
    * `layers` array built from a stale `profile`. Each button still runs its own
-   * handler - this only gates *when* either may fire.
+   * handler - this only gates *when* either may fire, and `run`'s ref gate also
+   * refuses a second save started in the same tick.
    */
-  const busy = submitting || triggerSubmitting
+  const { submitting: busy, run } = useSubmitting()
 
   const pickedTriggerLayer = layers.find((entry) => entry.id === pickedTriggerLayerId) ?? null
 
@@ -147,13 +146,13 @@ export function KeyBindDialog({
    * a bind by taking the wrong branch.
    */
   const saveTrigger = async (layerId: string, key: string | null): Promise<void> => {
-    setTriggerSubmitting(true)
-    const result = await updateProfileLayers({
-      profileId: profile.id,
-      layers: assignLayerTrigger(layers, layerId, key),
-    })
-    setTriggerSubmitting(false)
-    if (result.ok) onSaved(result.value)
+    const result = await run(() =>
+      updateProfileLayers({
+        profileId: profile.id,
+        layers: assignLayerTrigger(layers, layerId, key),
+      }),
+    )
+    if (result?.ok) onSaved(result.value)
   }
 
   const filteredCatalog = useMemo(() => {
@@ -169,7 +168,7 @@ export function KeyBindDialog({
    * Whether Assign is currently allowed to fire at all - shared by the
    * button's `disabled` and the raw-command field's Enter handler, so the
    * keyboard path can never bypass a check the pointer path enforces
-   * (review finding, story 006: Enter used to call `save` unconditionally,
+   * (story 006: Enter used to call `save` unconditionally,
    * which let a layer's own trigger key be remapped through the text field
    * even though decision 12 makes that a *blocking* error, not a warning).
    */
@@ -180,25 +179,25 @@ export function KeyBindDialog({
     // `bind <key> "<value>"` unquoted-content-wise, so a user-typed quote
     // would nest and break on load - the exact class of bug this module's
     // alias generator exists to avoid, just on the base-bind path instead of
-    // a layer body (review finding, story 006). Sanitizing here keeps both
-    // paths honouring the same "no in-quote escaping" rule (AC5).
+    // a layer body (story 006). Sanitizing here keeps both
+    // paths honouring the same "no in-quote escaping" rule.
     const sanitized = sanitizeCommand(next)
-    setSubmitting(true)
-    const result = layer
-      ? await updateProfileLayers({
-          profileId: profile.id,
-          layers: (profile.layers ?? []).map((entry) =>
-            entry.id === layer.id
-              ? { ...entry, overrides: { ...entry.overrides, [keyName]: sanitized } }
-              : entry,
-          ),
-        })
-      : await updateProfileBinds({
-          profileId: profile.id,
-          binds: { ...profile.binds, [keyName]: sanitized },
-        })
-    setSubmitting(false)
-    if (result.ok) onSaved(result.value)
+    const result = await run(() =>
+      layer
+        ? updateProfileLayers({
+            profileId: profile.id,
+            layers: (profile.layers ?? []).map((entry) =>
+              entry.id === layer.id
+                ? { ...entry, overrides: { ...entry.overrides, [keyName]: sanitized } }
+                : entry,
+            ),
+          })
+        : updateProfileBinds({
+            profileId: profile.id,
+            binds: { ...profile.binds, [keyName]: sanitized },
+          }),
+    )
+    if (result?.ok) onSaved(result.value)
   }
 
   return (
@@ -207,14 +206,14 @@ export function KeyBindDialog({
       size="sm"
       title={t('config.keyBindDialog.title', { key: keyLabel })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="danger" disabled={busy || !bound} onClick={() => void save('')}>
-            {t('config.keyBindDialog.clear')}
+            {t('common.action.clear')}
           </Button>
           <Button variant="primary" disabled={!canAssign} onClick={() => void save(command)}>
             {t('config.keyBindDialog.assign')}
@@ -232,13 +231,13 @@ export function KeyBindDialog({
         <p className="text-xs text-ink-muted">
           {bound
             ? t('config.keyBindDialog.currentLabel', { command: currentCommand })
-            : t('config.overview.testMode.noBind')}
+            : t('common.label.notBound')}
         </p>
 
         {layer && (
           <p className="text-xs text-ink-muted">
             {t('config.keyBindDialog.baseBindLabel', {
-              command: baseBound ? baseCommand : t('config.overview.testMode.noBind'),
+              command: baseBound ? baseCommand : t('common.label.notBound'),
             })}
           </p>
         )}
@@ -264,12 +263,12 @@ export function KeyBindDialog({
         <Field label={t('config.keyBindDialog.pickListLabel')}>
           <Input
             value={filter}
-            placeholder={t('config.keyBindDialog.filterPlaceholder')}
+            placeholder={t('config.controls.editor.filterPlaceholder')}
             onChange={(event) => setFilter(event.target.value)}
           />
           <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
             {filteredCatalog.length === 0 ? (
-              <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
+              <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.label.none')}</p>
             ) : (
               filteredCatalog.map((entry) => (
                 <button
@@ -286,7 +285,7 @@ export function KeyBindDialog({
           </div>
         </Field>
 
-        <Field label={t('config.keyBindDialog.rawCommandLabel')}>
+        <Field label={t('common.label.command')}>
           <Input
             value={command}
             autoFocus
@@ -304,10 +303,7 @@ export function KeyBindDialog({
           Cancel/Clear/Assign, and one footer cannot mean two unrelated saves.
         */}
         {!layer && layers.length > 0 && (
-          <Field
-            className="border-t border-line pt-3"
-            label={t('config.keyBindDialog.trigger.label')}
-          >
+          <Field className="border-t border-line pt-3" label={t('common.label.layerTrigger')}>
             <p className="text-xs text-ink-muted">
               {triggerOwner
                 ? t('config.keyBindDialog.trigger.currentLabel', { name: triggerOwner.name })

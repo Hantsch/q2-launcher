@@ -12,6 +12,7 @@ import type {
 } from '@shared/modules/servers'
 import type { ServerListSort } from '@shared/servers/list-sort'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 import { useLauncher } from '../../store/useLauncher'
 
 /**
@@ -50,8 +51,14 @@ const {
   onScanServerMock: vi.fn(),
   listMasterSourcesMock: vi.fn(async () => ({ ok: true as const, value: [] as MasterSource[] })),
   getListSortMock: vi.fn(async () => ({ ok: true as const, value: null as ServerListSort | null })),
-  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({ ok: true as const, value: sort })),
-  readServerDetailMock: vi.fn(async () => ({ ok: true as const, value: null as ServerDetail | null })),
+  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({
+    ok: true as const,
+    value: sort,
+  })),
+  readServerDetailMock: vi.fn(async () => ({
+    ok: true as const,
+    value: null as ServerDetail | null,
+  })),
   readWatchlistMock: vi.fn(async () => ({
     ok: true as const,
     value: { asOf: null, entries: [] } as WatchlistSnapshot,
@@ -63,23 +70,27 @@ const {
   recheckWatchlistEntryMock: vi.fn(),
 }))
 
-vi.mock('./client', () => ({
-  readScan: readScanMock,
-  startScan: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
-  setScanViewActive: setScanViewActiveMock,
-  onScanChanged: onScanChangedMock,
-  onScanServer: onScanServerMock,
-  listMasterSources: listMasterSourcesMock,
-  getListSort: getListSortMock,
-  setListSort: setListSortMock,
-  readServerDetail: readServerDetailMock,
-  readWatchlist: readWatchlistMock,
-  onWatchlistChanged: onWatchlistChangedMock,
-  addWatchlistEntry: addWatchlistEntryMock,
-  updateWatchlistEntry: updateWatchlistEntryMock,
-  removeWatchlistEntry: removeWatchlistEntryMock,
-  recheckWatchlistEntry: recheckWatchlistEntryMock,
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listQuickFilters: async () => ({ ok: true as const, value: [] }),
+    readScan: readScanMock,
+    startScan: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
+    setScanViewActive: setScanViewActiveMock,
+    setMode: async () => ({ ok: true as const, value: undefined }),
+    onScanChanged: onScanChangedMock,
+    onScanServer: onScanServerMock,
+    listMasterSources: listMasterSourcesMock,
+    getListSort: getListSortMock,
+    setListSort: setListSortMock,
+    readServerDetail: readServerDetailMock,
+    readWatchlist: readWatchlistMock,
+    onWatchlistChanged: onWatchlistChangedMock,
+    addWatchlistEntry: addWatchlistEntryMock,
+    updateWatchlistEntry: updateWatchlistEntryMock,
+    removeWatchlistEntry: removeWatchlistEntryMock,
+    recheckWatchlistEntry: recheckWatchlistEntryMock,
+  }),
+)
 
 const joinServerButtonMock = vi.fn((_props: { row: unknown }) =>
   createElement('div', { 'data-testid': 'stub-join' }),
@@ -134,6 +145,7 @@ const BASE_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 function snapshot(overrides: {
@@ -143,6 +155,8 @@ function snapshot(overrides: {
   return {
     state: { ...BASE_STATE, ...overrides.state },
     entries: (overrides.entries ?? []).map((entry) => ({ ...entry, favourite: false })),
+    mode: 'online',
+    lan: { lastFinishedAt: null, failureKey: null },
   }
 }
 
@@ -166,7 +180,9 @@ describe('ServersView - watchlist tab, locked (story 132 D3)', () => {
 
     await renderView(
       snapshot({
-        entries: [{ address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' }],
+        entries: [
+          { address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+        ],
       }),
     )
 

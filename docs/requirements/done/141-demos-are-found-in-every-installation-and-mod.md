@@ -84,7 +84,7 @@ real installation (§14).
   per call** — no cache, no events, no refresh button: those are [[144]]; this keeps the story to
   discovery.
 - **The DTO carries no path**: `{ id, fileName, format: 'dm2'|'mvd2', gzip, source: { kind:
-  'installation', installationId, installationName, gameDir } }` — `kind` leaves room for [[142]]'s
+'installation', installationId, installationName, gameDir } }` — `kind` leaves room for [[142]]'s
   extra folders without reshaping.
 - **A minimal `ReplaysView` replaces the planned placeholder** — AC3/AC6 need a rendered list; it
   shows an `h1` "Demos", one row per demo (file name + source "installation · game dir"), a loading
@@ -126,11 +126,11 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs the view and the handler)
   `src/shared/modules/replays.test.ts` (edit). Add `demosList: 'demos.list'` to `REPLAYS_HANDLERS`
   and its payload schema `replaysNoInputSchema` (`z.void()`) to `REPLAYS_HANDLER_SCHEMAS`. Add
   `demoFormatSchema = z.enum(['dm2', 'mvd2'])`, `demoSourceSchema = z.object({ kind:
-  z.literal('installation'), installationId: z.string().min(1), installationName: z.string(),
-  gameDir: z.string().min(1) })`, `discoveredDemoSchema = z.object({ id:
-  z.string().regex(/^[0-9a-f]{16}$/), fileName: z.string().min(1), format: demoFormatSchema, gzip:
-  z.boolean(), source: demoSourceSchema })`, `demosListResultSchema =
-  z.array(discoveredDemoSchema)` and the inferred types `DiscoveredDemo`, `DemoSource`,
+z.literal('installation'), installationId: z.string().min(1), installationName: z.string(),
+gameDir: z.string().min(1) })`, `discoveredDemoSchema = z.object({ id:
+z.string().regex(/^[0-9a-f]{16}$/), fileName: z.string().min(1), format: demoFormatSchema, gzip:
+z.boolean(), source: demoSourceSchema })`, `demosListResultSchema =
+z.array(discoveredDemoSchema)` and the inferred types `DiscoveredDemo`, `DemoSource`,
   `DemoFormat`. No path field anywhere. Test: › "a discovered demo carries no filesystem path"
   (parses a sample; asserts no key of the parsed object or its `source` matches
   `/path|dir$|folder/i` other than `gameDir`). The existing "every replays handler has a zod
@@ -144,7 +144,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs the view and the handler)
   - `recogniseDemoFile(name): { format: 'dm2'|'mvd2'; gzip: boolean } | null` — on the lowercased
     name: `.dm2`, `.mvd2`, `.dm2.gz`, `.mvd2.gz`; anything else (incl. `.dm2.json`, `.zip`) → null.
   - `effectiveWriteDirs(installation, { platform, homeDir }): string[]` — `[join(homeDir,
-    '.q2pro')]` when `platform === 'linux'` and `engineKind` or `recordedEngineKind` is `'q2pro'`,
+'.q2pro')]` when `platform === 'linux'` and `engineKind` or `recordedEngineKind` is `'q2pro'`,
     else `[]`. Never uses `writeDirPath`. Doc comment: Q2PRO `homedir` is a command-line-only
     cvar the launcher does not pass; concept §7.
   - `discoverDemos(installations, { platform, homeDir }): Promise<DiscoveredDemoFile[]>` where
@@ -154,30 +154,30 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs the view and the handler)
     `demos` child. For each (base, gameDir): find `demos` case-insensitively via
     `listDir(join(base, gameDir)).byLowerName`, list it **once, no recursion**, keep files
     `recogniseDemoFile` accepts. Identity key = `pathKey(join(await canonicalizePath(demosDir),
-    fileName))`; skip a key already seen (first installation wins). Shadowing: within the same
+fileName))`; skip a key already seen (first installation wins). Shadowing: within the same
     installation + game dir, a write-dir file whose name equals a root file's name replaces the
     root entry. `id = sha256(key).hex.slice(0, 16)` (`node:crypto`). Sort: installation order,
     then game-dir order (root order, write-dir-only dirs after, by name), then `fileName`
     `localeCompare`. Unreadable/missing folders yield nothing (no throw).
-  Tests (`discovery.test.ts`): › "finds every recognised demo in every detected game dir of every
-  installation" (two installations, `baseq2` + `ctf`, all four formats); › "extension matching is
-  case-insensitive" (`FINAL.DM2`, `Match.MVD2.GZ`, a `Demos/` folder); › "sidecars, _launcher and
-  subfolders are never listed" (`x.dm2.json`, `demos/_launcher/y.dm2`, `demos/sub/z.dm2`,
-  `notes.txt`, `a.zip`); › "a Q2PRO installation on Linux also yields demos from
-  ~/.q2pro/<gamedir>/demos" (injected `homeDir` temp dir, incl. a write-dir-only mod dir); › "no
-  write dir is scanned on Windows, for r1q2, or from writeDirPath" (same fixture, `platform:
-  'win32'` / r1q2 / `writeDirPath` set → only root demos); › "a demo reachable through two paths is
-  listed once" (root and write dir are the same folder via a `symlink(…, 'junction')`); › "a
-  write-dir demo shadows the same-named root demo"; › "ids are stable across scans and differ per
-  file"; › "a missing root yields no demos and no error".
-  Acceptance: those tests pass on Windows (`npx vitest run src/main/modules/replays`).
+    Tests (`discovery.test.ts`): › "finds every recognised demo in every detected game dir of every
+    installation" (two installations, `baseq2` + `ctf`, all four formats); › "extension matching is
+    case-insensitive" (`FINAL.DM2`, `Match.MVD2.GZ`, a `Demos/` folder); › "sidecars, _launcher and
+    subfolders are never listed" (`x.dm2.json`, `demos/_launcher/y.dm2`, `demos/sub/z.dm2`,
+    `notes.txt`, `a.zip`); › "a Q2PRO installation on Linux also yields demos from
+    ~/.q2pro/<gamedir>/demos" (injected `homeDir` temp dir, incl. a write-dir-only mod dir); › "no
+    write dir is scanned on Windows, for r1q2, or from writeDirPath" (same fixture, `platform:
+'win32'` / r1q2 / `writeDirPath` set → only root demos); › "a demo reachable through two paths is
+    listed once" (root and write dir are the same folder via a `symlink(…, 'junction')`); › "a
+    write-dir demo shadows the same-named root demo"; › "ids are stable across scans and differ per
+    file"; › "a missing root yields no demos and no error".
+    Acceptance: those tests pass on Windows (`npx vitest run src/main/modules/replays`).
 
 - **D3 — `demos.list` handler.** Files: `src/main/modules/replays/index.ts` (edit),
   `src/main/modules/replays/index.test.ts` (edit). In `setup({ handle, app })` register
   `REPLAYS_HANDLERS.demosList` with `replaysNoInputSchema`, calling `discoverDemos(app.installations
-  .list(), { platform: process.platform, homeDir: discoveryHomeDir() })` and returning each entry
+.list(), { platform: process.platform, homeDir: discoveryHomeDir() })` and returning each entry
   without `absolutePath` (explicit field pick, not a spread). Export `discoveryHomeDir({ env =
-  process.env, userData = userDataDir(), osHome = homedir() } = {})`: `isUiHarnessEnabled({ env })`
+process.env, userData = userDataDir(), osHome = homedir() } = {})`: `isUiHarnessEnabled({ env })`
   (`src/main/lib/ui-harness.ts`) → `join(userData, 'harness-home')`, else `osHome`
   (`userDataDir` from `src/main/lib/paths.ts`). Tests: › "demos.list returns the discovered demos
   without paths" (a stubbed `app.installations.list()` over a temp installation; result parses
@@ -199,8 +199,8 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs the view and the handler)
   under `## Unreleased` → `### Added`). View: `h1` from `replays.view.title` (the
   `replays-module-shell` flow asserts a heading named exactly "Demos"), `useEffect` calls
   `listDemos()` once; states `replays-list-loading` / `replays-list-empty`; list `<ul
-  data-testid="replays-demo-list" aria-label=…>` with `<li data-testid="replays-demo-row"
-  data-demo-id={id}>` holding the file name (`replays-demo-name`) and source
+data-testid="replays-demo-list" aria-label=…>` with `<li data-testid="replays-demo-row"
+data-demo-id={id}>` holding the file name (`replays-demo-name`) and source
   (`replays-demo-source`) — demo data is data, not i18n. Semantic tokens only, no hex/raw palette
   classes. Tests: › "each row shows the file name and its installation and game dir"; › "an empty
   discovery shows the empty line"; › "every new string comes from the replays block".
@@ -209,7 +209,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs the view and the handler)
 - **D5 — fixture, flow, screen.** Files: `scripts/lib/fixture.mjs` (edit: exported
   `REPLAYS_FIXTURE_DEMOS` / `REPLAYS_FIXTURE_DECOYS` and `writeReplaysDemosFixture()` called from
   `writePopulatedFixture()`; mirror the `writeNewsImagesFixture()` style), `scripts/flows/replays-
-  discovered-list.mjs` (new, mirror `scripts/flows/servers-module-shell.mjs`),
+discovered-list.mjs` (new, mirror `scripts/flows/servers-module-shell.mjs`),
   `scripts/lib/screens.mjs` (edit: screen `replays-list`, variant `populated`, clicks `nav-replays`,
   waits for `replays-demo-list`). Fixture: in `INSTALL_ONE_ID`'s `<root>/baseq2/demos/`:
   `duel_q2dm1.dm2`, `FINAL.DM2`, `tourney.mvd2.gz`, `ctf_q2ctf1.dm2.gz`; in `INSTALL_TWO_ID`'s
@@ -225,7 +225,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs the view and the handler)
   `replays-discovered-list`. Comment the selectors at the top and note that [[150]] replaces the
   row markup and must update this flow.
   Acceptance: `npm run ui:flow -- replays-discovered-list` and `npm run ui:flow --
-  replays-module-shell` OK; `npm run ui:verify` passes with the `replays-list` screen (axe clean).
+replays-module-shell` OK; `npm run ui:verify` passes with the `replays-list` screen (axe clean).
 
 ## Model Hints
 

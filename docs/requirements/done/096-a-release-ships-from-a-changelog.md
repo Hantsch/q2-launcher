@@ -84,7 +84,7 @@ this launcher ships NSIS + zip, which is what [[097]]'s updater needs a publishe
 - **Prerelease is derived from the version string:** a version carrying a `-beta.N` identifier
   publishes with `gh release create --prerelease`, so nobody has to remember a second switch.
 - **`electron-builder.yml` gains `publish: {provider: github, owner: Hantsch, repo: q2-launcher}`
-  but builds with `--publish never`:** the publish *config* is what makes electron-builder write
+  but builds with `--publish never`:** the publish _config_ is what makes electron-builder write
   `latest.yml` and `app-update.yml` at all (`app-builder-lib/out/publish/PublishManager.js:159`
   gates that on `publishConfigs`, not on the `--publish` flag), while `gh release create` keeps the
   notes, the prerelease flag and the atomicity of the upload in the script's hands.
@@ -122,7 +122,7 @@ Adapt `claude-control`'s release shape to this repo: Node instead of PowerShell,
 
 1. **Release core** (`scripts/lib/release/`, all pure, no I/O):
    - `changelog.mjs` — `parseChangelog(text)` → sections; `readUnreleased(text)` → `{ categories,
-     bullets }`; `validateUnreleased()` refuses on empty / placeholder comment / no bullet;
+bullets }`; `validateUnreleased()` refuses on empty / placeholder comment / no bullet;
      `promote(text, version, date)` → new text with `## Unreleased` emptied and
      `## <version> — <date>` inserted; `notesFor(text, version)` → the section body.
    - `version.mjs` — `deriveBump(categories)`, `nextVersion(current, bump)` (prerelease-aware),
@@ -130,7 +130,7 @@ Adapt `claude-control`'s release shape to this repo: Node instead of PowerShell,
    - `artifacts.mjs` — `expectedAssets(version)` / `collectAssets(dir, version)` over
      `release/<version>/`: NSIS `.exe`, `.zip`, both `.blockmap`s, `latest.yml`; refuse if missing.
    - `plan.mjs` — `planRelease({ changelogText, pkgText, lockText, tags, requestedVersion, bump,
-     dryRun, isCi, today })` → `{ version, tag, notes, writes[], commands[] }` or throws
+dryRun, isCi, today })` → `{ version, tag, notes, writes[], commands[] }` or throws
      `ReleaseRefused(reason)`. Nothing is written before this returns.
 2. **`CHANGELOG.md`** — Keep a Changelog header, empty `## Unreleased` scaffold seeded with the
    beta's entries (`### Added` for library/config/home/install, `### Changed`/`### Fixed` where a
@@ -146,8 +146,8 @@ Adapt `claude-control`'s release shape to this repo: Node instead of PowerShell,
    node 22 + `npm ci` + `npm test` + `npm run typecheck`, then `node scripts/release.mjs` with
    `GH_TOKEN`, `CI: true`, `CSC_IDENTITY_AUTO_DISCOVERY: 'false'`.
 6. **Workflow wiring** — `changelog-path: CHANGELOG.md` in `.claude/ai-scrum.md`; README `## Install`
-   + `## Planned` updated with the download and the SmartScreen note; CONTRIBUTING gets the
-   "write your changelog line" rule.
+   - `## Planned` updated with the download and the SmartScreen note; CONTRIBUTING gets the
+     "write your changelog line" rule.
 
 ## Deliverables
 
@@ -155,31 +155,31 @@ Adapt `claude-control`'s release shape to this repo: Node instead of PowerShell,
   as in Plan §1) plus `changelog.test.mjs`, `version.test.mjs`, `plan.test.mjs`, and the one-line
   `include` addition in `vitest.config.ts`. Style to mirror: `scripts/lib/download-failures.mjs`
   (plain ESM, JSDoc types, no deps). No `.d.mts` — nothing in `src/` imports it yet.
-  *Accepted when:* empty/placeholder `## Unreleased` refuses with a readable reason and returns no
+  _Accepted when:_ empty/placeholder `## Unreleased` refuses with a readable reason and returns no
   writes; a populated one promotes correctly; derived and overridden versions both come out right;
   a dry-run plan carries notes but no commands; an existing tag refuses.
 - **D2 — `CHANGELOG.md`, seeded.** New `CHANGELOG.md` (Plan §2) + `README.md` (`## Install` gets the
   download-and-SmartScreen text replacing "No release build is published yet"; the `## Planned`
   table's Auto-update row) + `CONTRIBUTING.md` (`## Docs and process` gains the changelog rule).
   Plus its test in `scripts/lib/release/wiring.test.mjs` (parses the real file through D1's parser).
-  *Accepted when:* the shipped file parses, `## Unreleased` is non-empty and bullet-shaped, and the
+  _Accepted when:_ the shipped file parses, `## Unreleased` is non-empty and bullet-shaped, and the
   README names the SmartScreen warning.
 - **D3 — packaging publishes update metadata.** `electron-builder.yml` `publish:` block +
   `scripts/lib/release/artifacts.mjs` + `artifacts.test.mjs` (fs-fixture based, `node:fs` temp dir).
-  *Accepted when:* a complete fixture directory resolves to the five assets in a stable order and
+  _Accepted when:_ a complete fixture directory resolves to the five assets in a stable order and
   each missing one produces a named refusal.
 - **D4 — the release runner.** `scripts/release.mjs` (thin I/O shell over D1/D3), `package.json`
   `"release"` script. Argument parsing, `--dry-run`, the `CI=true` guard, git/gh invocation.
-  *Accepted when:* a dry run prints version + notes and touches nothing; a non-dry run outside CI
+  _Accepted when:_ a dry run prints version + notes and touches nothing; a non-dry run outside CI
   refuses; the git/gh command list matches what `plan.mjs` produced.
 - **D5 — the workflow.** `.github/workflows/release.yml` (Plan §5) plus its invariants in
   `scripts/lib/release/wiring.test.mjs` (skip-ci guard, `contents: write`, `windows-latest`, the
   three inputs, `CSC_IDENTITY_AUTO_DISCOVERY`).
-  *Accepted when:* the file exists, parses as YAML, and every invariant above is asserted.
+  _Accepted when:_ the file exists, parses as YAML, and every invariant above is asserted.
 - **D6 — the project knows about its changelog.** `.claude/ai-scrum.md`: `changelog-path: none` →
   `CHANGELOG.md`, plus a `## Notes` line recording the Keep-a-Changelog shape over the profile
   comment's `# Features`/`# Fixes` suggestion. Plus its assertion in `wiring.test.mjs`.
-  *Accepted when:* the profile points at `CHANGELOG.md` and the test fails if it is flipped back.
+  _Accepted when:_ the profile points at `CHANGELOG.md` and the test fails if it is flipped back.
 
 ## Model Hints
 
@@ -196,26 +196,26 @@ Adapt `claude-control`'s release shape to this repo: Node instead of PowerShell,
 story's whole surface is a CLI script plus a CI workflow, so every criterion maps to `npm test`.
 
 - AC1 → unit `scripts/lib/release/wiring.test.mjs` › "the repo's CHANGELOG.md is Keep-a-Changelog
-  shaped and its Unreleased section carries the beta's entries" *(D2)*
+  shaped and its Unreleased section carries the beta's entries" _(D2)_
 - AC2 → unit `scripts/lib/release/plan.test.mjs` › "an empty Unreleased section refuses with a
-  reason and plans no writes" *(D1)*
+  reason and plans no writes" _(D1)_
 - AC3 → unit `scripts/lib/release/plan.test.mjs` › "a release promotes Unreleased into a dated
-  section, writes the version to package.json and lockfile, and plans one commit and one tag" *(D1)*
+  section, writes the version to package.json and lockfile, and plans one commit and one tag" _(D1)_
 - AC4 → unit `scripts/lib/release/artifacts.test.mjs` › "the asset set is installer, zip, both
-  blockmaps and latest.yml, and a missing one refuses" *(D3)*, plus
+  blockmaps and latest.yml, and a missing one refuses" _(D3)_, plus
   `scripts/lib/release/wiring.test.mjs` › "electron-builder publishes to Hantsch/q2-launcher so
-  latest.yml is written" *(D3)*.
+  latest.yml is written" _(D3)_.
   manual residue: the actual `gh release create` against github.com — publishing to an external
   service is a side effect no test may perform; the exact argv is asserted in `plan.test.mjs`.
 - AC5 → unit `scripts/lib/release/plan.test.mjs` › "a dry run yields the version and the notes but
-  no git or gh commands" *(D1, exercised by D4)*
+  no git or gh commands" _(D1, exercised by D4)_
 - AC6 → unit `scripts/lib/release/plan.test.mjs` › "an explicit version and an explicit bump each
-  override the derived one" *(D1)*
+  override the derived one" _(D1)_
 - AC7 → unit `scripts/lib/release/plan.test.mjs` › "a second run on an unchanged tree refuses:
-  Unreleased is empty and the tag already exists" *(D1)*, plus
+  Unreleased is empty and the tag already exists" _(D1)_, plus
   `scripts/lib/release/wiring.test.mjs` › "the release commit carries [skip ci] and the workflow
-  skips such a commit" *(D5)*
-- AC8 → unit `scripts/lib/release/wiring.test.mjs` › "changelog-path points at CHANGELOG.md" *(D6)*
+  skips such a commit" _(D5)_
+- AC8 → unit `scripts/lib/release/wiring.test.mjs` › "changelog-path points at CHANGELOG.md" _(D6)_
 
 ## Done
 
@@ -229,11 +229,13 @@ bugs, all fixed and independently re-verified in a second review pass, which fou
 issue (an unsafe dry-run revert) that was also fixed and re-verified.
 
 **Commit message:**
+
 ```
 096: a release ships from a changelog
 ```
 
 **Verification:**
+
 - `npm run build` — green (electron-vite build, unaffected by this story's scope: no `src/`
   changes at all).
 - `npm run typecheck` — green (both `tsconfig.node.json` and `tsconfig.web.json`).
@@ -252,6 +254,7 @@ issue (an unsafe dry-run revert) that was also fixed and re-verified.
   the full test/typecheck/build re-run below.
 
 **AC → test mapping, as verified (all in `npm test`, all green):**
+
 - AC1 → `scripts/lib/release/wiring.test.mjs` › "the repo's CHANGELOG.md is Keep-a-Changelog
   shaped and its Unreleased section carries the beta's entries" — passed.
 - AC2 → `scripts/lib/release/plan.test.mjs` › "an empty Unreleased section refuses with a reason
@@ -277,6 +280,7 @@ issue (an unsafe dry-run revert) that was also fixed and re-verified.
 - AC8 → `scripts/lib/release/wiring.test.mjs` › "changelog-path points at CHANGELOG.md" — passed.
 
 **Decisions made during implementation (beyond the story's own Decisions section):**
+
 - **Multi-line changelog bullets are preserved verbatim.** The original parser only captured a
   bullet's first line; every wrapped bullet in the real `CHANGELOG.md` would have been truncated
   mid-sentence by `promote()`, corrupting both the committed changelog and the published release
@@ -292,7 +296,7 @@ issue (an unsafe dry-run revert) that was also fixed and re-verified.
   release core (dropping the prerelease identifier), while a derived bump keeps ticking the
   prerelease counter (`beta.1` → `beta.2`) for as long as the running version is a prerelease.
 - **`scripts/release.mjs` writes the bumped `package.json`/`package-lock.json`/`CHANGELOG.md` to
-  disk *before* running the build, in both dry and real runs**, because `electron-builder` reads
+  disk _before_ running the build, in both dry and real runs**, because `electron-builder` reads
   the release version straight out of `package.json` for both `directories.output` and
   `artifactName` — building against the un-bumped version would produce artifacts the asset
   check could never find (the story's Plan §4 ordering, read literally, would have built before
@@ -307,7 +311,7 @@ issue (an unsafe dry-run revert) that was also fixed and re-verified.
   is legitimately empty pending the next user-facing story) into a hard-failing `npm test` step
   inside the release workflow, instead of the intended graceful no-op.
 - **This story itself gets no `CHANGELOG.md` entry.** `changelog-path` only flips from `none` to
-  `CHANGELOG.md` as part of this story's own D6; the rule it introduces applies to *future*
+  `CHANGELOG.md` as part of this story's own D6; the rule it introduces applies to _future_
   user-facing stories. Story 096 is the release/publish mechanism itself — internal tooling and
   CI, not a change a user of the app perceives — so per the profile's own rule ("tests, refactors
   and internal changes get no entry"), nothing was added.

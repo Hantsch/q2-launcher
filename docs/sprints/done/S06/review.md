@@ -7,15 +7,15 @@ people building it, and three guardrails that only looked like guardrails become
 production, IPC payload validation that cannot be forgotten, an `ui:verify` report that is
 actually green).
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 031 — Rename Install → Downloads, move next to Settings | done | `66f397c` |
-| 030 — Titlebar and wordmark scale up | done | `af40b34` |
-| 033 — Planned-module screens explain the feature, not the engineering | done | `c51345f` |
-| 029 — Drop-row message as checkbox + inline row | done | `72d8b64` |
-| 035 — CSP actually applies in a production build | done | `0cbe222` |
-| 036 — `handle()` requires a payload schema | done | `5c8f5d8` |
-| 037 — `ui:verify` covers every surface and its report is green | done | `8f8794b` |
+| Story                                                                 | Status | Commit    |
+| --------------------------------------------------------------------- | ------ | --------- |
+| 031 — Rename Install → Downloads, move next to Settings               | done   | `66f397c` |
+| 030 — Titlebar and wordmark scale up                                  | done   | `af40b34` |
+| 033 — Planned-module screens explain the feature, not the engineering | done   | `c51345f` |
+| 029 — Drop-row message as checkbox + inline row                       | done   | `72d8b64` |
+| 035 — CSP actually applies in a production build                      | done   | `0cbe222` |
+| 036 — `handle()` requires a payload schema                            | done   | `5c8f5d8` |
+| 037 — `ui:verify` covers every surface and its report is green        | done   | `8f8794b` |
 
 ## Implemented stories
 

@@ -24,13 +24,25 @@ function harness(options: { quit?: Outcome<void> } = {}) {
   }
   const exit = (): void => {
     running = false
-    const state = { phase: 'exited', installationId: 'inst-1', exitedAt: '', exitCode: null } as LaunchState
+    const state = {
+      phase: 'exited',
+      installationId: 'inst-1',
+      exitedAt: '',
+      exitCode: null,
+    } as LaunchState
     for (const listener of [...listeners]) listener(state)
   }
   const relaunch = (): void => {
     running = true
   }
-  return { send, terminatePlayback, exit, relaunch, stop: createPlaybackStop({ playback: { send }, launch }) }
+  return {
+    send,
+    terminatePlayback,
+    listenerCount: () => listeners.size,
+    exit,
+    relaunch,
+    stop: createPlaybackStop({ playback: { send }, launch }),
+  }
 }
 
 beforeEach(() => {
@@ -114,6 +126,23 @@ describe('createPlaybackStop', () => {
     expect(t.stop.stop()).toEqual(fail(NO_SESSION))
 
     expect(t.send).not.toHaveBeenCalled()
+    expect(t.terminatePlayback).not.toHaveBeenCalled()
+  })
+
+  it('dispose unsubscribes the launch state listener', () => {
+    const t = harness()
+
+    t.stop.stop()
+    expect(t.listenerCount()).toBe(1)
+    t.stop.dispose()
+    expect(t.listenerCount()).toBe(0)
+    t.stop.dispose()
+    expect(t.listenerCount()).toBe(0)
+
+    // No resubscribe, no pending timer left behind, and no quit sent after dispose.
+    expect(t.stop.stop()).toEqual(fail(NO_SESSION))
+    vi.advanceTimersByTime(STOP_EXIT_TIMEOUT_MS * 2)
+    expect(t.listenerCount()).toBe(0)
     expect(t.terminatePlayback).not.toHaveBeenCalled()
   })
 })

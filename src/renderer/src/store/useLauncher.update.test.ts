@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UpdateState } from '@shared/types'
-import en from '../i18n/locales/en.json'
+import { en } from '../i18n/bundle'
 
 /**
  * The complete set of `update.error.*` keys `src/main/services/update/service.ts`'s

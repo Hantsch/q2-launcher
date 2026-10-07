@@ -3,6 +3,11 @@ import { sidecarFieldsSchema } from './sidecar'
 import {
   addPlayer,
   addSide,
+  addTagChange,
+  composeChanges,
+  fieldPatchFromText,
+  setFields,
+  TOO_LONG_ERROR_KEY,
   draftFromSidecar,
   draftToFields,
   isDraftDirty,
@@ -11,7 +16,7 @@ import {
   removeSide,
   suggestTags,
   withQuickEdit,
-  type SidecarDraft
+  type SidecarDraft,
 } from './sidecar-draft'
 
 const fullFields = {
@@ -24,11 +29,11 @@ const fullFields = {
   tags: ['final', 'ctf'],
   favourite: true,
   rating: 8,
-  date: '2026-01-02T03:04:05Z'
+  date: '2026-01-02T03:04:05Z',
 }
 
 describe('sidecar-draft', () => {
-  it("a draft round-trips every sidecar field", () => {
+  it('a draft round-trips every sidecar field', () => {
     const draft = draftFromSidecar(fullFields)
     expect(draft.name).toBe('Grand final')
     expect(draft.description).toBe('A close one.')
@@ -54,7 +59,9 @@ describe('sidecar-draft', () => {
       expect(result.fields.rating).toBe(8)
       expect(result.fields.favourite).toBe(true)
       expect(result.fields.tags).toEqual(['final', 'ctf'])
-      expect(result.fields.sides).toEqual([{ team: 'red', result: 'win', players: ['alice', 'bob'] }])
+      expect(result.fields.sides).toEqual([
+        { team: 'red', result: 'win', players: ['alice', 'bob'] },
+      ])
       // The date field is untouched, so it must come back byte-for-byte.
       expect(result.fields.date).toBe('2026-01-02T03:04:05Z')
     }
@@ -98,7 +105,7 @@ describe('sidecar-draft', () => {
     expect(draft.sides[0]!.players).toEqual([])
   })
 
-  it("a known player is taken into a side once", () => {
+  it('a known player is taken into a side once', () => {
     let draft = addSide(draftFromSidecar({}))
     draft = addPlayer(draft, 0, 'Alice')
     draft = addPlayer(draft, 0, 'alice')
@@ -109,13 +116,14 @@ describe('sidecar-draft', () => {
   it.each(['0', '11', '5.5', 'abc'])(
     'rating outside 1–10 and an unparsable date are errors that block saving (rating=%s)',
     (rating) => {
-    const draft = draftFromSidecar({})
-    const result = draftToFields({ ...draft, rating })
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.errors.rating).toBe('replays.editor.error.rating')
-    }
-  })
+      const draft = draftFromSidecar({})
+      const result = draftToFields({ ...draft, rating })
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.errors.rating).toBe('replays.editor.error.rating')
+      }
+    },
+  )
 
   it.each(['abc', '2026-02-30 10:00', '2026-13-01'])(
     'rating outside 1–10 and an unparsable date are errors that block saving (date=%s)',
@@ -126,7 +134,7 @@ describe('sidecar-draft', () => {
       if (!result.ok) {
         expect(result.errors.date).toBe('replays.editor.error.date')
       }
-    }
+    },
   )
 
   it('rating outside 1–10 and an unparsable date are errors that block saving (valid values accepted)', () => {
@@ -194,5 +202,47 @@ describe('sidecar-draft', () => {
     // Capped at 8 results.
     const many = [Array.from({ length: 12 }, (_, i) => `tag${i}`)]
     expect(suggestTags(many, '', [])).toHaveLength(8)
+  })
+})
+
+describe('sidecar changes', () => {
+  it('a too-long name is refused with its maximum', () => {
+    const result = fieldPatchFromText('name', 'x'.repeat(201))
+    expect(result).toEqual({
+      ok: false,
+      error: { key: TOO_LONG_ERROR_KEY, params: { max: 200 } },
+    })
+    expect(fieldPatchFromText('name', 'x'.repeat(200)).ok).toBe(true)
+  })
+
+  it('an emptied field removes the override', () => {
+    const result = fieldPatchFromText('map', '   ')
+    expect(result).toEqual({ ok: true, patch: { map: undefined } })
+    expect(setFields({ map: undefined })({ map: 'q2dm1', name: 'a' })).toEqual({ name: 'a' })
+  })
+
+  it('a change leaves fields it does not name untouched', () => {
+    const before = { name: ' padded ', tags: ['A', 'a'], sides: [{ players: [' x '] }] }
+    const after = setFields({ map: 'q2dm1' })(before)
+    expect(after).toEqual({ ...before, map: 'q2dm1' })
+  })
+
+  it('two composed tag adds keep both', () => {
+    const change = composeChanges(addTagChange('one'), addTagChange('Two'))
+    expect(change({ tags: ['zero'] }).tags).toEqual(['zero', 'one', 'Two'])
+  })
+})
+
+describe('comments in a draft', () => {
+  it("a draft save keeps the sidecar's comments", () => {
+    const comments = [
+      { atMs: 100, text: 'first' },
+      { atMs: 5000, text: 'second' },
+    ]
+    const draft = draftFromSidecar({ name: 'x', comments })
+    const result = draftToFields({ ...draft, name: 'renamed' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok')
+    expect(result.fields.comments).toEqual(comments)
   })
 })

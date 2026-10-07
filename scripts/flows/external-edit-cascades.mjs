@@ -126,7 +126,9 @@ export default async function externalEditCascades({ page, shot, step }) {
   )
   await leaveAndReturnToPlainProfile(page)
 
-  step("assert BOTH of Plain Profile's assigned installations end up holding the adopted bytes (AC2)")
+  step(
+    "assert BOTH of Plain Profile's assigned installations end up holding the adopted bytes (AC2)",
+  )
   for (const installId of [INSTALL_ONE_ID, INSTALL_TWO_ID]) {
     await waitForFileContent(
       installationConfigFilePath(installId, PLAIN_PROFILE_FILE_NAME),
@@ -166,14 +168,12 @@ export default async function externalEditCascades({ page, shot, step }) {
   // the silent re-read's toast-only conflict handling (`ConfigView.tsx#handleFileSourceResult`),
   // there is no separate refetch to race here at all.
   // ---------------------------------------------------------------------------------------------
-  step('dirty Plain Profile through the real UI (Raw tab\'s unbindall checkbox)')
+  step("dirty Plain Profile through the real UI (Raw tab's unbindall checkbox)")
   await page.getByTestId('config-tab-raw').click({ timeout: TIMEOUT_MS })
   await page
     .getByText('Start the file with `unbindall`', { exact: true })
     .click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('config-tab-unsaved')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('config-tab-unsaved').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('edit the canonical file on disk again, a second outside edit')
   const marker2 = `// q2l_flow_external_edit_conflict_${RUN_SUFFIX}`

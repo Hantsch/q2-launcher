@@ -50,7 +50,7 @@
 //   dashboard-tile-configProfiles     DashboardTile.tsx, same convention
 //   dashboard-tile-frame-loading      DashboardTileFrame.tsx
 //   dashboard-tile-frame-error        DashboardTileFrame.tsx
-//   dashboard-tile-frame-filled       DashboardTileFrame.tsx (via `TileFrameBoundary`, the non-error render path)
+//   dashboard-tile-frame-filled       DashboardTileFrame.tsx (inside the frame's `ErrorBoundary`, the non-error render path)
 //   dashboard-tile-frame-retry        DashboardTileFrame.tsx (the retry button inside the error state)
 //   dashboard-arrange-toggle          ArrangeToggle.tsx
 //   dashboard-catalog                 ArrangeBar.tsx
@@ -80,10 +80,14 @@ async function assertNoAxeViolations(page, label) {
     AXE_RUN_OPTIONS,
   )
   if (!Array.isArray(results?.violations)) {
-    throw new Error(`axe.run() returned no violations array during '${label}' (got ${typeof results})`)
+    throw new Error(
+      `axe.run() returned no violations array during '${label}' (got ${typeof results})`,
+    )
   }
   if (results.violations.length !== 0) {
-    const ids = results.violations.map((violation) => `${violation.id} (${violation.impact})`).join(', ')
+    const ids = results.violations
+      .map((violation) => `${violation.id} (${violation.impact})`)
+      .join(', ')
     throw new Error(
       `expected zero axe violations during '${label}', got ${results.violations.length}: ${ids}`,
     )
@@ -162,9 +166,9 @@ async function installThrowAllFault(app) {
  * or `ConfigProfilesTile.tsx`/`profile-rows.ts` would throw trying to read them:
  * - `list` (`CONFIG_HANDLERS.list`): `client.ts#listConfigProfiles` returns `callModule`'s result
  *   as-is, so the resolved value here is `ConfigProfile[]` directly - not double-wrapped.
- * - `syncState` (`CONFIG_HANDLERS.syncState`): `client.ts#getProfileSyncState` unwraps one more
- *   layer (`result.ok ? result.value : result`), so the resolved value here must itself be an
- *   `Outcome<ProfileSyncState>`.
+ * - `syncState` (`CONFIG_HANDLERS.syncState`): `client.ts#getProfileSyncState` also returns
+ *   `callModule`'s result as-is, so the resolved value here is the single
+ *   `Outcome<ProfileSyncState>` envelope.
  */
 async function installRejectLibraryFault(app) {
   await app.evaluate(({ ipcMain }) => {
@@ -205,7 +209,7 @@ async function installRejectLibraryFault(app) {
         return Promise.resolve({ ok: true, value: [fixtureProfile] })
       }
       if (request?.moduleId === 'config' && request?.type === 'syncState') {
-        return Promise.resolve({ ok: true, value: { ok: true, value: fixtureSyncState } })
+        return Promise.resolve({ ok: true, value: fixtureSyncState })
       }
       return new Promise(() => {})
     })
@@ -219,7 +223,10 @@ export default async function homeTileStates({ page, app, shot, step }) {
   // `ipcMain.removeHandler('module:invoke')` discards the real, boot-time handler for good (see
   // this file's own header comment).
   await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
-  await tileFrame(page, 'configProfiles', 'filled').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await tileFrame(page, 'configProfiles', 'filled').waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
   const plainProfileRow = page
     .getByTestId('config-profiles-tile-list')
     .getByText('Plain Profile', { exact: false })
@@ -257,12 +264,14 @@ export default async function homeTileStates({ page, app, shot, step }) {
   await assertNoAxeViolations(page, 'error')
   await shot('error')
 
-  step("click retry against the still-faulted source - proves it re-invokes a real fetch (AC4)")
+  step('click retry against the still-faulted source - proves it re-invokes a real fetch (AC4)')
   await playtimeRetry.click({ timeout: TIMEOUT_MS })
   await playtimeError.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('error-after-retry')
 
-  step('fault module:invoke so only "library" rejects and "config" gets fixture data, with no remount (AC5)')
+  step(
+    'fault module:invoke so only "library" rejects and "config" gets fixture data, with no remount (AC5)',
+  )
   await installRejectLibraryFault(app)
   const configRetry = tileRetry(page, 'configProfiles')
   // Both tiles are still sitting in the `error` state the previous (unconditional) fault left them
@@ -270,7 +279,9 @@ export default async function homeTileStates({ page, app, shot, step }) {
   // wait is a safety net, not the proof; the proof is the assertions after the retries below.
   await configRetry.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  step("retry both tiles under the new fault - each tile's outcome now depends only on its own moduleId (AC5)")
+  step(
+    "retry both tiles under the new fault - each tile's outcome now depends only on its own moduleId (AC5)",
+  )
   await configRetry.click({ timeout: TIMEOUT_MS })
   await playtimeRetry.click({ timeout: TIMEOUT_MS })
   await playtimeError.waitFor({ state: 'visible', timeout: TIMEOUT_MS })

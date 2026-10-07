@@ -12,6 +12,7 @@ import type { SidecarFields } from '../replays/sidecar'
 import type { NameFacts } from '../replays/name-template'
 import type { Dm2Header, Dm2Unparsable } from './dm2-header'
 import type { Mvd2Header, Mvd2Unparsable } from './mvd2-header'
+import type { DemoRoster } from './dm2-roster'
 import { resolveGamemode } from './gamemode'
 
 /** The sources a field's effective value can come from, ordered from most to least authoritative
@@ -55,7 +56,7 @@ export function effectiveFileTime(stats: { birthtimeMs: number; mtimeMs: number 
 export interface ResolveEffectiveValuesInputs {
   fileName: string
   sidecar: Partial<SidecarFields> | null
-  header: Dm2Header | Dm2Unparsable | Mvd2Header | Mvd2Unparsable | null
+  header: Dm2Header | Dm2Unparsable | Mvd2Header | Mvd2Unparsable | OkHeader | null
   nameFacts: NameFacts | null
   fileTime: { birthtimeMs: number; mtimeMs: number }
   /** The id of the shipped/user name pattern that matched this file, from `parseDemoName`, if any —
@@ -82,7 +83,14 @@ export interface EffectiveValues {
 
 /** The header, narrowed to its `ok: true` shape, or `null` when absent/unparsable. Both `Dm2Header`
  * and `Mvd2Header` share the fields this module reads (`map`, `pov`, `players`, `gameDir`). */
-type OkHeader = { ok: true; gameDir: string; map: string | null; pov: string | null; players: string[] }
+export type OkHeader = {
+  ok: true
+  gameDir: string
+  map: string | null
+  pov: string | null
+  players: string[]
+  roster?: DemoRoster | null
+}
 
 function okHeader(header: ResolveEffectiveValuesInputs['header']): OkHeader | null {
   return header !== null && header.ok ? header : null
@@ -129,20 +137,29 @@ export function resolveEffectiveValues(inputs: ResolveEffectiveValuesInputs): Ef
 
   const demoPlayers = header?.players
   const namePlayers = nameFacts?.players
+  const roster = header?.roster ?? null
+  const demoSides: EffectiveSide[] | undefined =
+    roster !== null
+      ? roster.teams.map((t) => ({ team: t.name, players: t.players }))
+      : demoPlayers !== undefined && demoPlayers.length > 0
+        ? [{ players: demoPlayers }]
+        : undefined
   const sides = firstValue<EffectiveSide[]>([
     { source: 'sidecar', value: sidecar?.sides },
-    {
-      source: 'demo',
-      value: demoPlayers !== undefined && demoPlayers.length > 0 ? [{ players: demoPlayers }] : undefined,
-    },
+    { source: 'demo', value: demoSides },
     {
       source: 'name',
-      value: namePlayers !== undefined && namePlayers.length > 0 ? [{ players: namePlayers }] : undefined,
+      value:
+        namePlayers !== undefined && namePlayers.length > 0
+          ? [{ players: namePlayers }]
+          : undefined,
     },
   ])
 
   const playerCount =
-    sides.value !== null ? sides.value.reduce((sum, side) => sum + side.players.length, 0) : undefined
+    sides.value !== null
+      ? sides.value.reduce((sum, side) => sum + side.players.length, 0)
+      : undefined
 
   const gamemodeResult = resolveGamemode({
     sidecar: sidecar?.gamemode,

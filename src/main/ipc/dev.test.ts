@@ -4,6 +4,7 @@ import { DEV_ONLY_CHANNELS } from '@shared/ipc'
 import type { LaunchState, UpdateState } from '@shared/types'
 import { JobsService } from '../services/jobs'
 import { LaunchService } from '../services/launch'
+import { JobRunner } from '../services/job-runner'
 import { InstallationWriteGuard } from '../services/write-guard'
 import type { InstallationsService } from '../services/installations'
 import { createUpdateService, type UpdateService } from '../services/update/service'
@@ -38,7 +39,10 @@ vi.mock('electron', () => ({
 
 const fakeEvent = {} as unknown as IpcMainInvokeEvent
 
-async function setup(): Promise<{ jobs: JobsService; fn: (event: unknown, payload: unknown) => unknown }> {
+async function setup(): Promise<{
+  jobs: JobsService
+  fn: (event: unknown, payload: unknown) => unknown
+}> {
   const { registerDevIpc } = await import('./dev')
   const jobs = new JobsService(() => {})
   const app = { jobs } as unknown as AppContext
@@ -87,7 +91,12 @@ async function setupWriting(): Promise<{
     onStateChange: () => {},
   })
   const guard = new InstallationWriteGuard({ launch, jobs })
-  const app = { jobs, writeGuard: guard } as unknown as AppContext
+  const jobRunner = new JobRunner({
+    jobs,
+    writeGuard: guard,
+    installations: { validate: async () => ({ ok: false as const, error: { key: 'x' } }) },
+  })
+  const app = { jobs, writeGuard: guard, jobRunner } as unknown as AppContext
   registerDevIpc(app)
   return { jobs, launch, guard, fn: registered.get('dev:simulateJob')! }
 }
@@ -362,20 +371,23 @@ describe('dev:simulateAppUpdate', () => {
     ['offline', 'appUpdate.error.offline'],
     ['checksum', 'appUpdate.error.checksum'],
     ['cancelled', 'appUpdate.error.cancelled'],
-  ] as const)('scenario "error" with reason %s falls back to "available" with its key', async (reason, key) => {
-    const { update, fn } = await setupUpdate()
+  ] as const)(
+    'scenario "error" with reason %s falls back to "available" with its key',
+    async (reason, key) => {
+      const { update, fn } = await setupUpdate()
 
-    await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
-    await fn(fakeEvent, { scenario: 'progress', ratio: 0.5 })
-    await fn(fakeEvent, { scenario: 'error', reason })
+      await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
+      await fn(fakeEvent, { scenario: 'progress', ratio: 0.5 })
+      await fn(fakeEvent, { scenario: 'error', reason })
 
-    const state = await update.getState()
-    expect(state.phase).toBe('available')
-    expect(state.error).toEqual({ key })
-    expect(state.progress).toBeNull()
-    // AC7: the release itself is still known and offerable.
-    expect(state.update?.version).toBe('9.9.9-dev')
-  })
+      const state = await update.getState()
+      expect(state.phase).toBe('available')
+      expect(state.error).toEqual({ key })
+      expect(state.progress).toBeNull()
+      // AC7: the release itself is still known and offerable.
+      expect(state.update?.version).toBe('9.9.9-dev')
+    },
+  )
 
   it('scenario "upToDate" clears the known release, so the control has nothing to show', async () => {
     const { update, fn } = await setupUpdate()

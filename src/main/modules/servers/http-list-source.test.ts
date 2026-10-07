@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resolveHttpListSource } from './http-list-source'
 
 /**
- * Story 109 D4 - mirrors `src/main/modules/downloads/fetcher.test.ts`'s loopback setup: a real
+ * Story 109 D4 - mirrors `src/main/lib/net/fetcher.test.ts`'s loopback setup: a real
  * `node:http` server on `127.0.0.1`, and the real global `fetch` injected as the `FetchImpl`, so
  * the seam is proven against genuine socket/HTTP behaviour without an Electron runtime and without
  * ever reaching q2servers.com (GB-A5, GB-A6).
@@ -78,7 +78,8 @@ function packRecords(addresses: { ip: [number, number, number, number]; port: nu
   return buffer
 }
 
-const fetchImpl = (url: string, init: { signal: AbortSignal }): Promise<Response> => fetch(url, init)
+const fetchImpl = (url: string, init: { signal: AbortSignal }): Promise<Response> =>
+  fetch(url, init)
 
 describe('resolveHttpListSource', () => {
   it('the HTTP list is fetched through the injected FetchImpl against a loopback server: raw=1 resolves to its addresses', async () => {
@@ -152,6 +153,14 @@ describe('resolveHttpListSource', () => {
     })
 
     expect(result).toEqual({ ok: false, reason: 'transport-error' })
+  })
+
+  it('a body over the cap is reported as truncated', async () => {
+    const url = route('/oversized', servesText('192.168.0.1:27910\n'.repeat(10)))
+
+    const result = await resolveHttpListSource(url, { raw: 1, fetchImpl, maxBytes: 32 })
+
+    expect(result).toEqual({ ok: false, reason: 'truncated' })
   })
 
   it('never requests q2servers.com - every route in this file is bound to 127.0.0.1', () => {

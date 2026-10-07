@@ -170,6 +170,7 @@ established. No renderer surface ships with this story (D-J) — that's [[118]] 
 **Commit message:** `113: manual servers and connection history storage`
 
 **Changed files:**
+
 - `src/shared/modules/servers.ts`, `src/shared/modules/servers.test.ts` (D1 — contract)
 - `src/main/modules/servers/manual-servers.ts` + `.test.ts` (new, D2)
 - `src/main/modules/servers/history-log.ts` + `.test.ts` (new, D3)
@@ -178,6 +179,7 @@ established. No renderer surface ships with this story (D-J) — that's [[118]] 
 - `src/main/services/state.test.ts` (D4 — reload round-trip)
 
 **Decisions (made during build, not asked to the user):**
+
 - D1's first pass invented a parallel IPC-only shape (`ManualServer`/`ServerHistoryRecord` with
   epoch-ms timestamps) instead of reusing story 110's already-scaffolded persisted types
   (`ManualServerEntry`/`ServerHistoryEntry`, ISO-string timestamps) — a direct violation of D-K
@@ -198,6 +200,7 @@ established. No renderer surface ships with this story (D-J) — that's [[118]] 
   or foreign `state.json` with more than 200 rows is truncated on load, not just on append.
 
 **Verification — narrow gate:**
+
 - `npm run build` — green.
 - `npm run typecheck` — green (node + web).
 - `test-story` (`npx vitest run --changed HEAD`) — 24 test files, 934 tests, all passed.

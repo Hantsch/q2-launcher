@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Installation } from '@shared/types'
 import { InstallationTile } from './InstallationTile'
+import { makeInstallation } from '../../../../test-support/fixtures'
 
 /**
  * `useInstallationIcon` reads/writes `useLauncher`'s `iconDataUrls` cache and
@@ -15,8 +15,12 @@ let iconDataUrls: Record<string, string | null> = {}
 const fetchIconDataUrl = vi.fn()
 
 vi.mock('../../store/useLauncher', () => ({
-  useLauncher: (selector: (state: { iconDataUrls: Record<string, string | null>; fetchIconDataUrl: typeof fetchIconDataUrl }) => unknown) =>
-    selector({ iconDataUrls, fetchIconDataUrl }),
+  useLauncher: (
+    selector: (state: {
+      iconDataUrls: Record<string, string | null>
+      fetchIconDataUrl: typeof fetchIconDataUrl
+    }) => unknown,
+  ) => selector({ iconDataUrls, fetchIconDataUrl }),
 }))
 
 /**
@@ -25,27 +29,6 @@ vi.mock('../../store/useLauncher', () => ({
  * from the source before it was refactored to use this component - any
  * change here is a visual regression, not a style-guide nit.
  */
-function makeInstallation(overrides: Partial<Installation> = {}): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: 'C:\\Games\\Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-    ...overrides,
-  }
-}
-
 function classesOf(element: Element): string[] {
   return element.className.split(/\s+/).filter(Boolean)
 }
@@ -66,7 +49,14 @@ describe('InstallationTile', () => {
     const text = screen.getByText('R1')
     const root = text.parentElement as HTMLElement
     expect(classesOf(root)).toEqual(
-      expect.arrayContaining(['grid', 'place-items-center', 'rounded-md', 'border', 'aspect-square', 'w-full']),
+      expect.arrayContaining([
+        'grid',
+        'place-items-center',
+        'rounded-md',
+        'border',
+        'aspect-square',
+        'w-full',
+      ]),
     )
     expect(classesOf(text)).toEqual(
       expect.arrayContaining(['font-display', 'font-semibold', 'text-lg', 'tracking-tight']),
@@ -81,7 +71,9 @@ describe('InstallationTile', () => {
     expect(classesOf(root)).toEqual(
       expect.arrayContaining(['grid', 'place-items-center', 'rounded-md', 'border', 'size-11']),
     )
-    expect(classesOf(text)).toEqual(expect.arrayContaining(['font-display', 'font-semibold', 'text-sm']))
+    expect(classesOf(text)).toEqual(
+      expect.arrayContaining(['font-display', 'font-semibold', 'text-sm']),
+    )
   })
 
   it("renders the actionBar variant with today's exact classes", () => {
@@ -141,7 +133,10 @@ describe('InstallationTile', () => {
       iconDataUrls['inst-1'] = 'data:image/png;base64,AAAA'
 
       const { container } = render(
-        <InstallationTile installation={makeInstallation({ icon: { kind: 'custom' } })} size="card" />,
+        <InstallationTile
+          installation={makeInstallation({ icon: { kind: 'custom' } })}
+          size="card"
+        />,
       )
 
       const img = container.querySelector('img') as HTMLImageElement
@@ -151,7 +146,10 @@ describe('InstallationTile', () => {
 
     it('falls back to the code tile and fetches once while a custom icon is uncached', () => {
       render(
-        <InstallationTile installation={makeInstallation({ icon: { kind: 'custom' } })} size="card" />,
+        <InstallationTile
+          installation={makeInstallation({ icon: { kind: 'custom' } })}
+          size="card"
+        />,
       )
 
       expect(screen.getByText('R1')).toBeTruthy()
@@ -182,7 +180,9 @@ describe('InstallationTile', () => {
 
       // Same broken status, no `lastFailure` - an ordinary broken folder must not
       // pick up the tag.
-      rerender(<InstallationTile installation={makeInstallation({ status: 'invalid' })} size="card" />)
+      rerender(
+        <InstallationTile installation={makeInstallation({ status: 'invalid' })} size="card" />,
+      )
       expect(screen.queryByTestId('installation-tile-failed-tag')).toBeNull()
     })
 

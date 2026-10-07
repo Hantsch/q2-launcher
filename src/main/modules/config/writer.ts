@@ -1,7 +1,7 @@
 import { readdir, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Installation } from '@shared/types'
-import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/file-ownership'
+import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/render/file-ownership'
 import { pathKey, writeFileAtomic } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX, backupOnce } from './backup'
 
@@ -122,7 +122,7 @@ export function isSafeGameDirName(name: string): boolean {
  * where the ownership check - the thing standing between a user's cfg and the
  * bin - could not be performed.
  *
- * Exported for `index.ts`'s `collectRawFiles` (story 023 D1), which needs the
+ * Exported for `index.ts`'s `collectRawFiles` (story 023), which needs the
  * exact same ENOENT-only-swallowed read for the profile's canonical file and
  * each installation's copy - reusing it rather than reimplementing the same
  * read keeps the two from ever disagreeing about what "missing" means.
@@ -144,7 +144,10 @@ export async function readExisting(filePath: string): Promise<string | null> {
  * file is rewritten - the harmless direction: an unnecessary write, never a
  * skipped backup.
  */
-export async function writeTargetFile(filePath: string, content: string): Promise<WriteFileOutcome> {
+export async function writeTargetFile(
+  filePath: string,
+  content: string,
+): Promise<WriteFileOutcome> {
   const existing = await readExisting(filePath)
 
   if (existing !== null) {
@@ -218,7 +221,7 @@ export async function writeInstallationFiles(
 /**
  * The profile id carried by a file's ownership stamp, or null when the file is
  * not one of ours - delegates to `readOwnershipStamp`
- * (`@shared/config/file-ownership`, story 051 D3), which is the one place both
+ * (`@shared/config/render/file-ownership`, story 051), which is the one place both
  * ownership shapes (banner and legacy sentinel) are read, scanning the whole
  * file's first `HEADER_SCAN_LINES` lines rather than only the first, since
  * that is the only way to recognise a banner-shape header (its `id` field
@@ -350,7 +353,7 @@ export async function reconcileOwnedProfileFiles(
     // POSIX unconditionally - fine when the destination is stale output from
     // an earlier partial migration, but NOT when it is the user's own
     // hand-written file that happens to share this profile's expected name
-    // (review finding: a wrong ownership check here is exactly what backup-once
+    // (a wrong ownership check here is exactly what backup-once
     // exists to protect against, and a rename's destination is no exception to
     // that rule). Back a foreign destination up first, same as a plain write
     // would.

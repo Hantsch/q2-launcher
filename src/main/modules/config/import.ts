@@ -1,5 +1,5 @@
 /**
- * The three import handlers' logic (story 005 D3, re-addressed by story 066 D5): open the config
+ * The three import handlers' logic (story 005, re-addressed by story 066): open the config
  * file picker, preview what the picked files contain, and commit the result into a new profile.
  *
  * Kept as plain exported functions rather than inline in `configModule.setup()`
@@ -8,7 +8,7 @@
  * `writeProfileToAssignedInstallations` in `./index.ts`.
  *
  * **Path trust** (CLAUDE.md; story 005 decision 2, story 066 decision "picker ownership"). Story
- * 066 D5 replaced the old `{ installationId, gameDir }` addressing - which confined every read to a
+ * The current addressing replaced the old `{ installationId, gameDir }` addressing - which confined every read to a
  * registered installation's own folder - with file-picker addressing. What confines the reads now:
  *
  * - The renderer sends `fileIds` and nothing else. There is no path field on any of these inputs,
@@ -17,26 +17,29 @@
  *   (`picked-files.ts`) together with a path a real OS picker returned. An id the renderer invented
  *   resolves to nothing, and the whole request is refused before any file is opened.
  * - Which folders the *config files themselves* can reach is the reader's guarantee, unchanged:
- *   `readImportableFiles` confines an `exec` to the containing file's own folder (AC8).
+ *   `readImportableFiles` confines an `exec` to the containing file's own folder.
  *
  * Neither `previewImportFiles` nor `commitImportFiles` has an installations dependency at all any
- * more, which is what makes "import from files needs no installation" (AC9) true by construction
+ * more, which is what makes "import from files needs no installation" true by construction
  * rather than by a test.
  */
 
 import { randomUUID } from 'node:crypto'
 import { BASE_GAME_DIR } from '@shared/constants'
-import type { AltLayer } from '@shared/config/alt-layers'
+import {
+  restoredToProfileFields,
+  toRestoreInput as sharedToRestoreInput,
+  type RestoredProfileFields,
+} from '@shared/config/profile/profile-restore-input'
 import {
   foreignBannerCommentText,
   restoreProfileParts,
+  RESTORE_WARNING_KEYS,
   type RestoreCommentLine,
   type RestoreProfilePartsInput,
-} from '@shared/config/profile-restore'
+  type RestoreWarningReason,
+} from '@shared/config/profile/profile-restore'
 import {
-  type ConfigAction,
-  type ConfigActionCategory,
-  type ConfigCvarSection,
   type ConfigProfile,
   type ImportFilesCommitInput,
   type ImportFilesPreviewInput,
@@ -65,32 +68,18 @@ export interface ConfigFilePicker {
 
 /**
  * What `import.commitFiles` calls to actually create the profile
- * (`ProfilesStore.createFromImport`). Story 041 (D6) adds `actions`/
+ * (`ProfilesStore.createFromImport`). Story 041 adds `actions`/
  * `categories`/`layers` - `buildImportedActions`'s own result, alongside the
  * cvars/binds/unrecognized story 005 already produced, never replacing them.
  */
-export type CreateProfileFromImport = (input: {
-  name: string
-  cvars: Record<string, string>
-  binds: Record<string, string>
-  unrecognized: UnrecognizedConfigLine[]
-  actions: ConfigAction[]
-  categories: ConfigActionCategory[]
-  layers: AltLayer[]
-  /**
-   * Story 059 D5: `restoreProfileParts`'s own `cvarSections`, passed through unchanged - the
-   * Settings-tab counterpart of `categories` above. Always an array (possibly empty, never
-   * `undefined`): a foreign config with no cvar-group banners at all files every cvar unplaced,
-   * which is exactly what an empty list means (see `profile-restore.ts`'s "Cvar sections" doc
-   * comment - the reserved `Other` bucket is the *absence* of a section, not a section of its own).
-   */
-  cvarSections: ConfigCvarSection[]
-}) => ConfigProfile[]
+export type CreateProfileFromImport = (
+  input: RestoredProfileFields & { name: string; unrecognized: UnrecognizedConfigLine[] },
+) => ConfigProfile[]
 
 /**
  * True when `gameDir` is really one of `installation`'s own gamedirs.
  *
- * No import path uses this any more (story 066 D5 removed the gamedir-addressed handlers together
+ * No import path uses this any more (story 066 removed the gamedir-addressed handlers together
  * with their guards); it stays here because `cleanup.ts` deliberately reuses story 005's rule for
  * its own path-trust check (story 010 decision 10, `entryIsTrusted`) and that is its only caller.
  */
@@ -99,7 +88,7 @@ export function gameDirBelongsToInstallation(installation: Installation, gameDir
 }
 
 /**
- * Story 066 D5: the reader's own warnings, logged without an installation to attribute them to -
+ * Story 066: the reader's own warnings, logged without an installation to attribute them to -
  * `file` is the bare file name the reader recorded (never an absolute path, see `processFile`), so
  * this stays a log line about config content rather than about the user's folder layout.
  */
@@ -128,7 +117,7 @@ function logDuplicateBinds(
 }
 
 /**
- * Shapes one `readImportableConfig()` result into `restoreProfileParts`'s input (story 042 D5).
+ * Shapes one `readImportableConfig()` result into `restoreProfileParts`'s input (story 042).
  *
  * `binds`/`cvars` keep their pre-existing `Record<string, string>` shape on `ImportResult` (every
  * other caller already destructures them as plain value maps), so their `file`/`line` travel in
@@ -139,7 +128,7 @@ function logDuplicateBinds(
  */
 /**
  * `result.comments` plus every `result.unrecognized` line `foreignBannerCommentText` recognises as a
- * foreign author's own marker-less section banner (story 059 D5 - `dm.cfg`'s own
+ * foreign author's own marker-less section banner (story 059 - `dm.cfg`'s own
  * `<<--- .: General Settings :. --->>`/`##### 1st row #####` conventions, which
  * `config-parser.ts` classifies as `unrecognized` rather than as a comment, since neither ever
  * carries a `//` marker at all). Merged back into overall document order (`result.filesRead`'s own
@@ -172,56 +161,51 @@ export function toRestoreInput(
   layerAliases: readonly string[] | undefined,
   newId: () => string,
 ): RestoreProfilePartsInput {
-  return {
-    aliases: result.aliases.map(({ name, body, file, line, comment, codeWidth }) => ({
-      name,
-      body,
-      file,
-      line,
-      comment,
-      codeWidth,
-    })),
-    binds: Object.entries(result.binds).map(([key, command]) => {
-      const position = result.bindLines[key]
-      return {
-        key,
-        command,
-        file: position?.file ?? '',
-        line: position?.line ?? 0,
-        comment: result.bindComments[key] ?? '',
-      }
-    }),
-    cvars: Object.entries(result.cvars).map(([name, value]) => {
-      const position = result.cvarLines[name]
-      // Story 059 review Fix 3: `firstFile`/`firstLine` carry the name's FIRST occurrence
-      // (`result.cvarFirstLines`) separately from `file`/`line`'s last-assignment-wins position -
-      // `restoreProfileParts`'s `readCvarSections` uses the former for section attribution, the
-      // rest of the pipeline keeps using the latter unchanged.
-      const firstPosition = result.cvarFirstLines[name]
-      return {
-        name,
-        value,
-        file: position?.file ?? '',
-        line: position?.line ?? 0,
-        comment: result.cvarComments[name] ?? '',
-        ...(firstPosition ? { firstFile: firstPosition.file, firstLine: firstPosition.line } : {}),
-      }
-    }),
-    comments: mergeForeignBannerComments(result),
-    layerAliases,
-    newId,
-  }
+  return sharedToRestoreInput(
+    '',
+    {
+      aliases: result.aliases,
+      binds: Object.entries(result.binds).map(([key, command]) => {
+        const position = result.bindLines[key]
+        return {
+          key,
+          command,
+          file: position?.file ?? '',
+          line: position?.line ?? 0,
+          comment: result.bindComments[key] ?? '',
+        }
+      }),
+      cvars: Object.entries(result.cvars).map(([name, value]) => {
+        const position = result.cvarLines[name]
+        // `firstFile`/`firstLine` carry the name's FIRST occurrence (`result.cvarFirstLines`)
+        // separately from `file`/`line`'s last-assignment-wins position - section attribution
+        // uses the former, the rest of the pipeline the latter.
+        const firstPosition = result.cvarFirstLines[name]
+        return {
+          name,
+          value,
+          file: position?.file ?? '',
+          line: position?.line ?? 0,
+          comment: result.cvarComments[name] ?? '',
+          ...(firstPosition
+            ? { firstFile: firstPosition.file, firstLine: firstPosition.line }
+            : {}),
+        }
+      }),
+    },
+    { comments: mergeForeignBannerComments(result), layerAliases, newId },
+  )
 }
 
 /**
  * `ImportPreviewResult.preserved` minus whatever `restoreProfileParts` reported as *understood*
- * (story 042, D6 fix) - the header's version marker, a well-formed section banner, a well-formed
+ * (story 042 fix) - the header's version marker, a well-formed section banner, a well-formed
  * entry anchor. `preserved` is supposed to mean "we don't understand this, so we kept it verbatim";
  * a recognised `[q2l ...]` line in a launcher-written file is the opposite of that, and showing it
  * anyway is misleading noise the import dialog's "preserved" list should not carry.
  *
  * `consumed` is always empty on the untagged/foreign-config delegation path (nothing there was
- * recognised as a tag at all), so this is a no-op for that path by construction - AC8's fixture
+ * recognised as a tag at all), so this is a no-op for that path by construction - its fixture
  * count is unaffected without needing a separate `ownWrittenFile` branch here.
  */
 function preservedLinesFor<T extends { file: string; line: number }>(
@@ -234,22 +218,27 @@ function preservedLinesFor<T extends { file: string; line: number }>(
 }
 
 /**
- * `RestoreWarning.reason` -> the i18n key it crosses the module boundary as (story 042 D5) -
- * `config.import.warning.<reasonCode>`, consistent enough for D6 to wire to real `en.json` entries
+ * `RestoreWarning.reason` -> the i18n key it crosses the module boundary as (story 042) -
+ * `config.import.warning.<reasonCode>`, consistent enough for the UI to wire to real `en.json` entries
  * later without a second naming pass here.
  */
 function toMetadataWarnings(
-  warnings: readonly { reason: string; file: string; line: number; subject?: string }[],
+  warnings: readonly {
+    reason: RestoreWarningReason
+    file: string
+    line: number
+    subject?: string
+  }[],
 ): ImportMetadataWarning[] {
   return warnings.map((warning) => ({
-    key: `config.import.warning.${warning.reason}`,
+    key: RESTORE_WARNING_KEYS[warning.reason],
     file: warning.file,
     line: warning.line,
     ...(warning.subject !== undefined ? { subject: warning.subject } : {}),
   }))
 }
 
-/** Story 041 (D2/D6): mirrors `logDuplicateBinds` for alias redefinitions. */
+/** Story 041: mirrors `logDuplicateBinds` for alias redefinitions. */
 function logDuplicateAliases(
   log: Logger,
   duplicateAliases: { name: string; file: string; line: number }[],
@@ -263,7 +252,7 @@ function logDuplicateAliases(
 }
 
 /**
- * Story 066 D5: `fileIds` -> absolute paths, or a refusal - the one gate every read in this file is
+ * Story 066: `fileIds` -> absolute paths, or a refusal - the one gate every read in this file is
  * behind.
  *
  * Runs before any filesystem access and rejects the WHOLE request if a single id is unknown
@@ -293,7 +282,7 @@ function resolvePickedPaths(
 }
 
 /**
- * `import.pickFiles`: opens the real picker and registers what came back (story 066 D5).
+ * `import.pickFiles`: opens the real picker and registers what came back (story 066).
  *
  * The only writer of the session registry, and the only place an absolute path enters this flow at
  * all. A cancelled dialog yields `[]` from `DialogService.pickConfigFiles` and therefore an empty,
@@ -326,10 +315,10 @@ export async function pickImportFiles(
  * this is tested against directly), then `readImportableFiles()` is shaped into counts + preserved
  * lines. Nothing is written - the reader is read-only by construction (story 005 decision 14), and
  * `ProfilesStore` is not even reachable from here: `createProfile` is a parameter of
- * `commitImportFiles` alone (AC10).
+ * `commitImportFiles` alone.
  *
- * Story 041 (D6): also runs the folded config through `restoreProfileParts`
- * (story 042 D4/D5) with an empty `layerAliases` - the user has not answered
+ * Story 041: also runs the folded config through `restoreProfileParts`
+ * (story 042) with an empty `layerAliases` - the user has not answered
  * anything yet, so this is purely for `aliasCount`/`messageCount`/
  * `ambiguousRebindAliases`/`ownWrittenFile`/`metadataVersion`/
  * `sourceProfileId`/`metadataWarnings`, never for the `actions`/`categories`/
@@ -337,7 +326,7 @@ export async function pickImportFiles(
  * the real answers). `newId` still has to be a real factory even though
  * preview discards its output, hence `randomUUID` here too.
  *
- * Story 042 D5: for a foreign config `restoreProfileParts` delegates wholesale
+ * Story 042: for a foreign config `restoreProfileParts` delegates wholesale
  * to story 041's `buildImportedActions` (same input, same `newId`), so this
  * call is a strict superset of what `previewImportFiles` computed before this
  * deliverable - nothing about the pre-042 preview behaviour changes for a file
@@ -396,7 +385,7 @@ export async function previewImportFiles(
  * (`withLiveAssignments` in `./index.ts`) is the caller's job, not this
  * function's, so this file never needs the whole `MainModule` to be tested.
  *
- * Story 041 (D6): `input.layerAliases` is never trusted at face value
+ * Story 041: `input.layerAliases` is never trusted at face value
  * (CLAUDE.md - a renderer-supplied value is never trusted). `buildImportedActions`
  * itself does not reject an unknown name; it simply produces no layer for it
  * (`asLayer.has(name)` never matches anything when nothing in this import
@@ -409,22 +398,22 @@ export async function previewImportFiles(
  * so nothing here needs a second, throwaway call to compute it), and before
  * `restored.actions`/`categories`/`layers` are ever handed to `createProfile`.
  *
- * Story 042 D5: `restoreProfileParts` replaces the direct `buildImportedActions`
- * call - a foreign config still delegates to it wholesale (AC8), while a
+ * Story 042: `restoreProfileParts` replaces the direct `buildImportedActions`
+ * call - a foreign config still delegates to it wholesale, while a
  * launcher-written file (`restored.sourceProfileId !== null`, the same
  * ownership check `previewImportFiles` reports as `ownWrittenFile` - the header
  * tag's `id` field, or the legacy sentinel, read either way through
- * `scanComments` in `@shared/config/profile-restore`)
+ * `scanComments` in `@shared/config/profile/profile-restore`)
  * reconstructs entries/categories/layers from its `[q2l ...]` metadata
  * instead. `restoreProfileParts` always reports an empty `ambiguous` list on
- * that path (D4: "there is nothing to guess"), so the `layerAliases` review
+ * that path ("there is nothing to guess"), so the `layerAliases` review
  * step below is skipped outright for an own-written file rather than
  * rejecting a stray answer the (skip-aware) dialog should never have sent.
  * `restored.actions`/`categories`/`layers` are what `createProfile` stores
  * either way - never the pre-restore `buildImportedActions` result directly.
  *
  * The profile `id` `createProfile` (`ProfilesStore.createFromImport`) mints is
- * always fresh (AC4) - `restored.sourceProfileId` is reported by `preview`
+ * always fresh - `restored.sourceProfileId` is reported by `preview`
  * only so the dialog can say which profile this looks like a restore of, and
  * is never read here at all, so importing the same file twice yields two
  * profiles with two different ids by construction.
@@ -465,9 +454,8 @@ export async function commitImportFiles(
 
   const profiles = createProfile({
     name: input.name,
-    cvars: result.cvars,
-    binds: result.binds,
-    // Story-042-review finding 5 (fix-cycle-5 continuation): `previewImportFiles` already filters
+    ...restoredToProfileFields(result.cvars, result.binds, restored),
+    // `previewImportFiles` already filters
     // `restored.consumedCommentLines` out of what it calls "preserved" - the header block's
     // decoration, the sentinel, a well-formed section banner - because those are understood,
     // launcher-owned lines, not foreign leftovers. `commitImportFiles` handed `result.unrecognized`
@@ -476,10 +464,6 @@ export async function commitImportFiles(
     // `unrecognized` list) then asked the user to tidy up the launcher's own metadata on every
     // restored profile. Same filter, same reasoning, applied where the data actually gets stored.
     unrecognized: preservedLinesFor(result.unrecognized, restored.consumedCommentLines),
-    actions: restored.actions,
-    categories: restored.categories,
-    layers: restored.layers,
-    cvarSections: restored.cvarSections,
   })
 
   return ok(profiles)

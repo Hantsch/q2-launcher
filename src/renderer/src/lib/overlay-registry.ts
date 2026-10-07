@@ -25,7 +25,7 @@ interface OverlayRegistryState {
 }
 
 /**
- * Story 171 D4: the game window is a native window and paints above every DOM overlay, so the
+ * Story 171: the game window is a native window and paints above every DOM overlay, so the
  * stage follower asks this registry whether something is open over the stage and parks the game
  * while it is. Overlays register while open (`useOverlayRegistration`).
  */

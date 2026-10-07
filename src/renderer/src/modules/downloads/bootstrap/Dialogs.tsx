@@ -4,20 +4,20 @@ import { EngineUpdateDialog } from '../engine/EngineUpdateDialog'
 import { RepairDialog } from '../repair/RepairDialog'
 
 /**
- * The downloads module's own dialog registry (story 074 D6), mounted by the shell's
+ * The downloads module's own dialog registry (story 074), mounted by the shell's
  * `components/installations/Dialogs.tsx` through `RendererModule.Dialogs` - the shell never
  * imports `BootstrapWizard` directly, only this file, keyed by `view`.
  *
- * Story 090 D3 adds `'retail-upgrade'`, the demo-to-retail upgrade dialog - scoped to one
+ * Story 090 adds `'retail-upgrade'`, the demo-to-retail upgrade dialog - scoped to one
  * installation, so it needs the `installationId` the shell now ferries alongside `view`
  * (`DialogState`'s `module` kind, `store/useLauncher.ts`). A dialog opened for that view without
- * an id would be a caller bug (D4's trigger buttons are the only intended caller), so this renders
+ * an id would be a caller bug (the trigger buttons are the only intended caller), so this renders
  * nothing rather than guessing - same defensive shape as the `view` mismatch below.
  *
- * Story 092 D7 adds `'engine-update'`, the engine update/rollback/bleeding-edge dialog - same
+ * Story 092 adds `'engine-update'`, the engine update/rollback/bleeding-edge dialog - same
  * single-installation shape and the same "no id, no render" guard as `'retail-upgrade'` above.
  *
- * Story 093 D5 adds `'repair'`, the repair dialog - same single-installation shape and guard. Its
+ * Story 093 adds `'repair'`, the repair dialog - same single-installation shape and guard. Its
  * `'retail-copy'` offer switches back to `'retail-upgrade'` above via `openDialog`, which this
  * registry already renders, so no extra wiring is needed here for that handover.
  */

@@ -59,7 +59,7 @@ design tokens, no image assets, keyboard operable.
   custom from/to are inclusive whole days; all boundaries built with `new Date(y, m, d)`, never
   `now − n × 86 400 000` — the picker works in days, and ms arithmetic breaks across DST.
 - **Value shape:** `{ kind: 'preset', preset: 'today' | 'last7Days' | 'last30Days' } | { kind:
-  'custom', from: 'YYYY-MM-DD' | null, to: 'YYYY-MM-DD' | null }`, `null` = no date filter; a custom
+'custom', from: 'YYYY-MM-DD' | null, to: 'YYYY-MM-DD' | null }`, `null` = no date filter; a custom
   value with both ends open normalises to `null` — the ISO local-date string is exactly what the
   native input yields and stays timezone-free when persisted.
 - **from = to is valid** (a single day); **from > to is rejected**: the picker shows the reason as
@@ -76,7 +76,7 @@ design tokens, no image assets, keyboard operable.
 - **"now" is injected** into the filter engine (`nowMs` parameter) and the renderer passes
   `Date.now()` per filter pass — keeps the engine pure and its tests deterministic.
 - **Locale = the renderer's default locale** (`Intl.DateTimeFormat(undefined, { dateStyle: 'medium'
-  })`, i.e. Electron's app locale), not `i18n.language` — only `en` ships, so `i18n.language` would
+})`, i.e. Electron's app locale), not `i18n.language` — only `en` ships, so `i18n.language` would
   force US format on every user; the native date field follows the same app locale.
 - **AC7 is proven by launching the flow with `--lang=de-DE`**, which needs a small harness addition
   (flow `setup()` may return extra launch args) — on an en-US test machine a wrong locale source
@@ -113,7 +113,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D3 needs D1's types; D5 needs everything)
   rule). Exports:
   - `type DateRangePreset = 'today' | 'last7Days' | 'last30Days'`, `DATE_RANGE_PRESETS` (that order).
   - `type DateRangeValue = { kind: 'preset'; preset: DateRangePreset } | { kind: 'custom'; from:
-    string | null; to: string | null }` (strings are ISO local dates `YYYY-MM-DD`).
+string | null; to: string | null }` (strings are ISO local dates `YYYY-MM-DD`).
   - `dateRangeValueSchema` (zod) that accepts only valid calendar dates (reject `2026-02-30`,
     non-padded, garbage) and only presets from the list.
   - `isIsoLocalDate(s)`, `isRangeOrderValid(from, to)` (false only when both set and from > to).
@@ -121,20 +121,20 @@ Order: D1 → D2 → D3 → D4 → D5 (D3 needs D1's types; D5 needs everything)
     custom with from > to → null.
   - `resolveDateRange(value, nowMs): { startMs: number | null; endMs: number | null }` — half-open,
     local time. today: `[midnight(today), midnight(today+1))`; last7Days: `[midnight(today−6),
-    midnight(today+1))`; last30Days: `[midnight(today−29), midnight(today+1))`; custom from →
+midnight(today+1))`; last30Days: `[midnight(today−29), midnight(today+1))`; custom from →
     `midnight(from)`, custom to → `midnight(to+1)`, open end → null. Build every boundary with
     `new Date(y, m, d)` (let `Date` roll day overflow), **never** `nowMs − n × 86_400_000`.
   - `matchesDateRange(dateMs: number | null, range)` — no bounds → true; `dateMs === null` with any
     bound → false; else `start ≤ dateMs < end`.
-  Tests (names exact): › "today covers local midnight to the next local midnight", › "last 7 days
-  starts at local midnight six days ago and includes today", › "last 30 days starts at local
-  midnight 29 days ago", › "a custom to-date includes that whole day", › "an open end is unbounded",
-  › "a from-date later than the to-date is invalid", › "from equal to to is a valid single day",
-  › "the schema rejects an impossible calendar date", › "a custom range with both ends open
-  normalises to no filter", › "a range crossing a DST change still starts at local midnight" (build
-  `now` in late March/October with `new Date(y, m, d, h)` and assert `new Date(startMs).getHours()
-  === 0`), › "a demo without a date never matches an active range". Acceptance: tests pass,
-  `npm run typecheck` clean.
+    Tests (names exact): › "today covers local midnight to the next local midnight", › "last 7 days
+    starts at local midnight six days ago and includes today", › "last 30 days starts at local
+    midnight 29 days ago", › "a custom to-date includes that whole day", › "an open end is unbounded",
+    › "a from-date later than the to-date is invalid", › "from equal to to is a valid single day",
+    › "the schema rejects an impossible calendar date", › "a custom range with both ends open
+    normalises to no filter", › "a range crossing a DST change still starts at local midnight" (build
+    `now` in late March/October with `new Date(y, m, d, h)` and assert `new Date(startMs).getHours()
+=== 0`), › "a demo without a date never matches an active range". Acceptance: tests pass,
+    `npm run typecheck` clean.
 
 - **D2 — the demo filter matches on the effective date and persists it.** Files: story 153's demo
   filter engine in `src/shared/` (expected `src/shared/replays/list-filter.ts` or similar — use the
@@ -144,7 +144,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D3 needs D1's types; D5 needs everything)
   (so 153's clear-all, which resets to that default, clears the date too); 153's "is filter active"
   returns true when `date` is non-null; the filter function takes a `nowMs: number` parameter (add it
   if 153's does not have one) and ANDs `matchesDateRange(demo.effective.date.value,
-  resolveDateRange(filter.date, nowMs))` from `src/shared/date-range.ts` with every other filter. The
+resolveDateRange(filter.date, nowMs))` from `src/shared/date-range.ts` with every other filter. The
   match uses **only** the effective date value — never its `source` (a file-time-only demo is
   filtered exactly like a sidecar-dated one). Persistence: the stored filter's `date` field parses
   with `dateRangeValueSchema` then `normalizeDateRange`; missing, malformed or from > to → `null`,
@@ -172,7 +172,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D3 needs D1's types; D5 needs everything)
   `color-scheme: dark` so the native indicator matches; a Clear button (`common.dateRange.clear`) →
   `onChange(null)`. Behaviour: preset click → `onChange({kind:'preset',…})` and empties the fields;
   a field change keeps a local draft, and when `isRangeOrderValid` → `onChange(normalizeDateRange(
-  {kind:'custom', from: from || null, to: to || null}))`; when invalid → no `onChange`, render
+{kind:'custom', from: from || null, to: to || null}))`; when invalid → no `onChange`, render
   `<p role="alert" data-testid="…-error">` with `common.dateRange.fromAfterTo` ("The from date is
   after the to date.") and set `aria-invalid` + `aria-describedby` on both inputs. Every control has
   the repo's focus-visible ring (reuse `Button`/`FIELD_BASE` classes; no new colours — tokens only,
@@ -204,8 +204,8 @@ Order: D1 → D2 → D3 → D4 → D5 (D3 needs D1's types; D5 needs everything)
   (new; mirror `scripts/flows/servers-filter-search.mjs` for structure and
   `scripts/flows/home-tile-states.mjs` for its in-flow axe idiom), `CHANGELOG.md`
   (`## Unreleased → ### Added`: one short line, filter demos by date). Wiring: `<DateRangePicker
-  value={filter.date} presets={DATE_RANGE_PRESETS} label={t('replays.filter.date.label')}
-  testId="replays-filter-date" onChange={…}>` updates 153's filter state (and so its persistence and
+value={filter.date} presets={DATE_RANGE_PRESETS} label={t('replays.filter.date.label')}
+testId="replays-filter-date" onChange={…}>` updates 153's filter state (and so its persistence and
   "Showing X of Y"). Fixture: in `writeReplaysDemosFixture()` backdate demo files with `utimesSync`
   **relative to seed time** so that, from the flow's "now", demos fall at ~0 d (today), ~3 d, ~20 d
   and ~60 d ago, **keeping the existing relative order** of fixture demo dates (152's sort flow must
@@ -309,7 +309,7 @@ Decisions made during implementation, beyond `## Decisions (Sprint)`: `demoListF
 its sibling fields (whose invalidity still fails the whole stored filter, per the pre-existing
 `malformedField` schemas.test.ts precedent) — this is what lets a missing/malformed `date` alone
 degrade to `null` while every other stored filter field survives, per this story's own AC3/D2
-wording. `matchesDemoFilter`/`filterDemos` take `nowMs` as an *optional* parameter defaulting to
+wording. `matchesDemoFilter`/`filterDemos` take `nowMs` as an _optional_ parameter defaulting to
 `Date.now()` (not required) so D2 didn't have to touch the renderer ahead of D5; D5 then passes
 `Date.now()` explicitly at the one real call site. The native date inputs' focus state is
 border-colour-only (this repo's existing `Input`/`FIELD_BASE` convention, not new to this story) —
@@ -325,7 +325,7 @@ screen's second visit within the batched session, after `@1280x800`) with `repla
 never becoming visible. Root cause: typing `From` alone commits and persists a valid,
 single-open-ended custom range live (AC2/D3, correctly); typing `To` next into a value that makes
 the pair invalid correctly rejects that combination and emits nothing further (AC3) — but the
-*already-applied* from-only commit (`from: 2026-12-31, to: null`) stayed in effect and was
+_already-applied_ from-only commit (`from: 2026-12-31, to: null`) stayed in effect and was
 debounce-persisted (`ReplaysView.tsx`'s 300ms write / flush-on-unmount), even though the picker was
 visibly showing a rejection error for the edit that produced it. Since that from-only date is far
 outside the fixture's demo dates, it narrowed the list to zero rows, which swaps `replays-demo-list`

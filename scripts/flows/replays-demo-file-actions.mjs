@@ -26,6 +26,7 @@ import {
   writeReplaysZipPackArchive,
 } from '../lib/fixture.mjs'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { openAllDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -41,21 +42,6 @@ export async function setup() {
 export async function teardown() {
   removeReplaysZipPackArchive()
   rmSync(VANISH_DEST, { force: true })
-}
-
-function rowFor(page, fileName) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: fileName })
-}
-
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
 function readRevealedPaths() {
@@ -77,9 +63,8 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   }
 
   step('navigating to the Demos view renders the discovered list')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openAllDemos(page)
+  await openFolder(page, 'Fixture Favorite Install')
 
   const detail = page.getByTestId('replays-detail')
 
@@ -97,7 +82,9 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   }
   const lastRevealed = afterLooseReveal[afterLooseReveal.length - 1]
   if (!lastRevealed.endsWith('duel_q2dm1.dm2')) {
-    throw new Error(`replays-demo-file-actions: expected revealed path to end with duel_q2dm1.dm2, got "${lastRevealed}"`)
+    throw new Error(
+      `replays-demo-file-actions: expected revealed path to end with duel_q2dm1.dm2, got "${lastRevealed}"`,
+    )
   }
 
   step('copy path on a loose demo puts its absolute path on the clipboard and shows a confirmation')
@@ -114,6 +101,7 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   }
 
   step('reveal and copy path on a pack.zip entry act on pack.zip itself')
+  await openFolder(page, 'pack.zip')
   const zipRow = page
     .getByTestId('replays-demo-row')
     .filter({ has: page.getByTestId('replays-demo-source').filter({ hasText: 'pack.zip ›' }) })
@@ -137,12 +125,18 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const clipboardAfterZip = await app.evaluate(({ clipboard }) => clipboard.readText())
   if (!clipboardAfterZip.endsWith('pack.zip')) {
-    throw new Error(`replays-demo-file-actions: expected clipboard to end with pack.zip, got "${clipboardAfterZip}"`)
+    throw new Error(
+      `replays-demo-file-actions: expected clipboard to end with pack.zip, got "${clipboardAfterZip}"`,
+    )
   }
 
   step('reveal on a vanished demo shows the file-missing alert and reveals nothing')
   // The demo list is virtualized (VirtualDemoList.tsx) - vanish-156.dm2 may not be within the
   // rendered window, so narrow the list via the search filter to bring its row into the DOM.
+  await page
+    .getByTestId('replays-crumb')
+    .filter({ hasText: 'Fixture Favorite Install' })
+    .click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-filter-search').fill('vanish-156')
   await rowFor(page, 'vanish-156.dm2').click({ timeout: TIMEOUT_MS })
   await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -153,7 +147,9 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   await errorAlert.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const errorText = await errorAlert.textContent()
   if (!errorText.includes('no longer on disk')) {
-    throw new Error(`replays-demo-file-actions: expected the fileMissing message, got "${errorText}"`)
+    throw new Error(
+      `replays-demo-file-actions: expected the fileMissing message, got "${errorText}"`,
+    )
   }
   const afterVanishReveal = readRevealedPaths().length
   if (afterVanishReveal !== beforeVanishReveal) {

@@ -11,7 +11,7 @@ import { SwitchBindControl } from './SwitchBindControl'
  * The installation-side half of assignment: for every registered
  * installation, which config profiles are currently assigned to it, with the
  * per-installation default called out, plus (story 007) that installation's
- * in-session profile-switch bind when it has 2+ assigned profiles (AC 5).
+ * in-session profile-switch bind when it has 2+ assigned profiles.
  *
  * Mostly derived and read-only - it does not fetch or mutate `profiles` or
  * `installations`. Every render re-derives assignment from `profiles` (owned
@@ -58,9 +58,7 @@ export function InstallationProfilesPanel({ profiles }: { profiles: ConfigProfil
                 key={installation.id}
                 className="flex flex-wrap items-center gap-2 rounded-sm border border-line px-2.5 py-2"
               >
-                <span className="min-w-0 truncate text-sm text-ink-dim">
-                  {installation.name}
-                </span>
+                <span className="min-w-0 truncate text-sm text-ink-dim">{installation.name}</span>
                 <span className="shrink-0">
                   <EngineBadge engineKind={installation.engineKind} />
                 </span>

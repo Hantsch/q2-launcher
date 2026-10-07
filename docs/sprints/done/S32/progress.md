@@ -1,0 +1,440 @@
+- 2026-10-02 09:36:43 · refine · 223 226 225 199 200 201 202 203 204 206 205 207 208 209 221 222 220 219 · started
+- 2026-10-02 09:46:30 · refine · done · 18 ready
+- 2026-10-02 09:46:35 · 223 · build · started
+- 2026-10-02 09:46:51 · 223 · D1 four red flows · started
+- 2026-10-02 10:05:20 · 223 · D1 four red flows · done
+- 2026-10-02 10:05:20 · 223 · D2 quarantine gate · started
+- 2026-10-02 10:06:57 · 223 · D2 quarantine gate · done
+- 2026-10-02 10:06:57 · 223 · D3 shards and timeout · started
+- 2026-10-02 10:08:55 · 223 · D3 shards and timeout · done
+- 2026-10-02 10:08:55 · 223 · D4 setup action · started
+- 2026-10-02 10:11:52 · 223 · D4 setup action · done
+- 2026-10-02 10:11:52 · 223 · D5 ui-flows workflow · started
+- 2026-10-02 10:15:44 · 223 · D5 ui-flows workflow · done
+- 2026-10-02 10:15:44 · 223 · D6 flow rules doc · started
+- 2026-10-02 10:16:32 · 223 · D6 flow rules doc · done
+- 2026-10-02 10:16:32 · 223 · verify · started
+- 2026-10-02 10:18:55 · 223 · verify · done
+- 2026-10-02 10:18:55 · 223 · review 1 · started
+- 2026-10-02 10:20:26 · 223 · review 1 · done
+- 2026-10-02 10:20:48 · 223 · story · done
+- 2026-10-02 10:21:03 · 226 · build · started
+- 2026-10-02 10:21:27 · 226 · D1 LF + format commit + format:check · started
+- 2026-10-02 10:27:25 · 226 · D1 LF + format commit + format:check · done
+- 2026-10-02 10:27:46 · 226 · D2 drop patch-package · started
+- 2026-10-02 10:29:59 · 226 · D2 drop patch-package · done
+- 2026-10-02 10:29:59 · 226 · D3 dependencies current · started
+- 2026-10-02 10:36:24 · 226 · D3 dependencies current · done
+- 2026-10-02 10:36:24 · 226 · D4 dependabot + audit step + cleanup · started
+- 2026-10-02 10:38:20 · 226 · D4 dependabot + audit step + cleanup · done
+- 2026-10-02 10:40:00 · 226 · verify · started
+- 2026-10-02 10:41:39 · 226 · verify · done (verify:release not runnable: Docker daemon down)
+- 2026-10-02 10:41:39 · 226 · review 1 · started
+- 2026-10-02 10:42:36 · 226 · review 1 · done
+- 2026-10-02 10:43:21 · 226 · story · done
+- 2026-10-02 10:43:39 · 225 · build · started
+- 2026-10-02 10:43:59 · 225 · story · started
+- 2026-10-02 10:44:50 · 225 · D1 quiet binary-free test run · started
+- 2026-10-02 10:56:16 · 225 · D1 quiet binary-free test run · done
+- 2026-10-02 10:56:22 · 225 · D2 installTempDir + fakeAppContext · started
+- 2026-10-02 10:58:05 · 225 · D2 installTempDir + fakeAppContext · done
+- 2026-10-02 10:58:05 · 225 · D3 downloads test-support · started
+- 2026-10-02 10:59:54 · 225 · D3 downloads test-support · done
+- 2026-10-02 10:59:54 · 225 · D4 makeInstallation · started
+- 2026-10-02 11:03:41 · 225 · D4 makeInstallation · done
+- 2026-10-02 11:03:41 · 225 · D5 makeJob + makeConfigProfile · started
+- 2026-10-02 11:04:52 · 225 · D5 makeJob + makeConfigProfile · done
+- 2026-10-02 11:04:52 · 225 · D6 mockClient + config/mods · started
+- 2026-10-02 11:08:26 · 225 · D6 mockClient + config/mods · done
+- 2026-10-02 11:08:26 · 225 · D7 client mocks replays · started
+- 2026-10-02 11:08:26 · 225 · D8 client mocks downloads+home · started
+- 2026-10-02 11:08:26 · 225 · D9 client mocks servers · started
+- 2026-10-02 11:10:50 · 225 · D7 client mocks replays · done
+- 2026-10-02 11:10:50 · 225 · D8 client mocks downloads+home · done
+- 2026-10-02 11:10:50 · 225 · D9 client mocks servers · done
+- 2026-10-02 11:11:27 · 225 · D10 split round-trip · started
+- 2026-10-02 11:11:27 · 225 · D11 split config index · started
+- 2026-10-02 11:11:27 · 225 · D12 split bootstrap job · started
+- 2026-10-02 11:11:27 · 225 · D13 split render · started
+- 2026-10-02 11:11:28 · 225 · D14 split profile-restore · started
+- 2026-10-02 11:11:28 · 225 · D15 split schemas+profiles · started
+- 2026-10-02 11:18:07 · 225 · D10 split round-trip · done
+- 2026-10-02 11:18:07 · 225 · D11 split config index · done
+- 2026-10-02 11:18:07 · 225 · D12 split bootstrap job · done
+- 2026-10-02 11:18:07 · 225 · D13 split render · done
+- 2026-10-02 11:18:07 · 225 · D14 split profile-restore · done
+- 2026-10-02 11:18:07 · 225 · D15 split schemas+profiles · done
+- 2026-10-02 11:18:32 · 225 · D16 size cap + Testing docs · started
+- 2026-10-02 11:19:25 · 225 · D16 size cap + Testing docs · done (found 8th file over cap)
+- 2026-10-02 11:19:25 · 225 · D16b split servers scan-service test · started
+- 2026-10-02 11:24:27 · 225 · D16b split servers scan-service test · done
+- 2026-10-02 11:24:27 · 225 · verify · started
+- 2026-10-02 11:25:58 · 225 · verify · done (quiet-run sample path fixed)
+- 2026-10-02 11:25:58 · 225 · review 1 · started
+- 2026-10-02 11:27:45 · 225 · review 1 · done (PASS, 4 findings -> fix cycle)
+- 2026-10-02 11:27:45 · 225 · review-fix 1 · started
+- 2026-10-02 11:28:45 · 225 · review-fix 1 · done
+- 2026-10-02 11:28:45 · 225 · verify 2 · started
+- 2026-10-02 11:30:04 · 225 · verify 2 · done
+- 2026-10-02 11:30:18 · 225 · story · done
+- 2026-10-02 11:30:44 · 199 · build · started
+- 2026-10-02 11:31:04 · 199 · D1 isInside · started
+- 2026-10-02 11:32:37 · 199 · D1 isInside · done
+- 2026-10-02 11:32:37 · 199 · D2 reveal check · started
+- 2026-10-02 11:32:37 · 199 · D3 containment copies · started
+- 2026-10-02 11:32:37 · 199 · D4 absolutePathSchema · started
+- 2026-10-02 11:33:55 · 199 · D2 reveal check · done
+- 2026-10-02 11:33:55 · 199 · D3 containment copies · done
+- 2026-10-02 11:33:55 · 199 · D4 absolutePathSchema · done
+- 2026-10-02 11:33:55 · 199 · D5 fs-helper duplicates · started
+- 2026-10-02 11:34:44 · 199 · D5 fs-helper duplicates · done
+- 2026-10-02 11:34:44 · 199 · verify · started
+- 2026-10-02 11:35:26 · 199 · verify · done
+- 2026-10-02 11:35:26 · 199 · review 1 · started
+- 2026-10-02 11:36:11 · 199 · review 1 · done
+- 2026-10-02 11:36:11 · 199 · story · done
+- 2026-10-02 11:36:21 · 200 · build · started
+- 2026-10-02 11:36:35 · 200 · D1 shell IPC wrappers handlerFailed · started
+- 2026-10-02 11:38:26 · 200 · D1 shell IPC wrappers handlerFailed · done
+- 2026-10-02 11:38:26 · 200 · verify · started
+- 2026-10-02 11:39:16 · 200 · verify · done
+- 2026-10-02 11:39:16 · 200 · review 1 · started
+- 2026-10-02 11:39:51 · 200 · review 1 · done
+- 2026-10-02 11:39:54 · 200 · story · done
+- 2026-10-02 11:40:04 · 201 · build · started
+- 2026-10-02 11:40:35 · 201 · D1 JsonStore write failure · started
+- 2026-10-02 11:40:35 · 201 · D2 shared state.json poller · started
+- 2026-10-02 11:43:30 · 201 · D1 JsonStore write failure · done
+- 2026-10-02 11:43:30 · 201 · D2 shared state.json poller · done
+- 2026-10-02 11:43:30 · 201 · D3 flow readers group A · started
+- 2026-10-02 11:50:38 · 201 · D3 flow readers group A · done
+- 2026-10-02 11:50:39 · 201 · D4 flow readers group B · started
+- 2026-10-02 11:54:12 · 201 · D4 flow readers group B · done
+- 2026-10-02 11:54:13 · 201 · D5 state debounce + persist toast · started
+- 2026-10-02 11:56:06 · 201 · D5 state debounce + persist toast · done
+- 2026-10-02 11:56:07 · 201 · D6 persistence registry · started
+- 2026-10-02 11:57:08 · 201 · D6 persistence registry · done
+- 2026-10-02 11:57:09 · 201 · D7 module caches register · started
+- 2026-10-02 11:59:14 · 201 · D7 module caches register · done
+- 2026-10-02 11:59:16 · 201 · D8 module disposers · started
+- 2026-10-02 12:02:01 · 201 · D8 module disposers · done
+- 2026-10-02 12:02:02 · 201 · D9 replays disposes (hard) · started
+- 2026-10-02 12:07:09 · 201 · D9 replays disposes (hard) · done
+- 2026-10-02 12:07:10 · 201 · D10 ordered shutdown · started
+- 2026-10-02 12:18:29 · 201 · D10 ordered shutdown · done
+- 2026-10-02 12:18:30 · 201 · D11 quit-persists-state flow · started
+- 2026-10-02 12:20:07 · 201 · D11 quit-persists-state flow · done
+- 2026-10-02 12:20:08 · 201 · D9b playback-stop listener release · started
+- 2026-10-02 12:20:51 · 201 · D9b playback-stop listener release · done
+- 2026-10-02 12:20:52 · 201 · verify · started
+- 2026-10-02 12:24:49 · 201 · verify · blocked: servers-watchlist red (copy before debounced write), fixing
+- 2026-10-02 12:24:55 · 201 · verify · started
+- 2026-10-02 12:31:44 · 201 · verify · done
+- 2026-10-02 12:31:45 · 201 · review 1 · started
+- 2026-10-02 12:34:20 · 201 · review 1 · done
+- 2026-10-02 12:34:36 · 201 · story · done
+- 2026-10-02 12:34:47 · 202 · build · started
+- 2026-10-02 12:35:01 · 202 · D1 slice mutator + sort helper · started
+- 2026-10-02 12:35:55 · 202 · D1 slice mutator + sort helper · done
+- 2026-10-02 12:35:55 · 202 · D2 servers use mutator · started
+- 2026-10-02 12:37:34 · 202 · D2 servers use mutator · done
+- 2026-10-02 12:37:34 · 202 · D3 replays + name templates · started
+- 2026-10-02 12:39:46 · 202 · D3 replays + name templates · done
+- 2026-10-02 12:39:46 · 202 · D4 installations merge at commit (hard) · started
+- 2026-10-02 12:43:17 · 202 · D4 installations merge at commit (hard) · done
+- 2026-10-02 12:43:17 · 202 · D5 config write failures merge · started
+- 2026-10-02 12:44:47 · 202 · D5 config write failures merge · done
+- 2026-10-02 12:44:47 · 202 · verify · started
+- 2026-10-02 12:45:27 · 202 · verify · blocked: 8 downloads job test files red (state stub lacks updateSlice)
+- 2026-10-02 12:45:27 · 202 · fix downloads stubs + stale comments · started
+- 2026-10-02 12:46:13 · 202 · fix downloads stubs + stale comments · done
+- 2026-10-02 12:46:13 · 202 · verify · done
+- 2026-10-02 12:46:13 · 202 · review 1 · started
+- 2026-10-02 12:47:16 · 202 · review 1 · done
+- 2026-10-02 12:47:28 · 202 · story · done
+- 2026-10-02 12:47:38 · 203 · build · started
+- 2026-10-02 12:47:51 · 203 · D1 helper · started
+- 2026-10-02 12:48:35 · 203 · D1 helper · done
+- 2026-10-02 12:48:35 · 203 · D2 schemas.ts · started
+- 2026-10-02 12:48:57 · 203 · D3 module loops · started
+- 2026-10-02 12:50:46 · 203 · D2 schemas.ts · done
+- 2026-10-02 12:50:46 · 203 · D3 module loops · done
+- 2026-10-02 12:50:46 · 203 · verify · started
+- 2026-10-02 12:51:28 · 203 · verify · done
+- 2026-10-02 12:51:28 · 203 · review 1 · started
+- 2026-10-02 12:52:56 · 203 · review 1 · done
+- 2026-10-02 12:53:05 · 203 · story · done
+- 2026-10-02 12:53:18 · 204 · build · started
+- 2026-10-02 12:53:33 · 204 · D1 envelope contract · started
+- 2026-10-02 12:54:22 · 204 · D1 envelope contract · done
+- 2026-10-02 12:54:22 · 204 · D2 plain-value handlers · started
+- 2026-10-02 13:00:56 · 204 · D2 plain-value handlers · done
+- 2026-10-02 13:00:56 · 204 · D3 config/downloads/home/mods clients · started
+- 2026-10-02 13:02:13 · 204 · D3 config/downloads/home/mods clients · done
+- 2026-10-02 13:02:13 · 204 · D4 replays client · started
+- 2026-10-02 13:04:46 · 204 · D4 replays client · done
+- 2026-10-02 13:04:46 · 204 · D5 mods error keys · started
+- 2026-10-02 13:04:46 · 204 · D6 restore-warning record · started
+- 2026-10-02 13:06:43 · 204 · D5 mods error keys · done
+- 2026-10-02 13:06:43 · 204 · D6 restore-warning record · done
+- 2026-10-02 13:06:43 · 204 · D7 error-key test · started
+- 2026-10-02 13:07:34 · 204 · D7 error-key test · done
+- 2026-10-02 13:07:34 · 204 · verify · started
+- 2026-10-02 13:12:48 · 204 · verify · blocked: rechecking downloads-tab/home-tile-states
+- 2026-10-02 13:20:26 · 204 · verify · done
+- 2026-10-02 13:20:26 · 204 · review 1 · started
+- 2026-10-02 13:22:03 · 204 · review 1 · done
+- 2026-10-02 13:22:04 · 204 · review fix 1 · started
+- 2026-10-02 13:23:31 · 204 · review fix 1 · done
+- 2026-10-02 13:23:31 · 204 · verify · started
+- 2026-10-02 13:25:17 · 204 · verify · done
+- 2026-10-02 13:25:17 · 204 · story · done
+- 2026-10-02 13:25:47 · 206 · build · started
+- 2026-10-02 13:26:29 · 206 · D1 refusal shape · started
+- 2026-10-02 13:27:24 · 206 · D1 refusal shape · done
+- 2026-10-02 13:27:24 · 206 · D2 servers master sources+manual add · started
+- 2026-10-02 13:29:14 · 206 · D2 servers master sources+manual add · done
+- 2026-10-02 13:29:14 · 206 · D3 quick filters/scan/watchlist · started
+- 2026-10-02 13:30:35 · 206 · D3 quick filters/scan/watchlist · done
+- 2026-10-02 13:30:35 · 206 · D4 replays in-band results · started
+- 2026-10-02 13:32:38 · 206 · D4 replays in-band results · done
+- 2026-10-02 13:32:38 · 206 · D5 demo-play/rename validators · started
+- 2026-10-02 13:34:09 · 206 · D5 demo-play/rename validators · done
+- 2026-10-02 13:34:09 · 206 · D6 name-template validator · started
+- 2026-10-02 13:34:58 · 206 · D6 name-template validator · done
+- 2026-10-02 13:34:58 · 206 · D7 one toast path · started
+- 2026-10-02 13:36:08 · 206 · D7 one toast path · done
+- 2026-10-02 13:36:08 · 206 · D8 remaining toast literals · started
+- 2026-10-02 13:39:50 · 206 · D8 remaining toast literals · done
+- 2026-10-02 13:39:50 · 206 · D9 renderer reason templates · started
+- 2026-10-02 13:40:57 · 206 · D9 renderer reason templates · done
+- 2026-10-02 13:40:57 · 206 · D10 refusal keys resolve · started
+- 2026-10-02 13:42:38 · 206 · D10 refusal keys resolve · done
+- 2026-10-02 13:42:38 · 206 · verify · started
+- 2026-10-02 13:45:17 · 206 · verify · done
+- 2026-10-02 13:45:17 · 206 · review 1 · started
+- 2026-10-02 13:47:43 · 206 · review 1 · done
+- 2026-10-02 13:47:43 · 206 · review fix 1 · done
+- 2026-10-02 13:47:43 · 206 · review 2 · started
+- 2026-10-02 13:48:40 · 206 · review 2 · done
+- 2026-10-02 13:48:40 · 206 · story · done
+- 2026-10-02 13:48:52 · 205 · build · started
+- 2026-10-02 13:49:11 · 205 · D1 contract types + defineModule · started
+- 2026-10-02 13:52:43 · 205 · D1 contract types + defineModule · done
+- 2026-10-02 13:52:43 · 205 · D2 createModuleClient · started
+- 2026-10-02 13:52:43 · 205 · D3 remove five dead handlers · started
+- 2026-10-02 13:52:43 · 205 · D4 remove demos.list · started
+- 2026-10-02 13:57:08 · 205 · D2 createModuleClient · done
+- 2026-10-02 13:57:08 · 205 · D3 remove five dead handlers · done
+- 2026-10-02 13:57:08 · 205 · D4 remove demos.list · done
+- 2026-10-02 13:57:08 · 205 · D5 convert home · started
+- 2026-10-02 13:57:57 · 205 · D5 convert home · done
+- 2026-10-02 13:57:57 · 205 · D6 servers main · started
+- 2026-10-02 13:59:39 · 205 · D6 servers main · done
+- 2026-10-02 13:59:39 · 205 · D7 servers client · started
+- 2026-10-02 13:59:39 · 205 · D8 handlerTypes + coverage test · started
+- 2026-10-02 13:59:39 · 205 · D10 moduleInvokeSchema enum · started
+- 2026-10-02 13:59:39 · 205 · D11 architecture doc · started
+- 2026-10-02 14:02:36 · 205 · D7 servers client · done
+- 2026-10-02 14:02:36 · 205 · D8 handlerTypes + coverage test · done
+- 2026-10-02 14:02:36 · 205 · D10 moduleInvokeSchema enum · done
+- 2026-10-02 14:02:36 · 205 · D11 architecture doc · done
+- 2026-10-02 14:02:38 · 205 · D9 renderer reference test · started
+- 2026-10-02 14:03:50 · 205 · D9 renderer reference test · done
+- 2026-10-02 14:03:50 · 205 · verify · started
+- 2026-10-02 14:07:15 · 205 · verify · done
+- 2026-10-02 14:07:15 · 205 · review 1 · started
+- 2026-10-02 14:08:38 · 205 · review 1 · done
+- 2026-10-02 14:09:19 · 205 · story · done
+- 2026-10-02 14:09:30 · 207 · build · started
+- 2026-10-02 14:09:52 · 207 · D1 golden characterization test · started
+- 2026-10-02 14:11:37 · 207 · D1 golden characterization test · done
+- 2026-10-02 14:11:37 · 207 · D2 news-image paths + zip test move · started
+- 2026-10-02 14:12:31 · 207 · D2 news-image paths + zip test move · done
+- 2026-10-02 14:12:31 · 207 · D3 setEngineState to downloads · started
+- 2026-10-02 14:13:51 · 207 · D3 setEngineState to downloads · done
+- 2026-10-02 14:13:51 · 207 · D4 StateStore.section (hard) · started
+- 2026-10-02 14:18:46 · 207 · D4 StateStore.section (hard) · done
+- 2026-10-02 14:18:46 · 207 · D5 downloads persisted · started
+- 2026-10-02 14:21:26 · 207 · D5 downloads persisted · done
+- 2026-10-02 14:21:26 · 207 · D6 home persisted · started
+- 2026-10-02 14:23:30 · 207 · D6 home persisted · done
+- 2026-10-02 14:23:30 · 207 · D7 unlock persisted · started
+- 2026-10-02 14:25:02 · 207 · D7 unlock persisted · done
+- 2026-10-02 14:25:02 · 207 · D8 servers persisted · started
+- 2026-10-02 14:27:57 · 207 · D8 servers persisted · done
+- 2026-10-02 14:27:57 · 207 · D9 replays persisted · started
+- 2026-10-02 14:31:23 · 207 · D9 replays persisted · done
+- 2026-10-02 14:31:24 · 207 · D10a config schema move · started
+- 2026-10-02 14:32:48 · 207 · D10a config schema move · done
+- 2026-10-02 14:32:48 · 207 · D10b config sections · started
+- 2026-10-02 14:37:28 · 207 · D10b config sections · done
+- 2026-10-02 14:37:28 · 207 · D11 config migrations move · started
+- 2026-10-02 14:39:39 · 207 · D11 config migrations move · done
+- 2026-10-02 14:39:39 · 207 · D12 docs + layering gate · started
+- 2026-10-02 14:41:11 · 207 · D12 docs + layering gate · done
+- 2026-10-02 14:41:11 · 207 · verify · started
+- 2026-10-02 14:45:47 · 207 · verify · done
+- 2026-10-02 14:45:47 · 207 · review 1 · started
+- 2026-10-02 14:47:48 · 207 · review 1 · done
+- 2026-10-02 14:47:48 · 207 · review fix 1 · started
+- 2026-10-02 14:49:29 · 207 · review fix 1 · done
+- 2026-10-02 14:49:29 · 207 · review 2 · started
+- 2026-10-02 14:50:11 · 207 · review 2 · done
+- 2026-10-02 14:50:29 · 207 · story · done
+- 2026-10-02 14:50:49 · 208 · build · started
+- 2026-10-02 14:51:10 · 208 · D1 architecture test + scanner · started
+- 2026-10-02 14:56:53 · 208 · D1 architecture test + scanner · done
+- 2026-10-02 14:56:53 · 208 · D2 layering move + docs · started
+- 2026-10-02 14:58:22 · 208 · D2 layering move + docs · done
+- 2026-10-02 14:58:22 · 208 · D3 oxlint + main clean · started
+- 2026-10-02 15:01:00 · 208 · D3 oxlint + main clean · done
+- 2026-10-02 15:01:00 · 208 · D4 renderer clean + wiring · started
+- 2026-10-02 15:06:36 · 208 · D4 renderer clean + wiring · done
+- 2026-10-02 15:06:36 · 208 · D5 docs pointers · started
+- 2026-10-02 15:07:05 · 208 · D5 docs pointers · done
+- 2026-10-02 15:07:05 · 208 · verify · started
+- 2026-10-02 15:08:37 · 208 · verify · done
+- 2026-10-02 15:08:37 · 208 · review 1 · started
+- 2026-10-02 15:10:16 · 208 · review 1 · done
+- 2026-10-02 15:10:16 · 208 · review fix 1 · started
+- 2026-10-02 15:11:28 · 208 · review fix 1 · done
+- 2026-10-02 15:11:28 · 208 · review 2 · started
+- 2026-10-02 15:12:47 · 208 · review 2 · done
+- 2026-10-02 15:12:47 · 208 · story · done
+- 2026-10-02 15:12:59 · 209 · build · started
+- 2026-10-02 15:13:20 · 209 · D1 boot facts on AppContext · started
+- 2026-10-02 15:16:24 · 209 · D1 boot facts on AppContext · done
+- 2026-10-02 15:16:24 · 209 · D2 app.os service · started
+- 2026-10-02 15:17:49 · 209 · D2 app.os service · done
+- 2026-10-02 15:17:49 · 209 · D3 app.displays + snapshot · started
+- 2026-10-02 15:19:30 · 209 · D3 app.displays + snapshot · done
+- 2026-10-02 15:19:30 · 209 · D4a hoist net/archive/staging · started
+- 2026-10-02 15:23:31 · 209 · D4a hoist net/archive/staging · done
+- 2026-10-02 15:23:31 · 209 · D4b hoist content/engine-state/fs/schemas · started
+- 2026-10-02 15:28:53 · 209 · D4b hoist content/engine-state/fs/schemas · done
+- 2026-10-02 15:28:53 · 209 · D5 replays onto the shell (hard) · started
+- 2026-10-02 15:37:11 · 209 · D5 replays onto the shell (hard) · done
+- 2026-10-02 15:37:11 · 209 · D6 other modules + architecture assertions · started
+- 2026-10-02 15:47:57 · 209 · D6 other modules + architecture assertions · done
+- 2026-10-02 15:47:57 · 209 · verify · started
+- 2026-10-02 15:54:22 · 209 · verify · done
+- 2026-10-02 15:54:22 · 209 · review 1 · started
+- 2026-10-02 15:56:52 · 209 · review 1 · done
+- 2026-10-02 15:56:52 · 209 · review fix 1 · started
+- 2026-10-02 15:59:07 · 209 · review fix 1 · done
+- 2026-10-02 15:59:07 · 209 · review 2 (hard) · started
+- 2026-10-02 16:08:25 · 209 · review 2 (hard) · done
+- 2026-10-02 16:08:25 · 209 · story · done
+- 2026-10-02 16:08:50 · 221 · build · started
+- 2026-10-02 16:09:12 · 221 · D1 lib/http.ts · started
+- 2026-10-02 16:10:01 · 221 · D1 lib/http.ts · done
+- 2026-10-02 16:10:01 · 221 · D2 feed+image fetchers · started
+- 2026-10-02 16:10:46 · 221 · D2 feed+image fetchers · done
+- 2026-10-02 16:10:46 · 221 · D3 http-list-source budget · started
+- 2026-10-02 16:12:04 · 221 · D3 http-list-source budget · done
+- 2026-10-02 16:12:04 · 221 · D4 remaining fetch sites · started
+- 2026-10-02 16:16:49 · 221 · D4 remaining fetch sites · done
+- 2026-10-02 16:16:49 · 221 · verify · started
+- 2026-10-02 16:18:03 · 221 · verify · done
+- 2026-10-02 16:18:03 · 221 · review 1 · started
+- 2026-10-02 16:20:12 · 221 · review 1 · done
+- 2026-10-02 16:20:12 · 221 · review 2 · started
+- 2026-10-02 16:20:44 · 221 · review 2 · done
+- 2026-10-02 16:20:44 · 221 · story · done
+- 2026-10-02 16:21:00 · 222 · build · started
+- 2026-10-02 16:21:38 · 222 · D1 platform module · started
+- 2026-10-02 16:22:44 · 222 · D1 platform module · done
+- 2026-10-02 16:22:44 · 222 · D2 services/lib helpers · started
+- 2026-10-02 16:23:13 · 222 · D2 services/lib helpers · done
+- 2026-10-02 16:23:13 · 222 · D3 modules helpers + count guard · started
+- 2026-10-02 16:27:19 · 222 · D3 modules helpers + count guard · done
+- 2026-10-02 16:27:19 · 222 · D4 listener helper services · started
+- 2026-10-02 16:28:37 · 222 · D4 listener helper services · done
+- 2026-10-02 16:28:37 · 222 · D5 listener sites window/replays · started
+- 2026-10-02 16:29:59 · 222 · D5 listener sites window/replays · done
+- 2026-10-02 16:29:59 · 222 · D6 looksLikeQuake2 once · started
+- 2026-10-02 16:34:09 · 222 · D6 looksLikeQuake2 once · done
+- 2026-10-02 16:34:09 · 222 · verify · started
+- 2026-10-02 16:35:01 · 222 · verify · done
+- 2026-10-02 16:35:01 · 222 · review 1 · started
+- 2026-10-02 16:36:11 · 222 · review 1 · done
+- 2026-10-02 16:36:11 · 222 · story · done
+- 2026-10-02 16:36:27 · 220 · build · started
+- 2026-10-02 16:36:56 · 220 · D1 delete dead pipeline · started
+- 2026-10-02 16:38:42 · 220 · D1 delete dead pipeline · done
+- 2026-10-02 16:38:42 · 220 · D2 settings disabled with reason · started
+- 2026-10-02 16:40:37 · 220 · D2 settings disabled with reason · done
+- 2026-10-02 16:40:37 · 220 · D3 size-only download + engine update staging · started
+- 2026-10-02 16:43:53 · 220 · D3 size-only download + engine update staging · done
+- 2026-10-02 16:43:53 · 220 · D4 bootstrap+repair via stagePackage (hard) · started
+- 2026-10-02 16:47:23 · 220 · D4 bootstrap+repair via stagePackage (hard) · done
+- 2026-10-02 16:47:23 · 220 · D5 assemble scope core/extras · started
+- 2026-10-02 16:48:59 · 220 · D5 assemble scope core/extras · done
+- 2026-10-02 16:48:59 · 220 · D6 shared lib helpers · started
+- 2026-10-02 16:48:59 · 220 · D7 CachedContentDocument · started
+- 2026-10-02 16:51:42 · 220 · D6 shared lib helpers · done
+- 2026-10-02 16:51:42 · 220 · D7 CachedContentDocument · done
+- 2026-10-02 16:51:42 · 220 · D8 one ManifestService on AppContext · started
+- 2026-10-02 16:53:30 · 220 · D8 one ManifestService on AppContext · done
+- 2026-10-02 16:53:30 · 220 · verify · started
+- 2026-10-02 17:01:28 · 220 · verify · done
+- 2026-10-02 17:01:28 · 220 · review 1 · started
+- 2026-10-02 17:03:58 · 220 · review 1 · done
+- 2026-10-02 17:03:58 · 220 · review-fix 1 · started
+- 2026-10-02 17:05:29 · 220 · review-fix 1 · done
+- 2026-10-02 17:05:29 · 220 · review 2 · started
+- 2026-10-02 17:06:48 · 220 · review 2 · done
+- 2026-10-02 17:06:50 · 220 · story · done
+- 2026-10-02 17:07:04 · 219 · build · started
+- 2026-10-02 17:07:24 · 219 · D1 job runner · started
+- 2026-10-02 17:12:37 · 219 · D1 job runner · done
+- 2026-10-02 17:12:37 · 219 · D2 rollback+mods remove · started
+- 2026-10-02 17:17:35 · 219 · D2 rollback+mods remove · done
+- 2026-10-02 17:17:35 · 219 · D3 engine update+repair · started
+- 2026-10-02 17:19:55 · 219 · D3 engine update+repair · done
+- 2026-10-02 17:19:55 · 219 · D4 retail upgrade · started
+- 2026-10-02 17:21:47 · 219 · D4 retail upgrade · done
+- 2026-10-02 17:21:47 · 219 · D5 mods install+update · started
+- 2026-10-02 17:25:46 · 219 · D5 mods install+update · done
+- 2026-10-02 17:25:46 · 219 · D6 bootstrap · started
+- 2026-10-02 17:29:17 · 219 · D6 bootstrap · done
+- 2026-10-02 17:29:17 · 219 · D7 busy refusal flow · started
+- 2026-10-02 17:31:59 · 219 · D7 busy refusal flow · done
+- 2026-10-02 17:31:59 · 219 · D8 failure log all modules · started
+- 2026-10-02 17:34:09 · 219 · D8 failure log all modules · done
+- 2026-10-02 17:34:09 · 219 · D9 failure detail renders params · started
+- 2026-10-02 17:35:03 · 219 · D9 failure detail renders params · done
+- 2026-10-02 17:35:03 · 219 · D10 docs · started
+- 2026-10-02 17:35:48 · 219 · D10 docs · done
+- 2026-10-02 17:35:48 · 219 · verify · started
+- 2026-10-02 17:44:59 · 219 · verify · blocked: mods-install-over-manual red, fixing
+- 2026-10-02 17:44:59 · 219 · D11 fix over-manual · started
+- 2026-10-02 17:49:46 · 219 · D11 fix over-manual · done
+- 2026-10-02 17:49:46 · 219 · verify · done (re-verified flows after fix by D11 agent)
+- 2026-10-02 17:49:46 · 219 · review 1 · started
+- 2026-10-02 17:52:07 · 219 · review 1 · done
+- 2026-10-02 17:52:07 · 219 · review-fix 1 · started
+- 2026-10-02 17:53:31 · 219 · review-fix 1 · done
+- 2026-10-02 17:53:31 · 219 · review 2 (hard) · started
+- 2026-10-02 17:59:44 · 219 · review 2 (hard) · done
+- 2026-10-02 17:59:44 · 219 · review-fix 2 · started
+- 2026-10-02 18:02:52 · 219 · review-fix 2 · done
+- 2026-10-02 18:02:52 · 219 · verify 2 · started
+- 2026-10-02 18:02:52 · 219 · review 3 · started
+- 2026-10-02 18:12:15 · 219 · verify 2 · done
+- 2026-10-02 18:12:15 · 219 · review 3 · done
+- 2026-10-02 18:12:15 · 219 · review-fix 3 · started
+- 2026-10-02 18:13:01 · 219 · review-fix 3 · done
+- 2026-10-02 18:13:01 · 219 · review 4 · started
+- 2026-10-02 18:13:52 · 219 · review 4 · done
+- 2026-10-02 18:13:52 · 219 · story · done
+- 2026-10-02 18:14:09 · gate · short suites · started
+- 2026-10-02 18:16:58 · gate · short suites · done · green
+- 2026-10-02 18:16:58 · gate · e2e-all · started
+- 2026-10-02 19:07:01 · gate · e2e-all · done · 134/138 in 2985s, red: bootstrap-wizard mods-view quit-persists-state
+- 2026-10-02 19:14:24 · gate · attribution · done · 209 bootstrap-wizard, 220 quit-persists-state, mods-view pre-existing
+- 2026-10-02 19:14:30 · gate · fix 209 220 · started
+- 2026-10-02 19:17:25 · gate · fix 209 220 · done · 2 fix commits
+- 2026-10-02 19:17:25 · gate · e2e-all (confirm) · started
+- 2026-10-02 20:06:58 · gate · e2e-all (confirm) · done

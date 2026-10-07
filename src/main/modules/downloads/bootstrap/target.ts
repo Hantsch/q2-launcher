@@ -1,58 +1,27 @@
 import { randomUUID } from 'node:crypto'
 import { rm, writeFile } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, sep } from 'node:path'
-import type { BootstrapTargetVerdict } from '@shared/modules/downloads'
-import type { ValidationResult } from '@shared/types'
-import { canonicalizePath, isDirectory, listDir, pathKey } from '../../../lib/fs-utils'
-import { inspectInstallation } from '../../../services/inspector'
+import { basename, dirname, isAbsolute, join, sep } from 'node:path'
+import type { BootstrapTargetProposal, BootstrapTargetVerdict } from '@shared/modules/downloads'
+import { isReservedDeviceStem, toFolderName } from '@shared/modules/downloads-folder-name'
+import { canonicalizePath, isDirectory, isInside, listDir, pathExists } from '../../../lib/fs-utils'
+import { inspectInstallation, looksLikeQuake2 } from '../../../services/inspector'
 
 /**
- * Story 074 D2: computes the target-folder verdict the bootstrap wizard's target-folder step
- * renders (AC3) - "the wizard renders verdicts, it never judges paths itself" (Decisions
+ * Story 074: computes the target-folder verdict the bootstrap wizard's target-folder step
+ * renders - "the wizard renders verdicts, it never judges paths itself" (Decisions
  * (Sprint)). Everything here is a pure fact-gathering pass over one folder; the wizard UI (a later
  * deliverable) decides what to *do* with a non-blocking warning.
  */
 
-/** How many directory entries `entries[]` carries at most - just enough for the AC3 warning list. */
+/** How many directory entries `entries[]` carries at most - just enough for the warning list. */
 export const MAX_TARGET_VERDICT_ENTRIES = 20
-
-/**
- * Windows reserved device names, checked against the target's final path segment without its
- * extension (`NUL.txt` is exactly as unusable as `NUL`). Case-insensitive, like every other check
- * here - Windows paths are.
- */
-const RESERVED_DEVICE_NAMES = new Set([
-  'con',
-  'prn',
-  'aux',
-  'nul',
-  'com1',
-  'com2',
-  'com3',
-  'com4',
-  'com5',
-  'com6',
-  'com7',
-  'com8',
-  'com9',
-  'lpt1',
-  'lpt2',
-  'lpt3',
-  'lpt4',
-  'lpt5',
-  'lpt6',
-  'lpt7',
-  'lpt8',
-  'lpt9',
-])
 
 /** Matches a `\\.\...` or `\\?\...` device/verbatim path, never a real directory a wizard writes to. */
 const DEVICE_PATH_RE = /^\\\\[.?]\\/
 
 export interface ComputeTargetVerdictOptions {
-  /** Overrides `process.env`, so a test can set `ProgramFiles`/`ProgramFiles(x86)` without
-   * touching the real environment. Defaults to `process.env`. */
-  env?: NodeJS.ProcessEnv
+  /** `AppContext.env`; only `ProgramFiles`/`ProgramFiles(x86)` are read. */
+  env: NodeJS.ProcessEnv
   /**
    * Absolute directories the target must never be inside of - the launcher's own installation
    * directory. Defaults to `[process.resourcesPath]` when it is set; `app.getAppPath()` is
@@ -65,37 +34,15 @@ export interface ComputeTargetVerdictOptions {
   protectedDirs?: string[]
 }
 
-/**
- * `looksLikeQuake2` from `src/main/services/installations.ts`, replicated rather than imported:
- * that function is not exported, and this deliverable must not change `installations.ts`'s
- * behavior to get at it. Keep this in sync with that copy if the "what counts as installed" rule
- * ever changes.
- */
-function looksLikeQuake2(result: ValidationResult): boolean {
-  if (result.status === 'missing') return false
-  const missingBaseDir = result.checks.some(
-    (check) => check.id === 'base-game-dir' && check.severity === 'error',
-  )
-  return !missingBaseDir || result.engineKind !== 'unknown'
-}
-
-/** True when `child` is `parent` itself or lives somewhere underneath it. Case-insensitive via
- * `pathKey`, since both inputs are expected to already be absolute/canonical. */
-function isInsideDir(child: string, parent: string): boolean {
-  const childKey = pathKey(child)
-  const parentKey = pathKey(parent)
-  return childKey === parentKey || childKey.startsWith(parentKey + sep)
-}
-
 /** Case-insensitive prefix match against `%ProgramFiles%`/`%ProgramFiles(x86)%`, when set. */
 function isUnderProgramFiles(canonicalTarget: string, env: NodeJS.ProcessEnv): boolean {
   const roots = [env.ProgramFiles, env['ProgramFiles(x86)']].filter((v): v is string => !!v)
-  return roots.some((root) => isInsideDir(canonicalTarget, root))
+  return roots.some((root) => isInside(root, canonicalTarget))
 }
 
 function isReservedDeviceName(canonicalTarget: string): boolean {
   const stem = basename(canonicalTarget).split('.')[0]?.toLowerCase() ?? ''
-  return RESERVED_DEVICE_NAMES.has(stem)
+  return isReservedDeviceStem(stem)
 }
 
 /**
@@ -126,7 +73,7 @@ async function probeWritable(dir: string): Promise<boolean> {
 }
 
 /**
- * Story 089 D2: the path-shape half of `computeTargetVerdict`'s `unsafePath` check, pulled out so
+ * Story 089: the path-shape half of `computeTargetVerdict`'s `unsafePath` check, pulled out so
  * `game-data-source.ts`'s `inspectGameDataSource` can reject the same class of unsafe paths (device
  * paths, non-absolute paths, reserved Windows device names) without pulling in the target-specific
  * `protectedDirs`/writability/`alreadyInstalled` checks below, which need a *target* path and make
@@ -144,9 +91,9 @@ export async function isUnsafeAbsolutePath(path: string): Promise<boolean> {
 
 export async function computeTargetVerdict(
   targetPath: string,
-  options: ComputeTargetVerdictOptions = {},
+  options: ComputeTargetVerdictOptions,
 ): Promise<BootstrapTargetVerdict> {
-  const env = options.env ?? process.env
+  const { env } = options
   const protectedDirs =
     options.protectedDirs ?? (process.resourcesPath ? [process.resourcesPath] : [])
 
@@ -154,7 +101,7 @@ export async function computeTargetVerdict(
 
   const unsafePath =
     (await isUnsafeAbsolutePath(targetPath)) ||
-    protectedDirs.some((dir) => isInsideDir(canonicalTarget, dir))
+    protectedDirs.some((dir) => isInside(dir, canonicalTarget))
 
   const programFiles = isUnderProgramFiles(canonicalTarget, env)
 
@@ -194,4 +141,40 @@ export async function computeTargetVerdict(
     blocked: alreadyInstalled,
     ...(alreadyInstalled ? { blockedReason: 'alreadyInstalled' as const } : {}),
   }
+}
+
+const MAX_FOLDER_SUFFIX = 99
+
+/**
+ * Proposes where a bootstrap installs: the parent itself when it is missing or empty, otherwise a
+ * subfolder named after the installation. A typed name is the user's decision and is never
+ * renumbered; an existing empty folder is reused rather than numbered past. (story 240)
+ */
+export async function proposeBootstrapTarget(
+  parentPath: string,
+  folderName: string,
+  options: { userTyped: boolean },
+): Promise<BootstrapTargetProposal> {
+  const parentExists = await isDirectory(parentPath)
+  if (!parentExists || (await listDir(parentPath)).names.length === 0) {
+    return { targetPath: parentPath, folderName: '', installHere: true }
+  }
+
+  const base = toFolderName(folderName)
+  let chosen = base
+  if (!options.userTyped) {
+    for (let n = 1; n <= MAX_FOLDER_SUFFIX; n++) {
+      const name = n === 1 ? base : `${base} (${n})`
+      if (await isFreeOrEmptyDir(join(parentPath, name))) {
+        chosen = name
+        break
+      }
+    }
+  }
+  return { targetPath: join(parentPath, chosen), folderName: chosen, installHere: false }
+}
+
+async function isFreeOrEmptyDir(path: string): Promise<boolean> {
+  if (await isDirectory(path)) return (await listDir(path)).names.length === 0
+  return !(await pathExists(path))
 }

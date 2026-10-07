@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
+import { makeJob } from '../../../../../test-support/fixtures'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type {
   BootstrapEngineOption,
   BootstrapEngineOptionsEmptyReason,
   BootstrapSummary,
+  BootstrapTargetProposal,
   BootstrapTargetVerdict,
   DetectedRetailSource,
   DownloadFailure,
@@ -35,7 +38,7 @@ vi.hoisted(() => {
 
 const invokeMock = vi.fn(async (...args: [string, ...unknown[]]) => {
   if (args[0] === 'installations:pickFolder') return 'D:\\Games\\Quake II'
-  return { ok: true }
+  return { ok: true as const }
 })
 
 vi.mock('../../../lib/bridge', () => ({
@@ -72,25 +75,28 @@ const summary: BootstrapSummary = {
 }
 
 const getDownloadFailures = vi.fn(async (): Promise<{ ok: true; value: DownloadFailure[] }> => ({
-  ok: true,
+  ok: true as const,
   value: [],
 }))
 
 // Story 100 D7: `getBootstrapEngineOptions` now answers `{ options, emptyReason }` - these fixtures
 // keep `emptyReason: null` throughout, since none of these tests are about an empty answer.
 const getBootstrapEngineOptions = vi.fn(async () => ({
-  ok: true,
+  ok: true as const,
   value: { options: engineOptions, emptyReason: null as BootstrapEngineOptionsEmptyReason },
 }))
 const startBootstrapInstall = vi.fn(async () => ({
-  ok: true,
+  ok: true as const,
   value: { jobId: 'job-1', installationId: 'inst-1' },
 }))
-const getBootstrapSummary = vi.fn(async () => ({ ok: true, value: summary }))
+const getBootstrapSummary = vi.fn(async () => ({ ok: true as const, value: summary }))
 // Story 088 D5: no detected sources by default - the existing (pre-088) flows never see the
 // copy choice at all, matching AC1's "absent when none is found".
 const getDetectedRetailSources = vi.fn(
-  async (): Promise<{ ok: true; value: DetectedRetailSource[] }> => ({ ok: true, value: [] }),
+  async (): Promise<{ ok: true; value: DetectedRetailSource[] }> => ({
+    ok: true as const,
+    value: [],
+  }),
 )
 
 // Story 089 D4: defaults to a `'retail'` verdict, so a test that only cares about reaching the
@@ -98,7 +104,7 @@ const getDetectedRetailSources = vi.fn(
 // for cases that override it.
 const getGameDataSourceVerdict = vi.fn(
   async (): Promise<{ ok: true; value: GameDataSourceVerdict }> => ({
-    ok: true,
+    ok: true as const,
     value: {
       rootPath: 'E:\\Owned\\Quake II',
       kind: 'retail',
@@ -110,29 +116,52 @@ const getGameDataSourceVerdict = vi.fn(
   }),
 )
 
-vi.mock('../client', () => ({
-  getBootstrapEngineOptions: (...args: unknown[]) =>
-    getBootstrapEngineOptions(...(args as [])),
-  getBootstrapTargetVerdict: vi.fn(async () => ({ ok: true, value: verdict })),
-  getBootstrapSummary: (...args: unknown[]) => getBootstrapSummary(...(args as [])),
-  startBootstrapInstall: (...args: unknown[]) => startBootstrapInstall(...(args as [])),
-  getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
-  getDetectedRetailSources: (...args: unknown[]) => getDetectedRetailSources(...(args as [])),
-  getGameDataSourceVerdict: (...args: unknown[]) => getGameDataSourceVerdict(...(args as [])),
-}))
+// Defaults to an empty picked folder (install right there); the folder-name tests override it.
+const installHereProposal = async (input: {
+  parentPath: string
+  folderName: string
+  userTyped: boolean
+}): Promise<{ ok: true; value: BootstrapTargetProposal }> => ({
+  ok: true as const,
+  value: { targetPath: input.parentPath, folderName: '', installHere: true },
+})
+const proposeBootstrapTarget = vi.fn(installHereProposal)
 
-function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
-    id: 'job-1',
-    moduleId: 'downloads',
+/** Models a non-empty parent: the install goes into `parent\<folderName>`. */
+function proposeSubfolder(): void {
+  proposeBootstrapTarget.mockImplementation(async (input) => ({
+    ok: true as const,
+    value: {
+      targetPath: `${input.parentPath}\\${input.folderName}`,
+      folderName: input.folderName,
+      installHere: false,
+    },
+  }))
+}
+
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    proposeBootstrapTarget: (...args: unknown[]) =>
+      proposeBootstrapTarget(...(args as [Parameters<typeof proposeBootstrapTarget>[0]])),
+    getBootstrapEngineOptions: (...args: unknown[]) => getBootstrapEngineOptions(...(args as [])),
+    getBootstrapTargetVerdict: vi.fn(async () => ({ ok: true as const, value: verdict })),
+    getBootstrapSummary: (...args: unknown[]) => getBootstrapSummary(...(args as [])),
+    startBootstrapInstall: (...args: unknown[]) => startBootstrapInstall(...(args as [])),
+    getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
+    getDetectedRetailSources: (...args: unknown[]) => getDetectedRetailSources(...(args as [])),
+    getGameDataSourceVerdict: (...args: unknown[]) => getGameDataSourceVerdict(...(args as [])),
+  }),
+)
+
+function bootstrapJob(overrides: Partial<Job> = {}): Job {
+  return makeJob({
     kind: 'bootstrap-install',
     labelKey: 'downloads.job.bootstrap',
-    status: 'running',
+    labelParams: undefined,
     progress: { ratio: 0.5, bytesDone: 500_000, bytesTotal: 1_000_000 },
     cancellable: false,
-    startedAt: new Date().toISOString(),
     ...overrides,
-  }
+  })
 }
 
 const diagnosticsFailure: DownloadFailure = {
@@ -180,7 +209,9 @@ async function runToRunningStep(): Promise<void> {
     ).toBe('D:\\Games\\Quake II'),
   )
   await waitFor(() =>
-    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(false),
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    ),
   )
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
@@ -202,12 +233,13 @@ beforeAll(async () => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  proposeBootstrapTarget.mockImplementation(installHereProposal)
   useLauncher.setState({ jobs: [] })
 })
 
 describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
   it('a running job triggers no fetch of getDownloadFailures at all', async () => {
-    useLauncher.setState({ jobs: [makeJob({ status: 'running' })] })
+    useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
 
     expect(screen.getByTestId('bootstrap-running-step').dataset.status).toBe('running')
@@ -215,11 +247,18 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
   })
 
   it('a succeeded job triggers no fetch of getDownloadFailures at all', async () => {
-    useLauncher.setState({ jobs: [makeJob({ status: 'running' })] })
+    useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
 
     act(() => {
-      useLauncher.setState({ jobs: [makeJob({ status: 'succeeded', progress: { ratio: 1, bytesDone: 1, bytesTotal: 1 } })] })
+      useLauncher.setState({
+        jobs: [
+          bootstrapJob({
+            status: 'succeeded',
+            progress: { ratio: 1, bytesDone: 1, bytesTotal: 1 },
+          }),
+        ],
+      })
     })
 
     await waitFor(() =>
@@ -230,13 +269,13 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
 
   it('a failed job fetches once, matches by jobId, and RunningStep shows the same cause detail', async () => {
     getDownloadFailures.mockResolvedValueOnce({ ok: true, value: [diagnosticsFailure] })
-    useLauncher.setState({ jobs: [makeJob({ status: 'running' })] })
+    useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
 
     act(() => {
       useLauncher.setState({
         jobs: [
-          makeJob({
+          bootstrapJob({
             status: 'failed',
             error: { key: 'downloads.error.installationNotPlayable' },
           }),
@@ -262,7 +301,7 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
     act(() => {
       useLauncher.setState({
         jobs: [
-          makeJob({
+          bootstrapJob({
             status: 'failed',
             error: { key: 'downloads.error.installationNotPlayable' },
             progress: { ratio: 1, bytesDone: 2, bytesTotal: 2 },
@@ -279,13 +318,13 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
 
   it('a failed job with no matching failure entry keeps just the single error line', async () => {
     getDownloadFailures.mockResolvedValueOnce({ ok: true, value: [] })
-    useLauncher.setState({ jobs: [makeJob({ status: 'running' })] })
+    useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
 
     act(() => {
       useLauncher.setState({
         jobs: [
-          makeJob({
+          bootstrapJob({
             status: 'failed',
             error: { key: 'downloads.error.installationNotPlayable' },
           }),
@@ -296,7 +335,9 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
     await waitFor(() => expect(getDownloadFailures).toHaveBeenCalledTimes(1))
     await waitFor(() =>
       expect(
-        screen.getByText('The files were downloaded, but the result was not a usable Quake II installation.'),
+        screen.getByText(
+          'The files were downloaded, but the result was not a usable Quake II installation.',
+        ),
       ).toBeTruthy(),
     )
     expect(document.querySelector('details')).toBeNull()
@@ -355,8 +396,11 @@ describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
     await waitFor(() =>
       expect(
-        (screen.getByTestId('bootstrap-target-path-input').querySelector('input') as HTMLInputElement)
-          .value,
+        (
+          screen
+            .getByTestId('bootstrap-target-path-input')
+            .querySelector('input') as HTMLInputElement
+        ).value,
       ).toBe('D:\\Games\\Quake II'),
     )
     await waitFor(() =>
@@ -377,6 +421,221 @@ describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
     await waitFor(() =>
       expect(startBootstrapInstall).toHaveBeenCalledWith(
         expect.objectContaining({ engine: 'r1q2' }),
+      ),
+    )
+  })
+})
+
+describe('BootstrapWizard installation name', () => {
+  async function walkToTargetStep(): Promise<HTMLInputElement> {
+    render(createElement(BootstrapWizard))
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-gamedata-choice-free-download')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-target-path-input')
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    return screen.getByTestId('bootstrap-name-input') as HTMLInputElement
+  }
+
+  it('the name field defaults to the automatic name and the typed name is sent', async () => {
+    const input = await walkToTargetStep()
+    expect(input.value).toBe('Q2PRO Demo')
+
+    fireEvent.change(input, { target: { value: '  My Quake  ' } })
+    await waitFor(() =>
+      expect(proposeBootstrapTarget).toHaveBeenLastCalledWith(
+        expect.objectContaining({ folderName: '  My Quake  ' }),
+      ),
+    )
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-confirm-total-size')
+    await waitFor(() =>
+      expect((screen.getByTestId('bootstrap-confirm-start') as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByTestId('bootstrap-confirm-start'))
+
+    await waitFor(() =>
+      expect(startBootstrapInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'My Quake' }),
+      ),
+    )
+  })
+
+  it('a blank name keeps Next disabled on the target step', async () => {
+    const input = await walkToTargetStep()
+
+    fireEvent.change(input, { target: { value: '   ' } })
+
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('BootstrapWizard install location', () => {
+  async function walkToTargetStep(): Promise<void> {
+    render(createElement(BootstrapWizard))
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-gamedata-choice-free-download')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-target-path-input')
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+  }
+
+  it('the target step shows the proposed final path', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+
+    await waitFor(() =>
+      expect(screen.getByTestId('bootstrap-target-final-path').textContent).toBe(
+        'D:\\Games\\Quake II\\Q2PRO Demo',
+      ),
+    )
+    expect((screen.getByTestId('bootstrap-target-folder-name') as HTMLInputElement).value).toBe(
+      'Q2PRO Demo',
+    )
+  })
+
+  it('editing the folder name updates the final path and stops following the name', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+    await screen.findByTestId('bootstrap-target-folder-name')
+
+    fireEvent.change(screen.getByTestId('bootstrap-target-folder-name'), {
+      target: { value: 'quake-two' },
+    })
+    await waitFor(() =>
+      expect(screen.getByTestId('bootstrap-target-final-path').textContent).toBe(
+        'D:\\Games\\Quake II\\quake-two',
+      ),
+    )
+    expect(proposeBootstrapTarget).toHaveBeenLastCalledWith(
+      expect.objectContaining({ folderName: 'quake-two', userTyped: true }),
+    )
+
+    fireEvent.change(screen.getByTestId('bootstrap-name-input'), { target: { value: 'Renamed' } })
+    await waitFor(() =>
+      expect(screen.getByTestId('bootstrap-target-final-path').textContent).toBe(
+        'D:\\Games\\Quake II\\quake-two',
+      ),
+    )
+  })
+
+  it('Next stays disabled while the proposal for an edited folder name is loading', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+
+    let resolveProposal: (value: Awaited<ReturnType<typeof installHereProposal>>) => void = () => {}
+    proposeBootstrapTarget.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveProposal = resolve
+        }),
+    )
+    fireEvent.change(screen.getByTestId('bootstrap-target-folder-name'), {
+      target: { value: 'quake-two' },
+    })
+
+    await waitFor(() => expect(proposeBootstrapTarget).toHaveBeenCalledTimes(2))
+    expect(screen.getByTestId('bootstrap-target-folder-name')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+
+    act(() =>
+      resolveProposal({
+        ok: true,
+        value: {
+          targetPath: 'D:\\Games\\Quake II\\quake-two',
+          folderName: 'quake-two',
+          installHere: false,
+        },
+      }),
+    )
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+  })
+
+  it('a failed proposal does not leave Next enabled', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+
+    proposeBootstrapTarget.mockImplementationOnce((async () => ({
+      ok: false as const,
+      error: { key: 'common.error.unknown' },
+    })) as unknown as typeof installHereProposal)
+    fireEvent.change(screen.getByTestId('bootstrap-target-folder-name'), {
+      target: { value: 'broken' },
+    })
+
+    await waitFor(() => expect(proposeBootstrapTarget).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        true,
+      ),
+    )
+  })
+
+  it('an empty folder installs right here without a folder-name field', async () => {
+    await walkToTargetStep()
+
+    await screen.findByTestId('bootstrap-target-install-here')
+    expect(screen.getByTestId('bootstrap-target-install-here').textContent).toBe(
+      'Installs directly into this empty folder',
+    )
+    expect(screen.getByTestId('bootstrap-target-final-path').textContent).toBe(
+      'D:\\Games\\Quake II',
+    )
+    expect(screen.queryByTestId('bootstrap-target-folder-name')).toBeNull()
+  })
+
+  it('the confirm step states the final path', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-confirm-total-size')
+    expect(screen.getByTestId('bootstrap-confirm-target-path').textContent).toBe(
+      'D:\\Games\\Quake II\\Q2PRO Demo',
+    )
+    await waitFor(() =>
+      expect((screen.getByTestId('bootstrap-confirm-start') as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByTestId('bootstrap-confirm-start'))
+    await waitFor(() =>
+      expect(startBootstrapInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ targetPath: 'D:\\Games\\Quake II\\Q2PRO Demo' }),
       ),
     )
   })
@@ -546,7 +805,9 @@ describe('BootstrapWizard game-data step (story 088 D5)', () => {
 
     // Clicking the disabled row must not change the selection.
     fireEvent.click(unverifiedRow)
-    expect(screen.getByTestId('bootstrap-gamedata-source-0').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('bootstrap-gamedata-source-0').getAttribute('aria-pressed')).toBe(
+      'true',
+    )
 
     await waitFor(() =>
       expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
@@ -604,7 +865,10 @@ describe('BootstrapWizard game-data step (story 088 D5)', () => {
 
     await waitFor(() =>
       expect(getBootstrapSummary).toHaveBeenCalledWith(
-        expect.objectContaining({ dataSource: 'store-copy', copySourcePath: 'C:\\Steam\\Quake II' }),
+        expect.objectContaining({
+          dataSource: 'store-copy',
+          copySourcePath: 'C:\\Steam\\Quake II',
+        }),
       ),
     )
   })

@@ -1,5 +1,5 @@
 import type { ConfigProfile } from '@shared/modules/config'
-import type { ProfileChangeSet } from '@shared/config/profile-diff'
+import type { ProfileChangeSet } from '@shared/config/profile/profile-diff'
 import { useProfileChanges } from './profile-changes'
 import { useRawDraft } from './raw-draft'
 import { isProfileDirty } from './save-bar'

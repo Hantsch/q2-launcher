@@ -129,7 +129,10 @@ export async function teardown() {
 
 async function waitForScanIdle(page, timeout) {
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') === 'false',
+    () =>
+      document
+        .querySelector('[data-testid="servers-scan-status"]')
+        ?.getAttribute('data-running') === 'false',
     null,
     { timeout },
   )
@@ -142,7 +145,9 @@ export default async function serversListStates({ page, step, shot }) {
   await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScanIdle(page, TIMEOUT_MS)
 
-  step('round 1: refresh against an empty list finds nothing (AC2) but the dead source still fails (AC3)')
+  step(
+    'round 1: refresh against an empty list finds nothing (AC2) but the dead source still fails (AC3)',
+  )
   await refresh.click({ timeout: TIMEOUT_MS })
   const emptyState = page.getByTestId('servers-list-empty')
   await emptyState.waitFor({ state: 'visible', timeout: SCAN_SETTLE_TIMEOUT_MS })
@@ -158,7 +163,9 @@ export default async function serversListStates({ page, step, shot }) {
   }
   await shot('round1-empty-with-failure')
 
-  step("AC2: the empty state's settings link opens and scrolls to the servers source settings section")
+  step(
+    "AC2: the empty state's settings link opens and scrolls to the servers source settings section",
+  )
   await page.getByTestId('servers-list-empty-settings').click({ timeout: TIMEOUT_MS })
   await page
     .getByTestId('settings-section-servers')
@@ -170,7 +177,9 @@ export default async function serversListStates({ page, step, shot }) {
   await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScanIdle(page, TIMEOUT_MS)
 
-  step('round 2 setup: point the stub list at two live responders, delayed under the seeded timeout')
+  step(
+    'round 2 setup: point the stub list at two live responders, delayed under the seeded timeout',
+  )
   listServer.setAddresses(ROUND_TWO_SPECS.map((spec) => `127.0.0.1:${spec.port}`))
   responders.setDelayMs(LOADING_DELAY_MS)
 
@@ -179,7 +188,9 @@ export default async function serversListStates({ page, step, shot }) {
   const loading = page.getByTestId('servers-list-loading')
   await loading.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="servers-list-loading"]')?.getAttribute('data-found') === '2',
+    () =>
+      document.querySelector('[data-testid="servers-list-loading"]')?.getAttribute('data-found') ===
+      '2',
     null,
     { timeout: TIMEOUT_MS },
   )
@@ -187,12 +198,16 @@ export default async function serversListStates({ page, step, shot }) {
   const pendingAttr = await loading.getAttribute('data-pending')
   const loadingText = ((await loading.textContent()) ?? '').trim()
   if (foundAttr !== '2') {
-    throw new Error(`expected servers-list-loading's data-found to be "2", got ${JSON.stringify(foundAttr)}`)
+    throw new Error(
+      `expected servers-list-loading's data-found to be "2", got ${JSON.stringify(foundAttr)}`,
+    )
   }
   if (loadingText.length === 0) {
     throw new Error('expected servers-list-loading to render visible progress text, got none')
   }
-  console.log(`  loading: data-found=${foundAttr} data-pending=${pendingAttr} text=${JSON.stringify(loadingText)}`)
+  console.log(
+    `  loading: data-found=${foundAttr} data-pending=${pendingAttr} text=${JSON.stringify(loadingText)}`,
+  )
   await shot('round3-loading')
 
   step('wait for round 2 to finish')
@@ -212,7 +227,8 @@ export default async function serversListStates({ page, step, shot }) {
   const firstRowTestId = `servers-row-127.0.0.1:${ROUND_TWO_SPECS[0].port}`
   await page.getByTestId(firstRowTestId).click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
-    (testId) => document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('data-selected') === 'true',
+    (testId) =>
+      document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('data-selected') === 'true',
     firstRowTestId,
     { timeout: TIMEOUT_MS },
   )

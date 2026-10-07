@@ -149,13 +149,13 @@ its source file and line number, unchanged; a profile without such lines shows a
 
 ### Coverage (AC → D)
 
-| Acceptance criterion | Deliverable |
-| --- | --- |
-| Pick an installation to import from | D3 (`import.scan`) + D4 (picker UI) |
-| `exec` resolved in engine load order | D1 (`exec` detection) + D2 (resolution/order) |
-| Recognized cvars and binds populate the profile | D1 (classify) + D3 (commit → profile) |
-| Unknown content preserved and shown | D1/D2 (preserved) + D4 (preview list) + D5 (profile) |
-| Result is an ordinary profile | D3 (created via 001's store API) + test plan step 6 |
+| Acceptance criterion                            | Deliverable                                          |
+| ----------------------------------------------- | ---------------------------------------------------- |
+| Pick an installation to import from             | D3 (`import.scan`) + D4 (picker UI)                  |
+| `exec` resolved in engine load order            | D1 (`exec` detection) + D2 (resolution/order)        |
+| Recognized cvars and binds populate the profile | D1 (classify) + D3 (commit → profile)                |
+| Unknown content preserved and shown             | D1/D2 (preserved) + D4 (preview list) + D5 (profile) |
+| Result is an ordinary profile                   | D3 (created via 001's store API) + test plan step 6  |
 
 ## Model Hints
 
@@ -203,7 +203,7 @@ tested and typechecked clean; a hard-tier review passed with one medium finding 
    `src/main/lib/schemas.ts` as Decision 15 literally says. Every other config-module payload
    schema already lives there (established in 001–004) and `index.ts` already imports from
    there — the story's text was stale, not the intent. `src/main/lib/schemas.ts` was still
-   touched, but only for its actual job: the *persisted* `configProfileSchema` gained the new
+   touched, but only for its actual job: the _persisted_ `configProfileSchema` gained the new
    `unrecognized` field with the repo's forgiving `.catch(() => [])` convention.
 2. **`src/renderer/src/views/ConfigView.tsx` does not exist.** The real file, already present
    since story 001, is `src/renderer/src/modules/config/ConfigView.tsx` — that is the one D4/D5
@@ -226,10 +226,10 @@ the import path writes to disk (Decision 14), the renderer's `Outcome` flattenin
 
 One **medium finding (F1)** was raised and fixed post-review: Decision 6 asks for "depth 16
 plus a visited-file set", but D2 deliberately replaced the visited-file set with an
-active-*chain* set (so a file legitimately `exec`'d twice — e.g. by both `config.cfg` and
+active-_chain_ set (so a file legitimately `exec`'d twice — e.g. by both `config.cfg` and
 `autoexec.cfg` — isn't wrongly treated as a cycle and dropped). That's the right call for
 correctness, but it left the depth guard as the only bound on total work, and depth alone
-does not bound *fan-out*: a config that `exec`s two distinct, non-cyclic files at every level
+does not bound _fan-out_: a config that `exec`s two distinct, non-cyclic files at every level
 of a 16-deep chain is legal under the chain guard yet opens up to 2^16 files. Fixed by adding
 `MAX_EXEC_EXPANSIONS = 512`, a flat ceiling on total files opened across the whole import,
 independent of depth — a budget-exhausted `exec` degrades to a preserved/warned line exactly
@@ -237,6 +237,7 @@ like a missing or cyclic one, never an aborted import or a hang. New test:
 `import-reader.test.ts` — "refuses further exec once 512 files have been opened...".
 
 Six low-severity/nit findings (F2–F9) were left unfixed, all in already-documented territory:
+
 - **F2–F6**: fidelity edge cases confined to a single physical line that mixes an `exec` with
   another command via `;` (`exec x.cfg; set a 1` applying in the "wrong" order relative to a
   hand-reconstructed line-order tie-break), a refused `exec`'s preserved text being a

@@ -47,9 +47,7 @@
 //
 // ## Selectors, not guesses
 //
-// `library.addExisting` ("Add existing", `LibraryView.tsx`'s own header button - not to be
-// confused with the sidebar's longer `rail.addExisting`, "Add existing installation…", which
-// opens the identical dialog from a different trigger), the real `AddExistingDialog.tsx` (a
+// The Library's "Add an installation" menu entry "Add existing installation…" (`useAddInstallationEntries.tsx`), the real `AddExistingDialog.tsx` (a
 // `role="dialog"` with no dedicated testids - its `Field`/`Input` controls have real accessible
 // labels via `Field`'s `htmlFor`, so `getByLabel` finds them; its engine verdict is `EngineBadge`'s
 // own `engine-badge` testid), and every testid `raw-inline-edit.mjs`/
@@ -62,23 +60,20 @@ import {
   writeLinuxJourneyInstallRoot,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** A real process launch/exit, end to end - generous, but this is never a download job. */
 const LAUNCH_TIMEOUT_MS = 15_000
 
 /** Mirrors `raw-inline-edit.mjs`'s own `PLAIN_PROFILE_FILE_NAME` - `resolveProfileFileNames`
- * (`@shared/config/profile-files.ts`) sanitizes "Plain Profile"'s space to `-`. */
+ * (`@shared/config/profile/profile-files.ts`) sanitizes "Plain Profile"'s space to `-`. */
 const PLAIN_PROFILE_FILE_NAME = 'Plain-Profile.cfg'
 
 const RUN_SUFFIX = Date.now().toString(36)
 const TYPED_LINE = `// q2l_flow_linux_journey_${RUN_SUFFIX}`
 
-/** Mirrors `src/renderer/src/i18n/locales/en.json`'s real strings - this flow drives the real
- * `AddExistingDialog`, which carries no dedicated testids of its own. `library.addExisting` (the
- * library header's own button) is the SHORT "Add existing" - not to be confused with
- * `rail.addExisting`'s longer "Add existing installation…", used by the sidebar's own trigger. */
-const ADD_EXISTING_BUTTON_LABEL = 'Add existing'
+const ADD_EXISTING_ENTRY_LABEL = 'Add existing installation…'
 const BROWSE_LABEL = 'Browse…'
 const SUBMIT_LABEL = 'Add installation'
 
@@ -101,7 +96,7 @@ export async function setup() {
   if (!spawnable) {
     console.warn(
       '  resources/bin/7za.exe is not vendored locally (run `npm run fetch:7za` first) - the ' +
-        "Play/launch half of this flow will be SKIPPED, loudly, at the step that needs it.",
+        'Play/launch half of this flow will be SKIPPED, loudly, at the step that needs it.',
     )
   }
 
@@ -116,13 +111,7 @@ export async function setup() {
 export default async function linuxUserJourney({ page, step, shot }) {
   // --- add an existing installation, through the real folder-pick stub ---------------------------
   step('open the library and start "Add existing"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  // `exact: true`: the rail's own trigger is labelled "Add existing installation…"
-  // (`rail.addExisting`), which contains this button's own "Add existing" (`library.addExisting`)
-  // as a substring - Playwright's default name match is substring, so both would otherwise match.
-  await page
-    .getByRole('button', { name: ADD_EXISTING_BUTTON_LABEL, exact: true })
-    .click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, ADD_EXISTING_ENTRY_LABEL, TIMEOUT_MS)
 
   const dialog = page.getByRole('dialog')
   await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -135,7 +124,9 @@ export default async function linuxUserJourney({ page, step, shot }) {
   await engineBadge.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const engineBadgeText = await engineBadge.innerText()
   if (engineBadgeText !== 'Q2PRO') {
-    throw new Error(`expected the folder to classify as Q2PRO, got: ${JSON.stringify(engineBadgeText)}`)
+    throw new Error(
+      `expected the folder to classify as Q2PRO, got: ${JSON.stringify(engineBadgeText)}`,
+    )
   }
   const shownPath = await dialog.getByLabel('Installation folder').inputValue()
   if (shownPath !== journeyRoot) {
@@ -205,7 +196,9 @@ export default async function linuxUserJourney({ page, step, shot }) {
   await resultPanel.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('config-saved')
 
-  step("assert the profile's canonical file on disk now contains the typed line (AC9's 'real file')")
+  step(
+    "assert the profile's canonical file on disk now contains the typed line (AC9's 'real file')",
+  )
   const canonicalPath = join(variantUserDataDir('populated'), PLAIN_PROFILE_FILE_NAME)
   const onDisk = readFileSync(canonicalPath, 'latin1')
   if (!onDisk.includes(TYPED_LINE)) {
@@ -220,7 +213,7 @@ export default async function linuxUserJourney({ page, step, shot }) {
 
   if (!spawnable) {
     console.warn(
-      'SKIPPING the Play/launch assertions (AC9\'s launch half): resources/bin/7za.exe is not ' +
+      "SKIPPING the Play/launch assertions (AC9's launch half): resources/bin/7za.exe is not " +
         'vendored locally on this Windows machine, so the fixture install root only carries a ' +
         'non-executable placeholder, not a real spawn target. The add-installation and ' +
         'config-edit halves above both ran for real. Run `npm run fetch:7za` and re-run this flow ' +
@@ -252,7 +245,9 @@ export default async function linuxUserJourney({ page, step, shot }) {
   const runningIndex = phases.indexOf('running')
   const exitedIndex = phases.indexOf('exited')
   if (runningIndex === -1) {
-    throw new Error(`launch state never reported 'running' - observed phases: ${JSON.stringify(phases)}`)
+    throw new Error(
+      `launch state never reported 'running' - observed phases: ${JSON.stringify(phases)}`,
+    )
   }
   if (exitedIndex === -1 || exitedIndex < runningIndex) {
     throw new Error(

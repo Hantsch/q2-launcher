@@ -1,5 +1,5 @@
 /**
- * Story 015 D7: the two pure pieces of collision handling that `BindSlot` and
+ * Story 015: the two pure pieces of collision handling that `BindSlot` and
  * its two host panels (`DualBindPanel`, `DropBindPanel`) share - naming the
  * current owner of a key, and computing the actions array a Replace has to
  * persist.
@@ -13,7 +13,7 @@
  * Pure, hook-free and DOM-free like `catalog-binds.ts`, so a vitest file can
  * import it without a DOM environment.
  *
- * Story 016 D4 adds `findModifierSlotCollision` alongside `findSlotCollision`
+ * Story 016 adds `findModifierSlotCollision` alongside `findSlotCollision`
  * (same file, same "does something already own this?" shape) rather than
  * folding it into `findBindCollision`/`BindCollision` itself: that type and
  * its `findBindCollision`/`releaseKey` pair are purpose-built for "who owns
@@ -23,7 +23,7 @@
  * angle at all would force three unrelated call sites to grow a branch they
  * can never take. `BindSlot` still renders it with the exact same banner
  * markup and the same Cancel/Replace button pair as `pending` below, which is
- * what AC 6 ("the same way") is actually asking for.
+ * what "the same way" actually asks for.
  */
 
 import {
@@ -32,12 +32,12 @@ import {
   type BindCollision,
   type BindCollisionIgnore,
   type BindSlot,
-} from '@shared/config/bind-collision'
-import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
-import { isMirroredValue } from '@shared/config/action-mirror'
-import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/modifier-layers'
-import { normalizeBindKey } from '@shared/config/key-names'
-import type { AltLayer } from '@shared/config/alt-layers'
+} from '@shared/config/validation/bind-collision'
+import { actionKeySlots, withKeySlot } from '@shared/config/catalog/action-slots'
+import { isMirroredValue } from '@shared/config/aliases/action-mirror'
+import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/aliases/modifier-layers'
+import { normalizeBindKey } from '@shared/config/syntax/key-names'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { applySlot } from './catalog-binds'
 
@@ -59,9 +59,9 @@ export interface SlotCollision {
  * - `baseBind`: the bound command itself (`+forward`), since a hand-written
  *   bind has no other identity.
  * - `action`: the colliding action's `name`. For a catalogue-materialised
- *   action that is D3's `nameForRow`, i.e. the row's own raw command text -
+ *   action that is `nameForRow`, i.e. the row's own raw command text -
  *   not its translated catalogue label. Reverse-resolving a label from a
- *   `catalogId` is deliberately out of scope (D7).
+ *   `catalogId` is deliberately out of scope.
  * - `layerOverride`: the layer's `name`, looked up in the same profile the
  *   collision was found in. `layerId` is the fallback and can only be reached
  *   if a layer disappeared between the two reads - a degraded but still
@@ -81,7 +81,7 @@ function ownerLabel(profile: ConfigProfile, collision: BindCollision): string {
 }
 
 /**
- * The layer name a row's Options cell shows for a modifier-bound slot (story 020 D6): the real
+ * The layer name a row's Options cell shows for a modifier-bound slot (story 020): the real
  * name of the `AltLayer` whose `triggerKey` matches `modifier`, when one exists yet, or the
  * generic name a fresh layer would get otherwise. Mirrors `ownerLabel`'s `layerOverride` case
  * ("prefer the real layer name, fall back to the generic one") but looks the layer up by
@@ -90,7 +90,9 @@ function ownerLabel(profile: ConfigProfile, collision: BindCollision): string {
  * `modifier-layers.ts`'s module doc comment).
  */
 export function layerNameForModifier(layers: AltLayer[], modifier: ModifierTrigger): string {
-  const layer = layers.find((candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier)
+  const layer = layers.find(
+    (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
+  )
   return layer?.name ?? MODIFIER_LAYER_NAME[modifier]
 }
 
@@ -117,7 +119,7 @@ export interface ReplaceInput {
   /** `draft.binds` - only read, never returned (see the doc comment below). */
   binds: Record<string, string>
   collision: BindCollision
-  /** The entry being assigned. Story 052 D8: an id, not a `CatalogRow` - a catalogue row is an
+  /** The entry being assigned. Story 052: an id, not a `CatalogRow` - a catalogue row is an
    * ordinary entry now, so there is one Replace path instead of a catalogue and a plain one. */
   actionId: string
   /** Which of the entry's key slots the capture was for - story 056: an index into the compacted
@@ -146,12 +148,12 @@ export interface ReplaceInput {
  *   an `updateProfileBinds` call (or into two action saves) would reintroduce
  *   exactly that window - please do not "simplify" it that way.
  *
- * Story 052 D8: the previous owner is released and *kept*. It used to be pruned when losing the
+ * Story 052: the previous owner is released and *kept*. It used to be pruned when losing the
  * key left a catalogue-materialised action with nothing assigned (decision 4) - the mirror image of
  * the lazy creation this story removes. A row is one of `profile.actions` now, so deleting the
  * entry would delete the row from the Controls tab: the user would take a key away from "Drop
  * shotgun" and watch that row disappear. An entry with nothing assigned is an unbound row, a shape
- * both the profile and the file (D2/D3's unbound line) carry.
+ * both the profile and the file (the unbound line) carry.
  */
 export function applyReplace({
   actions,
@@ -165,7 +167,7 @@ export function applyReplace({
   return applySlot(released, actionId, slotIndex, key)
 }
 
-/** What a modifier capture is about to overwrite, if anything (story 016 D4/D10, AC 6). */
+/** What a modifier capture is about to overwrite, if anything (story 0160). */
 export interface ModifierSlotCollision {
   modifier: ModifierTrigger
   key: string
@@ -191,21 +193,21 @@ export interface ModifierSlotCollision {
 
 /**
  * Would capturing `(modifier, key)` for the row currently being edited (`ignoreActionId` - always
- * a real entry id since story 052 D8, though the parameter stays optional for callers with no row
+ * a real entry id since story 052, though the parameter stays optional for callers with no row
  * of their own to exclude) replace a *different* assignment already sitting there?
  *
- * Story 016 D10: reads `actions` directly rather than the layer's stored override text, because
- * the actions array is what actually decides who owns a `(modifier, key)` pair since D7's
+ * Story 0160: reads `actions` directly rather than the layer's stored override text, because
+ * the actions array is what actually decides who owns a `(modifier, key)` pair since the action mirror's
  * `applyActionLayerMirror` - a layer's `overrides` map is only ever a generated mirror of it, one
  * `setActions`/`setLayers` call behind. Naming the occupant from `layer.overrides` (this
- * function's original D4 shape) could therefore only ever show the raw alias token
+ * function's original shape) could therefore only ever show the raw alias token
  * (`q2l_a_...`) the mirror wrote, never a friendly action name.
  *
  * `null` when nothing at `(modifier, key)` is occupied, by another action or by a hand-made
  * override.
  *
  * Checked in this order: another action's slot first (the common case now that a modifier
- * binding lives on the action itself, D6-D9), then a hand-made override - a value at `key` that
+ * binding lives on the action itself), then a hand-made override - a value at `key` that
  * `applyActionLayerMirror` never wrote (`isMirroredValue`, story 034: recognised by value against
  * every action, since a continuous catalogue row mirrors as its own `+command` rather than as an
  * alias token). The row's own current occupancy of `(modifier, key)`, if any, shows up as case one
@@ -213,7 +215,7 @@ export interface ModifierSlotCollision {
  * is what keeps its own mirror from being reported as a hand-made override.
  *
  * The action scan (case one) runs regardless of whether `modifier`'s layer object exists yet in
- * `layers` - `actions` is the authority on occupancy since D7's mirror, one save ahead of
+ * `layers` - `actions` is the authority on occupancy since the mirror, one save ahead of
  * `layers` catching up, so gating this on the layer already existing would miss a real collision
  * in the narrow window between two actions independently claiming the same combo before either
  * save's mirror pass has run. Only the hand-made-override fallback (case two) genuinely needs the
@@ -236,14 +238,16 @@ export function findModifierSlotCollision(
   ignoreActionId?: string,
 ): ModifierSlotCollision | null {
   const normalizedKey = normalizeBindKey(key)
-  const layer = layers.find((candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier)
+  const layer = layers.find(
+    (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
+  )
   const layerId = layer?.id ?? ''
   const layerName = layer?.name ?? MODIFIER_LAYER_NAME[modifier]
 
   for (const action of actions) {
     if (action.id === ignoreActionId) continue
     // An alias entry is never bound (story 019) - skip it even if it still carries stale
-    // key/modifier data from before it became an alias (review fix, Finding 4).
+    // key/modifier data from before it became an alias .
     if (action.kind === 'alias') continue
     const slots = actionKeySlots(action)
     for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
@@ -273,7 +277,7 @@ export function findModifierSlotCollision(
 export interface ModifierReplaceInput {
   /** The full draft actions array, same one `applySlot` is given elsewhere. */
   actions: ConfigAction[]
-  /** The entry being assigned - an id, not a `CatalogRow` (story 052 D8, see `ReplaceInput`). */
+  /** The entry being assigned - an id, not a `CatalogRow` (story 052, see `ReplaceInput`). */
   actionId: string
   /**
    * `findModifierSlotCollision`'s result for this exact `(modifier, key)`, or `null` when
@@ -309,7 +313,7 @@ export interface ModifierReplaceInput {
  * actions side to clear, and `applyActionLayerMirror` overwrites that raw value with the new
  * alias on the very next mirror pass regardless.
  *
- * Story 052 D8: the released occupant is kept, never pruned - same reasoning `applyReplace`'s doc
+ * Story 052: the released occupant is kept, never pruned - same reasoning `applyReplace`'s doc
  * comment spells out (a pruned entry is a row that vanishes from the Controls tab).
  */
 export function applyModifierReplace({
@@ -330,10 +334,10 @@ export function applyModifierReplace({
   //   the compacted index the Controls tab passes as `slotIndex`. Removing at a raw index is the
   //   one operation here that could shift a slot the scan had already accounted for.
   // - This is the same "release so something else can take the key" step as the shared
-  //   `releaseKey` (`applyReplace`'s path, `@shared/config/bind-collision`), which blanks in place
+  //   `releaseKey` (`applyReplace`'s path, `@shared/config/validation/bind-collision`), which blanks in place
   //   and cannot be changed from here (`src/shared/**` is out of this story's scope). Compacting in
   //   one of the two release paths and not the other is exactly the split that story 050's review
-  //   finding 5 was about.
+  //   that was about.
   //
   // The released row is still correct: `deriveRowState` filters an empty-key slot out, so it never
   // renders as a phantom key, and `applySlot`/`appendKeySlot` drop it on that row's next write.

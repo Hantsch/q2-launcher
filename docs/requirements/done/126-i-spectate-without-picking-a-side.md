@@ -83,18 +83,18 @@ Spectate is [[125]]'s join flow with a `mode: 'spectate'`. Nothing else is forke
 gave it.
 
 1. [x] **Data (D1)** — read `needpass` as an integer bitfield in `scan-service.ts`
-   `readServerInfoFields` and expose bit 1 as `ServerListEntry.spectatorPass?: boolean`, falling
-   back to the existing value like the other fields.
+       `readServerInfoFields` and expose bit 1 as `ServerListEntry.spectatorPass?: boolean`, falling
+       back to the existing value like the other fields.
 2. [x] **Composition (D2, main)** — the launch input 125 extended for the join password gains a
-   spectate flag (`spectate?: true`, zod in `ipc-schemas.ts`). When it is set, main's composition
-   puts `spectator = <spectatorPassword> ?? '1'` into [[125]]'s out-of-argv userinfo carrier and
-   sets no `password`. `+connect` stays last and unchanged. The composition is a pure, unit-tested
-   function next to 125's.
+       spectate flag (`spectate?: true`, zod in `ipc-schemas.ts`). When it is set, main's composition
+       puts `spectator = <spectatorPassword> ?? '1'` into [[125]]'s out-of-argv userinfo carrier and
+       sets no `password`. `+connect` stays last and unchanged. The composition is a pure, unit-tested
+       function next to 125's.
 3. [x] **Trigger (D3, renderer + e2e)** — a Spectate action beside Join (row + detail). It calls
-   125's join flow with `mode: 'spectate'`: the same address validation ([[107]]), mod-mismatch
-   warning, `launch:start` and history write ([[113]]). The only differences are that the prompt
-   is keyed on `spectatorPass` with the spectator i18n keys, and `spectate: true` is sent. There is
-   one e2e flow for it.
+       125's join flow with `mode: 'spectate'`: the same address validation ([[107]]), mod-mismatch
+       warning, `launch:start` and history write ([[113]]). The only differences are that the prompt
+       is keyed on `spectatorPass` with the spectator i18n keys, and `spectate: true` is sent. There is
+       one e2e flow for it.
 
 Files: `src/main/modules/servers/scan-service.ts`, `src/shared/modules/servers.ts`,
 `src/shared/types/launch.ts`, `src/shared/ipc-schemas.ts`, 125's composition module (under
@@ -135,6 +135,7 @@ Files: `src/main/modules/servers/scan-service.ts`, `src/shared/modules/servers.t
   - spectate without a password: the carrier holds `spectator` = `'1'`.
   - spectate never emits `password`.
   - join without `spectate` is unchanged.
+
 - **D3 — Spectate action, same flow.** Add a **Spectate** action next to 125's Join, in the server
   list row (`src/renderer/src/modules/servers/`, wherever 125 put Join) and in the detail view's
   Actions section. It calls **125's join-flow function/hook with `mode: 'spectate'`**. Add the
@@ -194,11 +195,13 @@ renderer's `JoinServerButton` gained a `mode` prop instead of a fork; Spectate s
 the list toolbar and the detail header.
 
 **Commit message:**
+
 ```
 126: i spectate without picking a side
 ```
 
 **Verification (narrow gate):**
+
 - `npm run build`, `npm run typecheck` — green (also re-run after the review-fix, still green).
 - `npx vitest run --changed HEAD` — 2338 tests, all story-relevant ones passed; 2 unrelated
   pre-existing flaky timeouts (`ServersSettingsSection.test.tsx`, `downloads/bootstrap/job.test.ts`),
@@ -217,8 +220,9 @@ the list toolbar and the detail header.
   directly and re-typechecked green; no second review cycle needed.
 
 **Decisions:**
+
 - Mismatch dialog copy ("Join anyway"/cancel) stays shared between join and spectate modes, per the
-  D3 text only requiring the *password*-prompt keys to differ — flagged by review as worth a look but
+  D3 text only requiring the _password_-prompt keys to differ — flagged by review as worth a look but
   out of scope for this story.
 - `scripts/lib/fixture.mjs`'s `writeJoinFixture` gained an optional `variant` param (default preserves
   125's existing caller) so `servers-spectate.mjs` reuses it instead of duplicating fixture setup.

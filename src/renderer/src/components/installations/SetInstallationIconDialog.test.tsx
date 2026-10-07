@@ -2,18 +2,17 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Installation } from '@shared/types'
 import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
 import { SHIPPED_ICONS } from '../../lib/installation-icons'
 import { SetInstallationIconDialog } from './SetInstallationIconDialog'
+import { makeInstallation } from '../../../../test-support/fixtures'
 
 /**
  * Story 067 D6, AC6: "a failed outcome shows a translated message and keeps the dialog open."
  *
- * `SetInstallationIconDialog` imports the real `useLauncher` store (not a mock, mirroring
- * `CreateInstallationDialog.test.ts` rather than `InstallationTile.test.tsx`) - its import chain
- * reaches `lib/bridge.ts`, which resolves `window.q2` at *module* scope and throws without a
+ * `SetInstallationIconDialog` imports the real `useLauncher` store (not a mock, unlike
+ * `InstallationTile.test.tsx`) - its import chain reaches `lib/bridge.ts`, which resolves `window.q2` at *module* scope and throws without a
  * stub, so `window.q2.invoke` is faked here and the store's own `setInstallationIcon` action
  * (a thin wrapper around `invoke('installations:setIcon', ...)`) runs for real against it. That
  * lets this test drive the exact failure path the dialog has to render inline: a failed
@@ -27,27 +26,6 @@ const { invokeMock } = vi.hoisted(() => {
   }
   return { invokeMock }
 })
-
-function makeInstallation(overrides: Partial<Installation> = {}): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: 'C:\\Games\\Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-    ...overrides,
-  }
-}
 
 beforeAll(async () => {
   await initI18n('en')
@@ -87,7 +65,9 @@ describe('SetInstallationIconDialog', () => {
     // The click handler is fire-and-forget (`onClick={() => void chooseFile()}`); `waitFor` retries
     // until the mocked pick's promise resolves and the store's invalidation has run.
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith('installations:pickIconFile', { installationId: 'inst-1' })
+      expect(invokeMock).toHaveBeenCalledWith('installations:pickIconFile', {
+        installationId: 'inst-1',
+      })
     })
     expect('inst-1' in useLauncher.getState().iconDataUrls).toBe(false)
   })

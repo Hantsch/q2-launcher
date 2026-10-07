@@ -7,7 +7,7 @@ created: 2026-09-24
 
 ## Requirement
 
-"Where is *this* person?" (concept §1) is the second of the two questions the whole browser exists
+"Where is _this_ person?" (concept §1) is the second of the two questions the whole browser exists
 for. A user keeps a handful of names; the launcher has to say, for each one, which server it is on
 right now, or that it is not found — without that costing the scan anything extra, because the
 concept's strongest guarantee about this feature is that "turning the watchlist on does not change
@@ -147,18 +147,36 @@ Build after [[130]] (gate) — read 130's `## Done` for the exact gate-declarati
 
 ```ts
 type WatchlistMatchMode = 'exact' | 'substring' | 'regex'
-interface WatchlistEntry { id: string; name: string; mode: WatchlistMatchMode; tooSlow: boolean }
-interface WatchlistMatch { address: string; serverName?: string; playerName: string;
-                           score: number; ping: number; seenAt: string /* ISO, roster time */ }
+interface WatchlistEntry {
+  id: string
+  name: string
+  mode: WatchlistMatchMode
+  tooSlow: boolean
+}
+interface WatchlistMatch {
+  address: string
+  serverName?: string
+  playerName: string
+  score: number
+  ping: number
+  seenAt: string /* ISO, roster time */
+}
 type WatchlistEntryStatus =
   | { entry: WatchlistEntry; state: 'offline' }
   | { entry: WatchlistEntry; state: 'found'; matches: WatchlistMatch[] } // ≥1, seenAt desc
-  | { entry: WatchlistEntry; state: 'left'; address: string; checkedAt: string;
-      reasonKey: 'servers.watchlist.left.needsFullScan' }
+  | {
+      entry: WatchlistEntry
+      state: 'left'
+      address: string
+      checkedAt: string
+      reasonKey: 'servers.watchlist.left.needsFullScan'
+    }
   | { entry: WatchlistEntry; state: 'too-slow' }
 // plus on every variant: recheck: 'pending' | 'no-reply' | null
-interface WatchlistSnapshot { asOf: string | null /* last stage-2 row processed */;
-                              entries: WatchlistEntryStatus[] }
+interface WatchlistSnapshot {
+  asOf: string | null /* last stage-2 row processed */
+  entries: WatchlistEntryStatus[]
+}
 ```
 
 Handlers (`SERVERS_WATCHLIST_HANDLERS`, own map, gated under `watchlist`): `watchlist.read` →
@@ -167,6 +185,7 @@ snapshot; `watchlist.add {name, mode}` / `watchlist.update {id, name, mode}` →
 `watchlist.recheck {id}` → `ScanStartResult`. Event `watchlist.changed` carries the snapshot.
 
 Steps:
+
 1. D1 contract + persistence (types above, schemas, `ServersState.watchlist`, row parse).
 2. D2 pure entry ops (validation, AC7) + pure matcher (sync exact/substring, self-contained
    `matchRegexNames`, snapshot builder) + reason-key strings.
@@ -179,74 +198,74 @@ Steps:
 ## Deliverables
 
 - [x] **D1 — Contract + persisted entries.** In `src/shared/modules/servers.ts` add the types from the
-  plan (`WatchlistMatchMode`, `WatchlistEntry`, `WatchlistMatch`, `WatchlistEntryStatus`,
-  `WatchlistSnapshot`), `WATCHLIST_NAME_MAX = 64`, `WATCHLIST_REGEX_BUDGET_MS = 100`,
-  `watchlistEntrySchema` (`mode: z.enum(['exact','substring','regex'])`, `tooSlow: z.boolean()`),
-  `watchlist: WatchlistEntry[]` on `ServersState`/`serversStateSchema`, `watchlist: []` in
-  `DEFAULT_SERVERS_STATE`, a separate `SERVERS_WATCHLIST_HANDLERS` map (`watchlist.read/add/update/
-  remove/recheck`) with its own `SERVERS_WATCHLIST_HANDLER_SCHEMAS` (add: `{name: string, mode}`;
-  update: `{id, name, mode}`; remove/recheck: `{id}`; read: void; all `.strict()`), and
-  `SERVERS_EVENTS.watchlistChanged = 'watchlist.changed'`. Keep it out of `SERVERS_HANDLERS` so 130's
-  completeness check can excuse it as gated. In `src/main/lib/schemas.ts` extend `parseServersState`
-  with a row-by-row `parseWatchlistEntryRow` (drop bad rows, dedupe by `id`, missing key → `[]`),
-  mirroring `parseManualServerRow`. Tests in `src/main/services/state.test.ts`: round trip of
-  entries in all three modes, a row with an unknown mode is dropped, a file without `watchlist`
-  parses to `[]`. Update any existing test asserting the exact `ServersState` key set.
+      plan (`WatchlistMatchMode`, `WatchlistEntry`, `WatchlistMatch`, `WatchlistEntryStatus`,
+      `WatchlistSnapshot`), `WATCHLIST_NAME_MAX = 64`, `WATCHLIST_REGEX_BUDGET_MS = 100`,
+      `watchlistEntrySchema` (`mode: z.enum(['exact','substring','regex'])`, `tooSlow: z.boolean()`),
+      `watchlist: WatchlistEntry[]` on `ServersState`/`serversStateSchema`, `watchlist: []` in
+      `DEFAULT_SERVERS_STATE`, a separate `SERVERS_WATCHLIST_HANDLERS` map (`watchlist.read/add/update/
+remove/recheck`) with its own `SERVERS_WATCHLIST_HANDLER_SCHEMAS` (add: `{name: string, mode}`;
+      update: `{id, name, mode}`; remove/recheck: `{id}`; read: void; all `.strict()`), and
+      `SERVERS_EVENTS.watchlistChanged = 'watchlist.changed'`. Keep it out of `SERVERS_HANDLERS` so 130's
+      completeness check can excuse it as gated. In `src/main/lib/schemas.ts` extend `parseServersState`
+      with a row-by-row `parseWatchlistEntryRow` (drop bad rows, dedupe by `id`, missing key → `[]`),
+      mirroring `parseManualServerRow`. Tests in `src/main/services/state.test.ts`: round trip of
+      entries in all three modes, a row with an unknown mode is dropped, a file without `watchlist`
+      parses to `[]`. Update any existing test asserting the exact `ServersState` key set.
 - [x] **D2 — Pure entry ops + matcher.** New `src/main/modules/servers/watchlist-entries.ts` (mirror
-  `manual-servers.ts` + `master-sources.ts`'s injectable `mintId = randomUUID`): `addWatchlistEntry(
-  list, {name, mode}, mintId)`, `updateWatchlistEntry(list, {id, name, mode})` (clears `tooSlow`),
-  `removeWatchlistEntry(list, id)` (unknown id = no-op). Validation, in this order, returning
-  `{ ok: false, reasonKey }`: trimmed name empty → `servers.watchlist.error.empty`; longer than
-  `WATCHLIST_NAME_MAX` → `servers.watchlist.error.tooLong`; mode `regex` and `new RegExp(name, 'i')`
-  throws → `servers.watchlist.error.invalidRegex`; unknown id on update → `servers.watchlist.error.
-  notFound`. Compile only — never `.test()` on main's thread. New `src/main/modules/servers/
-  watchlist-matcher.ts`: `matchPlainEntry(entry, players)` for exact (lower-cased equality) and
-  substring (lower-cased `includes`) returning every matching player; `matchRegexNames(pattern:
-  string, names: string[]): boolean[]` — **fully self-contained** (no imports, no outer references;
-  it is serialised with `.toString()` by D3) using `new RegExp(pattern, 'i')`; and
-  `buildWatchlistSnapshot(entries, matchesByEntry, leftByEntry, recheckByEntry, asOf)` producing
-  `WatchlistSnapshot` (no match → `offline`, `tooSlow` → `too-slow`, matches sorted `seenAt` desc,
-  **all** matches kept). Add the five `servers.watchlist.*` keys to
-  `src/renderer/src/i18n/locales/en.json`. Tests in `watchlist-entries.test.ts` and
-  `watchlist-matcher.test.ts`.
+      `manual-servers.ts` + `master-sources.ts`'s injectable `mintId = randomUUID`): `addWatchlistEntry(
+list, {name, mode}, mintId)`, `updateWatchlistEntry(list, {id, name, mode})` (clears `tooSlow`),
+      `removeWatchlistEntry(list, id)` (unknown id = no-op). Validation, in this order, returning
+      `{ ok: false, reasonKey }`: trimmed name empty → `servers.watchlist.error.empty`; longer than
+      `WATCHLIST_NAME_MAX` → `servers.watchlist.error.tooLong`; mode `regex` and `new RegExp(name, 'i')`
+      throws → `servers.watchlist.error.invalidRegex`; unknown id on update → `servers.watchlist.error.
+notFound`. Compile only — never `.test()` on main's thread. New `src/main/modules/servers/
+watchlist-matcher.ts`: `matchPlainEntry(entry, players)` for exact (lower-cased equality) and
+      substring (lower-cased `includes`) returning every matching player; `matchRegexNames(pattern:
+string, names: string[]): boolean[]` — **fully self-contained** (no imports, no outer references;
+      it is serialised with `.toString()` by D3) using `new RegExp(pattern, 'i')`; and
+      `buildWatchlistSnapshot(entries, matchesByEntry, leftByEntry, recheckByEntry, asOf)` producing
+      `WatchlistSnapshot` (no match → `offline`, `tooSlow` → `too-slow`, matches sorted `seenAt` desc,
+      **all** matches kept). Add the five `servers.watchlist.*` keys to
+      `src/renderer/src/i18n/locales/en.json`. Tests in `watchlist-entries.test.ts` and
+      `watchlist-matcher.test.ts`.
 - [x] **D3 — Regex worker host with a time budget.** New `src/main/modules/servers/watchlist-regex-host.ts`:
-  `createRegexHost({ budgetMs = WATCHLIST_REGEX_BUDGET_MS, createWorker? })` → `{ match(entryId,
-  pattern, names): Promise<{ ok: true; hits: boolean[] } | { ok: false; reason: 'too-slow' |
-  'worker-error' }>, dispose() }`. The worker is `new Worker(src, { eval: true })` where `src` is a
-  small CommonJS string: `require('node:worker_threads').parentPort` + `const matchRegexNames =
-  ${matchRegexNames.toString()}` from D2 — no second implementation, no new electron-vite entry.
-  One long-lived worker, jobs serialised FIFO (one job = one regex entry × one roster); each job
-  arms a `budgetMs` timer; on expiry `worker.terminate()`, resolve that job `too-slow`, respawn
-  lazily for the next queued job (queued jobs are not lost). `dispose()` terminates and resolves
-  pending jobs `worker-error`. Tests in `watchlist-regex-host.test.ts` with a **real** worker thread:
-  benign pattern hits; `(a+)+$` vs `'a'.repeat(30) + '!'` resolves `too-slow` within
-  `budgetMs + 400 ms` slack; a benign job queued behind it still resolves `ok` afterwards;
-  `budgetMs` asserted to equal 100.
+      `createRegexHost({ budgetMs = WATCHLIST_REGEX_BUDGET_MS, createWorker? })` → `{ match(entryId,
+pattern, names): Promise<{ ok: true; hits: boolean[] } | { ok: false; reason: 'too-slow' |
+'worker-error' }>, dispose() }`. The worker is `new Worker(src, { eval: true })` where `src` is a
+      small CommonJS string: `require('node:worker_threads').parentPort` + `const matchRegexNames =
+${matchRegexNames.toString()}` from D2 — no second implementation, no new electron-vite entry.
+      One long-lived worker, jobs serialised FIFO (one job = one regex entry × one roster); each job
+      arms a `budgetMs` timer; on expiry `worker.terminate()`, resolve that job `too-slow`, respawn
+      lazily for the next queued job (queued jobs are not lost). `dispose()` terminates and resolves
+      pending jobs `worker-error`. Tests in `watchlist-regex-host.test.ts` with a **real** worker thread:
+      benign pattern hits; `(a+)+$` vs `'a'.repeat(30) + '!'` resolves `too-slow` within
+      `budgetMs + 400 ms` slack; a benign job queued behind it still resolves `ok` afterwards;
+      `budgetMs` asserted to equal 100.
 - [x] **D4 — Watchlist service fed by the scan.** In `src/main/modules/servers/scan-service.ts` add an
-  optional `onStage2Row?: (row: ScanServerPush) => void` to `CreateScanServiceOptions`, called
-  synchronously from `onServer` for `stage === 'stage2'` rows **after** the existing entry merge and
-  emit, wrapped in try/catch, never awaited. New `src/main/modules/servers/watchlist-service.ts`:
-  `createWatchlistService({ getEntries, setEntries, getKnownServers /* scanService.read().entries */,
-  scanService, regexHost, emit, now? })` → `{ onStage2Row, read, add, update, remove, recheck,
-  dispose }`. On an ok `status` row: replace that address's matches (plain entries sync, regex entries
-  via `regexHost.match`, skipping `tooSlow`); a `too-slow` result persists `tooSlow: true` via
-  `setEntries`; `asOf` = row time; emit `watchlist.changed`. `add`/`update` validate via D2, persist,
-  then re-match that entry against `getKnownServers()` rosters (D-M, regex through the host, never
-  sync). `recheck(id)`: pick the most recent match's address (D-K), mark `recheck: 'pending'`, call
-  `scanService.start({ scope: { kind: 'server', address } })` and return its result; the next
-  stage-2 row for that address resolves it — still matched → `found` with fresh score/ping; ok
-  roster without the name → `left` (AC9); failed reply → keep previous state, `recheck: 'no-reply'`.
-  Entry not found / not currently `found` → `{ ok: false, reasonKey:
-  'servers.watchlist.error.notFound' }`. Tests in `watchlist-service.test.ts` and a new case in
-  `scan-service.test.ts`, using the existing `QueryServerFn` fakes (mirror `scan-service.test.ts`).
+      optional `onStage2Row?: (row: ScanServerPush) => void` to `CreateScanServiceOptions`, called
+      synchronously from `onServer` for `stage === 'stage2'` rows **after** the existing entry merge and
+      emit, wrapped in try/catch, never awaited. New `src/main/modules/servers/watchlist-service.ts`:
+      `createWatchlistService({ getEntries, setEntries, getKnownServers /* scanService.read().entries */,
+scanService, regexHost, emit, now? })` → `{ onStage2Row, read, add, update, remove, recheck,
+dispose }`. On an ok `status` row: replace that address's matches (plain entries sync, regex entries
+      via `regexHost.match`, skipping `tooSlow`); a `too-slow` result persists `tooSlow: true` via
+      `setEntries`; `asOf` = row time; emit `watchlist.changed`. `add`/`update` validate via D2, persist,
+      then re-match that entry against `getKnownServers()` rosters (D-M, regex through the host, never
+      sync). `recheck(id)`: pick the most recent match's address (D-K), mark `recheck: 'pending'`, call
+      `scanService.start({ scope: { kind: 'server', address } })` and return its result; the next
+      stage-2 row for that address resolves it — still matched → `found` with fresh score/ping; ok
+      roster without the name → `left` (AC9); failed reply → keep previous state, `recheck: 'no-reply'`.
+      Entry not found / not currently `found` → `{ ok: false, reasonKey:
+'servers.watchlist.error.notFound' }`. Tests in `watchlist-service.test.ts` and a new case in
+      `scan-service.test.ts`, using the existing `QueryServerFn` fakes (mirror `scan-service.test.ts`).
 - [x] **D5 — Gated wiring in the servers module.** In `src/main/modules/servers/index.ts`, only when 130's
-  main-side query says `watchlist` is unlocked: create the regex host and watchlist service, pass
-  `onStage2Row` to `createScanService`, and register the five `SERVERS_WATCHLIST_HANDLERS` through
-  130's gated declaration (`setEntries` = read/replace only `watchlist`, carrying every other
-  `ServersState` key over, like `favouritesAdd`). Locked: none of it exists — no handlers, no
-  observer, no worker; `state.json`'s `watchlist` untouched. `dispose()` disposes service + host.
-  Declare feature `watchlist` → `SERVERS_WATCHLIST_HANDLERS` wherever 130's declaration lives.
-  Tests in `src/main/modules/servers/index.test.ts` (mirror its existing setup harness).
+      main-side query says `watchlist` is unlocked: create the regex host and watchlist service, pass
+      `onStage2Row` to `createScanService`, and register the five `SERVERS_WATCHLIST_HANDLERS` through
+      130's gated declaration (`setEntries` = read/replace only `watchlist`, carrying every other
+      `ServersState` key over, like `favouritesAdd`). Locked: none of it exists — no handlers, no
+      observer, no worker; `state.json`'s `watchlist` untouched. `dispose()` disposes service + host.
+      Declare feature `watchlist` → `SERVERS_WATCHLIST_HANDLERS` wherever 130's declaration lives.
+      Tests in `src/main/modules/servers/index.test.ts` (mirror its existing setup harness).
 
 ## Model Hints
 
@@ -288,7 +307,7 @@ proven at unit/main level; `ui-acceptance-required` applies to 132.
 - AC8 → unit `src/main/modules/servers/watchlist-regex-host.test.ts` › "resolves a
   catastrophic-backtracking pattern too-slow within the budget plus slack" + › "runs a job queued
   behind a timed-out one on a fresh worker, in FIFO order" + `src/main/modules/servers/
-  watchlist-service.test.ts` › "AC8: a too-slow regex entry is marked and skipped while a plain
+watchlist-service.test.ts` › "AC8: a too-slow regex entry is marked and skipped while a plain
   entry in the same row matches normally"
 - AC9 → unit `src/main/modules/servers/watchlist-service.test.ts` › "AC9: a re-check that no
   longer finds the name marks the entry left and starts nothing further"

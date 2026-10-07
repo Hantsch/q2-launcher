@@ -20,7 +20,7 @@ function SampleLine({ sample, t }: { sample: RttSample; t: TFunction }) {
   const atIsValid = time !== null
   let text: string
   if (!atIsValid || (sample.rttMs !== null && !Number.isFinite(sample.rttMs))) {
-    text = t('servers.detail.reachability.sample.unknown')
+    text = t('common.label.unknown')
   } else if (sample.rttMs === null) {
     text = t('servers.detail.reachability.sample.noAnswer')
   } else {
@@ -28,7 +28,10 @@ function SampleLine({ sample, t }: { sample: RttSample; t: TFunction }) {
   }
 
   return (
-    <div className="flex min-w-0 items-baseline justify-between gap-3 py-0.5" data-testid="server-reachability-sample">
+    <div
+      className="flex min-w-0 items-baseline justify-between gap-3 py-0.5"
+      data-testid="server-reachability-sample"
+    >
       <span className="min-w-0 truncate text-xs text-ink-dim">{text}</span>
       {time !== null && <span className="shrink-0 text-xs text-ink-muted">{time}</span>}
     </div>
@@ -36,7 +39,7 @@ function SampleLine({ sample, t }: { sample: RttSample; t: TFunction }) {
 }
 
 /**
- * Story 124 D2: the detail pane's "how this server has answered" section - built from
+ * Story 124: the detail pane's "how this server has answered" section - built from
  * `ServerListEntry.status`/`lastSeenAt`/`rttHistory`, all already maintained by the scan service
  * (never re-derived here). History is rendered newest first without mutating `entry.rttHistory`
  * (oldest-first is the storage order, `RTT_HISTORY_LIMIT`-capped by `scan-merge.ts`). Every line

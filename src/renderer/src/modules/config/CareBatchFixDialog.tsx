@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { TidyUpOp } from '@shared/config/tidy-up'
+import type { TidyUpOp } from '@shared/config/profile/tidy-up'
 import type { ConfigProfile, TidyUpApplyResult } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { KIND_ORDER, opPreview } from './CareItemRow'
 import { applyTidyUp } from './client'
 import type { TidyUpFinding } from './lib/tidy-up-findings'
 
 /**
- * D6's "fix all safe findings" batch dialog: the one preview a per-row Apply
+ * The "fix all safe findings" batch dialog: the one preview a per-row Apply
  * cannot serve, because the whole point of the batch button is sending every
  * `auto` finding's ops in a single `tidyUp.apply` call (decision 13) rather
  * than one call per finding.
@@ -22,11 +23,11 @@ import type { TidyUpFinding } from './lib/tidy-up-findings'
  * groups its rows, and each op gets the same before/after preview
  * (`opPreview`, exported from `CareItemRow` rather than duplicated) so
  * this dialog never shows a coarser preview than the individual rows already
- * do - AC 6 requires nothing be applied without a preview, and "N operations"
+ * do - nothing is ever applied without a preview, and "N operations"
  * would not be one.
  *
- * Owns the IPC call itself (mirrors `DeleteProfileDialog`, not
- * `CleanupPanel`'s inline confirm state, since this is a standalone file):
+ * Owns the IPC call itself. It stays a Modal rather than a ConfirmDialog because it
+ * swaps to a result summary with a Close-only footer after applying:
  * Cancel/backdrop/Escape never call `applyTidyUp` at all, so nothing changes
  * on disk or in state unless Apply is clicked. On success it reports the new
  * profile back via `onProfileUpdated` immediately (so the section behind the
@@ -47,7 +48,7 @@ export function CareBatchFixDialog({
   onProfileUpdated: (profile: ConfigProfile) => void
 }) {
   const { t } = useTranslation()
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const [outcome, setOutcome] = useState<Outcome<TidyUpApplyResult> | null>(null)
 
   const ops: TidyUpOp[] = useMemo(() => findings.flatMap((finding) => finding.ops), [findings])
@@ -62,9 +63,7 @@ export function CareBatchFixDialog({
   )
 
   const handleApply = async (): Promise<void> => {
-    setSubmitting(true)
     const result = await applyTidyUp({ profileId: profile.id, ops })
-    setSubmitting(false)
     setOutcome(result)
     if (result.ok) onProfileUpdated(result.value.profile)
   }
@@ -77,19 +76,21 @@ export function CareBatchFixDialog({
       size="md"
       title={t('config.care.tidyUp.batch.title')}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         applied ? (
           <Button variant="neutral" onClick={onClose}>
-            {t('common.close')}
+            {t('common.action.close')}
           </Button>
         ) : (
           <>
             <Button variant="ghost" disabled={submitting} onClick={onClose}>
-              {t('common.cancel')}
+              {t('common.action.cancel')}
             </Button>
-            <Button variant="danger" disabled={submitting} onClick={() => void handleApply()}>
-              {submitting ? t('config.care.tidyUp.applying') : t('config.care.tidyUp.batch.confirm')}
+            <Button variant="danger" disabled={submitting} onClick={() => void run(handleApply)}>
+              {submitting
+                ? t('config.care.tidyUp.applying')
+                : t('config.care.tidyUp.batch.confirm')}
             </Button>
           </>
         )
@@ -126,11 +127,17 @@ export function CareBatchFixDialog({
                         const preview = opPreview(profile, op, t)
                         return (
                           <p key={index} className="flex flex-wrap items-baseline gap-1.5">
-                            <code className="numeric min-w-0 break-all text-ink-muted" data-selectable>
+                            <code
+                              className="numeric min-w-0 break-all text-ink-muted"
+                              data-selectable
+                            >
                               {preview.before}
                             </code>
                             <span className="text-ink-muted">&rarr;</span>
-                            <code className="numeric min-w-0 break-all text-ink-muted" data-selectable>
+                            <code
+                              className="numeric min-w-0 break-all text-ink-muted"
+                              data-selectable
+                            >
                               {preview.after}
                             </code>
                           </p>

@@ -192,7 +192,16 @@ describe('runIncrementalScan', () => {
     const a = file('a', 100, NOW - 5000)
     const parse = vi.fn(async () => ({ parsed: true }))
     const cache = new Map<string, CachedDemo>([
-      ['a', { size: 100, mtimeMs: NOW - 5000, patternFingerprint: 'fp-1', parsed: { p: 1 }, name: { n: 1 } }],
+      [
+        'a',
+        {
+          size: 100,
+          mtimeMs: NOW - 5000,
+          patternFingerprint: 'fp-1',
+          parsed: { p: 1 },
+          name: { n: 1 },
+        },
+      ],
     ])
     const input = baseInput({
       sources: [{ sourceKey: 's1', files: [a] }],

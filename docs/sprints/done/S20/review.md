@@ -6,12 +6,12 @@ Goal: close out Phase 4 milestone 1 — an installation can update its engine an
 bad update, repair whatever the manifest can supply, and be removed from disk (locked for
 store-managed installs), all writes waiting for a running game to exit first.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 091 — Writes wait for a running game | done | `091: writes wait for a running game` |
-| 092 — An engine updates and rolls back | done | `092: an engine updates and rolls back` |
-| 093 — Repair fixes exactly what it can | done | `093: repair fixes exactly what it can` |
-| 094 — An installation can be removed from disk | done | `094: an installation can be removed from disk` |
+| Story                                          | Status | Commit                                          |
+| ---------------------------------------------- | ------ | ----------------------------------------------- |
+| 091 — Writes wait for a running game           | done   | `091: writes wait for a running game`           |
+| 092 — An engine updates and rolls back         | done   | `092: an engine updates and rolls back`         |
+| 093 — Repair fixes exactly what it can         | done   | `093: repair fixes exactly what it can`         |
+| 094 — An installation can be removed from disk | done   | `094: an installation can be removed from disk` |
 
 All four stories done, no blockers. One clarification round with the user (see Findings) and
 one deliberate scope violation by a parallel build agent, caught and excluded (see Findings).
@@ -90,12 +90,12 @@ None. All four stories completed with no blockers.
 Acceptance is the test suite; every criterion below was proven by the named test(s) in its story's
 `## Done` section (all four are linked under `docs/requirements/done/`).
 
-| Story | Criteria | How proven |
-| --- | --- | --- |
-| 091 | AC1–AC6 | Unit (`write-guard.test.ts`, `launch.test.ts`, `upgrade-job.test.ts`, `jobs.test.ts`, `bootstrap/job.test.ts`) + e2e `ui:flow -- job-waits-for-running-game` and `ui:flow -- retail-upgrade` (rewritten). No manual residue. |
-| 092 | AC1–AC8 | Unit (`update-status.test.ts`, `bleeding-edge.test.ts`, `update-job.test.ts`, `rollback-job.test.ts`, `index.test.ts`) + e2e `ui:flow -- engine-update`. AC6's *waiting-state-on-the-real-surface* is deliberately proven by 091's own e2e, not re-proven here — 092's e2e cannot hold a real game process open against filler-byte fixture executables; 092 proves both jobs go through the guard at unit level. No manual residue. |
-| 093 | AC1–AC9 | Unit (`inspector.test.ts`, `repair/plan.test.ts`, `repair/job.test.ts`, `RepairDialog.test.tsx`, `installations.test.ts`) + e2e `ui:flow -- repair`. AC9's e2e check was re-scoped from an unreachable literal ("action bar no longer shows Repair" — blocked by a pre-existing, unrelated `isPlayable()` behaviour) to its substantive claim (status never hand-set) — recorded in the story's Acceptance Tests section. No manual residue. |
-| 094 | AC1–AC7 | Unit (`installation-removal.test.ts`, `installations.test.ts`, `RemoveInstallationDialog.test.tsx`) + e2e `ui:flow -- installation-remove-from-disk`. AC6's dashboard half has no dedicated assertion — the dashboard's two tiles are aggregate and name no specific installation, so there is nothing dashboard-side that could still show a removed one; recorded in the flow's own header comment. No manual residue. |
+| Story | Criteria | How proven                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 091   | AC1–AC6  | Unit (`write-guard.test.ts`, `launch.test.ts`, `upgrade-job.test.ts`, `jobs.test.ts`, `bootstrap/job.test.ts`) + e2e `ui:flow -- job-waits-for-running-game` and `ui:flow -- retail-upgrade` (rewritten). No manual residue.                                                                                                                                                                                                                 |
+| 092   | AC1–AC8  | Unit (`update-status.test.ts`, `bleeding-edge.test.ts`, `update-job.test.ts`, `rollback-job.test.ts`, `index.test.ts`) + e2e `ui:flow -- engine-update`. AC6's _waiting-state-on-the-real-surface_ is deliberately proven by 091's own e2e, not re-proven here — 092's e2e cannot hold a real game process open against filler-byte fixture executables; 092 proves both jobs go through the guard at unit level. No manual residue.         |
+| 093   | AC1–AC9  | Unit (`inspector.test.ts`, `repair/plan.test.ts`, `repair/job.test.ts`, `RepairDialog.test.tsx`, `installations.test.ts`) + e2e `ui:flow -- repair`. AC9's e2e check was re-scoped from an unreachable literal ("action bar no longer shows Repair" — blocked by a pre-existing, unrelated `isPlayable()` behaviour) to its substantive claim (status never hand-set) — recorded in the story's Acceptance Tests section. No manual residue. |
+| 094   | AC1–AC7  | Unit (`installation-removal.test.ts`, `installations.test.ts`, `RemoveInstallationDialog.test.tsx`) + e2e `ui:flow -- installation-remove-from-disk`. AC6's dashboard half has no dedicated assertion — the dashboard's two tiles are aggregate and name no specific installation, so there is nothing dashboard-side that could still show a removed one; recorded in the flow's own header comment. No manual residue.                     |
 
 No `testplan.md` was written for this sprint — every story reported zero manual residue, so per
 the project profile's `optional` testplan setting there is nothing left for a human to walk by

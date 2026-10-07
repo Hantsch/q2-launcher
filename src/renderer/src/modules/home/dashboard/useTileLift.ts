@@ -3,7 +3,7 @@ import type { DashboardModuleId, TilePlacement } from '@shared/modules/home'
 import type { LayoutOperationResult } from './layout'
 
 /**
- * Story 086 D6: the keyboard half of AC8/AC9 - a hand-written lift state machine on a tile's move
+ * Story 086: the keyboard half of arranging - a hand-written lift state machine on a tile's move
  * grip. `Decisions (Sprint)` rules out `@dnd-kit`'s `KeyboardSensor`: its coordinate getters are
  * list-shaped and cannot express 2D movement plus Shift+arrow resize.
  *
@@ -23,7 +23,7 @@ import type { LayoutOperationResult } from './layout'
  * arrow-move after an in-session resize against the tile's *stale* size: silently wrong collision
  * math. So `onKeyboardChange` commits each accepted keystroke right away, and every following
  * keystroke is computed from the `tile` prop that comes back down - the freshly committed
- * placement, never a shadow copy of it. This also *is* AC10's "each change is persisted as it
+ * placement, never a shadow copy of it. This also *is* the rule that "each change is persisted as it
  * happens".
  *
  * Two consequences the naming has to be read with:
@@ -54,7 +54,7 @@ export interface UseTileLiftOptions {
   /** The tile's currently committed placement, straight from the layout. Because every accepted
    * keystroke commits, this is also the candidate the next keystroke is computed from. */
   tile: TilePlacement
-  /** Lift is impossible outside arrange mode - mirrors the move grip's own pointer `disabled` (D5). */
+  /** Lift is impossible outside arrange mode - mirrors the move grip's own pointer `disabled`. */
   disabled: boolean
   /** Evaluates and, if the reducer accepts it, persists one keystroke. Its verdict is returned so a
    * refusal can be announced by the caller with the reducer's own reason. */
@@ -111,7 +111,7 @@ export function useTileLift(options: UseTileLiftOptions): TileLift {
     if (options.disabled) return
 
     if (!liftOriginRef.current) {
-      // Space and Enter both lift - Space is the convention, Enter is what AC8 names, and on a
+      // Space and Enter both lift - Space is the convention, Enter is the other expected key, and on a
       // <button> both would otherwise fire a click (and Space would scroll the page).
       if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault()
@@ -127,7 +127,7 @@ export function useTileLift(options: UseTileLiftOptions): TileLift {
     }
     if (event.key === 'Tab') {
       // Deliberately NOT prevented: Tab still moves focus, it just cancels the lift on the way out
-      // (AC8). The `blur` that follows calls `cancel()` again and finds the session already closed.
+      //. The `blur` that follows calls `cancel()` again and finds the session already closed.
       cancel()
       return
     }

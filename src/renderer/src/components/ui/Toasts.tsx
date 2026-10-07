@@ -60,7 +60,7 @@ function Toast({ toast }: { toast: ToastMessage }) {
       <p className="min-w-0 flex-1 text-xs leading-relaxed text-ink" data-selectable>
         {t(toast.messageKey, toast.params ?? {})}
       </p>
-      <IconButton label={t('common.close')} size="sm" onClick={() => dismiss(toast.id)}>
+      <IconButton label={t('common.action.close')} size="sm" onClick={() => dismiss(toast.id)}>
         <X className="size-3.5" />
       </IconButton>
     </div>

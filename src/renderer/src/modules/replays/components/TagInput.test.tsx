@@ -50,4 +50,25 @@ describe('TagInput', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onAddTag).toHaveBeenCalledWith('grudge match')
   })
+
+  it('a too-long tag is refused with its reason', () => {
+    const onAddTag = vi.fn()
+    render(
+      createElement(TagInput, {
+        tags: [],
+        suggestions: [],
+        onAddTag,
+        onRemoveTag: vi.fn(),
+        onInputChange: vi.fn(),
+        validate: (tag: string) =>
+          tag.length > 3 ? { key: 'replays.editor.error.tooLong', params: { max: 3 } } : null,
+      }),
+    )
+    const input = screen.getByTestId('replays-tag-input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'toolong' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onAddTag).not.toHaveBeenCalled()
+    expect(input.value).toBe('toolong')
+    expect(screen.getByTestId('replays-tag-error').textContent).toContain('3')
+  })
 })

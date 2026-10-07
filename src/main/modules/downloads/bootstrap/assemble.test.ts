@@ -5,7 +5,14 @@ import { join } from 'node:path'
 import { RETAIL_PAK_SIZES } from '@shared/constants'
 import { ENGINE_DEFINITIONS } from '@shared/types'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { assembleInstallation, buildAssemblePlan, type AssembleSource } from './assemble'
+import {
+  assembleInstallation,
+  buildAssemblePlan,
+  type BuildAssemblePlanInput,
+  type AssembleInstallationInput,
+  type AssembleInstallationResult,
+  type AssembleSource,
+} from './assemble'
 
 /**
  * Story 089 review F3: whether this sandbox can create file symlinks at all. Windows refuses
@@ -110,12 +117,25 @@ function allRoleSources(dir: string, packageId = 'core'): AssembleSource[] {
   ]
 }
 
-describe('buildAssemblePlan (pure)', () => {
-  it('the fixed allowlist entries do not depend on the toggle', () => {
-    const off = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
-    const on = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: true })
+/** Core pass, then the extras pass - what a bootstrap run with the video/players toggle on does. */
+async function assembleWithExtras(
+  input: Omit<AssembleInstallationInput, 'scope'>,
+): Promise<AssembleInstallationResult> {
+  const core = await assembleInstallation({ ...input, scope: 'core' })
+  const extras = await assembleInstallation({ ...input, scope: 'extras' })
+  return {
+    copiedFiles: [...core.copiedFiles, ...extras.copiedFiles],
+    missingRequired: [...core.missingRequired, ...extras.missingRequired],
+    entries: [...core.entries, ...extras.entries],
+  }
+}
 
-    expect(off).toEqual(on)
+describe('buildAssemblePlan (pure)', () => {
+  it('the core plan is the fixed allowlist and the extras plan is only the glob dirs', () => {
+    const off = buildAssemblePlan({ engine: 'q2pro', scope: 'core' })
+    const extras = buildAssemblePlan({ engine: 'q2pro', scope: 'extras' })
+
+    expect(extras.map((entry) => entry.to)).toEqual(['baseq2/players', 'baseq2/video'])
     expect(off.map((e) => e.to).sort()).toEqual(
       [
         'baseq2/gamex86_64.dll',
@@ -129,8 +149,8 @@ describe('buildAssemblePlan (pure)', () => {
   })
 
   it('never plans a ctf/xatrix/rogue candidate, whatever the toggle', () => {
-    for (const includeVideoAndPlayers of [false, true]) {
-      const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers })
+    for (const scope of ['core', 'extras'] as const) {
+      const plan = buildAssemblePlan({ engine: 'q2pro', scope })
       for (const entry of plan) {
         for (const candidate of entry.from) {
           expect(candidate.startsWith('ctf')).toBe(false)
@@ -142,7 +162,7 @@ describe('buildAssemblePlan (pure)', () => {
   })
 
   it('tags every entry with its role and required-ness per the story mapping', () => {
-    const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
+    const plan = buildAssemblePlan({ engine: 'q2pro', scope: 'core' })
     const byTo = new Map(plan.map((entry) => [entry.to, entry]))
 
     expect(byTo.get('baseq2/pak0.pak')).toMatchObject({ role: 'demo', required: true })
@@ -154,6 +174,35 @@ describe('buildAssemblePlan (pure)', () => {
   })
 })
 
+describe('core and extras plans are disjoint', () => {
+  const combos: Omit<BuildAssemblePlanInput, 'scope'>[] = [
+    { engine: 'q2pro' },
+    { engine: 'r1q2' },
+    { engine: 'q2pro', dataSource: 'free-download' },
+    { engine: 'q2pro', dataSource: 'store-copy' },
+    { dataSource: 'store-copy' },
+    { engine: 'r1q2', dataSource: 'existing-folder', folderPakNames: ['pak0.pak', 'pak1.pak'] },
+  ]
+
+  it.each(combos)(
+    '%o: no extras target equals or prefixes a core target, or vice versa',
+    (combo) => {
+      const input = combo
+      const core = buildAssemblePlan({ ...input, scope: 'core' }).map((entry) => entry.to)
+      const extras = buildAssemblePlan({ ...input, scope: 'extras' }).map((entry) => entry.to)
+      expect(core.length).toBeGreaterThan(0)
+      expect(extras.length).toBeGreaterThan(0)
+
+      const nests = (a: string, b: string): boolean => a === b || b.startsWith(`${a}/`)
+      for (const c of core) {
+        for (const e of extras) {
+          expect(nests(c, e) || nests(e, c), `${c} vs ${e}`).toBe(false)
+        }
+      }
+    },
+  )
+})
+
 describe('assembleInstallation', () => {
   it('toggle off: copies exactly the allowlisted files, ctf/xatrix/rogue/video/players absent', async () => {
     await seedExtractionTree()
@@ -163,7 +212,7 @@ describe('assembleInstallation', () => {
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
     })
 
     expect(result.copiedFiles.sort()).toEqual(
@@ -201,11 +250,10 @@ describe('assembleInstallation', () => {
     await seedExtractionTree()
     await seedVideoAndPlayers()
 
-    const result = await assembleInstallation({
+    const result = await assembleWithExtras({
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: true,
     })
 
     expect(result.copiedFiles.sort()).toEqual(
@@ -256,7 +304,7 @@ describe('assembleInstallation', () => {
           sources: allRoleSources(sourceRoot),
           targetRoot,
           engine: 'q2pro',
-          includeVideoAndPlayers: false,
+          scope: 'core',
         })
 
         const targetPak = join(targetRoot, 'baseq2', 'pak0.pak')
@@ -290,7 +338,7 @@ describe('assembleInstallation', () => {
         ],
         targetRoot,
         engine: 'q2pro',
-        includeVideoAndPlayers: false,
+        scope: 'core',
       })
 
       expect(result.copiedFiles.sort()).toEqual(
@@ -312,7 +360,7 @@ describe('assembleInstallation', () => {
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
     })
 
     expect(result.copiedFiles).toEqual([Q2PRO_ENGINE_TARGET])
@@ -336,11 +384,10 @@ describe('assembleInstallation', () => {
     await writeFixtureFile(join('xatrix', 'pak0.pak'))
     await writeFixtureFile(join('rogue', 'pak0.pak'))
 
-    const result = await assembleInstallation({
+    const result = await assembleWithExtras({
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: true,
     })
 
     expect(result.copiedFiles.sort()).toEqual(
@@ -372,7 +419,7 @@ describe('assembleInstallation', () => {
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
     })
 
     expect(result.copiedFiles).toContain(Q2PRO_ENGINE_TARGET)
@@ -391,10 +438,10 @@ describe('assembleInstallation', () => {
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
     })
 
-    const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
+    const plan = buildAssemblePlan({ engine: 'q2pro', scope: 'core' })
     const pak0Entry = plan.find((entry) => entry.to === 'baseq2/pak0.pak')
     if (!pak0Entry) throw new Error('expected the plan to contain a baseq2/pak0.pak entry')
 
@@ -403,12 +450,7 @@ describe('assembleInstallation', () => {
 
     // Every other required file still copied, and none of them show up as missing.
     expect(result.copiedFiles.sort()).toEqual(
-      [
-        'baseq2/gamex86_64.dll',
-        'baseq2/pak1.pak',
-        'baseq2/pak2.pak',
-        Q2PRO_ENGINE_TARGET,
-      ].sort(),
+      ['baseq2/gamex86_64.dll', 'baseq2/pak1.pak', 'baseq2/pak2.pak', Q2PRO_ENGINE_TARGET].sort(),
     )
     expect(result.copiedFiles).not.toContain('baseq2/pak0.pak')
   })
@@ -417,11 +459,10 @@ describe('assembleInstallation', () => {
     await writeFixtureFile(join('baseq2', 'players', 'x.dm2'))
     // Deliberately no video/ anywhere in the source tree.
 
-    const result = await assembleInstallation({
+    const result = await assembleWithExtras({
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: true,
     })
 
     expect(result.copiedFiles).toContain(join('baseq2', 'players', 'x.dm2'))
@@ -435,11 +476,10 @@ describe('assembleInstallation', () => {
     await seedExtractionTree()
     await seedVideoAndPlayers()
 
-    const result = await assembleInstallation({
+    const result = await assembleWithExtras({
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: true,
     })
 
     // One record per allowlist entry (plan order), plus one per glob dir - never one per file
@@ -468,18 +508,21 @@ describe('assembleInstallation', () => {
 
   it('a run that finds nothing reports every entry as missing', async () => {
     // sourceRoot exists but is empty - no fixture files were written into it.
-    const result = await assembleInstallation({
+    const result = await assembleWithExtras({
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: true,
     })
 
     expect(result.entries).toEqual([
       // Story 078 review finding M3: a not-found entry with more than one candidate records every
       // candidate that was tried (joined by ` | `), not just the first - so this table can tell
       // "the archive's real layout doesn't match any candidate" from "only one path was ever tried".
-      { from: 'baseq2/pak0.pak | Install/Data/baseq2/pak0.pak', to: 'baseq2/pak0.pak', found: false },
+      {
+        from: 'baseq2/pak0.pak | Install/Data/baseq2/pak0.pak',
+        to: 'baseq2/pak0.pak',
+        found: false,
+      },
       { from: 'baseq2/pak1.pak', to: 'baseq2/pak1.pak', found: false },
       { from: 'baseq2/pak2.pak', to: 'baseq2/pak2.pak', found: false },
       { from: 'q2pro.exe | q2pro64.exe', to: Q2PRO_ENGINE_TARGET, found: false },
@@ -502,7 +545,7 @@ describe('buildAssemblePlan (r1q2)', () => {
     ENGINE_DEFINITIONS.find((engine) => engine.kind === 'r1q2')?.executables[0] ?? 'r1q2.exe'
 
   it('produces exactly the three required r1q2 entries and none of the q2pro ones', () => {
-    const plan = buildAssemblePlan({ engine: 'r1q2', includeVideoAndPlayers: false })
+    const plan = buildAssemblePlan({ engine: 'r1q2', scope: 'core' })
     const engineEntries = plan.filter((entry) => entry.role === 'engine')
 
     expect(engineEntries).toEqual([
@@ -554,7 +597,7 @@ describe('buildAssemblePlan (r1q2)', () => {
         ],
         targetRoot,
         engine: 'r1q2',
-        includeVideoAndPlayers: false,
+        scope: 'core',
       })
 
       expect(result.missingRequired).toContainEqual({
@@ -602,7 +645,7 @@ function retailSource(dir: string, packageId = 'retail-source'): AssembleSource[
 
 describe('buildAssemblePlan (store-copy)', () => {
   it('contains only the three retail entries, no demo or point-release entry', () => {
-    const plan = buildAssemblePlan({ includeVideoAndPlayers: false, dataSource: 'store-copy' })
+    const plan = buildAssemblePlan({ scope: 'core', dataSource: 'store-copy' })
 
     expect(plan.map((entry) => entry.to).sort()).toEqual(
       ['baseq2/pak0.pak', 'baseq2/pak1.pak', 'baseq2/pak2.pak'].sort(),
@@ -620,15 +663,15 @@ describe('buildAssemblePlan (store-copy)', () => {
   })
 
   it('omits engine-role entries entirely when no engine is given', () => {
-    const plan = buildAssemblePlan({ includeVideoAndPlayers: false, dataSource: 'store-copy' })
+    const plan = buildAssemblePlan({ scope: 'core', dataSource: 'store-copy' })
     expect(plan.some((entry) => entry.role === 'engine')).toBe(false)
   })
 
   it('the pre-existing free-download plan is unchanged by this story', () => {
-    const withDefault = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
+    const withDefault = buildAssemblePlan({ engine: 'q2pro', scope: 'core' })
     const withExplicitDataSource = buildAssemblePlan({
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
       dataSource: 'free-download',
     })
 
@@ -654,7 +697,7 @@ describe('assembleInstallation (store-copy)', () => {
     const result = await assembleInstallation({
       sources: retailSource(sourceRoot),
       targetRoot,
-      includeVideoAndPlayers: false,
+      scope: 'core',
       dataSource: 'store-copy',
     })
 
@@ -682,7 +725,7 @@ describe('assembleInstallation (store-copy)', () => {
     const result = await assembleInstallation({
       sources: retailSource(sourceRoot),
       targetRoot,
-      includeVideoAndPlayers: false,
+      scope: 'core',
       dataSource: 'store-copy',
     })
 
@@ -701,7 +744,7 @@ describe('assembleInstallation (store-copy)', () => {
     const result = await assembleInstallation({
       sources: retailSource(sourceRoot),
       targetRoot,
-      includeVideoAndPlayers: false,
+      scope: 'core',
       dataSource: 'store-copy',
     })
 
@@ -717,7 +760,7 @@ describe('assembleInstallation (store-copy)', () => {
     const off = await assembleInstallation({
       sources: retailSource(sourceRoot),
       targetRoot,
-      includeVideoAndPlayers: false,
+      scope: 'core',
       dataSource: 'store-copy',
     })
     expect(off.copiedFiles).not.toContain(join('baseq2', 'video', 'idlog.cin'))
@@ -726,10 +769,9 @@ describe('assembleInstallation (store-copy)', () => {
 
     const otherTargetRoot = await mkdtemp(join(tmpdir(), 'q2-launcher-assemble-dst2-'))
     try {
-      const on = await assembleInstallation({
+      const on = await assembleWithExtras({
         sources: retailSource(sourceRoot),
         targetRoot: otherTargetRoot,
-        includeVideoAndPlayers: true,
         dataSource: 'store-copy',
       })
       expect(on.copiedFiles).toContain(join('baseq2', 'video', 'idlog.cin'))
@@ -747,7 +789,7 @@ describe('assembleInstallation (store-copy)', () => {
     const result = await assembleInstallation({
       sources: retailSource(sourceRoot),
       targetRoot,
-      includeVideoAndPlayers: false,
+      scope: 'core',
       dataSource: 'store-copy',
     })
 
@@ -768,7 +810,7 @@ describe('assembleInstallation (store-copy)', () => {
     const result = await assembleInstallation({
       sources: retailSource(sourceRoot),
       targetRoot,
-      includeVideoAndPlayers: false,
+      scope: 'core',
       dataSource: 'store-copy',
     })
 
@@ -791,7 +833,7 @@ describe('assembleInstallation (restrictTo)', () => {
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
       restrictTo: { roles: ['engine'] },
     })
 
@@ -815,7 +857,7 @@ describe('assembleInstallation (restrictTo)', () => {
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
       restrictTo: { targets: ['baseq2/pak2.pak'] },
     })
 
@@ -835,14 +877,12 @@ describe('assembleInstallation (restrictTo)', () => {
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
       restrictTo: { roles: ['engine'] },
     })
 
     expect(result.missingRequired).toEqual([])
-    expect(result.copiedFiles.sort()).toEqual(
-      ['baseq2/gamex86_64.dll', Q2PRO_ENGINE_TARGET].sort(),
-    )
+    expect(result.copiedFiles.sort()).toEqual(['baseq2/gamex86_64.dll', Q2PRO_ENGINE_TARGET].sort())
   })
 
   it('omitting restrictTo copies the full plan, unchanged from pre-093 behaviour', async () => {
@@ -852,7 +892,7 @@ describe('assembleInstallation (restrictTo)', () => {
       sources: allRoleSources(sourceRoot),
       targetRoot,
       engine: 'q2pro',
-      includeVideoAndPlayers: false,
+      scope: 'core',
     })
 
     expect(result.copiedFiles.sort()).toEqual(

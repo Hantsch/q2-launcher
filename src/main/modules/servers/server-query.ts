@@ -4,7 +4,7 @@ import { buildInfoQuery, buildStatusQuery } from '@shared/servers/protocol'
 import { parseStatusReply } from '@shared/servers/status-reply'
 
 /**
- * Story 114 D2: querying exactly *one* game server for its `info` or `status` reply over UDP.
+ * Story 114: querying exactly *one* game server for its `info` or `status` reply over UDP.
  *
  * Mirrors `udp-master-source.ts`'s seam shape line for line - an injectable `ServerUdpImpl`, an
  * injectable `Clock`, `node:dgram` imported lazily inside the default implementation, and every
@@ -121,7 +121,7 @@ export const dgramServerUdp: ServerUdpImpl = async (target, handlers) => {
 
 /** The classic Quake II protocol version the `info` query's argument claims - see the file doc
  * comment for why this is a fixed constant rather than an option. */
-const INFO_QUERY_PROTOCOL_VERSION = 34
+export const INFO_QUERY_PROTOCOL_VERSION = 34
 
 export interface QueryServerOptions {
   kind: 'info' | 'status'
@@ -160,7 +160,8 @@ export async function queryServer(
   const clock = options.clock ?? systemClock
   const signal = options.signal
 
-  const datagram = kind === 'info' ? buildInfoQuery(INFO_QUERY_PROTOCOL_VERSION) : buildStatusQuery()
+  const datagram =
+    kind === 'info' ? buildInfoQuery(INFO_QUERY_PROTOCOL_VERSION) : buildStatusQuery()
 
   let settled = false
   let socket: ServerUdpSocket | null = null

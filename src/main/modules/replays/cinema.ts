@@ -2,7 +2,7 @@ import type { CinemaAvailability } from '@shared/replays/cinema'
 import type { StageAvailability, StageRect } from './stage'
 
 /**
- * Story 187 D2: pure helpers for cinema mode - whether it can run, the physical geometry of the
+ * Story 187: pure helpers for cinema mode - whether it can run, the physical geometry of the
  * display it covers, and the UI-harness knob that fakes which display the launcher is on. No electron
  * import: the display lookup is done by the caller.
  */
@@ -41,7 +41,10 @@ export function displayGeometry(physicalRect: StageRect): string {
  * `Q2L_UI_CINEMA_DISPLAY=primary|secondary` overrides `onPrimary` - honoured only with
  * `Q2L_UI_HARNESS` set, like `Q2L_UI_SESSION_TYPE` in `stage.ts`.
  */
-export function resolveOnPrimary(onPrimary: boolean, env: Record<string, string | undefined>): boolean {
+export function resolveOnPrimary(
+  onPrimary: boolean,
+  env: Record<string, string | undefined>,
+): boolean {
   if (!env['Q2L_UI_HARNESS']) return onPrimary
   const knob = env['Q2L_UI_CINEMA_DISPLAY']
   if (knob === 'primary') return true

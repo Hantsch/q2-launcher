@@ -12,7 +12,7 @@ cycles to the next assigned profile during play and echoes its new name to the c
 can switch between profiles without restarting the game — without it ever changing my
 installation's default profile.
 
-See [docs/concepts/config-module.md §4](../concepts/config-module.md#4-core-terms--model) and
+See [docs/concepts/config-module.md §4](../../systems/config-module.md#4-core-terms--model) and
 CFG-6. Reuses the self-rewriting alias-pair mechanism story 006 builds for toggle layers.
 
 ## Acceptance Criteria
@@ -34,7 +34,7 @@ concept's open point 2._
 
 ## Decisions (Sprint)
 
-1. **The bind is per installation, not per profile** — it cycles *that installation's* assigned
+1. **The bind is per installation, not per profile** — it cycles _that installation's_ assigned
    profiles, so it cannot live on `ConfigProfile` (a profile is assigned to many installations);
    it is stored as `configSwitchBinds: Record<installationId, string /* key name */>`.
 2. **State lives in `src/main/services/state.ts` next to `configPlayedMods`** — that is the
@@ -48,7 +48,7 @@ concept's open point 2._
 4. **The chain is generated into the loader `autoexec.cfg`, not into a per-profile file** — story
    004 decision 3 already declared the loader the single place the switch bind would edit, and it
    is the only generated file every profile file's `exec` cannot clobber (a profile file is what
-   the chain *execs*).
+   the chain _execs_).
 5. **Chain shape (my assumption for the "self-rewriting alias pair" story 006 builds for toggle
    layers, since 006 is unrefined at this time): one step alias per profile plus one indirection
    alias that each step rewrites** — the generalised n-way form of a 2-way toggle pair, and the
@@ -63,6 +63,7 @@ concept's open point 2._
    ```
 
    If 006 lands a shared alias-emitting helper first, D1 uses it instead of duplicating it.
+
 6. **Each step re-applies `bind <key> q2l_switch`** — the profile file a step execs may itself bind
    that key (story 006 makes binds editable), which would otherwise kill the cycle after one press.
 7. **The indirection alias starts at the successor of the installation's default** — the default is
@@ -99,7 +100,7 @@ Extend the existing story-004 pipeline; add no new write path and no new IPC cha
    `renderSwitchBindChain({ key, profiles, defaultProfileId })` → string lines (empty for < 2
    profiles). Owns name sanitizing, alias naming, line-length and `MAX_ALIAS_NAME` limits.
 2. **Loader integration** — `src/main/modules/config/render.ts`: `renderLoaderFile(defaultProfile,
-   switchBind?)` appends the chain after the existing `exec` line. Existing sentinel/latin1/`\n`
+switchBind?)` appends the chain after the existing `exec` line. Existing sentinel/latin1/`\n`
    rules unchanged; existing `render.test.ts` cases must stay green (no arg = today's output).
 3. **Contract + state + handlers** — `src/shared/modules/config.ts` (`setSwitchBind`,
    `switchBinds`, their input/result types), `src/main/services/state.ts` +
@@ -120,13 +121,13 @@ panel.
 
 - **D1 — Pure chain generator.** `src/main/modules/config/switch-bind.ts` + `switch-bind.test.ts`.
   Deterministic ordered chain, step aliases, indirection alias starting at the default's successor,
-  per-step `bind` re-apply, name sanitizing/truncation, `''` for 0/1 profiles. *Mirror:*
+  per-step `bind` re-apply, name sanitizing/truncation, `''` for 0/1 profiles. _Mirror:_
   `src/main/modules/config/render.ts` (pure module) and `render.test.ts` (test style).
-  *Accepted when:* tests cover 2 and 4 profiles, default in the middle of the order, a name with
+  _Accepted when:_ tests cover 2 and 4 profiles, default in the middle of the order, a name with
   `"`/`;`/`$`/high-ASCII, every emitted alias name ≤ 32 chars, every emitted line < 1024 bytes, and
   an empty result for < 2 profiles. **Covers AC 1 (order), AC 2, AC 5 (disk side).**
 - **D2 — Loader carries the chain.** `src/main/modules/config/render.ts` (+ `render.test.ts`):
-  optional second argument appends D1's chain to the loader text. *Accepted when:* the no-argument
+  optional second argument appends D1's chain to the loader text. _Accepted when:_ the no-argument
   call is byte-identical to today's output, the with-chain call places the chain after the `exec`
   line, and the whole file still round-trips latin1. **Covers AC 4 (content side).**
 - **D3 — Contract, state slice and handlers.** `src/shared/modules/config.ts`,
@@ -134,17 +135,17 @@ panel.
   `src/main/modules/config/index.ts` (+ `index.test.ts`). `switchBinds` returns the map,
   `setSwitchBind` validates, persists, and triggers the existing write for that installation only;
   `writeProfileToAssignedInstallations` and `previewProfileFiles` both pass the installation's
-  switch bind and its ordered assigned profiles into the loader render. *Mirror:* the
-  `setPlayedMods` handler + `configPlayedMods` slice in the same files. *Accepted when:* saving a
+  switch bind and its ordered assigned profiles into the loader render. _Mirror:_ the
+  `setPlayedMods` handler + `configPlayedMods` slice in the same files. _Accepted when:_ saving a
   profile writes a loader containing the chain for a 2-profile installation; a malformed payload
   returns `fail('ipc.error.invalidPayload')`; a test pins that no code path changes any
   assignment's `isDefault`; running-installation skip/pending behaviour is unchanged.
   **Covers AC 3, AC 4, AC 1 (persistence).**
 - **D4 — Per-installation switch-bind control.** `src/renderer/src/modules/config/
-  SwitchBindControl.tsx`, `InstallationProfilesPanel.tsx`, `client.ts`,
+SwitchBindControl.tsx`, `InstallationProfilesPanel.tsx`, `client.ts`,
   `src/renderer/src/i18n/locales/en.json`. Shown only for installations with ≥ 2 assigned profiles;
   press-to-capture via `resolveQuakeKeyName`, F9 suggested, current key displayed, clear action.
-  Design-system primitives only (`Badge`, `Button`, `SectionLabel`, `controls.tsx`). *Mirror:*
+  Design-system primitives only (`Badge`, `Button`, `SectionLabel`, `controls.tsx`). _Mirror:_
   `WriteTargets.tsx` (client calls + status handling), `ProfileAssignmentsPanel.tsx` (row layout).
   **Covers AC 1 (user-assignable key), AC 5 (UI side).**
 
@@ -168,7 +169,7 @@ AC5 → D1 + D4.
 2. In the "By installation" panel that installation now shows a switch-bind control — press its
    capture button and hit **F9**. An installation with only one assigned profile shows no control.
 3. Save/edit a cvar on either profile. Open Preview: `baseq2/autoexec.cfg` contains the `exec` of
-   the *default* profile followed by the `q2l_sw…` alias chain and `bind F9 q2l_switch`.
+   the _default_ profile followed by the `q2l_sw…` alias chain and `bind F9 q2l_switch`.
 4. Launch that installation. In-game press **F9**: the console echoes `Profile: CTF`. Press again:
    `Profile: Duel`. Repeat a few times — it keeps cycling (no dead press).
 5. Quit the game, return to the launcher: the installation's default is still "Duel", unchanged.
@@ -232,6 +233,7 @@ doc comment explaining why; added 4 regression tests in `schemas.test.ts` (`it.e
 build both clean.
 
 **Verification:**
+
 - `npm run build` — green (main/preload/renderer all build).
 - `npm test` — 237/237 tests green across 14 files (was 233 before the review-fix regression tests).
 - `npm run typecheck` (`typecheck:node` + `typecheck:web`) — clean.
@@ -245,6 +247,7 @@ build both clean.
   Per this sprint's live-smoke-required policy, status stays `in-progress` pending that manual pass.
 
 **Commit message (prepared, not committed by this session):**
+
 ```
 007: in-session profile-switch bind
 

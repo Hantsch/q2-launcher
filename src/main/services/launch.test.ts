@@ -34,7 +34,9 @@ vi.mock('node:child_process', () => ({ spawn: vi.fn() }))
 // providers), which import two more helpers from this module. They are stubbed rather than left
 // out because a mocked module has only the exports its factory returns - the real runner detection
 // is never reached from here, since every test below hands `LaunchService` its own runner list.
+const readBinaryKindMock = vi.hoisted(() => vi.fn())
 vi.mock('../lib/fs-utils', () => ({
+  readBinaryKind: readBinaryKindMock,
   isFile: () => Promise.resolve(true),
   isDirectory: () => Promise.resolve(false),
   listDir: () => Promise.resolve({ files: [], dirs: [] }),
@@ -65,7 +67,13 @@ const spawnMock = vi.mocked(spawn)
 function loggedText(): string {
   return Object.values(logMock)
     .flatMap((fn) => fn.mock.calls)
-    .map((call) => call.map((part: unknown) => (part instanceof Error ? `${part.message} ${part.stack}` : String(part))).join(' '))
+    .map((call) =>
+      call
+        .map((part: unknown) =>
+          part instanceof Error ? `${part.message} ${part.stack}` : String(part),
+        )
+        .join(' '),
+    )
     .join('\n')
 }
 
@@ -261,6 +269,68 @@ describe('LaunchService.plan with a runner', () => {
   })
 })
 
+describe('LaunchService.plan with an engine override', () => {
+  const withEngines = {
+    ...installation,
+    activeGameDir: 'rogue',
+    launchArgs: ['+set', 'cl_maxfps', '60'],
+    detectedEngines: [
+      { kind: 'r1q2', executablePath: 'C:\\Games\\Quake2\\r1q2.exe', supported: true },
+      { kind: 'q2pro', executablePath: 'C:\\Games\\Quake2\\q2pro.exe', supported: true },
+    ],
+  } as unknown as Installation
+
+  it('an engine override starts the detected executable', async () => {
+    const { launch } = service({ installation: withEngines })
+
+    const planned = await launch.plan({ installationId: INSTALLATION, engine: 'q2pro' })
+    if (!planned.ok) throw new Error(`expected a plan, got ${planned.error.key}`)
+
+    expect(planned.value.executablePath).toBe('C:\\Games\\Quake2\\q2pro.exe')
+    expect(planned.value.args).toEqual(expect.arrayContaining(['rogue', 'cl_maxfps', '60']))
+    expect(planned.value.args).not.toContain('C:\\Games\\Quake2\\r1q2.exe')
+  })
+
+  it('an override for an engine that is not detected is refused', async () => {
+    const { launch } = service({ installation: withEngines })
+
+    const planned = await launch.plan({ installationId: INSTALLATION, engine: 'yquake2' })
+
+    expect(planned).toEqual({
+      ok: false,
+      error: {
+        key: 'installations.error.engineNotDetected',
+        params: { engine: 'Yamagi Quake II' },
+      },
+    })
+  })
+
+  it('the runner follows the override executable, not the chosen one', async () => {
+    restorePlatform = stubPlatform('linux')
+    const linuxEngines = {
+      ...withEngines,
+      rootPath: '/games/q2',
+      executablePath: '/games/q2/r1q2.exe',
+      executableKind: 'pe',
+      detectedEngines: [
+        { kind: 'r1q2', executablePath: '/games/q2/r1q2.exe', supported: true },
+        { kind: 'q2pro', executablePath: '/games/q2/q2pro', supported: true },
+      ],
+    } as unknown as Installation
+    const { launch } = service({ installation: linuxEngines, runners: [NATIVE, WINE] })
+
+    const chosen = await launch.plan({ installationId: INSTALLATION })
+    if (!chosen.ok) throw new Error(`expected a plan, got ${chosen.error.key}`)
+    expect(chosen.value.executablePath).toBe(WINE.path)
+
+    readBinaryKindMock.mockResolvedValue('elf')
+    const override = await launch.plan({ installationId: INSTALLATION, engine: 'q2pro' })
+    if (!override.ok) throw new Error(`expected a plan, got ${override.error.key}`)
+    expect(override.value.executablePath).toBe('/games/q2/q2pro')
+    expect(override.value.args).not.toContain('/games/q2/q2pro')
+  })
+})
+
 /**
  * Story 104 D4. A stored Steam choice turns the launch into a handoff: `steam <url>`, detached, and
  * followed only as far as `'spawn'` - the game process belongs to Steam, so there is no exit to wait
@@ -336,7 +406,12 @@ describe('LaunchService steam handoff', () => {
     // Linux + a Windows PE: the one case where the compat branch runs, and where `resolveRunner`
     // would otherwise hand back Steam (available, known appid) to be wrapped around the exe.
     restorePlatform = stubPlatform('linux')
-    const LINUX_STEAM: DetectedRunner = { kind: 'steam', id: 'steam', path: '/usr/bin/steam', available: true }
+    const LINUX_STEAM: DetectedRunner = {
+      kind: 'steam',
+      id: 'steam',
+      path: '/usr/bin/steam',
+      available: true,
+    }
     const brokenChoice = {
       ...peInstallation,
       runner: 'steam',
@@ -392,7 +467,10 @@ describe('LaunchService join with a password', () => {
   })
   const joinInstallation = (overrides: Record<string, unknown> = {}): Installation =>
     ({ ...installation, rootPath: root, ...overrides }) as unknown as Installation
-  const listener = (child: ReturnType<typeof fakeChild>, event: string): ((...args: unknown[]) => void) =>
+  const listener = (
+    child: ReturnType<typeof fakeChild>,
+    event: string,
+  ): ((...args: unknown[]) => void) =>
     child.once.mock.calls.find((call) => call[0] === event)?.[1] as (...args: unknown[]) => void
 
   beforeEach(async () => {
@@ -430,7 +508,11 @@ describe('LaunchService join with a password', () => {
 
     expect(launch.getState()).toMatchObject({ phase: 'starting', connect: '1.2.3.4:27910' })
     listener(child, 'spawn')()
-    expect(launch.getState()).toMatchObject({ phase: 'running', connect: '1.2.3.4:27910', pid: 4242 })
+    expect(launch.getState()).toMatchObject({
+      phase: 'running',
+      connect: '1.2.3.4:27910',
+      pid: 4242,
+    })
     expect(JSON.stringify(launch.getState())).not.toContain(PASSWORD)
   })
 
@@ -510,7 +592,7 @@ describe('LaunchService join with a password', () => {
     expect(spawnMock.mock.calls[0]?.[1]).not.toContain('+exec')
   })
 
-  it('an overlapping second start() is refused and cannot sweep the first one\'s cfg or orphan its cleanup', async () => {
+  it("an overlapping second start() is refused and cannot sweep the first one's cfg or orphan its cleanup", async () => {
     const { launch } = service({ installation: joinInstallation() })
     const child = fakeChild()
     let cfgAtSpawn: string | undefined
@@ -589,7 +671,7 @@ describe('LaunchService join with a password', () => {
 
     expect(await launch.start({ installationId: 'no-such-installation' })).toEqual({
       ok: false,
-      error: { key: 'launch.error.notFound' },
+      error: { key: 'installations.error.notFound' },
     })
     expect(broadcast).not.toHaveBeenCalled()
     expect((await launch.start({ installationId: INSTALLATION })).ok).toBe(true)
@@ -647,7 +729,10 @@ describe('LaunchService playback session', () => {
     stdin: new PassThrough(),
     stdout: new PassThrough(),
   })
-  const listener = (child: { once: ReturnType<typeof vi.fn> }, event: string): ((...args: unknown[]) => void) =>
+  const listener = (
+    child: { once: ReturnType<typeof vi.fn> },
+    event: string,
+  ): ((...args: unknown[]) => void) =>
     child.once.mock.calls.find((call) => call[0] === event)?.[1] as (...args: unknown[]) => void
   const tempInstallation = (overrides: Record<string, unknown> = {}): Installation =>
     ({ ...installation, rootPath: root, ...overrides }) as unknown as Installation
@@ -810,7 +895,11 @@ describe('LaunchService playback session', () => {
     listener(child, 'exit')(null, 'SIGTERM')
 
     expect(observed.map((state) => state.phase)).toEqual(['exited'])
-    expect(launch.getState()).toMatchObject({ phase: 'exited', installationId: INSTALLATION, exitCode: null })
+    expect(launch.getState()).toMatchObject({
+      phase: 'exited',
+      installationId: INSTALLATION,
+      exitCode: null,
+    })
     expect(session.ended).toBe(true)
     expect(launch.getPlaybackSession()).toBeUndefined()
     expect(installations.recordPlaySession).toHaveBeenCalledTimes(1)
@@ -944,7 +1033,10 @@ describe('LaunchService playback session', () => {
   })
 
   it('onBeforePlaybackRelease runs before the session ends, survives a throwing listener, and unsubscribes', async () => {
-    const owned = new LaunchService({ installations: fakeInstallations(tempInstallation()), onStateChange: vi.fn() })
+    const owned = new LaunchService({
+      installations: fakeInstallations(tempInstallation()),
+      onStateChange: vi.fn(),
+    })
     const child = pipedChild()
     spawnMock.mockImplementation(() => child as never)
     await owned.start({ installationId: INSTALLATION }, PLAY)

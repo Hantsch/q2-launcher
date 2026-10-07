@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { Logger } from '../../../lib/logger'
-import { parseManifestFile } from '../manifest-parse'
+import { parseManifestFile } from '../../../services/content/manifest-parse'
 import { buildAssemblePlan, GLOB_DIRS } from './assemble'
 
 /**
@@ -23,8 +23,20 @@ import { buildAssemblePlan, GLOB_DIRS } from './assemble'
  */
 
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..')
-const ENGINES_MANIFEST_PATH = join(REPO_ROOT, 'content', 'q2_community_content', 'engines', 'manifest.json')
-const GAMEDATA_MANIFEST_PATH = join(REPO_ROOT, 'content', 'q2_community_content', 'gamedata', 'manifest.json')
+const ENGINES_MANIFEST_PATH = join(
+  REPO_ROOT,
+  'content',
+  'q2_community_content',
+  'engines',
+  'manifest.json',
+)
+const GAMEDATA_MANIFEST_PATH = join(
+  REPO_ROOT,
+  'content',
+  'q2_community_content',
+  'gamedata',
+  'manifest.json',
+)
 const ARCHIVE_LAYOUTS_PATH = join(REPO_ROOT, 'docs', 'fixtures', 'archive-layouts.json')
 
 interface ArchiveLayoutPackage {
@@ -90,7 +102,7 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     // Defaults to the `'free-download'` data source (no `dataSource` passed), so this plan never
     // contains a `'retail'`-role entry (story 088 D3) - `layoutsByRole`'s keys predate that role
     // and only cover the manifest-sourced packages this test is about.
-    const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
+    const plan = buildAssemblePlan({ engine: 'q2pro', scope: 'core' })
     // Only `required` entries are checked here: `baseq2/q2pro.menu` is `required: false` and is
     // deliberately excluded from the recorded listing (it was never independently measured - see
     // the story's Decisions). Filtering to `required === true` already excludes it; this comment
@@ -173,9 +185,8 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     const layouts = readArchiveLayouts()
     const layoutsByRole = new Map(layouts.packages.map((pkg) => [pkg.role, pkg]))
 
-    // @ts-expect-error -- scripts/lib/fixture.mjs is outside tsconfig.node.json's `include`
     const fixtureModule = await import('../../../../../scripts/lib/fixture.mjs')
-    const fixtureLayout = fixtureModule.BOOTSTRAP_FIXTURE_LAYOUT as Record<string, string[]>
+    const fixtureLayout = fixtureModule.BOOTSTRAP_FIXTURE_LAYOUT
 
     for (const role of ['engine', 'demo', 'point-release'] as const) {
       const recorded = layoutsByRole.get(role)
@@ -199,13 +210,9 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     const layouts = readArchiveLayouts()
     const layoutsByRole = new Map(layouts.packages.map((pkg) => [pkg.role, pkg]))
 
-    // `scripts/` is plain Node ESM outside both TS projects (see `fixture.mjs`'s own doc
-    // comment), so `tsconfig.node.json` has no declaration for this module - a dynamic import of
-    // it is real and resolves fine at runtime (proven by this test passing), it just has no static
-    // type.
-    // @ts-expect-error -- scripts/lib/fixture.mjs is outside tsconfig.node.json's `include`
+    // `scripts/` is plain Node ESM outside both TS projects; `fixture.d.mts` types the import.
     const fixtureModule = await import('../../../../../scripts/lib/fixture.mjs')
-    const fixtureLayout = fixtureModule.BOOTSTRAP_FIXTURE_LAYOUT as Record<string, string[]>
+    const fixtureLayout = fixtureModule.BOOTSTRAP_FIXTURE_LAYOUT
 
     // `baseq2/q2pro.menu` ships in the fixture (it ships in the real engine package, per
     // buildFixedEntries()'s own comment) but is deliberately absent from archive-layouts.json's
@@ -218,7 +225,7 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     // is not "measured", so it counts as accounted-for here too - resolved from `assemble.ts`'s
     // own `required` flag rather than a second, hand-typed literal.
     const optionalTargetsByRole = new Map<string, Set<string>>()
-    for (const entry of buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })) {
+    for (const entry of buildAssemblePlan({ engine: 'q2pro', scope: 'core' })) {
       if (entry.required) continue
       const set = optionalTargetsByRole.get(entry.role) ?? new Set<string>()
       set.add(entry.to)

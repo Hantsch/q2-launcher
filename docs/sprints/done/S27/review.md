@@ -8,17 +8,17 @@ describe, reveal, copy the path of and rename a demo — zip entries visibly rea
 reason. Second of three sprints for phase 10 (S26 data layer → **S27 list/detail UI** → S28
 playback).
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 150 — a demo row says what it is | done | `aabec3f` |
-| 151 — the demo list says what it's doing | done | `cdaba2b` |
-| 152 — favourites first, then newest | done (regression fixed at gate) | `3d360e3` + `53f775d` |
-| 153 — I search and filter my demos | done | `cdaa758` |
-| 154 — I filter demos by date | done (regression fixed at gate) | `d1dd1cf` + `139cb8a` |
-| 155 — I describe a demo the way I remember it | done (regression fixed at gate) | `a639704` + `9bdf4eb` |
-| 156 — I find a demo on disk | done | `fcb72a4` |
-| 157 — I rename a demo and its notes move with it | done | `b2253d6` |
-| 158 — an archive entry says why it cannot be edited | done | `f872db8` |
+| Story                                               | Status                          | Commit                |
+| --------------------------------------------------- | ------------------------------- | --------------------- |
+| 150 — a demo row says what it is                    | done                            | `aabec3f`             |
+| 151 — the demo list says what it's doing            | done                            | `cdaba2b`             |
+| 152 — favourites first, then newest                 | done (regression fixed at gate) | `3d360e3` + `53f775d` |
+| 153 — I search and filter my demos                  | done                            | `cdaa758`             |
+| 154 — I filter demos by date                        | done (regression fixed at gate) | `d1dd1cf` + `139cb8a` |
+| 155 — I describe a demo the way I remember it       | done (regression fixed at gate) | `a639704` + `9bdf4eb` |
+| 156 — I find a demo on disk                         | done                            | `fcb72a4`             |
+| 157 — I rename a demo and its notes move with it    | done                            | `b2253d6`             |
+| 158 — an archive entry says why it cannot be edited | done                            | `f872db8`             |
 
 All 9 stories are done; nothing is blocked. No story was omitted from the sprint list.
 
@@ -78,11 +78,11 @@ All 9 stories are done; nothing is blocked. No story was omitted from the sprint
   - 154's own picker had a genuine product bug (an abandoned partial edit staying applied after
     a rejection) that its own build-phase e2e flow didn't happen to hit, but the full-suite gate's
     narrower viewport screen did.
-  All three are fixed (see Regression gate) — none is a blocker for merge.
+    All three are fixed (see Regression gate) — none is a blocker for merge.
 - **A pre-existing race, found but correctly left alone.** While fixing 155's regression, the
   agent found that `demo-editor-store.ts`'s `quickEdit` (fire-and-forget read-merge-write) can
   drop a field when a favourite toggle and a rating pick fire back-to-back — reproduced against
-  the *original, unmodified* code, so it predates this sprint's regression and wasn't touched.
+  the _original, unmodified_ code, so it predates this sprint's regression and wasn't touched.
   Worth its own story if `replays-row-quick-rating` starts flaking in CI (added as a roadmap
   follow-up line, see below).
 - **Git-safety note.** One investigation subagent, while bisecting a fixture, used
@@ -114,6 +114,7 @@ Ran after the last story (158), on the finished branch, initially at commit `f87
 
 **Attribution and fixes** (all summarised in `sprint.md`'s own `## Regression gate` section in
 full):
+
 - `replays-date-filter-invalid@940x620` → **story 154, fixed** (`139cb8a`): an abandoned partial
   edit in the custom date-range picker stayed applied (and persisted) after the user's next
   keystroke made the range invalid; the picker now reverts to the pre-edit value on any close
@@ -145,17 +146,17 @@ remaining e2e-all failures are named and confirmed pre-existing, not blockers fo
 Every acceptance criterion maps to a named test (see each story's own `## Acceptance Tests` /
 `## Done` section for the exact file and test name). Summary by story:
 
-| Story | Criteria proven by | Gaps named |
-| --- | --- | --- |
-| 150 | unit + e2e (`replays-demo-rows`, `replays-list-scale`) + `ui:verify` (`replays-rows`) | — |
-| 151 | unit + e2e (`replays-list-loading/empty/error`) + `ui:verify` (4 screens) | — |
-| 152 | unit + e2e (`replays-sort-order`) | — |
-| 153 | unit + e2e (`replays-filter-search`) | — |
-| 154 | unit + e2e (`replays-date-filter`) + `ui:verify` (2 screens, incl. `--lang=de-DE`) | — |
-| 155 | unit + e2e (`replays-demo-detail`, `replays-edit-sidecar`, `replays-edit-sides-tags`, `replays-row-quick-rating`) | — |
-| 156 | unit + e2e (`replays-demo-file-actions`) | AC1's "a real OS window actually opens" half: `manual residue` (no in-app signal for a real external file-manager window; harness records the reveal path instead) |
-| 157 | unit + e2e (`replays-rename`) | AC2 (mid-rename filesystem fault) and AC6 (rename while playing) are unit/renderer-tested only — no playback session exists yet to trigger AC6 through the real UI; story 159 (S28) should add that e2e step once playback lands |
-| 158 | unit + e2e (`replays-archive-readonly`) | — |
+| Story | Criteria proven by                                                                                                | Gaps named                                                                                                                                                                                                                       |
+| ----- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 150   | unit + e2e (`replays-demo-rows`, `replays-list-scale`) + `ui:verify` (`replays-rows`)                             | —                                                                                                                                                                                                                                |
+| 151   | unit + e2e (`replays-list-loading/empty/error`) + `ui:verify` (4 screens)                                         | —                                                                                                                                                                                                                                |
+| 152   | unit + e2e (`replays-sort-order`)                                                                                 | —                                                                                                                                                                                                                                |
+| 153   | unit + e2e (`replays-filter-search`)                                                                              | —                                                                                                                                                                                                                                |
+| 154   | unit + e2e (`replays-date-filter`) + `ui:verify` (2 screens, incl. `--lang=de-DE`)                                | —                                                                                                                                                                                                                                |
+| 155   | unit + e2e (`replays-demo-detail`, `replays-edit-sidecar`, `replays-edit-sides-tags`, `replays-row-quick-rating`) | —                                                                                                                                                                                                                                |
+| 156   | unit + e2e (`replays-demo-file-actions`)                                                                          | AC1's "a real OS window actually opens" half: `manual residue` (no in-app signal for a real external file-manager window; harness records the reveal path instead)                                                               |
+| 157   | unit + e2e (`replays-rename`)                                                                                     | AC2 (mid-rename filesystem fault) and AC6 (rename while playing) are unit/renderer-tested only — no playback session exists yet to trigger AC6 through the real UI; story 159 (S28) should add that e2e step once playback lands |
+| 158   | unit + e2e (`replays-archive-readonly`)                                                                           | —                                                                                                                                                                                                                                |
 
 One manual residue (story 156, AC1's real-window half) and one named e2e gap (story 157's AC6,
 deferred to story 159/S28 by design, per the story's own accepted Decisions) — both listed here,
@@ -164,18 +165,18 @@ neither holds the sprint open. `testplan.md` is written for the one manual-resid
 
 ## Tier record
 
-| Story | D | hard | Review | Cycles | Agents | Build |
-| --- | --- | --- | --- | --- | --- | --- |
-| 150 | 5 | 1 | default | 0 | 7 | 43 min |
-| 151 | 4 | 0 | default | 0 | 7 | 30 min |
-| 152 | 3 | 0 | default | 0 | 5 | 22 min |
-| 153 | 5 | 0 | default | 0 | 7 | 40 min |
-| 154 | 5 | 0 | default | 1 | 8 | 39 min |
-| 155 | 6 | 1 | default | 1 | 14 | 67 min |
-| 156 | 2 | 0 | default | 1 | 5 | 21 min |
-| 157 | 4 | 1 | default+hard | 2 | 11 | 49 min |
-| 158 | 3 | 0 | default | 1 | 7 | 27 min |
-| **Total** | **37** | **3** | | **6** | **71** | **338 min** |
+| Story     | D      | hard  | Review       | Cycles | Agents | Build       |
+| --------- | ------ | ----- | ------------ | ------ | ------ | ----------- |
+| 150       | 5      | 1     | default      | 0      | 7      | 43 min      |
+| 151       | 4      | 0     | default      | 0      | 7      | 30 min      |
+| 152       | 3      | 0     | default      | 0      | 5      | 22 min      |
+| 153       | 5      | 0     | default      | 0      | 7      | 40 min      |
+| 154       | 5      | 0     | default      | 1      | 8      | 39 min      |
+| 155       | 6      | 1     | default      | 1      | 14     | 67 min      |
+| 156       | 2      | 0     | default      | 1      | 5      | 21 min      |
+| 157       | 4      | 1     | default+hard | 2      | 11     | 49 min      |
+| 158       | 3      | 0     | default      | 1      | 7      | 27 min      |
+| **Total** | **37** | **3** |              | **6**  | **71** | **338 min** |
 
 Only story 157 used the second-stage (hard) review this sprint, and it found real, non-cosmetic
 issues the default-tier review had already passed: a transient sidecar-read error being

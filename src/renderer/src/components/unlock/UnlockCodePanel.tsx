@@ -1,12 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy } from 'lucide-react'
-import type { RedeemResult, UnlockState } from '@shared/types'
+import { ok, type RedeemResult } from '@shared/types'
 import { invoke } from '../../lib/bridge'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { Button, IconButton } from '../ui/Button'
+import { useSubmitting } from '../ui/useSubmitting'
+
+const REJECT_KEYS: Record<Extract<RedeemResult, { ok: false }>['reason'], string> = {
+  'not-a-code': 'settings.unlock.reject.not-a-code',
+  'bad-signature': 'settings.unlock.reject.bad-signature',
+  'wrong-installation': 'settings.unlock.reject.wrong-installation',
+  'redeem-window-elapsed': 'settings.unlock.reject.redeem-window-elapsed',
+  'feature-expired': 'settings.unlock.reject.feature-expired',
+}
 
 /**
- * Story 129 D2: the Settings panel that lets a user see their installation id, send a code
+ * Story 129: the Settings panel that lets a user see their installation id, send a code
  * through `unlock:redeem`, and see what they already have. Mirrors `ServersSettingsSection.tsx`'s
  * load-on-mount pattern and `FailureLogEntry.tsx`'s copy + transient confirmation pattern.
  *
@@ -17,21 +27,14 @@ import { Button, IconButton } from '../ui/Button'
 export function UnlockCodePanel() {
   const { t, i18n } = useTranslation()
 
-  const [state, setState] = useState<UnlockState | null>(null)
+  const { data, setData: setState } = useModuleQuery(async () =>
+    ok(await invoke('unlock:getState')),
+  )
+  const state = data ?? null
   const [copied, setCopied] = useState(false)
   const [code, setCode] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const [result, setResult] = useState<RedeemResult | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    void invoke('unlock:getState').then((next) => {
-      if (!cancelled) setState(next)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   function handleCopy() {
     if (!state || state.installationId === '') return
@@ -44,11 +47,10 @@ export function UnlockCodePanel() {
 
   function handleSubmit() {
     const value = code.trim()
-    if (value === '' || submitting) return
-    setSubmitting(true)
-    setResult(null)
-    void invoke('unlock:redeem', value).then((outcome) => {
-      setSubmitting(false)
+    if (value === '') return
+    void run(async () => {
+      setResult(null)
+      const outcome = await invoke('unlock:redeem', value)
       if (!outcome.ok) return
       setResult(outcome.value)
       if (outcome.value.ok) {
@@ -61,6 +63,12 @@ export function UnlockCodePanel() {
   function formatExpiry(featureExpiry: number | null): string {
     if (featureExpiry === null) return t('settings.unlock.noExpiry')
     return new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(featureExpiry)
+  }
+
+  function featureLabel(feature: string): string {
+    return t(`settings.unlock.feature.${feature}`, {
+      defaultValue: t('settings.unlock.feature.unknown', { id: feature }),
+    })
   }
 
   return (
@@ -76,7 +84,9 @@ export function UnlockCodePanel() {
           </code>
           <IconButton
             label={
-              copied ? t('settings.unlock.installationId.copied') : t('settings.unlock.installationId.copy')
+              copied
+                ? t('settings.unlock.installationId.copied')
+                : t('settings.unlock.installationId.copy')
             }
             size="sm"
             onClick={handleCopy}
@@ -86,7 +96,9 @@ export function UnlockCodePanel() {
             <Copy className="size-3.5" />
           </IconButton>
           {copied && (
-            <span className="text-xs text-ink-muted">{t('settings.unlock.installationId.copied')}</span>
+            <span className="text-xs text-ink-muted">
+              {t('settings.unlock.installationId.copied')}
+            </span>
           )}
         </div>
         <p className="text-xs text-ink-muted">{t('settings.unlock.installationId.hint')}</p>
@@ -94,7 +106,7 @@ export function UnlockCodePanel() {
 
       <div className="flex items-end gap-2">
         <label className="min-w-0 flex-1 space-y-1.5">
-          <span className="stencil block text-xs">{t('settings.unlock.code.label')}</span>
+          <span className="stencil block text-xs">{t('common.label.unlockCode')}</span>
           <input
             value={code}
             onChange={(event) => setCode(event.target.value)}
@@ -118,15 +130,19 @@ export function UnlockCodePanel() {
 
       {result && !result.ok && (
         <p className="text-xs text-danger" role="alert" data-testid="unlock-result-rejected">
-          {t(`settings.unlock.reject.${result.reason}`)}
+          {t(REJECT_KEYS[result.reason])}
         </p>
       )}
 
       {result && result.ok && (
-        <div className="space-y-1 text-xs text-ink" role="status" data-testid="unlock-result-accepted">
+        <div
+          className="space-y-1 text-xs text-ink"
+          role="status"
+          data-testid="unlock-result-accepted"
+        >
           <ul className="list-disc pl-4">
             {result.code.features.map((feature) => (
-              <li key={feature}>{t(`unlock.feature.${feature}`, { defaultValue: feature })}</li>
+              <li key={feature}>{featureLabel(feature)}</li>
             ))}
           </ul>
           <p className="text-ink-muted">{formatExpiry(result.code.featureExpiry)}</p>
@@ -144,11 +160,7 @@ export function UnlockCodePanel() {
             >
               <div className="flex flex-wrap items-center gap-1.5 text-ink">
                 {entry.label && <span className="font-medium">{entry.label}</span>}
-                <span>
-                  {entry.features
-                    .map((feature) => t(`unlock.feature.${feature}`, { defaultValue: feature }))
-                    .join(', ')}
-                </span>
+                <span>{entry.features.map(featureLabel).join(', ')}</span>
               </div>
               {entry.status === 'expired' ? (
                 <p className="text-ink-muted">

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { DemoRow } from '@shared/modules/replays'
 import { i18next as i18n, initI18n } from '../../i18n'
 
@@ -14,13 +15,15 @@ vi.hoisted(() => {
 })
 
 const playDemo = vi.fn()
-vi.mock('./client', () => ({
-  playDemo: (...args: unknown[]) => playDemo(...args),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-  playbackDisplayRead: () => new Promise(() => {}),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    playDemo: (...args: unknown[]) => playDemo(...args),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+    playbackDisplayRead: () => new Promise(() => {}),
+  }),
+)
 
 let useDemoPlay: typeof import('./useDemoPlay').useDemoPlay
 let useLauncher: typeof import('../../store/useLauncher').useLauncher
@@ -56,7 +59,12 @@ function inst(id: string, engineKind: string, extra: Record<string, unknown> = {
   return { id, engineKind, gameDirs: ['baseq2'], runner: undefined, ...extra }
 }
 
-function setStore(opts: { installations?: unknown[]; active?: string | null; platform?: string; phase?: string }) {
+function setStore(opts: {
+  installations?: unknown[]
+  active?: string | null
+  platform?: string
+  phase?: string
+}) {
   useLauncher.setState({
     installations: (opts.installations ?? [inst('q', 'q2pro')]) as never,
     settings: { ...useLauncher.getState().settings, activeInstallationId: opts.active ?? 'q' },
@@ -66,7 +74,9 @@ function setStore(opts: { installations?: unknown[]; active?: string | null; pla
 }
 
 function hook(row: DemoRow | null = demo()) {
-  return renderHook((props: { row: DemoRow | null }) => useDemoPlay(props.row), { initialProps: { row } })
+  return renderHook((props: { row: DemoRow | null }) => useDemoPlay(props.row), {
+    initialProps: { row },
+  })
 }
 
 /** The refusal as the user reads it: not playable, with a translated reason. */
@@ -74,10 +84,10 @@ function reasonText(row: DemoRow): string {
   const { result } = hook(row)
   const eligibility = result.current.eligibility
   if (eligibility === null || eligibility.ok) throw new Error('expected a refusal')
-  return i18n.t(eligibility.reason.key, eligibility.reason.params)
+  return i18n.t(eligibility.reasonKey, eligibility.params)
 }
 
-const PLAYED = { ok: true, value: { ok: true, value: { stage: null } } }
+const PLAYED = { ok: true, value: { stage: null } }
 
 describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
   it('an eligible demo is playable and play sends only ids', async () => {
@@ -113,7 +123,7 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
       expect(usePlaybackStore.getState().stageArmed).toBe(true)
       return {
         ok: true,
-        value: { ok: true, value: { stage: { placed: false, reason: { key: 'replays.stage.unavailable.wayland' } } } },
+        value: { stage: { ok: false, reasonKey: 'replays.stage.unavailable.wayland' } },
       }
     })
     const { result } = hook()
@@ -124,7 +134,9 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
       installationId: 'q',
       stage: { x: 1, y: 2, width: 800, height: 600 },
     })
-    expect(usePlaybackStore.getState().stageReason).toEqual({ key: 'replays.stage.unavailable.wayland' })
+    expect(usePlaybackStore.getState().stageReason).toEqual({
+      key: 'replays.stage.unavailable.wayland',
+    })
   })
 
   it('plays without a stage when the final rect is unusably small', async () => {
@@ -138,7 +150,10 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
 
   it('a failure disarms the stage again and reports the translated error', async () => {
     setStore({})
-    playDemo.mockResolvedValue({ ok: true, value: { ok: false, error: { key: 'replays.play.error.fileMissing' } } })
+    playDemo.mockResolvedValue({
+      ok: false,
+      error: { key: 'replays.play.error.fileMissing' },
+    })
     const { result } = hook()
     await act(() => result.current.play())
     expect(usePlaybackStore.getState().stageArmed).toBe(false)
@@ -149,7 +164,10 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
 
   it('the error clears when another demo is selected', async () => {
     setStore({})
-    playDemo.mockResolvedValue({ ok: true, value: { ok: false, error: { key: 'replays.play.error.fileMissing' } } })
+    playDemo.mockResolvedValue({
+      ok: false,
+      error: { key: 'replays.play.error.fileMissing' },
+    })
     const { result, rerender } = hook()
     await act(() => result.current.play())
     expect(result.current.error).not.toBeNull()
@@ -190,7 +208,9 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
     setStore({ phase: 'running' })
     const { result } = hook(demo({ gameDir: 'opentdm' }))
     const eligibility = result.current.eligibility
-    expect(eligibility !== null && !eligibility.ok && eligibility.acknowledgeable === true).toBe(false)
+    expect(eligibility !== null && !eligibility.ok && eligibility.acknowledgeable === true).toBe(
+      false,
+    )
   })
 
   it('a running game refuses with the gameRunning reason', () => {

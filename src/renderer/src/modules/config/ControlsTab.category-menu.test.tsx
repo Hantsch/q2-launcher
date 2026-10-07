@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { initI18n } from '../../i18n'
-import { ProfileChangesProvider } from './lib/profile-changes'
+import { act } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ConfigAction, ConfigActionCategory } from '@shared/modules/config'
+import { stubBridge } from './test/bridge'
+import { profileFixture } from './test/fixtures'
+import { renderWithProviders } from './test/render'
+import { ControlsTab } from './ControlsTab'
+import { useConfigProfiles } from './config-profiles-store'
 
 /**
  * Story 062 D1: the category rail's kebab takes over move up/down, rename and delete from the
@@ -12,22 +14,6 @@ import { ProfileChangesProvider } from './lib/profile-changes'
  * its kebab, its portalled `Menu`, the rename/delete dialogs it opens - through real DOM events,
  * mirroring `ControlsTab.row-menu.test.tsx` (story 054 D8's row kebab).
  */
-
-// `ControlsTab`'s import chain reaches `lib/bridge.ts`, which resolves `window.q2` at *module*
-// scope and throws when it is missing - so the bridge has to exist before this file's imports are
-// evaluated (same idiom as `ControlsTab.row-menu.test.tsx`). `invoke` is replaced per test below.
-const bridge = vi.hoisted(() => {
-  const stub = {
-    invoke: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
-    on: () => () => {},
-  }
-  ;(globalThis as unknown as { q2: unknown }).q2 = stub
-  return stub
-})
-
-// eslint-disable-next-line import/first -- must be imported after the bridge stub above exists.
-const { ControlsTab } = await import('./ControlsTab')
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const CATEGORIES: ConfigActionCategory[] = [
   { id: 'movement', name: 'Movement' },
@@ -47,53 +33,19 @@ const ACTIONS: ConfigAction[] = [
   },
 ]
 
-function profileFixture(): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    cvars: {},
-    binds: {},
-    assignments: [],
+function menuProfile() {
+  return profileFixture({
     categories: CATEGORIES.map((category) => ({ ...category })),
     actions: ACTIONS.map((entry) => ({ ...entry })),
-  }
+  })
 }
 
-let container: HTMLDivElement
-let root: Root
+let container: HTMLElement
 /** Every `categories` array `ControlsTab` tried to persist, in order. */
 let savedCategories: ConfigActionCategory[][]
 
-beforeAll(async () => {
-  await initI18n('en')
-})
-
-function Harness() {
-  const [draft, setDraft] = useState<ConfigProfile>(profileFixture)
-  const profile = profileFixture()
-  return (
-    <ProfileChangesProvider profile={profile}>
-      <ControlsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
-    </ProfileChangesProvider>
-  )
-}
-
 function renderTab(): void {
-  act(() => {
-    root.render(<Harness />)
-  })
+  ;({ container } = renderWithProviders(<ControlsTab />, { profile: menuProfile() }))
 }
 
 /** The rail's own container - scopes queries so a same-named icon/label used elsewhere in the tab
@@ -162,23 +114,19 @@ function clickCategoryMenuItem(label: string): void {
 }
 
 beforeEach(() => {
+  useConfigProfiles.setState({ profiles: [] })
   // jsdom implements no scrolling at all, so `scrollIntoView` does not even exist to be spied on;
   // `ControlsTab` scrolls the selected chip into view on every category change.
   HTMLElement.prototype.scrollIntoView = () => {}
-  container = document.createElement('div')
-  document.body.appendChild(container)
-  root = createRoot(container)
   savedCategories = []
-  bridge.invoke = vi.fn((_channel: string, payload: unknown) => {
-    const envelope = payload as { type: string; payload?: { categories?: ConfigActionCategory[] } }
+  stubBridge().invoke.mockImplementation((...args: unknown[]) => {
+    const envelope = args[1] as { payload?: { categories?: ConfigActionCategory[] } }
     if (envelope.payload?.categories) savedCategories.push(envelope.payload.categories)
     return Promise.resolve({ ok: true, value: [] })
-  }) as unknown as typeof bridge.invoke
+  })
 })
 
 afterEach(() => {
-  act(() => root.unmount())
-  container.remove()
   vi.restoreAllMocks()
 })
 

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { initI18n } from '../../i18n'
-import { ProfileChangesProvider } from './lib/profile-changes'
+import { act } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ConfigAction } from '@shared/modules/config'
+import { stubBridge } from './test/bridge'
+import { renderWithProviders } from './test/render'
+import { ControlsTab } from './ControlsTab'
+import { useConfigProfiles } from './config-profiles-store'
 
 /**
  * Story 054 D8: the row menu takes over move up/down (and adds "Move to…") from the inline arrow
@@ -14,94 +15,12 @@ import { ProfileChangesProvider } from './lib/profile-changes'
  * identically for both (`renderRowMenu`, shared by `renderCatalogRow`/`renderPlainActionRow`).
  */
 
-// `ControlsTab`'s import chain reaches `lib/bridge.ts`, which resolves `window.q2` at *module*
-// scope and throws when it is missing - so the bridge has to exist before this file's imports are
-// evaluated (same idiom as `ControlsTab.dnd.test.tsx`). `invoke` is replaced per test below.
-const bridge = vi.hoisted(() => {
-  const stub = {
-    invoke: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
-    on: () => () => {},
-  }
-  ;(globalThis as unknown as { q2: unknown }).q2 = stub
-  return stub
-})
-
-// eslint-disable-next-line import/first -- must be imported after the bridge stub above exists.
-const { ControlsTab } = await import('./ControlsTab')
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-
-const CATEGORIES: ConfigActionCategory[] = [
-  { id: 'movement', name: 'Movement' },
-  { id: 'weapons', name: 'Weapons' },
-]
-
-const ACTIONS: ConfigAction[] = [
-  // A real catalogue row - `movement:forward` resolves through `allCatalogRows()`/`catalogRowInfo`
-  // to the translated label "Forward" (`en.json`'s `config.controls.catalog.movement.forward`).
-  {
-    id: 'f',
-    categoryId: 'movement',
-    name: 'movement:forward',
-    catalogId: 'movement:forward',
-    kind: 'bind',
-    commands: [],
-  },
-  {
-    id: 'free',
-    categoryId: 'movement',
-    name: 'My own bind',
-    kind: 'bind',
-    commands: [],
-  },
-]
-
-function profileFixture(): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    cvars: {},
-    binds: {},
-    assignments: [],
-    categories: CATEGORIES.map((category) => ({ ...category })),
-    actions: ACTIONS.map((entry) => ({ ...entry })),
-  }
-}
-
-let container: HTMLDivElement
-let root: Root
+let container: HTMLElement
 /** Every `actions` array `ControlsTab` tried to persist, in order. */
 let saved: ConfigAction[][]
 
-beforeAll(async () => {
-  await initI18n('en')
-})
-
-function Harness() {
-  const [draft, setDraft] = useState<ConfigProfile>(profileFixture)
-  const profile = profileFixture()
-  return (
-    <ProfileChangesProvider profile={profile}>
-      <ControlsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
-    </ProfileChangesProvider>
-  )
-}
-
 function renderTab(): void {
-  act(() => {
-    root.render(<Harness />)
-  })
+  ;({ container } = renderWithProviders(<ControlsTab />))
 }
 
 /** The row's kebab trigger - the one button every row's action cluster now carries in place of the
@@ -136,23 +55,19 @@ function clickMenuItem(label: string): void {
 }
 
 beforeEach(() => {
+  useConfigProfiles.setState({ profiles: [] })
   // jsdom implements no scrolling at all, so `scrollIntoView` does not even exist to be spied on;
   // `ControlsTab` scrolls the selected chip into view on every category change.
   HTMLElement.prototype.scrollIntoView = () => {}
-  container = document.createElement('div')
-  document.body.appendChild(container)
-  root = createRoot(container)
   saved = []
-  bridge.invoke = vi.fn((_channel: string, payload: unknown) => {
-    const envelope = payload as { type: string; payload?: { actions?: ConfigAction[] } }
+  stubBridge().invoke.mockImplementation((...args: unknown[]) => {
+    const envelope = args[1] as { payload?: { actions?: ConfigAction[] } }
     if (envelope.payload?.actions) saved.push(envelope.payload.actions)
     return Promise.resolve({ ok: true, value: [] })
-  }) as unknown as typeof bridge.invoke
+  })
 })
 
 afterEach(() => {
-  act(() => root.unmount())
-  container.remove()
   vi.restoreAllMocks()
 })
 
@@ -166,7 +81,7 @@ describe('ControlsTab row menu (story 054 D8)', () => {
     expect(() => menuTriggerFor('My own bind')).not.toThrow()
   })
 
-  it('moves a catalogue row down through the kebab menu and persists the swap', () => {
+  it('moves a catalogue row down through the kebab menu and persists the swap', async () => {
     renderTab()
     openMenu('Forward')
 
@@ -177,6 +92,7 @@ describe('ControlsTab row menu (story 054 D8)', () => {
     expect(menuItems()[1]!.disabled).toBe(false)
 
     clickMenuItem('Move entry down')
+    await act(async () => {})
 
     expect(saved).toHaveLength(1)
     expect(saved[0]!.map((entry) => entry.id)).toEqual(['free', 'f'])
@@ -184,10 +100,12 @@ describe('ControlsTab row menu (story 054 D8)', () => {
     expect(document.querySelector('[role="menu"]')).toBeNull()
   })
 
-  it('moves a free-form row up through the kebab menu and persists the swap', () => {
+  it('moves a free-form row up through the kebab menu and persists the swap', async () => {
     renderTab()
     openMenu('My own bind')
     clickMenuItem('Move entry up')
+    // The save settles after the click; flush it so its state update lands inside act().
+    await act(async () => {})
 
     expect(saved).toHaveLength(1)
     expect(saved[0]!.map((entry) => entry.id)).toEqual(['free', 'f'])

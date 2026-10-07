@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import type { CvarDef } from '@shared/config/cvar-facts'
-import { CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
-import { ALL_CVARS, GRAPHICS_CVARS, PLAYER_CVARS, findCvar } from '@shared/config/cvar-catalog'
-import { cvarChangeKey } from '@shared/config/profile-diff'
+import type { CvarDef } from '@shared/config/catalog/cvar-facts'
+import { CVAR_GROUP_ORDER } from '@shared/config/catalog/cvar-facts'
+import {
+  ALL_CVARS,
+  GRAPHICS_CVARS,
+  PLAYER_CVARS,
+  findCvar,
+} from '@shared/config/catalog/cvar-catalog'
+import { cvarChangeKey } from '@shared/config/profile/profile-diff'
 import { STANDARD_TEMPLATE, type ConfigCvarSection } from '@shared/modules/config'
 import {
   buildCvarSectionGroups,
@@ -145,10 +150,16 @@ describe('buildCvarSectionGroups - a template profile is unchanged', () => {
 
   it('renders the four seeded sections in the catalogue group order, then the Other bucket', () => {
     const groups = buildCvarSectionGroups({ sections, values })
-    expect(groups.filter((group) => group.kind === 'section').map((group) => group.section?.id)).toEqual(
-      [...CVAR_GROUP_ORDER],
-    )
-    expect(groups.map((group) => group.kind)).toEqual(['section', 'section', 'section', 'section', 'other'])
+    expect(
+      groups.filter((group) => group.kind === 'section').map((group) => group.section?.id),
+    ).toEqual([...CVAR_GROUP_ORDER])
+    expect(groups.map((group) => group.kind)).toEqual([
+      'section',
+      'section',
+      'section',
+      'section',
+      'other',
+    ])
   })
 
   it('produces exactly the rows the pre-059 def.group grouping produced, in the same order', () => {
@@ -162,9 +173,9 @@ describe('buildCvarSectionGroups - a template profile is unchanged', () => {
     )
     const sectionGroups = groups.filter((group) => group.kind === 'section')
     expect(rowNames(sectionGroups)).toEqual(expected)
-    expect(sectionGroups.every((group) => visibleRowsOf(group).every((row) => row.kind === 'catalog'))).toBe(
-      true,
-    )
+    expect(
+      sectionGroups.every((group) => visibleRowsOf(group).every((row) => row.kind === 'catalog')),
+    ).toBe(true)
   })
 
   it('has no Defaults bucket, because every catalogue cvar is placed', () => {
@@ -375,9 +386,7 @@ describe('buildCvarSectionGroups - unplaced cvars are never hidden', () => {
     expect(names).toContain('hostname')
     expect(names).toContain('adr0')
     // `fov` is a catalogue cvar, so it lands in Defaults rather than Other - with its stored value.
-    const fov = groups
-      .flatMap((group) => visibleRowsOf(group))
-      .find((row) => row.name === 'fov')!
+    const fov = groups.flatMap((group) => visibleRowsOf(group)).find((row) => row.name === 'fov')!
     expect(fov.value).toBe('110')
   })
 
@@ -493,7 +502,7 @@ describe('buildCvarSectionGroups - filter, unsaved-only and the Advanced collaps
     expect(groupNamed(groups, key).edited).toBe(0)
   })
 
-  it('resolves a plain row\'s unsaved key from its verbatim name', () => {
+  it("resolves a plain row's unsaved key from its verbatim name", () => {
     const groups = buildCvarSectionGroups({
       sections,
       values,

@@ -36,7 +36,7 @@ const KNOWN_KEYS = [
   'cheats',
   'maptime',
   'uptime',
-  'gamedate'
+  'gamedate',
 ] as const
 
 type KnownKey = (typeof KNOWN_KEYS)[number]
@@ -48,10 +48,16 @@ const TEXT_KEYS: ReadonlySet<KnownKey> = new Set([
   'gamedir',
   'game',
   'version',
-  'gamedate'
+  'gamedate',
 ])
 const INT_KEYS: ReadonlySet<KnownKey> = new Set(['maxclients', 'port'])
-const FLAG_KEYS: ReadonlySet<KnownKey> = new Set(['deathmatch', 'coop', 'ctf', 'teamplay', 'cheats'])
+const FLAG_KEYS: ReadonlySet<KnownKey> = new Set([
+  'deathmatch',
+  'coop',
+  'ctf',
+  'teamplay',
+  'cheats',
+])
 const LIMIT_KEYS: ReadonlySet<KnownKey> = new Set(['fraglimit', 'capturelimit'])
 const DURATION_KEYS: ReadonlySet<KnownKey> = new Set(['maptime', 'uptime'])
 

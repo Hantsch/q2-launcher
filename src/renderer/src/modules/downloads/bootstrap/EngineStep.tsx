@@ -2,12 +2,15 @@ import { useTranslation } from 'react-i18next'
 import { Check, ExternalLink, FolderOpen } from 'lucide-react'
 import { engineLabel } from '@shared/types/engine'
 import type { EngineKind } from '@shared/types'
-import type { BootstrapEngineOption, BootstrapEngineOptionsEmptyReason } from '@shared/modules/downloads'
+import type {
+  BootstrapEngineOption,
+  BootstrapEngineOptionsEmptyReason,
+} from '@shared/modules/downloads'
 import { invoke } from '../../../lib/bridge'
 import { Button } from '../../../components/ui/Button'
 import { EmptyState, Panel } from '../../../components/ui/primitives'
 
-/** Story 080 D3 (AC8): the exact upstream source this launcher's R1Q2 build is pinned to. */
+/** Story 080: the exact upstream source this launcher's R1Q2 build is pinned to. */
 const R1Q2_SOURCE_TREE_URL =
   'https://github.com/vic7or777/R1Q2-MSVC/tree/8af268c795293406f6f7d4328bf0d4f225294d6e'
 
@@ -19,7 +22,7 @@ const R1Q2_SOURCE_TREE_URL =
 const VC_REDIST_X86_URL = 'https://aka.ms/vs/17/release/vc_redist.x86.exe'
 
 /**
- * Story 074 D6, step 1: the wizard's engine choice. Story 080 D2: `BOOTSTRAP_SUPPORTED_ENGINES`
+ * Story 074, step 1: the wizard's engine choice. Story 080: `BOOTSTRAP_SUPPORTED_ENGINES`
  * now names two engines (Q2PRO, R1Q2), so this renders every entry in `options` as its own
  * selectable row rather than a single pre-selected confirmation - each keeps a stable
  * `data-testid="bootstrap-engine-<engine>"` (so `bootstrap-engine-q2pro` keeps working) and shows
@@ -27,11 +30,10 @@ const VC_REDIST_X86_URL = 'https://aka.ms/vs/17/release/vc_redist.x86.exe'
  * nothing this wizard can offer) is a dead end shown as an empty state, not a step the user can
  * push past.
  *
- * Story 100 D8 (AC7): the empty state is no longer one generic sentence - `emptyReason` (D7's
- * `BootstrapEngineOptionsResult.emptyReason`) tells "the manifest pins nothing at all yet"
+ * Story 100: the empty state is no longer one generic sentence - `emptyReason` (`BootstrapEngineOptionsResult.emptyReason`) tells "the manifest pins nothing at all yet"
  * (`'none-pinned'`, today's existing copy) apart from "the manifest pins something, just not for
- * this host's platform" (`'none-for-platform'`, the Linux-with-a-Windows-only-manifest case D5/D6
- * made possible), and either way offers a real way out: adding an installation the user already
+ * this host's platform" (`'none-for-platform'`, the Linux-with-a-Windows-only-manifest case
+ * that became possible), and either way offers a real way out: adding an installation the user already
  * has, via the same `onAddExisting` callback `BootstrapWizard.tsx` wires to `openDialog({ kind:
  * 'add-existing' })` - the exact mechanism `LibraryView.tsx`'s and `DetectDialog.tsx`'s own empty
  * states already use, never a second "add existing" flow.
@@ -61,10 +63,14 @@ export function EngineStep({
       <Panel data-testid="bootstrap-engine-empty">
         <EmptyState
           title={t(
-            isPlatformGap ? 'bootstrapWizard.engine.empty.platformTitle' : 'bootstrapWizard.engine.empty.title',
+            isPlatformGap
+              ? 'bootstrapWizard.engine.empty.platformTitle'
+              : 'bootstrapWizard.engine.empty.title',
           )}
           body={t(
-            isPlatformGap ? 'bootstrapWizard.engine.empty.platformBody' : 'bootstrapWizard.engine.empty.body',
+            isPlatformGap
+              ? 'bootstrapWizard.engine.empty.platformBody'
+              : 'bootstrapWizard.engine.empty.body',
           )}
           actions={
             <Button
@@ -73,7 +79,7 @@ export function EngineStep({
               onClick={onAddExisting}
               data-testid="bootstrap-engine-empty-action"
             >
-              {t('bootstrapWizard.engine.empty.action')}
+              {t('common.action.addExistingInstallation')}
             </Button>
           }
         />
@@ -112,7 +118,7 @@ export function EngineStep({
                   {engineLabel(option.engine)}
                 </p>
                 <p className="text-xs text-ink-muted">
-                  {t('bootstrapWizard.engine.version', { version: option.version })}
+                  {t('common.label.version', { version: option.version })}
                 </p>
               </div>
             </button>
@@ -125,7 +131,7 @@ export function EngineStep({
 }
 
 /**
- * Story 080 D3 (AC8): shown only while R1Q2 is the selected option - the exact upstream source
+ * Story 080: shown only while R1Q2 is the selected option - the exact upstream source
  * this build is pinned to, the license it ships under (and that its text is installed alongside
  * the game files), and the x86 runtime prerequisite the bootstrap cannot install for the user.
  * Never claims the community mirror is published (it is not, as of this story) and never hosts or

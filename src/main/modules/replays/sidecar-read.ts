@@ -1,4 +1,8 @@
-import { SIDECAR_SCHEMA_VERSION, sidecarFieldsSchema, type SidecarFields } from '@shared/replays/sidecar'
+import {
+  SIDECAR_SCHEMA_VERSION,
+  sidecarFieldsSchema,
+  type SidecarFields,
+} from '@shared/replays/sidecar'
 import type { SidecarIssue, SidecarState } from '@shared/modules/replays'
 
 /**
@@ -10,7 +14,10 @@ import type { SidecarIssue, SidecarState } from '@shared/modules/replays'
 
 /** Converts a 0-based JSON.parse error position into a 1-based line/column, or `undefined` if the
  * position can't be confidently extracted from the error message. */
-function positionFromError(err: unknown, text: string): { line: number; column: number } | undefined {
+function positionFromError(
+  err: unknown,
+  text: string,
+): { line: number; column: number } | undefined {
   if (!(err instanceof Error)) return undefined
   const match = /position (\d+)/.exec(err.message)
   if (!match) return undefined
@@ -39,7 +46,11 @@ export function readSidecarDefensively(bytes: Buffer | string): {
   if (text.startsWith('﻿')) text = text.slice(1)
 
   if (text.trim() === '') {
-    const issue: SidecarIssue = { kind: 'invalidJson', key: 'replays.sidecar.issue.invalidJson', params: {} }
+    const issue: SidecarIssue = {
+      kind: 'invalidJson',
+      key: 'replays.sidecar.issue.invalidJson',
+      params: {},
+    }
     return { values: {}, state: { state: 'error', issues: [issue] } }
   }
 
@@ -48,13 +59,23 @@ export function readSidecarDefensively(bytes: Buffer | string): {
     parsed = JSON.parse(text)
   } catch (err) {
     const position = positionFromError(err, text)
-    const params: Record<string, unknown> = position ? { line: position.line, column: position.column } : {}
-    const issue: SidecarIssue = { kind: 'invalidJson', key: 'replays.sidecar.issue.invalidJson', params }
+    const params: Record<string, unknown> = position
+      ? { line: position.line, column: position.column }
+      : {}
+    const issue: SidecarIssue = {
+      kind: 'invalidJson',
+      key: 'replays.sidecar.issue.invalidJson',
+      params,
+    }
     return { values: {}, state: { state: 'error', issues: [issue] } }
   }
 
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    const issue: SidecarIssue = { kind: 'notAnObject', key: 'replays.sidecar.issue.notAnObject', params: {} }
+    const issue: SidecarIssue = {
+      kind: 'notAnObject',
+      key: 'replays.sidecar.issue.notAnObject',
+      params: {},
+    }
     return { values: {}, state: { state: 'error', issues: [issue] } }
   }
 
@@ -64,7 +85,8 @@ export function readSidecarDefensively(bytes: Buffer | string): {
 
   const hasVersion = Object.prototype.hasOwnProperty.call(obj, 'schemaVersion')
   const rawVersion = obj.schemaVersion
-  const versionOk = hasVersion && Number.isInteger(rawVersion) && rawVersion === SIDECAR_SCHEMA_VERSION
+  const versionOk =
+    hasVersion && Number.isInteger(rawVersion) && rawVersion === SIDECAR_SCHEMA_VERSION
   if (!versionOk) {
     issues.push({
       kind: 'unknownVersion',
@@ -86,12 +108,20 @@ export function readSidecarDefensively(bytes: Buffer | string): {
         const firstIssue = result.error.issues[0]
         const path = firstIssue?.path ?? []
         const field = path.length > 0 ? `${key}.${path.join('.')}` : key
-        issues.push({ kind: 'invalidField', key: 'replays.sidecar.issue.invalidField', params: { field } })
+        issues.push({
+          kind: 'invalidField',
+          key: 'replays.sidecar.issue.invalidField',
+          params: { field },
+        })
       }
       continue
     }
 
-    issues.push({ kind: 'unknownField', key: 'replays.sidecar.issue.unknownField', params: { field: key } })
+    issues.push({
+      kind: 'unknownField',
+      key: 'replays.sidecar.issue.unknownField',
+      params: { field: key },
+    })
   }
 
   if (issues.length === 0) {

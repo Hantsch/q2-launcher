@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import type { IpcInvokeMap } from './ipc'
+import { isSafeGameName } from './mods/server-local-content'
 import type { InstallationIcon } from './types'
+import { MODULE_MANIFESTS, type ModuleId } from './types/module'
 import {
   absolutePathSchema,
   engineKindSchema,
@@ -16,8 +18,8 @@ import {
  * persisted-state schemas in `src/main/lib/schemas.ts`).
  *
  * One exported schema per `IpcInvokeMap` channel, in the same section order as
- * that map. Not yet wired into any `handle()` call - that is a later
- * deliverable of story 036; for now these are exported-but-unused by design.
+ * that map. Wired in: each `handle()` in `src/main/ipc/` takes its channel's schema as a
+ * required parameter and parses the payload before the handler runs.
  */
 
 // ---- app --------------------------------------------------------------------
@@ -84,46 +86,37 @@ export const addExistingInputSchema: z.ZodType<IpcInvokeMap['installations:addEx
     source: sourceSchema.optional(),
   })
 
-export const createInstallationInputSchema: z.ZodType<
-  IpcInvokeMap['installations:create']['req']
-> = z.object({
-  rootPath: absolutePathSchema,
-  name: z.string().min(1).max(120),
-  engineKind: engineKindSchema,
-})
+export const updateInstallationInputSchema: z.ZodType<IpcInvokeMap['installations:update']['req']> =
+  z.object({
+    id: z.string().min(1),
+    name: z.string().min(1).max(120).optional(),
+    rootPath: absolutePathSchema.optional(),
+    executablePath: absolutePathSchema.optional(),
+    writeDirPath: absolutePathSchema.nullable().optional(),
+    launchArgs: z.array(z.string().max(500)).max(64).optional(),
+    activeGameDir: z
+      .string()
+      .max(64)
+      // A game dir is a single folder name, never a path - this blocks traversal.
+      .refine((value) => value === '' || /^[A-Za-z0-9_.-]+$/.test(value), 'invalid game directory')
+      .optional(),
+    favorite: z.boolean().optional(),
+    // Story 103: a `RunnerChoice` - `DetectedRunner.id` or `'native'` - a plain non-empty string,
+    // same as the persisted schema (`src/main/lib/schemas.ts`); resolving whether it is usable is
+    // `resolveRunner`'s job, never the schema's.
+    runner: z.string().min(1).optional(),
+    // Story 104: the `STEAM_APP_CLIENTS` entry index the user picked, a plain positive integer -
+    // resolving whether the installation's `steamAppId` even has a client table is not this schema's
+    // job, same division of labour as `runner` right above.
+    steamClient: z.number().int().positive().optional(),
+    engine: engineKindSchema.optional(),
+  })
 
-export const updateInstallationInputSchema: z.ZodType<
-  IpcInvokeMap['installations:update']['req']
-> = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1).max(120).optional(),
-  rootPath: absolutePathSchema.optional(),
-  executablePath: absolutePathSchema.optional(),
-  writeDirPath: absolutePathSchema.nullable().optional(),
-  launchArgs: z.array(z.string().max(500)).max(64).optional(),
-  activeGameDir: z
-    .string()
-    .max(64)
-    // A game dir is a single folder name, never a path - this blocks traversal.
-    .refine((value) => value === '' || /^[A-Za-z0-9_.-]+$/.test(value), 'invalid game directory')
-    .optional(),
-  favorite: z.boolean().optional(),
-  // Story 103 D6: a `RunnerChoice` - `DetectedRunner.id` or `'native'` - a plain non-empty string,
-  // same as the persisted schema (`src/main/lib/schemas.ts`); resolving whether it is usable is
-  // `resolveRunner`'s job, never the schema's.
-  runner: z.string().min(1).optional(),
-  // Story 104 D2: the `STEAM_APP_CLIENTS` entry index the user picked, a plain positive integer -
-  // resolving whether the installation's `steamAppId` even has a client table is not this schema's
-  // job, same division of labour as `runner` right above.
-  steamClient: z.number().int().positive().optional(),
-})
-
-export const removeInstallationInputSchema: z.ZodType<
-  IpcInvokeMap['installations:remove']['req']
-> = z.object({
-  id: z.string().min(1),
-  deleteFromDisk: z.boolean().optional(),
-})
+export const removeInstallationInputSchema: z.ZodType<IpcInvokeMap['installations:remove']['req']> =
+  z.object({
+    id: z.string().min(1),
+    deleteFromDisk: z.boolean().optional(),
+  })
 
 /** Full ordering, by id, as shown in the rail (`installations:reorder`). */
 export const idListSchema: z.ZodType<IpcInvokeMap['installations:reorder']['req']> = z
@@ -135,11 +128,9 @@ export const nullableIdSchema: z.ZodType<IpcInvokeMap['installations:setActive']
   .min(1)
   .nullable()
 
-export const idSchema: z.ZodType<IpcInvokeMap['installations:validate']['req']> = z
-  .string()
-  .min(1)
+export const idSchema: z.ZodType<IpcInvokeMap['installations:validate']['req']> = z.string().min(1)
 
-/** Story 103 D6: `installations:listRunners` takes the same bare installation id as `validate`. */
+/** Story 103: `installations:listRunners` takes the same bare installation id as `validate`. */
 export const installationsListRunnersSchema: z.ZodType<
   IpcInvokeMap['installations:listRunners']['req']
 > = z.string().min(1)
@@ -185,14 +176,14 @@ export const setInstallationIconInputSchema: z.ZodType<
   icon: installationIconSchema.nullable(),
 })
 
-export const pickIconFileInputSchema: z.ZodType<
-  IpcInvokeMap['installations:pickIconFile']['req']
-> = z.object({
-  installationId: z.string().min(1),
-})
+export const pickIconFileInputSchema: z.ZodType<IpcInvokeMap['installations:pickIconFile']['req']> =
+  z.object({
+    installationId: z.string().min(1),
+  })
 
-export const iconDataUrlInputSchema: z.ZodType<IpcInvokeMap['installations:iconDataUrl']['req']> =
-  z.string().min(1)
+export const iconDataUrlInputSchema: z.ZodType<IpcInvokeMap['installations:iconDataUrl']['req']> = z
+  .string()
+  .min(1)
 
 // ---- detection ------------------------------------------------------------------
 
@@ -207,24 +198,30 @@ export const detectionListDrivesSchema: z.ZodType<IpcInvokeMap['detection:listDr
 
 // ---- launching --------------------------------------------------------------------
 
-export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = z.object({
-  installationId: z.string().min(1),
-  gameDir: z.string().max(64).optional(),
-  connect: serverAddressSchema.optional(),
-  extraArgs: z.array(z.string().max(500)).max(64).optional(),
-  // Story 125 D1: validated the same way a password would be checked on its own, never trusted
-  // just because it arrived alongside a validated `connect`.
-  userinfo: z
-    .object({
-      password: launchUserinfoValueSchema.optional(),
-      spectator: launchUserinfoValueSchema.optional(),
-    })
-    .strict()
-    .optional(),
-  // Story 126: composes with `userinfo.password` (reused as the spectator password) - see
-  // `resolveEffectiveUserinfo` in `launch-plan.ts`.
-  spectate: z.literal(true).optional(),
-})
+export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = z
+  .object({
+    installationId: z.string().min(1),
+    gameDir: z.string().max(64).optional(),
+    connect: serverAddressSchema.optional(),
+    extraArgs: z.array(z.string().max(500)).max(64).optional(),
+    // Story 125: validated the same way a password would be checked on its own, never trusted
+    // just because it arrived alongside a validated `connect`.
+    userinfo: z
+      .object({
+        password: launchUserinfoValueSchema.optional(),
+        spectator: launchUserinfoValueSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    // Story 126: composes with `userinfo.password` (reused as the spectator password) - see
+    // `resolveEffectiveUserinfo` in `launch-plan.ts`.
+    spectate: z.literal(true).optional(),
+    map: z.string().refine(isSafeGameName, 'invalid map name').optional(),
+    gameType: z.enum(['deathmatch', 'single']).optional(),
+  })
+  .refine((input) => input.map === undefined || input.connect === undefined, {
+    message: 'map and connect are mutually exclusive',
+  })
 
 export const launchGetStateSchema: z.ZodType<IpcInvokeMap['launch:getState']['req']> = z.void()
 
@@ -236,9 +233,8 @@ export const updateCheckSchema: z.ZodType<IpcInvokeMap['update:check']['req']> =
 // Story 098: the four staged actions. All payload-free - *which* update is acted on is main's own
 // state, never something the renderer names, so there is nothing here for a renderer to forge.
 export const updateDownloadSchema: z.ZodType<IpcInvokeMap['update:download']['req']> = z.void()
-export const updateCancelDownloadSchema: z.ZodType<
-  IpcInvokeMap['update:cancelDownload']['req']
-> = z.void()
+export const updateCancelDownloadSchema: z.ZodType<IpcInvokeMap['update:cancelDownload']['req']> =
+  z.void()
 export const updateInstallAndRestartSchema: z.ZodType<
   IpcInvokeMap['update:installAndRestart']['req']
 > = z.void()
@@ -256,16 +252,8 @@ export const jobsListSchema: z.ZodType<IpcInvokeMap['jobs:list']['req']> = z.voi
 export const modulesListSchema: z.ZodType<IpcInvokeMap['modules:list']['req']> = z.void()
 
 export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']> = z.object({
-  moduleId: z.enum([
-    'home',
-    'library',
-    'config',
-    'downloads',
-    'mods',
-    'assets',
-    'servers',
-    'replays',
-  ]),
+  // z.enum needs a non-empty tuple; MODULE_MANIFESTS is a non-empty constant list.
+  moduleId: z.enum(MODULE_MANIFESTS.map((m) => m.id) as [ModuleId, ...ModuleId[]]),
   type: z.string().min(1).max(80),
   payload: z.unknown().optional(),
 })
@@ -273,8 +261,8 @@ export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']>
 // ---- development only (registered only when `is.dev`) --------------------------------
 
 /**
- * Story 073 D5: an unknown scenario string must be rejected here, not coerced.
- * Story 091 D7: the `'writing'` scenario needs a real installation id to take the
+ * Story 073: an unknown scenario string must be rejected here, not coerced.
+ * Story 091: the `'writing'` scenario needs a real installation id to take the
  * write lock on - a discriminated union so the other three scenarios keep taking
  * no `installationId` at all, matching every existing caller.
  */
@@ -284,7 +272,7 @@ export const devSimulateJobSchema: z.ZodType<IpcInvokeMap['dev:simulateJob']['re
     z.object({ scenario: z.literal('writing'), installationId: z.string().min(1) }),
   ])
 
-/** Story 090 D5: `dev:simulateLaunch`'s payload - a real installation id and a target phase. */
+/** Story 090: `dev:simulateLaunch`'s payload - a real installation id and a target phase. */
 export const devSimulateLaunchSchema: z.ZodType<IpcInvokeMap['dev:simulateLaunch']['req']> =
   z.object({
     installationId: z.string().min(1),
@@ -292,7 +280,7 @@ export const devSimulateLaunchSchema: z.ZodType<IpcInvokeMap['dev:simulateLaunch
   })
 
 /**
- * Story 098 D4: `dev:simulateAppUpdate`'s payload - one variant per scenario
+ * Story 098: `dev:simulateAppUpdate`'s payload - one variant per scenario
  * `UpdateService.simulate()` understands, same discriminated-union shape as `devSimulateJobSchema`.
  */
 export const devSimulateAppUpdateSchema: z.ZodType<IpcInvokeMap['dev:simulateAppUpdate']['req']> =

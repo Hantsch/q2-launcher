@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '../../../components/ui/Button'
 import { Field, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 import type { EntryPlacementOption } from '../lib/entry-order'
 
 /**
- * "Move to…" picker for one Controls row (story 054 D8), reached from the row's kebab menu
+ * "Move to…" picker for one Controls row (story 054), reached from the row's kebab menu
  * (`ControlsRowMenu`) - the keyboard path for a cross-category/cross-sub-category move now that
- * drag (story 054 D4/D5) is the mouse one. Mirrors `MoveCvarDialog.tsx`'s shape almost verbatim: a
+ * drag (story 054) is the mouse one. Mirrors `MoveCvarDialog.tsx`'s shape almost verbatim: a
  * `Select` naming every category and sub-category in profile order (`entryPlacementOptions`).
  */
 export function MoveEntryDialog({
@@ -27,15 +28,12 @@ export function MoveEntryDialog({
 }) {
   const { t } = useTranslation()
   const [index, setIndex] = useState(0)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const canSubmit = targets.length > 0 && !submitting
 
   const submit = async (): Promise<void> => {
     if (!canSubmit) return
-    setSubmitting(true)
-    const ok = await onSubmit(targets[index]!)
-    setSubmitting(false)
-    if (!ok) return
+    await run(() => onSubmit(targets[index]!))
   }
 
   return (
@@ -44,14 +42,14 @@ export function MoveEntryDialog({
       size="sm"
       title={t('config.controls.moveEntryDialog.title', { name: entryName })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.controls.moveEntryDialog.submit')}
+            {t('common.action.move')}
           </Button>
         </>
       }
@@ -59,7 +57,7 @@ export function MoveEntryDialog({
       {targets.length === 0 ? (
         <p className="text-sm text-ink-muted">{t('config.controls.moveEntryDialog.empty')}</p>
       ) : (
-        <Field label={t('config.controls.moveEntryDialog.targetLabel')}>
+        <Field label={t('common.label.moveTo')}>
           <Select
             value={String(index)}
             onChange={(event) => setIndex(Number(event.target.value))}

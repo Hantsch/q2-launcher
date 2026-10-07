@@ -5,7 +5,11 @@ import { buildWatchlistSnapshot, matchPlainEntry, matchRegexNames } from './watc
 
 /** Story 131 D2: the pure matcher/snapshot functions. No IPC, no worker - those are later Ds. */
 
-const context = { address: '1.2.3.4:27910', serverName: 'Test Server', seenAt: '2024-01-01T00:00:00.000Z' }
+const context = {
+  address: '1.2.3.4:27910',
+  serverName: 'Test Server',
+  seenAt: '2024-01-01T00:00:00.000Z',
+}
 
 function player(name: string, score = 0, ping = 10): ServerPlayer {
   return { name, score, ping }
@@ -70,7 +74,7 @@ describe('matchRegexNames', () => {
   })
 
   it('is fully self-contained: toString()+eval reproduces the same behaviour with no outer references', () => {
-    // eslint-disable-next-line no-eval -- proving D3's exact serialize-then-eval mechanism works.
+    // oxlint-disable-next-line no-eval -- proving the exact serialize-then-eval mechanism works.
     const rebuilt = eval(`(${matchRegexNames.toString()})`) as typeof matchRegexNames
 
     expect(rebuilt('^a.*e$', ['Alice', 'Bob', 'aXe'])).toEqual([true, false, true])
@@ -141,15 +145,11 @@ describe('buildWatchlistSnapshot', () => {
   })
 
   it('left is reported when the entry has no current match but a prior left record exists', () => {
-    const leftByEntry = new Map([['d', { address: '5.6.7.8:27910', checkedAt: '2024-01-02T00:00:00.000Z' }]])
+    const leftByEntry = new Map([
+      ['d', { address: '5.6.7.8:27910', checkedAt: '2024-01-02T00:00:00.000Z' }],
+    ])
 
-    const snapshot = buildWatchlistSnapshot(
-      [entryLeft],
-      new Map(),
-      leftByEntry,
-      new Map(),
-      null,
-    )
+    const snapshot = buildWatchlistSnapshot([entryLeft], new Map(), leftByEntry, new Map(), null)
 
     expect(snapshot.entries).toEqual([
       {

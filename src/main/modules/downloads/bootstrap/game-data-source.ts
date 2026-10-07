@@ -6,8 +6,8 @@ import { findChild, fileSize, isDirectory, pathKey, resolveRelaxed } from '../..
 import { isUnsafeAbsolutePath } from './target'
 
 /**
- * Story 089 D2: fact-gathering and copy for a hand-picked "point at an existing folder" game-data
- * source (AC3-AC7) - the wizard's third `BootstrapDataSource` alongside the download and detected-
+ * Story 089: fact-gathering and copy for a hand-picked "point at an existing folder" game-data
+ * source - the wizard's third `BootstrapDataSource` alongside the download and detected-
  * store-install paths. Same discipline as `retail-source.ts`/`target.ts`: `inspectGameDataSource`
  * only reports facts, it never judges what the wizard should do with them, and only `<rootPath>/
  * baseq2` is ever probed - a `rerelease`-only layout is deliberately never discovered here either.
@@ -28,7 +28,12 @@ export async function inspectGameDataSource(rootPath: string): Promise<GameDataS
 
   const baseq2Path = await resolveRelaxed(rootPath, 'baseq2')
   if (!baseq2Path) {
-    return { rootPath, kind: 'unusable', reason: 'bootstrap.gameDataSource.baseDirMissing', paks: [] }
+    return {
+      rootPath,
+      kind: 'unusable',
+      reason: 'bootstrap.gameDataSource.baseDirMissing',
+      paks: [],
+    }
   }
 
   const found = await Promise.all(
@@ -54,11 +59,11 @@ export async function inspectGameDataSource(rootPath: string): Promise<GameDataS
 }
 
 /**
- * Story 089 D2: whether `candidate` and `other` overlap - either is inside (or equal to) the other.
+ * Story 089: whether `candidate` and `other` overlap - either is inside (or equal to) the other.
  * Split out from `inspectGameDataSource` deliberately: rejecting "the source is the target (or
  * contains/is contained by it)" needs *both* paths together, and `inspectGameDataSource` only ever
  * sees the source's `rootPath` - only the caller that already has both (the bootstrap job, at job
- * start, D3) can run this check.
+ * start) can run this check.
  */
 export function isPathContainedBy(candidate: string, other: string): boolean {
   const candidateKey = pathKey(candidate)
@@ -71,7 +76,7 @@ export function isPathContainedBy(candidate: string, other: string): boolean {
 }
 
 /** The only files a copy may ever produce - `baseq2/pak0.pak`+`pak1.pak`+`pak2.pak`, nothing else,
- * however the source folder's own `baseq2` is laid out (AC7: no `ctf`/`xatrix`/`rogue`, no loose
+ * however the source folder's own `baseq2` is laid out (no `ctf`/`xatrix`/`rogue`, no loose
  * files). Deliberately a fixed allowlist, never a directory copy. */
 const COPY_ENTRIES = RETAIL_PAK_NAMES
 

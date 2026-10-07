@@ -8,35 +8,22 @@
 //   replays-demo-favourite     DemoRow.tsx - the row's favourite marker
 
 import { readFileSync } from 'node:fs'
+import { makeFail } from '../lib/flow-common.mjs'
 import { REPLAYS_ROWS_DUEL_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
+import { openDemosRoot, rowFor, makeSidecarWaiter } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
 export const variant = 'replays-rows'
 
-function rowFor(page, text) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: text })
-}
-
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('replays-detail-quick-edit: timed out waiting for replays-refresh to become enabled')
-}
-
 export default async function replaysDetailQuickEdit({ page, shot, step }) {
   step("noting the duel row's sidecar before the edit")
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   const before = JSON.parse(readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_DUEL_DEMO), 'utf8'))
   if (before.favourite === true) {
-    throw new Error('replays-detail-quick-edit: fixture precondition - duel demo must not start as a favourite')
+    throw new Error(
+      'replays-detail-quick-edit: fixture precondition - duel demo must not start as a favourite',
+    )
   }
 
   step("opening the duel row's detail and clicking the header favourite toggle")
@@ -52,7 +39,10 @@ export default async function replaysDetailQuickEdit({ page, shot, step }) {
 
   step('the toggle reads pressed')
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="replays-detail-favourite"]')?.getAttribute('aria-pressed') === 'true',
+    () =>
+      document
+        .querySelector('[data-testid="replays-detail-favourite"]')
+        ?.getAttribute('aria-pressed') === 'true',
     null,
     { timeout: TIMEOUT_MS },
   )
@@ -66,12 +56,16 @@ export default async function replaysDetailQuickEdit({ page, shot, step }) {
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   if (written.favourite !== true) {
-    throw new Error(`replays-detail-quick-edit: sidecar favourite expected true, got ${JSON.stringify(written.favourite)}`)
+    throw new Error(
+      `replays-detail-quick-edit: sidecar favourite expected true, got ${JSON.stringify(written.favourite)}`,
+    )
   }
   const { favourite: _after, ...writtenRest } = written
   const { favourite: _before, ...beforeRest } = before
   if (JSON.stringify(writtenRest) !== JSON.stringify(beforeRest)) {
-    throw new Error("replays-detail-quick-edit: a favourite toggle must never touch the sidecar's other fields")
+    throw new Error(
+      "replays-detail-quick-edit: a favourite toggle must never touch the sidecar's other fields",
+    )
   }
 
   step('the row shows the favourite marker and sorts first, with no refresh')
@@ -88,10 +82,13 @@ export default async function replaysDetailQuickEdit({ page, shot, step }) {
       break
     }
     if ((await candidate.getByTestId('replays-demo-favourite').count()) === 0) {
-      throw new Error('replays-detail-quick-edit: a non-favourite row sorts above the newly favourited demo')
+      throw new Error(
+        'replays-detail-quick-edit: a non-favourite row sorts above the newly favourited demo',
+      )
     }
   }
-  if (!seenDuel) throw new Error('replays-detail-quick-edit: the duel row disappeared from the list')
+  if (!seenDuel)
+    throw new Error('replays-detail-quick-edit: the duel row disappeared from the list')
 
   await ratingSteps({ page, shot, step })
 }
@@ -101,16 +98,7 @@ function readSidecar() {
   return JSON.parse(readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_DUEL_DEMO), 'utf8'))
 }
 
-async function waitForSidecar(predicate, describe) {
-  const deadline = Date.now() + TIMEOUT_MS
-  let current = readSidecar()
-  while (Date.now() < deadline) {
-    current = readSidecar()
-    if (predicate(current)) return current
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error(`replays-detail-quick-edit: timed out waiting for ${describe}; sidecar is ${JSON.stringify(current)}`)
-}
+const waitForSidecar = makeSidecarWaiter(readSidecar, makeFail('replays-detail-quick-edit'))
 
 async function expectText(locator, expected, what) {
   const deadline = Date.now() + TIMEOUT_MS
@@ -120,7 +108,9 @@ async function expectText(locator, expected, what) {
     if (text === expected) return
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
-  throw new Error(`replays-detail-quick-edit: ${what} expected ${JSON.stringify(expected)}, got ${JSON.stringify(text)}`)
+  throw new Error(
+    `replays-detail-quick-edit: ${what} expected ${JSON.stringify(expected)}, got ${JSON.stringify(text)}`,
+  )
 }
 
 async function ratingSteps({ page, shot, step }) {
@@ -132,20 +122,29 @@ async function ratingSteps({ page, shot, step }) {
   await star(7).click({ timeout: TIMEOUT_MS })
   await waitForSidecar((s) => s.rating === 7, 'rating: 7')
   await expectText(ratingValue, '7/10', 'replays-detail-rating-value')
-  await expectText(duelRow.getByTestId('replays-demo-rating'), '7/10', "the row's replays-demo-rating")
+  await expectText(
+    duelRow.getByTestId('replays-demo-rating'),
+    '7/10',
+    "the row's replays-demo-rating",
+  )
   await shot('replays-detail-rating')
 
   step('clicking star 7 again clears the rating')
   await star(7).click({ timeout: TIMEOUT_MS })
   await waitForSidecar((s) => !('rating' in s), 'the rating to leave the sidecar')
   await expectText(ratingValue, 'Not rated', 'replays-detail-rating-value')
-  await duelRow.getByTestId('replays-demo-rating').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  await duelRow
+    .getByTestId('replays-demo-rating')
+    .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
 
   step('favourite then star 4 with no wait: neither write loses the other')
   const favouriteNow = readSidecar().favourite === true
   await page.getByTestId('replays-detail-favourite').click({ timeout: TIMEOUT_MS })
   await star(4).click({ timeout: TIMEOUT_MS })
-  await waitForSidecar((s) => (s.favourite === true) !== favouriteNow && s.rating === 4, 'the toggled favourite and rating: 4')
+  await waitForSidecar(
+    (s) => (s.favourite === true) !== favouriteNow && s.rating === 4,
+    'the toggled favourite and rating: 4',
+  )
 
   step('keyboard: ArrowRight raises the rating, Delete clears it')
   await star(4).focus()

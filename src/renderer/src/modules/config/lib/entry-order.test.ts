@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import {
   buildMoveTargets,
   entryPlacementOptions,
@@ -441,7 +441,12 @@ describe('story 054 D11: a reorder renders in its new order', () => {
    * `entry-order.test.ts`'s own `action()` helper above builds keyless, commandless rows (fine for
    * pure array-position assertions), but this describe block needs a real rendered line to key its
    * order assertions off. */
-  function boundAction(id: string, categoryId: string, subcategoryId: string | undefined, key: string): ConfigAction {
+  function boundAction(
+    id: string,
+    categoryId: string,
+    subcategoryId: string | undefined,
+    key: string,
+  ): ConfigAction {
     return {
       id,
       categoryId,
@@ -481,7 +486,9 @@ describe('story 054 D11: a reorder renders in its new order', () => {
     const reordered = moveSubcategory(cat, 'weaponAlt', 0)
 
     const text = renderProfileFile(profile({ categories: [reordered], actions }))
-    const banners = [...new Set([...text.matchAll(/^\/\/ --- (\S+) \[q2l sub=/gm)].map((m) => m[1]))]
+    const banners = [
+      ...new Set([...text.matchAll(/^\/\/ --- (\S+) \[q2l sub=/gm)].map((m) => m[1])),
+    ]
     expect(banners).toEqual(['Alt', 'Use', 'Cycling'])
   })
 

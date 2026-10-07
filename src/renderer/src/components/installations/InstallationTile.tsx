@@ -57,27 +57,35 @@ export function InstallationTile({
     >
       {iconUrl ? (
         // Decorative: the accessible name for this tile lives on the wrapping
-        // button/title exactly where it did before an icon existed (story 067
-        // D5's AC8) - never on this image.
-        <img src={iconUrl} alt="" aria-hidden="true" className="size-full rounded-[inherit] object-cover" />
+        // button/title exactly where it did before an icon existed (story 067) - never on this image.
+        <img
+          src={iconUrl}
+          alt=""
+          aria-hidden="true"
+          className="size-full rounded-[inherit] object-cover"
+        />
       ) : (
         <span className={cn('font-display font-semibold', TEXT_SIZE_CLASSES[size], textClassName)}>
           {installation ? tileCode(installation.engineKind, installation.name) : '--'}
         </span>
       )}
-      {/* CSS-only microtag (story 074 D7) - text, not colour-only, per /design-tokens. */}
+      {/* CSS-only microtag (story 074) - text, not colour-only, per /design-tokens. */}
       {demo && (
         <span className="tile-demo-tag" data-testid="installation-tile-demo-tag" aria-hidden="true">
           DEMO
         </span>
       )}
-      {/* CSS-only microtag (story 077 D4), mirroring `.tile-demo-tag` - text, not colour-only,
+      {/* CSS-only microtag (story 077), mirroring `.tile-demo-tag` - text, not colour-only,
           per /design-tokens. Opposite corner from the demo tag so the two never overlap on the
           rare installation that could carry both. Decorative/aria-hidden: the accessible signal
           lives on `FailureBadge` at each call site, same relationship `.tile-demo-tag` has to
           `DemoBadge`. */}
       {failed && (
-        <span className="tile-failed-tag" data-testid="installation-tile-failed-tag" aria-hidden="true">
+        <span
+          className="tile-failed-tag"
+          data-testid="installation-tile-failed-tag"
+          aria-hidden="true"
+        >
           FAILED
         </span>
       )}

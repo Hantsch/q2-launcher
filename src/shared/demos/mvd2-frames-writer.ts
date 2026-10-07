@@ -68,7 +68,11 @@ export const mvd2Msg = {
    * carries no fields here. */
   frame: (): Mvd2StreamMessage => ({ kind: 'frame' }),
   print: (text: string, level = 2): Mvd2StreamMessage => ({ kind: 'print', level, text }),
-  configstring: (index: number, value: string): Mvd2StreamMessage => ({ kind: 'configstring', index, value }),
+  configstring: (index: number, value: string): Mvd2StreamMessage => ({
+    kind: 'configstring',
+    index,
+    value,
+  }),
   unicast: (clientNum: number, bytes: readonly number[] = []): Mvd2StreamMessage => ({
     kind: 'unicast',
     reliable: false,
@@ -81,18 +85,32 @@ export const mvd2Msg = {
     clientNum,
     bytes,
   }),
-  multicast: (variant: MulticastVariant, bytes: readonly number[] = [], leaf = 0): Mvd2StreamMessage => ({
+  multicast: (
+    variant: MulticastVariant,
+    bytes: readonly number[] = [],
+    leaf = 0,
+  ): Mvd2StreamMessage => ({
     kind: 'multicast',
     variant,
     leaf,
     bytes,
   }),
-  sound: (opts: Omit<Extract<Mvd2StreamMessage, { kind: 'sound' }>, 'kind'>): Mvd2StreamMessage => ({
+  sound: (
+    opts: Omit<Extract<Mvd2StreamMessage, { kind: 'sound' }>, 'kind'>,
+  ): Mvd2StreamMessage => ({
     kind: 'sound',
     ...opts,
   }),
-  serverdata: (protocol: number, version = 2010): Mvd2StreamMessage => ({ kind: 'serverdata', protocol, version }),
-  raw: (opcode: number, bytes: readonly number[] = []): Mvd2StreamMessage => ({ kind: 'raw', opcode, bytes }),
+  serverdata: (protocol: number, version = 2010): Mvd2StreamMessage => ({
+    kind: 'serverdata',
+    protocol,
+    version,
+  }),
+  raw: (opcode: number, bytes: readonly number[] = []): Mvd2StreamMessage => ({
+    kind: 'raw',
+    opcode,
+    bytes,
+  }),
 }
 
 export interface BuildMvd2StreamOptions {
@@ -197,11 +215,19 @@ function writeMessage(w: ByteWriter, m: Mvd2StreamMessage): void {
       w.string(m.value)
       return
     case 'unicast':
-      writeLengthPrefixedOp(w, m.reliable ? MVD_UNICAST_R : MVD_UNICAST, m.bytes, (b) => b.byte(m.clientNum))
+      writeLengthPrefixedOp(w, m.reliable ? MVD_UNICAST_R : MVD_UNICAST, m.bytes, (b) =>
+        b.byte(m.clientNum),
+      )
       return
     case 'multicast': {
-      const hasLeaf = m.variant === 'phs' || m.variant === 'pvs' || m.variant === 'phs_r' || m.variant === 'pvs_r'
-      writeLengthPrefixedOp(w, MULTICAST_OP[m.variant], m.bytes, hasLeaf ? (b) => b.short(m.leaf) : undefined)
+      const hasLeaf =
+        m.variant === 'phs' || m.variant === 'pvs' || m.variant === 'phs_r' || m.variant === 'pvs_r'
+      writeLengthPrefixedOp(
+        w,
+        MULTICAST_OP[m.variant],
+        m.bytes,
+        hasLeaf ? (b) => b.short(m.leaf) : undefined,
+      )
       return
     }
     case 'sound': {
@@ -251,7 +277,9 @@ export function buildMvd2Stream(opts: BuildMvd2StreamOptions): Uint8Array {
   const cs = opts.headerConfigstrings
   if (cs !== undefined && Object.keys(cs).length > 0) {
     writeBlock(w, (b) => {
-      for (const key of Object.keys(cs).map(Number).sort((x, y) => x - y)) {
+      for (const key of Object.keys(cs)
+        .map(Number)
+        .sort((x, y) => x - y)) {
         writeMessage(b, mvd2Msg.configstring(key, cs[key]!))
       }
     })

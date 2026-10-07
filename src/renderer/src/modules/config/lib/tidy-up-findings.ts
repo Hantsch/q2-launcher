@@ -1,10 +1,10 @@
 /**
- * The Care tab's tidy-up analyzer — story 025 D4.
+ * The Care tab's tidy-up analyzer — story 025.
  *
  * One pure function, `analyzeTidyUp`, that turns a profile into the flat
  * maintenance list the Care tab's tidy-up section shows: every finding carries
- * the machine-readable `TidyUpOp`s (D3, `@shared/config/tidy-up`) that would fix
- * it, so the UI (D5/D6) only ever renders findings and posts ops back - it never
+ * the machine-readable `TidyUpOp`s (`@shared/config/profile/tidy-up`) that would fix
+ * it, so the UI only ever renders findings and posts ops back - it never
  * derives a fix itself.
  *
  * Lives in `renderer/.../lib` rather than in `src/shared`, same reason
@@ -43,7 +43,7 @@
  * property of the *rendered file*, and the engine's rule is simply that the last
  * `bind <key>` it reads for a key wins:
  *
- * - **base scope**: `renderProfileFile` (`@shared/config/render`) emits
+ * - **base scope**: `renderProfileFile` (`@shared/config/render/render`) emits
  *   `profile.binds` as `bind <key> "<command>"` in `Object.keys(binds).sort()`
  *   order and nothing else ever emits a base bind. So the winning command for a
  *   key is the value of the *last-sorted* `binds` entry that normalizes to it -
@@ -69,29 +69,29 @@
  * instead: `'auto'`'s entire basis is that removing a loser is provably inert,
  * and that proof does not exist without a known winner.
  *
- * The claim list itself is `bindClaimsFor` (`@shared/config/tidy-up`), the same
- * function D3's applier re-checks against, so the claim an op names cannot drift
+ * The claim list itself is `bindClaimsFor` (`@shared/config/profile/tidy-up`), the same
+ * function the applier re-checks against, so the claim an op names cannot drift
  * from the claim that op is validated against - the one thing a third copy of
  * "who claims this key" would have risked.
  */
 
-import { bindValueFor } from '@shared/config/action-mirror'
-import { actionKeySlots } from '@shared/config/action-slots'
-import { buildAliasIndex } from '@shared/config/alias-references'
-import { sanitizeCommand, generateLayerAliases } from '@shared/config/alt-layers'
-import { findBindCollision } from '@shared/config/bind-collision'
-import { tokenizeConfigText, type ConfigSyntaxToken } from '@shared/config/config-syntax'
-import { findCvar } from '@shared/config/cvar-catalog'
-import { normalizeBindKey } from '@shared/config/key-names'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
+import { actionKeySlots } from '@shared/config/catalog/action-slots'
+import { buildAliasIndex } from '@shared/config/aliases/alias-references'
+import { sanitizeCommand, generateLayerAliases } from '@shared/config/aliases/alt-layers'
+import { findBindCollision } from '@shared/config/validation/bind-collision'
+import { tokenizeConfigText, type ConfigSyntaxToken } from '@shared/config/syntax/config-syntax'
+import { findCvar } from '@shared/config/catalog/cvar-catalog'
+import { normalizeBindKey } from '@shared/config/syntax/key-names'
 import {
   bindClaimsFor,
   type TidyUpBindClaim,
   type TidyUpBindScope,
   type TidyUpOp,
   type TidyUpReclassifyTarget,
-} from '@shared/config/tidy-up'
-import { ACTIONS_MESSAGE_PREFIX, validateActions } from '@shared/config/validate-actions'
-import type { Finding } from '@shared/config/validation'
+} from '@shared/config/profile/tidy-up'
+import { ACTIONS_MESSAGE_PREFIX, validateActions } from '@shared/config/validation/validate-actions'
+import type { Finding } from '@shared/config/validation/validation'
 import type { ConfigProfile, UnrecognizedConfigLine } from '@shared/modules/config'
 import type { EngineKind } from '@shared/types/engine'
 import { findBindConflicts, type BindConflict } from './bind-conflicts'
@@ -183,12 +183,12 @@ export interface TidyUpFinding {
   ops: TidyUpOp[]
   /** The id of the underlying finding this row was derived from - the real
    * `Finding.id` where a validator produced one, a minted stable id where the
-   * source has none (`findBindConflicts`, `layer.empty`, a preserved line). D8
+   * source has none (`findBindConflicts`, `layer.empty`, a preserved line). The merge
    * de-duplicates the tab badge across the validation report and this list by
    * this field, so it is deterministic rather than unique-per-row. */
   sourceFindingId: string
   /** The `ConfigAction.id` this finding names, when it names one at all - story
-   * 058 D5's "Show in Controls" deep link is wired off this. Only
+   * 058's "Show in Controls" deep link is wired off this. Only
    * `shadowedBind` ever sets it today (see `shadowedBindActionId` below); every
    * other kind names a key with no owning action, an alias, or a layer/line,
    * none of which are a Controls row. */
@@ -276,12 +276,12 @@ function claimOwnerName(profile: ConfigProfile, claim: TidyUpBindClaim): string 
  * - **two or more action claims render the winning value.** No winner. Two
  *   actions can only share a rendered value by sharing an alias name (which is
  *   `aliasDuplicate`, reported separately) or a catalogue `+command`, and in
- *   that state D3's removal strips base-bind mirror entries *by value*, so
+ *   that state the removal strips base-bind mirror entries *by value*, so
  *   removing "the loser" would take the survivor's own mirror entry with it and
  *   leave the key unbound until the next save. Not inert, so not offered.
  * - **several hand-made claims render it** (the two-spellings-of-one-key import,
  *   or two byte-identical entries). The last-rendered one is the winner and the
- *   others are losers; since their commands are identical, whichever entry D3's
+ *   others are losers; since their commands are identical, whichever entry the applier's
  *   first-match removal actually drops renders the same line either way, so this
  *   stays inert.
  * - **nothing renders it.** No winner - the stored value belongs to no claimant
@@ -302,7 +302,7 @@ function resolveWinner(
     const value = claimRenderedValue(profile, claim)
     if (value === undefined) return
     // Compared against the trimmed stored value as well, the same tolerance
-    // D3's own mirror strip applies (`withoutMirrorEntries`).
+    // the applier's own mirror strip applies (`withoutMirrorEntries`).
     if (value === effective || value === effective.trim()) matches.push(index)
   })
   if (matches.length === 0) return undefined
@@ -315,7 +315,7 @@ function resolveWinner(
 
 /**
  * The `ConfigAction.id` to offer "Show in Controls" for, given a contested
- * key's claims and its (possibly unproven) winner - story 058 D5.
+ * key's claims and its (possibly unproven) winner - story 058.
  *
  * When a winner is proven, the row is about the claim that lost: pointing
  * "Show in Controls" at the winner would land on the row that already works,
@@ -328,8 +328,12 @@ function resolveWinner(
  * still "an" entry worth looking at, even though which one is at fault is
  * exactly what could not be proven.
  */
-function shadowedBindActionId(claims: TidyUpBindClaim[], winner: number | undefined): string | undefined {
-  const candidates = winner === undefined ? claims : claims.filter((_claim, index) => index !== winner)
+function shadowedBindActionId(
+  claims: TidyUpBindClaim[],
+  winner: number | undefined,
+): string | undefined {
+  const candidates =
+    winner === undefined ? claims : claims.filter((_claim, index) => index !== winner)
   const found = candidates.find((claim) => claim.source === 'action')
   return found?.source === 'action' ? found.actionId : undefined
 }
@@ -347,7 +351,8 @@ function shadowedBindFindings(profile: ConfigProfile): TidyUpFinding[] {
   return findBindConflicts(profile).map((conflict: BindConflict): TidyUpFinding => {
     const normalizedKey = normalizeBindKey(conflict.key)
     const claims = bindClaimsFor(profile, conflict.scope, normalizedKey)
-    const winner = claims.length >= 2 ? resolveWinner(profile, conflict.scope, normalizedKey, claims) : undefined
+    const winner =
+      claims.length >= 2 ? resolveWinner(profile, conflict.scope, normalizedKey, claims) : undefined
     const id = `${scopeId(conflict.scope)}:${conflict.key}`
 
     const shared = {
@@ -366,7 +371,11 @@ function shadowedBindFindings(profile: ConfigProfile): TidyUpFinding[] {
         ...shared,
         mode: 'report' as const,
         messageKey: `${TIDY_UP_MESSAGE_PREFIX}shadowedBindUnresolved`,
-        params: { key: conflict.key, owners: conflict.owners.join(', '), count: conflict.owners.length },
+        params: {
+          key: conflict.key,
+          owners: conflict.owners.join(', '),
+          count: conflict.owners.length,
+        },
         ops: [],
         actionId: shadowedBindActionId(claims, winner),
       }
@@ -400,7 +409,7 @@ function shadowedBindFindings(profile: ConfigProfile): TidyUpFinding[] {
 /**
  * One finding per layer whose every override is blank - "empty" asked of
  * `generateLayerAliases` itself (its own `layer.empty` issue), never re-derived,
- * so this can never disagree with the generator, and neither can D3's applier,
+ * so this can never disagree with the generator, and neither can the applier,
  * which re-checks the very same issue.
  */
 function emptyLayerFindings(profile: ConfigProfile): TidyUpFinding[] {
@@ -425,7 +434,7 @@ function emptyLayerFindings(profile: ConfigProfile): TidyUpFinding[] {
 
 /**
  * The alias-wiring half, from `validateActions`' own findings - one tidy-up row
- * per finding, keeping the validator's id (so D8 can de-duplicate against the
+ * per finding, keeping the validator's id (so the merge can de-duplicate against the
  * report) and its level.
  *
  * Only `aliasUnreferenced` gets an op. Its `Finding.subject.id` is the action's
@@ -533,7 +542,9 @@ function duplicateEntries(
   return ids.flatMap((id) => {
     const action = actions.find((candidate) => candidate.id === id)
     if (!action) return []
-    const category = (profile.categories ?? []).find((candidate) => candidate.id === action.categoryId)
+    const category = (profile.categories ?? []).find(
+      (candidate) => candidate.id === action.categoryId,
+    )
     const subcategory = (category?.subcategories ?? []).find(
       (candidate) => candidate.id === action.subcategoryId,
     )
@@ -580,7 +591,7 @@ function wordText(token: ConfigSyntaxToken): string {
  * line is preserved precisely because that parser could not classify it, so the
  * only lines this can promote are ones whose shape that parser's own rules
  * recognise but its command list does not. Tokenizing is
- * `tokenizeConfigText` (`@shared/config/config-syntax`), which is the same
+ * `tokenizeConfigText` (`@shared/config/syntax/config-syntax`), which is the same
  * quote/`;`/`//` handling as the parser's and is the one tokenizer the renderer
  * is allowed to reach (the parser itself lives in `main`).
  *
@@ -599,13 +610,13 @@ function wordText(token: ConfigSyntaxToken): string {
  *
  * Never an `actions` target. An `alias <name> "<body>"` line is the commonest
  * classifiable preserved line of all, and promoting one needs a category to file
- * it under (`ConfigAction.categoryId`, which D3 requires to resolve) plus an id
+ * it under (`ConfigAction.categoryId`, which the applier requires to resolve) plus an id
  * - a drawer decision the Controls editor makes with the user, not something a
- * scanner should pick for them. That also keeps this module clear of D3's
+ * scanner should pick for them. That also keeps this module clear of the applier's
  * refusal for modifier-carrying action targets by construction: it emits no
  * action target at all.
  *
- * Also drop-only when D3 would refuse the write anyway (the cvar is already set
+ * Also drop-only when the applier would refuse the write anyway (the cvar is already set
  * to something else, the key is already taken): offering a button whose only
  * possible outcome is `rejected` is worse than offering just the drop.
  */
@@ -644,7 +655,7 @@ function classifyPreservedLine(
 }
 
 /** A cvar target, unless the profile already holds a different value for that
- * name - promoting must never overwrite content the user has (D3 refuses it
+ * name - promoting must never overwrite content the user has (the applier refuses it
  * too). */
 function cvarTarget(
   profile: ConfigProfile,
@@ -659,7 +670,7 @@ function cvarTarget(
 
 /** A base-bind target, unless the key is already claimed by something other
  * than this exact command. `findBindCollision` answers "is the key free", the
- * same function D3's own precondition uses; a layer override is not a blocker
+ * same function the applier's own precondition uses; a layer override is not a blocker
  * (decision 14). */
 function bindTarget(
   profile: ConfigProfile,
@@ -678,7 +689,7 @@ function bindTarget(
  * One `'review'` finding per preserved line, always offering
  * `dropPreservedLine` and additionally `reclassifyPreservedLine` when
  * `classifyPreservedLine` will commit to a target. Both ops sit in the same
- * finding: D5 renders them as two buttons on one row, so the user chooses
+ * finding: the UI renders them as two buttons on one row, so the user chooses
  * between forgetting the line and keeping it, rather than being shown the same
  * line twice.
  */
@@ -718,7 +729,7 @@ function preservedLineFindings(profile: ConfigProfile): TidyUpFinding[] {
     return {
       // A `;`-mixed line can preserve two segments carrying the *same* line
       // number, so the array index is part of the row's own id - while
-      // `sourceFindingId` stays the file/line pair D8 de-duplicates on.
+      // `sourceFindingId` stays the file/line pair the merge de-duplicates on.
       id: `preserved:${entry.file}:${entry.line}:${index}`,
       kind: 'preservedLine' as const,
       mode: 'review' as const,
@@ -737,7 +748,7 @@ function preservedLineFindings(profile: ConfigProfile): TidyUpFinding[] {
  * does not reshuffle between two scans of the same profile.
  *
  * Pure: reads `profile`, calls the same validators the report uses, returns
- * data. No clock, no ids, no I/O - which is what lets D5 call it on every
+ * data. No clock, no ids, no I/O - which is what lets the UI call it on every
  * render and a test call it directly.
  */
 export function analyzeTidyUp(profile: ConfigProfile): TidyUpFinding[] {

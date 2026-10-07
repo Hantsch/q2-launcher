@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigCvarSection, ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { buildCvarSectionGroups } from './cvar-rows'
 import {
   createCvarSection,
@@ -39,7 +39,10 @@ describe('createCvarSection', () => {
 describe('renameCvarSection', () => {
   it('renames the section and preserves cvars/subsections, dropping only nameKey', () => {
     const sections = [
-      section('a', ['fov'], { nameKey: 'seed.a', subsections: [{ id: 's1', name: 'Sub', cvars: ['x'] }] }),
+      section('a', ['fov'], {
+        nameKey: 'seed.a',
+        subsections: [{ id: 's1', name: 'Sub', cvars: ['x'] }],
+      }),
     ]
     const result = renameCvarSection(sections, 'a', 'Renamed')
     expect(result[0]).toEqual({
@@ -175,7 +178,10 @@ describe('removeCvarFromSections / moveCvarToSection', () => {
 
   it('never leaves a cvar listed twice after a move', () => {
     const result = moveCvarToSection(sections, 'rate', { sectionId: 'a' })
-    const total = result.flatMap((s) => [...s.cvars, ...(s.subsections ?? []).flatMap((sub) => sub.cvars)])
+    const total = result.flatMap((s) => [
+      ...s.cvars,
+      ...(s.subsections ?? []).flatMap((sub) => sub.cvars),
+    ])
     expect(total.filter((name) => name === 'rate')).toHaveLength(1)
   })
 })
@@ -249,7 +255,7 @@ describe('moveSubsectionToIndex (story 054 D9)', () => {
 })
 
 describe('moveCvarToPosition (story 054 D9)', () => {
-  it("moves a cvar between sections at an exact index, not just appended", () => {
+  it('moves a cvar between sections at an exact index, not just appended', () => {
     const sections = [section('a', ['fov', 'sensitivity']), section('b', ['rate'])]
     const result = moveCvarToPosition(sections, 'sensitivity', { sectionId: 'b', index: 0 })
     expect(result.find((s) => s.id === 'a')!.cvars).toEqual(['fov'])
@@ -265,7 +271,11 @@ describe('moveCvarToPosition (story 054 D9)', () => {
         ],
       }),
     ]
-    const result = moveCvarToPosition(sections, 'x', { sectionId: 'a', subsectionId: 's2', index: 1 })
+    const result = moveCvarToPosition(sections, 'x', {
+      sectionId: 'a',
+      subsectionId: 's2',
+      index: 1,
+    })
     expect(result[0]!.subsections![0]!.cvars).toEqual([])
     expect(result[0]!.subsections![1]!.cvars).toEqual(['y', 'x', 'z'])
   })
@@ -294,7 +304,9 @@ describe('moveCvarToPosition (story 054 D9)', () => {
   })
 
   it('is a no-op for an unknown target subsection id', () => {
-    const sections = [section('a', ['fov'], { subsections: [{ id: 's1', name: 'One', cvars: [] }] })]
+    const sections = [
+      section('a', ['fov'], { subsections: [{ id: 's1', name: 'One', cvars: [] }] }),
+    ]
     expect(
       moveCvarToPosition(sections, 'fov', { sectionId: 'a', subsectionId: 'missing', index: 0 }),
     ).toEqual(sections)
@@ -325,7 +337,10 @@ describe('cvarPlacementOptions', () => {
  * the real file parser is main-only) - this only needs to show the write side.
  */
 describe('story 054 D11: a reorder renders in its new order', () => {
-  function profile(cvarSections: ConfigCvarSection[], cvars: Record<string, string>): ConfigProfile {
+  function profile(
+    cvarSections: ConfigCvarSection[],
+    cvars: Record<string, string>,
+  ): ConfigProfile {
     return {
       id: 'p1',
       name: 'Profile',
@@ -340,7 +355,11 @@ describe('story 054 D11: a reorder renders in its new order', () => {
   }
 
   it('moveSectionToIndex: the rendered file emits the cvar sections in the new order', () => {
-    const sections = [section('one', ['zz_one']), section('two', ['zz_two']), section('three', ['zz_three'])]
+    const sections = [
+      section('one', ['zz_one']),
+      section('two', ['zz_two']),
+      section('three', ['zz_three']),
+    ]
     const reordered = moveSectionToIndex(sections, 'three', 0)
 
     const text = renderProfileFile(profile(reordered, { zz_one: '1', zz_two: '2', zz_three: '3' }))
@@ -358,9 +377,7 @@ describe('story 054 D11: a reorder renders in its new order', () => {
     })
     const reordered = moveSubsectionToIndex(withSubs, 'sub-c', 0)
 
-    const text = renderProfileFile(
-      profile([reordered], { zz_a: '1', zz_b: '2', zz_c: '3' }),
-    )
+    const text = renderProfileFile(profile([reordered], { zz_a: '1', zz_b: '2', zz_c: '3' }))
     const banners = [...text.matchAll(/^\/\/ --- (\S+) \[q2l cvsub=/gm)].map((m) => m[1])
     expect(banners).toEqual(['Gamma', 'Alpha', 'Beta'])
   })

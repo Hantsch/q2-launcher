@@ -5,8 +5,8 @@ import { openSlideUrl } from '../client'
 export interface SlideButtonsProps {
   buttons: NewsButton[]
   /**
-   * Called with one button's URL when it is clicked (kept from D2, still exercised by
-   * `slides.test.tsx`). D5 adds the real IPC call alongside it: this component's own `onClick`
+   * Called with one button's URL when it is clicked (still exercised by
+   * `slides.test.tsx`). The real IPC call sits alongside it: this component's own `onClick`
    * also calls the home client's `openSlideUrl`, which is the only place that actually opens
    * anything - main re-checks the scheme and the host allowlist there before ever touching
    * `shell.openExternal` (`main/modules/home/open-slide-url.ts`).
@@ -15,7 +15,7 @@ export interface SlideButtonsProps {
 }
 
 /**
- * The button row shared by every slide template (story 083 D2). Renders at most 3 of a slide's
+ * The button row shared by every slide template (story 083). Renders at most 3 of a slide's
  * buttons (concept §6.2's "max 3 buttons" - a caller's array may carry more, this is where the
  * cap is actually enforced) as real `<button>` elements, never `<a>`: a slide button cannot
  * navigate on its own, per this deliverable's acceptance criteria - there is no `href` anywhere

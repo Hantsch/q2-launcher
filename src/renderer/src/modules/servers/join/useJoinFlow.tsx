@@ -4,6 +4,7 @@ import type { ServerListRow } from '@shared/modules/servers'
 import { parseServerAddress, serverAddressRejectionKey } from '@shared/servers/address'
 import { parseUserinfoValue, userinfoRejectionKey } from '@shared/launch/userinfo'
 import { Button } from '../../../components/ui/Button'
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Field, Input } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
 import { useActiveInstallation, useLauncher } from '../../../store/useLauncher'
@@ -105,48 +106,36 @@ export function useJoinFlow(): {
 
   const dialogs = (
     <>
-      <Modal
-        open={mismatch !== null}
-        size="sm"
-        title={t('servers.join.mismatch.title')}
-        onClose={closeMismatch}
-        closeLabel={t('common.close')}
-        footer={
-          <>
-            <Button
-              variant="ghost"
-              onClick={closeMismatch}
-              data-testid="servers-join-mismatch-cancel"
-            >
-              {t('servers.join.mismatch.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={confirmMismatch}
-              data-testid="servers-join-mismatch-confirm"
-            >
-              {t('servers.join.mismatch.confirm')}
-            </Button>
-          </>
-        }
-      >
-        <div data-testid="servers-join-mismatch">
-          <p className="text-sm text-ink">
-            {mismatch &&
-              t('servers.join.mismatch.body', {
-                server: mismatch.server,
-                installation: mismatch.installation,
-              })}
-          </p>
-        </div>
-      </Modal>
+      {mismatch && (
+        <ConfirmDialog
+          title={t('servers.join.mismatch.title')}
+          body={
+            <div data-testid="servers-join-mismatch">
+              <p className="text-sm text-ink">
+                {t('servers.join.mismatch.body', {
+                  server: mismatch.server,
+                  installation: mismatch.installation,
+                })}
+              </p>
+            </div>
+          }
+          confirmLabel={t('servers.join.mismatch.confirm')}
+          tone="primary"
+          onConfirm={confirmMismatch}
+          onClose={closeMismatch}
+          testIds={{
+            confirm: 'servers-join-mismatch-confirm',
+            cancel: 'servers-join-mismatch-cancel',
+          }}
+        />
+      )}
 
       <Modal
         open={askPassword}
         size="sm"
         title={t('servers.join.password.title')}
         onClose={closePassword}
-        closeLabel={t('common.close')}
+        closeLabel={t('common.action.close')}
         footer={
           <>
             <Button
@@ -154,7 +143,7 @@ export function useJoinFlow(): {
               onClick={closePassword}
               data-testid="servers-join-password-cancel"
             >
-              {t('servers.join.password.cancel')}
+              {t('common.action.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -162,13 +151,13 @@ export function useJoinFlow(): {
               disabled={!passwordValidation.ok}
               data-testid="servers-join-password-submit"
             >
-              {t('servers.join.password.submit')}
+              {t('common.action.join')}
             </Button>
           </>
         }
       >
         <div data-testid="servers-join-password">
-          <Field label={t('servers.join.password.label')} error={passwordError ?? undefined}>
+          <Field label={t('common.label.password')} error={passwordError ?? undefined}>
             <Input
               type="password"
               value={password}

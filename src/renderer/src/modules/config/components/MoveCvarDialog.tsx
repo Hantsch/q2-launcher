@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '../../../components/ui/Button'
 import { Field, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 import type { CvarPlacementOption } from '../lib/cvar-sections'
 
 /**
- * "Move to..." picker for one cvar (story 059 D8): drag and drop itself is story 054's job, out of
+ * "Move to..." picker for one cvar (story 059): drag and drop itself is story 054's job, out of
  * scope here - this is the non-drag mechanism the deliverable asks for instead, a `Select` naming
  * every section and sub-section in profile order, mirroring `DeleteCategoryDialog`'s own target
  * `Select` one level up.
@@ -27,39 +28,38 @@ export function MoveCvarDialog({
 }) {
   const { t } = useTranslation()
   const [index, setIndex] = useState(0)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const canSubmit = targets.length > 0 && !submitting
 
   const submit = async (): Promise<void> => {
     if (!canSubmit) return
-    setSubmitting(true)
-    const ok = await onSubmit(targets[index]!)
-    setSubmitting(false)
-    if (!ok) return
+    await run(() => onSubmit(targets[index]!))
   }
 
   return (
     <Modal
       open
       size="sm"
-      title={t('config.settings.section.moveCvarDialog.title', { name: cvarName })}
+      title={t('config.controls.moveEntryDialog.title', { name: cvarName })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.settings.section.moveCvarDialog.submit')}
+            {t('common.action.move')}
           </Button>
         </>
       }
     >
       {targets.length === 0 ? (
-        <p className="text-sm text-ink-muted">{t('config.settings.section.moveCvarDialog.empty')}</p>
+        <p className="text-sm text-ink-muted">
+          {t('config.settings.section.moveCvarDialog.empty')}
+        </p>
       ) : (
-        <Field label={t('config.settings.section.moveCvarDialog.targetLabel')}>
+        <Field label={t('common.label.moveTo')}>
           <Select
             value={String(index)}
             onChange={(event) => setIndex(Number(event.target.value))}

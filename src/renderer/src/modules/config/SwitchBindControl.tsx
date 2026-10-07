@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/primitives'
@@ -6,9 +6,9 @@ import { resolveQuakeKeyName } from './lib/keyboard-layout'
 import { setSwitchBind } from './client'
 
 /**
- * Story 007 D4: one installation's in-session profile-switch bind. Shown by
+ * Story 007: one installation's in-session profile-switch bind. Shown by
  * `InstallationProfilesPanel` only when that installation has 2+ assigned
- * profiles (AC 5) - this component itself does not gate on that, it only
+ * profiles - this component itself does not gate on that, it only
  * renders the control for whichever installation it is given.
  *
  * Press-to-capture mirrors `OverviewKeyboardPanel`'s test-mode listener
@@ -32,6 +32,17 @@ export function SwitchBindControl({
   const { t } = useTranslation()
   const [capturing, setCapturing] = useState(false)
 
+  const applyKey = useCallback(
+    async (key: string | null): Promise<void> => {
+      const result = await setSwitchBind({ installationId, key })
+      if (result.ok) {
+        onChanged(result.value)
+        setCapturing(false)
+      }
+    },
+    [installationId, onChanged],
+  )
+
   useEffect(() => {
     if (!capturing) return
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -43,22 +54,14 @@ export function SwitchBindControl({
     }
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)
-  }, [capturing, installationId])
-
-  const applyKey = async (key: string | null): Promise<void> => {
-    const result = await setSwitchBind({ installationId, key })
-    if (result.ok) {
-      onChanged(result.value)
-      setCapturing(false)
-    }
-  }
+  }, [capturing, applyKey])
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="stencil">{t('config.switchBind.label')}</span>
 
       {capturing ? (
-        <Badge tone="warning">{t('config.switchBind.capturing')}</Badge>
+        <Badge tone="warning">{t('config.controls.editor.capturing')}</Badge>
       ) : currentKey ? (
         <Badge tone="flame">{currentKey}</Badge>
       ) : (
@@ -79,7 +82,7 @@ export function SwitchBindControl({
 
       {!capturing && currentKey && (
         <Button variant="danger" size="sm" onClick={() => void applyKey(null)}>
-          {t('config.switchBind.clear')}
+          {t('common.action.clear')}
         </Button>
       )}
     </div>

@@ -1,28 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ServerListRow } from '@shared/modules/servers'
-import type { Installation } from '@shared/types/installation'
 import { modMismatch, needsJoinPassword } from './join-flow'
-
-function makeInstallation(overrides: Partial<Installation> = {}): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: 'C:\\Games\\Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-    ...overrides,
-  }
-}
+import { makeInstallation } from '../../../../../test-support/fixtures'
 
 function makeRow(overrides: Partial<ServerListRow> = {}): ServerListRow {
   return {

@@ -61,6 +61,7 @@
 // removable installation always opens the dialog (default `confirmBeforeRemoving: true`), so this
 // flow never has to touch that setting.
 import { existsSync, readFileSync } from 'node:fs'
+import { libraryCard, railTile, simulateLaunch } from '../lib/flow-common.mjs'
 import {
   INSTALL_REMOVE_DISK_ID,
   INSTALL_REMOVE_DISK_NAME,
@@ -77,30 +78,6 @@ const TIMEOUT_MS = 8_000
 export async function setup() {
   writePopulatedFixture()
   return {}
-}
-
-/** The library row's own wrapper - mirrors `retail-upgrade.mjs`'s own `libraryCard()`. */
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
-
-/** Scopes the rail's own tile lookup to `<aside>` - mirrors `retail-upgrade.mjs`'s `railTile()`. */
-function railTile(page, name) {
-  return page.locator('aside').getByRole('button', { name, exact: true })
-}
-
-/** Verbatim from `retail-upgrade.mjs`/`repair.mjs` - the dev-only channel that flips an
- * installation's simulated launch phase without a real game process. */
-async function simulateLaunch(page, installationId, phase) {
-  const outcome = await page.evaluate(
-    ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
-    { id: installationId, ph: phase },
-  )
-  if (!outcome?.ok) {
-    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
-  }
 }
 
 /** Opens `installationId`'s remove dialog from its library-row trigger and waits for it to render. */
@@ -122,7 +99,10 @@ export default async function installationRemoveFromDisk({ page, shot, step }) {
 
   step('open the library')
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await libraryCard(page, INSTALL_REMOVE_DISK_NAME).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await libraryCard(page, INSTALL_REMOVE_DISK_NAME).waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
 
   // ================================================================================================
   // AC5 - the running-game refusal, run FIRST against INSTALL_REMOVE_DISK_ID (reused rather than a
@@ -136,7 +116,9 @@ export default async function installationRemoveFromDisk({ page, shot, step }) {
 
   step('AC5: the disk option is disabled, with a non-empty reason, while the game runs')
   if (!(await diskOptionWhileRunning.isDisabled())) {
-    throw new Error('expected remove-dialog-disk-option to be disabled while the game is running (AC5)')
+    throw new Error(
+      'expected remove-dialog-disk-option to be disabled while the game is running (AC5)',
+    )
   }
   const disabledReason = await diskOptionWhileRunning.getAttribute('title')
   if (!disabledReason) {
@@ -153,8 +135,12 @@ export default async function installationRemoveFromDisk({ page, shot, step }) {
   // ================================================================================================
   step('AC1: reopen the remove dialog and assert both outcomes are offered')
   dialog = await openRemoveDialog(page, INSTALL_REMOVE_DISK_ID)
-  await dialog.getByTestId('remove-dialog-entry-only-option').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await dialog.getByTestId('remove-dialog-disk-option').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('remove-dialog-entry-only-option')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('remove-dialog-disk-option')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('dialog-both-options')
 
   // ================================================================================================
@@ -162,13 +148,19 @@ export default async function installationRemoveFromDisk({ page, shot, step }) {
   // ================================================================================================
   step('AC2: choose removal from disk and assert the confirm step names the exact path')
   await dialog.getByTestId('remove-dialog-disk-option').click({ timeout: TIMEOUT_MS })
-  await dialog.getByTestId('remove-dialog-disk-confirm-step').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('remove-dialog-disk-confirm-step')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const shownPath = await dialog.getByTestId('remove-dialog-disk-path').innerText()
   if (shownPath !== diskRoot) {
-    throw new Error(`expected the disk confirm step to name ${diskRoot} (AC2), got ${JSON.stringify(shownPath)}`)
+    throw new Error(
+      `expected the disk confirm step to name ${diskRoot} (AC2), got ${JSON.stringify(shownPath)}`,
+    )
   }
   if (!existsSync(diskRoot)) {
-    throw new Error('the installation folder is already gone before confirming - AC2 precondition violated')
+    throw new Error(
+      'the installation folder is already gone before confirming - AC2 precondition violated',
+    )
   }
   await shot('disk-confirm-step-path')
 
@@ -209,11 +201,16 @@ export default async function installationRemoveFromDisk({ page, shot, step }) {
   // still works end to end (this doubles as this story's own regression proof for the pre-094 path).
   // ================================================================================================
   step('AC4: select the steam-managed installation and open its remove dialog')
-  await libraryCard(page, INSTALL_REMOVE_STORE_NAME).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await libraryCard(page, INSTALL_REMOVE_STORE_NAME).waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
   dialog = await openRemoveDialog(page, INSTALL_REMOVE_STORE_ID)
 
   step('AC4: the store note is shown, and there is no disk option in the DOM at all')
-  await dialog.getByTestId('remove-dialog-store-note').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('remove-dialog-store-note')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await dialog.getByTestId('remove-dialog-disk-option').count()) {
     throw new Error('expected zero remove-dialog-disk-option nodes for a steam installation (AC4)')
   }
@@ -223,10 +220,14 @@ export default async function installationRemoveFromDisk({ page, shot, step }) {
   await dialog.getByRole('button', { name: 'Remove from launcher' }).click({ timeout: TIMEOUT_MS })
   await page.getByRole('dialog').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   if (await libraryCard(page, INSTALL_REMOVE_STORE_NAME).count()) {
-    throw new Error('expected the steam installation to be gone from the library after entry-only removal (AC4)')
+    throw new Error(
+      'expected the steam installation to be gone from the library after entry-only removal (AC4)',
+    )
   }
   if (!existsSync(installationRootPath(INSTALL_REMOVE_STORE_ID))) {
-    throw new Error('entry-only removal deleted files from disk - it must only drop the library entry (AC4)')
+    throw new Error(
+      'entry-only removal deleted files from disk - it must only drop the library entry (AC4)',
+    )
   }
   await shot('store-managed-removed-entry-only')
 

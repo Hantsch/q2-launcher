@@ -4,7 +4,16 @@ import { describe, expect, it, vi } from 'vitest'
 import type { NewsFeed } from '@shared/modules/home'
 import type { NewsFeedCacheData } from './feed-cache'
 import type { FetchNewsResult } from './feed-fetcher'
+import type { PersistenceRegistry } from '../../../services/persistence'
+import { resolveUiHarness } from '../../../lib/ui-harness'
 import { createNewsService, type NewsServiceLog } from './news-service'
+
+vi.mock('./feed-cache', () => ({
+  NewsFeedCache: class {
+    read = () => Promise.resolve(undefined)
+    write = () => Promise.resolve()
+  },
+}))
 
 /**
  * Story 082 D6 acceptance tests. Every scenario injects `fetchDocuments` (the seam over
@@ -75,7 +84,7 @@ describe('news-service source', () => {
     try {
       const fetchDocuments = vi.fn(async (): Promise<FetchNewsResult> => changedResult())
       const service = createNewsService({
-        isDev: false,
+        harness: resolveUiHarness({}),
         userDataPath: TEST_USER_DATA_PATH,
         log: fakeLog(),
         onChanged: vi.fn(),
@@ -111,7 +120,7 @@ describe('news-service: cold start', () => {
   it('no cache yet, no network attempted: an empty feed, not an error', async () => {
     const cache = fakeCache()
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -134,10 +143,14 @@ describe('news-service: AC7 a failed refresh delivers the cached feed with its r
     const fetchDocuments = vi
       .fn()
       .mockResolvedValueOnce(changedResult())
-      .mockResolvedValueOnce({ kind: 'failed', reason: 'HTTP 500', etags: {} } satisfies FetchNewsResult)
+      .mockResolvedValueOnce({
+        kind: 'failed',
+        reason: 'HTTP 500',
+        etags: {},
+      } satisfies FetchNewsResult)
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
@@ -169,10 +182,12 @@ describe('news-service: AC9 change detection', () => {
       .mockResolvedValueOnce(changedResult())
       // Same document content, re-fetched under a new ETag: buildFeed() rebuilds to identical
       // slides, so this is the "identical one does not" half of the test.
-      .mockResolvedValueOnce(changedResult({ etags: { 'news/index.json': 'idx-2', 'a.md': 'doc-2' } }))
+      .mockResolvedValueOnce(
+        changedResult({ etags: { 'news/index.json': 'idx-2', 'a.md': 'doc-2' } }),
+      )
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
@@ -199,7 +214,7 @@ describe('news-service: AC9 change detection', () => {
       .mockResolvedValueOnce({ kind: 'unchanged', etags: {} } satisfies FetchNewsResult)
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
@@ -248,7 +263,7 @@ describe('news-service: delivery-time visibility re-filter', () => {
     })
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -283,7 +298,7 @@ describe('news-service: a not-yet-visible cached slide surfaces once now catches
     )
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -301,7 +316,7 @@ describe('news-service: a not-yet-visible cached slide surfaces once now catches
     // with no fetch in between - a fresh in-memory instance reading the same on-disk cache is the
     // cleanest way to prove this without any in-process state helping it along).
     const laterService = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -338,7 +353,7 @@ describe('news-service: getNews() delivery-time sort', () => {
     )
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -350,5 +365,21 @@ describe('news-service: getNews() delivery-time sort', () => {
     await service.refreshNews()
     const feed: NewsFeed = await service.getNews()
     expect(feed.slides.map((slide) => slide.id)).toEqual(['b', 'a'])
+  })
+})
+
+describe('news-service: persistence', () => {
+  it('registers its cache with app.persistence', async () => {
+    const labels: string[] = []
+    const persistence = { register: (label: string) => void labels.push(label) }
+    const service = createNewsService({
+      harness: resolveUiHarness({}),
+      persistence: persistence as unknown as PersistenceRegistry,
+      log: fakeLog(),
+      onChanged: () => {},
+      fetchDocuments: vi.fn(async () => ({ kind: 'unchanged' as const, etags: {} })),
+    })
+    await service.getNews()
+    expect(labels).toEqual(['news-feed'])
   })
 })

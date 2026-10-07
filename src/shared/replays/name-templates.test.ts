@@ -88,10 +88,20 @@ describe('name-templates (story 140 D1)', () => {
       removedShippedIds: [],
     }
     const edited = updateTemplate(state, 'a', '{map}_custom', SHIPPED)
-    expect(edited.entries[0]).toEqual({ id: 'a', kind: 'shipped', shippedId: 'a', template: '{map}_custom' })
+    expect(edited.entries[0]).toEqual({
+      id: 'a',
+      kind: 'shipped',
+      shippedId: 'a',
+      template: '{map}_custom',
+    })
 
     const revertedBack = updateTemplate(edited, 'a', '{map}_{date}', SHIPPED)
-    expect(revertedBack.entries[0]).toEqual({ id: 'a', kind: 'shipped', shippedId: 'a', template: null })
+    expect(revertedBack.entries[0]).toEqual({
+      id: 'a',
+      kind: 'shipped',
+      shippedId: 'a',
+      template: null,
+    })
   })
 
   it('reorder rejects a non-permutation', () => {
@@ -114,11 +124,18 @@ describe('name-templates (story 140 D1)', () => {
     let state: NameTemplatesState = { entries: [], removedShippedIds: [] }
     state = mergeWithShipped(state, SHIPPED)
     state = addTemplate(state, '{host}_{map}', newId)
-    expect(effectiveNameTemplates(state, SHIPPED)).toEqual(['{map}_{date}', '{pov}-{map}', '{host}_{map}'])
+    expect(effectiveNameTemplates(state, SHIPPED)).toEqual([
+      '{map}_{date}',
+      '{pov}-{map}',
+      '{host}_{map}',
+    ])
   })
 
   it('the fingerprint changes on add, edit, remove, reorder and reset, and not otherwise', () => {
-    let state: NameTemplatesState = mergeWithShipped({ entries: [], removedShippedIds: [] }, SHIPPED)
+    let state: NameTemplatesState = mergeWithShipped(
+      { entries: [], removedShippedIds: [] },
+      SHIPPED,
+    )
     const fp0 = nameTemplatesFingerprint(effectiveNameTemplates(state, SHIPPED))
 
     // Not otherwise: recomputing without any change yields the same fingerprint.

@@ -13,7 +13,7 @@ import { computeEngineUpdateStatus } from './update-status'
  *
  * `fetch` is stubbed globally, the same convention `manifest-service.test.ts` uses for
  * `fetchContentJson`'s own network calls (`vi.stubGlobal('fetch', fetchMock)`) - this probe never
- * goes through `harness.ts`'s `DownloadSource` seam (see `bleeding-edge.ts`'s own doc comment for
+ * goes through `services/content/source.ts`'s `DownloadSource` seam (see `bleeding-edge.ts`'s own doc comment for
  * why), so there is nothing else to substitute.
  */
 
@@ -42,20 +42,15 @@ afterEach(() => {
 
 /** A `version.txt` GET response. */
 function versionResponse(body: string, ok = true, status = 200): Response {
-  return {
-    ok,
-    status,
-    text: () => Promise.resolve(body),
-  } as unknown as Response
+  return new Response(body, { status: ok ? status : status === 200 ? 500 : status })
 }
 
 /** A `HEAD` asset response. */
 function headResponse(contentLength: string | null, ok = true, status = 200): Response {
-  return {
-    ok,
-    status,
-    headers: { get: (name: string) => (name === 'content-length' ? contentLength : null) },
-  } as unknown as Response
+  return new Response(null, {
+    status: ok ? status : status === 200 ? 500 : status,
+    headers: contentLength === null ? {} : { 'content-length': contentLength },
+  })
 }
 
 describe('probeBleedingEdge', () => {
@@ -85,6 +80,29 @@ describe('probeBleedingEdge', () => {
     await expect(probeBleedingEdge('q2pro', PINNED_Q2PRO_PACKAGE)).rejects.toThrow(
       BleedingEdgeProbeFailedError,
     )
+  })
+
+  it('a version.txt that never answers fails the probe with a probe-failed error', async () => {
+    // Fake timers do not cover AbortSignal.timeout, so hand the probe an already-timed-out signal.
+    const timedOut = AbortSignal.abort(
+      new DOMException('The operation was aborted due to timeout', 'TimeoutError'),
+    )
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timedOut)
+    try {
+      fetchMock.mockImplementation(
+        (_url: string, init: { signal: AbortSignal }) =>
+          new Promise<Response>((_resolve, reject) => {
+            if (init.signal.aborted) reject(init.signal.reason)
+            init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true })
+          }),
+      )
+
+      const error = await probeBleedingEdge('q2pro', PINNED_Q2PRO_PACKAGE).catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(BleedingEdgeProbeFailedError)
+      expect((error as Error).message).toContain('no response within')
+    } finally {
+      timeoutSpy.mockRestore()
+    }
   })
 
   it('fails with a probe-failed error when version.txt is empty garbage', async () => {
@@ -120,7 +138,9 @@ describe('probeBleedingEdge', () => {
   })
 
   it('refuses q2pro with no pinned package with an unsupported error', async () => {
-    await expect(probeBleedingEdge('q2pro', undefined)).rejects.toThrow(BleedingEdgeUnsupportedError)
+    await expect(probeBleedingEdge('q2pro', undefined)).rejects.toThrow(
+      BleedingEdgeUnsupportedError,
+    )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

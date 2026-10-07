@@ -136,7 +136,7 @@ different thing: "back to what I last saved", never "back to the catalogue's def
 2. **Pure diff.** `src/shared/config/profile-diff.ts`: `diffProfileAgainstBaseline(profile)` →
    `ProfileChangeSet` (flat `ProfileChange[]` + per-section buckets + key sets for O(1) row
    lookup). Sections: cvars, binds, actions, layers, settings, unrecognized. Cvars compare the
-   *resolved* value so 048's always-write produces no phantom changes.
+   _resolved_ value so 048's always-write produces no phantom changes.
 3. **Discard handler.** `CONFIG_HANDLERS.discard` + payload schema + main handler that writes the
    baseline back over the live fields, clears `dirty`, bumps `updatedAt`, touches no file and runs
    no installation sync; renderer wrapper in `modules/config/client.ts`.
@@ -160,84 +160,84 @@ always-write; nothing here materialises defaults into `profile.cvars`.
 ## Deliverables
 
 - [x] **D1 — Baseline field, captured wherever `fileHash` is.**
-  Files: `src/shared/config/profile-baseline.ts` (new) + `.test.ts`, `src/shared/modules/config.ts`,
-  `src/main/lib/schemas.ts`, `src/main/modules/config/profiles.ts`,
-  `src/main/modules/config/rebuild.ts`, `src/main/modules/config/index.ts`.
-  Mirror: the existing `fileHash` handling in `profiles.ts:392` (`markFileSeen`) / `:455`
-  (`adoptFromFile`).
-  Acceptance: after save, after an adopted external change, after a forced overwrite and after
-  import/migration, `profile.baseline` equals `captureBaseline(profile as written)`; a profile that
-  has never been saved has no baseline; existing `state.json` records load without error.
+      Files: `src/shared/config/profile-baseline.ts` (new) + `.test.ts`, `src/shared/modules/config.ts`,
+      `src/main/lib/schemas.ts`, `src/main/modules/config/profiles.ts`,
+      `src/main/modules/config/rebuild.ts`, `src/main/modules/config/index.ts`.
+      Mirror: the existing `fileHash` handling in `profiles.ts:392` (`markFileSeen`) / `:455`
+      (`adoptFromFile`).
+      Acceptance: after save, after an adopted external change, after a forced overwrite and after
+      import/migration, `profile.baseline` equals `captureBaseline(profile as written)`; a profile that
+      has never been saved has no baseline; existing `state.json` records load without error.
 
 - [x] **D2 — Pure `diffProfileAgainstBaseline`.**
-  Files: `src/shared/config/profile-diff.ts` (new) + `profile-diff.test.ts` (new).
-  Mirror: `src/shared/config/render-invariants.test.ts` for the test shape, `render.ts` for which
-  fields count as "written".
-  Acceptance: covers cvars (resolved value, so an untouched catalogue cvar is never a change),
-  binds, actions, layers, `writeUnbindall`, `sectionHeaderStyle`, unrecognized lines; reports
-  added/removed/changed with before/after strings; a profile equal to its baseline yields an empty
-  set; sections with no change are absent from the buckets.
+      Files: `src/shared/config/profile-diff.ts` (new) + `profile-diff.test.ts` (new).
+      Mirror: `src/shared/config/render-invariants.test.ts` for the test shape, `render.ts` for which
+      fields count as "written".
+      Acceptance: covers cvars (resolved value, so an untouched catalogue cvar is never a change),
+      binds, actions, layers, `writeUnbindall`, `sectionHeaderStyle`, unrecognized lines; reports
+      added/removed/changed with before/after strings; a profile equal to its baseline yields an empty
+      set; sections with no change are absent from the buckets.
 
 - [x] **D3 — `discard` handler end to end (no UI).**
-  Files: `src/shared/modules/config.ts` (`CONFIG_HANDLERS.discard`, in/out types),
-  `src/main/modules/config/schemas.ts`, `src/main/modules/config/index.ts`,
-  `src/main/modules/config/profiles.ts`, `src/renderer/src/modules/config/client.ts`.
-  Mirror: the `save` handler wiring in `main/modules/config/index.ts`.
-  Acceptance: discarding restores the baseline fields, clears `dirty`, bumps `updatedAt`, returns
-  the full profile list, and provably writes no `.cfg` (file mtime/content unchanged); discarding a
-  profile without a baseline returns a typed "no baseline" outcome instead of succeeding.
+      Files: `src/shared/modules/config.ts` (`CONFIG_HANDLERS.discard`, in/out types),
+      `src/main/modules/config/schemas.ts`, `src/main/modules/config/index.ts`,
+      `src/main/modules/config/profiles.ts`, `src/renderer/src/modules/config/client.ts`.
+      Mirror: the `save` handler wiring in `main/modules/config/index.ts`.
+      Acceptance: discarding restores the baseline fields, clears `dirty`, bumps `updatedAt`, returns
+      the full profile list, and provably writes no `.cfg` (file mtime/content unchanged); discarding a
+      profile without a baseline returns a typed "no baseline" outcome instead of succeeding.
 
 - [x] **D4 — Change set in the renderer.**
-  Files: `src/renderer/src/modules/config/lib/profile-changes.tsx` (new) + `.test.ts`,
-  `src/renderer/src/modules/config/ConfigView.tsx`.
-  Acceptance: one memoised change set per selected profile, available to the save bar and every tab
-  via `useProfileChanges()`; recomputed when the profile object changes, not on every render.
+      Files: `src/renderer/src/modules/config/lib/profile-changes.tsx` (new) + `.test.ts`,
+      `src/renderer/src/modules/config/ConfigView.tsx`.
+      Acceptance: one memoised change set per selected profile, available to the save bar and every tab
+      via `useProfileChanges()`; recomputed when the profile object changes, not on every render.
 
 - [x] **D5 — Expandable bar with the before/after list.**
-  Files: `src/renderer/src/modules/config/components/ProfileSaveBar.tsx`,
-  `src/renderer/src/modules/config/components/ProfileChangeList.tsx` (new),
-  `src/renderer/src/i18n/locales/en.json`.
-  Mirror: `ConfigConflictDialog.tsx` for the two-column before/after framing (structured rows, not
-  `ConfigCodeView` panes).
-  Acceptance: the bar shows the pending count, expands and collapses by mouse and keyboard, Save
-  stays enabled while expanded, sections without a change are not rendered at all, and cvars, binds,
-  actions, layers and per-profile settings all appear.
+      Files: `src/renderer/src/modules/config/components/ProfileSaveBar.tsx`,
+      `src/renderer/src/modules/config/components/ProfileChangeList.tsx` (new),
+      `src/renderer/src/i18n/locales/en.json`.
+      Mirror: `ConfigConflictDialog.tsx` for the two-column before/after framing (structured rows, not
+      `ConfigCodeView` panes).
+      Acceptance: the bar shows the pending count, expands and collapses by mouse and keyboard, Save
+      stays enabled while expanded, sections without a change are not rendered at all, and cvars, binds,
+      actions, layers and per-profile settings all appear.
 
 - [x] **D6 — Discard button, confirm dialog, unavailable state.**
-  Files: `src/renderer/src/modules/config/components/ProfileSaveBar.tsx`,
-  `src/renderer/src/modules/config/DiscardChangesDialog.tsx` (new),
-  `src/renderer/src/modules/config/ConfigView.tsx` (draft reset after discard),
-  `src/renderer/src/i18n/locales/en.json`.
-  Mirror: `src/renderer/src/modules/config/DeleteProfileDialog.tsx` (Modal + ghost/danger footer).
-  Acceptance: Discard asks for confirmation, then clears the bar badge and every row indicator
-  without the `.cfg` changing; with no baseline the button is disabled and a visible sentence next
-  to it says why.
+      Files: `src/renderer/src/modules/config/components/ProfileSaveBar.tsx`,
+      `src/renderer/src/modules/config/DiscardChangesDialog.tsx` (new),
+      `src/renderer/src/modules/config/ConfigView.tsx` (draft reset after discard),
+      `src/renderer/src/i18n/locales/en.json`.
+      Mirror: `src/renderer/src/modules/config/DeleteProfileDialog.tsx` (Modal + ghost/danger footer).
+      Acceptance: Discard asks for confirmation, then clears the bar badge and every row indicator
+      without the `.cfg` changing; with no baseline the button is disabled and a visible sentence next
+      to it says why.
 
 - [x] **D7 — Settings: indicator, filter and counters mean "unsaved".**
-  Files: `src/renderer/src/modules/config/lib/cvar-rows.ts` + `cvar-rows.test.ts`,
-  `src/renderer/src/modules/config/components/CvarRow.tsx`,
-  `src/renderer/src/modules/config/SettingsTab.tsx`,
-  `src/renderer/src/i18n/locales/en.json`.
-  Acceptance: the left border is on exactly for rows in the change set and off after save/discard;
-  the filter and the group/catalogue counters count the same rows; the printed default value stays;
-  `isChanged` is removed if nothing consumes it any more.
+      Files: `src/renderer/src/modules/config/lib/cvar-rows.ts` + `cvar-rows.test.ts`,
+      `src/renderer/src/modules/config/components/CvarRow.tsx`,
+      `src/renderer/src/modules/config/SettingsTab.tsx`,
+      `src/renderer/src/i18n/locales/en.json`.
+      Acceptance: the left border is on exactly for rows in the change set and off after save/discard;
+      the filter and the group/catalogue counters count the same rows; the printed default value stays;
+      `isChanged` is removed if nothing consumes it any more.
 
 - [x] **D8 — Controls, layers and Raw File carry the same marker.**
-  Files: `src/renderer/src/modules/config/components/ControlsRow.tsx`,
-  `src/renderer/src/styles/controls-grid.css`,
-  `src/renderer/src/modules/config/ControlsTab.tsx`,
-  `src/renderer/src/modules/config/LayersPanel.tsx`,
-  `src/renderer/src/modules/config/RawFileTab.tsx`,
-  `src/renderer/src/i18n/locales/en.json`.
-  Mirror: `.ctrl-conflict-badge` (`controls-grid.css:353`) for the non-colour marker pattern.
-  Acceptance: an edited bind/action row and an edited layer are marked with border **and** a
-  labelled glyph; the Raw File tab states that N unsaved changes are not in the shown file; nothing
-  is marked after a save or discard.
+      Files: `src/renderer/src/modules/config/components/ControlsRow.tsx`,
+      `src/renderer/src/styles/controls-grid.css`,
+      `src/renderer/src/modules/config/ControlsTab.tsx`,
+      `src/renderer/src/modules/config/LayersPanel.tsx`,
+      `src/renderer/src/modules/config/RawFileTab.tsx`,
+      `src/renderer/src/i18n/locales/en.json`.
+      Mirror: `.ctrl-conflict-badge` (`controls-grid.css:353`) for the non-colour marker pattern.
+      Acceptance: an edited bind/action row and an edited layer are marked with border **and** a
+      labelled glyph; the Raw File tab states that N unsaved changes are not in the shown file; nothing
+      is marked after a save or discard.
 
 - [x] **D9 — `ui:verify` covers the new screens.**
-  Files: `scripts/lib/screens.mjs`, plus the `data-testid`s the new components need.
-  Acceptance: `config-save-expanded` and `config-discard-confirm` are registered and screenshot;
-  `npm run ui:verify` reports 0 axe violations.
+      Files: `scripts/lib/screens.mjs`, plus the `data-testid`s the new components need.
+      Acceptance: `config-save-expanded` and `config-discard-confirm` are registered and screenshot;
+      `npm run ui:verify` reports 0 axe violations.
 
 ## Model Hints
 
@@ -281,7 +281,7 @@ always-write; nothing here materialises defaults into `profile.cvars`.
 `ProfileBaseline` snapshot (`src/shared/config/profile-baseline.ts`) seeded at every site
 `fileHash` already is (save write-back, adopt-from-file, rebuild/migration/import), a pure
 `diffProfileAgainstBaseline` (`src/shared/config/profile-diff.ts`) that measures the live profile
-against it on cvars' *resolved* values (agreeing with `render.ts`/`writeValueFor`), binds, actions,
+against it on cvars' _resolved_ values (agreeing with `render.ts`/`writeValueFor`), binds, actions,
 layers, per-profile settings (`writeUnbindall`, `sectionHeaderStyle`, `name`) and preserved lines, a
 `discard` IPC handler that restores the baseline without ever touching a file, and a
 `ProfileChangesContext` that feeds one shared change set to the save bar's new expandable
@@ -292,6 +292,7 @@ mechanism.
 **Commit message:** `049: unsaved changes are reviewable and discardable`
 
 **Verification:**
+
 - `npm run typecheck` - clean (node + web).
 - `npm run build` - clean.
 - `npm test` - 1730/1731 passing; the one failure
@@ -325,6 +326,7 @@ mechanism.
   the fix.
 
 **Review-fix cycle (findings and outcomes):**
+
 - **Fixed** - Discard did not restore a renamed profile's `name` (only cvars/binds/actions/layers/
   settings were in `ProfileBaseline`). Added `name` to `ProfileBaseline`/`captureBaseline`, to the
   diff (`settings` section, key `name`) and to `discard`'s restore, plus a rename-then-discard test
@@ -367,7 +369,7 @@ mechanism.
   cvar (e.g. `3` -> `3.0`, or `1` -> `true`) marks the profile `dirty` (a real `setCvars` call ran)
   but the resolved-value diff correctly reports no change (the file would be byte-identical) - so
   the bar's "Unsaved changes" badge can show with no disclosure button and no row marked. This is
-  the deliberate, documented consequence of comparing *resolved* values the way `render.ts` actually
+  the deliberate, documented consequence of comparing _resolved_ values the way `render.ts` actually
   writes them (`profile-diff.ts`'s own `sameCvarValue` doc comment), which is what keeps AC1
   ("indicator on exactly when the row differs from the file, never from the catalogue default")
   true; `dirty` itself is a coarser, main-side "did any setter run" flag from story 043 and was
@@ -382,6 +384,7 @@ mechanism.
   ("says why when there's no saved state") is met by the legacy-record path.
 
 **Decisions (implementation-time, beyond what refine already settled):**
+
 - `name` was added to `ProfileBaseline`/the diff/`discard`'s restore even though the Plan's baseline
   field list (Plan item 1) did not name it - discovered as a real AC6 gap during review (a rename
   survives Discard otherwise), not a scope choice; the persisted schema keeps it optional and

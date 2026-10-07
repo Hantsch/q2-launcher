@@ -42,6 +42,40 @@ function service(isDev: boolean): DialogService {
   return new DialogService({ getMainWindow: () => FAKE_WINDOW, isDev })
 }
 
+describe('pickFolder', () => {
+  const FIXTURE_FOLDER = process.platform === 'win32' ? 'C:\\fixtures\\demos' : '/fixtures/demos'
+
+  afterEach(() => {
+    delete process.env['Q2L_UI_PICK_FOLDER']
+  })
+
+  it('pickFolder returns the harness folder without opening a dialog', async () => {
+    process.env['Q2L_UI_HARNESS'] = '1'
+    process.env['Q2L_UI_PICK_FOLDER'] = FIXTURE_FOLDER
+
+    const result = await service(false).pickFolder()
+
+    expect(dialogMock.showOpenDialog).not.toHaveBeenCalled()
+    expect(result).toContain('demos')
+  })
+
+  it('pickFolder is a cancel when the harness names no folder', async () => {
+    process.env['Q2L_UI_HARNESS'] = '1'
+
+    await expect(service(false).pickFolder()).resolves.toBeNull()
+    expect(dialogMock.showOpenDialog).not.toHaveBeenCalled()
+  })
+
+  it('pickFolder opens a directory dialog and is null on cancel outside the harness', async () => {
+    dialogMock.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
+
+    await expect(service(false).pickFolder()).resolves.toBeNull()
+
+    const [, options] = dialogMock.showOpenDialog.mock.calls[0]
+    expect(options.properties).toContain('openDirectory')
+  })
+})
+
 describe('pickConfigFiles: the real dialog branch', () => {
   it('is multi-select and filtered to .cfg', async () => {
     dialogMock.showOpenDialog.mockResolvedValue({
@@ -56,7 +90,9 @@ describe('pickConfigFiles: the real dialog branch', () => {
     expect(window).toBe(FAKE_WINDOW)
     expect(options.properties).toEqual(expect.arrayContaining(['openFile', 'multiSelections']))
     expect(options.filters).toEqual(
-      expect.arrayContaining([expect.objectContaining({ extensions: expect.arrayContaining(['cfg']) })]),
+      expect.arrayContaining([
+        expect.objectContaining({ extensions: expect.arrayContaining(['cfg']) }),
+      ]),
     )
   })
 

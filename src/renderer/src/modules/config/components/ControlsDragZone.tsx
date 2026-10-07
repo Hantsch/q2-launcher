@@ -12,19 +12,15 @@ import type { ControlsRowGroup } from '../lib/controls-row-groups'
 import type { EntryDropTarget, MoveTargetPosition } from '../lib/entry-order'
 
 /**
- * Story 054 D5: the one `DndContext` the whole Controls tab drags inside.
+ * The one `DndContext` the whole Controls tab drags inside: there is one drag operation at a time
+ * and the category rail's chips are drop targets as well as the grid's rows, so a single context
+ * spans both. `SortableZone` renders no DOM, so `ControlsTab` wraps its rail *and* grid in this
+ * component; `ControlsGrid` renders rows as `SortableItem`s and reads the live drag state through
+ * `useSortableZoneState()`.
  *
- * D4 configured it inside `ControlsGrid`, which was enough while the only drop targets were the
- * grid's own rows. D5 makes the category rail's chips drop targets too, and there is exactly one
- * drag operation at a time - so there must be exactly one `DndContext`, spanning both the rail and
- * the grid. `SortableZone` renders no DOM of its own, so hoisting it here costs nothing structural:
- * `ControlsTab` wraps its rail *and* its grid in this component, `ControlsGrid` keeps rendering the
- * rows as `SortableItem`s and reads the live drag state through `useSortableZoneState()` instead of
- * a render callback.
- *
- * What a drop means stays split the way D4 already had it: this component turns one dnd-kit drop
- * into a profile-level *description* of the move (`EntryDropTarget`, or "onto that category"), and
- * `ControlsTab` applies it to `actions` with `lib/entry-order.ts`'s pure helpers and persists.
+ * This component turns one dnd-kit drop into a profile-level *description* of the move
+ * (`EntryDropTarget`, or "onto that category"); `ControlsTab` applies it to `actions` with
+ * `lib/entry-order.ts`'s pure helpers and persists.
  */
 
 /** How long the pointer has to rest on a foreign category chip before its grid is swapped in
@@ -51,7 +47,7 @@ function categoryIdFromDropId(id: UniqueIdentifier): string | undefined {
 const SUBCATEGORY_DRAG_PREFIX = 'subcategory-drag:'
 
 /**
- * The sortable id of a sub-category header's drag handle (story 054 D6). Namespaced like
+ * The sortable id of a sub-category header's drag handle. Namespaced like
  * `categoryDropId` so it can never collide with a row's droppable id (a `ConfigAction.id`) or a
  * category chip's - `controlsCollisionDetection` and this zone's `onDropOutside` both tell "a
  * header was dropped on another header" apart from every other kind of drop by the id alone.
@@ -72,8 +68,8 @@ function subcategoryIdFromDragId(id: UniqueIdentifier): string | undefined {
 const CATEGORY_DRAG_PREFIX = 'category-drag:'
 
 /**
- * The sortable id of a category chip's own drag handle (story 054 D7) - distinct from
- * `categoryDropId`, which names the *same chip* as a drop target for a row (D5). A chip is both at
+ * The sortable id of a category chip's own drag handle - distinct from
+ * `categoryDropId`, which names the *same chip* as a drop target for a row. A chip is both at
  * once: reordering the rail drags this id among the other chips' drag ids; dropping a row moves it
  * by dropping onto `categoryDropId`. Namespaced like `subcategoryDragId` so neither collides with a
  * row's droppable id (a `ConfigAction.id`) or the other chip id.
@@ -84,36 +80,24 @@ export function categoryDragId(categoryId: string): string {
 
 function categoryIdFromDragId(id: UniqueIdentifier): string | undefined {
   const value = String(id)
-  return value.startsWith(CATEGORY_DRAG_PREFIX) ? value.slice(CATEGORY_DRAG_PREFIX.length) : undefined
+  return value.startsWith(CATEGORY_DRAG_PREFIX)
+    ? value.slice(CATEGORY_DRAG_PREFIX.length)
+    : undefined
 }
 
 /**
  * Rows and chips cannot share one collision strategy.
  *
- * Rows keep D4's `closestCenter`, which is what makes a drop resolve to the row the dragged copy
- * overlaps most - the behaviour `verticalListSortingStrategy` previews while the pointer is held.
- * A chip is small and sits far outside that column, so `closestCenter` would either never pick it
- * or pick the wrong one; a chip is therefore only ever a target while the pointer is literally
- * inside it (`pointerWithin`), which is also exactly the gesture spring-loading is defined by.
+ * Rows use `closestCenter`: a drop resolves to the row the dragged copy overlaps most, matching the
+ * `verticalListSortingStrategy` preview. A chip is small and far outside that column, so it is a
+ * target only while the pointer is literally inside it (`pointerWithin`), the gesture spring-loading
+ * is defined by. A keyboard drag has no pointer, so the rail is unreachable by keyboard on purpose:
+ * the row menu ("Move to…") is the keyboard path for a cross-category move.
  *
- * A keyboard drag has no pointer at all, so `pointerWithin` returns nothing and the rail is
- * unreachable by keyboard - deliberately: D8's row menu ("Move to…") is the keyboard path for a
- * cross-category move, per the story's own AC 5 coverage.
- *
- * Story 054 D6: a sub-category header is a second, distinct sortable axis from rows - dragging one
- * may only ever resolve against another header, never a row or a category chip (moving a whole
- * group of rows into another category, or interleaving a header among rows, is not a gesture this
- * story defines). A header drag is therefore filtered to header-only candidates before either of
- * the row/chip strategies below ever run.
- *
- * Story 054 D7: a category chip is now a third, distinct sortable axis, for the same reason a
- * header is - reordering the rail may only ever resolve against another chip's *drag* id
- * (`categoryDragId`), never a row or the chip's own *drop* id (`categoryDropId`, D5's "a row was
- * dropped on this chip"). This is what disambiguates "a chip being dragged over another chip"
- * (reorder-the-rail) from "a row being dragged over a chip" (D5's spring-load/append): the two
- * gestures start with a different `active.id` namespace, so this first check is the only place the
- * distinction has to be made - once a category-drag id is picked out, only other category-drag ids
- * are ever considered, so a chip drag can never resolve to a row or to `categoryDropId`.
+ * A sub-category header and a category chip's drag handle are each their own sortable axis: a
+ * header drag resolves only against other headers, and a chip drag only against other chips' *drag*
+ * ids (`categoryDragId`), never a row, a header or a chip's *drop* id (`categoryDropId`). Both are
+ * picked out first, by `active.id` namespace, before the row/chip strategies below run.
  */
 export const controlsCollisionDetection: CollisionDetection = (args) => {
   if (subcategoryIdFromDragId(args.active.id) !== undefined) {
@@ -155,21 +139,21 @@ export interface CategoryDropTargetProps {
    * "position 3 of 12" means nothing for a target that is not part of the sorted list. */
   label: string
   className?: string
-  /** Story 054 D7: the chip's own `useSortable` transform (`SortableItemRenderState.style`), so a
+  /** the chip's own `useSortable` transform (`SortableItemRenderState.style`), so a
    * chip being reordered actually moves under the pointer. Composed onto the droppable's element,
    * the same one dnd-kit's `useSortable` ref (also composed via `elementRef`) is attached to - one
-   * DOM node serves as both the drop target (D5) and the sortable item (D7). */
+   * DOM node serves as both the drop target and the sortable item. */
   style?: CSSProperties
   /** Composed with the droppable's own ref, for a caller that already keeps the chip element
-   * (`ControlsTab`'s `categoryChipRefs` scroll-into-view map) or a sortable item's own ref (D7). */
+   * (`ControlsTab`'s `categoryChipRefs` scroll-into-view map) or a sortable item's own ref. */
   elementRef?: (element: HTMLElement | null) => void
   /** Called once the pointer has rested here for `SPRING_LOAD_MS` during a row drag. Omitted, or
    * `springLoadDisabled`, means this chip can still be dropped *on* - it just never swaps the grid. */
   onSpringLoad?: (categoryId: string) => void
   /** True for the category already on screen: there is nothing to spring-load to. */
   springLoadDisabled?: boolean
-  /** Story 062 D2: the chip is one visual level, and this node - the one that already carries the
-   * drop target (D5), the sortable item (D7) and the scroll-into-view ref (story 020 D9) - is the
+  /** the chip is one visual level, and this node - the one that already carries the
+   * drop target, the sortable item and the scroll-into-view ref - is the
    * level that owns it. So the selected state is reported *here*, as `data-selected="true"`, and
    * the label button below stays a borderless ghost that only keeps `aria-pressed`. */
   selected?: boolean
@@ -212,9 +196,9 @@ export function CategoryDropTarget({
       }}
       style={style}
       data-drop-category={categoryId}
-      // Story 062 D2: stable handles for the unit tests and the `ui:flow` rail-order assertion,
-      // which used to walk "the first <button> inside the chip <div>" and broke whenever the
-      // chip's button order changed. `data-drop-category` stays what it was - dnd-kit's own
+      // stable handles for the unit tests and the `ui:flow` rail-order assertion,
+      // so neither has to walk "the first <button> inside the chip <div>", which breaks whenever the
+      // chip's button order changes. `data-drop-category` stays what it was - dnd-kit's own
       // bookkeeping (and the drag suites') handle - rather than being reused for two jobs.
       data-category-id={categoryId}
       data-category-name={label}
@@ -232,17 +216,17 @@ export interface ControlsDragZoneProps {
   /** The rows exactly as the grid renders them, in rendered order - the same `groups` handed to
    * `ControlsGrid`, since dnd-kit maps a drop position back to an index in this list. */
   groups: ControlsRowGroup[]
-  /** Story 054's decision: dragging is off while the Controls filter narrows the list. */
+  /** Decision: dragging is off while the Controls filter narrows the list. */
   disabled?: boolean
   /** A row was dropped at a position among the rendered rows. */
   onReorderRow?: (drop: EntryDropTarget) => void
   /** A row was dropped straight onto a category chip - "move it there, appended at the end". */
   onDropOnCategory?: (actionId: string, categoryId: string) => void
-  /** Story 054 D6: a sub-category header was dropped onto another header's position. `toIndex` is
+  /** a sub-category header was dropped onto another header's position. `toIndex` is
    * where it lands among the category's `subcategories` array - the over header's own index before
    * the move, the same "arrayMove" semantics `onReorderRow`'s `before` already uses for rows. */
   onReorderSubcategory?: (subcategoryId: string, toIndex: number) => void
-  /** Story 054 D7: the rail's real category order, as rendered - what a chip drop's "over" id
+  /** the rail's real category order, as rendered - what a chip drop's "over" id
    * resolves to an index within, mirroring `subcategoryOrder`'s role for header drops. Passed in
    * (rather than derived from `groups`, which only ever covers the *visible* category's own
    * sub-categories) since the rail always shows every category, not just the one on screen. */
@@ -279,7 +263,7 @@ export function ControlsDragZone({
     for (const entry of group.entries) groupIndexByRowId.set(entry.action.id, groupIndex)
   })
 
-  // Story 054 D6: the category's real sub-categories, in the same order `ControlsGrid` renders
+  // the category's real sub-categories, in the same order `ControlsGrid` renders
   // their headers in (`groupControlsRowEntries` keeps `subcategories`' own array order) - what a
   // header drop's "over" id resolves to an index within.
   const subcategoryOrder = groups
@@ -287,8 +271,8 @@ export function ControlsDragZone({
     .filter((id): id is string => id !== undefined)
 
   /**
-   * Turns one dnd-kit drop into the profile-level move it means (story 054 D4, moved here from
-   * `ControlsGrid` with D5's hoist).
+   * Turns one dnd-kit drop into the profile-level move it means
+   * `ControlsGrid` with the hoist).
    *
    * The hovered row (`overId`) names the sub-category run the drop lands in; the direction says on
    * which side of that row - dragging *down* onto a row lands after it, dragging *up* lands before
@@ -321,9 +305,9 @@ export function ControlsDragZone({
   }
 
   /**
-   * Story 054 D6: a sub-category header was dropped on another header. Resolves to "move it to
+   * a sub-category header was dropped on another header. Resolves to "move it to
    * this index" - the over header's position in the category's own `subcategories` order, computed
-   * before the move (same remove-then-insert semantics `moveSubcategory`/D2 applies), exactly how
+   * before the move (same remove-then-insert semantics `moveSubcategory` applies), exactly how
    * `handleDrop` above resolves a row's new position from `meta.newIndex`.
    */
   function handleSubcategoryDrop(activeDragId: string, overDragId: string): void {
@@ -337,7 +321,7 @@ export function ControlsDragZone({
   }
 
   /**
-   * Story 054 D7: a category chip was dropped on another chip - resolved to "move it to this
+   * a category chip was dropped on another chip - resolved to "move it to this
    * index" the same way `handleSubcategoryDrop` resolves a header drop, against `categoryOrder`
    * (the rail's own order) rather than `subcategoryOrder` (scoped to the visible category alone).
    */
@@ -374,16 +358,16 @@ export function ControlsDragZone({
       onDragStarted={onDragStarted}
       onDragFinished={onDragFinished}
       collisionDetection={controlsCollisionDetection}
-      // Not vertical-only any more (D1's default): a row now has to be carried sideways and upwards
+      // Not vertical-only any more: a row now has to be carried sideways and upwards
       // to reach a category chip in the rail, so a copy pinned to its own column would sit far away
       // from the target the pointer is actually on.
       overlayModifiers={[]}
       // A deliberately lightweight floating copy rather than a second live `ControlsRow`: the real
       // row carries capture-able key slots, icon buttons and the caller's `rowRef` registration
-      // (story 044's deep-link focus map), and a duplicate of all that under the pointer would put a
+      // , and a duplicate of all that under the pointer would put a
       // second set of the same accessible names in the tree and re-register the row's ref against
       // the floating element. The copy is rendered at the dragged rowgroup's measured height, so
-      // nothing jumps when it lifts off (AC 4).
+      // nothing jumps when it lifts off.
       renderOverlay={(entry) => (
         <div className="ctrl-row ctrl-drag-preview" aria-hidden="true">
           <span className="ctrl-grip" />

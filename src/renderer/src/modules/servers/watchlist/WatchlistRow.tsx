@@ -8,12 +8,11 @@ import {
   type WatchlistMatch,
   type WatchlistMatchMode,
 } from '@shared/modules/servers'
-import type { ScanStartResult } from '@shared/modules/servers'
+import type { ScanStartResult, WatchlistMutationResult } from '@shared/modules/servers'
 import { formatRelativeTime } from '../../../lib/format'
 import { Button, IconButton } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
 import { Pencil, Trash2 } from 'lucide-react'
-import type { WatchlistMutationResult } from '../client'
 import { WatchlistMatchRow } from './WatchlistMatchRow'
 
 const MODE_OPTIONS: { value: WatchlistMatchMode; labelKey: string }[] = [
@@ -42,8 +41,8 @@ export interface WatchlistRowProps {
 }
 
 /**
- * Story 132 D2: one watchlist entry's row. Never mentions "spectate"/"spectating"/"playing"
- * anywhere in its own text or attributes (AC4) - a match shows name/score/ping/seen-time only, the
+ * Story 132: one watchlist entry's row. Never mentions "spectate"/"spectating"/"playing"
+ * anywhere in its own text or attributes - a match shows name/score/ping/seen-time only, the
  * caller-supplied `renderMatchActions` is the only place any join/spectate affordance can appear.
  */
 export function WatchlistRow({
@@ -144,7 +143,7 @@ export function WatchlistRow({
               disabled={saving || editName.trim().length === 0}
               data-testid={`servers-watchlist-edit-save-${entry.id}`}
             >
-              {t('servers.watchlist.edit.save')}
+              {t('common.action.save')}
             </Button>
             <Button
               size="sm"
@@ -153,7 +152,7 @@ export function WatchlistRow({
               disabled={saving}
               data-testid={`servers-watchlist-edit-cancel-${entry.id}`}
             >
-              {t('servers.watchlist.edit.cancel')}
+              {t('common.action.cancel')}
             </Button>
           </div>
         ) : (
@@ -178,7 +177,7 @@ export function WatchlistRow({
               </IconButton>
             )}
             <IconButton
-              label={t('servers.watchlist.edit.label')}
+              label={t('common.action.edit')}
               size="sm"
               variant="ghost"
               onClick={startEdit}
@@ -187,7 +186,7 @@ export function WatchlistRow({
               <Pencil className="size-3.5" aria-hidden="true" />
             </IconButton>
             <IconButton
-              label={t('servers.watchlist.remove.label')}
+              label={t('common.action.remove')}
               size="sm"
               variant="ghost"
               onClick={handleRemove}
@@ -228,7 +227,9 @@ export function WatchlistRow({
         </p>
       )}
 
-      {state === 'too-slow' && <p className="text-xs text-ink-muted">{t('servers.watchlist.tooSlow')}</p>}
+      {state === 'too-slow' && (
+        <p className="text-xs text-ink-muted">{t('servers.watchlist.tooSlow')}</p>
+      )}
 
       {state === 'left' && (
         <p className="text-xs text-ink-muted">

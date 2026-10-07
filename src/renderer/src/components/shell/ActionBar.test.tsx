@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { createTimeline } from '../../modules/replays/optimistic-timeline'
+import { makeJob } from '../../../../test-support/fixtures'
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -10,6 +11,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { usePlaybackStore } from '../../modules/replays/playback-store'
 import { type ContributedAction, usePrimaryActionStore } from '../../lib/primary-action'
 import { ActionBar } from './ActionBar'
+import { makeInstallation } from '../../../../test-support/fixtures'
 
 /**
  * Story 091 D3 (AC2, AC5's renderer half). Mirrors `DownloadsView.test.tsx`'s conventions: the
@@ -24,41 +26,8 @@ vi.hoisted(() => {
   }
 })
 
-function makeInstallation(overrides: Partial<Installation> = {}): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: 'C:\\Games\\Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-    ...overrides,
-  }
-}
-
-function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
-    id: 'job-1',
-    moduleId: 'downloads',
-    kind: 'download-game',
-    labelKey: 'downloads.job.download',
-    labelParams: { name: 'Base game' },
-    installationId: 'inst-1',
-    status: 'running',
-    progress: { ratio: 0.42, bytesDone: 420_000, bytesTotal: 1_000_000, bytesPerSecond: 50_000 },
-    cancellable: true,
-    startedAt: new Date().toISOString(),
-    ...overrides,
-  }
+function actionBarJob(overrides: Partial<Job> = {}): Job {
+  return makeJob({ installationId: 'inst-1', ...overrides })
 }
 
 beforeAll(async () => {
@@ -84,7 +53,7 @@ describe('ActionBar', () => {
       installations: [makeInstallation()],
       settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
       jobs: [
-        makeJob({
+        actionBarJob({
           status: 'waiting',
           progress: { ratio: null },
           waitingReason: { key: 'jobs.waiting.gameRunning' },
@@ -102,7 +71,7 @@ describe('ActionBar', () => {
     useLauncher.setState({
       installations: [makeInstallation()],
       settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
-      jobs: [makeJob({ status: 'running', writeLock: true })],
+      jobs: [actionBarJob({ status: 'running', writeLock: true })],
     })
 
     render(createElement(ActionBar))
@@ -162,9 +131,13 @@ describe('ActionBar', () => {
       requestStop,
       session: {
         demoName: 'a.dm2',
+        demoId: null,
+        archived: false,
+        pendingSeekS: null,
         knownDurationMs: null,
         view: null,
         speed: 1,
+        volume: { percent: 100, muted: false },
         mode: 'preview',
         cinemaAvailability: { available: true },
         fullscreen: false,
@@ -249,7 +222,10 @@ describe('ActionBar', () => {
       ['job → install', {}, [{}], 'busy'],
       ['write lock → writing', {}, [{ writeLock: true, progress: { ratio: 0.99 } }], 'busy'],
     ])('installation states win over a contribution: %s', async (_name, inst, jobs, kind) => {
-      seed(inst, jobs.map((j) => makeJob(j)))
+      seed(
+        inst,
+        jobs.map((j) => actionBarJob(j)),
+      )
       const run = contribute()
       render(createElement(ActionBar))
       const button = await screen.findByTestId('actionbar-play')
@@ -296,7 +272,7 @@ describe('ActionBar', () => {
         owner: '/servers',
         action: {
           id: 'join-server',
-          labelKey: 'servers.join.action',
+          labelKey: 'common.action.join',
           disabled: false,
           run,
           ...over,
@@ -322,7 +298,10 @@ describe('ActionBar', () => {
         ['running', {}, [], 'Running', true],
       ]
       for (const [name, inst, jobs, label, running] of cases) {
-        seed(inst, jobs.map((j) => makeJob(j)))
+        seed(
+          inst,
+          jobs.map((j) => actionBarJob(j)),
+        )
         if (running) {
           useLauncher.setState({ launch: { phase: 'running', installationId: 'inst-1', pid: 1 } })
         }

@@ -1,171 +1,101 @@
 import { randomUUID } from 'node:crypto'
-import { rm, writeFile } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { join, sep } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return { ...actual, rename: vi.fn(actual.rename) }
+})
+
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
-import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadFailure } from '@shared/modules/downloads'
-import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
-import {
-  DEFAULT_MASTER_SOURCES,
-  DEFAULT_SERVERS_STATE,
-  type ManualServerEntry,
-  type ServerHistoryEntry,
-  type ServersState,
-} from '@shared/modules/servers'
-import { StateStore } from './state'
+import { DEFAULT_SETTINGS, type Installation } from '@shared/types'
+import { rename } from 'node:fs/promises'
+import { readdirSync, readFileSync } from 'node:fs'
+import { StateStore, type StateSectionSpec } from './state'
+import { installTempDir } from '../../test-support/temp-dir'
 
-describe('StateStore downloads settings (story 072 D2)', () => {
+/** The top-level keys a fresh store writes; anything else in a file came from the file. */
+const STATE_KEYS = ['schemaVersion', 'settings', 'installations']
+
+describe('StateStore persistence', () => {
   let filePath: string
-  let state: StateStore
+  const renameSpy = vi.mocked(rename)
+  const jobsSpec: StateSectionSpec<{ concurrentJobs: number }> = {
+    key: 'jobs',
+    parse: (raw) => ({ concurrentJobs: (raw as { concurrentJobs?: number })?.concurrentJobs ?? 3 }),
+    defaults: () => ({ concurrentJobs: 3 }),
+  }
+  const jobs = (state: StateStore) => state.section(jobsSpec)
+  const downloads = (concurrentJobs: number) => ({ concurrentJobs })
 
-  beforeEach(async () => {
-    filePath = join(tmpdir(), `q2-launcher-state-downloads-${randomUUID()}.json`)
-    state = new StateStore(filePath)
-    await state.load()
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    renameSpy.mockClear()
+    filePath = join(tmpdir(), `q2-launcher-state-persist-${randomUUID()}.json`)
   })
 
   afterEach(async () => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
     await rm(filePath, { force: true })
     await rm(`${filePath}.tmp`, { force: true })
     await rm(`${filePath}.bak`, { force: true })
   })
 
-  it('starts with the defaults', () => {
-    expect(state.getDownloadsSettings()).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
-  })
-
-  it('downloads settings survive a reload', async () => {
-    const written = state.setDownloadsSettings({
-      concurrentJobs: 4,
-      archiveCacheBudgetGB: 10,
-      downloadWhilePlayingAllowed: false,
-    })
-    await state.settle()
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.getDownloadsSettings()).toEqual(written)
-    expect(reloaded.getDownloadsSettings()).toEqual({
-      concurrentJobs: 4,
-      archiveCacheBudgetGB: 10,
-      downloadWhilePlayingAllowed: false,
-    })
-  })
-
-  it('a garbage archiveCacheBudgetGB falls back to its default, leaving siblings intact', async () => {
-    state.setDownloadsSettings({
-      concurrentJobs: 4,
-      archiveCacheBudgetGB: 999 as never, // out of ARCHIVE_CACHE_BUDGET_CHOICES_GB on purpose
-      downloadWhilePlayingAllowed: false,
-    })
-    await state.settle()
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    const settings = reloaded.getDownloadsSettings()
-    // Only the corrupt field falls back - its valid siblings are preserved.
-    expect(settings.archiveCacheBudgetGB).toBe(DEFAULT_DOWNLOADS_SETTINGS.archiveCacheBudgetGB)
-    expect(settings.concurrentJobs).toBe(4)
-    expect(settings.downloadWhilePlayingAllowed).toBe(false)
-  })
-
-  it('a garbage downloadWhilePlayingAllowed falls back to its default, leaving siblings intact', async () => {
-    state.setDownloadsSettings({
-      concurrentJobs: 3,
-      archiveCacheBudgetGB: 20,
-      downloadWhilePlayingAllowed: 'yes' as never, // not a boolean, on purpose
-    })
-    await state.settle()
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    const settings = reloaded.getDownloadsSettings()
-    expect(settings.downloadWhilePlayingAllowed).toBe(
-      DEFAULT_DOWNLOADS_SETTINGS.downloadWhilePlayingAllowed,
-    )
-    expect(settings.concurrentJobs).toBe(3)
-    expect(settings.archiveCacheBudgetGB).toBe(20)
-  })
-})
-
-describe('StateStore homeLayout (story 086 D1)', () => {
-  let filePath: string
-  let state: StateStore
-
-  beforeEach(async () => {
-    filePath = join(tmpdir(), `q2-launcher-state-home-layout-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+  it('a burst of ten updates produces one write', async () => {
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
+    for (let i = 1; i <= 10; i += 1) jobs(state).update(() => downloads(i))
+
+    await vi.advanceTimersByTimeAsync(1000)
+    await state.settle()
+
+    expect(renameSpy).toHaveBeenCalledTimes(1)
   })
 
-  afterEach(async () => {
-    await rm(filePath, { force: true })
-    await rm(`${filePath}.tmp`, { force: true })
-    await rm(`${filePath}.bak`, { force: true })
+  it('settle() forces a pending debounced write to disk at once', async () => {
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+    jobs(state).update(() => downloads(4))
+    expect(renameSpy).not.toHaveBeenCalled()
+
+    const result = await state.settle()
+
+    expect(result).toEqual({ ok: true })
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
+    await reloaded.load()
+    expect(jobs(reloaded).get().concurrentJobs).toBe(4)
   })
 
-  it('starts with the default layout', () => {
-    expect(state.homeLayout()).toEqual(DEFAULT_HOME_LAYOUT)
-  })
+  it('a persist failure is forwarded to onPersistError once per session', async () => {
+    // Real timers: the retry delay is armed only after real file I/O, so a fake clock advanced
+    // up front would never reach it.
+    vi.useRealTimers()
+    const onPersistError = vi.fn()
+    const state = new StateStore(filePath, { migrations: 'none', onPersistError })
+    await state.load()
+    renameSpy.mockRejectedValue(new Error('disk full'))
 
-  it('homeLayout round-trips through state.json and touches no other setting', async () => {
-    const settingsBefore = state.settings()
-    const installationsBefore = state.installations()
-    const configProfilesBefore = state.configProfiles()
-
-    const custom: HomeLayout = {
-      tiles: [{ moduleId: 'playtime', x: 0, y: 0, w: 4, h: 4 }],
+    for (const count of [2, 3]) {
+      jobs(state).update(() => downloads(count))
+      expect(await state.settle()).toEqual({ ok: false })
     }
-    const written = state.setHomeLayout(custom)
-    await state.settle()
 
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.homeLayout()).toEqual(written)
-    expect(reloaded.homeLayout()).toEqual(custom)
-    // Other state keys are untouched by this write.
-    expect(reloaded.settings()).toEqual(settingsBefore)
-    expect(reloaded.installations()).toEqual(installationsBefore)
-    expect(reloaded.configProfiles()).toEqual(configProfilesBefore)
-  })
-
-  it('a record for an unknown module id read from disk is gone after reload', async () => {
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        schemaVersion: 1,
-        homeLayout: {
-          tiles: [
-            { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
-            { moduleId: 'nope', x: 6, y: 0, w: 6, h: 5 },
-          ],
-        },
-      }),
-      'utf-8',
-    )
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.homeLayout().tiles).toEqual([
-      { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
-    ])
+    expect(onPersistError).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('StateStore servers state (story 110 D3)', () => {
+describe('StateStore updateSlice', () => {
   let filePath: string
   let state: StateStore
 
   beforeEach(async () => {
-    filePath = join(tmpdir(), `q2-launcher-state-servers-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    filePath = join(tmpdir(), `q2-launcher-state-update-slice-${randomUUID()}.json`)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
+    await state.settle()
+    vi.mocked(rename).mockClear()
   })
 
   afterEach(async () => {
@@ -174,344 +104,232 @@ describe('StateStore servers state (story 110 D3)', () => {
     await rm(`${filePath}.bak`, { force: true })
   })
 
-  it('starts with the default servers state', () => {
-    expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+  it('updateSlice hands the callback the live value and keeps sibling keys', () => {
+    const seen: unknown[] = []
+    const first = [{ id: 'a' }] as unknown as Installation[]
+    const second = [{ id: 'a' }, { id: 'b' }] as unknown as Installation[]
+    state.updateSlice('installations', (live) => {
+      seen.push(live)
+      return first
+    })
+    state.updateSlice('installations', (live) => {
+      seen.push(live)
+      return second
+    })
+
+    expect(seen[0]).toEqual([])
+    expect(seen[1]).toBe(first)
+    expect(state.installations()).toBe(second)
+    expect(state.settings()).toEqual(DEFAULT_SETTINGS)
   })
 
-  // Story 111 D2 (AC1): a genuinely fresh install - no state.json on disk yet, so `StateStore`
-  // builds its initial value from `defaults()` (`structuredClone(DEFAULT_SERVERS_STATE)`), never
-  // through `parseServersState` - must still see the shipped master/list source, not an
-  // empty list. This is the one path the schema-level `.default()` in `main/lib/schemas.ts` cannot
-  // reach by itself, since there is no `state.json` for it to parse.
-  it('a fresh install (no state.json on disk) ships the default master source', () => {
-    expect(state.serversState().sources).toHaveLength(1)
-    expect(state.serversState().sources).toEqual(DEFAULT_MASTER_SOURCES)
+  it('updateSlice schedules no write when the callback returns the same reference', async () => {
+    const returned = state.updateSlice('installations', (live) => live)
+    await state.settle()
+
+    expect(returned).toBe(state.installations())
+    expect(rename).not.toHaveBeenCalled()
+  })
+})
+
+describe('StateStore sections', () => {
+  const dir = installTempDir('q2l-state-section-')
+  let filePath: string
+
+  interface Notes {
+    items: string[]
+  }
+  const notesSpec = (): StateSectionSpec<Notes> => ({
+    key: 'notes',
+    parse: (raw) => {
+      const items = (raw as { items?: unknown } | null)?.items
+      return { items: Array.isArray(items) ? items.filter((i) => typeof i === 'string') : [] }
+    },
+    defaults: () => ({ items: ['default'] }),
   })
 
-  it('the servers key is its own top-level state key and LauncherSettings is untouched', () => {
-    const settingsBefore = state.settings()
+  const writeState = (doc: Record<string, unknown>, path = filePath) =>
+    writeFile(path, JSON.stringify({ schemaVersion: STATE_SCHEMA_VERSION, ...doc }))
+  const readState = async (path = filePath) =>
+    JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
 
-    // servers is a distinct top-level key with its own shape...
-    expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
-    expect(Object.keys(state.serversState()).sort()).toEqual(
-      ['favourites', 'history', 'manualServers', 'scan', 'sources', 'watchlist'].sort(),
-    )
-
-    // ...and adding it left LauncherSettings's own shape and values untouched.
-    expect(state.settings()).toEqual(settingsBefore)
-    expect('servers' in state.settings()).toBe(false)
+  beforeEach(() => {
+    filePath = join(dir(), 'state.json')
+    // Back to the real rename: an earlier suite leaves a rejecting implementation behind.
+    vi.mocked(rename).mockReset()
   })
 
-  it('servers state round-trips through state.json and touches no other setting', async () => {
-    const settingsBefore = state.settings()
-    const installationsBefore = state.installations()
-    const homeLayoutBefore = state.homeLayout()
+  it('a registered section parses its key and update writes it', async () => {
+    await writeState({ notes: { items: ['a', 42] } })
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+    const notes = state.section(notesSpec())
 
-    const custom: ServersState = {
-      sources: [{ id: 'src-1', type: 'udp-master', address: 'master.example.com:27900', enabled: true }],
-      favourites: [{ address: '1.2.3.4:27910', addedAt: '2026-01-01T00:00:00.000Z' }],
-      manualServers: [
-        { address: '5.6.7.8:27911', origin: 'manual', addedAt: '2026-01-02T00:00:00.000Z' },
-      ],
-      history: [{ address: '9.10.11.12:27912', connectedAt: '2026-01-03T00:00:00.000Z' }],
-      scan: {
-        concurrency: 4,
-        timeoutMs: 1500,
-        retries: 2,
-        minSpacingMs: 15_000,
-        autoScanOnOpen: true,
-        autoRefreshEnabled: false,
-        autoRefreshIntervalMs: 60000,
-      },
-      watchlist: [],
+    expect(notes.get()).toEqual({ items: ['a'] })
+    const written = notes.update((live) => ({ items: [...live.items, 'b'] }))
+    await state.settle()
+
+    expect(written).toEqual({ items: ['a', 'b'] })
+    expect(notes.get()).toBe(written)
+    expect((await readState())['notes']).toEqual({ items: ['a', 'b'] })
+  })
+
+  it('a parsed section is written in its parsed form by the next save, even when unchanged', async () => {
+    await writeState({ notes: { items: ['a', 42] } })
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+    state.section(notesSpec()).get()
+    await state.settle()
+    expect(rename).not.toHaveBeenCalled()
+
+    state.patchSettings({})
+    await state.settle()
+
+    expect((await readState())['notes']).toEqual({ items: ['a'] })
+  })
+
+  it('an absent key reads as the spec defaults, without parsing', async () => {
+    await writeState({})
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+    const parse = vi.fn(notesSpec().parse)
+
+    expect(state.section({ ...notesSpec(), parse }).get()).toEqual({ items: ['default'] })
+    expect(parse).not.toHaveBeenCalled()
+  })
+
+  it('a section registered before load reads the loaded value', async () => {
+    await writeState({ notes: { items: ['on disk'] } })
+    const state = new StateStore(filePath, { migrations: 'none' })
+    const notes = state.section(notesSpec())
+    await state.load()
+
+    expect(notes.get()).toEqual({ items: ['on disk'] })
+  })
+
+  it('an unknown top-level key survives load and save verbatim', async () => {
+    const future = { nested: { list: [1, 'two', null], flag: true }, other: 'x' }
+    await writeState({ futureModule: future, notes: { items: ['a', 42] } })
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+
+    state.patchSettings({})
+    await state.settle()
+
+    const written = await readState()
+    expect(written['futureModule']).toEqual(future)
+    expect(written['notes']).toEqual({ items: ['a', 42] })
+    expect(written['settings']).toEqual(state.settings())
+  })
+
+  it('a section registered after a save still parses the raw value that save kept', async () => {
+    await writeState({ notes: { items: ['kept'] } })
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+    state.patchSettings({})
+    await state.settle()
+
+    expect(state.section(notesSpec()).get()).toEqual({ items: ['kept'] })
+  })
+
+  it('update returning the same reference schedules no write', async () => {
+    await writeState({ notes: { items: ['a'] } })
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+    const notes = state.section(notesSpec())
+
+    const returned = notes.update((live) => live)
+    await state.settle()
+
+    expect(returned).toBe(notes.get())
+    expect(rename).not.toHaveBeenCalled()
+  })
+
+  it('registering a second spec for a key throws', async () => {
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+    const spec = notesSpec()
+    const notes = state.section(spec)
+
+    expect(state.section(spec)).toBe(notes)
+    expect(() => state.section(notesSpec())).toThrow(/notes/)
+  })
+
+  it('a key the store owns itself cannot be registered as a section', async () => {
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+
+    for (const key of ['schemaVersion', 'settings', 'installations']) {
+      expect(() => state.section({ ...notesSpec(), key }), key).toThrow(new RegExp(key))
     }
-    const written = state.setServersState(custom)
+  })
+
+  it('recovering from the backup keeps its unknown keys verbatim', async () => {
+    await writeState({ futureModule: { from: 'backup' } }, `${filePath}.bak`)
+    await writeFile(filePath, '{ truncated')
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+
+    expect(state.recoveredFrom).toBe('backup')
+    expect((await readState())['futureModule']).toEqual({ from: 'backup' })
+    expect(state.section({ ...notesSpec(), key: 'futureModule' }).get()).toEqual({ items: [] })
+  })
+
+  it('recovering to defaults invents no unknown keys', async () => {
+    await writeFile(filePath, '{ truncated "futureModule": {} ')
+    const state = new StateStore(filePath, { migrations: 'none' })
+    await state.load()
+    state.patchSettings({})
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.serversState()).toEqual(written)
-    expect(reloaded.serversState()).toEqual(custom)
-    // Other state keys are untouched by this write.
-    expect(reloaded.settings()).toEqual(settingsBefore)
-    expect(reloaded.installations()).toEqual(installationsBefore)
-    expect(reloaded.homeLayout()).toEqual(homeLayoutBefore)
-  })
-
-  // Story 113 AC5: manual servers and history are the two collections story 113 writes, and both
-  // live in story 110's `servers` state key - so the proof they survive a restart is a second,
-  // independent `StateStore` over the same file reading them back unchanged, rows and order intact.
-  it('manual servers and history survive a state store reload', async () => {
-    const manualServers: ManualServerEntry[] = [
-      { address: '1.2.3.4:27910', origin: 'manual', addedAt: '2026-01-02T00:00:00.000Z' },
-      { address: 'q2.example.com:27911', origin: 'manual', addedAt: '2026-01-04T00:00:00.000Z' },
-    ]
-    const history: ServerHistoryEntry[] = [
-      { address: '9.10.11.12:27912', connectedAt: '2026-01-05T00:00:00.000Z' },
-      { address: '1.2.3.4:27910', connectedAt: '2026-01-03T00:00:00.000Z' },
-    ]
-
-    state.setServersState({ ...state.serversState(), manualServers, history })
-    await state.settle()
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.serversState().manualServers).toEqual(manualServers)
-    expect(reloaded.serversState().history).toEqual(history)
-    // The sibling collections in the same key came back untouched too.
-    expect(reloaded.serversState().sources).toEqual(DEFAULT_MASTER_SOURCES)
-    expect(reloaded.serversState().favourites).toEqual([])
-  })
-
-  it('a state.json written without the servers key loads with the shipped default (three sources, everything else empty), with no schema bump', async () => {
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        schemaVersion: STATE_SCHEMA_VERSION,
-      }),
-      'utf-8',
-    )
-
-    const reloaded = new StateStore(filePath)
-    const doc = await reloaded.load()
-
-    expect(reloaded.serversState()).toEqual(DEFAULT_SERVERS_STATE)
-    // The file was already on the current schema version - no migration was needed or ran to
-    // backfill the missing `servers` key; it degraded through the parser alone, same as
-    // `homeLayout`'s missing-key case above.
-    expect(doc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
-    expect(reloaded.recoveredFrom).toBeNull()
-  })
-
-  // Story 131 D1: the persisted contract only - a matcher/service/worker come in later
-  // deliverables, so these tests cover exactly what this D adds: round-trip, row-level drop of an
-  // unknown mode, and a missing key defaulting to `[]`.
-  it('a watchlist entry round-trips with exactly one of the three match modes', async () => {
-    const watchlist: ServersState['watchlist'] = [
-      { id: 'wl-exact', name: 'Player1', mode: 'exact', tooSlow: false },
-      { id: 'wl-substring', name: 'Player2', mode: 'substring', tooSlow: false },
-      { id: 'wl-regex', name: '^Player[0-9]+$', mode: 'regex', tooSlow: true },
-    ]
-
-    state.setServersState({ ...state.serversState(), watchlist })
-    await state.settle()
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.serversState().watchlist).toEqual(watchlist)
-  })
-
-  it('a watchlist row with an unknown mode is dropped on reload', async () => {
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        schemaVersion: STATE_SCHEMA_VERSION,
-        servers: {
-          ...DEFAULT_SERVERS_STATE,
-          watchlist: [
-            { id: 'wl-good', name: 'Player1', mode: 'exact', tooSlow: false },
-            { id: 'wl-bad', name: 'Player2', mode: 'fuzzy', tooSlow: false },
-          ],
-        },
-      }),
-      'utf-8',
-    )
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.serversState().watchlist).toEqual([
-      { id: 'wl-good', name: 'Player1', mode: 'exact', tooSlow: false },
-    ])
-  })
-
-  it('a state file without a watchlist key parses to an empty list', async () => {
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        schemaVersion: STATE_SCHEMA_VERSION,
-        servers: {
-          sources: DEFAULT_MASTER_SOURCES,
-          favourites: [],
-          manualServers: [],
-          history: [],
-          scan: DEFAULT_SERVERS_STATE.scan,
-        },
-      }),
-      'utf-8',
-    )
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.serversState().watchlist).toEqual([])
-  })
-
-  it('a corrupt servers value degrades without taking siblings down', async () => {
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        schemaVersion: 1,
-        servers: 'not-an-object',
-        homeLayout: {
-          tiles: [{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }],
-        },
-      }),
-      'utf-8',
-    )
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.serversState()).toEqual(DEFAULT_SERVERS_STATE)
-    // The sibling key survives untouched even though servers was corrupt.
-    expect(reloaded.homeLayout().tiles).toEqual([
-      { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
-    ])
+    expect(state.recoveredFrom).toBe('defaults')
+    const written = await readState()
+    expect(Object.keys(written).filter((key) => !STATE_KEYS.includes(key))).toEqual([])
+    expect(state.section(notesSpec()).get()).toEqual({ items: ['default'] })
   })
 })
 
-describe('StateStore replays state (story 142 D1)', () => {
-  let filePath: string
-  let state: StateStore
+describe('architecture doc', () => {
+  it('ARCHITECTURE.md states the slice-mutator rule', async () => {
+    const doc = await readFile(join(__dirname, '../../../docs/ARCHITECTURE.md'), 'utf8')
+    const section = doc.split(/^## /m).find((s) => s.startsWith('State and persistence')) ?? ''
 
-  beforeEach(async () => {
-    filePath = join(tmpdir(), `q2-launcher-state-replays-${randomUUID()}.json`)
-    state = new StateStore(filePath)
-    await state.load()
-  })
-
-  afterEach(async () => {
-    await rm(filePath, { force: true })
-    await rm(`${filePath}.tmp`, { force: true })
-    await rm(`${filePath}.bak`, { force: true })
-  })
-
-  it('replays state round-trips through state.json and touches no other key', async () => {
-    const before = await state.load()
-    const extraFolders = [
-      { id: 'f1', path: 'C:\\Demos\\Extra', addedAt: '2026-01-01T00:00:00.000Z' },
-    ]
-
-    state.setReplaysState({ ...state.replaysState(), extraFolders })
-    await state.settle()
-
-    const reloaded = new StateStore(filePath)
-    const after = await reloaded.load()
-
-    expect(reloaded.replaysState().extraFolders).toEqual(extraFolders)
-    // No other top-level key was touched by setting replays state.
-    expect({ ...after, replays: undefined }).toEqual({ ...before, replays: undefined })
-  })
-
-  it('a state.json without the replays key loads the default replays state, with no schema bump', async () => {
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        schemaVersion: STATE_SCHEMA_VERSION,
-      }),
-      'utf-8',
-    )
-
-    const reloaded = new StateStore(filePath)
-    const doc = await reloaded.load()
-
-    expect(reloaded.replaysState().extraFolders).toEqual([])
-    expect(doc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
+    expect(section).toContain('updateSlice')
+    expect(section).toMatch(/Never read\s+->\s+spread\s+->\s+set/)
   })
 })
 
-describe('StateStore downloadFailures (story 073 D1)', () => {
-  let filePath: string
-  let state: StateStore
-
-  beforeEach(async () => {
-    filePath = join(tmpdir(), `q2-launcher-state-download-failures-${randomUUID()}.json`)
-    state = new StateStore(filePath)
-    await state.load()
+describe('a StateStore without migrations does not compile', () => {
+  it('rejects a construction that omits the migrations option', () => {
+    // Never called: only the type check matters.
+    const omitted = (path: string): unknown => [
+      // @ts-expect-error migrations must be stated
+      new StateStore(path),
+      // @ts-expect-error migrations must be stated
+      new StateStore(path, {}),
+    ]
+    expect(omitted).toBeTypeOf('function')
   })
+})
 
-  afterEach(async () => {
-    await rm(filePath, { force: true })
-    await rm(`${filePath}.tmp`, { force: true })
-    await rm(`${filePath}.bak`, { force: true })
-  })
+describe("migrations 'none' is stated only by tests", () => {
+  const srcDir = join(__dirname, '..', '..')
+  const allowed = /\.test(-helpers)?\.ts$/
 
-  function failure(overrides: Partial<DownloadFailure> = {}): DownloadFailure {
-    return {
-      id: randomUUID(),
-      jobId: randomUUID(),
-      labelKey: 'downloads.job.engine',
-      error: { key: 'downloads.error.network' },
-      createdAt: Date.now(),
-      ...overrides,
-    }
+  function sources(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) return sources(path)
+      return /\.tsx?$/.test(entry.name) ? [path] : []
+    })
   }
 
-  it('starts empty', () => {
-    expect(state.getDownloadFailures()).toEqual([])
-  })
-
-  it('downloadFailures round-trips through state.json', async () => {
-    const written = state.setDownloadFailures([
-      failure({ jobId: 'job-1', installationId: 'inst-1' }),
-      failure({ jobId: 'job-2' }),
-    ])
-    await state.settle()
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    expect(reloaded.getDownloadFailures()).toEqual(written)
-  })
-
-  it('a garbage entry is dropped row-wise instead of taking the file', async () => {
-    // Write state.json by hand with one valid entry and one entry missing everything meaningful.
-    const good = failure({ jobId: 'job-good' })
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        schemaVersion: 1,
-        settings: {},
-        installations: [],
-        configProfiles: [],
-        configPlayedMods: {},
-        // Retired by story 079 D4 and deliberately still written here: the read side stays
-        // forgiving, so a `state.json` from before that story loads with the key simply ignored.
-        configPendingWrites: {},
-        configSwitchBinds: {},
-        configWriteFailures: {},
-        configFileSourceMigratedAt: null,
-        downloads: {},
-        downloadFailures: [good, { garbage: true }],
-      }),
-      'utf-8',
-    )
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    // The whole file survived (installations/settings still readable) and only the garbage row is
-    // gone - the good entry, and the rest of the document, are untouched.
-    expect(reloaded.getDownloadFailures()).toEqual([good])
-    expect(reloaded.installations()).toEqual([])
-  })
-
-  it('an entry with dismissedAt older than 7 days does not survive a reload', async () => {
-    const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000
-    state.setDownloadFailures([
-      failure({ jobId: 'old-dismissed', dismissedAt: eightDaysAgo }),
-      failure({ jobId: 'still-here' }),
-    ])
-    await state.settle()
-
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-
-    const jobIds = reloaded.getDownloadFailures().map((entry) => entry.jobId)
-    expect(jobIds).toEqual(['still-here'])
+  it('production sources never pass migrations none', () => {
+    const offenders = sources(srcDir).filter((path) => {
+      const rel = path.split(sep).join('/')
+      if (allowed.test(rel) || rel.includes('/src/test-support/')) return false
+      return /migrations:\s*'none'/.test(readFileSync(path, 'utf8'))
+    })
+    expect(offenders).toEqual([])
   })
 })

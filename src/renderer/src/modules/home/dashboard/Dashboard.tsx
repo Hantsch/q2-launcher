@@ -25,6 +25,7 @@ import {
   type HomeLayout,
   type TilePlacement,
 } from '@shared/modules/home'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { getHomeLayout, resetHomeLayout, setHomeLayout } from '../client'
 import { useElementWidth } from './useElementWidth'
 import { DashboardGrid } from './DashboardGrid'
@@ -64,7 +65,7 @@ interface ActiveDrag {
 }
 
 /**
- * Story 086 D3: the dashboard's mount point, and its read-only render path in full.
+ * Story 086: the dashboard's mount point, and its read-only render path in full.
  *
  * Loads the persisted `HomeLayout` once on mount (mirrors `HomeView.tsx`'s own `getNews()` idiom:
  * unwrap the `Outcome`, apply it only if `ok`) and measures its own container width via
@@ -78,7 +79,7 @@ interface ActiveDrag {
  * is still an IPC call, and this dashboard should never crash the Home screen over a data fetch
  * that did not come back - it stays empty instead.
  *
- * Story 086 D4: this component also owns arrange mode. `ArrangeToggle` has to be disabled while the
+ * Story 086: this component also owns arrange mode. `ArrangeToggle` has to be disabled while the
  * dashboard is single-column, but "narrow" is only known here (via `useElementWidth`'s own ref) -
  * rather than lifting that measurement up into `HomeView.tsx` (which would have to also own
  * arrange-mode state, catalog logic, etc., turning it into a god component), `Dashboard.tsx`
@@ -93,13 +94,13 @@ interface ActiveDrag {
  * row and its labelled button were pure space cost).
  *
  * Every handler below sends/receives the *whole* `HomeLayout` through `setHomeLayout` - never a
- * per-tile patch - so move, resize (D5/D6), place and remove all go through one persistence path.
+ * per-tile patch - so move, resize, place and remove all go through one persistence path.
  *
- * Story 086 D5: the pointer path lives here too. The deliverable names `DashboardGrid.tsx` for the
+ * Story 086: the pointer path lives here too. The deliverable names `DashboardGrid.tsx` for the
  * `DndContext`, but a drag out of the catalog starts on an `ArrangeBar` chip and ends over the
  * grid - two siblings - so the context has to sit on their common ancestor, which is this
  * component, and it is also the only place that holds `layout` plus the `setHomeLayout` call a
- * drop has to make. Only mounted while actually arranging, so AC3's "outside arrange mode no drag
+ * drop has to make. Only mounted while actually arranging, so "outside arrange mode no drag
  * can start" stays true by construction and not just by the absence of grips.
  */
 export function Dashboard() {
@@ -111,11 +112,11 @@ export function Dashboard() {
    * The freshest committed layout, written at the exact moment a commit's result lands rather than
    * by an effect reacting to the state above (which would lag by a tick).
    *
-   * The keyboard path (D6) commits one write per keystroke and `useTileLift` fires those without
+   * The keyboard path commits one write per keystroke and `useTileLift` fires those without
    * awaiting them, so a cancel (Escape, blur or Tab) can run before React has re-rendered off the
    * keystroke before it. A closure-read `layout` is then the *pre-keystroke* one, the cancel finds
    * the tile still sitting on `origin`, concludes there is nothing to revert - and the in-flight
-   * keystroke lands anyway and sticks (AC8). Reading the layout out of this ref instead removes the
+   * keystroke lands anyway and sticks. Reading the layout out of this ref instead removes the
    * render from the loop entirely; `applyLayout` is the only writer of either, so the two can never
    * disagree.
    */
@@ -140,20 +141,11 @@ export function Dashboard() {
     useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE_PX } }),
   )
 
+  // Seeds once: a layout the user already committed (`layoutRef` set) outranks a late first read.
+  const loadedLayout = useModuleQuery(async () => getHomeLayout()).data
   useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const result = await getHomeLayout()
-        if (!cancelled && result.ok) applyLayout(result.value)
-      } catch {
-        // Leave the dashboard empty rather than throwing - see the doc comment above.
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    if (loadedLayout && layoutRef.current === undefined) applyLayout(loadedLayout)
+  }, [loadedLayout])
 
   /** The only place `layout` is written - state for rendering, ref for the handlers that cannot
    * wait for a render (see `layoutRef`). Everything that commits a layout goes through here. */
@@ -221,7 +213,7 @@ export function Dashboard() {
   }
 
   /**
-   * Story 086 D6: one accepted arrow-move or Shift+arrow-resize keystroke from a tile's keyboard
+   * Story 086: one accepted arrow-move or Shift+arrow-resize keystroke from a tile's keyboard
    * lift (`useTileLift`). Evaluated through the SAME reducer the pointer path uses (`applyToLayout`
    * -> `move`/`resize`), so both modalities share one notion of "legal".
    *
@@ -281,12 +273,12 @@ export function Dashboard() {
   }
 
   /**
-   * Story 086 D6: the keyboard lift's cancel (Escape, blur or Tab) - it reverts whatever the session
-   * already committed back to `origin`, the placement the tile had when it was lifted (AC8).
+   * Story 086: the keyboard lift's cancel (Escape, blur or Tab) - it reverts whatever the session
+   * already committed back to `origin`, the placement the tile had when it was lifted.
    *
    * This needs no `layout.ts` validation: nothing else on the grid moves during a lift, so a rect
    * that fitted before the lift still fits now. A cancel with nothing to revert (lift, then straight
-   * out again) still announces itself (AC9).
+   * out again) still announces itself.
    *
    * It waits for `pendingKeyboardWrite` first, and then reads `layoutRef` rather than the `layout`
    * closure. Both halves are load-bearing for a fast keyboard user (or a key held down to repeat):
@@ -313,8 +305,8 @@ export function Dashboard() {
   }
 
   /** The lift/drop announcements, which `DashboardTile` translates itself (it already builds the
-   * grip's own label the same way) - this is only the wire into the one status line D5's pointer
-   * path already writes to, which `ArrangeBar.tsx` makes a live region for D6 (AC9). */
+   * grip's own label the same way) - this is only the wire into the one status line the pointer
+   * path already writes to, which `ArrangeBar.tsx` makes a live region. */
   function announce(text: string): void {
     setStatus(text)
   }
@@ -340,7 +332,7 @@ export function Dashboard() {
   }
 
   /** Status text for a candidate: the reducer's own refusal reason while it is invalid, otherwise
-   * the neutral "you are dragging this" line. Setting it from `onDragMove` is what makes AC5's
+   * the neutral "you are dragging this" line. Setting it from `onDragMove` is what makes
    * "shown as invalid *while dragging*" true rather than a post-drop verdict. */
   function dragStatus(drag: ActiveDrag, result: LayoutOperationResult): string {
     const title = titleOf(drag.moduleId)
@@ -392,7 +384,7 @@ export function Dashboard() {
    * still computes the same, correct answer.
    *
    * The real tile is not touched here: nothing but `activeDrag` (the ghost) changes until a drop is
-   * accepted, which is what makes "shown as invalid" and "not applied" the same code path (AC5).
+   * accepted, which is what makes "shown as invalid" and "not applied" the same code path.
    */
   function handleDragMove(event: DragMoveEvent): void {
     if (!activeDrag) return
@@ -458,8 +450,8 @@ export function Dashboard() {
    * dnd-kit's own live region. Its defaults are hardcoded English list-position sentences ("Picked
    * up draggable item 1 of 3"), which are both untranslated and wrong for a 2D grid, so the two
    * events that have a meaningful, translatable text get one and the high-frequency ones return
-   * nothing. The outcome of a drop is carried by the visible status line above; D6 owns the
-   * `aria-live` region that mirrors it (AC9).
+   * nothing. The outcome of a drop is carried by the visible status line above; `ArrangeBar.tsx` owns the
+   * `aria-live` region that mirrors it.
    */
   const announcements: Announcements = {
     onDragStart: ({ active }) => {
@@ -480,11 +472,11 @@ export function Dashboard() {
 
   const dashboard = layout && (
     // `pt-14` is the arrange bar's slot, reserved in BOTH modes (the bar is ~53px tall and docks
-    // into it absolutely, see dashboard.css). Story 086 D5 had to add it: docked at the top of the
+    // into it absolutely, see dashboard.css). Story 086 had to add it: docked at the top of the
     // grid itself, the bar covered the whole first row - the title, the grip and the "return to
     // catalog" button of every tile at `y: 0`, which is both tiles of the default layout, sat
     // underneath it and could not be pointed at at all (the catalog container and the reset button
-    // took the clicks). Reserving the space rather than adding it on entry is what keeps AC4's
+    // took the clicks). Reserving the space rather than adding it on entry is what keeps
     // "entering arrange mode moves no tile" true: the gap is already there before the bar arrives.
     <div className="relative pt-14">
       {/* The arrange toggle lives in this same reserved slot (see `ArrangeToggle.tsx`): outside
@@ -559,7 +551,7 @@ function defaultSizeFor(moduleId: DashboardModuleId): { w: number; h: number } {
 }
 
 /**
- * The one mapping from "a candidate rect for this gesture" to the pure engine (D2). Every validity
+ * The one mapping from "a candidate rect for this gesture" to the pure engine. Every validity
  * check and every accepted write goes through it, so the refusal semantics the ghost shows and the
  * ones that gate the `state.json` write cannot drift apart - there is no second "is this legal?"
  * implementation anywhere in the pointer path.

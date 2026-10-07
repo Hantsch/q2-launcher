@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { HomeLayout } from '@shared/modules/home'
 import type { Outcome } from '@shared/types'
 import { initI18n } from '../../../i18n'
@@ -47,11 +48,13 @@ const setHomeLayout = vi.fn(async (next: HomeLayout): Promise<Outcome<HomeLayout
   return { ok: true, value: next }
 })
 
-vi.mock('../client', () => ({
-  getHomeLayout: () => getHomeLayout(),
-  setHomeLayout: (next: HomeLayout) => setHomeLayout(next),
-  resetHomeLayout: async () => ({ ok: true, value: ORIGIN }),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    getHomeLayout: () => getHomeLayout(),
+    setHomeLayout: (next: HomeLayout) => setHomeLayout(next),
+    resetHomeLayout: async () => ({ ok: true, value: ORIGIN }),
+  }),
+)
 
 vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: vi.fn(), on: vi.fn(() => () => {}) }

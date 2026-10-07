@@ -4,9 +4,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { I18nextProvider } from 'react-i18next'
 import { createInstance, type i18n as I18nInstance } from 'i18next'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { Outcome } from '@shared/types'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { initI18n } from '../../i18n'
 
 /**
@@ -16,30 +17,26 @@ import { initI18n } from '../../i18n'
  * distinct handlers through its own typed client).
  */
 
-const listNameTemplates = vi.fn<() => Promise<Outcome<Outcome<NameTemplatesView>>>>()
-const addNameTemplate = vi.fn<(template: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+const listNameTemplates = vi.fn<() => Promise<Outcome<NameTemplatesView>>>()
+const addNameTemplate = vi.fn<(template: string) => Promise<Outcome<NameTemplatesView>>>()
 const updateNameTemplate =
-  vi.fn<(id: string, template: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
-const removeNameTemplate = vi.fn<(id: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
-const reorderNameTemplates = vi.fn<(ids: string[]) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
-const resetNameTemplate = vi.fn<(id: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
-const restoreNameTemplates = vi.fn<() => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+  vi.fn<(id: string, template: string) => Promise<Outcome<NameTemplatesView>>>()
+const removeNameTemplate = vi.fn<(id: string) => Promise<Outcome<NameTemplatesView>>>()
+const reorderNameTemplates = vi.fn<(ids: string[]) => Promise<Outcome<NameTemplatesView>>>()
+const resetNameTemplate = vi.fn<(id: string) => Promise<Outcome<NameTemplatesView>>>()
+const restoreNameTemplates = vi.fn<() => Promise<Outcome<NameTemplatesView>>>()
 
-/** Wraps a domain-level `Outcome<NameTemplatesView>` in the transport-level envelope every real
- * `nameTemplates.*` call gets from `MainModuleRegistry.invoke()` - see `client.ts`'s doc comment. */
-function transportOk(domain: Outcome<NameTemplatesView>): Outcome<Outcome<NameTemplatesView>> {
-  return { ok: true, value: domain }
-}
-
-vi.mock('./client', () => ({
-  listNameTemplates: () => listNameTemplates(),
-  addNameTemplate: (template: string) => addNameTemplate(template),
-  updateNameTemplate: (id: string, template: string) => updateNameTemplate(id, template),
-  removeNameTemplate: (id: string) => removeNameTemplate(id),
-  reorderNameTemplates: (ids: string[]) => reorderNameTemplates(ids),
-  resetNameTemplate: (id: string) => resetNameTemplate(id),
-  restoreNameTemplates: () => restoreNameTemplates(),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listNameTemplates: () => listNameTemplates(),
+    addNameTemplate: (template: string) => addNameTemplate(template),
+    updateNameTemplate: (id: string, template: string) => updateNameTemplate(id, template),
+    removeNameTemplate: (id: string) => removeNameTemplate(id),
+    reorderNameTemplates: (ids: string[]) => reorderNameTemplates(ids),
+    resetNameTemplate: (id: string) => resetNameTemplate(id),
+    restoreNameTemplates: () => restoreNameTemplates(),
+  }),
+)
 
 let NameTemplatesList: typeof import('./NameTemplatesList').NameTemplatesList
 
@@ -78,9 +75,10 @@ function rowsLocator() {
 
 describe('rows render in list order with their origin badge', () => {
   it('shows the shipped entry then the user entry, each with its own badge', async () => {
-    listNameTemplates.mockResolvedValue(
-      transportOk({ ok: true, value: { entries: [SHIPPED_ENTRY, USER_ENTRY], canRestore: false } }),
-    )
+    listNameTemplates.mockResolvedValue({
+      ok: true,
+      value: { entries: [SHIPPED_ENTRY, USER_ENTRY], canRestore: false },
+    })
 
     render(createElement(NameTemplatesList))
 
@@ -97,9 +95,7 @@ describe('rows render in list order with their origin badge', () => {
 
 describe('an invalid template shows its reason next to the field and cannot be added', () => {
   it('rejects an unknown token and disables Add', async () => {
-    listNameTemplates.mockResolvedValue(
-      transportOk({ ok: true, value: { entries: [], canRestore: false } }),
-    )
+    listNameTemplates.mockResolvedValue({ ok: true, value: { entries: [], canRestore: false } })
 
     render(createElement(NameTemplatesList))
     await screen.findByTestId('replays-name-templates')
@@ -108,7 +104,9 @@ describe('an invalid template shows its reason next to the field and cannot be a
     fireEvent.change(input, { target: { value: '{nope}' } })
 
     const error = await screen.findByTestId('replays-name-template-error')
-    expect(error.textContent).toBe(en.replays.nameTemplate.error.unknownToken.replace('{{token}}', 'nope'))
+    expect(error.textContent).toBe(
+      en.replays.nameTemplate.error.unknownToken.replace('{{token}}', 'nope'),
+    )
 
     const addButton = screen.getByTestId('replays-name-template-add')
     expect((addButton as HTMLButtonElement).disabled).toBe(true)
@@ -118,12 +116,11 @@ describe('an invalid template shows its reason next to the field and cannot be a
 
 describe("a main failure is shown in the field's reason slot", () => {
   it('renders the rejected outcome in the add field error slot', async () => {
-    listNameTemplates.mockResolvedValue(
-      transportOk({ ok: true, value: { entries: [], canRestore: false } }),
-    )
-    addNameTemplate.mockResolvedValue(
-      transportOk({ ok: false, error: { key: 'replays.nameTemplates.error.tooMany' } }),
-    )
+    listNameTemplates.mockResolvedValue({ ok: true, value: { entries: [], canRestore: false } })
+    addNameTemplate.mockResolvedValue({
+      ok: false,
+      error: { key: 'replays.nameTemplates.error.tooMany' },
+    })
 
     render(createElement(NameTemplatesList))
     await screen.findByTestId('replays-name-templates')
@@ -146,15 +143,13 @@ describe("a main failure is shown in the field's reason slot", () => {
 
 describe('every string comes from the replays block', () => {
   it('renders only i18n-sourced copy, aside from the templates’ own (data-driven) text', async () => {
-    listNameTemplates.mockResolvedValue(
-      transportOk({
-        ok: true,
-        value: {
-          entries: [{ ...SHIPPED_ENTRY, edited: true }, USER_ENTRY],
-          canRestore: true,
-        },
-      }),
-    )
+    listNameTemplates.mockResolvedValue({
+      ok: true,
+      value: {
+        entries: [{ ...SHIPPED_ENTRY, edited: true }, USER_ENTRY],
+        canRestore: true,
+      },
+    })
 
     const keyEcho: I18nInstance = createInstance()
     await keyEcho.init({ lng: 'en', resources: { en: { translation: {} } } })
@@ -187,7 +182,7 @@ describe('every string comes from the replays block', () => {
     const ownTexts = texts.filter((text) => !text.startsWith('dnd.'))
     expect(ownTexts.length).toBeGreaterThan(0)
     for (const text of ownTexts) {
-      expect(text).toMatch(/^replays\./)
+      expect(text).toMatch(/^(replays|common[.]action)[.]/)
     }
 
     expect(texts).toContain('replays.nameTemplates.heading')

@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ServerDetail, ServersScanState } from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 
 /**
  * Story 122 D3. Mirrors `ServersView.test.tsx`'s mocking style: the module's own typed client
@@ -14,10 +15,12 @@ const { readServerDetailMock, onScanChangedMock } = vi.hoisted(() => ({
   onScanChangedMock: vi.fn(),
 }))
 
-vi.mock('./client', () => ({
-  readServerDetail: readServerDetailMock,
-  onScanChanged: onScanChangedMock,
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    readServerDetail: readServerDetailMock,
+    onScanChanged: onScanChangedMock,
+  }),
+)
 
 /**
  * The deliverable's own test wants a section that actually throws, to prove
@@ -46,9 +49,17 @@ beforeAll(async () => {
   ;({ ServerDetailView } = await import('./ServerDetailView'))
 })
 
+// The header stand-in above throws on every render, so React's caught-error report and the
+// section boundary's own `console.error` are expected in every test of this file.
+let consoleError: ReturnType<typeof vi.spyOn>
+beforeEach(() => {
+  consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  consoleError.mockRestore()
   onScanChangedMock.mockImplementation(() => () => {})
 })
 
@@ -64,6 +75,7 @@ const BASE_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 const DETAIL: ServerDetail = {

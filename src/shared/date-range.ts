@@ -25,9 +25,7 @@ export function isIsoLocalDate(s: string): boolean {
   if (!ISO_LOCAL_DATE_RE.test(s)) return false
   const [year, month, day] = s.split('-').map((part) => Number(part))
   const date = new Date(year, month - 1, day)
-  return (
-    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
-  )
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
 }
 
 const isoLocalDateSchema = z.string().refine(isIsoLocalDate, 'must be a valid YYYY-MM-DD date')

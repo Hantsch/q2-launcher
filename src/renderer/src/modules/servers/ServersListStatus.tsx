@@ -1,12 +1,12 @@
 import { AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { ServersScanState } from '@shared/modules/servers'
+import type { ServersBrowseMode, ServersScanState } from '@shared/modules/servers'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/primitives'
 import { describeScanProgress, type ServersListState } from './list-state'
 
 /**
- * Story 121 D1: the status strip that sits above the server rows - what `deriveListState`/
+ * Story 121: the status strip that sits above the server rows - what `deriveListState`/
  * `describeScanProgress` (`list-state.ts`) say, turned into real text. Renders at most one of the
  * loading/empty/idle blocks (mutually exclusive, driven by `listState`), plus an independent
  * source-failures block that can co-occur with any of them. Renders nothing at all once rows are
@@ -18,16 +18,20 @@ export function ServersListStatus({
   scanState,
   sourceLabels,
   onOpenSourceSettings,
+  mode = 'online',
 }: {
   listState: ServersListState
   scanState: ServersScanState
   sourceLabels: Record<string, string>
   onOpenSourceSettings: () => void
+  mode?: ServersBrowseMode
 }) {
   const { t } = useTranslation()
   const pending = scanState.stage1Total - scanState.stage1Done
 
-  if (listState === 'populated' && scanState.sourceFailures.length === 0) return null
+  const failures = mode === 'lan' ? [] : scanState.sourceFailures
+
+  if (listState === 'populated' && failures.length === 0) return null
 
   return (
     <div className="space-y-2 border-b border-line bg-void/30 px-5 py-2.5">
@@ -66,15 +70,21 @@ export function ServersListStatus({
         </div>
       )}
 
+      {listState === 'lanEmpty' && (
+        <p className="text-xs text-ink-muted" data-testid="servers-list-lan-empty">
+          {t('servers.list.lanEmpty')}
+        </p>
+      )}
+
       {listState === 'idle' && (
         <p className="text-xs text-ink-muted" data-testid="servers-list-idle">
           {t('servers.list.idle')}
         </p>
       )}
 
-      {scanState.sourceFailures.length > 0 && (
+      {failures.length > 0 && (
         <div className="space-y-1" data-testid="servers-list-source-failures">
-          {scanState.sourceFailures.map((failure) => {
+          {failures.map((failure) => {
             const source = sourceLabels[failure.sourceId] ?? failure.sourceId
             const reason = t(failure.reasonKey)
             return (

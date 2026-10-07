@@ -13,13 +13,15 @@
 //   - `date-filter-old.mvd2`     ~20 days old, no sidecar,        effective date = FILE TIME
 //   - `date-filter-veryold.mvd2` ~60 days old, no sidecar,        effective date = FILE TIME
 //
-// `setup()` returns `{ args: ['--lang=de-DE'] }` (the D4 harness feature) - this only changes
+// `setup()` returns `{ args: ['--lang=de-DE'] }` plus the locale env Chromium reads on Linux (the D4
+// harness feature) - this only changes
 // Chromium/ICU-driven formatting (the picker's `Intl.DateTimeFormat(undefined, ...)` trigger text,
 // and the native `<input type="date">`'s keyboard segment order) since the app ships only an `en`
 // i18next locale - every other assertion below still exercises real UI/keyboard behaviour.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { AXE_RUN_OPTIONS } from '../lib/session.mjs'
 import {
@@ -32,6 +34,7 @@ import {
   removeReplaysDateFilterFixture,
   writeReplaysDateFilterFixture,
 } from '../lib/fixture.mjs'
+import { openDemosRoot } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 const POLL_INTERVAL_MS = 100
@@ -46,19 +49,12 @@ let fixtureNowMs = Date.now()
 export async function setup() {
   fixtureNowMs = Date.now()
   writeReplaysDateFilterFixture(fixtureNowMs)
-  return { args: ['--lang=de-DE'] }
+  // Chromium on Linux takes its locale from the environment; `--lang` alone leaves it at en-US.
+  return { args: ['--lang=de-DE'], env: { LANGUAGE: 'de_DE:de', LC_ALL: 'de_DE.UTF-8' } }
 }
 
 export async function teardown() {
   removeReplaysDateFilterFixture()
-}
-
-function statePath() {
-  return join(variantUserDataDir(variant), 'state.json')
-}
-
-function readStateJson() {
-  return JSON.parse(readFileSync(statePath(), 'utf8'))
 }
 
 /** Same reasoning/idiom as `replays-filter-search.mjs`'s own helper. */
@@ -69,23 +65,6 @@ async function waitForCondition(predicate, label, timeout = TIMEOUT_MS) {
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${label}`)
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
-}
-
-async function waitForStateJson(predicate, label) {
-  await waitForCondition(() => predicate(readStateJson()), label, 4_000)
-  return readStateJson()
-}
-
-/** Same reasoning/idiom as `replays-filter-search.mjs`'s own `waitForDemosScanToFinish`. */
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
 /** Same reasoning as `replays-filter-search.mjs`'s own `visibleNames` - none of this fixture's four
@@ -112,15 +91,12 @@ function assertVisibleSet(actual, expected, label) {
 async function waitForVisibleSet(page, expected, label) {
   await waitForCondition(async () => {
     const actual = await visibleNames(page)
-    return actual.length === expected.length && [...actual].sort().join('|') === [...expected].sort().join('|')
+    return (
+      actual.length === expected.length &&
+      [...actual].sort().join('|') === [...expected].sort().join('|')
+    )
   }, label)
   assertVisibleSet(await visibleNames(page), expected, label)
-}
-
-function assertEqual(actual, expected, label) {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`expected ${label} to equal ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
-  }
 }
 
 /** Mirrors `writeReplaysDateFilterFixture()`'s own `daysAgoLocal()` (`scripts/lib/fixture.mjs`) -
@@ -148,13 +124,22 @@ async function ensureAxe(page) {
 
 async function assertNoAxeViolations(page, label) {
   await ensureAxe(page)
-  const results = await page.evaluate(async (options) => await window.axe.run(options), AXE_RUN_OPTIONS)
+  const results = await page.evaluate(
+    async (options) => await window.axe.run(options),
+    AXE_RUN_OPTIONS,
+  )
   if (!Array.isArray(results?.violations)) {
-    throw new Error(`axe.run() returned no violations array during '${label}' (got ${typeof results})`)
+    throw new Error(
+      `axe.run() returned no violations array during '${label}' (got ${typeof results})`,
+    )
   }
   if (results.violations.length !== 0) {
-    const ids = results.violations.map((violation) => `${violation.id} (${violation.impact})`).join(', ')
-    throw new Error(`expected zero axe violations during '${label}', got ${results.violations.length}: ${ids}`)
+    const ids = results.violations
+      .map((violation) => `${violation.id} (${violation.impact})`)
+      .join(', ')
+    throw new Error(
+      `expected zero axe violations during '${label}', got ${results.violations.length}: ${ids}`,
+    )
   }
 }
 
@@ -169,15 +154,23 @@ const ALL_NAMES = [
  * is not already open (`replays-filter-date-from` not visible) - the popover has no auto-close on
  * a preset/field change, only on trigger click/outside click/Escape. */
 async function openPicker(page) {
-  const alreadyOpen = await page.getByTestId('replays-filter-date-from').isVisible().catch(() => false)
+  const alreadyOpen = await page
+    .getByTestId('replays-filter-date-from')
+    .isVisible()
+    .catch(() => false)
   if (!alreadyOpen) {
     await page.getByTestId('replays-filter-date-trigger').click({ timeout: TIMEOUT_MS })
-    await page.getByTestId('replays-filter-date-from').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    await page
+      .getByTestId('replays-filter-date-from')
+      .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   }
 }
 
 async function closePicker(page) {
-  const open = await page.getByTestId('replays-filter-date-from').isVisible().catch(() => false)
+  const open = await page
+    .getByTestId('replays-filter-date-from')
+    .isVisible()
+    .catch(() => false)
   if (open) {
     await page.getByTestId('replays-filter-date-trigger').click({ timeout: TIMEOUT_MS })
     await page
@@ -195,7 +188,9 @@ async function clearDate(page) {
  * `data-testid` - bounded so a wiring regression fails fast instead of hanging. */
 async function tabUntilFocused(page, testId, maxTabs = 40) {
   for (let i = 0; i < maxTabs; i++) {
-    const current = await page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? null)
+    const current = await page.evaluate(
+      () => document.activeElement?.getAttribute('data-testid') ?? null,
+    )
     if (current === testId) return
     await page.keyboard.press('Tab')
   }
@@ -204,9 +199,7 @@ async function tabUntilFocused(page, testId, maxTabs = 40) {
 
 export default async function replaysDateFilter({ page, step, shot }) {
   step('navigate to Demos and wait for the scan to settle')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await waitForVisibleSet(page, ALL_NAMES, 'the unfiltered list')
 
   step('presets narrow the list')
@@ -299,7 +292,11 @@ export default async function replaysDateFilter({ page, step, shot }) {
   // fixture demos here instead of the same narrowed two - this is what actually distinguishes
   // "rejected" from "silently accepted as unfiltered" (the old version of this step compared against
   // an unfiltered `countBefore`, which couldn't tell the two apart).
-  assertVisibleSet(await visibleNames(page), countBefore, 'the row count while the range is invalid')
+  assertVisibleSet(
+    await visibleNames(page),
+    countBefore,
+    'the row count while the range is invalid',
+  )
   await shot('from-after-to-error')
 
   await page.getByTestId('replays-filter-date-clear').click({ timeout: TIMEOUT_MS })
@@ -324,7 +321,9 @@ export default async function replaysDateFilter({ page, step, shot }) {
   await waitForVisibleSet(page, ALL_NAMES, 'clear-all restores the full list')
   const triggerText = await page.getByTestId('replays-filter-date-trigger').textContent()
   if (!triggerText?.includes('Any date')) {
-    throw new Error(`expected the date trigger to read "Any date" after clear-all, got "${triggerText}"`)
+    throw new Error(
+      `expected the date trigger to read "Any date" after clear-all, got "${triggerText}"`,
+    )
   }
   // The popover itself has no auto-close on a filter-state change (only trigger click/outside
   // click/Escape) - leave it in a known-closed state before the keyboard-only step below, so its
@@ -336,23 +335,33 @@ export default async function replaysDateFilter({ page, step, shot }) {
   // of wherever focus currently sits is an implementation detail this flow shouldn't hardcode.
   await tabUntilFocused(page, 'replays-filter-date-trigger')
   await page.keyboard.press('Enter')
-  await page.getByTestId('replays-filter-date-from').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-filter-date-from')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.keyboard.press('Tab') // first preset button ("Today")
   await page.keyboard.press('Enter')
-  await waitForVisibleSet(page, [REPLAYS_DATE_FILTER_TODAY_DEMO], 'the "today" preset picked by keyboard')
+  await waitForVisibleSet(
+    page,
+    [REPLAYS_DATE_FILTER_TODAY_DEMO],
+    'the "today" preset picked by keyboard',
+  )
 
   await page.keyboard.press('Tab') // "Last 7 days"
   await page.keyboard.press('Tab') // "Last 30 days"
   await page.keyboard.press('Tab') // From field
   const dateValue = await page.evaluate(() => document.activeElement?.value ?? null)
   if (dateValue === null) {
-    throw new Error('expected the focused element after tabbing past the presets to be the From date input')
+    throw new Error(
+      'expected the focused element after tabbing past the presets to be the From date input',
+    )
   }
   // de-DE's native date input expects day-month-year keystrokes.
   await page.keyboard.type('01092026')
   const fromValue = await page.evaluate(() => document.activeElement?.value ?? null)
   if (fromValue !== '2026-09-01') {
-    throw new Error(`expected the From input to read 2026-09-01 after typing "01092026" under de-DE, got "${fromValue}"`)
+    throw new Error(
+      `expected the From input to read 2026-09-01 after typing "01092026" under de-DE, got "${fromValue}"`,
+    )
   }
   // `controls.tsx`'s shared `Input`/`Select` styling explicitly turns off the outline on focus
   // (`focus:outline-none`) and signals focus via a border-colour change instead
@@ -370,7 +379,8 @@ export default async function replaysDateFilter({ page, step, shot }) {
       boxShadow: focused ? getComputedStyle(focused).boxShadow : null,
     }
   })
-  const hasOutlineOrShadow = focusIndicator.outline !== 'none' || focusIndicator.boxShadow !== 'none'
+  const hasOutlineOrShadow =
+    focusIndicator.outline !== 'none' || focusIndicator.boxShadow !== 'none'
   const hasBorderChange = focusIndicator.focusedBorderColor !== focusIndicator.siblingBorderColor
   if (!hasOutlineOrShadow && !hasBorderChange) {
     throw new Error(
@@ -391,7 +401,9 @@ export default async function replaysDateFilter({ page, step, shot }) {
   await closePicker(page)
   const localeTriggerText = await page.getByTestId('replays-filter-date-trigger').textContent()
   if (!localeTriggerText?.includes('01.09.2026')) {
-    throw new Error(`expected the trigger to show a de-DE-formatted date (01.09.2026), got "${localeTriggerText}"`)
+    throw new Error(
+      `expected the trigger to show a de-DE-formatted date (01.09.2026), got "${localeTriggerText}"`,
+    )
   }
   await shot('locale-formatted-range')
   await openPicker(page)
@@ -414,7 +426,11 @@ export default async function replaysDateFilter({ page, step, shot }) {
   await page.getByTestId('replays-filter-date-clear').click({ timeout: TIMEOUT_MS })
   await waitForVisibleSet(page, ALL_NAMES, 'cleared at the end of the run')
 
-  await waitForStateJson(() => true, 'a settled state.json before exit')
+  await waitForStateJson(
+    variantUserDataDir(variant),
+    () => true,
+    'a settled state.json before exit',
+  )
 
   console.log(
     'replays-date-filter: presets and a custom from/to range each narrow the list correctly, an ' +

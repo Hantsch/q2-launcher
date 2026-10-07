@@ -51,7 +51,7 @@ This is a spike: its output is a `RESULT.md` with measurements and a go/no-go pe
 - **(User)** Spike execution: runs unattended, automated probes only; any eyes-on part becomes manual residue
 - The baseline takes its cfg text, launch args and constants from production's
   `playback-channel/protocol.ts` via `jiti` (alias `@shared` → `src/shared`), not a hand copy, because
-  AC1 asks for *current production settings* and a mirrored copy can silently drift.
+  AC1 asks for _current production settings_ and a mirrored copy can silently drift.
 - "Took effect in the game" (AC1a) is timed by an engine-side marker that does not go through the
   logfile (a file the engine writes in the same guarded line, e.g. `writeconfig`; fallback: window rect
   after `vid_geometry` via 169's `win-probe.ps1`), because timing it off log arrival would fold the
@@ -92,29 +92,29 @@ unattended against `C:\Games\Q2Pro\q2pro.exe`, game `opentdm`. No `src/` change,
      command cfg.
    - L4 ACK via engine-written file instead of the log.
    - up to 3 combinations of the best L1/L2/L3/L4 variants.
-   Per run: timestamps for control written, engine marker seen, ACK read; log-arrival batches (10 ms
-   poll, plus a 50 ms-equivalent); launcher lines/s; starvation probe; CPU loop-on vs stopped; one
-   screenshot. Ends Q2PRO with WM_CLOSE, never kill; refuses to start if `q2pro.exe` is running;
-   removes its cfg/marker files.
+     Per run: timestamps for control written, engine marker seen, ACK read; log-arrival batches (10 ms
+     poll, plus a 50 ms-equivalent); launcher lines/s; starvation probe; CPU loop-on vs stopped; one
+     screenshot. Ends Q2PRO with WM_CLOSE, never kill; refuses to start if `q2pro.exe` is running;
+     removes its cfg/marker files.
 2. Run + result (D2): run all configurations unattended, write `RESULT.md` citing the results files.
 
 ## Deliverables
 
 - [x] **D1** — Harness `spikes/183-control-latency/harness.mjs` + `README.md` (mirror the shape of
-  `spikes/169-windowed-stage/harness.mjs` / `README.md`; reuse `spikes/169-windowed-stage/win-probe.ps1`
-  by path and the PowerShell screenshot + `CloseMainWindow()` helpers from
-  `spikes/174-chat-hud/probe.mjs`). Node ESM, node built-ins plus `jiti` only.
+      `spikes/169-windowed-stage/harness.mjs` / `README.md`; reuse `spikes/169-windowed-stage/win-probe.ps1`
+      by path and the PowerShell screenshot + `CloseMainWindow()` helpers from
+      `spikes/174-chat-hud/probe.mjs`). Node ESM, node built-ins plus `jiti` only.
   - Imports `buildLoopCfg`, `buildControlFile`, `encodeControlCommand`, `buildStopFile`,
     `windowsLaunchArgs`, `parseEngineLine`, `LOG_FILE_RELATIVE`, `LOG_POLL_MS`, `ACK_TIMEOUT_MS` and
     the file-name constants from `src/main/modules/replays/playback-channel/protocol.ts` through `jiti`
     with alias `@shared` → `src/shared`; the baseline config must use them unmodified and write the
     exact cfg texts and launch args into the results JSON.
   - CLI: `node spikes/183-control-latency/harness.mjs [--config <name>|--all] [--exe <path>]
-    [--game opentdm] [--demo test-demo-for-launcher.dm2] [--samples 30]`. Configurations named
+[--game opentdm] [--demo test-demo-for-launcher.dm2] [--samples 30]`. Configurations named
     `baseline`, `wait5`, `wait2`, `wait1`, `flush<N>` (each accepted `logfile_flush` value),
     `logtoggle`, `pad`, `multiseq`, `coalesce`, `fileack`, `combo-<n>`.
   - Preflight (recorded in JSON): which engine-side marker works in the pinned build (`writeconfig
-    <name>` producing a file → preferred; else window rect after `set vid_geometry` via
+<name>` producing a file → preferred; else window rect after `set vid_geometry` via
     `win-probe.ps1`); which `logfile_flush` values the build accepts. The effect time (AC1a) comes
     only from that marker, never from a log line's arrival.
   - Per configuration: ≥ `--samples` single commands (mix of `pause`, `seek +10`, `seek -10`,
@@ -135,8 +135,8 @@ unattended against `C:\Games\Q2Pro\q2pro.exe`, game `opentdm`. No `src/` change,
     unattended to a results JSON containing all fields above and leaves no `q2l_*`/marker files in
     the game dir. Files: `spikes/183-control-latency/harness.mjs`, `spikes/183-control-latency/README.md`.
 - [x] **D2** — Run `--all` unattended (re-run a configuration once if the game fails to start) and
-  write `spikes/183-control-latency/RESULT.md` (mirror `spikes/169-windowed-stage/RESULT.md`), every
-  number citing its `results/*.json` file:
+      write `spikes/183-control-latency/RESULT.md` (mirror `spikes/169-windowed-stage/RESULT.md`), every
+      number citing its `results/*.json` file:
   - AC1: baseline table — control written → took effect, and → ACK read, p50/p95, split into tick
     share (control → marker) and flush+poll share (marker → ACK), plus burst serialisation cost.
   - AC2: flush interval at the current tick (p50/p95/max, lines per burst; 10 ms and 50 ms poll).
@@ -147,7 +147,7 @@ unattended against `C:\Games\Q2Pro\q2pro.exe`, game `opentdm`. No `src/` change,
     (then [[185]]'s (User) fallback applies).
   - AC6: Linux measured or "not measured" + reason + code-level assessment of `linux-channel.ts`.
   - A "Manual residue" section listing the screenshots to judge by eye (AC4 visible lines).
-  Files: `spikes/183-control-latency/RESULT.md`, `spikes/183-control-latency/results/*`.
+    Files: `spikes/183-control-latency/RESULT.md`, `spikes/183-control-latency/results/*`.
 
 ## Model Hints
 

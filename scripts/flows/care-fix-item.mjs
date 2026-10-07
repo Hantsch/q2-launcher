@@ -82,7 +82,9 @@ export default async function careFixItem({ page, shot, step }) {
   await conflictRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const rowText = await conflictRow.innerText()
   if (!rowText.includes('MOUSE1')) {
-    throw new Error(`expected the listed shadowed-bind item to name MOUSE1, got: ${JSON.stringify(rowText)}`)
+    throw new Error(
+      `expected the listed shadowed-bind item to name MOUSE1, got: ${JSON.stringify(rowText)}`,
+    )
   }
 
   await shot('item-listed')

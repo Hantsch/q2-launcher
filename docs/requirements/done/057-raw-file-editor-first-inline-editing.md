@@ -103,7 +103,7 @@ can type in it: for small quick changes, when I know what I am doing, I edit rig
   and the profile is never re-rendered over the file, so "exactly what I typed" holds and the next
   conflict guard does not report a phantom external edit.
 - The read-back result is an inline panel under the toolbar (preserved-line count, dropped aliases),
-  not only a toast, because the acceptance criterion asks for it to be *shown*.
+  not only a toast, because the acceptance criterion asks for it to be _shown_.
 - Editing is offered only while the canonical file is on disk; otherwise the view stays read-only
   with today's "not written yet" hint - there is no text to edit and no baseline for the guard.
 - The `config-write-preview` ui:verify screen is retired in this story (the raw tab's expander was
@@ -171,7 +171,7 @@ with tooltips; no help paragraphs, no per-installation cards, no played-mods blo
 `.cfg-code` in the tab; unbindall and section-header-style still write through their existing IPC
 calls.
 
-**D4 - `config: saveRawText` main handler** *(hard)* [x]
+**D4 - `config: saveRawText` main handler** _(hard)_ [x]
 Files: `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
 `src/main/modules/config/index.ts`, `src/renderer/src/modules/config/client.ts`, + main tests.
 Mirror: the `CONFIG_HANDLERS.save` handler (`index.ts:889-982`) and `refreshFromFiles`
@@ -183,13 +183,13 @@ refreshes the file-state record and returns the adopted profile plus `droppedAli
 overwrite, rejected disowned text, rejected non-latin-1 text, and no phantom external-edit on the
 next guard run.
 
-**D5 - Raw draft is an unsaved change** *(hard)* [x]
+**D5 - Raw draft is an unsaved change** _(hard)_ [x]
 Files: new `src/renderer/src/modules/config/lib/raw-draft.tsx`,
 `components/ProfileSaveBar.tsx`, `components/ProfileChangeList.tsx`, `ConfigConflictDialog.tsx`,
 `ConfigView.tsx`, `RawFileTab.tsx`, `en.json`. Mirror: `lib/profile-changes.tsx`.
 Acceptance: typing in the editor makes the save bar show "file text edited"; Save writes and adopts,
 Discard drops the edit; Ctrl+S in the editor saves; a save conflict opens the existing dialog and
-"Overwrite" force-saves *the typed text*; while a draft exists the other tabs are `inert` with a
+"Overwrite" force-saves _the typed text_; while a draft exists the other tabs are `inert` with a
 one-line hint, and while `profile.dirty` the editor is `readOnly` with a one-line hint - the two
 never coexist.
 
@@ -264,6 +264,7 @@ and extended: `config-write-preview` retired (story 058 note), new `config-raw-e
 `raw-inline-edit` flow.
 
 **Decisions:**
+
 - Two-space indent unit for Tab/Shift-Tab: no structural-indentation convention found in existing
   `.cfg` fixtures, so the story's documented fallback was used.
 - "While `profile.dirty`, the editor is read-only": implemented by simply not passing `editable` to
@@ -308,6 +309,7 @@ independently re-confirmed correct. Round 3: PASS, with non-blocking documentati
 below.
 
 **Open, non-blocking items (not fixed, judged acceptable or out of this story's scope):**
+
 - `scripts/lib/screens.mjs`'s `config-raw` screen entry doesn't wait for the raw file to finish
   loading before its screenshot/axe-audit, so it captures a loading spinner rather than the editor
   (`config-raw-editing`, which does wait, supplies the real coverage — AC8's substance holds, but

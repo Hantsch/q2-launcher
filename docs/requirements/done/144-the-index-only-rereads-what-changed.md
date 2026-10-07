@@ -95,7 +95,7 @@ the renderer as a pushed `module:event` (counts), which [[151]] shows.
   needs counts. `sourceKey` is discovery's source identity; labels are 151's business.
 - **Handlers** `scan.start` (no input → `{ started: boolean }`) and `index.read` (no input → the
   current list snapshot); neither takes a path (135 AC7 guard). The list entry shape stays the one
-  141/150 define — this story only decides *when* it is recomputed.
+  141/150 define — this story only decides _when_ it is recomputed.
 - **CHANGELOG** — cached rows on open plus a refresh button are user-visible: one line under
   `## Unreleased → ### Added`.
 
@@ -106,7 +106,7 @@ exact export names — every D names "discovery" and "the parsers" by role and i
 
 1. **Cache store** (D1) — `replays-index.json` under userData, zod-validated envelope with
    `cacheVersion`; load degrades to empty, save is atomic via `JsonStore`.
-2. **Incremental scan core** (D2) — pure function over *discovered files with stat*, the loaded
+2. **Incremental scan core** (D2) — pure function over _discovered files with stat_, the loaded
    cache, injected parse/name functions, `now`, `isGameRunning`, and an `onProgress` callback.
    Per file: cache hit (size + mtimeMs equal) → reuse; else live (AC8) → skip; else parse. Returns
    `{ entries, nextCache }`. No fs of its own besides what is injected.
@@ -129,10 +129,10 @@ Order: D1 → D2 → D3 → D4.
   Contract: `REPLAYS_INDEX_CACHE_FILE = 'replays-index.json'`, `REPLAYS_INDEX_CACHE_VERSION = 1`
   (doc comment: bump whenever any cached fact shape changes — parsed facts, name facts — a bump
   discards, never migrates); class `ReplaysIndexCache` with `read(): Promise<Map<string,
-  CachedDemo>>` (empty map when the file is missing, not JSON, fails the schema, or has another
+CachedDemo>>` (empty map when the file is missing, not JSON, fails the schema, or has another
   `cacheVersion`) and `write(entries: Map<string, CachedDemo>): Promise<void>` (resolves once on
   disk). `CachedDemo = { size: number; mtimeMs: number; patternFingerprint: string; parsed:
-  unknown-validated-by-schema; name: …; }` — the `parsed`/`name` sub-schemas reuse the parsers' own
+unknown-validated-by-schema; name: …; }` — the `parsed`/`name` sub-schemas reuse the parsers' own
   exported zod schemas / types where they exist, else a permissive `z.unknown()` wrapped by the
   version check (note in a comment). Key = discovery's entry id string.
   Tests: › "a written cache reads back identical" › "a missing cache file reads as empty" › "an
@@ -146,9 +146,9 @@ Order: D1 → D2 → D3 → D4.
   `src/main/modules/replays/incremental-scan.ts` (new), `src/main/modules/replays/incremental-scan.test.ts`
   (new). A pure async function `runIncrementalScan(input)`; no `fs`, no electron, no timers.
   Input: `sources: Array<{ sourceKey: string; files: Array<{ id: string; size: number; mtimeMs:
-  number; …discovery's entry }> }>` (already discovered and stat'ed by the caller), `cache:
-  Map<string, CachedDemo>` (D1's type), `patternFingerprint: string`, `parse(file) =>
-  Promise<ParsedFacts>`, `matchName(file) => NameFacts`, `now: number`, `isGameRunning: boolean`,
+number; …discovery's entry }> }>` (already discovered and stat'ed by the caller), `cache:
+Map<string, CachedDemo>` (D1's type), `patternFingerprint: string`, `parse(file) =>
+Promise<ParsedFacts>`, `matchName(file) => NameFacts`, `now: number`, `isGameRunning: boolean`,
   `onProgress(sourceKey, scanned, total)`.
   Rules per file: (a) cache row with equal `size` **and** `mtimeMs` → reuse `parsed`; if its
   `patternFingerprint` differs, re-run only `matchName`; (b) otherwise, if `isGameRunning` and
@@ -173,8 +173,8 @@ Order: D1 → D2 → D3 → D4.
   `src/shared/modules/replays.ts` (edit: `REPLAYS_HANDLERS.scanStart: 'scan.start'`,
   `indexRead: 'index.read'` with `replaysNoInputSchema` in `REPLAYS_HANDLER_SCHEMAS`;
   `REPLAYS_EVENTS = { scanProgress: 'scan.progress' } as const`; `replaysScanProgressSchema =
-  z.object({ running: z.boolean(), sources: z.array(z.object({ sourceKey: z.string(), scanned:
-  z.number().int().nonnegative(), total: z.number().int().nonnegative() })) })` + type; response
+z.object({ running: z.boolean(), sources: z.array(z.object({ sourceKey: z.string(), scanned:
+z.number().int().nonnegative(), total: z.number().int().nonnegative() })) })` + type; response
   schema `{ started: z.boolean() }`; `overview.read` now reports the service's real `scanning` /
   `demoCount`), `src/shared/modules/replays.test.ts` (edit: the existing schema-per-handler and
   no-path guards now cover the new handlers — no new test needed there),
@@ -310,6 +310,7 @@ narrow (path-shape only) — the substantive AC4 proof is `scan-service.test.ts`
 test, so no test was strengthened.
 
 Decisions:
+
 - Zip-contained demos are not yet covered by the "unchanged archive is not reopened" Decision:
   `discoverDemos`/`expandZip` (built in stories 141/143, untouched here) still list and read every
   zip entry on every scan, upstream of the D1/D2 cache. The D1/D2 cache still saves work for loose

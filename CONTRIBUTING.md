@@ -23,13 +23,16 @@ run.
 | script                | what it does                                                        |
 | --------------------- | ------------------------------------------------------------------- |
 | `npm run dev`         | Vite dev server + Electron, with hot reload                         |
-| `npm run build`       | builds main, preload and renderer into `out/`                       |
+| `npm run build`       | builds main, preload and renderer into `out/` (release shape)       |
+| `npm run build:dev`   | same, plus the dev-only modules (Mods) — what the UI flows run on   |
 | `npm start`           | runs the built output without packaging                             |
 | `npm run typecheck`   | `tsc -b` over both TS projects                                      |
 | `npm test`            | Vitest unit tests                                                   |
 | `npm run format`      | Prettier                                                            |
 | `npm run icon`        | regenerates `build/icon.{png,ico}` from `scripts/generate-icon.mjs` |
 | `npm run package:win` | typecheck, build, then an NSIS installer + zip in `release/`        |
+
+CI runs `npm run format:check`; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame` skips the one-time format commit.
 
 ### Before a PR into main: `npm run verify:release`
 
@@ -44,11 +47,11 @@ working tree as `git add -A` would commit it, checked out into clean snapshot
 folders under the system temp dir — no `node_modules`, no ignored files, no
 branch or index of yours touched. Then:
 
-| step | mirrors |
-| ---- | ------- |
-| release plan (`release.mjs --print-plan`) | `release.yml`'s `plan` job — refuses on an empty `## Unreleased` or an existing tag |
-| npm ci, typecheck, test, `ui:verify`, `package:win` | `ci.yml`'s Windows leg, `linux-verify.yml`'s axe gate, `release.yml`'s Windows build |
-| act: `ci.yml`, `linux-verify.yml`, `linux-update.yml` | every Linux PR check, one job at a time |
+| step                                                  | mirrors                                                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| release plan (`release.mjs --print-plan`)             | `release.yml`'s `plan` job — refuses on an empty `## Unreleased` or an existing tag  |
+| npm ci, typecheck, test, `ui:verify`, `package:win`   | `ci.yml`'s Windows leg, `linux-verify.yml`'s axe gate, `release.yml`'s Windows build |
+| act: `ci.yml`, `linux-verify.yml`, `linux-update.yml` | every Linux PR check, one job at a time                                              |
 
 It prints a pass/fail line per step and exits non-zero if any failed. If it
 warns about uncommitted changes, commit exactly those before opening the PR.
@@ -66,7 +69,7 @@ run it again before the PR. And let the PR's checks finish before merging (PRs
 **`dev` after a release.** A release leaves `main` one `release: x.y.z` commit
 ahead of `dev` (the promoted `## Unreleased` and the version bump). If `dev`
 misses it, the next merge can silently file new changelog entries under the
-*released* version, leaving `## Unreleased` empty — and the next release
+_released_ version, leaving `## Unreleased` empty — and the next release
 refuses. Two guards:
 
 - `release.yml` fast-forwards `dev` onto the release commit right after a
@@ -81,12 +84,12 @@ The three workflows that run on Linux can each be run here through
 [act](https://github.com/nektos/act) (`.actrc` pins the runner image and the
 `ubuntu-latest` matrix leg):
 
-| script                  | workflow                              |
-| ----------------------- | ------------------------------------- |
-| `npm run ci:local`      | `ci.yml` — unit tests + user journey  |
+| script                    | workflow                                                      |
+| ------------------------- | ------------------------------------------------------------- |
+| `npm run ci:local`        | `ci.yml` — unit tests + user journey                          |
 | `npm run ci:local:verify` | `linux-verify.yml` — packaged AppImage, screenshots, axe-core |
-| `npm run ci:local:update` | `linux-update.yml` — the AppImage self-update e2e |
-| `npm run ci:local:all`  | all three, in that order              |
+| `npm run ci:local:update` | `linux-update.yml` — the AppImage self-update e2e             |
+| `npm run ci:local:all`    | all three, in that order                                      |
 
 The two AppImage workflows pass `--container-options --privileged`: an AppImage
 mounts itself through FUSE, which a default container cannot do. `--device
@@ -111,9 +114,9 @@ Things the `ci:local*` scripts cannot tell you (`verify:release` handles the
 first two), each of which has produced a green local run over a red CI one:
 
 - they run your branch, but a PR's checks run on its **merge into main**.
-- act copies your **working tree**, not the commit (`.actrc`'s
-  `--use-gitignore=false`), so untracked and ignored files are present here and
-  absent on GitHub.
+- act copies your **working tree**, not the commit, so uncommitted edits and
+  untracked files are present here and absent on GitHub (ignored files are
+  skipped, as in a checkout).
 - your machine is faster, and its locale is probably not the runner's. Two
   tests currently fail on a German Windows and pass on CI, because
   `formatRelativeTime()` renders in the system locale.
@@ -159,8 +162,8 @@ launching, jobs:
 - **Paths from the renderer are never trusted.** Every invoke channel carries a
   required zod payload schema (`src/shared/ipc-schemas.ts`, primitives in
   `src/shared/schemas.ts`).
-- **Adding a feature is a module** (`config`, `install`, `mods`, `assets`) —
-  never edit the shell. Five-step checklist:
+- **Adding a feature is a module** (`home`, `library`, `config`, `downloads`, `mods`, `servers`, `replays`; `assets` is planned) —
+  never edit the shell. Step-by-step checklist:
   [docs/ARCHITECTURE.md#adding-a-module](docs/ARCHITECTURE.md#adding-a-module).
 - **No image assets in the UI** — every surface is CSS or inline SVG.
 

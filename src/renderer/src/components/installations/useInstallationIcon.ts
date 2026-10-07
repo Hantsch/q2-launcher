@@ -5,7 +5,7 @@ import { useLauncher } from '../../store/useLauncher'
 
 /**
  * Resolves the URL {@link InstallationTile} should show for an installation's
- * icon, story 067 D5.
+ * icon, story 067.
  *
  * - `icon.kind === 'shipped'`: synchronous, no IPC - `shippedIconUrl` just
  *   looks the id up in the bundled manifest.
@@ -14,7 +14,7 @@ import { useLauncher } from '../../store/useLauncher'
  *   id), so remounts/rerenders - and the rail/card/action-bar all showing the
  *   same installation at once - never issue more than one request per
  *   installation.
- * - no `icon` at all: `null`, without touching the store or IPC (AC9 - "no
+ * - no `icon` at all: `null`, without touching the store or IPC ("no
  *   extra request" when nothing is set).
  */
 export function useInstallationIcon(installation: Installation | null): string | null {

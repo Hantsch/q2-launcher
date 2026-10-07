@@ -13,10 +13,10 @@ Players want every map they play — or watch as a spectator — recorded as a d
 every map automatically"**, and writes the engine's own way of doing it (verified in source,
 concept `docs/concepts/demo-browser.md` §7):
 
-| Engine | What the profile writes | Resulting file |
-| --- | --- | --- |
-| r1q2 | `set cl_autorecord 1` | `demos/2026-09-27-2130-q2dm1.dm2` |
-| Q2PRO | `set cl_beginmapcmd "record ${cl_mapname}_${com_date}_${com_time}"` and `set com_time_format %H-%M-%S` | `demos/q2dm1_2026-09-27_21-30-00.dm2` |
+| Engine | What the profile writes                                                                                | Resulting file                        |
+| ------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| r1q2   | `set cl_autorecord 1`                                                                                  | `demos/2026-09-27-2130-q2dm1.dm2`     |
+| Q2PRO  | `set cl_beginmapcmd "record ${cl_mapname}_${com_date}_${com_time}"` and `set com_time_format %H-%M-%S` | `demos/q2dm1_2026-09-27_21-30-00.dm2` |
 
 The Q2PRO line only works with its quotes intact and `$` untouched: Q2PRO does not expand macros
 inside quotes, so the cvar keeps them and expands them at map entry. Unquoted, the map name would be
@@ -201,7 +201,7 @@ saves.
   - Wiring in `SettingsTab.tsx`:
     - Place the control above the section list, below the header toolbar.
     - On toggle, compute `applyAutorecord(<current draft cvars, including any pending debounced
-      plain-row edit>, engine, on)`. Save the result through the same immediate, non-debounced
+plain-row edit>, engine, on)`. Save the result through the same immediate, non-debounced
       path that `persistSections` uses (SettingsTab.tsx ~330), so both Q2PRO cvars change in one
       save. A pending debounced edit must not be lost, and must not later overwrite the switch's
       result.
@@ -285,6 +285,7 @@ Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vit
 AC -> test: AC1/AC2/AC4/AC6 flow autorecord-setting + the named autorecord.test.ts cases; AC3 round-trip.test.ts + autorecord.test.ts; AC5/AC6 AutorecordSetting.test.tsx; AC7 autorecord.test.ts - all ran and passed. No manual residue.
 
 Decisions:
+
 - The switch edits the profile draft like every Settings row; the .cfg reaches disk on the header Save (the flow clicks Save after each toggle). "Immediate" means non-debounced (`persistSections`), not auto-saved.
 - Fixture r1q2 assignment is `INSTALL_DEMO_UPGRADE_ID` (INSTALL_ONE/TWO resolve to engine unknown at runtime); Q2PRO is `INSTALL_ENGINE_UPDATE_ID`.
 - `Switch` in `controls.tsx` gained an optional `testId` prop (needed for the testid).

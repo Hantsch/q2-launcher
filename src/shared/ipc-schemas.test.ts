@@ -12,16 +12,9 @@ import {
   updateGetStateSchema,
 } from './ipc-schemas'
 
-/**
- * `moduleInvokeSchema`'s `moduleId` is a hand-written zod enum with no structural link to
- * `ModuleId`/`MODULE_MANIFESTS` (`src/shared/types/module.ts`) - a reviewer found it had silently
- * omitted `'home'`, which made the whole module unreachable through real IPC while the rest of the
- * test suite stayed green (nothing else exercises the enum against the manifest list). This test is
- * the coupling guard: a future module added to `MODULE_MANIFESTS` without a matching update here
- * fails immediately instead of silently breaking IPC.
- */
+/** `moduleInvokeSchema`'s `moduleId` enum is derived from `MODULE_MANIFESTS`; this pins that. */
 describe('moduleInvokeSchema', () => {
-  it('accepts exactly the module ids known to MODULE_MANIFESTS, no more, no fewer', () => {
+  it('moduleInvokeSchema accepts exactly the manifest ids', () => {
     const manifestIds = MODULE_MANIFESTS.map((manifest) => manifest.id).sort()
 
     for (const id of manifestIds) {
@@ -31,7 +24,6 @@ describe('moduleInvokeSchema', () => {
 
     // `moduleInvokeSchema` is exported as the widened `z.ZodType`, so its object/enum shape is only
     // reachable at runtime - `as any` here is a test-only introspection, not a production cast.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enumSchema = (moduleInvokeSchema as any).shape.moduleId
     expect([...enumSchema.options].sort()).toEqual(manifestIds)
 
@@ -216,5 +208,24 @@ describe('launch:start refuses an unvalidated connect or userinfo value', () => 
     if (result.success) {
       expect(result.data.connect).toBe('q2.example.com:27910')
     }
+  })
+})
+
+describe('launch input map', () => {
+  it('launch input refuses an unsafe map name', () => {
+    for (const map of ['q2dm1 +quit', 'a/b', '..', 'q"x', ''])
+      expect(launchInputSchema.safeParse({ installationId: 'inst-1', map }).success).toBe(false)
+    expect(launchInputSchema.safeParse({ installationId: 'inst-1', map: 'q2dm1' }).success).toBe(
+      true,
+    )
+  })
+
+  it('launch input refuses map together with connect', () => {
+    const result = launchInputSchema.safeParse({
+      installationId: 'inst-1',
+      map: 'q2dm1',
+      connect: '1.2.3.4:27910',
+    })
+    expect(result.success).toBe(false)
   })
 })

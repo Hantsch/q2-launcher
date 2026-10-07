@@ -6,9 +6,8 @@
 //
 // Structural sibling of `scripts/flows/app-update.mjs` (098 D5) and
 // `scripts/flows/settings-downloads-section.mjs` (072 D6): same harness (`withApp` via
-// `flow.mjs`), same `dev:simulateAppUpdate`-driven `invoke`/`invokeOk` idiom as the former (copied
-// here rather than imported - each flow file is a standalone module by this repo's own
-// convention), same on-disk-assertion idiom as the latter for AC3's recorded external-link clicks.
+// `flow.mjs`), same `dev:simulateAppUpdate`-driven `invoke`/`invokeOk` idiom as the former
+// (`invoke` comes from `scripts/lib/flow-common.mjs`), same on-disk-assertion idiom as the latter for AC3's recorded external-link clicks.
 //
 // A tiny, justified addition to the simulate mechanism backs AC4's other half: `checkFailed`
 // (`src/shared/types/update.ts`) is a *check* failure (`status: 'error'`), not a *download*
@@ -56,6 +55,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
+import { invoke } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /**
@@ -76,10 +76,6 @@ const POLL_INTERVAL_MS = 100
 const APP_REPO_URL = 'https://github.com/Hantsch/q2-launcher'
 const APP_CHANGELOG_URL = 'https://github.com/Hantsch/q2-launcher/blob/main/CHANGELOG.md'
 
-async function invoke(page, channel, payload) {
-  return page.evaluate(({ ch, p }) => window.q2.invoke(ch, p), { ch: channel, p: payload })
-}
-
 async function invokeOk(page, channel, payload, label) {
   const outcome = await invoke(page, channel, payload)
   if (outcome !== undefined && outcome !== null && outcome.ok === false) {
@@ -89,7 +85,12 @@ async function invokeOk(page, channel, payload, label) {
 }
 
 function simulateAppUpdate(page, scenario) {
-  return invokeOk(page, 'dev:simulateAppUpdate', scenario, `dev:simulateAppUpdate(${scenario.scenario})`)
+  return invokeOk(
+    page,
+    'dev:simulateAppUpdate',
+    scenario,
+    `dev:simulateAppUpdate(${scenario.scenario})`,
+  )
 }
 
 /** Mirrors `src/main/lib/ui-harness.ts`'s own try/catch-defaulting-to-`[]` idiom - this is a test
@@ -144,7 +145,10 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
       )
     }
     await checkNowButton.click({ timeout: TIMEOUT_MS })
-    await waitUntil(() => checkNowButton.isEnabled(), 'Check now to re-enable after its no-op click')
+    await waitUntil(
+      () => checkNowButton.isEnabled(),
+      'Check now to re-enable after its no-op click',
+    )
     const lastCheckedAfterNoop = await lastChecked.innerText()
     if (lastCheckedAfterNoop !== lastCheckedBefore) {
       throw new Error(
@@ -176,7 +180,7 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
       .waitFor({ state: 'visible', timeout: CHECK_TIMEOUT_MS })
   }
 
-  step('AC1: this version\'s own release notes, or its empty state if none exist yet')
+  step("AC1: this version's own release notes, or its empty state if none exist yet")
   // `appVersion`, not package.json's `version`: `installedReleaseNotes()` looks the section up by
   // `app.getVersion()`, and under the unpackaged harness that is NOT the repo's version. Electron
   // is handed `out/main/index.js` as its app path (`launchApp()` in `scripts/lib/harness.mjs`),
@@ -195,7 +199,7 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
     await notes.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     const notesText = await notes.innerText()
     if (!notesText.trim()) {
-      throw new Error('expected this version\'s release notes to be non-empty')
+      throw new Error("expected this version's release notes to be non-empty")
     }
   } else {
     await page
@@ -233,15 +237,22 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
     notes:
       '### Added\n- **bold** feature\n- <img src=x onerror="alert(1)"> should render as text, not an element\n',
   })
-  await page.getByTestId('about-update-available').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('about-update-available')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const versionText = await page.getByTestId('about-update-version').innerText()
   if (!versionText.includes('9.9.9-flow')) {
-    throw new Error(`expected the pending-update block to name 9.9.9-flow, got: ${JSON.stringify(versionText)}`)
+    throw new Error(
+      `expected the pending-update block to name 9.9.9-flow, got: ${JSON.stringify(versionText)}`,
+    )
   }
   // `Badge` renders visually upper-cased via CSS `text-transform`, which `innerText` reflects (it
   // returns rendered text, not the DOM's literal casing) - compare case-insensitively, same idiom
   // `settings-downloads-section.mjs` uses for its own `.stencil` section labels.
-  const badgeText = await page.getByTestId('about-update-available').getByText('installed', { exact: false }).innerText()
+  const badgeText = await page
+    .getByTestId('about-update-available')
+    .getByText('installed', { exact: false })
+    .innerText()
   if (badgeText.toLowerCase() !== 'not yet installed') {
     throw new Error(`expected the "Not yet installed" badge, got: ${JSON.stringify(badgeText)}`)
   }
@@ -258,7 +269,9 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
   }
   const imgCount = await page.getByTestId('about-update-notes').locator('img').count()
   if (imgCount !== 0) {
-    throw new Error(`expected the img-shaped bullet to never become a real <img> element, got ${imgCount}`)
+    throw new Error(
+      `expected the img-shaped bullet to never become a real <img> element, got ${imgCount}`,
+    )
   }
   await page
     .getByTestId('about-update-action')
@@ -267,9 +280,16 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
   await shot('pending-update-with-notes')
 
   step('AC5: an update with no notes falls back to the shared empty-state sentence')
-  await simulateAppUpdate(page, { scenario: 'available', version: '9.9.9-flow-no-notes', notes: '' })
+  await simulateAppUpdate(page, {
+    scenario: 'available',
+    version: '9.9.9-flow-no-notes',
+    notes: '',
+  })
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="about-update-version"]')?.textContent?.includes('9.9.9-flow-no-notes'),
+    () =>
+      document
+        .querySelector('[data-testid="about-update-version"]')
+        ?.textContent?.includes('9.9.9-flow-no-notes'),
     null,
     { timeout: TIMEOUT_MS },
   )
@@ -277,9 +297,7 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
   // above - compare case-insensitively.
   const noNotesText = await page.getByTestId('about-update-notes').innerText()
   if (!noNotesText.toLowerCase().includes('this version has no release notes.')) {
-    throw new Error(
-      `expected the no-notes fallback sentence, got: ${JSON.stringify(noNotesText)}`,
-    )
+    throw new Error(`expected the no-notes fallback sentence, got: ${JSON.stringify(noNotesText)}`)
   }
   await shot('pending-update-no-notes')
 
@@ -293,17 +311,19 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
   }
   const lastCheckedAfterFailure = await page.getByTestId('about-update-last-checked').innerText()
   if (lastCheckedAfterFailure.includes('Never checked')) {
-    throw new Error('expected last-checked to show a real timestamp after the simulated failed check')
+    throw new Error(
+      'expected last-checked to show a real timestamp after the simulated failed check',
+    )
   }
   await shot('check-failed')
 
   console.log(
-    'about-release-notes: this version\'s own release notes (or its empty state) render (AC1), a ' +
+    "about-release-notes: this version's own release notes (or its empty state) render (AC1), a " +
       'pending update shows its version and notes marked "not yet installed" next to the shared ' +
       'update action with markdown flattened to text and no HTML injection possible (AC2/AC6), an ' +
       'update with no notes falls back to the shared empty sentence (AC5), the repository/changelog ' +
       'links open externally in order with no app window opened (AC3), and the check-now row shows ' +
       'when it last checked, that a real check is a safe no-op under this harness, and a simulated ' +
-      'failed check\'s reason (AC4)',
+      "failed check's reason (AC4)",
   )
 }

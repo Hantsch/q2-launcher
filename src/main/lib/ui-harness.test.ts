@@ -8,23 +8,28 @@ import {
   HARNESS_EXTERNAL_URLS_FILE,
   HARNESS_REVEALED_PATHS_FILE,
   UI_HARNESS_DETECTED_RUNNERS_ENV,
+  UI_HARNESS_ENV,
+  UI_HARNESS_LAN_TARGETS_ENV,
+  UI_HARNESS_PICK_FOLDER_ENV,
   parseHarnessBaseUrl,
+  resolveUiHarness,
   recordHarnessExternalUrl,
   recordHarnessRevealedPath,
   uiHarnessDetectedRunners,
+  uiHarnessLanTargets,
 } from './ui-harness'
 
 /**
  * Story 082 D4: `HARNESS_CONTENT_REPO_BASE_ENV` and `parseHarnessBaseUrl()` moved here from
- * `src/main/modules/downloads/harness.ts` so `src/main/modules/home/news/harness.ts` can reuse them
+ * `src/main/services/content/source.ts` so `src/main/modules/home/news/harness.ts` can reuse them
  * without a module-to-module import. This file covers the parser itself; what each caller *does*
  * with an `undefined` result (fall back to production vs. skip) is that caller's own test -
- * `downloads/harness.test.ts` and `home/news/harness.test.ts` respectively.
+ * `services/content/source.test.ts` and `home/news/harness.test.ts` respectively.
  *
  * Story 099 D6: `recordHarnessExternalUrl` is the file half of the `app:openExternal` recorder -
- * the gating decision itself is just `isUiHarnessEnabled()`, already covered by this file's other
- * exports' tests (`uiHarnessPickedFolders`'s "agrees with isUiHarnessEnabled" case, and
- * `downloads/harness.test.ts`'s four-case tables), so this suite focuses on what is new here: does
+ * the gating decision itself is just `UiHarness.enabled`, already covered by this file's other
+ * exports' tests (`uiHarnessPickedFolders`'s "agrees with UiHarness.enabled" case, and
+ * `services/content/source.test.ts`'s four-case tables), so this suite focuses on what is new here: does
  * the file actually get written, correctly, across repeated calls, starting from no file at all.
  * It lives alongside the pre-existing `parseHarnessBaseUrl` coverage above, not in place of it.
  *
@@ -54,50 +59,80 @@ describe('uiHarnessDetectedRunners', () => {
 
   it('gate closed: returns undefined even with a valid payload set', () => {
     expect(
-      uiHarnessDetectedRunners({
-        isDev: false,
-        env: { [UI_HARNESS_DETECTED_RUNNERS_ENV]: JSON.stringify(VALID) },
-      }),
+      uiHarnessDetectedRunners(
+        resolveUiHarness({ [UI_HARNESS_DETECTED_RUNNERS_ENV]: JSON.stringify(VALID) }),
+      ),
     ).toBeUndefined()
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
   it('gate open, variable unset: returns undefined', () => {
-    expect(uiHarnessDetectedRunners({ isDev: false, env: { Q2L_UI_HARNESS: '1' } })).toBeUndefined()
+    expect(uiHarnessDetectedRunners(resolveUiHarness({ Q2L_UI_HARNESS: '1' }))).toBeUndefined()
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
   it('gate open, valid JSON matching DetectedRunner[]: returns the parsed list verbatim', () => {
     expect(
-      uiHarnessDetectedRunners({
-        isDev: false,
-        env: { Q2L_UI_HARNESS: '1', [UI_HARNESS_DETECTED_RUNNERS_ENV]: JSON.stringify(VALID) },
-      }),
+      uiHarnessDetectedRunners(
+        resolveUiHarness({
+          Q2L_UI_HARNESS: '1',
+          [UI_HARNESS_DETECTED_RUNNERS_ENV]: JSON.stringify(VALID),
+        }),
+      ),
     ).toEqual(VALID)
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
   it('gate open, malformed JSON: returns undefined and logs a warning', () => {
     expect(
-      uiHarnessDetectedRunners({
-        isDev: false,
-        env: { Q2L_UI_HARNESS: '1', [UI_HARNESS_DETECTED_RUNNERS_ENV]: '{not json' },
-      }),
+      uiHarnessDetectedRunners(
+        resolveUiHarness({ Q2L_UI_HARNESS: '1', [UI_HARNESS_DETECTED_RUNNERS_ENV]: '{not json' }),
+      ),
     ).toBeUndefined()
     expect(warnSpy).toHaveBeenCalledTimes(1)
   })
 
   it('gate open, valid JSON that fails the DetectedRunner schema: returns undefined and logs a warning', () => {
     expect(
-      uiHarnessDetectedRunners({
-        isDev: false,
-        env: {
+      uiHarnessDetectedRunners(
+        resolveUiHarness({
           Q2L_UI_HARNESS: '1',
           [UI_HARNESS_DETECTED_RUNNERS_ENV]: JSON.stringify([{ kind: 'not-a-kind', id: 'x' }]),
-        },
-      }),
+        }),
+      ),
     ).toBeUndefined()
     expect(warnSpy).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('uiHarnessLanTargets', () => {
+  const read = (value: string | undefined, gate = true) =>
+    uiHarnessLanTargets(
+      resolveUiHarness({
+        ...(gate ? { [UI_HARNESS_ENV]: '1' } : {}),
+        ...(value === undefined ? {} : { [UI_HARNESS_LAN_TARGETS_ENV]: value }),
+      }),
+    )
+
+  it('gate closed or unset: undefined, so discovery runs for real', () => {
+    expect(read('127.0.0.1:27911', false)).toBeUndefined()
+    expect(read(undefined)).toBeUndefined()
+    expect(read('')).toBeUndefined()
+  })
+
+  it('none means zero interfaces', () => {
+    expect(read('none')).toBe('none')
+  })
+
+  it('parses a comma-separated list of loopback targets', () => {
+    expect(read('127.0.0.1:27911, 127.0.0.1:27912')).toEqual(['127.0.0.1:27911', '127.0.0.1:27912'])
+  })
+
+  it('rejects anything but 127.0.0.1:<port>', () => {
+    expect(
+      read('192.168.1.5:27910,127.0.0.1:27911,localhost:1,127.0.0.1:99999,127.0.0.1:abc'),
+    ).toEqual(['127.0.0.1:27911'])
+    expect(read('192.168.1.5:27910')).toBeUndefined()
   })
 })
 
@@ -171,17 +206,19 @@ async function readUrls(): Promise<unknown> {
   return JSON.parse(await readFile(filePath, 'utf8'))
 }
 
+const enabledHarness = resolveUiHarness({ Q2L_UI_HARNESS: '1' })
+
 describe('recordHarnessExternalUrl', () => {
   it('creates the file starting from [] and records the first url', async () => {
-    await recordHarnessExternalUrl('https://example.test/one', { filePath })
+    await recordHarnessExternalUrl(enabledHarness, 'https://example.test/one', { filePath })
 
     expect(await readUrls()).toEqual(['https://example.test/one'])
   })
 
   it('accumulates urls across repeated calls, in call order', async () => {
-    await recordHarnessExternalUrl('https://example.test/one', { filePath })
-    await recordHarnessExternalUrl('https://example.test/two', { filePath })
-    await recordHarnessExternalUrl('https://example.test/three', { filePath })
+    await recordHarnessExternalUrl(enabledHarness, 'https://example.test/one', { filePath })
+    await recordHarnessExternalUrl(enabledHarness, 'https://example.test/two', { filePath })
+    await recordHarnessExternalUrl(enabledHarness, 'https://example.test/three', { filePath })
 
     expect(await readUrls()).toEqual([
       'https://example.test/one',
@@ -194,7 +231,9 @@ describe('recordHarnessExternalUrl', () => {
     const { writeFile } = await import('node:fs/promises')
     await writeFile(filePath, 'not valid json', 'utf8')
 
-    await recordHarnessExternalUrl('https://example.test/after-corruption', { filePath })
+    await recordHarnessExternalUrl(enabledHarness, 'https://example.test/after-corruption', {
+      filePath,
+    })
 
     expect(await readUrls()).toEqual(['https://example.test/after-corruption'])
   })
@@ -204,12 +243,40 @@ describe('recordHarnessRevealedPath', () => {
   it('appends each revealed path', async () => {
     const revealedFilePath = join(dir, HARNESS_REVEALED_PATHS_FILE)
 
-    await recordHarnessRevealedPath('C:\\demos\\one.dm2', { filePath: revealedFilePath })
-    await recordHarnessRevealedPath('C:\\demos\\two.dm2', { filePath: revealedFilePath })
+    await recordHarnessRevealedPath(enabledHarness, 'C:\\demos\\one.dm2', {
+      filePath: revealedFilePath,
+    })
+    await recordHarnessRevealedPath(enabledHarness, 'C:\\demos\\two.dm2', {
+      filePath: revealedFilePath,
+    })
 
     expect(JSON.parse(await readFile(revealedFilePath, 'utf8'))).toEqual([
       'C:\\demos\\one.dm2',
       'C:\\demos\\two.dm2',
     ])
+  })
+})
+
+describe('resolveUiHarness', () => {
+  it('freezes the gate and reads fixture vars live', () => {
+    const closed = resolveUiHarness({ [UI_HARNESS_PICK_FOLDER_ENV]: '/x' })
+    expect(closed.enabled).toBe(false)
+    expect(closed.read('Q2L_UI_PICK_FOLDER')).toBeUndefined()
+
+    const env: NodeJS.ProcessEnv = { [UI_HARNESS_ENV]: '1' }
+    const harness = resolveUiHarness(env)
+    expect(harness.enabled).toBe(true)
+    expect(harness.offscreen).toBe(true)
+    expect(harness.read('Q2L_UI_LAN_TARGETS')).toBeUndefined()
+
+    env['Q2L_UI_LAN_TARGETS'] = 'none'
+    env[UI_HARNESS_ENV] = '0'
+    env['Q2L_UI_VISIBLE'] = '1'
+    expect(harness.read('Q2L_UI_LAN_TARGETS')).toBe('none')
+    expect(harness.enabled).toBe(true)
+    expect(harness.offscreen).toBe(true)
+    expect(Object.isFrozen(harness)).toBe(true)
+
+    expect(resolveUiHarness({ [UI_HARNESS_ENV]: '1', Q2L_UI_VISIBLE: '1' }).offscreen).toBe(false)
   })
 })

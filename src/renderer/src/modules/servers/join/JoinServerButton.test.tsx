@@ -3,11 +3,11 @@ import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ServerListRow } from '@shared/modules/servers'
-import type { Installation } from '@shared/types'
 import { DEFAULT_SETTINGS, IDLE_LAUNCH_STATE } from '@shared/types'
 import { initI18n } from '../../../i18n'
 import { useLauncher } from '../../../store/useLauncher'
 import { JoinServerButton } from './JoinServerButton'
+import { makeInstallation } from '../../../../../test-support/fixtures'
 
 /**
  * Story 125 D4 acceptance tests. Mirrors `RemoveInstallationDialog.test.tsx`: the real `useLauncher`
@@ -23,27 +23,6 @@ const { invokeMock } = vi.hoisted(() => {
   }
   return { invokeMock }
 })
-
-function makeInstallation(overrides: Partial<Installation> = {}): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: 'C:\\Games\\Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-    ...overrides,
-  }
-}
 
 function makeRow(overrides: Partial<ServerListRow> = {}): ServerListRow {
   return {

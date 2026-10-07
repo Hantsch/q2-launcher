@@ -85,7 +85,7 @@ user in the clarification round. -->
   rows beside the failure.
 - **Loading is captured deterministically, and the screen fails if it misses.** The loading
   screen's `navigate` puts the stub responders into delayed-reply mode (below the seeded
-  `timeoutMs`) and clicks refresh. It then *waits for* `servers-list-loading` with
+  `timeoutMs`) and clicks refresh. It then _waits for_ `servers-list-loading` with
   `data-found > 0`, so a screenshot of an idle list cannot pass as "loading". Every servers
   screen's `navigate` first waits for `data-running="false"` so registry order cannot matter.
 - **One flow covers AC1/AC2/AC3/AC5 by switching the stub between rounds.** In round 1 the stub
@@ -238,7 +238,7 @@ Out of scope: the join dialog ([[125]]), the detail view ([[122]]), a "no filter
     and the dead source from `scripts/lib/servers-stub.mjs`, both enabled. There are no favourites,
     no manual servers and the autos are off. The flow starts the stubs by importing them from that
     lib.
-  - Guard, before launch: assert that every *enabled* source and every responder in the seeded state
+  - Guard, before launch: assert that every _enabled_ source and every responder in the seeded state
     is on `127.0.0.1` (GB-A5).
   - Steps:
     1. Round 1: the stub list serves an empty body. Open Servers and click refresh. Wait for

@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Outcome } from '@shared/types'
-import { WATCHLIST_NAME_MAX, type WatchlistMatchMode } from '@shared/modules/servers'
+import {
+  WATCHLIST_NAME_MAX,
+  type WatchlistMatchMode,
+  type WatchlistMutationResult,
+} from '@shared/modules/servers'
 import { Button } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
-import type { WatchlistMutationResult } from '../client'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 
 const MODE_OPTIONS: { value: WatchlistMatchMode; labelKey: string }[] = [
   { value: 'exact', labelKey: 'servers.watchlist.mode.exact' },
@@ -13,11 +17,14 @@ const MODE_OPTIONS: { value: WatchlistMatchMode; labelKey: string }[] = [
 ]
 
 export interface WatchlistAddFormProps {
-  add: (input: { name: string; mode: WatchlistMatchMode }) => Promise<Outcome<WatchlistMutationResult>>
+  add: (input: {
+    name: string
+    mode: WatchlistMatchMode
+  }) => Promise<Outcome<WatchlistMutationResult>>
 }
 
 /**
- * Story 132 D2: the watchlist's own add-a-name form, mirroring `ServersSettingsSection.tsx`'s
+ * Story 132: the watchlist's own add-a-name form, mirroring `ServersSettingsSection.tsx`'s
  * add-a-source form shape (type select + address input + submit, inline refusal rendered next to
  * the input) - here name + mode instead of type + address.
  */
@@ -28,15 +35,14 @@ export function WatchlistAddForm({ add }: WatchlistAddFormProps) {
   const [name, setName] = useState('')
   const [mode, setMode] = useState<WatchlistMatchMode>('exact')
   const [errorKey, setErrorKey] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   const handleSubmit = async (): Promise<void> => {
     const trimmed = name.trim()
     if (trimmed.length === 0) return
 
-    setSubmitting(true)
-    const result = await add({ name, mode })
-    setSubmitting(false)
+    const result = await run(() => add({ name, mode }))
+    if (!result) return
 
     if (!result.ok) {
       setErrorKey(result.error.key)
@@ -53,7 +59,7 @@ export function WatchlistAddForm({ add }: WatchlistAddFormProps) {
   return (
     <div className="flex items-end gap-2">
       <label className="min-w-0 flex-1 space-y-1.5">
-        <span className="stencil block text-xs">{t('servers.watchlist.add.name.label')}</span>
+        <span className="stencil block text-xs">{t('common.label.name')}</span>
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -79,7 +85,7 @@ export function WatchlistAddForm({ add }: WatchlistAddFormProps) {
         disabled={submitting || name.trim().length === 0}
         data-testid="servers-watchlist-add-submit"
       >
-        {t('servers.watchlist.add.submit')}
+        {t('common.action.add')}
       </Button>
 
       {errorKey && (

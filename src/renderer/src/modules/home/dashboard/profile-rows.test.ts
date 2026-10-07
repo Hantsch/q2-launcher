@@ -16,7 +16,10 @@ function profile(id: string, name: string, assignedInstallationIds: string[]): C
     updatedAt: '2026-01-01T00:00:00.000Z',
     cvars: {},
     binds: {},
-    assignments: assignedInstallationIds.map((installationId) => ({ installationId, isDefault: false })),
+    assignments: assignedInstallationIds.map((installationId) => ({
+      installationId,
+      isDefault: false,
+    })),
   }
 }
 
@@ -30,10 +33,7 @@ function installation(installationId: string, status: ProfileFileSyncStatus) {
 
 describe('toConfigProfileRows', () => {
   it('every profile gets its own and its installations state', () => {
-    const profiles = [
-      profile('p1', 'Competitive', ['i1', 'i2', 'i3']),
-      profile('p2', 'Casual', []),
-    ]
+    const profiles = [profile('p1', 'Competitive', ['i1', 'i2', 'i3']), profile('p2', 'Casual', [])]
     const syncStates: Array<ProfileSyncState | undefined> = [
       {
         own: own('inSync'),
@@ -50,8 +50,20 @@ describe('toConfigProfileRows', () => {
     const rows = toConfigProfileRows(profiles, syncStates)
 
     expect(rows).toEqual([
-      { id: 'p1', name: 'Competitive', own: 'inSync', installations: 'failed', counts: { assigned: 3 } },
-      { id: 'p2', name: 'Casual', own: 'outOfSync', installations: 'inSync', counts: { assigned: 0 } },
+      {
+        id: 'p1',
+        name: 'Competitive',
+        own: 'inSync',
+        installations: 'failed',
+        counts: { assigned: 3 },
+      },
+      {
+        id: 'p2',
+        name: 'Casual',
+        own: 'outOfSync',
+        installations: 'inSync',
+        counts: { assigned: 0 },
+      },
     ])
   })
 
@@ -71,7 +83,9 @@ describe('toConfigProfileRows', () => {
 
   it('a profile with zero assigned installations defaults installations to inSync', () => {
     const profiles = [profile('p1', 'Solo', [])]
-    const syncStates: Array<ProfileSyncState | undefined> = [{ own: own('inSync'), installations: [] }]
+    const syncStates: Array<ProfileSyncState | undefined> = [
+      { own: own('inSync'), installations: [] },
+    ]
 
     const rows = toConfigProfileRows(profiles, syncStates)
 
@@ -79,10 +93,7 @@ describe('toConfigProfileRows', () => {
   })
 
   it('a profile whose sync-state fetch failed still produces a row, marked failed rather than dropped', () => {
-    const profiles = [
-      profile('p1', 'Ok profile', ['i1']),
-      profile('p2', 'Failed profile', ['i1']),
-    ]
+    const profiles = [profile('p1', 'Ok profile', ['i1']), profile('p2', 'Failed profile', ['i1'])]
     const syncStates: Array<ProfileSyncState | undefined> = [
       { own: own('inSync'), installations: [installation('i1', 'inSync')] },
       undefined,

@@ -1,5 +1,5 @@
 /**
- * What deleting a category does to `profile.categories`/`profile.actions` (story 052 D9).
+ * What deleting a category does to `profile.categories`/`profile.actions` (story 052).
  *
  * The category itself is always removed. Its entries either go with it (`choice: 'delete'`) or are
  * refiled under `targetCategoryId` (`choice: 'move'`, the story's own decision: "offer both delete

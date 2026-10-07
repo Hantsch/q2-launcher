@@ -1,0 +1,280 @@
+{
+  "settings": {
+    "locale": "en",
+    "motion": "system",
+    "activeInstallationId": "inst-1",
+    "lastRoute": "/home",
+    "minimizeOnLaunch": true,
+    "closeAfterLaunch": false,
+    "confirmBeforeRemoving": true,
+    "scanOnFirstRun": false,
+    "deepScanDrives": []
+  },
+  "installations": [
+    {
+      "id": "inst-1",
+      "rootPath": "/games/inst-1",
+      "name": "Quake II inst-1",
+      "engineKind": "unknown",
+      "launchArgs": [
+        "+set",
+        "fov",
+        "100"
+      ],
+      "activeGameDir": "baseq2",
+      "source": "unknown",
+      "status": "unknown",
+      "checks": [],
+      "gameDirs": [
+        "baseq2"
+      ],
+      "favorite": true,
+      "sortOrder": 1,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-02T00:00:00.000Z",
+      "totalPlaytimeSeconds": 120
+    }
+  ],
+  "configProfiles": [
+    {
+      "id": "p1",
+      "name": "Pre-existing profile",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "cvars": {
+        "sensitivity": "5",
+        "rate": "25000",
+        "my_custom_cvar": "hello"
+      },
+      "binds": {
+        "SPACE": "+moveup",
+        "UPARROW": "+forward"
+      },
+      "assignments": [
+        {
+          "installationId": "inst-1",
+          "isDefault": true
+        }
+      ],
+      "unrecognized": [],
+      "layers": [],
+      "categories": [
+        {
+          "id": "weapons",
+          "name": "Weapons",
+          "nameKey": "config.controls.categories.weapons",
+          "subcategories": []
+        },
+        {
+          "id": "custom",
+          "name": "Mine",
+          "subcategories": []
+        },
+        {
+          "id": "demo",
+          "name": "Demo playback",
+          "nameKey": "common.label.demoPlayback",
+          "subcategories": []
+        }
+      ],
+      "actions": [
+        {
+          "id": "a-fwd",
+          "categoryId": "movement",
+          "name": "Forward",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+forward"
+            }
+          ],
+          "catalogId": "movement:forward",
+          "kind": "bind",
+          "keys": [
+            {
+              "key": "UPARROW"
+            }
+          ]
+        },
+        {
+          "id": "a-free",
+          "categoryId": "custom",
+          "name": "Quicksave",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "save quick"
+            }
+          ],
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Pause demo",
+          "commands": [],
+          "catalogId": "demo:demoPause",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo jump back",
+          "commands": [],
+          "catalogId": "demo:demoJumpBack",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo jump forward",
+          "commands": [],
+          "catalogId": "demo:demoJumpForward",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo long jump back",
+          "commands": [],
+          "catalogId": "demo:demoJumpBackLong",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo long jump forward",
+          "commands": [],
+          "catalogId": "demo:demoJumpForwardLong",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo speed up",
+          "commands": [],
+          "catalogId": "demo:demoSpeedUp",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo speed down",
+          "commands": [],
+          "catalogId": "demo:demoSpeedDown",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Back to window",
+          "commands": [],
+          "catalogId": "demo:demoBackToWindow",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+moveup",
+          "kind": "bind",
+          "catalogId": "movement:moveup",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+moveup"
+            }
+          ],
+          "keys": [
+            {
+              "key": "SPACE"
+            }
+          ]
+        }
+      ],
+      "cvarSections": [],
+      "writeUnbindall": true,
+      "writeCatalogDefaults": true,
+      "sectionHeaderStyle": "dashes",
+      "dirty": true
+    }
+  ],
+  "configPlayedMods": {},
+  "configSwitchBinds": {},
+  "configWriteFailures": {},
+  "configFileSourceMigratedAt": null,
+  "downloads": {
+    "concurrentJobs": 2,
+    "archiveCacheBudgetGB": 5,
+    "downloadWhilePlayingAllowed": true
+  },
+  "downloadFailures": [],
+  "homeLayout": {
+    "tiles": [
+      {
+        "moduleId": "playtime",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "moduleId": "configProfiles",
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      }
+    ]
+  },
+  "servers": {
+    "sources": [
+      {
+        "id": "default-q2servers-http",
+        "type": "http-list",
+        "address": "https://q2servers.com/?raw=1",
+        "enabled": true
+      }
+    ],
+    "favourites": [],
+    "manualServers": [],
+    "history": [],
+    "listSort": null,
+    "scan": {
+      "concurrency": 24,
+      "timeoutMs": 1000,
+      "retries": 1,
+      "minSpacingMs": 30000,
+      "autoScanOnOpen": true,
+      "autoRefreshEnabled": false,
+      "autoRefreshIntervalMs": 60000
+    },
+    "watchlist": [],
+    "quickFilters": []
+  },
+  "unlock": {
+    "codes": []
+  },
+  "replays": {
+    "nameTemplates": {
+      "entries": [],
+      "removedShippedIds": []
+    },
+    "extraFolders": [],
+    "listFilter": {
+      "search": "",
+      "mod": null,
+      "gamemode": null,
+      "map": null,
+      "favouritesOnly": false,
+      "minRating": null,
+      "tags": [],
+      "date": null
+    },
+    "modWarning": {
+      "enabled": true,
+      "trustedMods": []
+    },
+    "listSort": null,
+    "demoVolume": null
+  }
+}

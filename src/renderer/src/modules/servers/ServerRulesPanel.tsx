@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { buildRuleTable, type KnownRuleRow, type RawRuleRow, type RuleValue } from '@shared/servers/rule-table'
+import {
+  buildRuleTable,
+  type KnownRuleRow,
+  type RawRuleRow,
+  type RuleValue,
+} from '@shared/servers/rule-table'
 import type { DmflagId } from '@shared/servers/dmflags'
 
 export interface ServerRulesPanelProps {
@@ -43,10 +48,10 @@ function formatKnownValue(value: RuleValue, t: TFunction): string {
     case 'flag':
       return t(value.on ? 'servers.detail.rules.on' : 'servers.detail.rules.off')
     case 'limit':
-      return value.value === 0 ? t('servers.detail.rules.limit.none') : String(value.value)
+      return value.value === 0 ? t('common.label.none') : String(value.value)
     case 'minutes':
       return value.value === 0
-        ? t('servers.detail.rules.minutes.none')
+        ? t('common.label.none')
         : t('servers.detail.rules.minutes.value', { count: value.value })
     case 'duration':
       return formatDuration(value.seconds)
@@ -79,8 +84,7 @@ function KnownRow({ row, t }: { row: KnownRuleRow; t: TFunction }) {
       <span className="min-w-0 truncate text-right text-xs text-ink-dim">
         {failed || row.value.kind === 'unparsed' ? (
           <>
-            {row.value.kind === 'unparsed' ? row.value.raw : ''}
-            {' '}
+            {row.value.kind === 'unparsed' ? row.value.raw : ''}{' '}
             <span className="text-ink-muted">{t('servers.detail.rules.unparsed')}</span>
           </>
         ) : (
@@ -100,7 +104,7 @@ function RawRow({ row, t }: { row: RawRuleRow; t: TFunction }) {
     >
       <span className="numeric shrink-0 text-xs text-ink-muted">{row.key}</span>
       <span className="numeric min-w-0 truncate text-right text-xs text-ink-dim">
-        {row.value === '' ? t('servers.detail.rules.emptyValue') : row.value}
+        {row.value === '' ? t('common.label.emptyValue') : row.value}
       </span>
     </div>
   )
@@ -126,7 +130,7 @@ const DMFLAG_LABEL_KEY: Record<DmflagId, string> = {
 }
 
 /**
- * Story 123 D3: the detail pane's "rules a server plays by" section - built entirely out of the
+ * Story 123: the detail pane's "rules a server plays by" section - built entirely out of the
  * shared, pure `buildRuleTable`/`decodeDmflags` parsers (no re-parsing here), rendering three
  * subsections (known, raw, dmflags) that each degrade independently: a single malformed value never
  * blanks the whole panel, mirroring `ServerPlayersPanel.tsx`'s per-row defensiveness.

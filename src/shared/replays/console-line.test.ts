@@ -28,7 +28,10 @@ describe('validateConsoleLine', () => {
   })
 
   it('256 characters are rejected as too long', () => {
-    expect(validateConsoleLine('a'.repeat(CONSOLE_LINE_MAX + 1))).toEqual({ ok: false, reason: 'tooLong' })
+    expect(validateConsoleLine('a'.repeat(CONSOLE_LINE_MAX + 1))).toEqual({
+      ok: false,
+      reason: 'tooLong',
+    })
   })
 
   it('whitespace only is empty', () => {

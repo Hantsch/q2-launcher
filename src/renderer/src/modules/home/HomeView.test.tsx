@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import { createInstance, type i18n as I18nInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import type { NewsFeed } from '@shared/modules/home'
 import type { Outcome } from '@shared/types'
 import { initI18n } from '../../i18n'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { HomeView } from './HomeView'
 
 /**
@@ -51,18 +52,23 @@ const filledFeed: NewsFeed = {
   lastRefreshFailed: false,
 }
 
-const getNews = vi.fn<() => Promise<Outcome<NewsFeed>>>(async () => ({ ok: true, value: emptyFeed }))
+const getNews = vi.fn<() => Promise<Outcome<NewsFeed>>>(async () => ({
+  ok: true,
+  value: emptyFeed,
+}))
 const refreshNews = vi.fn<() => Promise<Outcome<NewsFeed>>>(async () => ({
   ok: true,
   value: emptyFeed,
 }))
 const onNewsChanged = vi.fn<(listener: (feed: NewsFeed) => void) => () => void>(() => () => {})
 
-vi.mock('./client', () => ({
-  getNews: () => getNews(),
-  refreshNews: () => refreshNews(),
-  onNewsChanged: (listener: (feed: NewsFeed) => void) => onNewsChanged(listener),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    getNews: () => getNews(),
+    refreshNews: () => refreshNews(),
+    onNewsChanged: (listener: (feed: NewsFeed) => void) => onNewsChanged(listener),
+  }),
+)
 
 // `../index` pulls in the other modules' views -> the renderer store -> `lib/bridge.ts`, which
 // resolves `window.q2` at *module* scope. This test only asserts on the registry, never on IPC
@@ -206,7 +212,10 @@ describe('the home screen feed wiring (story 083 D4 fixup)', () => {
 
   it('leaves the last-known feed in place when a refresh fails', async () => {
     getNews.mockResolvedValueOnce({ ok: true, value: filledFeed })
-    refreshNews.mockResolvedValueOnce({ ok: false as const, error: { key: 'home.hero.stale.refresh' } })
+    refreshNews.mockResolvedValueOnce({
+      ok: false as const,
+      error: { key: 'home.hero.stale.refresh' },
+    })
 
     render(<HomeView />)
     await waitFor(() => {

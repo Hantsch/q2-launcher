@@ -68,7 +68,7 @@
 //   drop-message-edit-<catalogId>   (ControlsTab.tsx:701, a drops row's "Edit message"
 //                                     trigger, opens MessageEditor with showKeyCapture off)
 //   message-editor-content          (MessageEditor.tsx, the dialog's content container)
-//   library-auto-detect             (LibraryView.tsx, header "Auto Detect" button)
+//   library-add                     (LibraryView.tsx, header add menu; "Search this PC…" opens DetectDialog)
 //   installation-remove-<installationId> (LibraryView.tsx, installation-rail remove button)
 //
 // Story 043 D8 adds one more, same mirroring convention — read ProfileSaveActions.tsx and
@@ -134,9 +134,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from './harness.mjs'
+import { openLibraryAddEntry } from './flow-common.mjs'
+import { showAllInstallations, waitForDemosScanToFinish } from './replays-copy-in.mjs'
 import {
   REPLAYS_DATE_FILTER_VARIANT,
-  REPLAYS_FIXTURE_DEMOS,
+  REPLAYS_FIXTURE_SCANNED_TOTAL,
   SERVERS_SCAN_SETTINGS_SEED,
 } from './fixture.mjs'
 import {
@@ -145,6 +147,23 @@ import {
   startListServer,
   startServerResponders,
 } from './servers-stub.mjs'
+
+/** Demo rows exist only inside a folder: after the scan settles, opens the first root folder
+ * (the first whose label contains `rootText`, when given). */
+async function openFirstReplaysRoot(page, rootText) {
+  await waitForDemosScanToFinish(page, { timeout: SCAN_SETTLE_TIMEOUT_MS })
+  // The second viewport shares the launch, so the folder is usually still open, or an active
+  // filter lists matching demos from every folder without folder rows.
+  if ((await page.getByTestId('replays-breadcrumb').count()) > 0) return
+  if ((await page.getByTestId('replays-demo-row').count()) > 0) return
+  const roots = page.getByTestId('replays-folder-row')
+  await (rootText ? roots.filter({ hasText: rootText }) : roots)
+    .first()
+    .dblclick({ timeout: CLICK_TIMEOUT_MS })
+  await page
+    .getByTestId('replays-breadcrumb')
+    .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+}
 
 /** Mirrors src/shared/constants.ts:17-18 (`WINDOW_DEFAULT_WIDTH/HEIGHT`). */
 const VIEWPORT_DEFAULT = { width: 1280, height: 800 }
@@ -177,7 +196,10 @@ const SCAN_SETTLE_TIMEOUT_MS = 15_000
  * the next screen's click). */
 async function waitScanIdle(page) {
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') === 'false',
+    () =>
+      document
+        .querySelector('[data-testid="servers-scan-status"]')
+        ?.getAttribute('data-running') === 'false',
     null,
     { timeout: CLICK_TIMEOUT_MS },
   )
@@ -185,7 +207,7 @@ async function waitScanIdle(page) {
 
 /**
  * Story 043 D8: `Plain Profile`'s canonical file name, as `resolveProfileFileNames`
- * (`@shared/config/profile-files.ts`) actually resolves it - the sanitizer maps the space to `-`,
+ * (`@shared/config/profile/profile-files.ts`) actually resolves it - the sanitizer maps the space to `-`,
  * so this is NOT `Plain Profile.cfg`. Used only by the `config-conflict-dialog` screen below to
  * hand-edit the file from the Node side.
  */
@@ -875,9 +897,11 @@ export const SCREENS = [
       const simulate = () =>
         page.evaluate(() => window.q2.invoke('dev:simulateJob', { scenario: 'stall' }))
       const first = await simulate()
-      if (!first?.ok) throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(first)}`)
+      if (!first?.ok)
+        throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(first)}`)
       const second = await simulate()
-      if (!second?.ok) throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(second)}`)
+      if (!second?.ok)
+        throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(second)}`)
 
       await page
         .getByTestId('nav-downloads-badge')
@@ -1129,15 +1153,14 @@ export const SCREENS = [
     id: 'install-detect-dialog',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
-    // Story 047 D3: Library header's "Auto Detect" button -> DetectDialog
+    // Story 047 D3: Library header add menu "Search this PC…" -> DetectDialog
     // opened with no `autoStart` (LibraryView.tsx passes none), so it renders
     // its pre-scan state: `candidates === null` and not `scanning`, i.e. the
     // deep-scan checkbox plus a "Start" button, no results list. Per story
     // Decision 2 this screen must NEVER trigger `detection:scan` — do not add
     // a click on the start button here, only wait for the dialog itself.
     navigate: async (page) => {
-      await click(page, 'nav-library')
-      await click(page, 'library-auto-detect')
+      await openLibraryAddEntry(page, 'Search this PC…', CLICK_TIMEOUT_MS)
       await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
@@ -1240,8 +1263,10 @@ export const SCREENS = [
       const firstRowTestId = `servers-row-127.0.0.1:${SERVERS_STUB_RESPONDERS[0].port}`
       await page.waitForFunction(
         (rowTestId) =>
-          document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') ===
-            'false' && document.querySelector(`[data-testid="${rowTestId}"]`) !== null,
+          document
+            .querySelector('[data-testid="servers-scan-status"]')
+            ?.getAttribute('data-running') === 'false' &&
+          document.querySelector(`[data-testid="${rowTestId}"]`) !== null,
         firstRowTestId,
         { timeout: SCAN_SETTLE_TIMEOUT_MS },
       )
@@ -1312,13 +1337,14 @@ export const SCREENS = [
     // demo files across two installations/game dirs (`scripts/lib/fixture.mjs`'s
     // `REPLAYS_FIXTURE_DEMOS`, written by `writeReplaysDemosFixture()`), plus decoys the scan must
     // never surface. Waits for `replays-demo-list` (ReplaysView.tsx) rather than just the nav click,
-    // since the list is fetched once on mount via `demos.list` and a screenshot could otherwise race
+    // since the list is read once on mount via `index.read` and a screenshot could otherwise race
     // that first render.
     navigate: async (page) => {
       await click(page, 'nav-replays')
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
     },
   },
   {
@@ -1330,38 +1356,46 @@ export const SCREENS = [
     // (`DemoDetailPanel.tsx`) is the panel this screen captures.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await page
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
         .click({ timeout: CLICK_TIMEOUT_MS })
-      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-detail')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
   {
     id: 'replays-detail-edit',
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,
-    // Story 178 D4: the demo detail in edit mode (`DemoDetailEditor.tsx`) - same path as
-    // `replays-detail`, then Edit; waits for the editor's Save button.
+    // The demo detail with an impossible date typed into its in-place date field - same path as
+    // `replays-detail`; the field's reason is on screen.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await page
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
         .click({ timeout: CLICK_TIMEOUT_MS })
-      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-      // The editor store outlives a screen and a viewport, so the demo may already be in edit mode.
-      if ((await page.getByTestId('replays-editor-save').count()) === 0) {
-        await click(page, 'replays-detail-edit')
-      }
       await page
-        .getByTestId('replays-editor-save')
+        .getByTestId('replays-detail')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-detail-input-date')
+        .fill('2026-02-30 10:00', { timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-detail-input-date').blur()
+      await page
+        .getByTestId('replays-detail-input-date-error')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
@@ -1386,16 +1420,24 @@ export const SCREENS = [
         .first()
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
       if (!(await page.getByTestId('replays-timeline').isVisible())) {
+        await openFirstReplaysRoot(page, 'ctf')
         await page
           .getByTestId('replays-demo-row')
           .filter({ hasText: 'play-ctf.dm2' })
           .first()
           .click({ timeout: CLICK_TIMEOUT_MS })
-        await page.locator('[data-testid="actionbar-play"][data-action="view"]').click({ timeout: CLICK_TIMEOUT_MS })
+        await page
+          .locator('[data-testid="actionbar-play"][data-action="view"]')
+          .click({ timeout: CLICK_TIMEOUT_MS })
       }
       await page.getByTestId('replays-timeline').waitFor({ state: 'visible', timeout: 15_000 })
       await page.waitForFunction(
-        () => Number(document.querySelector('[data-testid="replays-timeline-seek"]')?.getAttribute('aria-valuenow')) >= 1,
+        () =>
+          Number(
+            document
+              .querySelector('[data-testid="replays-timeline-seek"]')
+              ?.getAttribute('aria-valuenow'),
+          ) >= 1,
         undefined,
         { timeout: CLICK_TIMEOUT_MS },
       )
@@ -1405,25 +1447,28 @@ export const SCREENS = [
     id: 'replays-editor',
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,
-    // Stories 155/178: the demo detail in edit mode (`DemoDetailEditor.tsx`) - same path as
-    // `replays-detail`, then Edit, then an impossible date so the inline field error is on screen too.
+    // The demo detail's in-place fields (`DemoDetailPanel.tsx`) - same path as `replays-detail`,
+    // then an impossible date so the inline field error is on screen too.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await page
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
         .click({ timeout: CLICK_TIMEOUT_MS })
-      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-      // The editor store outlives a screen and a viewport, so the demo may already be in edit mode.
-      if ((await page.getByTestId('replays-editor-save').count()) === 0) {
-        await click(page, 'replays-detail-edit')
-      }
-      await page.getByTestId('replays-editor-date').fill('2026-02-30 10:00', { timeout: CLICK_TIMEOUT_MS })
       await page
-        .getByTestId('replays-editor-error-date')
+        .getByTestId('replays-detail')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-detail-input-date')
+        .fill('2026-02-30 10:00', { timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-detail-input-date').blur()
+      await page
+        .getByTestId('replays-detail-input-date-error')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
@@ -1437,9 +1482,11 @@ export const SCREENS = [
     // same way `replays-list` does, since the list is fetched once on mount.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
     },
   },
   {
@@ -1450,7 +1497,7 @@ export const SCREENS = [
     // the plain `populated` demo set plus a harness-only scan hold (`writeReplaysListLoadingFixture`,
     // `scripts/lib/fixture.mjs`), so the scan is still genuinely running long enough for this to be a
     // real screenshot of it, not a race against an instant scan. Waits for the loading strip's own
-    // `data-total` to be a genuine positive count (`REPLAYS_FIXTURE_DEMOS.length`), the same
+    // `data-total` to be a genuine positive count (`REPLAYS_FIXTURE_SCANNED_TOTAL`), the same
     // discipline `servers-list-loading` above uses for `data-found`.
     coldStart: true,
     navigate: async (page) => {
@@ -1460,7 +1507,7 @@ export const SCREENS = [
           const el = document.querySelector('[data-testid="replays-list-loading"]')
           return el !== null && Number(el.getAttribute('data-total')) === expectedTotal
         },
-        REPLAYS_FIXTURE_DEMOS.length,
+        REPLAYS_FIXTURE_SCANNED_TOTAL,
         { timeout: CLICK_TIMEOUT_MS },
       )
     },
@@ -1470,9 +1517,12 @@ export const SCREENS = [
     variant: 'empty',
     viewports: BOTH_VIEWPORTS,
     // Story 151 D4: the Demos view's empty state - the `empty` fixture variant seeds zero
-    // installations and no extra folders, so a scan genuinely finds nothing.
+    // installations and no extra folders, so a scan genuinely finds nothing; with every installation
+    // shown (the default scope names the missing installation instead) the plain empty state is on
+    // screen. (story 238)
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await click(page, 'replays-scope-all')
       await page
         .getByTestId('replays-list-empty')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -1491,6 +1541,7 @@ export const SCREENS = [
       await page
         .getByTestId('replays-list-source-errors')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page, 'baseq2')
       await page
         .getByTestId('replays-demo-row')
         .first()
@@ -1505,9 +1556,11 @@ export const SCREENS = [
     // (`scripts/lib/fixture.mjs`) four demos give the picker something real to narrow.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await click(page, 'replays-filter-date-trigger')
       await page.getByTestId('replays-filter-date-from').fill('2026-01-01')
       await page.getByTestId('replays-filter-date-to').fill('2026-12-31')
@@ -1520,9 +1573,11 @@ export const SCREENS = [
     // Story 154 D5: the date filter's from-after-to error state.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await openFirstReplaysRoot(page)
       await click(page, 'replays-filter-date-trigger')
       await page.getByTestId('replays-filter-date-from').fill('2026-12-31')
       await page.getByTestId('replays-filter-date-to').fill('2026-01-01')

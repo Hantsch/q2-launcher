@@ -6,21 +6,22 @@ import {
   type AltLayer,
   type AltLayerMode,
   type LayerIssue,
-} from '@shared/config/alt-layers'
-import type { ConfigProfile } from '@shared/modules/config'
+} from '@shared/config/aliases/alt-layers'
 import { cn } from '../../lib/cn'
 import { Button, IconButton } from '../../components/ui/Button'
-import { Field, Input, Select } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
+import { Field, Select } from '../../components/ui/controls'
+import { NameDialog } from '../../components/ui/NameDialog'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { updateProfileLayers } from './client'
 import { useProfileChanges } from './lib/profile-changes'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
+import { useProfileSave } from './lib/useProfileSave'
 
 /**
- * Issue keys shown in D5's per-layer banner. `layer.plusbind` is now included:
- * D6 gives the key dialog a specific key to attach it to, and this panel
+ * Issue keys shown in the per-layer banner. `layer.plusbind` is now included:
+ * The key dialog gives a specific key to attach it to, and this panel
  * repeats it here as a per-layer aggregate banner. `layer.quote` is included
- * for completeness, but per D1 it is never actually pushed by the generator.
+ * for completeness, but it is never actually pushed by the generator.
  * `layer.noTrigger` (story 011) fires when a layer has overrides but no
  * trigger key assigned yet.
  */
@@ -35,28 +36,25 @@ const VISIBLE_ISSUE_KEYS: ReadonlySet<LayerIssue['key']> = new Set([
 
 /**
  * Layer CRUD (create/rename/delete) plus a per-layer collapsible preview of
- * the exact aliases `generateLayerAliases` (D1) would emit, and the
+ * the exact aliases `generateLayerAliases` would emit, and the
  * layer-level issues it detects. Self-contained: it does not yet drive the
- * keyboard board's edit state (D6's job) - it only manages the `layers`
+ * keyboard board's edit state (the job) - it only manages the `layers`
  * array and shows what each layer would generate.
  *
  * Every mutation is a full replace-whole-array save through
  * `updateProfileLayers`, per the contract's replace-whole-map semantics.
  */
 export function LayersPanel({
-  profile,
   activeLayerId,
   onSelectLayer,
-  onChanged,
 }: {
-  profile: ConfigProfile
   activeLayerId: string | null
   onSelectLayer: (layerId: string | null) => void
-  onChanged: (profiles: ConfigProfile[]) => void
 }) {
   const { t } = useTranslation()
+  const { profile, save } = useProfileDraftContext()
   const layers = profile.layers ?? []
-  // Story 049 D8: same "is this in the pending change set" predicate the save bar and the
+  // Story 049: same "is this in the pending change set" predicate the save bar and the
   // Controls rows read (`useProfileChanges`, `lib/profile-changes.tsx`), applied to layers.
   const changeSet = useProfileChanges()
 
@@ -64,20 +62,12 @@ export function LayersPanel({
   const [renamingLayer, setRenamingLayer] = useState<AltLayer | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
-  const [saving, setSaving] = useState(false)
+  const { saving, saveNow } = useProfileSave({ profileId: profile.id, onChanged: save })
 
-  const persist = async (next: AltLayer[]): Promise<boolean> => {
-    setSaving(true)
-    const result = await updateProfileLayers({ profileId: profile.id, layers: next })
-    setSaving(false)
-    if (result.ok) onChanged(result.value)
-    return result.ok
-  }
+  const persist = (next: AltLayer[]): Promise<boolean> =>
+    saveNow({ run: () => updateProfileLayers({ profileId: profile.id, layers: next }) })
 
-  const handleCreate = async (input: {
-    name: string
-    mode: AltLayerMode
-  }): Promise<boolean> => {
+  const handleCreate = async (input: { name: string; mode: AltLayerMode }): Promise<boolean> => {
     const layer: AltLayer = {
       id: crypto.randomUUID(),
       name: input.name,
@@ -98,12 +88,12 @@ export function LayersPanel({
   }
 
   /**
-   * Story 016 D5 (AC 7): the mode select next to the layer's row, mirroring
+   * Story 016: the mode select next to the layer's row, mirroring
    * `handleRename`'s persist shape - a full replace-whole-array
    * `updateProfileLayers` call with everything but `mode` unchanged. No dialog
    * to close on success (unlike rename/create): the select's own `value` is
    * `layer.mode` from the freshest `profile` prop, so a failed save simply
-   * leaves the select showing the last-confirmed mode once `onChanged` is not
+   * leaves the select showing the last-confirmed mode once `save` is not
    * called - the same "server response is the only source of truth" pattern
    * `ControlsTab.persistLayers` documents for the dual-bind editor's own
    * modifier-layer writes.
@@ -145,7 +135,9 @@ export function LayersPanel({
         </Button>
       </div>
 
-      {layers.length > 0 && <p className="text-xs text-ink-muted">{t('config.layersPanel.hint')}</p>}
+      {layers.length > 0 && (
+        <p className="text-xs text-ink-muted">{t('config.layersPanel.hint')}</p>
+      )}
 
       {layers.length === 0 ? (
         <p className="text-xs text-ink-muted">{t('config.layersPanel.empty.compact')}</p>
@@ -154,9 +146,7 @@ export function LayersPanel({
           {layers.map((layer) => {
             const expanded = expandedIds.has(layer.id)
             const isPendingDelete = pendingDeleteId === layer.id
-            const preview = expanded
-              ? generateLayerAliases(layer, profile.binds ?? {})
-              : null
+            const preview = expanded ? generateLayerAliases(layer, profile.binds ?? {}) : null
             const visibleIssues = preview?.issues.filter((issue) =>
               VISIBLE_ISSUE_KEYS.has(issue.key),
             )
@@ -174,14 +164,14 @@ export function LayersPanel({
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 truncate text-sm text-ink">{layer.name}</span>
                     {edited && (
-                      // Story 049 D8 / AC10: the left border alone is colour-only, so an edited
+                      // Story 0490: the left border alone is colour-only, so an edited
                       // layer also carries a shape-based glyph with its own translated
                       // `aria-label` - mirrors `CvarRow.tsx`/`ControlsRow.tsx`'s identical
-                      // treatment (story 049 D7/D8).
+                      // treatment (story 049).
                       <span
                         role="img"
-                        aria-label={t('config.layersPanel.unsavedLabel')}
-                        title={t('config.layersPanel.unsavedLabel')}
+                        aria-label={t('common.label.unsavedChange')}
+                        title={t('common.label.unsavedChange')}
                         className="shrink-0 text-flame-500"
                       >
                         <PencilLine aria-hidden className="size-3" />
@@ -189,7 +179,7 @@ export function LayersPanel({
                     )}
                     <div className="w-28 shrink-0">
                       <Select
-                        aria-label={t('config.layersPanel.modeLabel')}
+                        aria-label={t('common.label.mode')}
                         value={layer.mode}
                         disabled={saving}
                         onChange={(event) =>
@@ -231,7 +221,7 @@ export function LayersPanel({
                           disabled={saving}
                           onClick={() => setPendingDeleteId(null)}
                         >
-                          {t('common.cancel')}
+                          {t('common.action.cancel')}
                         </Button>
                         <Button
                           variant="danger"
@@ -239,20 +229,20 @@ export function LayersPanel({
                           disabled={saving}
                           onClick={() => void handleDelete(layer.id)}
                         >
-                          {t('config.layersPanel.deleteConfirmAction')}
+                          {t('common.action.confirmDelete')}
                         </Button>
                       </>
                     ) : (
                       <>
                         <IconButton
-                          label={t('config.layersPanel.rename')}
+                          label={t('common.action.renameEllipsis')}
                           size="sm"
                           onClick={() => setRenamingLayer(layer)}
                         >
                           <Pencil className="size-3.5" />
                         </IconButton>
                         <IconButton
-                          label={t('config.layersPanel.delete')}
+                          label={t('common.action.deleteEllipsis')}
                           size="sm"
                           variant="danger"
                           onClick={() => setPendingDeleteId(layer.id)}
@@ -337,63 +327,30 @@ function CreateLayerDialog({
   onSubmit: (input: { name: string; mode: AltLayerMode }) => Promise<boolean>
 }) {
   const { t } = useTranslation()
-  const [name, setName] = useState('')
   const [mode, setMode] = useState<AltLayerMode>('hold')
-  const [submitting, setSubmitting] = useState(false)
-
-  const canSubmit = name.trim().length > 0 && !submitting
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    const ok = await onSubmit({ name: name.trim(), mode })
-    setSubmitting(false)
-    if (!ok) return
-  }
 
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.layersPanel.createDialog.title')}
+    <NameDialog
+      titleKey="config.layersPanel.createDialog.title"
+      labelKey="common.label.name"
+      initialName=""
+      maxLength={120}
+      placeholder={t('config.layersPanel.createDialog.namePlaceholder')}
+      submitLabelKey="config.layersPanel.createDialog.submit"
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.layersPanel.createDialog.submit')}
-          </Button>
-        </>
-      }
+      onSubmit={(name) => onSubmit({ name, mode })}
     >
-      <div className="space-y-4">
-        <Field label={t('config.layersPanel.createDialog.nameLabel')}>
-          <Input
-            value={name}
-            autoFocus
-            maxLength={120}
-            placeholder={t('config.layersPanel.createDialog.namePlaceholder')}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
-            }}
-          />
-        </Field>
-
-        <Field label={t('config.layersPanel.createDialog.modeLabel')}>
-          <Select
-            value={mode}
-            onChange={(event) => setMode(event.target.value as AltLayerMode)}
-            options={[
-              { value: 'hold', label: t('config.layersPanel.mode.hold') },
-              { value: 'toggle', label: t('config.layersPanel.mode.toggle') },
-            ]}
-          />
-        </Field>
-      </div>
-    </Modal>
+      <Field label={t('common.label.mode')}>
+        <Select
+          value={mode}
+          onChange={(event) => setMode(event.target.value as AltLayerMode)}
+          options={[
+            { value: 'hold', label: t('config.layersPanel.mode.hold') },
+            { value: 'toggle', label: t('config.layersPanel.mode.toggle') },
+          ]}
+        />
+      </Field>
+    </NameDialog>
   )
 }
 
@@ -407,47 +364,14 @@ function RenameLayerDialog({
   onClose: () => void
   onSubmit: (name: string) => Promise<boolean>
 }) {
-  const { t } = useTranslation()
-  const [name, setName] = useState(layer.name)
-  const [submitting, setSubmitting] = useState(false)
-
-  const canSubmit = name.trim().length > 0 && !submitting
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    await onSubmit(name.trim())
-    setSubmitting(false)
-  }
-
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.layersPanel.renameDialog.title')}
+    <NameDialog
+      titleKey="config.layersPanel.renameDialog.title"
+      labelKey="common.label.name"
+      initialName={layer.name}
+      maxLength={120}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <Field label={t('config.layersPanel.renameDialog.label')}>
-        <Input
-          value={name}
-          autoFocus
-          maxLength={120}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && name.trim().length > 0) void submit()
-          }}
-        />
-      </Field>
-    </Modal>
+      onSubmit={onSubmit}
+    />
   )
 }

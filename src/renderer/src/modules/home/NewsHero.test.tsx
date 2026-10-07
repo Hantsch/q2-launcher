@@ -3,7 +3,7 @@ import type { NewsSlide } from '@shared/modules/home'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { initI18n } from '../../i18n'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { useLauncher } from '../../store/useLauncher'
 import { NewsHero, SLIDE_INTERVAL_MS } from './NewsHero'
 
@@ -336,7 +336,14 @@ describe('the news hero, a feed after a failed refresh (story 083 D4)', () => {
 
   it('the refresh button calls the caller-supplied onRefresh, not a new IPC channel', () => {
     const onRefresh = vi.fn()
-    render(<NewsHero slides={slides} retrievedAt="2020-01-01T00:00:00.000Z" lastRefreshFailed onRefresh={onRefresh} />)
+    render(
+      <NewsHero
+        slides={slides}
+        retrievedAt="2020-01-01T00:00:00.000Z"
+        lastRefreshFailed
+        onRefresh={onRefresh}
+      />,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: hero.stale.refresh }))
     expect(onRefresh).toHaveBeenCalledTimes(1)

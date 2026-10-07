@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import type { ProfileChange, ProfileChangeSet } from '@shared/config/profile-diff'
+import type { ProfileChange, ProfileChangeSet } from '@shared/config/profile/profile-diff'
 import { initI18n } from '../../../i18n'
 import { ProfileChangeList } from './ProfileChangeList'
 
@@ -142,7 +142,9 @@ describe('ProfileChangeList', () => {
       ]),
     )
 
-    const rows = [...container.querySelectorAll('[data-testid="config-save-changes"] > div > ul > li')]
+    const rows = [
+      ...container.querySelectorAll('[data-testid="config-save-changes"] > div > ul > li'),
+    ]
     expect(rows.length).toBe(2)
     // The settings row's field name is translated, not the raw model key.
     const settingsRow = rows.find((row) => row.textContent?.includes('true'))!

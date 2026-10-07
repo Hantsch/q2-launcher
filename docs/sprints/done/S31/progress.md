@@ -1,0 +1,163 @@
+- 2026-10-01 09:11:46 · sprint · started
+- 2026-10-01 09:20:16 · refine · 188-197 · started
+- 2026-10-01 09:29:17 · refine · 188-197 · done
+- 2026-10-01 09:29:17 · 188 · build · started
+- 2026-10-01 09:29:31 · 188 · D1 mods contract + main module · started
+- 2026-10-01 09:31:16 · 188 · D1 mods contract + main module · done
+- 2026-10-01 09:31:16 · 188 · D2 Mods view tiles + registration · started
+- 2026-10-01 09:38:18 · 188 · D2 Mods view tiles + registration · done
+- 2026-10-01 09:38:18 · 188 · D3 detail panel + Reveal · started
+- 2026-10-01 09:41:44 · 188 · D3 detail panel + Reveal · done
+- 2026-10-01 09:41:44 · 188 · verify · started
+- 2026-10-01 09:43:27 · 188 · verify · done
+- 2026-10-01 09:43:27 · 188 · review 1 · started
+- 2026-10-01 09:45:46 · 188 · review 1 · done
+- 2026-10-01 09:45:49 · 188 · story · done
+- 2026-10-01 09:46:01 · 189 · build · started
+- 2026-10-01 09:46:28 · 189 · D1 mods manifest · started
+- 2026-10-01 10:01:11 · 189 · D1 mods manifest · done
+- 2026-10-01 10:01:11 · 189 · D2 schema parser gamedir · started
+- 2026-10-01 10:03:11 · 189 · D2 schema parser gamedir · done
+- 2026-10-01 10:03:11 · 189 · D3 catalog service and handler · started
+- 2026-10-01 10:04:23 · 189 · D3 catalog service and handler · done
+- 2026-10-01 10:04:23 · 189 · D4 catalog tiles + flow · started
+- 2026-10-01 10:11:23 · 189 · D4 catalog tiles + flow · done
+- 2026-10-01 10:11:23 · 189 · D5 catalog detail panel · started
+- 2026-10-01 10:15:38 · 189 · D5 catalog detail panel · done
+- 2026-10-01 10:15:38 · 189 · verify · started
+- 2026-10-01 10:17:55 · 189 · verify · done
+- 2026-10-01 10:17:55 · 189 · review 1 · started
+- 2026-10-01 10:19:06 · 189 · review 1 · done
+- 2026-10-01 10:19:06 · 189 · review fixes · started
+- 2026-10-01 10:20:29 · 189 · review fixes · done
+- 2026-10-01 10:20:29 · 189 · story · done
+- 2026-10-01 10:20:51 · 190 · build · started
+- 2026-10-01 10:21:19 · 190 · D1 engine target and variant selection · started
+- 2026-10-01 10:21:19 · 190 · D2 install record · started
+- 2026-10-01 10:21:19 · 190 · D3 package stager · started
+- 2026-10-01 10:22:48 · 190 · D1 engine target and variant selection · done
+- 2026-10-01 10:22:48 · 190 · D2 install record · done
+- 2026-10-01 10:22:48 · 190 · D3 package stager · done
+- 2026-10-01 10:22:50 · 190 · D4 install job (hard) · started
+- 2026-10-01 10:30:06 · 190 · D4 install job (hard) · done
+- 2026-10-01 10:30:06 · 190 · D5 contract and main wiring · started
+- 2026-10-01 10:33:36 · 190 · D5 contract and main wiring · done
+- 2026-10-01 10:33:36 · 190 · D6 renderer · started
+- 2026-10-01 10:36:56 · 190 · D6 renderer · done
+- 2026-10-01 10:36:56 · 190 · D7 fixture and mods-install flow · started
+- 2026-10-01 10:41:46 · 190 · D7 fixture and mods-install flow · done
+- 2026-10-01 10:41:46 · 190 · D8 four remaining flows · started
+- 2026-10-01 10:51:10 · 190 · D8 four remaining flows · done
+- 2026-10-01 10:51:10 · 190 · verify · started
+- 2026-10-01 10:53:58 · 190 · verify · done
+- 2026-10-01 10:53:58 · 190 · review 1 · started
+- 2026-10-01 10:55:47 · 190 · review 1 · done
+- 2026-10-01 10:55:47 · 190 · review fixes 1 · started
+- 2026-10-01 10:57:42 · 190 · review fixes 1 · done
+- 2026-10-01 10:57:42 · 190 · review 2 (hard) · started
+- 2026-10-01 11:05:32 · 190 · review 2 (hard) · done
+- 2026-10-01 11:05:32 · 190 · review fixes 2 · started
+- 2026-10-01 11:13:14 · 190 · review fixes 2 · done
+- 2026-10-01 11:13:14 · 190 · verify 2 · started
+- 2026-10-01 11:17:13 · 190 · story · done
+- 2026-10-01 11:17:27 · 191 · build · started
+- 2026-10-01 11:17:44 · 191 · D1 Removal core · started
+- 2026-10-01 11:22:29 · 191 · D1 Removal core · done
+- 2026-10-01 11:22:29 · 191 · D2 Remove contract + job · started
+- 2026-10-01 11:25:10 · 191 · D2 Remove contract + job · done
+- 2026-10-01 11:25:10 · 191 · D3 Remove UI + flow · started
+- 2026-10-01 11:29:26 · 191 · D3 Remove UI + flow · done
+- 2026-10-01 11:29:26 · 191 · verify · started
+- 2026-10-01 11:31:40 · 191 · verify · done
+- 2026-10-01 11:31:40 · 191 · review 1 · started
+- 2026-10-01 11:32:57 · 191 · review 1 · done
+- 2026-10-01 11:33:07 · 191 · story · done
+- 2026-10-01 11:33:18 · 192 · build · started
+- 2026-10-01 11:33:35 · 192 · D1 shared helper · started
+- 2026-10-01 11:34:20 · 192 · D1 shared helper · done
+- 2026-10-01 11:34:34 · 192 · D2 map presence handler (hard) · started
+- 2026-10-01 11:38:37 · 192 · D2 map presence handler (hard) · done
+- 2026-10-01 11:38:37 · 192 · D3 detail statements · started
+- 2026-10-01 11:48:43 · 192 · D3 detail statements · done
+- 2026-10-01 11:48:43 · 192 · D4 install from detail · started
+- 2026-10-01 11:52:27 · 192 · D4 install from detail · done
+- 2026-10-01 11:52:27 · 192 · verify · started
+- 2026-10-01 11:54:31 · 192 · verify · done
+- 2026-10-01 11:54:31 · 192 · review 1 · started
+- 2026-10-01 11:55:22 · 192 · review 1 · done
+- 2026-10-01 11:55:22 · 192 · story · done
+- 2026-10-01 11:55:32 · 193 · build · started
+- 2026-10-01 11:55:51 · 193 · D1 mod-missing dialog offers Install · started
+- 2026-10-01 11:57:08 · 193 · D1 mod-missing dialog offers Install · done
+- 2026-10-01 11:57:08 · 193 · D2 e2e install from demo dialog · started
+- 2026-10-01 12:05:35 · 193 · D2 e2e install from demo dialog · done
+- 2026-10-01 12:05:35 · 193 · verify · started
+- 2026-10-01 12:07:06 · 193 · verify · done
+- 2026-10-01 12:07:06 · 193 · review 1 · started
+- 2026-10-01 12:07:54 · 193 · review 1 · done
+- 2026-10-01 12:07:54 · 193 · review-fix 1 · started
+- 2026-10-01 12:11:43 · 193 · review-fix 1 · done
+- 2026-10-01 12:11:43 · 193 · story · done
+- 2026-10-01 12:11:53 · 194 · build · started
+- 2026-10-01 12:12:12 · 194 · D1 pure update status and plan · started
+- 2026-10-01 12:13:29 · 194 · D1 pure update status and plan · done
+- 2026-10-01 12:13:29 · 194 · D2 update job with backup and rollback · started
+- 2026-10-01 12:22:19 · 194 · D2 update job with backup and rollback · done
+- 2026-10-01 12:22:19 · 194 · D3 contract and handlers · started
+- 2026-10-01 12:25:10 · 194 · D3 contract and handlers · done
+- 2026-10-01 12:25:42 · 194 · D4 renderer and flow · started
+- 2026-10-01 12:34:27 · 194 · D4 renderer and flow · done
+- 2026-10-01 12:34:27 · 194 · verify · started
+- 2026-10-01 12:35:40 · 194 · verify · done
+- 2026-10-01 12:35:40 · 194 · review 1 · started
+- 2026-10-01 12:37:14 · 194 · review 1 · done
+- 2026-10-01 12:37:14 · 194 · review-fix 1 · started
+- 2026-10-01 12:38:20 · 194 · review-fix 1 · done
+- 2026-10-01 12:38:20 · 194 · story · done
+- 2026-10-01 12:38:33 · 195 · build · started
+- 2026-10-01 12:38:47 · 195 · D1 quoted search in shared matcher · started
+- 2026-10-01 12:39:25 · 195 · D1 quoted search in shared matcher · done
+- 2026-10-01 12:39:25 · 195 · D2 hint, flow, changelog · started
+- 2026-10-01 12:43:08 · 195 · D2 hint, flow, changelog · done
+- 2026-10-01 12:43:08 · 195 · verify · started
+- 2026-10-01 12:44:36 · 195 · verify · done
+- 2026-10-01 12:44:36 · 195 · review 1 · started
+- 2026-10-01 12:45:01 · 195 · review 1 · done
+- 2026-10-01 12:45:11 · 195 · story · done
+- 2026-10-01 12:45:20 · 196 · build · started
+- 2026-10-01 12:45:38 · 196 · D1 LAN discovery core · started
+- 2026-10-01 12:48:11 · 196 · D1 LAN discovery core · done
+- 2026-10-01 12:48:11 · 196 · D2 contract + two-list scan service · started
+- 2026-10-01 12:56:42 · 196 · D2 contract + two-list scan service · done
+- 2026-10-01 12:56:42 · 196 · D3 IPC + cadence wiring · started
+- 2026-10-01 12:58:08 · 196 · D3 IPC + cadence wiring · done
+- 2026-10-01 12:58:08 · 196 · D4 renderer toggle and LAN states · started
+- 2026-10-01 12:59:44 · 196 · D4 renderer toggle and LAN states · done
+- 2026-10-01 12:59:44 · 196 · D5 e2e flows · started
+- 2026-10-01 13:04:56 · 196 · D5 e2e flows · done
+- 2026-10-01 13:04:56 · 196 · verify · started
+- 2026-10-01 13:07:14 · 196 · verify · done
+- 2026-10-01 13:07:14 · 196 · review 1 · started
+- 2026-10-01 13:08:38 · 196 · review 1 · done
+- 2026-10-01 13:08:38 · 196 · review fix 1 · started
+- 2026-10-01 13:10:21 · 196 · review fix 1 · done
+- 2026-10-01 13:10:21 · 196 · verify 2 · started
+- 2026-10-01 13:12:10 · 196 · story · done
+- 2026-10-01 13:12:23 · 197 · build · started
+- 2026-10-01 13:12:39 · 197 · D1 Quick-filter model, schema, parse · started
+- 2026-10-01 13:14:44 · 197 · D1 Quick-filter model, schema, parse · done
+- 2026-10-01 13:14:44 · 197 · D2 Main quick-filter handlers · started
+- 2026-10-01 13:16:23 · 197 · D2 Main quick-filter handlers · done
+- 2026-10-01 13:16:23 · 197 · D3 Save and apply from chip · started
+- 2026-10-01 13:20:19 · 197 · D3 Save and apply from chip · done
+- 2026-10-01 13:20:19 · 197 · D4 Rename/delete, persistence, resilience · started
+- 2026-10-01 13:23:50 · 197 · D4 Rename/delete, persistence, resilience · done
+- 2026-10-01 13:23:50 · 197 · verify · started
+- 2026-10-01 13:25:32 · 197 · verify · done
+- 2026-10-01 13:25:32 · 197 · review 1 · started
+- 2026-10-01 13:26:32 · 197 · review 1 · done
+- 2026-10-01 13:26:40 · 197 · story · done
+- 2026-10-01 13:26:44 · gate · short suites (build, test, e2e) · started
+- 2026-10-01 13:29:56 · gate · short suites · done (test red: layering.test.ts → 192; fixing before long suite)
+- 2026-10-01 13:31:10 · gate · e2e-all · started
+- 2026-10-01 14:20:26 · gate · e2e-all · done (132/136, 4 failed, 49 min) · attribution started

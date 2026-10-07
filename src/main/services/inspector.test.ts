@@ -1,10 +1,10 @@
-import { chmod, mkdir, mkdtemp, rm, truncate, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import { stubPlatform } from '../../test-support/platform'
-import { inspectInstallation } from './inspector'
+import { inspectInstallation, looksLikeQuake2 } from './inspector'
 
 /**
  * Story 093 D1: the inspector used to report one message, `validation.retailPaksMissing`, for two
@@ -175,10 +175,7 @@ describe('inspectInstallation executable ranking', () => {
 
       const result = await inspectInstallation(mixedRoot)
 
-      expect(result.executables).toEqual([
-        join(mixedRoot, 'quake2'),
-        join(mixedRoot, 'quake2.exe'),
-      ])
+      expect(result.executables).toEqual([join(mixedRoot, 'quake2'), join(mixedRoot, 'quake2.exe')])
       expect(result.executableKind).toBe('elf')
     },
   )
@@ -362,5 +359,102 @@ describe('steam appid detection', () => {
     const result = await inspectInstallation(installRoot)
 
     expect(result.steamAppId).toBe('2320')
+  })
+})
+
+describe('looksLikeQuake2 is the one rule for what counts as a game folder', () => {
+  it('looksLikeQuake2 accepts a base-game or known-engine folder and rejects a missing one', async () => {
+    expect(looksLikeQuake2(await inspectInstallation(rootPath))).toBe(true)
+    expect(looksLikeQuake2(await inspectInstallation(join(dir, 'nope')))).toBe(false)
+  })
+
+  it('looksLikeQuake2 is defined only in inspector.ts', async () => {
+    const srcMain = join(__dirname, '..')
+    const files = (await readdir(srcMain, { recursive: true })).filter(
+      (f) => f.endsWith('.ts') && !/.test.ts$|.test-helpers.ts$/.test(f),
+    )
+    const definers: string[] = []
+    const qualifiers: string[] = []
+    for (const f of files) {
+      const text = await readFile(join(srcMain, f), 'utf8')
+      const rel = f.replaceAll('\\', '/')
+      if (text.includes('function looksLikeQuake2(')) definers.push(rel)
+      if (text.includes('function qualifies')) qualifiers.push(rel)
+    }
+    expect(definers).toEqual(['services/inspector.ts'])
+    expect(qualifiers).toEqual([])
+  })
+})
+
+describe('engine detection in the root', () => {
+  let enginesDir: string
+  let enginesRoot: string
+
+  beforeEach(async () => {
+    enginesDir = await mkdtemp(join(tmpdir(), 'q2-launcher-inspector-engines-'))
+    enginesRoot = join(enginesDir, 'game')
+    await mkdir(join(enginesRoot, BASE_GAME_DIR), { recursive: true })
+  })
+
+  afterEach(async () => {
+    await rm(enginesDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  })
+
+  async function writeBinary(name: string): Promise<void> {
+    await writeFile(join(enginesRoot, name), 'stand-in executable')
+    if (process.platform !== 'win32') await chmod(join(enginesRoot, name), 0o755)
+  }
+
+  it('reports every known engine in the root', async () => {
+    await writeBinary('r1q2.exe')
+    await writeBinary('q2pro.exe')
+    await writeBinary('kmquake2.exe')
+
+    const result = await inspectInstallation(enginesRoot)
+
+    expect(result.engines).toEqual([
+      { kind: 'r1q2', executablePath: join(enginesRoot, 'r1q2.exe'), supported: true },
+      { kind: 'q2pro', executablePath: join(enginesRoot, 'q2pro.exe'), supported: true },
+      { kind: 'kmquake2', executablePath: join(enginesRoot, 'kmquake2.exe'), supported: false },
+    ])
+  })
+
+  it('a folder with r1q2 and q2pro defaults to q2pro', async () => {
+    await writeBinary('r1q2.exe')
+    await writeBinary('q2pro.exe')
+
+    const result = await inspectInstallation(enginesRoot)
+
+    expect(result.engineKind).toBe('q2pro')
+    expect(result.executables[0]).toBe(join(enginesRoot, 'q2pro.exe'))
+  })
+
+  it('a dedicated server binary is not an engine', async () => {
+    await writeBinary('r1q2ded.exe')
+
+    const result = await inspectInstallation(enginesRoot)
+
+    expect(result.engines).toEqual([])
+  })
+
+  it('quake2.exe counts once', async () => {
+    await writeBinary('quake2.exe')
+
+    const result = await inspectInstallation(enginesRoot)
+
+    expect(result.engines.map((e) => e.kind)).toEqual(['vanilla'])
+  })
+
+  it('a missing chosen executable with another engine offers choose-engine', async () => {
+    await writeBinary('q2pro.exe')
+
+    const result = await inspectInstallation(enginesRoot, {
+      executablePath: join(enginesRoot, 'r1q2.exe'),
+    })
+
+    expect(findCheck(result.checks, 'executable')).toMatchObject({
+      messageKey: 'validation.executableMissing',
+      fix: 'choose-engine',
+    })
   })
 })

@@ -12,6 +12,7 @@ import {
 import { join } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
 import { fail, ok, type Outcome } from '@shared/types'
+import { createListenerSet } from '../../../lib/listeners'
 import type { Logger } from '../../../lib/logger'
 import {
   ACK_TIMEOUT_MS,
@@ -36,24 +37,24 @@ import {
 import type { PlaybackChannel } from './types'
 
 /**
- * Story 164 D2: the Windows playback channel. Q2PRO on Windows has no usable stdin, so the launcher
+ * Story 164: the Windows playback channel. Q2PRO on Windows has no usable stdin, so the launcher
  * talks to it through files in the game dir: the engine re-executes `q2l_ctl.cfg` every loop tick
  * (the guard `if $q2l_seq < N` makes each command run once), and its answers (`POS`, `ACK`,
  * `Demo finished`) arrive in the dedicated logfile, which this channel tails.
  *
- * Story 185 D2: a command goes to the game at once, never behind an earlier command's ACK. Every
+ * Story 185: a command goes to the game at once, never behind an earlier command's ACK. Every
  * unacknowledged seq has its own guard in the control file; the guards are monotone, so they run in
  * seq order, each exactly once, and an ACK for N retires every seq up to N. Each seq times out on its
  * own and is dropped from the file without holding up the ones after it.
  *
- * Story 166 D3: command N's console line lives alone in its own `q2l_cmd_N.cfg`, which the guard
+ * Story 166: command N's console line lives alone in its own `q2l_cmd_N.cfg`, which the guard
  * execs, so a free line never sits inside the guard's quoted string. That file is always on disk
  * before the control file that names it, and is removed once its ACK is seen (or on close).
  *
  * Every file operation is synchronous so a poll tick can never interleave with another tick, a send
  * or close; nothing a timer runs can reject.
  *
- * Story 172 D4: the fullscreen switch is one internal guarded command whose cfg runs
+ * Story 172: the fullscreen switch is one internal guarded command whose cfg runs
  * `vid_fullscreen 1` (unless the user already switched) and redefines `q2l_loop`, so the engine's
  * loop ends on its next call. `stage -> entering -> fullscreen`: once fullscreen, the control file
  * is rewritten idle - `exec q2l_loop.cfg` (Back to window) resets `q2l_seq` to 0, which would make
@@ -95,8 +96,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   const logPath = join(gameDirPath, ...LOG_FILE_RELATIVE.split('/'))
   const { argsBeforeDemo, argsAfterDemo } = windowsLaunchArgs()
   const tail = createLogTail(logPath)
-  const listeners = new Set<() => void>()
-  const displayListeners = new Set<(display: Display) => void>()
+  const listeners = createListenerSet(log, 'playback onFinished')
+  const displayListeners = createListenerSet<Display>(log, 'playback onDisplayChange')
   /**
    * Commands not handed to the game yet: before `start`, and behind a pending fullscreen switch
    * (dropped once fullscreen). Everything else goes straight to `inFlight`.
@@ -135,6 +136,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   let tempCounter = 0
   let timer: ReturnType<typeof setInterval> | null = null
 
+  // Not fs-utils' writeAtomic: synchronous, with a per-pid/per-call tmp name.
   /** Temp file in the same dir, then rename over the target: the engine never execs a half-written cfg. */
   function writeAtomic(destPath: string, text: string): void {
     tempCounter += 1
@@ -168,7 +170,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       pendingControl = null
       controlWriteFailing = false
     } catch (err) {
-      if (!controlWriteFailing) log.warn(`control file write failed, retrying on the next poll: ${describe(err)}`)
+      if (!controlWriteFailing)
+        log.warn(`control file write failed, retrying on the next poll: ${describe(err)}`)
       controlWriteFailing = true
     }
   }
@@ -201,13 +204,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   }
 
   function emitDisplay(display: Display): void {
-    for (const cb of [...displayListeners]) {
-      try {
-        cb(display)
-      } catch (err) {
-        log.warn(`onDisplayChange listener threw: ${describe(err)}`)
-      }
-    }
+    displayListeners.emit(display)
   }
 
   /**
@@ -225,7 +222,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   function reachFullscreen(ackedSeq: number | null): void {
     const switchSeq = switchInFlight()
     const dropped =
-      queue.filter((c) => !c.fullscreenSwitch).length + [...inFlight.values()].filter((c) => !c.fullscreenSwitch).length
+      queue.filter((c) => !c.fullscreenSwitch).length +
+      [...inFlight.values()].filter((c) => !c.fullscreenSwitch).length
     if (dropped > 0) log.warn(`demo went fullscreen: dropping ${dropped} unsent command(s)`)
     mode = 'fullscreen'
     queue.length = 0
@@ -253,13 +251,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     queue.length = 0
     inFlight.clear()
     writeControl(toCfgText(buildStopFile()))
-    for (const cb of [...listeners]) {
-      try {
-        cb()
-      } catch (err) {
-        log.warn(`onFinished listener threw: ${describe(err)}`)
-      }
-    }
+    listeners.emit()
   }
 
   /** `batch[index]` is the line to handle; the rest of the batch tells a late-flushed line apart. */
@@ -270,7 +262,11 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
         if (finished || parsed.fullscreen !== false) return
         // The switch's ACK still to come in this batch: this FS 0 was logged before the loop stopped.
         const switchSeq = unackedSwitchSeq
-        if (switchSeq !== null && batch.some((l, i) => i > index && l.kind === 'ack' && l.seq === switchSeq)) return
+        if (
+          switchSeq !== null &&
+          batch.some((l, i) => i > index && l.kind === 'ack' && l.seq === switchSeq)
+        )
+          return
         mode = 'stage'
         unackedSwitchSeq = null
         positionMs = parsed.positionMs
@@ -302,7 +298,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       let ackedSwitch: number | null = null
       for (const [seq, command] of retired) {
         inFlight.delete(seq)
-        if (seq === parsed.seq) log.debug(`seq ${seq} acknowledged after ${Date.now() - command.sentAt} ms`)
+        if (seq === parsed.seq)
+          log.debug(`seq ${seq} acknowledged after ${Date.now() - command.sentAt} ms`)
         if (command.fullscreenSwitch) ackedSwitch = seq
       }
       // The control file drops them before their command files go (reachFullscreen removes the switch's).
@@ -325,11 +322,15 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     for (const [seq, command] of [...inFlight]) {
       if (now - command.sentAt < ACK_TIMEOUT_MS) continue
       if (command.fullscreenSwitch) {
-        log.warn(`no ACK for the fullscreen switch (seq ${seq}) within ${ACK_TIMEOUT_MS} ms, assuming fullscreen`)
+        log.warn(
+          `no ACK for the fullscreen switch (seq ${seq}) within ${ACK_TIMEOUT_MS} ms, assuming fullscreen`,
+        )
         reachFullscreen(null)
         return
       }
-      log.warn(`no ACK for seq ${seq} within ${ACK_TIMEOUT_MS} ms, dropping it from the control file`)
+      log.warn(
+        `no ACK for seq ${seq} within ${ACK_TIMEOUT_MS} ms, dropping it from the control file`,
+      )
       inFlight.delete(seq)
       expired = true
     }
@@ -350,7 +351,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
 
   function releaseSettled(): void {
     if (settledWaiters.length === 0) return
-    if (!(finished || closed || mode === 'fullscreen') && (queue.length > 0 || inFlight.size > 0)) return
+    if (!(finished || closed || mode === 'fullscreen') && (queue.length > 0 || inFlight.size > 0))
+      return
     for (const resolve of settledWaiters.splice(0)) resolve()
   }
 
@@ -420,16 +422,10 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       return mode === 'fullscreen' ? 'fullscreen' : 'stage'
     },
     onDisplayChange(cb) {
-      displayListeners.add(cb)
-      return () => {
-        displayListeners.delete(cb)
-      }
+      return displayListeners.add(cb)
     },
     onFinished(cb) {
-      listeners.add(cb)
-      return () => {
-        listeners.delete(cb)
-      }
+      return listeners.add(cb)
     },
 
     async close() {

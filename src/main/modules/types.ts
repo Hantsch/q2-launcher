@@ -1,6 +1,6 @@
 import type { ZodType } from 'zod'
 import type { FeatureName } from '@shared/features'
-import type { ModuleId } from '@shared/types'
+import type { ModuleId, Outcome } from '@shared/types'
 import type { Logger } from '../lib/logger'
 import type { AppContext } from '../context'
 
@@ -10,7 +10,7 @@ import type { AppContext } from '../context'
  * forgets the concrete type - `ModuleSetup.handle` is where schema and handler
  * are tied together.
  */
-export type ModuleHandler = (payload: unknown) => Promise<unknown> | unknown
+export type ModuleHandler = (payload: unknown) => Promise<Outcome<unknown>> | Outcome<unknown>
 
 /** What the shell hands a module during registration. */
 export interface ModuleSetup {
@@ -24,6 +24,10 @@ export interface ModuleSetup {
    * to `handler` at the call site - a schema that parses to the wrong shape is
    * a compile error there. A handler that takes no payload passes `z.void()`.
    *
+   * A handler returns an `Outcome<R>`, never a bare value: the registry passes it through
+   * unchanged (a non-Outcome return is answered with `modules.error.handlerFailed`), so the
+   * client receives exactly `Outcome<R>`, never a nested envelope.
+   *
    * Story 130: `options.feature` gates the handler behind an unlockable feature. When that
    * feature is locked in this process, the handler is never registered at all - `module:invoke`
    * for that type then answers exactly like an unknown type (`modules.error.notImplemented`),
@@ -31,29 +35,41 @@ export interface ModuleSetup {
    * reveal to a caller probing blind that the feature exists. Without `options.feature` the
    * handler is ungated and always registered.
    */
-  handle: <T>(
+  handle: <T, R>(
     type: string,
     schema: ZodType<T>,
-    handler: (payload: T) => Promise<unknown> | unknown,
+    handler: (payload: T) => Outcome<R> | Promise<Outcome<R>>,
     options?: { feature?: FeatureName },
   ) => void
   /** Pushes a namespaced event to the UI. */
   emit: (type: string, payload: unknown) => void
-  /** Access to the shell's services: installations, jobs, settings, ... */
+  /**
+   * Access to the shell's services: installations, jobs, settings, ... A module reaches the OS,
+   * the screen and the harness only through `app.os`, `app.displays`, `app.harness`, `app.env`,
+   * `app.isPackaged` and `app.userDataDir` - never `electron` or `process.env` itself
+   * (the narrow shell libs `lib/paths`, `lib/net/fetcher` and `lib/native-image` are the only other
+   * route, one edge each, listed in `ALLOWED` in `src/architecture.test.ts`).
+   */
   app: AppContext
   log: Logger
+  /**
+   * Registers a disposer for something `setup()` created. `MainModuleRegistry.disposeAll()` runs
+   * all disposers in reverse registration order, so a later-created resource is released before
+   * the one it depends on. Disposers registered before a throwing `setup()` still run.
+   */
+  onDispose: (cb: () => void | Promise<void>) => void
 }
 
 /**
  * The main-process half of a module.
  *
- * A module never touches `ipcMain`, `BrowserWindow` or the state file directly -
- * it goes through `ModuleSetup`. That keeps the security surface fixed (the
+ * A module never touches `ipcMain` or `BrowserWindow` directly. It owns its persisted state
+ * through its own `persisted.ts`, built on `app.state.section()`; everything else goes through
+ * `ModuleSetup`. That keeps the security surface fixed (the
  * preload allowlist cannot grow) and means the shell can load, skip or later
  * unload modules without special cases.
  */
 export interface MainModule {
   id: ModuleId
   setup: (setup: ModuleSetup) => void | Promise<void>
-  dispose?: () => void | Promise<void>
 }

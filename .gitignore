@@ -7,6 +7,8 @@ dist/
 /release/
 .vite/
 .ui-verify/
+# `npm run rehearse` run records and logs (scripts/rehearse.mjs).
+/.rehearsal/
 
 *.log
 # Test fixtures are real captures, not run output.

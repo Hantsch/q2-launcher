@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { DiscoveredDemo } from '@shared/modules/replays'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ZipDeps } from '../../lib/zip-entries'
-import { resolveExtractorPath } from '../downloads/7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { removeStagedCopy, stageDemo, stagedFileName, sweepLauncherDirs } from './demo-staging'
 
 const NO_ZIP: ZipDeps = { extractorPath: 'unused', extractorExists: false }
@@ -42,9 +42,13 @@ async function makeZip(zipName: string, files: Record<string, string>): Promise<
   await mkdir(zipSrc, { recursive: true })
   for (const [name, content] of Object.entries(files)) await writeFile(join(zipSrc, name), content)
   const archive = join(dir, zipName)
-  execFileSync(realBinary.path, ['a', '-tzip', '-y', '-spd', '--', archive, ...Object.keys(files)], {
-    cwd: zipSrc,
-  })
+  execFileSync(
+    realBinary.path,
+    ['a', '-tzip', '-y', '-spd', '--', archive, ...Object.keys(files)],
+    {
+      cwd: zipSrc,
+    },
+  )
   return archive
 }
 

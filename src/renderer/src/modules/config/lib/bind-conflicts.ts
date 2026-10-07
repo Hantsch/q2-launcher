@@ -1,19 +1,19 @@
-import { actionKeySlots } from '@shared/config/action-slots'
-import { bindValueFor, isMirroredValue } from '@shared/config/action-mirror'
-import type { AltLayer } from '@shared/config/alt-layers'
-import { normalizeBindKey } from '@shared/config/key-names'
-import type { ModifierTrigger } from '@shared/config/modifier-layers'
+import { actionKeySlots } from '@shared/config/catalog/action-slots'
+import { bindValueFor, isMirroredValue } from '@shared/config/aliases/action-mirror'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
+import { normalizeBindKey } from '@shared/config/syntax/key-names'
+import type { ModifierTrigger } from '@shared/config/aliases/modifier-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 
 /**
- * The profile-wide conflict scan (story 020 D7): every key that is claimed more than once,
+ * The profile-wide conflict scan (story 020): every key that is claimed more than once,
  * anywhere in `profile` - "a key bound twice is a conflict no matter which drawer you happen to
- * be looking at" (the story's sprint decision). Mirrors `@shared/config/bind-collision.ts`'s
+ * be looking at" (the story's sprint decision). Mirrors `@shared/config/validation/bind-collision.ts`'s
  * notion of what counts as a "claim" (`findBindCollision`'s three sources: `profile.binds`, an
  * action's key/secondary slot when it is not modifier-carrying, and a layer's own `overrides`),
  * but that file answers "does THIS one candidate key collide with anything" for an interactive
  * capture; this one scans the *whole* profile once and reports every group of 2+ claimants, for
- * the header's conflict count and the per-slot/per-row markers D5/D6 already built the surface
+ * the header's conflict count and the per-slot/per-row markers already built the surface
  * for.
  *
  * Two independent scan channels, per decision 14 in `bind-collision.ts`'s doc comment ("layers
@@ -85,7 +85,7 @@ class ClaimTracker {
  * `findBindCollision`'s `isOwnMirror` check applies to a single candidate.
  *
  * Story 050: every key slot is checked, not just the two the Controls tab edits
- * (`actionKeySlots`, `@shared/config/action-slots`) - a third, hand-added slot must still
+ * (`actionKeySlots`, `@shared/config/catalog/action-slots`) - a third, hand-added slot must still
  * participate in conflict detection exactly like the first two.
  */
 function findBaseConflicts(profile: ConfigProfile): BindConflict[] {
@@ -126,7 +126,9 @@ function findBaseConflicts(profile: ConfigProfile): BindConflict[] {
 function modifierForLayer(layer: AltLayer): ModifierTrigger | undefined {
   if (!layer.triggerKey) return undefined
   const normalized = normalizeBindKey(layer.triggerKey)
-  return normalized === 'ALT' || normalized === 'CTRL' || normalized === 'SHIFT' ? normalized : undefined
+  return normalized === 'ALT' || normalized === 'CTRL' || normalized === 'SHIFT'
+    ? normalized
+    : undefined
 }
 
 /**
@@ -220,7 +222,9 @@ export function findSlotConflictOwner(
 
   const scope: BindConflict['scope'] | undefined = modifier
     ? (() => {
-        const layer = layers.find((candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier)
+        const layer = layers.find(
+          (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
+        )
         return layer ? { layerId: layer.id } : undefined
       })()
     : 'base'

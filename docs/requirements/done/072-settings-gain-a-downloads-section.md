@@ -12,7 +12,7 @@ download-while-playing), but `LauncherSettings` is a closed shape and "a feature
 never edit the shell" forbids editing the Settings view for every module that needs a value. This
 story resolves that once: the Settings view learns to render sections contributed by modules,
 and the downloads module is the first to use it. The mechanism is meant to be reused by mods and
-assets later, per [concepts/install-module.md §12](../concepts/install-module.md).
+assets later, per [concepts/install-module.md §12](../../systems/install-module.md).
 
 ## Acceptance Criteria
 
@@ -104,52 +104,52 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D1 and D2 are independent of each 
 ## Deliverables
 
 - [x] **D1 — Settings hosts module-contributed sections.**
-  `src/renderer/src/modules/index.ts` (optional `View`, new `settingsSection`),
-  `src/renderer/src/components/shell/AppShell.tsx` (`resolveView` fallback when `View` is absent),
-  `src/renderer/src/views/SettingsView.tsx` (render the registry's sections in `Panel` +
-  `SectionLabel`, sorted, with `data-testid="settings-section-<moduleId>"`),
-  `src/renderer/src/i18n/locales/en.json`.
-  Plus its test in `src/renderer/src/views/SettingsView.test.tsx` (jsdom; mirror
-  `src/renderer/src/modules/config/CreateProfileDialog.test.tsx` for the jsdom docblock + render
-  style). Accepted when a stub module's section renders with its heading between Library and About,
-  the shell's own sections are unchanged, and a module without a `View` still routes to
-  `PlannedModuleView`.
+      `src/renderer/src/modules/index.ts` (optional `View`, new `settingsSection`),
+      `src/renderer/src/components/shell/AppShell.tsx` (`resolveView` fallback when `View` is absent),
+      `src/renderer/src/views/SettingsView.tsx` (render the registry's sections in `Panel` +
+      `SectionLabel`, sorted, with `data-testid="settings-section-<moduleId>"`),
+      `src/renderer/src/i18n/locales/en.json`.
+      Plus its test in `src/renderer/src/views/SettingsView.test.tsx` (jsdom; mirror
+      `src/renderer/src/modules/config/CreateProfileDialog.test.tsx` for the jsdom docblock + render
+      style). Accepted when a stub module's section renders with its heading between Library and About,
+      the shell's own sections are unchanged, and a module without a `View` still routes to
+      `PlannedModuleView`.
 - [x] **D2 — The downloads contract and its persisted settings slot.**
-  New `src/shared/modules/downloads.ts`; `src/main/lib/schemas.ts` (`downloadsSettingsSchema`,
-  `parseDownloadsSettings`, per-field `.catch()`); `src/main/services/state.ts` (`downloadsSettings`
-  key, default, parse, getter, setter) — mirror `configProfiles` at `state.ts:26/80/105/133/171`.
-  Plus its tests in `src/shared/modules/downloads.test.ts` (defaults; the downloads keys are absent
-  from `DEFAULT_SETTINGS`) and `src/main/services/state.test.ts` (write → reload round trip, garbage
-  field falls back to its default). Accepted when a state.json written by the setter reads back
-  identically on a fresh store and a corrupt field costs only that field.
+      New `src/shared/modules/downloads.ts`; `src/main/lib/schemas.ts` (`downloadsSettingsSchema`,
+      `parseDownloadsSettings`, per-field `.catch()`); `src/main/services/state.ts` (`downloadsSettings`
+      key, default, parse, getter, setter) — mirror `configProfiles` at `state.ts:26/80/105/133/171`.
+      Plus its tests in `src/shared/modules/downloads.test.ts` (defaults; the downloads keys are absent
+      from `DEFAULT_SETTINGS`) and `src/main/services/state.test.ts` (write → reload round trip, garbage
+      field falls back to its default). Accepted when a state.json written by the setter reads back
+      identically on a fresh store and a corrupt field costs only that field.
 - [x] **D3 — The archive cache: size, clear, budget eviction.**
-  `src/main/lib/paths.ts` (`downloadsCacheDir()`), new `src/main/modules/downloads/cache.ts` (pure
-  `planEviction` + `status`/`enforceBudget`/`clear`).
-  Plus its test in `src/main/modules/downloads/cache.test.ts`: status sums bytes and counts items;
-  eviction removes oldest-by-mtime first and stops at the budget; an `isInUse` entry and any
-  `*.part` are never removed; `clear` returns the bytes/count it actually deleted.
+      `src/main/lib/paths.ts` (`downloadsCacheDir()`), new `src/main/modules/downloads/cache.ts` (pure
+      `planEviction` + `status`/`enforceBudget`/`clear`).
+      Plus its test in `src/main/modules/downloads/cache.test.ts`: status sums bytes and counts items;
+      eviction removes oldest-by-mtime first and stops at the budget; an `isInUse` entry and any
+      `*.part` are never removed; `clear` returns the bytes/count it actually deleted.
 - [x] **D4 — The downloads main module.**
-  New `src/main/modules/downloads/index.ts` + `src/main/modules/downloads/schemas.ts`,
-  registered in `src/main/modules/index.ts:15` — mirror `src/main/modules/library/index.ts` for the
-  `MainModule` shape and `src/main/modules/config/schemas.ts` for the payload schemas.
-  Plus its test in `src/main/modules/downloads/index.test.ts`: `getSettings` answers the persisted
-  values, `patchSettings` rejects a concurrency outside 1–4 and an unlisted budget, a lowered budget
-  triggers eviction, `clearCache` reports what it removed.
+      New `src/main/modules/downloads/index.ts` + `src/main/modules/downloads/schemas.ts`,
+      registered in `src/main/modules/index.ts:15` — mirror `src/main/modules/library/index.ts` for the
+      `MainModule` shape and `src/main/modules/config/schemas.ts` for the payload schemas.
+      Plus its test in `src/main/modules/downloads/index.test.ts`: `getSettings` answers the persisted
+      values, `patchSettings` rejects a concurrency outside 1–4 and an unlisted budget, a lowered budget
+      triggers eviction, `clearCache` reports what it removed.
 - [x] **D5 — The Downloads settings section in the UI.**
-  New `src/renderer/src/modules/downloads/client.ts` (over `callModule`, mirror
-  `src/renderer/src/modules/library/client.ts`) and
-  `src/renderer/src/modules/downloads/DownloadsSettingsSection.tsx`; registration in
-  `src/renderer/src/modules/index.ts`; keys in `src/renderer/src/i18n/locales/en.json`.
-  Plus its test in `src/renderer/src/modules/downloads/DownloadsSettingsSection.test.tsx` (jsdom,
-  stubbed client): the three controls render the current values, and the clear confirm names the
-  size and the item count before anything is called.
+      New `src/renderer/src/modules/downloads/client.ts` (over `callModule`, mirror
+      `src/renderer/src/modules/library/client.ts`) and
+      `src/renderer/src/modules/downloads/DownloadsSettingsSection.tsx`; registration in
+      `src/renderer/src/modules/index.ts`; keys in `src/renderer/src/i18n/locales/en.json`.
+      Plus its test in `src/renderer/src/modules/downloads/DownloadsSettingsSection.test.tsx` (jsdom,
+      stubbed client): the three controls render the current values, and the clear confirm names the
+      size and the item count before anything is called.
 - [x] **D6 — Acceptance surface: fixture, screen, flow.**
-  `scripts/lib/fixture.mjs` (populated variant: non-default `downloadsSettings`, two dummy archives
-  with distinct sizes/mtimes under `userdata/cache/downloads`), `scripts/lib/screens.mjs` (a screen
-  for the clear-cache confirm dialog), new `scripts/flows/settings-downloads-section.mjs` — mirror
-  `scripts/flows/raw-inline-edit.mjs` for the on-disk assertion idiom.
-  Accepted when `npm run ui:flow -- settings-downloads-section` passes and `npm run ui:verify`
-  stays clean (no new axe violations, no console errors, no network).
+      `scripts/lib/fixture.mjs` (populated variant: non-default `downloadsSettings`, two dummy archives
+      with distinct sizes/mtimes under `userdata/cache/downloads`), `scripts/lib/screens.mjs` (a screen
+      for the clear-cache confirm dialog), new `scripts/flows/settings-downloads-section.mjs` — mirror
+      `scripts/flows/raw-inline-edit.mjs` for the on-disk assertion idiom.
+      Accepted when `npm run ui:flow -- settings-downloads-section` passes and `npm run ui:verify`
+      stays clean (no new axe violations, no console errors, no network).
 
 ## Model Hints
 
@@ -192,14 +192,14 @@ No manual residue.
 
 ### Coverage gate
 
-| AC | Deliverable | Test |
-| --- | --- | --- |
-| AC1 | D1 (+ D5 registers the section) | flow + `SettingsView.test.tsx` + `downloads.test.ts` |
-| AC2 | D2 (contract), D4 (validation), D5 (controls) | flow + `index.test.ts` |
-| AC3 | D3, D5 | flow + `cache.test.ts` |
-| AC4 | D3 (figures), D5 (confirm) | flow + `DownloadsSettingsSection.test.tsx` |
-| AC5 | D3, D4 | `cache.test.ts` + `index.test.ts` |
-| AC6 | D2, D3, D6 | flow + `state.test.ts` + `cache.test.ts` |
+| AC  | Deliverable                                   | Test                                                 |
+| --- | --------------------------------------------- | ---------------------------------------------------- |
+| AC1 | D1 (+ D5 registers the section)               | flow + `SettingsView.test.tsx` + `downloads.test.ts` |
+| AC2 | D2 (contract), D4 (validation), D5 (controls) | flow + `index.test.ts`                               |
+| AC3 | D3, D5                                        | flow + `cache.test.ts`                               |
+| AC4 | D3 (figures), D5 (confirm)                    | flow + `DownloadsSettingsSection.test.tsx`           |
+| AC5 | D3, D4                                        | `cache.test.ts` + `index.test.ts`                    |
+| AC6 | D2, D3, D6                                    | flow + `state.test.ts` + `cache.test.ts`             |
 
 ## Done
 
@@ -214,6 +214,7 @@ in-use files never evicted) plus a thin fs wrapper (`status`/`enforceBudget`/`cl
 enforcement runs when the budget is lowered and after a clear.
 
 **Decisions (Build).**
+
 - Extended story 071's already-shipped `downloads` state key and `DownloadsSettings` shape instead
   of introducing a second `downloadsSettings` key, per the story's own "extend, don't replace"
   overlap rule. Kept `concurrentJobs`'s range at 1–6 (`MIN/MAX_CONCURRENT_DOWNLOAD_JOBS`, already
@@ -231,6 +232,7 @@ enforcement runs when the budget is lowered and after a clear.
   numeric input component was needed.
 
 **Verification.**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `npm test` — full suite 2893/2894 passed, 3 skipped; the one failure
@@ -247,18 +249,20 @@ enforcement runs when the budget is lowered and after a clear.
   below); several PLAUSIBLE lower-severity findings left as documented, non-blocking follow-ups.
 
 **AC → test mapping, as verified:**
-| AC | Test(s) | Result |
-| --- | --- | --- |
-| AC1 | e2e `settings-downloads-section`; `SettingsView.test.tsx`; `downloads.test.ts` | pass |
-| AC2 | e2e `settings-downloads-section`; `index.test.ts` (range/budget rejection) | pass |
-| AC3 | e2e `settings-downloads-section`; `cache.test.ts` (status sums bytes/count) | pass |
-| AC4 | e2e `settings-downloads-section`; `DownloadsSettingsSection.test.tsx` (confirm names size/count before call) | pass |
-| AC5 | `cache.test.ts` (oldest-first, in-use/`.part` never evicted); `index.test.ts` (lowered budget evicts) | pass |
-| AC6 | e2e `settings-downloads-section` (boot + disk assertions); `state.test.ts`; `cache.test.ts` (cache path) | pass |
+
+| AC  | Test(s)                                                                                                      | Result |
+| --- | ------------------------------------------------------------------------------------------------------------ | ------ |
+| AC1 | e2e `settings-downloads-section`; `SettingsView.test.tsx`; `downloads.test.ts`                               | pass   |
+| AC2 | e2e `settings-downloads-section`; `index.test.ts` (range/budget rejection)                                   | pass   |
+| AC3 | e2e `settings-downloads-section`; `cache.test.ts` (status sums bytes/count)                                  | pass   |
+| AC4 | e2e `settings-downloads-section`; `DownloadsSettingsSection.test.tsx` (confirm names size/count before call) | pass   |
+| AC5 | `cache.test.ts` (oldest-first, in-use/`.part` never evicted); `index.test.ts` (lowered budget evicts)        | pass   |
+| AC6 | e2e `settings-downloads-section` (boot + disk assertions); `state.test.ts`; `cache.test.ts` (cache path)     | pass   |
 
 No manual residue.
 
 **Review-fix cycle (1 of 3 max used).** The clean review found 4 confirmed bugs, all fixed:
+
 1. `cache.ts`'s eviction/status logic also matched 070's `manifest-cache.json` (same cache
    directory) as an evictable "archive" — a clear or a lowered budget could delete the offline
    manifest fallback. Fixed: excluded that specific filename from eviction/status, with a test
@@ -273,6 +277,7 @@ No manual residue.
    a later assertion depended on). Fixed: the flow now reverts its own changes before finishing.
 
 Findings left deliberately unfixed (PLAUSIBLE, non-blocking, documented for later stories):
+
 - Excluding in-flight `.part` bytes from the displayed cache size is correct for the eviction
   budget but under-communicated to the user (no in-UI hint that in-flight downloads aren't counted).
   Candidate follow-up for [[073]]/[[074]] once the Downloads tab shows running jobs directly.
@@ -291,4 +296,3 @@ Findings left deliberately unfixed (PLAUSIBLE, non-blocking, documented for late
   on the flow, not a unit test, to catch a regression.
 
 **Commit message:** `072: settings gain a downloads section`
-

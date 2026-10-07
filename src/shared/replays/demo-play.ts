@@ -8,6 +8,7 @@
  */
 
 import type { DiscoveredDemo } from '../modules/replays'
+import { refuse, type DomainResult, type Refusal } from '../types/common'
 import type { Installation } from '../types/installation'
 import { STEAM_RUNNER_CHOICE } from '../types/runner'
 
@@ -21,30 +22,33 @@ export type DemoPlayReasonKey =
   | 'replays.play.unavailable.gameRunning'
   | 'replays.play.unavailable.unsafeName'
 
-export interface DemoPlayReason {
-  key: DemoPlayReasonKey
-  params?: Record<string, string | number>
-}
+/** `acknowledgeable` marks a warning, not a blocker: playing is allowed once the user has acknowledged it (`acknowledgeModMissing`). */
+export type DemoPlayRefusal = Refusal<DemoPlayReasonKey> & { acknowledgeable?: true }
 
 export type DemoPlayEligibility =
-  | {
-      ok: true
-      installationId: string
-      gameDir: string
-      /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
-      inPlace: boolean
-      extraArgs: string[]
-    }
-  | {
-      ok: false
-      reason: DemoPlayReason
-      /** A warning, not a blocker: playing is allowed once the user has acknowledged it (`acknowledgeModMissing`). */
-      acknowledgeable?: true
-    }
+  | Exclude<
+      DomainResult<
+        {
+          installationId: string
+          gameDir: string
+          /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
+          inPlace: boolean
+          extraArgs: string[]
+          /** Set when the installation's own engine is not Q2PRO: the launch must use its detected Q2PRO. */
+          engine?: 'q2pro'
+        },
+        DemoPlayReasonKey
+      >,
+      Refusal
+    >
+  | DemoPlayRefusal
 
 export interface DemoPlayInput {
   demo: DiscoveredDemo
-  installations: readonly Pick<Installation, 'id' | 'engineKind' | 'gameDirs' | 'runner'>[]
+  installations: readonly Pick<
+    Installation,
+    'id' | 'engineKind' | 'detectedEngines' | 'gameDirs' | 'runner'
+  >[]
   activeInstallationId: string | null
   platform: string
   gameRunning: boolean
@@ -78,33 +82,39 @@ export function demoGameDir(demo: DiscoveredDemo): string {
   return demo.gameDir === null || demo.gameDir === '' ? DEMO_BASE_GAME_DIR : demo.gameDir
 }
 
-function hasGameDir(gameDirs: readonly string[], dir: string): boolean {
-  return sameDir(dir, DEMO_BASE_GAME_DIR) || gameDirs.some((d) => sameDir(d, dir))
+function isQ2proCapable(i: Pick<Installation, 'engineKind' | 'detectedEngines'>): boolean {
+  return (
+    i.engineKind === 'q2pro' ||
+    (i.detectedEngines ?? []).some((e) => e.kind === 'q2pro' && e.supported)
+  )
 }
 
-function refuse(key: DemoPlayReasonKey, params?: Record<string, string | number>): DemoPlayEligibility {
-  return params === undefined ? { ok: false, reason: { key } } : { ok: false, reason: { key, params } }
+function hasGameDir(gameDirs: readonly string[], dir: string): boolean {
+  return sameDir(dir, DEMO_BASE_GAME_DIR) || gameDirs.some((d) => sameDir(d, dir))
 }
 
 export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
   const { demo, installations, activeInstallationId, platform, gameRunning } = input
   const gameDir = demoGameDir(demo)
 
-  if (platform === 'linux' && !installations.some((i) => i.engineKind === 'q2pro')) {
+  if (platform === 'linux' && !installations.some(isQ2proCapable)) {
     return refuse('replays.play.unavailable.linuxNoQ2pro')
   }
 
-  const active = activeInstallationId === null ? undefined : installations.find((i) => i.id === activeInstallationId)
-  if (!active || active.engineKind !== 'q2pro') return refuse('replays.play.unavailable.notQ2pro')
-  if (active.runner === STEAM_RUNNER_CHOICE) return refuse('replays.play.unavailable.needsDirectLaunch')
+  const active =
+    activeInstallationId === null
+      ? undefined
+      : installations.find((i) => i.id === activeInstallationId)
+  if (!active || !isQ2proCapable(active)) return refuse('replays.play.unavailable.notQ2pro')
+  if (active.runner === STEAM_RUNNER_CHOICE)
+    return refuse('replays.play.unavailable.needsDirectLaunch')
   if (gameRunning) return refuse('replays.play.unavailable.gameRunning')
   // Last, and only a warning: a mod folder the inspector does not list (only demos, or files the
   // server sent on connect) still plays - the user decides. Last so the warning is never shown for
   // a demo that could not be played anyway.
   if (!hasGameDir(active.gameDirs, gameDir) && !input.acknowledgeModMissing) {
     return {
-      ok: false,
-      reason: { key: 'replays.play.unavailable.modMissing', params: { gameDir } },
+      ...refuse('replays.play.unavailable.modMissing', { gameDir }),
       acknowledgeable: true,
     }
   }
@@ -127,5 +137,6 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
     gameDir,
     inPlace,
     extraArgs: inPlace ? ['+demo', demo.fileName] : [],
+    ...(active.engineKind !== 'q2pro' ? { engine: 'q2pro' as const } : {}),
   }
 }

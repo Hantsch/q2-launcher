@@ -31,13 +31,24 @@ describe('mergeStaleRound', () => {
     const existing = entry({ address: '10.0.0.1:27910' })
     const entries = new Map([[existing.address, existing]])
 
-    const result = mergeStaleRound(entries, [target(existing.address)], new Set([existing.address]), false, NOW)
+    const result = mergeStaleRound(
+      entries,
+      [target(existing.address)],
+      new Set([existing.address]),
+      false,
+      NOW,
+    )
 
     expect(result.get(existing.address)).toEqual(existing)
   })
 
   it('flips an unanswered target with a pre-existing entry to stale, keeping every other field (D4 acceptance)', () => {
-    const existing = entry({ address: '10.0.0.1:27910', status: 'online', players: 12, name: 'Old School' })
+    const existing = entry({
+      address: '10.0.0.1:27910',
+      status: 'online',
+      players: 12,
+      name: 'Old School',
+    })
     const entries = new Map([[existing.address, existing]])
 
     const result = mergeStaleRound(entries, [target(existing.address)], new Set(), false, NOW)
@@ -70,7 +81,7 @@ describe('mergeStaleRound', () => {
     expect(result.get(existing.address)).toEqual(existing)
   })
 
-  it('leaves an entry untouched when its address is not in this round\'s targets at all', () => {
+  it("leaves an entry untouched when its address is not in this round's targets at all", () => {
     const untouched = entry({ address: '10.0.0.5:27910' })
     const entries = new Map([[untouched.address, untouched]])
 
@@ -85,7 +96,13 @@ describe('mergeStaleRound', () => {
     const manualTarget: ScanTarget = { address: '10.0.0.7:27910', origins: ['manual'] }
     const sourceTarget: ScanTarget = { address: '10.0.0.8:27910', origins: ['source'] }
 
-    const result = mergeStaleRound(entries, [favouriteTarget, manualTarget, sourceTarget], new Set(), false, NOW)
+    const result = mergeStaleRound(
+      entries,
+      [favouriteTarget, manualTarget, sourceTarget],
+      new Set(),
+      false,
+      NOW,
+    )
 
     expect(result.get(favouriteTarget.address)).toEqual({
       address: favouriteTarget.address,
@@ -113,7 +130,10 @@ describe('appendRttSample', () => {
 
     expect(history).toHaveLength(RTT_HISTORY_LIMIT)
     expect(history![0]).toEqual({ at: 't5', rttMs: 5 })
-    expect(history!.at(-1)).toEqual({ at: `t${RTT_HISTORY_LIMIT + 4}`, rttMs: RTT_HISTORY_LIMIT + 4 })
+    expect(history!.at(-1)).toEqual({
+      at: `t${RTT_HISTORY_LIMIT + 4}`,
+      rttMs: RTT_HISTORY_LIMIT + 4,
+    })
   })
 })
 

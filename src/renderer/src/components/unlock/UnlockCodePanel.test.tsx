@@ -43,9 +43,9 @@ afterEach(() => {
   cleanup()
   getStateResult = EMPTY_STATE
   redeemResult = { ok: false, reason: 'not-a-code' }
-  ;(globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke.mockImplementation(
-    defaultInvoke,
-  )
+  ;(
+    globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }
+  ).q2.invoke.mockImplementation(defaultInvoke)
 })
 
 async function renderPanel() {
@@ -118,8 +118,37 @@ describe('UnlockCodePanel', () => {
     await submitCode('GOOD-CODE')
 
     const accepted = await screen.findByTestId('unlock-result-accepted')
-    expect(accepted.textContent).toContain('servers-pro')
     expect(accepted.textContent).toMatch(/2027/)
+  })
+
+  it('an unknown feature id renders the translated fallback', async () => {
+    redeemResult = {
+      ok: true,
+      code: { features: ['servers-pro'], featureExpiry: null, label: null, status: 'active' },
+    }
+    getStateResult = {
+      installationId: 'ABCD-1234-EFGH',
+      codes: [{ features: ['servers-pro'], featureExpiry: null, label: null, status: 'active' }],
+    }
+    await renderPanel()
+    await submitCode('GOOD-CODE')
+
+    const accepted = await screen.findByTestId('unlock-result-accepted')
+    expect(accepted.textContent).toContain('Unknown feature (servers-pro)')
+    const row = await screen.findByTestId('unlock-code-row')
+    expect(row.textContent).toContain('Unknown feature (servers-pro)')
+  })
+
+  it('a known feature id renders its label', async () => {
+    redeemResult = {
+      ok: true,
+      code: { features: ['watchlist'], featureExpiry: null, label: null, status: 'active' },
+    }
+    await renderPanel()
+    await submitCode('GOOD-CODE')
+
+    const accepted = await screen.findByTestId('unlock-result-accepted')
+    expect(accepted.textContent).toContain('Server watchlist')
   })
 
   it('an accepted code without expiry says it does not expire', async () => {

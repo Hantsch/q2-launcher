@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next'
-import type { ConfigProfile } from '@shared/modules/config'
 import { Button } from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/controls'
 import { EngineBadge } from '../../components/ui/EngineBadge'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
-import { useLauncher } from '../../store/useLauncher'
 import { assignConfigProfile, setDefaultConfigProfile, unassignConfigProfile } from './client'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
+import { useProfileSave } from './lib/useProfileSave'
 
 /**
  * The profile-side half of assignment: for the currently selected profile,
@@ -13,29 +13,28 @@ import { assignConfigProfile, setDefaultConfigProfile, unassignConfigProfile } f
  * and, once assigned, an affordance to mark it that installation's default.
  *
  * Every mutation round-trips through main (see `client.ts`) and only updates
- * the view via `onChanged` once the real outcome comes back - no optimistic
+ * the view via `save` once the real outcome comes back - no optimistic
  * local state, so a failed call simply leaves the row as it was.
  */
-export function ProfileAssignmentsPanel({
-  profile,
-  onChanged,
-}: {
-  profile: ConfigProfile
-  onChanged: (profiles: ConfigProfile[]) => void
-}) {
+export function ProfileAssignmentsPanel() {
   const { t } = useTranslation()
-  const installations = useLauncher((state) => state.installations)
+  const { profile, installations, save } = useProfileDraftContext()
+
+  const { saveNow } = useProfileSave({ profileId: profile.id, onChanged: save })
 
   const toggle = async (installationId: string, next: boolean): Promise<void> => {
-    const result = next
-      ? await assignConfigProfile({ profileId: profile.id, installationId })
-      : await unassignConfigProfile({ profileId: profile.id, installationId })
-    if (result.ok) onChanged(result.value)
+    await saveNow({
+      run: () =>
+        next
+          ? assignConfigProfile({ profileId: profile.id, installationId })
+          : unassignConfigProfile({ profileId: profile.id, installationId }),
+    })
   }
 
   const makeDefault = async (installationId: string): Promise<void> => {
-    const result = await setDefaultConfigProfile({ profileId: profile.id, installationId })
-    if (result.ok) onChanged(result.value)
+    await saveNow({
+      run: () => setDefaultConfigProfile({ profileId: profile.id, installationId }),
+    })
   }
 
   return (

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { Logger } from '../../lib/logger'
-import { parseManifestFile } from './manifest-parse'
+import { parseManifestFile } from '../../services/content/manifest-parse'
 
 /**
  * Story 070 D5: the two shipped manifest files
@@ -12,8 +12,20 @@ import { parseManifestFile } from './manifest-parse'
  */
 
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..')
-const ENGINES_MANIFEST_PATH = join(REPO_ROOT, 'content', 'q2_community_content', 'engines', 'manifest.json')
-const GAMEDATA_MANIFEST_PATH = join(REPO_ROOT, 'content', 'q2_community_content', 'gamedata', 'manifest.json')
+const ENGINES_MANIFEST_PATH = join(
+  REPO_ROOT,
+  'content',
+  'q2_community_content',
+  'engines',
+  'manifest.json',
+)
+const GAMEDATA_MANIFEST_PATH = join(
+  REPO_ROOT,
+  'content',
+  'q2_community_content',
+  'gamedata',
+  'manifest.json',
+)
 
 const SHA256_SHAPE = /^[a-f0-9]{64}$/
 

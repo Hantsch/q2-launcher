@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 
 const handlers = vi.hoisted(() => ({
   position: null as null | ((p: { positionMs: number | null; durationMs: number | null }) => void),
@@ -9,29 +10,31 @@ const handlers = vi.hoisted(() => ({
   timeline: vi.fn(),
 }))
 
-vi.mock('./client', () => ({
-  playbackCinema: vi.fn(),
-  playbackDisplayRead: () => new Promise(() => {}),
-  playbackTimeline: (a: unknown) => handlers.timeline(a),
-  onPlaybackPosition: (l: typeof handlers.position) => {
-    handlers.position = l
-    return handlers.offPosition
-  },
-  onPlaybackState: (l: typeof handlers.state) => {
-    handlers.state = l
-    return handlers.offState
-  },
-  onPlaybackDisplay: (l: typeof handlers.display) => {
-    handlers.display = l
-    return () => {}
-  },
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    playbackCinema: vi.fn(),
+    playbackDisplayRead: () => new Promise(() => {}),
+    playbackTimeline: (a: unknown) => handlers.timeline(a),
+    onPlaybackPosition: (l: unknown) => {
+      handlers.position = l as typeof handlers.position
+      return handlers.offPosition
+    },
+    onPlaybackState: (l: typeof handlers.state) => {
+      handlers.state = l
+      return handlers.offState
+    },
+    onPlaybackDisplay: (l: unknown) => {
+      handlers.display = l as typeof handlers.display
+      return () => {}
+    },
+  }),
+)
 
 import { usePlaybackStore } from './playback-store'
 import { expected } from './optimistic-timeline'
 
-const okResult = { ok: true, value: { ok: true } }
-const refused = { ok: true, value: { ok: false, error: { key: 'replays.timeline.refused' } } }
+const okResult = { ok: true, value: undefined }
+const refused = { ok: false, error: { key: 'replays.timeline.refused' } }
 
 beforeEach(() => {
   usePlaybackStore.getState().endSession()
@@ -63,13 +66,45 @@ describe('playback store (story 165 D3)', () => {
     expect(usePlaybackStore.getState().session?.fullscreen).toBe(false)
   })
 
+  it('a display event with a stage notice shows it as the stage reason, and a null notice clears it', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    handlers.display?.({ fullscreen: false, stageNotice: { key: 'replays.stage.notOnTop.x11' } })
+    expect(usePlaybackStore.getState().stageReason).toEqual({ key: 'replays.stage.notOnTop.x11' })
+    handlers.display?.({ fullscreen: false, stageNotice: null })
+    expect(usePlaybackStore.getState().stageReason).toBeNull()
+  })
+
+  it('a null stage notice keeps the Wayland refusal from demo.play', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    usePlaybackStore.getState().setStageReason({ key: 'replays.stage.unavailable.wayland' })
+    handlers.display?.({ fullscreen: false, stageNotice: null })
+    expect(usePlaybackStore.getState().stageReason).toEqual({
+      key: 'replays.stage.unavailable.wayland',
+    })
+  })
+
   it('the display event sets mode, speed and cinema availability', () => {
     usePlaybackStore.getState().beginSession('a.dm2', 90_000)
-    expect(usePlaybackStore.getState().session).toMatchObject({ mode: 'preview', cinemaAvailability: { available: true } })
-    const off = { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } }
+    expect(usePlaybackStore.getState().session).toMatchObject({
+      mode: 'preview',
+      cinemaAvailability: { available: true },
+    })
+    const off = {
+      available: false,
+      reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+    }
     handlers.display?.({ fullscreen: false, cinema: true, speed: 2, cinemaAvailability: off })
-    expect(usePlaybackStore.getState().session).toMatchObject({ mode: 'cinema', speed: 2, cinemaAvailability: off })
-    handlers.display?.({ fullscreen: true, cinema: false, speed: 2, cinemaAvailability: { available: true } })
+    expect(usePlaybackStore.getState().session).toMatchObject({
+      mode: 'cinema',
+      speed: 2,
+      cinemaAvailability: off,
+    })
+    handlers.display?.({
+      fullscreen: true,
+      cinema: false,
+      speed: 2,
+      cinemaAvailability: { available: true },
+    })
     expect(usePlaybackStore.getState().session).toMatchObject({
       mode: 'fullscreen',
       fullscreen: true,
@@ -204,5 +239,33 @@ describe('optimistic timeline in the store (story 184 D2)', () => {
     await usePlaybackStore.getState().sendTimeline({ kind: 'fullscreen' })
     expect(handlers.timeline).toHaveBeenCalledWith({ kind: 'fullscreen' })
     expect(sess().optimistic.nextId).toBe(1)
+  })
+})
+
+describe('start position', () => {
+  it('a pending start seek is sent once after the first position', () => {
+    usePlaybackStore
+      .getState()
+      .beginSession('a.dm2', 90_000, { id: 'd1', archived: false, startAtS: 41 })
+    expect(usePlaybackStore.getState().session).toMatchObject({ demoId: 'd1', pendingSeekS: 41 })
+
+    // A sample without a position says nothing about the engine taking commands yet.
+    handlers.position?.({ positionMs: null, durationMs: null })
+    expect(handlers.timeline).not.toHaveBeenCalled()
+
+    handlers.position?.({ positionMs: 0, durationMs: 90_000 })
+    handlers.position?.({ positionMs: 250, durationMs: 90_000 })
+
+    expect(handlers.timeline).toHaveBeenCalledTimes(1)
+    expect(handlers.timeline).toHaveBeenCalledWith({ kind: 'seekTo', seconds: 41 })
+    expect(usePlaybackStore.getState().session?.pendingSeekS).toBeNull()
+  })
+
+  it('a session without a start position sends nothing on its positions', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000, { id: 'd1', archived: true })
+    handlers.position?.({ positionMs: 0, durationMs: 90_000 })
+
+    expect(handlers.timeline).not.toHaveBeenCalled()
+    expect(usePlaybackStore.getState().session).toMatchObject({ demoId: 'd1', archived: true })
   })
 })

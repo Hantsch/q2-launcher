@@ -108,108 +108,115 @@ Result shape (D1 exports it):
 ```ts
 type FrameCountResult =
   | { ok: true; frames: number; durationMs: number; complete: boolean }
-  | { ok: false; reason: 'not-a-demo' | 'undecodable' | 'no-frames' | 'unreadable'
-      ; at?: number /* file offset of the failing block */ }
-interface FrameCounter { push(chunk: Uint8Array): void; finish(): FrameCountResult; readonly failed: boolean }
+  | {
+      ok: false
+      reason: 'not-a-demo' | 'undecodable' | 'no-frames' | 'unreadable'
+      at?: number /* file offset of the failing block */
+    }
+interface FrameCounter {
+  push(chunk: Uint8Array): void
+  finish(): FrameCountResult
+  readonly failed: boolean
+}
 ```
 
 ## Deliverables
 
 - [x] **D1 — counter core + `.dm2` frame counter + synthetic writer + tests.**
-  Files: new `src/shared/demos/frame-count.ts` (types, `DEMO_FRAME_MS = 100`, streaming block
-  buffer), `src/shared/demos/dm2-frames.ts`, `src/shared/demos/dm2-frames-writer.ts`,
-  `src/shared/demos/dm2-frames.test.ts`. Pure (no `node:*`, no `Buffer`); mirror the style of
-  `src/shared/demos/dm2-header.ts` / `dm2-writer.ts` (story 136) and `src/shared/servers/`.
-  Spec: `createDm2FrameCounter(): FrameCounter` (types above). Framing: `int32 LE` length, `-1` =
-  end (later bytes ignored), other negative or > 1 MiB → `not-a-demo`; the buffer keeps only the
-  unconsumed tail (at most one block + one chunk; no re-concatenation of the whole remainder per
-  push — use a growable buffer with a read offset). First block's first opcode must be
-  `svc_serverdata` (12) → read `int32` protocol (34, 3434, 3435, 3436 accepted, else `not-a-demo`).
-  Per block, decode messages from offset 0 until: `svc_frame` (20) → `frames++`, next block;
-  `svc_serverdata` (12, header or mid-demo map change; re-read protocol) or `svc_spawnbaseline`
-  (14) → block is frame-less, next block; `svc_configstring` (13: `uint16` + string), `svc_print`
-  (10: byte + string), `svc_stufftext` (11), `svc_centerprint` (15), `svc_layout` (4) (strings),
-  `svc_inventory` (5: 256 × int16), `svc_nop` (6), `svc_disconnect` (7) / `svc_reconnect` (8),
-  `svc_muzzleflash` / `2` (1/2: int16 + byte), `svc_sound` (9: flags byte, index byte, optional
-  volume/attenuation/offset bytes, entity int16, pos 3 × int16 by flag), `svc_download` (16: int16
-  size, byte, size bytes when > 0), `svc_temp_entity` (3: byte type + the per-type field list —
-  port the complete protocol-34 table from packetflinger/libq2 (Apache-2.0), incl. `TE_STEAM`'s
-  conditional `int32`) → sized and skipped; any other opcode, a size past the block end, an
-  unterminated string → `undecodable` (sticky: later pushes are ignored, `failed` = true). Before
-  coding, confirm in q2pro `master` (`src/client/parse.c`, `inc/common/protocol.h`, read for facts
-  only, nothing GPL copied) (a) the one-frame-per-block invariant (`src/client/demo.c`) and (b)
-  which of these messages differ for 3434–3436 (at least the 16-bit sound index flag); implement
-  them keyed by protocol and write both findings into the file's header comment, together with the
-  method, "exact, not an estimate", and the fixture accuracy (block estimate 0 frames off on both
-  real fixtures) — AC2's code half. `finish()`: cut last block / missing terminator → keep counted
-  frames, `complete: false`; 0 frames → `no-frames`; else `{ ok, frames, durationMs: frames × 100,
-  complete }`. Never throws, every loop advances.
-  Writer: `buildDm2Stream(opts)` → `Uint8Array`: serverdata block (protocol), header configstring
-  blocks, then a list of blocks each built from messages (`frame` with serverframe, `print`,
-  `configstring`, `sound`, `tempEntity(type)`, `baseline`, `serverdata`, `raw(opcode, bytes)`),
-  optional terminator.
-  Tests (names in Acceptance Tests): frames preceded by every sized reliable message count once;
-  frame-less blocks (print-only, baselines, mid-demo serverdata) count zero — so a block counter
-  fails; each 343x protocol with its confirmed deviations; unknown opcode / overrun → `undecodable`;
-  cut tail → `complete: false`; zero frames → `no-frames`; same result for 1-byte, 7-byte and
-  64 KiB pushes; 1000 seeded mutations never throw; **budget:** a 32 MiB synthetic stream pushed in
-  64 KiB chunks counts correctly in ≤ 1000 ms (`performance.now()` around push+finish).
+      Files: new `src/shared/demos/frame-count.ts` (types, `DEMO_FRAME_MS = 100`, streaming block
+      buffer), `src/shared/demos/dm2-frames.ts`, `src/shared/demos/dm2-frames-writer.ts`,
+      `src/shared/demos/dm2-frames.test.ts`. Pure (no `node:*`, no `Buffer`); mirror the style of
+      `src/shared/demos/dm2-header.ts` / `dm2-writer.ts` (story 136) and `src/shared/servers/`.
+      Spec: `createDm2FrameCounter(): FrameCounter` (types above). Framing: `int32 LE` length, `-1` =
+      end (later bytes ignored), other negative or > 1 MiB → `not-a-demo`; the buffer keeps only the
+      unconsumed tail (at most one block + one chunk; no re-concatenation of the whole remainder per
+      push — use a growable buffer with a read offset). First block's first opcode must be
+      `svc_serverdata` (12) → read `int32` protocol (34, 3434, 3435, 3436 accepted, else `not-a-demo`).
+      Per block, decode messages from offset 0 until: `svc_frame` (20) → `frames++`, next block;
+      `svc_serverdata` (12, header or mid-demo map change; re-read protocol) or `svc_spawnbaseline`
+      (14) → block is frame-less, next block; `svc_configstring` (13: `uint16` + string), `svc_print`
+      (10: byte + string), `svc_stufftext` (11), `svc_centerprint` (15), `svc_layout` (4) (strings),
+      `svc_inventory` (5: 256 × int16), `svc_nop` (6), `svc_disconnect` (7) / `svc_reconnect` (8),
+      `svc_muzzleflash` / `2` (1/2: int16 + byte), `svc_sound` (9: flags byte, index byte, optional
+      volume/attenuation/offset bytes, entity int16, pos 3 × int16 by flag), `svc_download` (16: int16
+      size, byte, size bytes when > 0), `svc_temp_entity` (3: byte type + the per-type field list —
+      port the complete protocol-34 table from packetflinger/libq2 (Apache-2.0), incl. `TE_STEAM`'s
+      conditional `int32`) → sized and skipped; any other opcode, a size past the block end, an
+      unterminated string → `undecodable` (sticky: later pushes are ignored, `failed` = true). Before
+      coding, confirm in q2pro `master` (`src/client/parse.c`, `inc/common/protocol.h`, read for facts
+      only, nothing GPL copied) (a) the one-frame-per-block invariant (`src/client/demo.c`) and (b)
+      which of these messages differ for 3434–3436 (at least the 16-bit sound index flag); implement
+      them keyed by protocol and write both findings into the file's header comment, together with the
+      method, "exact, not an estimate", and the fixture accuracy (block estimate 0 frames off on both
+      real fixtures) — AC2's code half. `finish()`: cut last block / missing terminator → keep counted
+      frames, `complete: false`; 0 frames → `no-frames`; else `{ ok, frames, durationMs: frames × 100,
+complete }`. Never throws, every loop advances.
+      Writer: `buildDm2Stream(opts)` → `Uint8Array`: serverdata block (protocol), header configstring
+      blocks, then a list of blocks each built from messages (`frame` with serverframe, `print`,
+      `configstring`, `sound`, `tempEntity(type)`, `baseline`, `serverdata`, `raw(opcode, bytes)`),
+      optional terminator.
+      Tests (names in Acceptance Tests): frames preceded by every sized reliable message count once;
+      frame-less blocks (print-only, baselines, mid-demo serverdata) count zero — so a block counter
+      fails; each 343x protocol with its confirmed deviations; unknown opcode / overrun → `undecodable`;
+      cut tail → `complete: false`; zero frames → `no-frames`; same result for 1-byte, 7-byte and
+      64 KiB pushes; 1000 seeded mutations never throw; **budget:** a 32 MiB synthetic stream pushed in
+      64 KiB chunks counts correctly in ≤ 1000 ms (`performance.now()` around push+finish).
 
 - [x] **D2 — `.mvd2` frame counter + synthetic writer + tests.**
-  Files: new `src/shared/demos/mvd2-frames.ts`, `src/shared/demos/mvd2-frames-writer.ts`,
-  `src/shared/demos/mvd2-frames.test.ts`. Mirror D1's `dm2-frames.ts` / writer / test and reuse
-  `frame-count.ts` (types, `DEMO_FRAME_MS`, streaming block buffer).
-  Spec: `createMvd2FrameCounter(): FrameCounter`. Input starts with magic `MVD2` (else
-  `not-a-demo`), then `uint16 LE` length blocks, `0` = end. Opcode byte: low 5 bits = op, high 3
-  bits = extra bits. First block must start with `mvd_serverdata` (4): read `int32` protocol (37)
-  and `int16` version (2009–2013, else `not-a-demo`); a serverdata block (header or mid-file
-  gamestate) is frame-less. Per block decode until `mvd_frame` (6) → `frames++`, next block; sized
-  and skipped: `mvd_nop` (1), `mvd_configstring` (5: `uint16` + string), `mvd_print` (17: byte +
-  string), `mvd_unicast`/`_r` (8/9: length = byte | extra << 8, byte clientnum, length bytes),
-  `mvd_multicast_*` (10–15: length = byte | extra << 8; `_pvs`/`_phs` variants (11, 12, 14, 15)
-  add `uint16` leaf; length bytes), `mvd_sound` (16: layout per version — confirm); anything else
-  → `undecodable`. Confirm every layout and the one-frame-per-block `rec_frame` invariant against
-  aq2replay (MIT) and q2pro `master` `src/server/mvd.c` / `src/server/mvd/parse.c` (facts only) and
-  note them in the header comment. `finish()` as D1.
-  Tests: frames behind configstring/print/unicast/multicast prefixes count once; print-only and
-  gamestate blocks count zero; versions 2009–2013 accepted, 2008 → `not-a-demo`; unknown op →
-  `undecodable`; cut tail → `complete: false`; push-size independence; 1000 seeded mutations never
-  throw; budget as D1 (32 MiB MVD2 in 64 KiB pushes ≤ 1000 ms).
+      Files: new `src/shared/demos/mvd2-frames.ts`, `src/shared/demos/mvd2-frames-writer.ts`,
+      `src/shared/demos/mvd2-frames.test.ts`. Mirror D1's `dm2-frames.ts` / writer / test and reuse
+      `frame-count.ts` (types, `DEMO_FRAME_MS`, streaming block buffer).
+      Spec: `createMvd2FrameCounter(): FrameCounter`. Input starts with magic `MVD2` (else
+      `not-a-demo`), then `uint16 LE` length blocks, `0` = end. Opcode byte: low 5 bits = op, high 3
+      bits = extra bits. First block must start with `mvd_serverdata` (4): read `int32` protocol (37)
+      and `int16` version (2009–2013, else `not-a-demo`); a serverdata block (header or mid-file
+      gamestate) is frame-less. Per block decode until `mvd_frame` (6) → `frames++`, next block; sized
+      and skipped: `mvd_nop` (1), `mvd_configstring` (5: `uint16` + string), `mvd_print` (17: byte +
+      string), `mvd_unicast`/`_r` (8/9: length = byte | extra << 8, byte clientnum, length bytes),
+      `mvd_multicast_*` (10–15: length = byte | extra << 8; `_pvs`/`_phs` variants (11, 12, 14, 15)
+      add `uint16` leaf; length bytes), `mvd_sound` (16: layout per version — confirm); anything else
+      → `undecodable`. Confirm every layout and the one-frame-per-block `rec_frame` invariant against
+      aq2replay (MIT) and q2pro `master` `src/server/mvd.c` / `src/server/mvd/parse.c` (facts only) and
+      note them in the header comment. `finish()` as D1.
+      Tests: frames behind configstring/print/unicast/multicast prefixes count once; print-only and
+      gamestate blocks count zero; versions 2009–2013 accepted, 2008 → `not-a-demo`; unknown op →
+      `undecodable`; cut tail → `complete: false`; push-size independence; 1000 seeded mutations never
+      throw; budget as D1 (32 MiB MVD2 in 64 KiB pushes ≤ 1000 ms).
 
 - [x] **D3 — duration formatter + tests.**
-  Files: new `src/shared/demos/duration-format.ts`, `src/shared/demos/duration-format.test.ts`.
-  Pure; mirror any small pure formatter under `src/shared/` (e.g. `src/shared/servers/`).
-  Spec: `formatDemoDuration(ms: number | null | undefined): { kind: 'known'; text: string } |
-  { kind: 'unknown' }`. `null`, `undefined`, `NaN`, `±Infinity`, `≤ 0` → `unknown`. Else
-  `s = max(1, round(ms / 1000))`; `s < 3600` → `m:ss` (minutes unpadded: `0:41`, `10:20`,
-  `59:59`); from 3600 → `h:mm:ss` (`1:00:00`, `1:02:05`, `12:00:01`). Doc comment: the
-  `unknown` case is rendered by the list via i18n key `replays.duration.unknown` (S27).
-  Tests: the boundary table above incl. 3599.4 s → `59:59`, 3599.6 s → `1:00:00`, 1 ms → `0:01`,
-  and "no input ever yields `0:00`" over a sweep of 0…10 000 ms plus the invalid inputs.
+      Files: new `src/shared/demos/duration-format.ts`, `src/shared/demos/duration-format.test.ts`.
+      Pure; mirror any small pure formatter under `src/shared/` (e.g. `src/shared/servers/`).
+      Spec: `formatDemoDuration(ms: number | null | undefined): { kind: 'known'; text: string } |
+{ kind: 'unknown' }`. `null`, `undefined`, `NaN`, `±Infinity`, `≤ 0` → `unknown`. Else
+      `s = max(1, round(ms / 1000))`; `s < 3600` → `m:ss` (minutes unpadded: `0:41`, `10:20`,
+      `59:59`); from 3600 → `h:mm:ss` (`1:00:00`, `1:02:05`, `12:00:01`). Doc comment: the
+      `unknown` case is rendered by the list via i18n key `replays.duration.unknown` (S27).
+      Tests: the boundary table above incl. 3599.4 s → `59:59`, 3599.6 s → `1:00:00`, 1 ms → `0:01`,
+      and "no input ever yields `0:00`" over a sweep of 0…10 000 ms plus the invalid inputs.
 
 - [x] **D4 — main streaming reader + real-fixture tests + concept.**
-  Files: `src/main/lib/demo-bytes.ts` (add `readDemoDuration`; leave 136/137's functions
-  unchanged), `src/main/lib/demo-bytes.test.ts` (add a `describe` block), `docs/concepts/demo-browser.md`.
-  Mirror the gzip-sniffing stream path 136 built in `readDemoPrefix`.
-  Spec: `readDemoDuration(path): Promise<FrameCountResult>` — `createReadStream` (64 KiB
-  `highWaterMark`); gzip by magic `1f 8b` → pipe through `createGunzip()`; the first 4
-  (decompressed) bytes `MVD2` → `createMvd2FrameCounter`, else `createDm2FrameCounter`; push every
-  chunk; stop and destroy the streams as soon as `counter.failed`; a gunzip error mid-stream →
-  `finish()` on what was pushed (a cut `.gz` behaves like a cut file); an I/O error → `{ ok: false,
-  reason: 'unreadable' }`. Never rejects.
-  Tests: real `docs/fixtures/demos/test.dm2` → `{ ok: true, frames: 410, durationMs: 41000,
-  complete: true }` and its frames equal the `svc_frame` serverframe span (last − first + 1, read
-  independently in the test) — the exactness oracle; real `PFAU_20221127-053327_q2dm1.mvd2` →
-  6201 frames / 620 100 ms / complete (refine's prototype number — if the built counter disagrees,
-  investigate, do not edit the expectation to fit); `gzipSync` copies of both yield deep-equal
-  results; a `.dm2`-named copy of the MVD2 still yields 6201; a missing path → `unreadable`; **AC1
-  cross test:** for both real fixtures and synthetic protocol 3434/3435/3436 dm2 and MVD version
-  2009/2013 files (D1/D2 writers, headers shaped so 136/137's parser accepts them), the header
-  reader (`readDemoHeader` / `parseDemoHeader` — exact names confirmed at build time) returns
-  `ok: true` **and** `readDemoDuration` returns `ok: true` with `frames > 0`.
-  Concept: §6.3 "Duration" and §17.4 rewritten as resolved — exact frame count by per-block decode
-  up to the frame, the one-frame-per-block invariant, 10 Hz, the budget, and the fixture numbers
-  (410 / 6201 frames, block estimate 0 off) — AC2's concept half.
+      Files: `src/main/lib/demo-bytes.ts` (add `readDemoDuration`; leave 136/137's functions
+      unchanged), `src/main/lib/demo-bytes.test.ts` (add a `describe` block), `docs/concepts/demo-browser.md`.
+      Mirror the gzip-sniffing stream path 136 built in `readDemoPrefix`.
+      Spec: `readDemoDuration(path): Promise<FrameCountResult>` — `createReadStream` (64 KiB
+      `highWaterMark`); gzip by magic `1f 8b` → pipe through `createGunzip()`; the first 4
+      (decompressed) bytes `MVD2` → `createMvd2FrameCounter`, else `createDm2FrameCounter`; push every
+      chunk; stop and destroy the streams as soon as `counter.failed`; a gunzip error mid-stream →
+      `finish()` on what was pushed (a cut `.gz` behaves like a cut file); an I/O error → `{ ok: false,
+reason: 'unreadable' }`. Never rejects.
+      Tests: real `docs/fixtures/demos/test.dm2` → `{ ok: true, frames: 410, durationMs: 41000,
+complete: true }` and its frames equal the `svc_frame` serverframe span (last − first + 1, read
+      independently in the test) — the exactness oracle; real `PFAU_20221127-053327_q2dm1.mvd2` →
+      6201 frames / 620 100 ms / complete (refine's prototype number — if the built counter disagrees,
+      investigate, do not edit the expectation to fit); `gzipSync` copies of both yield deep-equal
+      results; a `.dm2`-named copy of the MVD2 still yields 6201; a missing path → `unreadable`; **AC1
+      cross test:** for both real fixtures and synthetic protocol 3434/3435/3436 dm2 and MVD version
+      2009/2013 files (D1/D2 writers, headers shaped so 136/137's parser accepts them), the header
+      reader (`readDemoHeader` / `parseDemoHeader` — exact names confirmed at build time) returns
+      `ok: true` **and** `readDemoDuration` returns `ok: true` with `frames > 0`.
+      Concept: §6.3 "Duration" and §17.4 rewritten as resolved — exact frame count by per-block decode
+      up to the frame, the one-frame-per-block invariant, 10 Hz, the budget, and the fixture numbers
+      (410 / 6201 frames, block estimate 0 off) — AC2's concept half.
 
 ## Model Hints
 
@@ -266,6 +273,7 @@ the reviewer directly. Full regression gate (`npm test`, `npm run ui:verify`, `n
 not run — this is a sprint-scoped narrow-gate build; run it before merge or with `/build 138 --full`.
 
 Decisions:
+
 - 3435+ temp-entities/sounds use extended (2-3 byte) coordinates per axis, not found in the story's
   opcode list — added as a confirmed protocol deviation (D1); undocumented previously, discovered
   against q2pro `master`.

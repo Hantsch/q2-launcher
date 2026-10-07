@@ -3,7 +3,7 @@ name: design-tokens
 description: "Method for a semantic design-token layer in a React/Tailwind app and the mobile accessibility floor that goes with it. Use when: picking colours for a component; writing a class list that would contain a hex value or a raw palette class (slate-500, gray-200); adding or changing dark mode; setting up or extending the token vocabulary in tailwind.config or the CSS variable block; adding a theme; choosing spacing, radius, elevation or transitions; building anything touch-operated; reviewing UI code for hardcoded colours, missing focus states, too-small touch targets or colour-only status. DO NOT USE FOR: choosing a brand palette from scratch; backend code; non-Tailwind styling systems."
 ---
 
-<!-- tech-rules:managed 2.1.0 -->
+<!-- tech-rules:managed 2.3.0 -->
 
 # Design Tokens and the Accessibility Floor
 
@@ -155,8 +155,12 @@ roles. Status colours are not accents: they report state and are driven by data,
 Not aspirational - this is the definition of done for any touch-operated UI.
 
 - **Touch targets: minimum 44x44px** for every interactive element - button, link, nav item, icon
-  button, select, toggle (`min-height: 44px; min-width: 44px`). 44 flat, no per-component exception:
-  a smaller target is a miss on a phone, and "it looks fine on my desktop" is not evidence.
+  button, select, toggle (`min-height: 44px; min-width: 44px`). 44 flat, no per-component exception
+  for touch-operated UI: a smaller target is a miss on a phone, and "it looks fine on my desktop"
+  is not evidence. A mouse-and-keyboard-only desktop app has no phone to miss on; it records **one**
+  project-wide deviation that names its own floor (for example 28 px dense controls, 24 px in-row
+  selects) and the surfaces that sit below 44 - not one row per control. `ui-verify`'s
+  accessibility gate reads that floor from the stylesheet, so the number lives in one place.
 - **No iOS auto-zoom:** every `<select>`, `<input>` and `<textarea>` renders at 16px or larger
   (`font-size: max(1rem, 16px)`). Below that, Safari zooms the page on focus and the layout
   jumps.
@@ -189,7 +193,8 @@ Not aspirational - this is the definition of done for any touch-operated UI.
 - [ ] `text-accent-on` (not a hardcoded white) on top of `bg-accent`
 - [ ] Dark theme covers every token the light theme defines - no missing name
 - [ ] Radius, elevation and spacing on the documented tiers; no arbitrary values
-- [ ] Interactive elements at least 44x44px
+- [ ] Interactive elements at least 44x44px - or, in a mouse-and-keyboard-only desktop app, at the
+      one project-wide floor its single deviation row names; no per-control rows
 - [ ] Inputs and selects at 16px or larger
 - [ ] Fixed/sticky edge elements respect safe-area insets
 - [ ] `:focus-visible` ring on every interactive element; `:focus` not styled alone

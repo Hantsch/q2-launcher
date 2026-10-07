@@ -5,13 +5,17 @@
  * this folder is compiled into both the Node-flavoured and the browser-flavoured
  * TypeScript projects.
  */
+import fixtureConstants from './fixture-constants.json'
 
 /** File names of the launcher's own persisted state, inside `app.getPath('userData')`. */
-export const STATE_FILE = 'state.json'
-export const WINDOW_STATE_FILE = 'window-state.json'
+export const STATE_FILE: string = fixtureConstants.stateFile
+export const WINDOW_STATE_FILE: string = fixtureConstants.windowStateFile
 
-/** Bumped whenever the shape of `state.json` changes; see `src/main/services/migrations.ts`. */
-export const STATE_SCHEMA_VERSION = 5
+/**
+ * Bumped whenever the shape of `state.json` changes; see `src/main/services/migrations.ts`.
+ * Lives in the JSON so the plain-Node fixture writer reads the same value.
+ */
+export const STATE_SCHEMA_VERSION: number = fixtureConstants.stateSchemaVersion
 
 /** Window sizing. The shell layout below ~940x620 starts to break down. */
 export const WINDOW_DEFAULT_WIDTH = 1280
@@ -41,7 +45,7 @@ export const NON_GAME_DIRS = new Set([
   // The Steam build of Quake II ships the classic game in the install root and
   // the 2023 remaster in `rerelease/`. It is a whole second game, not a mod.
   'rerelease',
-  // Story 092 D2: the single engine-update backup slot
+  // Story 092: the single engine-update backup slot
   // (`<root>/.q2launcher-engine-backup/`) - never a selectable game directory in `GameDirSelect`,
   // by rule rather than by luck of its contents.
   '.q2launcher-engine-backup',
@@ -63,5 +67,5 @@ export const RETAIL_PAK_SIZES: Record<string, number> = {
 
 export const APP_REPO_URL = 'https://github.com/Hantsch/q2-launcher'
 
-/** Story 099 D3: the full changelog, linked from Settings > About next to the repository link. */
+/** Story 099: the full changelog, linked from Settings > About next to the repository link. */
 export const APP_CHANGELOG_URL = 'https://github.com/Hantsch/q2-launcher/blob/main/CHANGELOG.md'

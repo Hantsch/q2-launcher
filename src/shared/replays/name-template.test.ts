@@ -10,13 +10,13 @@ import {
 
 function compile(text: string): CompiledNameTemplate {
   const r = compileNameTemplate(text)
-  if (!r.ok) throw new Error(`expected ${text} to compile, got ${r.error.key}`)
+  if (!r.ok) throw new Error(`expected ${text} to compile, got ${r.reasonKey}`)
   return r.template
 }
 
 function rejection(text: string): NameTemplateErrorKey | null {
   const r = compileNameTemplate(text)
-  return r.ok ? null : r.error.key
+  return r.ok ? null : r.reasonKey
 }
 
 function match(template: string, fileName: string): ReturnType<typeof matchNameTemplate> {
@@ -42,9 +42,19 @@ describe('compileNameTemplate rejections', () => {
     const r = compileNameTemplate('{mapp}-{host}')
     expect(r).toEqual({
       ok: false,
-      error: { key: NAME_TEMPLATE_ERROR.unknownToken, params: { token: 'mapp' } },
+      reasonKey: NAME_TEMPLATE_ERROR.unknownToken,
+      params: { token: 'mapp' },
     })
     expect(rejection('{}')).toBe(NAME_TEMPLATE_ERROR.unknownToken)
+  })
+
+  it('a failed compile is a Refusal with its key and params', () => {
+    expect(compileNameTemplate('')).toEqual({ ok: false, reasonKey: NAME_TEMPLATE_ERROR.empty })
+    expect(compileNameTemplate('{map')).toEqual({
+      ok: false,
+      reasonKey: NAME_TEMPLATE_ERROR.unclosedBrace,
+      params: { position: 0 },
+    })
   })
 
   it('rejects a duplicated token, counting shorthands as their parts, but lets {skip} repeat', () => {
@@ -86,7 +96,9 @@ describe('compileNameTemplate rejections', () => {
 
 describe('matchNameTemplate on the shipped shapes', () => {
   it('reads a {year}-{month}-{day}-{hour}{min}-{map}.dm2 name', () => {
-    expect(match('{year}-{month}-{day}-{hour}{min}-{map}.dm2', '2026-09-26-2130-q2dm1.dm2')).toStrictEqual({
+    expect(
+      match('{year}-{month}-{day}-{hour}{min}-{map}.dm2', '2026-09-26-2130-q2dm1.dm2'),
+    ).toStrictEqual({
       kind: 'match',
       facts: { date: { year: 2026, month: 9, day: 26, hour: 21, minute: 30 }, map: 'q2dm1' },
     })
@@ -122,7 +134,9 @@ describe('matchNameTemplate on the shipped shapes', () => {
   })
 
   it('reads a {year}{month}{day}-{hour}{min}{sec}-{map}.mvd2 name', () => {
-    expect(match('{year}{month}{day}-{hour}{min}{sec}-{map}.mvd2', '20260926-213000-urban.mvd2')).toStrictEqual({
+    expect(
+      match('{year}{month}{day}-{hour}{min}{sec}-{map}.mvd2', '20260926-213000-urban.mvd2'),
+    ).toStrictEqual({
       kind: 'match',
       facts: {
         date: { year: 2026, month: 9, day: 26, hour: 21, minute: 30, second: 0 },
@@ -141,10 +155,22 @@ describe('matchNameTemplate on the shipped shapes', () => {
 
 describe('matchNameTemplate normalisation', () => {
   it('drops a .gz suffix and compares the extension and literals case-insensitively', () => {
-    const facts = { date: { year: 2026, month: 9, day: 26, hour: 21, minute: 30, second: 0 }, map: 'Q2DM1' }
-    expect(match('{map}_{date}_{time}.dm2', 'Q2DM1_2026-09-26_21-30-00.DM2.gz')).toStrictEqual({ kind: 'match', facts })
-    expect(match('{map}_{date}_{time}.dm2', 'Q2DM1_2026-09-26_21-30-00.dm2.GZ')).toStrictEqual({ kind: 'match', facts })
-    expect(match('Demo-{map}', 'DEMO-q2dm1.dm2')).toStrictEqual({ kind: 'match', facts: { map: 'q2dm1' } })
+    const facts = {
+      date: { year: 2026, month: 9, day: 26, hour: 21, minute: 30, second: 0 },
+      map: 'Q2DM1',
+    }
+    expect(match('{map}_{date}_{time}.dm2', 'Q2DM1_2026-09-26_21-30-00.DM2.gz')).toStrictEqual({
+      kind: 'match',
+      facts,
+    })
+    expect(match('{map}_{date}_{time}.dm2', 'Q2DM1_2026-09-26_21-30-00.dm2.GZ')).toStrictEqual({
+      kind: 'match',
+      facts,
+    })
+    expect(match('Demo-{map}', 'DEMO-q2dm1.dm2')).toStrictEqual({
+      kind: 'match',
+      facts: { map: 'q2dm1' },
+    })
   })
 
   it('requires the template extension: .dm2 does not match .mvd2 and vice versa', () => {
@@ -237,7 +263,8 @@ function bruteSplits(parts: Part[], name: string): string[][] {
       }
       return
     }
-    for (let end = pos + 1; end <= name.length; end++) rec(k + 1, end, [...caps, name.slice(pos, end)])
+    for (let end = pos + 1; end <= name.length; end++)
+      rec(k + 1, end, [...caps, name.slice(pos, end)])
   }
   rec(0, 0, [])
   return out
@@ -254,7 +281,11 @@ function mulberry32(seed: number): () => number {
 }
 
 describe('matchNameTemplate against a brute-force oracle', () => {
-  const cases: { template: string; parts: Part[]; pick: (f: NameFacts) => (string | undefined)[] }[] = [
+  const cases: {
+    template: string
+    parts: Part[]
+    pick: (f: NameFacts) => (string | undefined)[]
+  }[] = [
     {
       template: '{teamA}-{teamB}',
       parts: [{ tok: 'teamA' }, { lit: '-' }, { tok: 'teamB' }],
@@ -301,7 +332,8 @@ describe('matchNameTemplate against a brute-force oracle', () => {
         const got = matchNameTemplate(compiled, name)
         const expected = splits.length === 0 ? 'none' : splits.length === 1 ? 'match' : 'ambiguous'
         expect(got.kind, `${c.template} vs ${name}`).toBe(expected)
-        if (got.kind === 'match') expect(c.pick(got.facts), `${c.template} vs ${name}`).toEqual(splits[0])
+        if (got.kind === 'match')
+          expect(c.pick(got.facts), `${c.template} vs ${name}`).toEqual(splits[0])
         seen[got.kind]++
       }
     }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 /**
- * Story 187 D7: the cinema overlay's controls fade out after `idleMs` without input. `hold`
+ * Story 187: the cinema overlay's controls fade out after `idleMs` without input. `hold`
  * (bar hovered, demo paused) keeps them up; releasing the hold starts a fresh idle period.
  * `show()` is the "there was input" signal (mouse move, key, click on the picture).
  */

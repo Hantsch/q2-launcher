@@ -21,7 +21,10 @@ describe('demo-browser.md documents the resolved name-template syntax', () => {
   const openPointsStart = contents.indexOf('## 17. Open points')
   expect(openPointsStart).toBeGreaterThan(-1)
   const nextSectionStart = contents.indexOf('\n## ', openPointsStart + 1)
-  const openPoints = contents.slice(openPointsStart, nextSectionStart === -1 ? undefined : nextSectionStart)
+  const openPoints = contents.slice(
+    openPointsStart,
+    nextSectionStart === -1 ? undefined : nextSectionStart,
+  )
 
   const item2Start = openPoints.search(/\n2\.\s+\*\*Name-template syntax\*\*/)
 

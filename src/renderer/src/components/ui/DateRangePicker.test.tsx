@@ -95,9 +95,7 @@ describe('DateRangePicker', () => {
     const dialog = screen.getByRole('dialog', { name: 'Date' })
     expect(dialog).toBeTruthy()
 
-    const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>('button, input'),
-    )
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button, input'))
     const presetButtons = focusable.filter((el) => el.dataset.testid?.includes('-preset-'))
     const fromInput = screen.getByTestId('demo-date-from')
     const toInput = screen.getByTestId('demo-date-to')

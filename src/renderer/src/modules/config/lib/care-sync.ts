@@ -1,5 +1,5 @@
 /**
- * Care tab, Sync section (story 025 D2): turns story 022's `ProfileSyncState`
+ * Care tab, Sync section (story 025): turns story 022's `ProfileSyncState`
  * (the profile's own canonical file plus one entry per assigned installation,
  * as returned by `getProfileSyncState` in `client.ts`) into a flat list of
  * rows the section can render without knowing anything about the underlying
@@ -18,7 +18,11 @@
  * reported as `'failed'` (with Retry) and there is nothing left in between.
  */
 
-import type { ProfileFileSync, ProfileFileSyncStatus, ProfileSyncState } from '@shared/modules/config'
+import type {
+  ProfileFileSync,
+  ProfileFileSyncStatus,
+  ProfileSyncState,
+} from '@shared/modules/config'
 
 /** One row's sync state - `ProfileFileSyncStatus` with `'error'` renamed to `'failed'`. */
 export type CareSyncState = 'inSync' | 'outOfSync' | 'missing' | 'failed'
@@ -58,7 +62,7 @@ export function toCareSyncRows(sync: ProfileSyncState): CareSyncRow[] {
 }
 
 /**
- * Story 043 D9: which of the two real-world causes put the canonical row into `outOfSync` - the
+ * Story 043: which of the two real-world causes put the canonical row into `outOfSync` - the
  * profile carries edits the UI has not saved yet (`unsavedChanges`), or its file was changed by
  * something other than this launcher and has not been adopted (`externalEdit`). Both currently
  * arrive as the same `outOfSync` state (022 decision 5's five states are not growing a sixth, per
@@ -66,7 +70,7 @@ export function toCareSyncRows(sync: ProfileSyncState): CareSyncRow[] {
  * new state - `CareSyncSection` uses this to choose copy and actions, `toCareSyncRows`/`CareSyncState`
  * above stay exactly as they were.
  *
- * `profile.dirty` (story 043 D2/D4) is the only signal needed and is already on the `ConfigProfile`
+ * `profile.dirty` (story 043) is the only signal needed and is already on the `ConfigProfile`
  * `CareSyncSection` receives - no IPC/schema addition for this deliverable. Undefined for every
  * installation row and for every other canonical state; those keep today's exact rendering.
  */

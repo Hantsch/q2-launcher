@@ -115,26 +115,26 @@ Order: D1 → D2 → D3.
   Inputs from story 139 (import from the file 139 created under `src/shared/`): the shipped pattern
   list (each with a stable `id` and its `template` text in the user syntax) and the template
   validator (text → ok | reason i18n key). Types: `StoredNameTemplate = { id: string; kind:
-  'shipped'; shippedId: string; template: string | null } | { id: string; kind: 'user'; template:
-  string }` (`template: null` = unedited shipped); `NameTemplatesState = { entries:
-  StoredNameTemplate[]; removedShippedIds: string[] }`, default `{ entries: [], removedShippedIds:
-  [] }`; view `NameTemplatesView = { entries: NameTemplateEntry[]; canRestore: boolean }` with
+'shipped'; shippedId: string; template: string | null } | { id: string; kind: 'user'; template:
+string }` (`template: null` = unedited shipped); `NameTemplatesState = { entries:
+StoredNameTemplate[]; removedShippedIds: string[] }`, default `{ entries: [], removedShippedIds:
+[] }`; view `NameTemplatesView = { entries: NameTemplateEntry[]; canRestore: boolean }` with
   `NameTemplateEntry = { id; template; origin: 'shipped' | 'user'; edited: boolean }` (`canRestore` =
   `removedShippedIds` non-empty after merge) plus its zod response schema.
   Functions (all pure, no ids from `crypto` — callers pass a `newId`): `mergeWithShipped(state,
-  shipped)` → state where every shipped id not in `entries` and not in `removedShippedIds` is
+shipped)` → state where every shipped id not in `entries` and not in `removedShippedIds` is
   appended in shipped order; an entry whose `shippedId` is gone is dropped when `template === null`,
   converted to `kind: 'user'` otherwise; `toView(state, shipped)`; `effectiveNameTemplates(state,
-  shipped)` → ordered template strings; `addTemplate`, `updateTemplate` (on a shipped entry sets
+shipped)` → ordered template strings; `addTemplate`, `updateTemplate` (on a shipped entry sets
   `template`; setting it equal to the shipped text stores `null`), `removeTemplate` (shipped →
   tombstone), `reorderTemplates(ids)` (must be a permutation of current ids, else error),
   `resetTemplate(id)` (shipped only), `restoreShipped()`; `nameTemplatesFingerprint(templates:
-  string[])` (stable string, e.g. FNV-1a hex of the `\n`-joined list — no `node:crypto` in shared)
+string[])` (stable string, e.g. FNV-1a hex of the `\n`-joined list — no `node:crypto` in shared)
   and `needsNameFactsRederive(cachedFp: string | undefined, currentFp: string)`.
   In `replays.ts`: `REPLAYS_HANDLERS` gains `nameTemplatesList: 'nameTemplates.list'`,
   `nameTemplatesAdd`, `nameTemplatesUpdate`, `nameTemplatesRemove`, `nameTemplatesReorder`,
   `nameTemplatesReset`, `nameTemplatesRestore` (`'nameTemplates.<verb>'`); `nameTemplateTextSchema =
-  z.string().trim().min(1).max(128).regex(/^[\x20-\x7E]+$/).refine(no '/' or '\\')`; payloads
+z.string().trim().min(1).max(128).regex(/^[\x20-\x7E]+$/).refine(no '/' or '\\')`; payloads
   `{ template }`, `{ id, template }`, `{ id }`, `{ ids: z.array(id).max(50) }`, void for list/restore;
   `NAME_TEMPLATES_MAX = 50`; schemas registered in `REPLAYS_HANDLER_SCHEMAS` (135's "every handler
   has a schema" and "no payload carries a path" tests must stay green — do not name a field
@@ -160,7 +160,7 @@ Order: D1 → D2 → D3.
   `src/main/modules/servers/index.test.ts`), `src/main/lib/schemas.test.ts` (edit).
   Every handler reads state, applies `mergeWithShipped`, applies the D1 op, and for add/update runs
   story 139's validator first — an invalid template returns `fail(<the validator's reason key>,
-  params)` and writes nothing; a full list returns `fail('replays.nameTemplates.error.tooMany')`;
+params)` and writes nothing; a full list returns `fail('replays.nameTemplates.error.tooMany')`;
   an unknown id `fail('replays.nameTemplates.error.notFound')`. Success persists via
   `setReplaysState` and returns `ok(toView(...))`. Export `currentNameTemplates(app)` →
   `{ templates: string[]; fingerprint: string }` for the scan. If story 144's scan code exists under
@@ -206,7 +206,7 @@ Order: D1 → D2 → D3.
   top → first row; edit it; remove a shipped entry → Restore visible; read `state.json` from disk and
   assert the stored order, the override and the tombstone; shot `replays-name-templates-edited`.
   Acceptance: those tests pass; `npm run ui:flow -- replays-name-templates` and `npm run ui:flow --
-  replays-module-shell` OK.
+replays-module-shell` OK.
 
 ## Model Hints
 
@@ -253,6 +253,7 @@ alongside the new `replays.nameTemplates.*` block. Story 144's scan does not exi
 Commit message: `140: teach the browser a name pattern via editable name templates`
 
 Verification — narrow gate only:
+
 - `npm run build` GREEN · `npm run typecheck` GREEN · `npx vitest run --changed HEAD` GREEN
   (106 files / 1584 tests).
 - `npm run ui:flow -- replays-name-templates` and `-- replays-module-shell`: **INCONCLUSIVE**.
@@ -282,6 +283,7 @@ Verification — narrow gate only:
   left as public surface for D3/consumers.
 
 Decisions made while building (not in the story's own Decisions list):
+
 - `mergeWithShipped` gives a newly-appended shipped entry `id === shippedId` (stable, no id
   generator needed there); only `addTemplate` calls the caller-supplied `newId`.
 - `reorderTemplates` throws a plain `Error` on a non-permutation rather than returning a result type.

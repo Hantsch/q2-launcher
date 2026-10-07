@@ -16,11 +16,7 @@ function own(status: ProfileFileSyncStatus, messageKey?: string) {
   }
 }
 
-function installation(
-  installationId: string,
-  status: ProfileFileSyncStatus,
-  messageKey?: string,
-) {
+function installation(installationId: string, status: ProfileFileSyncStatus, messageKey?: string) {
   return {
     installationId,
     path: `C:/games/${installationId}/p1.cfg`,

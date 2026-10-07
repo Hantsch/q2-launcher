@@ -98,7 +98,7 @@ which may or may not be the right tool for listing and reading entries (Q1).
 3. **D3 — wiring into discovery**: the [[141]]/[[142]] scan hands every `.zip` it finds in a
    scanned folder to D2 and merges rows and source errors into its result.
 4. **D4 — the row on the real surface**: source label "`<source>` › `<archive>.zip` › `<entry
-   path>`", a `data-archive-entry` attribute on the row ([[150]] draws the visible marker), a zip in
+path>`", a `data-archive-entry` attribute on the row ([[150]] draws the visible marker), a zip in
    the demos UI fixture, and the flow `replays-zip-entries`.
 
 Order: D1 → D2 → D3 → D4. D1/D2 unit tests run against the real binary where it is vendored
@@ -117,17 +117,17 @@ that always run.
   Spec: export `ZIP_ENTRY_MAX_BYTES = 64 * 1024 * 1024`, `ZIP_LISTING_MAX_BYTES = 8 * 1024 * 1024`,
   `ZIP_CALL_TIMEOUT_MS = 30_000`. `parseSltListing(text): ZipEntry[]` — blocks separated by blank
   lines, `Key = Value` lines; `ZipEntry = { path: string /* '\\' → '/' */, isFolder: boolean,
-  size: number | null, modified: Date | null /* 'YYYY-MM-DD HH:MM:SS[.fraction]' as local time */,
-  encrypted: boolean }`; unknown keys ignored, a block without `Path` dropped, never throws.
+size: number | null, modified: Date | null /* 'YYYY-MM-DD HH:MM:SS[.fraction]' as local time */,
+encrypted: boolean }`; unknown keys ignored, a block without `Path` dropped, never throws.
   Deps `{ extractorPath: string; extractorExists: boolean; spawn?: typeof spawn }` (caller passes
   `resolveExtractorPath` from `src/main/modules/downloads/7za-path.ts`).
   `listZipEntries(archivePath, deps)` → `{ ok: true; entries } | { ok: false; code:
-  'extractor-missing' | 'archive-unreadable' | 'archive-too-large' }`; args exactly
+'extractor-missing' | 'archive-unreadable' | 'archive-too-large' }`; args exactly
   `['l','-slt','-ba','-sccUTF-8','-tzip','-p-', archivePath]`; non-zero exit, spawn error or timeout
   → `archive-unreadable`; stdout past `ZIP_LISTING_MAX_BYTES` → kill, `archive-too-large`.
   `readZipEntry(archivePath, entryPath, expectedSize, deps)` → `{ ok: true; bytes: Uint8Array } |
-  { ok: false; code: 'entry-too-large' | 'unreadable' | 'extractor-missing' }`; `expectedSize >
-  ZIP_ENTRY_MAX_BYTES` → `entry-too-large` **without spawning**; args exactly
+{ ok: false; code: 'entry-too-large' | 'unreadable' | 'extractor-missing' }`; `expectedSize >
+ZIP_ENTRY_MAX_BYTES` → `entry-too-large` **without spawning**; args exactly
   `['e','-so','-spd','-bd','-sccUTF-8','-tzip','-p-', archivePath, '--', entryPath]`; chunks are
   counted as they arrive and the process is killed as soon as the total passes the cap
   (`entry-too-large`); non-zero exit, timeout, or total ≠ `expectedSize` → `unreadable`. The only
@@ -146,14 +146,14 @@ that always run.
 - **D2 — a zip expands into parsed entry rows + tests.**
   Files: new `src/main/modules/replays/zip-demos.ts`, `zip-demos.test.ts`; edit the shared demo row
   type (the one [[141]] introduced under `src/shared/`) to add `archiveEntry: { archivePath:
-  string; entryPath: string } | null`; edit the unparsable-reason union from [[136]]
+string; entryPath: string } | null`; edit the unparsable-reason union from [[136]]
   (`src/shared/demos/dm2-header.ts` or wherever it was widened) to add `'entry-too-large' |
-  'encrypted'`, and if a reason → i18n-key map exists ([[145]]) add both keys to
+'encrypted'`, and if a reason → i18n-key map exists ([[145]]) add both keys to
   `src/renderer/src/i18n/locales/en` ("Too large to read inside an archive", "Encrypted archive
   entry"). If the loose path only exposes a path-based parse, split it into a bytes-level
   `parseDemoBytes(bytes)` + thin path wrapper and route loose files through it (one code path).
   Spec: `expandZip(archivePath, source, deps)` → `{ rows, error: null } | { rows: [], error: {
-  archivePath, code } }`. Uses D1 (`src/main/lib/zip-entries.ts`). Keep entries that are not
+archivePath, code } }`. Uses D1 (`src/main/lib/zip-entries.ts`). Keep entries that are not
   folders and whose path ends (case-insensitively) in `.dm2`, `.mvd2`, `.dm2.gz`, `.mvd2.gz`;
   everything else — including `.zip` entries — is skipped and never read. Per kept entry, in listing
   order: `encrypted` → unparsable row `encrypted` (not read); `size > ZIP_ENTRY_MAX_BYTES` →
@@ -187,7 +187,7 @@ that always run.
   `vendoredSevenZaPath()` `a -tzip`, holding `test.dm2`, `sub/final.mvd2` (copy of the MVD2 fixture)
   and `readme.txt`), new `scripts/flows/replays-zip-entries.mjs` (mirror [[141]]'s flow). Spec:
   source label for an archive row = the archive's source label, then `pack.zip`, then the entry
-  path, separated by ` › `. Flow: open Demos, assert exactly two rows whose source contains
+  path, separated by `›`. Flow: open Demos, assert exactly two rows whose source contains
   `pack.zip ›` (`test.dm2` and `sub/final.mvd2`) both with `data-archive-entry="true"`, the
   `test.dm2` entry row showing map `q2rdm2`; no row for `readme.txt`; loose rows lack the attribute.
 
@@ -250,6 +250,7 @@ implicitly by `scanDemosDir`'s existing one-level-only listing rather than a lit
 none fixed, all accepted as-is, no re-verify cycle needed.
 
 Decisions:
+
 - `DiscoveredDemo` gains exactly three new fields: `archiveEntry`, `map`, `unparsableReason` (all
   nullable). Duration/POV/players facts are parsed and compared in D2's own unit tests but not
   added to the shared row type or surfaced in the UI — nothing in this story's ACs or flow needs

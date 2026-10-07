@@ -15,13 +15,11 @@ describe('servers module manifest (story 106 D1)', () => {
 
   it('the servers manifest declares exactly the network and game-lifecycle capabilities', () => {
     const manifest = getModuleManifest('servers')
-    expect(manifest?.capabilities).toEqual(
-      expect.arrayContaining(['network', 'game-lifecycle']),
-    )
+    expect(manifest?.capabilities).toEqual(expect.arrayContaining(['network', 'game-lifecycle']))
     expect(manifest?.capabilities).toHaveLength(2)
   })
 
-  it('every module\'s ipcNamespace is module: plus its id', () => {
+  it("every module's ipcNamespace is module: plus its id", () => {
     for (const manifest of MODULE_MANIFESTS) {
       expect(manifest.ipcNamespace).toBe(`module:${manifest.id}`)
     }

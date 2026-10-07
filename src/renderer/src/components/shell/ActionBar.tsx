@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Import, Play, Wrench, X } from 'lucide-react'
+import { DEV_MODULES } from '@shared/dev-modules'
 import type { Installation, Job, LaunchState } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { isDemoData } from '../../lib/demo-data'
@@ -13,7 +14,7 @@ import {
 import { type ContributedAction, usePrimaryActionStore } from '../../lib/primary-action'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
-import { IconButton, PlayButton } from '../ui/Button'
+import { Button, IconButton, PlayButton } from '../ui/Button'
 import { DemoBadge } from '../ui/DemoBadge'
 import { EngineBadge } from '../ui/EngineBadge'
 import { InstallationTile } from '../installations/InstallationTile'
@@ -51,6 +52,8 @@ export function ActionBar() {
   )
 
   const action = resolvePrimaryAction(installation, job, launch, demo, contribution)
+  // A tab's contributed action never decides this one: Play with... is about starting the game.
+  const canPlay = resolvePrimaryAction(installation, job, launch, demo, null).kind === 'play'
   const note =
     action.kind === 'contributed' && contribution
       ? contribution.error
@@ -107,7 +110,7 @@ export function ActionBar() {
         <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
             <div className="truncate font-display text-sm tracking-[0.08em] text-ink uppercase">
-              {installation?.name ?? t('actionbar.noInstallation')}
+              {installation?.name ?? t('common.label.noInstallationSelected')}
             </div>
             {installation && (
               <span className="flex shrink-0 items-center gap-1.5">
@@ -144,9 +147,7 @@ export function ActionBar() {
       </div>
 
       {/* --- what is happening --- */}
-      <div
-        className={cn('min-w-0 flex-1 flex-col gap-1.5 lg:flex', note ? 'flex' : 'hidden')}
-      >
+      <div className={cn('min-w-0 flex-1 flex-col gap-1.5 lg:flex', note ? 'flex' : 'hidden')}>
         {note && (
           <p
             id={note.id}
@@ -167,8 +168,8 @@ export function ActionBar() {
       {/* --- the button --- */}
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         <div className="flex items-center gap-2">
-          {/* Story 090 D4: only offered on a demo installation.
-              Story 091 D5: no longer disabled while it is running - the job now waits instead of
+          {/* Story 090: only offered on a demo installation.
+              Story 091: no longer disabled while it is running - the job now waits instead of
               refusing (091 Decisions: "[[090]]'s refusal is replaced by a wait, including on the
               renderer"). */}
           {installation && isDemoData(installation.checks) && (
@@ -188,20 +189,41 @@ export function ActionBar() {
             </IconButton>
           )}
 
-          {/* Story 092 D7: the engine-update trigger, mirroring the retail-upgrade button above -
+          {/* Story 092: the engine-update trigger, mirroring the retail-upgrade button above -
               same utility cluster, same per-installation rendering. Unlike that button it has no
               installation-side gate: it always renders for the current installation and decides
               its own "update available" indicator from main's own `EngineUpdateStatus`. */}
           {installation && <EngineUpdateAction installation={installation} />}
 
-          {/* `data-testid` + `data-action` added by story 074 D8: AC6 ("Play lights up the moment
+          {/* `data-testid` + `data-action` added by story 074: the claim ("Play lights up the moment
               the verdict stops being invalid/missing, even while the job is still running") can
               only be proven by sampling this exact button's enabled-ness against a live job, and
               the footer's buttons are otherwise addressable only by translated label - which
               changes per `action.kind`, i.e. precisely with the state under test. */}
+          {DEV_MODULES && (
+            <Button
+              variant="ghost"
+              data-testid="actionbar-play-with"
+              disabled={!installation || !canPlay}
+              onClick={() =>
+                installation &&
+                openDialog({
+                  kind: 'module',
+                  moduleId: 'mods',
+                  view: 'play-with',
+                  installationId: installation.id,
+                })
+              }
+            >
+              {t('actionbar.playWith')}
+            </Button>
+          )}
+
           <PlayButton
             data-testid="actionbar-play"
-            data-action={action.kind === 'contributed' && contribution ? contribution.id : action.kind}
+            data-action={
+              action.kind === 'contributed' && contribution ? contribution.id : action.kind
+            }
             {...(note ? { 'aria-describedby': note.id } : {})}
             tone={action.tone}
             disabled={action.disabled}
@@ -265,7 +287,7 @@ function JobReadout({ job, onCancel }: { job: Job; onCancel: () => void }) {
     <>
       <div className="flex items-baseline justify-between gap-3">
         <div className="numeric flex items-baseline gap-3 text-[11px] tracking-wide text-ink-dim uppercase">
-          {/* Story 091 D3 (AC2): a waiting job names its reason (mirrors `RunningStep.tsx`'s
+          {/* Story 091: a waiting job names its reason (mirrors `RunningStep.tsx`'s
               `job.error` rendering) instead of reusing the download readout, which would read as
               a generic "queued" state. */}
           {waiting && job.waitingReason ? (
@@ -293,7 +315,7 @@ function JobReadout({ job, onCancel }: { job: Job; onCancel: () => void }) {
         </div>
 
         {job.cancellable && (
-          <IconButton label={t('actionbar.cancelJob')} size="sm" onClick={onCancel}>
+          <IconButton label={t('common.action.cancel')} size="sm" onClick={onCancel}>
             <X className="size-3.5" />
           </IconButton>
         )}
@@ -353,7 +375,7 @@ function LaunchReadout({
     if (launch.phase === 'exited') {
       return <p className="text-xs text-ink-muted">{t('actionbar.exited')}</p>
     }
-    // Story 104 D5: Steam owns the process once launch hands off to it - there is nothing left to
+    // Story 104: Steam owns the process once launch hands off to it - there is nothing left to
     // observe, so this reads as "not tracked" rather than reusing the running/exited readouts,
     // which would imply the launcher still knows what is happening.
     if (launch.phase === 'handed-off') {
@@ -367,7 +389,7 @@ function LaunchReadout({
   // unlabelled path floating in the middle of the bar.
   return (
     <div className="min-w-0 space-y-0.5">
-      <div className="stencil text-[9px]">{t('installation.engineExecutable')}</div>
+      <div className="stencil text-[9px]">{t('common.label.engineExecutable')}</div>
       <p
         className="numeric truncate text-[11px] text-ink-muted"
         title={installation.executablePath ?? ''}
@@ -402,7 +424,7 @@ function resolvePrimaryAction(
   contribution: ContributedAction | null,
 ): PrimaryAction {
   if (!installation) {
-    // Story 181 D2: without an installation a tab may still name what its button would do and why
+    // Story 181: without an installation a tab may still name what its button would do and why
     // it cannot - the label and reason show, the button stays disabled whatever it says.
     if (contribution) {
       return {
@@ -412,20 +434,18 @@ function resolvePrimaryAction(
         disabled: true,
       }
     }
-    return { kind: 'busy', labelKey: 'installation.action.play', tone: 'flame', disabled: true }
+    return { kind: 'busy', labelKey: 'common.action.play', tone: 'flame', disabled: true }
   }
 
   const running =
     launch.installationId === installation.id &&
     (launch.phase === 'running' || launch.phase === 'starting')
   if (running) {
-    // Story 173 D3: during a demo session "Running" is the way out, not a dead end.
+    // Story 173: during a demo session "Running" is the way out, not a dead end.
     if (demo.active) {
       return {
         kind: 'stop',
-        labelKey: demo.stopping
-          ? 'installation.action.stopping'
-          : 'installation.action.stopDemo',
+        labelKey: demo.stopping ? 'common.action.stopping' : 'common.action.stopDemo',
         tone: 'danger',
         disabled: demo.stopping,
       }
@@ -439,7 +459,7 @@ function resolvePrimaryAction(
   }
 
   if (job?.writeLock) {
-    // Story 091 D3 (AC5): while a job holds the write lock on this installation, its files are
+    // Story 091: while a job holds the write lock on this installation, its files are
     // being written to directly - even past a PLAYABLE mark, launching now would race the write.
     return {
       kind: 'busy',
@@ -458,7 +478,7 @@ function resolvePrimaryAction(
     if (!playableNow) {
       return {
         kind: 'busy',
-        labelKey: 'installation.action.install',
+        labelKey: 'common.action.install',
         tone: 'neutral',
         disabled: true,
       }
@@ -483,7 +503,7 @@ function resolvePrimaryAction(
     }
   }
 
-  // Story 180 D1: a tab's contribution replaces only this final case; every state above wins.
+  // Story 180: a tab's contribution replaces only this final case; every state above wins.
   if (contribution) {
     return {
       kind: 'contributed',
@@ -493,5 +513,5 @@ function resolvePrimaryAction(
     }
   }
 
-  return { kind: 'play', labelKey: 'installation.action.play', tone: 'flame', disabled: false }
+  return { kind: 'play', labelKey: 'common.action.play', tone: 'flame', disabled: false }
 }

@@ -14,7 +14,9 @@ export type ServerEngine = 'vanilla' | 'r1q2' | 'q2pro'
  * tolerant rules (absent or non-integer value -> `undefined`). `null`/`undefined` input -> also
  * `undefined` — a reply that never carried a serverinfo record at all.
  */
-export function deriveProtocol(serverinfo: Record<string, string> | null | undefined): number | undefined {
+export function deriveProtocol(
+  serverinfo: Record<string, string> | null | undefined,
+): number | undefined {
   if (serverinfo == null) return undefined
   return readIntKey(serverinfo, 'protocol')
 }

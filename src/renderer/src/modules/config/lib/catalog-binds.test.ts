@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
-import { actionKeySlots, keySlotAt, keySlotCount } from '@shared/config/action-slots'
-import { aliasNameFor } from '@shared/config/alias-render'
+import {
+  DROPPABLES,
+  MOVEMENT_ACTIONS,
+  WEAPON_ACTIONS,
+  WEAPON_EXTRA_ACTIONS,
+} from '@shared/config/catalog/action-catalog'
+import { actionKeySlots, keySlotAt, keySlotCount } from '@shared/config/catalog/action-slots'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
 import type { ConfigAction } from '@shared/modules/config'
 import {
   appendKeySlot,
@@ -70,7 +75,9 @@ describe('buildWeaponRows', () => {
     expect(useRows).toHaveLength(WEAPON_ACTIONS.length)
     expect(useRows).toHaveLength(11)
     expect(useRows.map((row) => row.catalogId)).toContain('weaponUse:use_blaster')
-    expect(useRows.every((row) => row.categoryId === 'weapons' && row.ammoCommand === undefined)).toBe(true)
+    expect(
+      useRows.every((row) => row.categoryId === 'weapons' && row.ammoCommand === undefined),
+    ).toBe(true)
 
     expect(extraRows).toHaveLength(WEAPON_EXTRA_ACTIONS.length)
     expect(extraRows).toHaveLength(3)
@@ -88,7 +95,9 @@ describe('buildDropGroups', () => {
 
     expect(weapon).toHaveLength(DROPPABLES.filter((d) => d.kind === 'weapon').length)
     expect(ammo).toHaveLength(DROPPABLES.filter((d) => d.kind === 'ammo').length)
-    expect(misc).toHaveLength(DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech').length)
+    expect(misc).toHaveLength(
+      DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech').length,
+    )
 
     expect(weapon.some((row) => row.catalogId === 'dropWeapon:blaster')).toBe(false)
   })
@@ -149,7 +158,7 @@ describe('deriveRowState', () => {
    * command text, which is what made the previous design unable to tell two
    * identically-rendering rows apart.
    */
-  it('surfaces each slot\'s modifier straight from the action', () => {
+  it("surfaces each slot's modifier straight from the action", () => {
     const action = catalogAction(row, {
       commands: [{ kind: 'raw', text: '+forward' }],
       keys: [
@@ -221,7 +230,7 @@ describe('deriveRowState', () => {
   })
 
   // Story 055 review, finding 2: displays the FIRST message command, matching
-  // `@shared/config/drop-entries#withDropMessage`'s removal (its `dropStateFor` locks onto the first
+  // `@shared/config/aliases/drop-entries#withDropMessage`'s removal (its `dropStateFor` locks onto the first
   // `say`/`say_team` command it sees) - so a body with two message commands never shows text here
   // that turning the message toggle off then fails to delete.
   it('shows the FIRST message when the body carries two', () => {
@@ -304,7 +313,7 @@ describe('applySlot', () => {
     expect(keySlotAt(actions[0]!, 0)).toEqual({ key: 'r', modifier: 'ALT' })
   })
 
-  it('keeps two slots\' keys and modifiers independent', () => {
+  it("keeps two slots' keys and modifiers independent", () => {
     let actions = applySlot(entry(), id, 0, 'r', 'ALT')
     actions = applySlot(actions, id, 1, 'f', 'CTRL')
 
@@ -317,7 +326,7 @@ describe('applySlot', () => {
     expect(keySlotAt(actions[0]!, 1)).toEqual({ key: 'f', modifier: 'CTRL' })
   })
 
-  it('clears a slot\'s modifier along with its key', () => {
+  it("clears a slot's modifier along with its key", () => {
     let actions = applySlot(entry(), id, 0, 'r', 'ALT')
     actions = applySlot(actions, id, 1, 'f', 'SHIFT')
     actions = applySlot(actions, id, 0, undefined)
@@ -344,7 +353,9 @@ describe('applySlot', () => {
    */
   it('promotes the later keys when slot 0 of a three-key entry is cleared', () => {
     const threeKeys = (): ConfigAction[] => [
-      catalogAction(row, { keys: [{ key: 'w' }, { key: 'UPARROW', modifier: 'ALT' }, { key: 'g' }] }),
+      catalogAction(row, {
+        keys: [{ key: 'w' }, { key: 'UPARROW', modifier: 'ALT' }, { key: 'g' }],
+      }),
     ]
 
     const actions = applySlot(threeKeys(), id, 0, undefined)
@@ -456,7 +467,7 @@ describe('withCatalogBody', () => {
   const row = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
   const id = `entry-${row.catalogId}`
 
-  it('gives a seeded, body-less entry the row\'s commands, ammo included (decision 7)', () => {
+  it("gives a seeded, body-less entry the row's commands, ammo included (decision 7)", () => {
     const actions = withCatalogBody([catalogAction(row)], id, row)
 
     expect(actions[0]!.commands).toEqual([
@@ -493,7 +504,9 @@ describe('applyAmmo', () => {
     ])
 
     actions = applyAmmo(actions, id, row, false)
-    expect(findAction(actions, row)!.commands).toEqual([{ kind: 'raw', text: 'drop rocket launcher' }])
+    expect(findAction(actions, row)!.commands).toEqual([
+      { kind: 'raw', text: 'drop rocket launcher' },
+    ])
 
     actions = applyAmmo(actions, id, row, true)
     expect(findAction(actions, row)!.commands).toEqual([
@@ -520,11 +533,13 @@ describe('applyAmmo', () => {
   it('turning ammo off on a body-less entry writes the row body without the ammo command', () => {
     const actions = applyAmmo([catalogAction(row)], id, row, false)
 
-    expect(findAction(actions, row)!.commands).toEqual([{ kind: 'raw', text: 'drop rocket launcher' }])
+    expect(findAction(actions, row)!.commands).toEqual([
+      { kind: 'raw', text: 'drop rocket launcher' },
+    ])
     expect(deriveRowState(findAction(actions, row)!, row).withAmmo).toBe(false)
   })
 
-  it('keeps the row\'s message across an ammo toggle', () => {
+  it("keeps the row's message across an ammo toggle", () => {
     const withMessage = catalogAction(row, {
       commands: [
         { kind: 'raw', text: 'drop rocket launcher' },
@@ -547,7 +562,7 @@ describe('applyMessage', () => {
   const id = `entry-${row.catalogId}`
   const bodied = (): ConfigAction[] => withCatalogBody([catalogAction(row)], id, row)
 
-  it('adds the message after the row\'s raw commands', () => {
+  it("adds the message after the row's raw commands", () => {
     const actions = applyMessage(bodied(), id, 'HELP')
 
     expect(findAction(actions, row)!.commands).toEqual([
@@ -568,7 +583,7 @@ describe('applyMessage', () => {
 
   /** Story 052 D8: clearing the message removes the command, never the entry - the row stays,
    * unbound and message-less, exactly like any other entry the user emptied out. */
-  it('clearing the message to \'\' removes it and keeps the entry and its raw commands', () => {
+  it("clearing the message to '' removes it and keeps the entry and its raw commands", () => {
     let actions = applyMessage(bodied(), id, 'HELP')
     actions = applyMessage(actions, id, '')
 
@@ -580,7 +595,7 @@ describe('applyMessage', () => {
     ])
   })
 
-  it('leaves the entry\'s keys alone', () => {
+  it("leaves the entry's keys alone", () => {
     let actions = applySlot(bodied(), id, 0, 'f')
     actions = applyMessage(actions, id, 'HELP')
     actions = applyMessage(actions, id, '')
@@ -615,12 +630,14 @@ describe('applyDropAmmo', () => {
   const row = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
   const id = `entry-${row.catalogId}`
 
-  it('adds the ammo command right after the item command, and removes it again, via D1\'s withDropAmmo', () => {
+  it("adds the ammo command right after the item command, and removes it again, via D1's withDropAmmo", () => {
     let actions = withCatalogBody([catalogAction(row, { name: 'drop_rail' })], id, row)
     // `withCatalogBody(row, true)` already writes the ammo command (decision 7's default-on) -
     // start from off so "turn on" has something to prove.
     actions = applyDropAmmo(actions, id, false)
-    expect(findAction(actions, row)!.commands).toEqual([{ kind: 'raw', text: 'drop rocket launcher' }])
+    expect(findAction(actions, row)!.commands).toEqual([
+      { kind: 'raw', text: 'drop rocket launcher' },
+    ])
 
     actions = applyDropAmmo(actions, id, true)
     expect(findAction(actions, row)!.commands).toEqual([
@@ -664,7 +681,7 @@ describe('applyDropMessage', () => {
   const bodied = (): ConfigAction[] =>
     withCatalogBody([catalogAction(row, { name: 'drop_rail' })], id, row)
 
-  it('adds a message command and removes it again, via D1\'s withDropMessage', () => {
+  it("adds a message command and removes it again, via D1's withDropMessage", () => {
     let actions = applyDropMessage(bodied(), id, true, 'HELP', 'say')
     expect(findAction(actions, row)!.commands).toEqual([
       { kind: 'raw', text: 'drop rocket launcher' },

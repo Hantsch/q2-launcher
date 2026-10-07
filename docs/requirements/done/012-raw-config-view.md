@@ -58,7 +58,7 @@ None.
 - **No copy-to-clipboard** — not in the acceptance criteria; reveal-in-folder covers the "inspect it
   yourself" need the requirement actually states.
 - **Tests target `.ts` only** (installation-pick logic + main handler) — vitest runs `environment:
-  node` with `include: ['src/**/*.{test,spec}.ts']`, so adding jsdom/testing-library for one tab
+node` with `include: ['src/**/*.{test,spec}.ts']`, so adding jsdom/testing-library for one tab
   would be a stack change this story does not justify; the tab itself is accepted through the UI.
 
 ## Plan
@@ -108,7 +108,7 @@ Order: D1 → D2 → D3 (D2 consumes D1's `onDisk`, D3 mounts D2).
   `src/renderer/src/i18n/locales/en.json`.
 - `CodeBlock` carries the class string currently duplicated in `PreviewProfileDialog.tsx:80` /
   `LayersPanel.tsx:294` (`numeric max-h-64 overflow-auto rounded-sm border border-line bg-void p-3
-  text-[11px] whitespace-pre text-ink-muted`) — semantic tokens only, no raw palette classes; leave
+text-[11px] whitespace-pre text-ink-muted`) — semantic tokens only, no raw palette classes; leave
   `LayersPanel.tsx` alone.
 - Props: `{ profile: ConfigProfile; installationId: string }`; the panel owns the
   `previewConfigProfile` fetch (cancel-on-unmount `useEffect` keyed `[profile.id, installationId]`,
@@ -139,12 +139,12 @@ Order: D1 → D2 → D3 (D2 consumes D1's `onDisk`, D3 mounts D2).
 
 ### AC coverage
 
-| AC | Deliverable |
-| --- | --- |
-| Raw rendered content as plain text | D1 (data) + D2 (rendering) |
-| Reachable from the profile's own screens | D3 (tab) |
-| Reveal in OS file explorer for an assigned installation | D2 (per-row reveal via `app:revealPath`) |
-| "Not written yet" communicated clearly | D1 (`onDisk`) + D2 (disabled reveal + hint) + D3 (no-assignment empty state) |
+| AC                                                      | Deliverable                                                                  |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Raw rendered content as plain text                      | D1 (data) + D2 (rendering)                                                   |
+| Reachable from the profile's own screens                | D3 (tab)                                                                     |
+| Reveal in OS file explorer for an assigned installation | D2 (per-row reveal via `app:revealPath`)                                     |
+| "Not written yet" communicated clearly                  | D1 (`onDisk`) + D2 (disabled reveal + hint) + D3 (no-assignment empty state) |
 
 ## Model Hints
 

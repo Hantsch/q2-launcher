@@ -53,7 +53,12 @@ describe('computeEngineUpdateStatus', () => {
 
   it('reports no update, without throwing, for an engine with no manifest pin', () => {
     expect(() =>
-      computeEngineUpdateStatus('inst-1', 'r1q2', { version: '8.41' }, { channel: 'pinned', version: undefined }),
+      computeEngineUpdateStatus(
+        'inst-1',
+        'r1q2',
+        { version: '8.41' },
+        { channel: 'pinned', version: undefined },
+      ),
     ).not.toThrow()
 
     const status = computeEngineUpdateStatus(

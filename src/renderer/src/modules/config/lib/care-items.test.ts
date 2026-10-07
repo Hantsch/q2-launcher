@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Finding } from '@shared/config/validation'
+import type { Finding } from '@shared/config/validation/validation'
 import { buildCareItems, itemsInGroup, type CareItem } from './care-items'
 import type { CareSyncRow } from './care-sync'
 import type { TidyUpFinding } from './tidy-up-findings'
@@ -21,7 +21,10 @@ function validation(
   return { status, byEngine, omitted: [] }
 }
 
-function engineRun(findings: Finding[], engine: ProfileValidation['byEngine'][number]['engine'] = 'r1q2') {
+function engineRun(
+  findings: Finding[],
+  engine: ProfileValidation['byEngine'][number]['engine'] = 'r1q2',
+) {
   return {
     engine,
     findings,
@@ -116,7 +119,9 @@ describe('buildCareItems', () => {
 
   it('skips info-level validation findings, same as the badge counts', () => {
     const items = build({
-      validation: validation([engineRun([finding({ id: 'r1q2:structure:note:0', level: 'info' })])]),
+      validation: validation([
+        engineRun([finding({ id: 'r1q2:structure:note:0', level: 'info' })]),
+      ]),
     })
 
     expect(items).toEqual([])
@@ -185,7 +190,10 @@ describe('buildCareItems', () => {
   it('groups health before files before tidy-up, even when a later group has the worse level', () => {
     const items = build({
       validation: validation([engineRun([finding({ level: 'warning' })])]),
-      syncRows: [syncRow(), syncRow({ target: 'inst-1', path: 'C:/q2/baseq2/p.cfg', state: 'failed' })],
+      syncRows: [
+        syncRow(),
+        syncRow({ target: 'inst-1', path: 'C:/q2/baseq2/p.cfg', state: 'failed' }),
+      ],
       tidyUp: [tidyUpFinding({ level: 'error' })],
     })
 
@@ -247,7 +255,11 @@ describe('buildCareItems - files group', () => {
       'files',
     )
     expect(outOfSyncItem!.titleKey).toBe('config.care.sync.state.outOfSync')
-    expect(outOfSyncItem!.actions.map((action) => action.kind)).toEqual(['syncNow', 'open', 'reveal'])
+    expect(outOfSyncItem!.actions.map((action) => action.kind)).toEqual([
+      'syncNow',
+      'open',
+      'reveal',
+    ])
     expect(outOfSyncItem!.actions[0]).toMatchObject({
       kind: 'syncNow',
       labelKey: 'config.care.sync.syncNow',
@@ -493,7 +505,11 @@ describe('buildCareItems - tidy-up group', () => {
       ['showInAliases', 'renameEntry'],
     ])
     expect(item!.details?.[0]?.actions.map((action) => action.actionId)).toEqual(['d1', 'd1', 'd1'])
-    expect(item!.details?.[1]?.params).toEqual({ entry: 'B', section: 'Weapon dropping', keys: 'q' })
+    expect(item!.details?.[1]?.params).toEqual({
+      entry: 'B',
+      section: 'Weapon dropping',
+      keys: 'q',
+    })
     // One side is bound, so the "no alias line is written at all" caveat does not apply.
     expect(item!.fixKey).toBeUndefined()
   })

@@ -1,14 +1,26 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BotOff, Check, Search, User, UserX, X } from 'lucide-react'
+import { BookmarkPlus, BotOff, Check, Search, User, UserX, X } from 'lucide-react'
 import {
   EMPTY_SERVER_LIST_FILTER,
   isFilterActive,
+  MAX_PING_STEPS,
+  type MaxPingMs,
   type ServerListFilter,
 } from '@shared/servers/list-filter'
+import {
+  applyCriteria,
+  clearCriteria,
+  criteriaOf,
+  hasCriteria,
+  QUICK_FILTER_MAX,
+  sameCriteria,
+  type QuickFilter,
+} from '@shared/servers/quick-filters'
 import type { ServerGamemode } from '@shared/servers/row-markers'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select, type SelectOption } from '../../components/ui/controls'
+import { MultiSelect } from '../../components/ui/MultiSelect'
 import { SectionLabel } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
 
@@ -18,28 +30,17 @@ export interface ServerListFilterBarProps {
   options: { mods: string[]; maps: string[] }
   shown: number
   total: number
+  /** Story 197: the saved quick filters, rendered as chips after the built-in ones. */
+  quickFilters?: readonly QuickFilter[]
+  onSaveQuickFilter?: () => void
+  /** Story 197 slot: rendered beside each saved chip (the rename/delete menu). */
+  renderQuickFilterActions?: (quickFilter: QuickFilter) => ReactNode
 }
 
 /** The five `ServerGamemode` values in a fixed display order — mirrors `ServerRow.tsx`'s own
  * `servers.gamemode.<mode>` keys, just enumerated here since `ServerGamemode` itself has no
  * canonical ordered list export. */
 const GAMEMODE_OPTIONS: readonly ServerGamemode[] = ['ctf', 'team', 'deathmatch', 'coop', 'single']
-
-/** Builds a `<Select>`'s option list for a nullable string filter field: "Any" first, mapped to the
- * empty value, then every known option, plus the currently selected value appended if it isn't
- * already among them — so the control never silently shows nothing for a value it can't display
- * (e.g. a mod/map that dropped out of the list after a rescan). */
-function nullableOptions(
-  known: string[],
-  current: string | null,
-  t: (key: string) => string,
-): SelectOption[] {
-  const values = current !== null && !known.includes(current) ? [...known, current] : known
-  return [
-    { value: '', label: t('servers.filter.any') },
-    ...values.map((value) => ({ value, label: value })),
-  ]
-}
 
 /** One quick-filter toggle: a full-width chip with an icon, pressed state as a flame edge plus a
  * check mark (never colour-only), `aria-pressed` for assistive tech. */
@@ -79,7 +80,7 @@ function FilterChip({
 }
 
 /**
- * Story 120 D2: the servers list's filter/search rail - a controlled component over
+ * Story 120: the servers list's filter/search rail - a controlled component over
  * `ServerListFilter` (`@shared/servers/list-filter`), the same "controller owns state, this
  * component only renders it and reports a change" shape as `ServerListHeader`. Every field writes
  * its own partial update on every interaction (no debounce, no local buffering) - `ServersView` is
@@ -95,20 +96,34 @@ export function ServerListFilterBar({
   options,
   shown,
   total,
+  quickFilters = [],
+  onSaveQuickFilter,
+  renderQuickFilterActions,
 }: ServerListFilterBarProps) {
   const { t } = useTranslation()
 
-  const modOptions = nullableOptions(options.mods, filter.mod, t)
-  const mapOptions = nullableOptions(options.maps, filter.map, t)
   const gamemodeOptions: SelectOption[] = [
-    { value: '', label: t('servers.filter.any') },
+    { value: '', label: t('common.label.any') },
     ...GAMEMODE_OPTIONS.map((gamemode) => ({
       value: gamemode,
       label: t(`servers.gamemode.${gamemode}`),
     })),
   ]
+  const maxPingOptions: SelectOption[] = [
+    { value: '', label: t('common.label.any') },
+    ...MAX_PING_STEPS.map((ms) => ({
+      value: String(ms),
+      label: t('servers.filter.pingBelow', { ms }),
+    })),
+  ]
 
   const active = isFilterActive(filter)
+  const currentCriteria = criteriaOf(filter)
+  const saveReasonKey = !hasCriteria(currentCriteria)
+    ? 'servers.quickFilter.saveNeedsCriteria'
+    : quickFilters.length >= QUICK_FILTER_MAX
+      ? 'servers.quickFilter.saveAtCap'
+      : null
 
   return (
     <div className="flex flex-col gap-5">
@@ -119,7 +134,7 @@ export function ServerListFilterBar({
         />
         <Input
           type="search"
-          aria-label={t('servers.filter.search')}
+          aria-label={t('common.label.search')}
           value={filter.search}
           placeholder={t('servers.filter.searchPlaceholder')}
           onChange={(event) => onChange({ ...filter, search: event.target.value })}
@@ -140,7 +155,7 @@ export function ServerListFilterBar({
         <FilterChip
           active={filter.empty}
           icon={<UserX />}
-          label={t('servers.filter.empty')}
+          label={t('common.label.empty')}
           onToggle={() => onChange({ ...filter, empty: !filter.empty })}
           testId="servers-filter-empty"
         />
@@ -151,21 +166,58 @@ export function ServerListFilterBar({
           onToggle={() => onChange({ ...filter, hideBotsOnly: !filter.hideBotsOnly })}
           testId="servers-filter-hide-bots"
         />
+        {quickFilters.map((qf) => {
+          const pressed = sameCriteria(currentCriteria, qf.criteria)
+          return (
+            <div key={qf.id} className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <FilterChip
+                  active={pressed}
+                  icon={<BookmarkPlus />}
+                  label={qf.name}
+                  onToggle={() =>
+                    onChange(pressed ? clearCriteria(filter) : applyCriteria(filter, qf.criteria))
+                  }
+                  testId="servers-quickfilter-chip"
+                />
+              </div>
+              {renderQuickFilterActions?.(qf)}
+            </div>
+          )
+        })}
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<BookmarkPlus className="size-3.5" aria-hidden="true" />}
+          onClick={onSaveQuickFilter}
+          disabled={saveReasonKey !== null || !onSaveQuickFilter}
+          data-testid="servers-quickfilter-save"
+        >
+          {t('servers.quickFilter.save')}
+        </Button>
+        {saveReasonKey && (
+          <p
+            className="px-2.5 text-xs text-ink-muted"
+            data-testid="servers-quickfilter-save-reason"
+          >
+            {t(saveReasonKey)}
+          </p>
+        )}
       </div>
 
       <div className="space-y-3">
-        <Field label={t('servers.filter.mod')}>
-          <Select
-            value={filter.mod ?? ''}
-            options={modOptions}
-            onChange={(event) =>
-              onChange({ ...filter, mod: event.target.value === '' ? null : event.target.value })
-            }
+        <Field label={t('common.label.mod')}>
+          <MultiSelect
+            label={t('common.label.mod')}
+            options={options.mods}
+            value={filter.mod}
+            onChange={(mod) => onChange({ ...filter, mod })}
+            summaryCount={(count) => t('servers.filter.modsCount', { count })}
             data-testid="servers-filter-mod"
           />
         </Field>
 
-        <Field label={t('servers.filter.gamemode')}>
+        <Field label={t('common.label.gamemode')}>
           <Select
             value={filter.gamemode ?? ''}
             options={gamemodeOptions}
@@ -179,14 +231,29 @@ export function ServerListFilterBar({
           />
         </Field>
 
-        <Field label={t('servers.filter.map')}>
-          <Select
-            value={filter.map ?? ''}
-            options={mapOptions}
-            onChange={(event) =>
-              onChange({ ...filter, map: event.target.value === '' ? null : event.target.value })
-            }
+        <Field label={t('common.label.map')}>
+          <MultiSelect
+            label={t('common.label.map')}
+            options={options.maps}
+            value={filter.map}
+            onChange={(map) => onChange({ ...filter, map })}
+            summaryCount={(count) => t('servers.filter.mapsCount', { count })}
             data-testid="servers-filter-map"
+          />
+        </Field>
+
+        <Field label={t('servers.filter.maxPing')}>
+          <Select
+            value={filter.maxPingMs === null ? '' : String(filter.maxPingMs)}
+            options={maxPingOptions}
+            onChange={(event) =>
+              onChange({
+                ...filter,
+                maxPingMs:
+                  event.target.value === '' ? null : (Number(event.target.value) as MaxPingMs),
+              })
+            }
+            data-testid="servers-filter-max-ping"
           />
         </Field>
       </div>
@@ -200,11 +267,11 @@ export function ServerListFilterBar({
           disabled={!active}
           data-testid="servers-filter-clear"
         >
-          {t('servers.filter.clear')}
+          {t('common.action.clearFilters')}
         </Button>
         {active && (
           <span className="px-2.5 text-xs text-ink-muted" data-testid="servers-filter-count">
-            {t('servers.filter.count', { shown, total })}
+            {t('common.label.showingCount', { shown, total })}
           </span>
         )}
       </div>

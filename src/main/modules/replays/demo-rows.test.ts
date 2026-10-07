@@ -3,7 +3,12 @@ import type { DemoSource, DiscoveredDemo } from '@shared/modules/replays'
 import type { SidecarFields } from '@shared/replays/sidecar'
 import { type DemoSidecarInput, buildDemoRow, composeDemoRows } from './demo-rows'
 
-const SOURCE: DemoSource = { kind: 'installation', installationId: 'i1', installationName: 'Install', gameDir: 'baseq2' }
+const SOURCE: DemoSource = {
+  kind: 'installation',
+  installationId: 'i1',
+  installationName: 'Install',
+  gameDir: 'baseq2',
+}
 
 function demo(overrides: Partial<DiscoveredDemo> = {}): DiscoveredDemo {
   return {
@@ -21,7 +26,9 @@ function demo(overrides: Partial<DiscoveredDemo> = {}): DiscoveredDemo {
     pov: 'Recorder',
     players: ['Alice', 'Bob'],
     durationMs: 60000,
+    roster: null,
     fileTime: { birthtimeMs: 1000, mtimeMs: 2000 },
+    folder: [],
     nameFacts: null,
     ...overrides,
   }
@@ -35,10 +42,7 @@ function sidecar(values: Partial<SidecarFields>, state: 'ok' | 'error' = 'ok'): 
 
 describe('buildDemoRow', () => {
   it('a sidecar name, favourite and rating win over the file name', () => {
-    const row = buildDemoRow(
-      demo(),
-      sidecar({ name: 'Grand final', favourite: true, rating: 9 }),
-    )
+    const row = buildDemoRow(demo(), sidecar({ name: 'Grand final', favourite: true, rating: 9 }))
 
     expect(row.effective.name).toEqual({ value: 'Grand final', source: 'sidecar' })
     expect(row.sidecar).toEqual({

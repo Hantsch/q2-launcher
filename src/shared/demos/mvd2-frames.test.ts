@@ -30,7 +30,14 @@ function everySizedMessage(): Mvd2StreamMessage[] {
     mvd2Msg.multicast('phs_r', [1, 2, 3, 4, 5, 6, 7, 8]),
     mvd2Msg.multicast('pvs_r', [], 12),
     mvd2Msg.sound({ index: 4, sendchan: 9 }),
-    mvd2Msg.sound({ index: 300, index16: true, volume: 255, attenuation: 64, offset: 10, sendchan: (7 << 3) | 2 }),
+    mvd2Msg.sound({
+      index: 300,
+      index16: true,
+      volume: 255,
+      attenuation: 64,
+      offset: 10,
+      sendchan: (7 << 3) | 2,
+    }),
     // A length that spills into the opcode's extra bits (> 255 bytes).
     mvd2Msg.unicast(1, new Array<number>(300).fill(7)),
     mvd2Msg.multicast('pvs', new Array<number>(500).fill(3), 1),
@@ -45,7 +52,9 @@ describe('createMvd2FrameCounter', () => {
       ...prefix.map((m) => [m, mvd2Msg.frame()]),
       [mvd2Msg.frame()],
     ]
-    const result = count(buildMvd2Stream({ headerConfigstrings: { 0: 'The Edge' }, blocks, terminate: true }))
+    const result = count(
+      buildMvd2Stream({ headerConfigstrings: { 0: 'The Edge' }, blocks, terminate: true }),
+    )
     expect(result).toEqual({
       ok: true,
       frames: blocks.length,
@@ -75,17 +84,28 @@ describe('createMvd2FrameCounter', () => {
 
   it('versions 2009-2013 are accepted, 2008 is not-a-demo', () => {
     for (const version of VERSIONS) {
-      const result = count(buildMvd2Stream({ version, blocks: [[mvd2Msg.frame()]], terminate: true }))
-      expect(result, `version ${version}`).toEqual({ ok: true, frames: 1, durationMs: 100, complete: true })
+      const result = count(
+        buildMvd2Stream({ version, blocks: [[mvd2Msg.frame()]], terminate: true }),
+      )
+      expect(result, `version ${version}`).toEqual({
+        ok: true,
+        frames: 1,
+        durationMs: 100,
+        complete: true,
+      })
     }
-    expect(count(buildMvd2Stream({ version: 2008, blocks: [[mvd2Msg.frame()]], terminate: true }))).toMatchObject({
+    expect(
+      count(buildMvd2Stream({ version: 2008, blocks: [[mvd2Msg.frame()]], terminate: true })),
+    ).toMatchObject({
       ok: false,
       reason: 'not-a-demo',
     })
   })
 
   it('rejects a bad protocol and foreign data as not-a-demo', () => {
-    expect(count(buildMvd2Stream({ protocol: 36, blocks: [[mvd2Msg.frame()]], terminate: true }))).toMatchObject({
+    expect(
+      count(buildMvd2Stream({ protocol: 36, blocks: [[mvd2Msg.frame()]], terminate: true })),
+    ).toMatchObject({
       ok: false,
       reason: 'not-a-demo',
     })
@@ -116,7 +136,10 @@ describe('createMvd2FrameCounter', () => {
     for (const [name, message] of cases) {
       it(`${name} is undecodable at its block`, () => {
         const good = buildMvd2Stream({ blocks: [[mvd2Msg.frame()]] })
-        const bytes = buildMvd2Stream({ blocks: [[mvd2Msg.frame()], [message], [mvd2Msg.frame()]], terminate: true })
+        const bytes = buildMvd2Stream({
+          blocks: [[mvd2Msg.frame()], [message], [mvd2Msg.frame()]],
+          terminate: true,
+        })
         expect(count(bytes)).toEqual({ ok: false, reason: 'undecodable', at: good.length })
       })
     }
@@ -135,18 +158,39 @@ describe('createMvd2FrameCounter', () => {
     const blocks = [[mvd2Msg.frame()], [mvd2Msg.frame()], [mvd2Msg.print('x\n'), mvd2Msg.frame()]]
     const full = buildMvd2Stream({ blocks, terminate: true })
     expect(count(full)).toEqual({ ok: true, frames: 3, durationMs: 300, complete: true })
-    expect(count(full.subarray(0, full.length - 2))).toEqual({ ok: true, frames: 3, durationMs: 300, complete: false })
-    expect(count(full.subarray(0, full.length - 5))).toEqual({ ok: true, frames: 2, durationMs: 200, complete: false })
+    expect(count(full.subarray(0, full.length - 2))).toEqual({
+      ok: true,
+      frames: 3,
+      durationMs: 300,
+      complete: false,
+    })
+    expect(count(full.subarray(0, full.length - 5))).toEqual({
+      ok: true,
+      frames: 2,
+      durationMs: 200,
+      complete: false,
+    })
     // Cut inside the terminator itself.
-    expect(count(full.subarray(0, full.length - 1))).toEqual({ ok: true, frames: 3, durationMs: 300, complete: false })
+    expect(count(full.subarray(0, full.length - 1))).toEqual({
+      ok: true,
+      frames: 3,
+      durationMs: 300,
+      complete: false,
+    })
     // Bytes after the terminator are ignored.
-    const trailing = buildMvd2Stream({ blocks, terminate: true, trailing: [1, 2, 3, 99, 99, 99, 99, 99] })
+    const trailing = buildMvd2Stream({
+      blocks,
+      terminate: true,
+      trailing: [1, 2, 3, 99, 99, 99, 99, 99],
+    })
     expect(count(trailing)).toEqual({ ok: true, frames: 3, durationMs: 300, complete: true })
   })
 
   it('zero frames is no-frames', () => {
     const blocks = [[mvd2Msg.print('nothing happens\n')], [mvd2Msg.configstring(1, 'x')]]
-    expect(count(buildMvd2Stream({ headerConfigstrings: { 0: 'x' }, blocks, terminate: true }))).toEqual({
+    expect(
+      count(buildMvd2Stream({ headerConfigstrings: { 0: 'x' }, blocks, terminate: true })),
+    ).toEqual({
       ok: false,
       reason: 'no-frames',
     })
@@ -157,7 +201,11 @@ describe('createMvd2FrameCounter', () => {
     const big = Array.from({ length: 400 }, (_, i) =>
       i % 5 === 0
         ? [mvd2Msg.print(`line ${i}\n`)]
-        : [mvd2Msg.sound({ index: i, index16: true, sendchan: i }), mvd2Msg.multicast('pvs', new Array<number>(20).fill(i % 256), i), mvd2Msg.frame()],
+        : [
+            mvd2Msg.sound({ index: i, index16: true, sendchan: i }),
+            mvd2Msg.multicast('pvs', new Array<number>(20).fill(i % 256), i),
+            mvd2Msg.frame(),
+          ],
     )
     const streams = [
       buildMvd2Stream({ blocks: big, terminate: true }),
@@ -206,7 +254,7 @@ describe('createMvd2FrameCounter', () => {
       const counter = createMvd2FrameCounter()
       let result: FrameCountResult | undefined
       expect(() => {
-        for (let i = 0; i < bytes.length; ) {
+        for (let i = 0; i < bytes.length;) {
           const size = 1 + int(512)
           counter.push(bytes.subarray(i, i + size))
           i += size

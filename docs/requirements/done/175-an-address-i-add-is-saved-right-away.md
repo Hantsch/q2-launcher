@@ -8,7 +8,7 @@ created: 2026-09-29
 ## Requirement
 
 When I add a server to my address book from the server browser ([[127]]), the launcher writes the
-address into the profile's `adrN` cvar but leaves the profile *unsaved*: the Config view shows
+address into the profile's `adrN` cvar but leaves the profile _unsaved_: the Config view shows
 "Unsaved changes" and the `.cfg` on disk does not contain the address yet. I only find out when I
 open Config — and I have to know to press Save there, otherwise the game's own address book stays
 empty. The dialog said "added"; the game says otherwise. That is a trap, not a feature.
@@ -17,8 +17,8 @@ Confirming "Add" in the dialog must be the whole action: after it, the address i
 `.cfg` on disk and the game's address book shows it, without a detour through the Config view.
 
 This changes the choice recorded in [[127]] (AC4: the write leaves the profile in the config
-module's normal dirty state). That was right for a *cvar edit*, where the user is in the Config view
-and sees the Save button; it is wrong for an *action* triggered from another view, where the user
+module's normal dirty state). That was right for a _cvar edit_, where the user is in the Config view
+and sees the Save button; it is wrong for an _action_ triggered from another view, where the user
 has no reason to look there.
 
 ## Acceptance Criteria
@@ -28,7 +28,7 @@ has no reason to look there.
       it).
 - [x] **AC2** — The profile does not show "Unsaved changes" because of the address write, and the
       Config view's unsaved counter does not include it.
-- [x] **AC3** — If the profile already had *other* unsaved changes, only the address is written to
+- [x] **AC3** — If the profile already had _other_ unsaved changes, only the address is written to
       disk; the other pending edits are neither saved nor lost and the profile still shows them as
       unsaved (Q1, decided).
 - [x] **AC4** — If saving fails (e.g. the file is not writable), the dialog stays open and shows the
@@ -53,7 +53,7 @@ has no reason to look there.
   stays pending and is never saved automatically.
 - **Q2 — one config operation, main-side.** Add a new config module handler, `CONFIG_HANDLERS.commitCvars`
   (`{ profileId, cvars }`, where `cvars` holds only the keys to set). It writes those keys into the
-  `.cfg` and into the profile in one round trip. Reason: `save` writes the *whole* live profile, so a
+  `.cfg` and into the profile in one round trip. Reason: `save` writes the _whole_ live profile, so a
   dirty profile would leak its other edits (Q1). The existing "a dirty profile is never written by
   anything but save" rule (`index.ts` `canonicalWriteAllowed`) also means the renderer cannot get
   there by chaining the existing calls.
@@ -71,6 +71,7 @@ has no reason to look there.
 
   Reason: without a baseline the launcher cannot tell the file's content apart from the pending
   edits, and guessing would break Q1.
+
 - **Same read-before-write guard as `save`, never forced.** If the canonical file changed on disk,
   is unparseable or cannot be read (`authoriseContentWrite` is false), the handler refuses with
   `config.error.commitConflict` and changes nothing. Reason: the dialog has no conflict-resolution
@@ -155,6 +156,7 @@ Order: D1 → D2 → D3.
 
     Doc-comment why it must not go through `markFileSeen` (L534): that reseeds the baseline from the
     live record.
+
   - **Handler.** In `src/main/modules/config/index.ts`, register
     `handle(CONFIG_HANDLERS.commitCvars, commitProfileCvarsInputSchema, …)` next to `setCvars`
     (~L676). In order:
@@ -175,6 +177,7 @@ Order: D1 → D2 → D3.
 
     Leave a comment at `canonicalWriteAllowed` (L331) noting that `commitCvars` is the one deliberate
     writer for a dirty profile and writes baseline bytes only.
+
   - **Tests** (`src/main/modules/config/index.test.ts`, new `describe('story 175: commitCvars')`,
     mirroring `describe('story 043 D4: explicit save')` ~L922):
     - "a clean profile gets the cvar on disk and in its installation copy and stays clean"
@@ -203,6 +206,7 @@ Order: D1 → D2 → D3.
     - on `!ok`, show `t(result.error.key)` inline as text, stay open and show no toast.
 
     Opening the dialog, switching profile and validation stay as they are.
+
   - **Dead code.** In `src/renderer/src/modules/servers/lib/address-book.ts`, remove
     `buildAddressBookCvars`, and remove its test in `address-book.test.ts`.
   - **Strings.** In `src/renderer/src/i18n/locales/en.json`:
@@ -240,6 +244,7 @@ Order: D1 → D2 → D3.
       - Plain Profile's installation copy (`fixture-install-favorite`) contains it too.
 
       Mirror the canonical-file read in `scripts/flows/raw-save-cascades.mjs` (~L83).
+
     - **5.** In Config, make one plain Settings cvar edit on Layered Profile (mirror
       `scripts/flows/unsaved-diff.mjs`) and leave it unsaved. Then go back to Servers and add the
       server to Layered Profile's `adr0` from the list. Back in Config on Layered Profile, assert:
@@ -268,6 +273,7 @@ Order: D1 → D2 → D3.
   - cascade the installation copies with `refuseCanonicalWriteFor`.
 
   Each of these, done wrong, silently saves or loses other pending edits.
+
 - D2, D3: default.
 - Review: → default. The plausible wrong implementations each have a named D1 test: rendering the
   live profile, reseeding the baseline from live, and clearing `dirty`. The "dirty profile writes
@@ -306,10 +312,12 @@ Order: D1 → D2 → D3.
 **Commit message:** `175: address-book add is saved right away (config commitCvars writes only the address, dirty profile keeps its pending edits)`
 
 **Verification (narrow gate).** `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (133 files / 2223 tests); `npm run ui:flow -- servers-address-book` green, re-run after the last review fix together with `npx vitest run src/main/modules/config`, typecheck and build. `controls-extra-keys` (pre-existing red) not run. Full gate not run (sprint's job).
+
 - AC1 flow step 4 + unit "a clean profile gets the cvar on disk…" passed. AC2 flow steps 4/5 + same unit passed. AC3 flow step 5 + unit "a dirty profile writes only the committed cvar…" passed. AC4 component "a failed commit keeps the dialog open…" + units "a write failure…" and "a canonical file changed on disk…" passed (no e2e, per Decisions). AC5 component "a successful add toasts the saved key" passed. AC6 manual residue (docs only; reviewer confirmed the pointer in 127).
 - Review (default): FAIL in cycle 1 — vacuous `\s` in a template-literal regex in the flow's AC3 disk check, misplaced doc comment, missing clean-no-baseline test; all fixed (String.raw, comment moved, test "a clean profile without a baseline commits against its live fields and stays clean" added).
 
 **Decisions.**
+
 - Known limitation, documented in code comments: `writeCatalogDefaults` is not in `captureBaseline`, so a pending catalog-defaults toggle is rendered live and would land on disk with the commit. Follow-up: add the field to `src/shared/config/profile-baseline.ts`.
 - `canonicalFileNameFor` helper shared by `authoriseContentWrite` and the handler (directory surveyed twice, fail-safe).
 - Flow: the servers list toolbar trigger no longer exists, so "from the list" = row selected, detail-pane trigger.

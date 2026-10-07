@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
+import { makeJob } from '../../../../../test-support/fixtures'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { DownloadDiagnostics, DownloadFailure } from '@shared/modules/downloads'
@@ -14,18 +15,15 @@ import { RunningStep } from './RunningStep'
  * `FailureLogEntry.test.tsx`'s conventions for asserting the closed `<details>`.
  */
 
-function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
-    id: 'job-1',
-    moduleId: 'downloads',
+function bootstrapJob(overrides: Partial<Job> = {}): Job {
+  return makeJob({
     kind: 'bootstrap-install',
     labelKey: 'downloads.job.bootstrap',
-    status: 'running',
+    labelParams: undefined,
     progress: { ratio: 0.5, bytesDone: 500_000, bytesTotal: 1_000_000 },
     cancellable: false,
-    startedAt: new Date().toISOString(),
     ...overrides,
-  }
+  })
 }
 
 const diagnostics: DownloadDiagnostics = {
@@ -75,14 +73,19 @@ describe('RunningStep', () => {
   it('a failed job renders the same cause detail as the Downloads tab', () => {
     render(
       createElement(RunningStep, {
-        job: makeJob({ status: 'failed', error: { key: 'downloads.error.installationNotPlayable' } }),
+        job: bootstrapJob({
+          status: 'failed',
+          error: { key: 'downloads.error.installationNotPlayable' },
+        }),
         failure: makeFailure({ diagnostics }),
       }),
     )
 
     // The existing single-line error stays.
     expect(
-      screen.getByText('The files were downloaded, but the result was not a usable Quake II installation.'),
+      screen.getByText(
+        'The files were downloaded, but the result was not a usable Quake II installation.',
+      ),
     ).toBeTruthy()
 
     // The same shared detail as `FailureLogEntry` mounts, closed by default, with the same content.
@@ -101,13 +104,18 @@ describe('RunningStep', () => {
   it('a failed job with no matching/diagnostics-less failure entry keeps just the error line', () => {
     render(
       createElement(RunningStep, {
-        job: makeJob({ status: 'failed', error: { key: 'downloads.error.installationNotPlayable' } }),
+        job: bootstrapJob({
+          status: 'failed',
+          error: { key: 'downloads.error.installationNotPlayable' },
+        }),
         failure: undefined,
       }),
     )
 
     expect(
-      screen.getByText('The files were downloaded, but the result was not a usable Quake II installation.'),
+      screen.getByText(
+        'The files were downloaded, but the result was not a usable Quake II installation.',
+      ),
     ).toBeTruthy()
     expect(document.querySelector('details')).toBeNull()
   })
@@ -115,7 +123,7 @@ describe('RunningStep', () => {
   it('a running job renders no error line and no detail (BootstrapWizard never passes a failure for it)', () => {
     render(
       createElement(RunningStep, {
-        job: makeJob({ status: 'running' }),
+        job: bootstrapJob({ status: 'running' }),
         failure: undefined,
       }),
     )
@@ -127,7 +135,7 @@ describe('RunningStep', () => {
   it('a succeeded job renders no error line and no detail', () => {
     render(
       createElement(RunningStep, {
-        job: makeJob({ status: 'succeeded' }),
+        job: bootstrapJob({ status: 'succeeded' }),
         failure: undefined,
       }),
     )

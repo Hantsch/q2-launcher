@@ -29,6 +29,7 @@ const BASE_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 describe('ServersListStatus', () => {
@@ -80,7 +81,9 @@ describe('ServersListStatus', () => {
     const scanState: ServersScanState = {
       ...BASE_STATE,
       finishedAt: 'x',
-      sourceFailures: [{ sourceId: 'default-q2servers-udp', reasonKey: 'servers.scan.error.already-running' }],
+      sourceFailures: [
+        { sourceId: 'default-q2servers-udp', reasonKey: 'servers.scan.error.already-running' },
+      ],
     }
 
     render(

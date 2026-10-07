@@ -1,5 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { INVOKE_CHANNELS } from '@shared/ipc'
 import type { Installation } from '@shared/types'
 import type { AppContext } from '../context'
 
@@ -74,6 +75,15 @@ beforeEach(() => {
   registered.clear()
   vi.resetModules()
   detectRunnersMock.mockReset()
+})
+
+describe('installations channels', () => {
+  it('no installations channel registers a bare folder without game data', async () => {
+    await setup([])
+
+    expect((INVOKE_CHANNELS as readonly string[]).includes('installations:create')).toBe(false)
+    expect(registered.has('installations:create')).toBe(false)
+  })
 })
 
 describe('installations:listRunners', () => {
@@ -181,7 +191,9 @@ describe('installations:listRunners', () => {
   })
 
   it('omits the proton option entirely when no Proton builds are detected', async () => {
-    detectRunnersMock.mockResolvedValue([{ kind: 'native', id: 'native', path: '', available: true }])
+    detectRunnersMock.mockResolvedValue([
+      { kind: 'native', id: 'native', path: '', available: true },
+    ])
     const fn = await setup([fixtureInstallation('inst-1')])
 
     const result = await fn(fakeEvent, 'inst-1')
@@ -214,7 +226,12 @@ describe('installations:listRunners', () => {
 
   it('listRunners gives the steam option its reason per installation', async () => {
     const NATIVE = { kind: 'native', id: 'native', path: '', available: true }
-    const STEAM_FOUND = { kind: 'steam', id: 'steam', path: 'C:\\Steam\\steam.exe', available: true }
+    const STEAM_FOUND = {
+      kind: 'steam',
+      id: 'steam',
+      path: 'C:\\Steam\\steam.exe',
+      available: true,
+    }
     const STEAM_MISSING = { kind: 'steam', id: 'steam', path: '', available: false }
     const steamOption = (result: unknown): unknown =>
       (result as { value: { kind: string }[] }).value.find((option) => option.kind === 'steam')

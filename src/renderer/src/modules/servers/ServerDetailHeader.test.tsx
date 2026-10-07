@@ -4,16 +4,19 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ServerDetail } from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 
 const { addFavouriteMock, removeFavouriteMock } = vi.hoisted(() => ({
   addFavouriteMock: vi.fn(async () => ({ ok: true as const, value: [] })),
   removeFavouriteMock: vi.fn(async () => ({ ok: true as const, value: [] })),
 }))
 
-vi.mock('./client', () => ({
-  addFavourite: addFavouriteMock,
-  removeFavourite: removeFavouriteMock,
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    addFavourite: addFavouriteMock,
+    removeFavourite: removeFavouriteMock,
+  }),
+)
 
 let ServerDetailHeader: typeof import('./ServerDetailHeader').ServerDetailHeader
 
@@ -48,7 +51,13 @@ function renderHeader(detail: ServerDetail, onFavouriteChanged: () => void = () 
 
 function favouriteDetail(favourite: boolean): ServerDetail {
   return {
-    row: { address: '127.0.0.1:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x', favourite },
+    row: {
+      address: '127.0.0.1:27910',
+      origins: ['manual'],
+      status: 'online',
+      lastSeenAt: 'x',
+      favourite,
+    },
     serverinfo: null,
   }
 }
@@ -76,9 +85,7 @@ describe('ServerDetailHeader (story 122 D3)', () => {
     renderHeader(detail)
 
     expect(screen.getByTestId('servers-detail-field-name').textContent).toBe('Fixture Server A')
-    expect(screen.getByTestId('servers-detail-field-address').textContent).toBe(
-      '127.0.0.1:27910',
-    )
+    expect(screen.getByTestId('servers-detail-field-address').textContent).toBe('127.0.0.1:27910')
     expect(screen.getByTestId('servers-detail-field-mod').textContent).toBe('baseq2')
     expect(screen.getByTestId('servers-detail-field-map').textContent).toBe('q2dm1')
     expect(screen.getByTestId('servers-detail-field-gamemode').textContent).toBe('Deathmatch')

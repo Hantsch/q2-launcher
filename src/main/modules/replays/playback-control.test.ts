@@ -62,6 +62,7 @@ function fakeLaunch() {
     exit: (phase: LaunchState['phase'] = 'exited') =>
       stateListeners.forEach((l) => l({ phase, installationId: 'a' } as LaunchState)),
     release: () => releaseListeners.forEach((l) => l()),
+    liveListeners: () => ({ state: stateListeners.size, release: releaseListeners.size }),
   }
 }
 
@@ -69,7 +70,11 @@ const IO: EngineIo = { writeLine: () => undefined, onLine: () => () => undefined
 
 type Ev = { type: string; payload: unknown }
 
-function setup(platform: string, cinema?: Parameters<typeof createPlaybackControl>[0]['cinema']) {
+function setup(
+  platform: string,
+  cinema?: Parameters<typeof createPlaybackControl>[0]['cinema'],
+  stageNotice?: Parameters<typeof createPlaybackControl>[0]['stageNotice'],
+) {
   const order: string[] = []
   const win = fakeChannel('win', order)
   const lin = fakeChannel('lin', order)
@@ -81,7 +86,15 @@ function setup(platform: string, cinema?: Parameters<typeof createPlaybackContro
   const fl = fakeLaunch()
   const makeWindows = vi.fn(() => win.channel)
   const makeLinux = vi.fn(() => lin.channel)
-  const control = createPlaybackControl({ emit, launch: fl.launch, platform, makeWindows, makeLinux, cinema })
+  const control = createPlaybackControl({
+    emit,
+    launch: fl.launch,
+    platform,
+    makeWindows,
+    makeLinux,
+    cinema,
+    stageNotice,
+  })
   return { control, events, order, win, lin, fl, makeWindows, makeLinux }
 }
 
@@ -95,17 +108,24 @@ afterEach(() => vi.useRealTimers())
 describe('playback control', () => {
   it('picks the Windows channel on win32 and the Linux channel on linux', async () => {
     const w = setup('win32')
-    expect(await w.control.prepare({ gameDirPath: 'C:/q2/baseq2', durationMs: null, format: 'dm2' })).toEqual({
+    expect(
+      await w.control.prepare({ gameDirPath: 'C:/q2/baseq2', durationMs: null, format: 'dm2' }),
+    ).toEqual({
       argsBeforeDemo: ['+before-win'],
       argsAfterDemo: ['+after-win'],
     })
-    expect(w.makeWindows).toHaveBeenCalledWith(expect.objectContaining({ gameDirPath: 'C:/q2/baseq2' }))
+    expect(w.makeWindows).toHaveBeenCalledWith(
+      expect.objectContaining({ gameDirPath: 'C:/q2/baseq2' }),
+    )
     expect(w.makeLinux).not.toHaveBeenCalled()
     // Windows writes its files in prepare, before the game is spawned; Linux waits for the engine's pipes.
     expect(w.win.channel.start).toHaveBeenCalledTimes(1)
 
     const l = setup('linux')
-    expect((await l.control.prepare({ gameDirPath: '/q2/baseq2', durationMs: null, format: 'dm2' })).argsAfterDemo).toEqual(['+after-lin'])
+    expect(
+      (await l.control.prepare({ gameDirPath: '/q2/baseq2', durationMs: null, format: 'dm2' }))
+        .argsAfterDemo,
+    ).toEqual(['+after-lin'])
     expect(l.makeLinux).toHaveBeenCalledTimes(1)
     expect(l.makeWindows).not.toHaveBeenCalled()
     expect(l.lin.channel.start).not.toHaveBeenCalled()
@@ -233,41 +253,74 @@ describe('playback control', () => {
     const before = positions(t.events).length
     expect(before).toBeGreaterThan(0)
     t.win.fireDisplay('fullscreen')
-    expect(t.events.at(-1)).toEqual({ type: 'playback.display', payload: expect.objectContaining({ fullscreen: true }) })
+    expect(t.events.at(-1)).toEqual({
+      type: 'playback.display',
+      payload: expect.objectContaining({ fullscreen: true }),
+    })
     vi.advanceTimersByTime(2000)
     expect(positions(t.events)).toHaveLength(before)
     t.win.fireDisplay('stage')
-    expect(t.events.at(-1)).toEqual({ type: 'playback.display', payload: expect.objectContaining({ fullscreen: false }) })
+    expect(t.events.at(-1)).toEqual({
+      type: 'playback.display',
+      payload: expect.objectContaining({ fullscreen: false }),
+    })
     vi.advanceTimersByTime(500)
     expect(positions(t.events).length).toBeGreaterThan(before)
     expect(seen).toEqual([true, false])
   })
 
   it('the display event carries cinema, speed and availability', async () => {
-    const cinema = { open: false, availability: { available: true } as { available: true } | { available: false; reason: { key: string } } }
+    const cinema = {
+      open: false,
+      availability: { available: true } as
+        { available: true } | { available: false; reason: { key: string } },
+    }
     const t = setup('win32', () => cinema)
     const states: string[] = []
     t.control.onStateChange((s) => states.push(s))
     // No session: the defaults, with what cinema says right now.
-    expect(t.control.display()).toEqual({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true } })
+    expect(t.control.display()).toEqual({
+      fullscreen: false,
+      cinema: false,
+      speed: 1,
+      volume: { percent: 70, muted: false },
+      cinemaAvailability: { available: true },
+      stageNotice: null,
+    })
     await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach()
     expect(states).toEqual(['playing'])
-    const displays = () => t.events.filter((e) => e.type === 'playback.display').map((e) => e.payload)
+    const displays = () =>
+      t.events.filter((e) => e.type === 'playback.display').map((e) => e.payload)
 
     t.control.setSpeed(2)
     cinema.open = true
     t.control.emitDisplay()
-    expect(displays().at(-1)).toEqual({ fullscreen: false, cinema: true, speed: 2, cinemaAvailability: { available: true } })
+    expect(displays().at(-1)).toEqual({
+      fullscreen: false,
+      cinema: true,
+      speed: 2,
+      volume: { percent: 70, muted: false },
+      cinemaAvailability: { available: true },
+      stageNotice: null,
+    })
 
     // Fullscreen wins over an open overlay; availability is read at push time.
-    cinema.availability = { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } }
+    cinema.availability = {
+      available: false,
+      reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+    }
     t.win.fireDisplay('fullscreen')
     expect(displays().at(-1)).toEqual({
       fullscreen: true,
       cinema: false,
       speed: 2,
-      cinemaAvailability: { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } },
+      volume: { percent: 70, muted: false },
+      cinemaAvailability: {
+        available: false,
+        reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+      },
+      stageNotice: null,
     })
     expect(t.control.display()).toEqual(displays().at(-1))
 
@@ -277,6 +330,55 @@ describe('playback control', () => {
     expect(states).toEqual(['playing', 'finished', 'ended'])
     // The next session starts at normal speed.
     expect(t.control.display().speed).toBe(1)
+  })
+
+  it('the display carries the session volume', async () => {
+    const t = setup('win32')
+    await t.control.prepare({
+      gameDirPath: 'g',
+      durationMs: null,
+      format: 'dm2',
+      volumePercent: 30,
+    })
+    await t.control.attach()
+    expect(t.control.display().volume).toEqual({ percent: 30, muted: false })
+    t.control.setVolume({ percent: 55, muted: true })
+    expect(t.control.display().volume).toEqual({ percent: 55, muted: true })
+    expect(t.events.filter((e) => e.type === 'playback.display').at(-1)?.payload).toMatchObject({
+      volume: { percent: 55, muted: true },
+    })
+  })
+
+  it('takeChangedVolume returns the last level once, after the session ended', async () => {
+    const t = setup('win32')
+    expect(t.control.takeChangedVolume()).toBeNull()
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
+    await t.control.attach()
+    t.control.setVolume({ percent: 20, muted: false })
+    t.control.setVolume({ percent: 45, muted: true })
+    t.fl.exit()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(t.control.takeChangedVolume()).toBe(45)
+    expect(t.control.takeChangedVolume()).toBeNull()
+  })
+
+  it("a new session does not inherit the previous session's changed volume", async () => {
+    const t = setup('win32')
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
+    await t.control.attach()
+    t.control.setVolume({ percent: 45, muted: false })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
+    expect(t.control.takeChangedVolume()).toBeNull()
+  })
+
+  it('the display carries the stage notice, null when none is wired', () => {
+    expect(setup('win32').control.display().stageNotice).toBeNull()
+    let notice: { key: string } | null = null
+    const t = setup('win32', undefined, () => notice)
+    expect(t.control.display().stageNotice).toBeNull()
+    notice = { key: 'replays.stage.notOnTop.x11' }
+    t.control.emitDisplay()
+    expect(t.events.at(-1)?.payload).toMatchObject({ stageNotice: notice })
   })
 
   it('enterFullscreen goes to the channel, and is NO_SESSION without a session', async () => {
@@ -294,5 +396,65 @@ describe('playback control', () => {
     await t.control.cancel()
     expect(t.win.channel.close).toHaveBeenCalledTimes(1)
     expect(t.events).toHaveLength(0)
+  })
+})
+
+describe('playback control dispose', () => {
+  const PREPARE = { gameDirPath: '/q2/baseq2', durationMs: null, format: 'dm2' as const }
+
+  it('dispose unsubscribes and closes the channel once', async () => {
+    const t = setup('linux')
+    await t.control.prepare(PREPARE)
+    await t.control.attach(IO)
+    expect(t.fl.liveListeners()).toEqual({ state: 1, release: 1 })
+
+    await t.control.dispose()
+
+    expect(t.fl.liveListeners()).toEqual({ state: 0, release: 0 })
+    expect(t.lin.channel.close).toHaveBeenCalledTimes(1)
+    expect(endedCount(t.events)).toBe(1)
+  })
+
+  it('waits for the close the playback release started instead of closing again', async () => {
+    const t = setup('linux')
+    await t.control.prepare(PREPARE)
+    await t.control.attach(IO)
+    t.lin.state.deferClose = true
+
+    t.fl.release()
+    expect(t.lin.channel.close).toHaveBeenCalledTimes(1)
+    let disposed = false
+    const disposing = t.control.dispose().then(() => {
+      disposed = true
+    })
+    await Promise.resolve()
+    expect(disposed).toBe(false)
+
+    t.lin.resolveClose()
+    await disposing
+    expect(t.lin.channel.close).toHaveBeenCalledTimes(1)
+    expect(t.lin.channel.start).toHaveBeenCalledTimes(1)
+    expect(endedCount(t.events)).toBe(1)
+  })
+
+  it('dispose closes a prepared channel whose launch never started, without an ended push', async () => {
+    const t = setup('win32')
+    await t.control.prepare(PREPARE)
+
+    await t.control.dispose()
+
+    expect(t.win.channel.close).toHaveBeenCalledTimes(1)
+    expect(endedCount(t.events)).toBe(0)
+    expect(t.fl.liveListeners()).toEqual({ state: 0, release: 0 })
+  })
+
+  it('a prepare after dispose does not subscribe to the launch service again', async () => {
+    const t = setup('linux')
+    await t.control.prepare(PREPARE)
+    await t.control.dispose()
+
+    await t.control.prepare(PREPARE)
+
+    expect(t.fl.liveListeners()).toEqual({ state: 0, release: 0 })
   })
 })

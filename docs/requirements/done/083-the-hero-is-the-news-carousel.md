@@ -17,7 +17,7 @@ focus it, and there is a pause I can latch. If I have no feed yet, it welcomes m
 showing an empty box. If the feed is old because the fetch failed, it says so quietly. A slide's
 buttons open in my browser — the launcher never navigates itself somewhere.
 
-See [concepts/home-screen.md](../concepts/home-screen.md) §7 and §11 (variant A is the reference).
+See [systems/home-screen.md](../../systems/home-screen.md) §7 and §11 (variant A is the reference).
 
 ## Acceptance Criteria
 
@@ -105,8 +105,8 @@ Everything lands **inside the `home` module** (renderer half from 081, main half
 shell is not touched; no new top-level IPC channel is declared.
 
 1. **Pure state first.** `carousel.ts` — a reducer over `{ index, count, latched, hovered,
-   focused, reducedMotion }` with `next/prev/goto/tick/…` and a derived `isRunning`. The whole of
-   AC3/AC4/AC5's *logic* is provable without React.
+focused, reducedMotion }` with `next/prev/goto/tick/…` and a derived `isRunning`. The whole of
+   AC3/AC4/AC5's _logic_ is provable without React.
 2. **Templates.** `split`, `banner`, `text` as three launcher-side renderers over a fixed field
    set, plus the fallback path and the shared button row (max 3, no `href`). Image URL optional →
    `text` layout when absent (084 fills it later).
@@ -275,7 +275,7 @@ clean review that returned PASS.
 
 - `npm run build` — green.
 - `npm test` — 3447 tests, 2 failures both confirmed pre-existing/unrelated flakes (`config/core/
-  import-reader.test.ts`'s 512-file fan-out timeout, `downloads/bootstrap/job.test.ts`'s AC1 case),
+import-reader.test.ts`'s 512-file fan-out timeout, `downloads/bootstrap/job.test.ts`'s AC1 case),
   both pass in isolation under low contention; neither touches a file this story changed.
 - `npm run typecheck` — clean (`tsconfig.node.json` and `tsconfig.web.json`).
 - `npm run ui:verify` — 74 screens written, 0 unreachable, 0 axe violations at any severity;
@@ -289,6 +289,7 @@ clean review that returned PASS.
   fix cycle applied; second pass **PASS**, all 6 confirmed fixed, no regressions, no scope creep.
 
 AC → test mapping as verified:
+
 - AC1 → e2e `scripts/flows/home-hero-carousel.mjs` (geometry at 1280x800 and 940x620) + `ui:verify`
   screen `home-hero` — passed.
 - AC2 → unit `src/renderer/src/modules/home/slides.test.tsx` — passed (14/14, incl. the IPC-call

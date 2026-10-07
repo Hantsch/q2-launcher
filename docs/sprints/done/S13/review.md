@@ -7,10 +7,10 @@ a keyboard path kept, and Care turns from a dashboard of sections into a to-do l
 calm block when there is nothing to do. Both stories were built, reviewed and merged onto
 `sprint/S13`.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 054 — Order everything by drag and drop | done | `054: order everything by drag and drop` |
-| 058 — Care says only what needs doing | done | `058: care says only what needs doing` |
+| Story                                   | Status | Commit                                   |
+| --------------------------------------- | ------ | ---------------------------------------- |
+| 054 — Order everything by drag and drop | done   | `054: order everything by drag and drop` |
+| 058 — Care says only what needs doing   | done   | `058: care says only what needs doing`   |
 
 ## Implemented stories
 
@@ -23,7 +23,7 @@ sub-sections and cvars are drag-reorderable on the same primitive. The old inlin
 buttons were replaced by a row kebab menu (Move up / Move down / Move to…) as the keyboard path,
 alongside dnd-kit's own keyboard sensor. All reorders persist through the existing save/dirty/
 Discard path; a genuine pre-existing bug was found and fixed in passing — `cvarSections` was never
-captured by baseline/Discard and had drifted into a *required* schema field, silently dropping
+captured by baseline/Discard and had drifted into a _required_ schema field, silently dropping
 every pre-story baseline on read.
 
 **058 — Care says only what needs doing.** Care is now one derived to-do list. A new

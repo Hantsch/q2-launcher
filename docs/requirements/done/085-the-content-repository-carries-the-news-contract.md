@@ -107,7 +107,7 @@ files are written, not published: no commit, no push, no release — publishing 
 
 None open. Noted for the sprint review, not blocking: the checkout already contains `engines/` and
 `gamedata/` (added by story 080's manifest work), which
-[concepts/home-screen.md](../concepts/home-screen.md) §6 still describes as "today it contains only
+[systems/home-screen.md](../../systems/home-screen.md) §6 still describes as "today it contains only
 a LICENSE" — the concept's repo-layout listing is stale and its `news/`-only sketch should be
 updated once this story's README exists.
 
@@ -260,11 +260,13 @@ reserved-directory READMEs and the full contract `README.md` into the external c
 READMEs, byte-identity and untouched git state.
 
 Commit message:
+
 ```
 085: news contract lives in the content repo, with a fixture copy and a checker
 ```
 
 Verification:
+
 - `npm run build` — passed.
 - `npm run typecheck` — passed (fixed an unused-variable error the D2 test introduced: an
   unnecessary `NOW` constant, since `resolveFeed()` doesn't filter by visibility).
@@ -297,6 +299,7 @@ Verification:
 - No manual residue.
 
 Decisions (made during implementation, not previously recorded):
+
 - The story's own text guessed the pipeline directory as `src/main/modules/home/feed/`; the real
   082 output lives at `src/main/modules/home/news/`. D2's test and the `## Acceptance Tests`
   mapping were corrected to that real path.

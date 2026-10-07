@@ -1,4 +1,5 @@
 # Sprint S02 — Manual Test Plan (Config module: keybinding editor, switch bind,
+
 # Advanced tab, validator, cleanup)
 
 Consolidated, self-contained acceptance walkthrough for stories 006–010
@@ -10,7 +11,7 @@ document, the same way the sprint's own story order was 006 → 007 → 008 → 
 This document assumes the config module's foundations from sprint S01 (profiles, per-installation
 assignment, cvar editing, saving to disk, import) already work — see
 [`docs/sprints/S01/testplan.md`](../S01/testplan.md) for that layer's own walkthrough. Only the
-mechanics *new* in S02 are exercised here as their own use cases; S01 features are only used as
+mechanics _new_ in S02 are exercised here as their own use cases; S01 features are only used as
 setup (e.g. "create a profile", "assign it to an installation") where a S02 feature needs them to
 exist first.
 
@@ -62,6 +63,7 @@ Covers story 006, AC1 and AC6.
 tab (the default tab a profile opens on).
 
 **Steps:**
+
 1. Click **Start editing** (top right of the keyboard board, pencil icon).
 2. Click the `W` key. A **"Bind W"** dialog opens.
 3. In the **Pick a command** list, type `forward` into the filter field, then click the **Forward**
@@ -72,6 +74,7 @@ tab (the default tab a profile opens on).
 7. Click **Stop editing**.
 
 **Expected result:**
+
 - Step 4: the dialog closes, and the `W` keycap immediately shows a small "Forward" label under
   its key name — no restart or tab switch needed (AC6, "reflected in the overview tab").
 - Step 5: after **Clear**, `W`'s keycap goes back to its free/unbound styling; re-opening it shows
@@ -88,6 +91,7 @@ Covers story 006, AC2, AC3, AC4 (detection) and AC5.
 **Preparation:** `Testbed`, Overview tab, `W` bound to `+forward` from Use case 1.
 
 **Steps:**
+
 1. Above the keyboard board, in the **Alt layers** panel, click **New layer**.
 2. Name it `Drops`, leave **Mode** on **Hold**, set **Trigger key** to `ALT`, click **Create
    layer**.
@@ -105,7 +109,8 @@ Covers story 006, AC2, AC3, AC4 (detection) and AC5.
 11. Switch the layer selector back to **Base**.
 
 **Expected result:**
-- Step 5–6: `1` and `2` show as bound *only* while **Drops** is selected on the board (the keycap
+
+- Step 5–6: `1` and `2` show as bound _only_ while **Drops** is selected on the board (the keycap
   gets the alt-layer highlight, not the normal "bound" one); their base-layer state (if any) is
   unaffected.
 - Step 7: the dialog shows a warning box explaining that `W` carries `+forward` on the base layer —
@@ -114,7 +119,7 @@ Covers story 006, AC2, AC3, AC4 (detection) and AC5.
 - Step 8: the assignment goes through despite the warning (AC4 says warning, not refusal).
 - Step 9: `ALT` is the layer's own trigger key — the dialog shows an error message that this key
   can't be remapped inside its own layer (no way to get back out of it), and **Assign** stays
-  disabled — this one *is* a hard refusal, unlike step 7's warning (decision 12 in the story file).
+  disabled — this one _is_ a hard refusal, unlike step 7's warning (decision 12 in the story file).
 - Step 10: the expanded preview shows the exact alias lines that would be written to disk, e.g.
   `alias +drops "bind 1 "drop rocket launcher"; bind 2 "drop railgun""`-shaped content — read the
   actual text shown; the key point to check is that **no line contains a nested quote mark** (AC5),
@@ -132,6 +137,7 @@ Covers story 006, AC2 and AC3.
 **Preparation:** `Testbed`, Overview tab.
 
 **Steps:**
+
 1. In the **Alt layers** panel, click **New layer**. Name it `Zoom`, set **Mode** to **Toggle**,
    **Trigger key** to `V`, click **Create layer**.
 2. Click **Show generated aliases** on the `Zoom` row (with no keys bound in it yet).
@@ -140,6 +146,7 @@ Covers story 006, AC2 and AC3.
 4. Re-open **Show generated aliases** on `Zoom`.
 
 **Expected result:**
+
 - Step 2: with no overrides yet, the panel shows "This layer has no generated aliases yet."
 - Step 4: three aliases are visible — a `zoom_on`, a `zoom_off`, and a dispatch alias `zoom` that
   the trigger key binds to; `zoom_on`'s body ends by pointing the dispatch alias at `zoom_off` and
@@ -154,6 +161,7 @@ Covers story 006, AC5.
 **Preparation:** `Testbed`, Overview tab.
 
 **Steps:**
+
 1. Create one more layer: **New layer**, name it something well over 32 characters, e.g.
    `ThisLayerNameIsDefinitelyLongerThanThirtyTwoCharacters`, mode **Toggle**, trigger key `B`,
    **Create layer**.
@@ -175,15 +183,17 @@ Covers story 006, AC6 (write side).
 1–4.
 
 **Steps:**
+
 1. Open the **Write targets** tab. Click **Preview…** on the R1Q2 Client row.
 2. Close the preview. Close the launcher entirely and run `npm run dev` again.
 3. Open **Config → Testbed → Overview**.
 
 **Expected result:**
+
 - Step 1: the preview's `q2l-profile-<id>.cfg` content shows, in order, the `set` (cvar) block,
   then an `alias` block containing every layer's generated aliases (`Drops`, `Zoom`, and the long-
   named one), then the `bind` block — including `bind W "+forward"`, `bind ALT "+drops"`, `bind V
-  zoom`, and this layer's own trigger bind.
+zoom`, and this layer's own trigger bind.
 - Step 3: after the restart, `W` is still bound to `+forward` on the base layer, and all three
   layers (`Drops`, `Zoom`, the long-named one) are still listed in the **Alt layers** panel with
   their overrides intact.
@@ -195,6 +205,7 @@ Covers story 006, AC6 (write side).
 Covers story 007, AC1–AC5.
 
 **Preparation:**
+
 - Create a second profile, empty, named `CTF`.
 - Assign both `Testbed` and `CTF` to **R1Q2 Client** (via each profile's "N of M assigned"
   popover). Make sure `Testbed` is the **default** for R1Q2 Client (it already is, being the first
@@ -202,6 +213,7 @@ Covers story 007, AC1–AC5.
   **Set default** on the R1Q2 Client row).
 
 **Steps:**
+
 1. On the Config **list** screen (not inside a profile), find the **By installation** panel. The
    **R1Q2 Client** row now shows a **Switch key** control (it appears only once an installation has
    2 or more assigned profiles — AC5).
@@ -218,12 +230,13 @@ Covers story 007, AC1–AC5.
    (leaving only `Testbed` assigned there).
 
 **Expected result:**
+
 - Step 2: the control now shows an `F9` badge and a **Clear** button instead of "Not set"/"Use F9"
   (AC1 — a user-assignable key, no fixed default beyond the suggestion).
-- Step 3: `baseq2/autoexec.cfg`'s preview content contains the `exec` of the *default* profile
+- Step 3: `baseq2/autoexec.cfg`'s preview content contains the `exec` of the _default_ profile
   (`Testbed`) followed by a `q2l_sw…`-style alias chain and a `bind F9 q2l_switch` line (AC4,
   written through the same pipeline as story 004's writes).
-- Step 5: the first **F9** press echoes the *other* profile's name to the console (`CTF`, since the
+- Step 5: the first **F9** press echoes the _other_ profile's name to the console (`CTF`, since the
   chain starts at the default's successor — decision 7), the second press echoes `Testbed` again,
   and a third keeps cycling with no dead press (AC2).
 - Step 6: R1Q2 Client's default assignment is still `Testbed`, unchanged by any amount of pressing
@@ -243,6 +256,7 @@ Covers story 008, AC1.
 you want Use case 6's control visible again; not required for this use case).
 
 **Steps:**
+
 1. Look at the category rail: **Movement**, **Weapons**, **Weapon dropping** are listed, each with
    a **Built-in** badge, and none of them shows a delete icon.
 2. Click **New category**. Name it `Team messages`, set **Entry kind** to **Message**, click
@@ -263,6 +277,7 @@ Covers story 008, AC1 (actions), AC4 and AC5.
 **Preparation:** `Testbed`, Advanced tab, **Weapon dropping** category selected.
 
 **Steps:**
+
 1. Click **Add action**, name it `RL drop`, click **Create action**.
 2. On the new `RL drop` row, click the **Edit commands…** icon.
 3. In **Pick from the catalogue**, type `rocket` into the filter and click the **Rocket Launcher**
@@ -277,6 +292,7 @@ Covers story 008, AC1 (actions), AC4 and AC5.
 9. Click **Save**, then check **Write targets → Preview…** for R1Q2 Client.
 
 **Expected result:**
+
 - Step 3: two commands appear in the list — `drop rocket launcher` and `drop rockets` (the
   Rocket Launcher's own ammo) — added together from one catalogue click.
 - Step 4: a third command, `say Dropped the RL!`, appears below the first two, in order.
@@ -298,6 +314,7 @@ Covers story 008, AC2 and AC3.
 **Preparation:** `Testbed`, Advanced tab, the `Team messages` category created in Use case 7.
 
 **Steps:**
+
 1. Select **Team messages**, click **Add action**, name it `Help call`, click **Create action**.
 2. Click its **Edit commands…** icon — this opens the message editor (not the command editor),
    because the category's entry kind is **Message**.
@@ -315,6 +332,7 @@ Covers story 008, AC2 and AC3.
     byte-accurate text editor if you have one.
 
 **Expected result:**
+
 - Step 4–5: `$$loc_here` and `%h` are inserted into the text at the cursor.
 - Step 6: the preview line renders `$$loc_here` and `%h` visually differently from the plain text
   around them, and differently from each other — the meta-variable and the server-substituted
@@ -340,6 +358,7 @@ Covers story 009, AC1 and AC4.
 assigned them earlier while exploring).
 
 **Steps:**
+
 1. Open `Testbed` → **Validation** tab.
 2. Go to **Settings**, find **Render FPS cap** (`r_maxfps`), set it to `0`.
 3. Immediately switch back to **Validation** — do not wait for the "Saving…"/"Saved" label in
@@ -349,6 +368,7 @@ assigned them earlier while exploring).
 5. Switch back to **Validation**.
 
 **Expected result:**
+
 - Step 1: one section named **R1Q2** is shown (the only engine reached through `Testbed`'s
   assignments), with an equally-weighted error/warning count badge (or "No findings").
 - Step 3: an error-level finding already names `r_maxfps` and explains R1Q2's "clamps anything
@@ -367,6 +387,7 @@ Covers story 009, AC1–AC3.
 **Preparation:** `Testbed` from Use case 10 (still has the `r_maxfps 0` and quoted-name edits).
 
 **Steps:**
+
 1. Assign `Testbed` to **Q2PRO Client** as well (via its assignment popover), keeping R1Q2 Client
    assigned too.
 2. Open the **Validation** tab.
@@ -378,12 +399,13 @@ Covers story 009, AC1–AC3.
 6. Open **Validation**.
 
 **Expected result:**
+
 - Step 2: two equally-weighted sections are shown, **R1Q2** and **Q2PRO** side by side; the
   `r_maxfps 0` finding from Use case 10 appears only under R1Q2 (Q2PRO reads `0` as "unlimited") —
   neither section is presented as more authoritative than the other (AC1, no primary/portability
   tiering).
 - Step 4: a third section, **Quake II (original)**, appears; it reports the rendered profile file
-  as exceeding vanilla's ~8190-byte command-buffer size and being discarded *entirely*, while the
+  as exceeding vanilla's ~8190-byte command-buffer size and being discarded _entirely_, while the
   R1Q2 and Q2PRO sections do not report the same file as over their own (much larger) limits.
 - Step 6: instead of any engine section, the tab shows an explicit **"Nothing to validate
   against"** empty state naming that the profile isn't assigned to any installation — never a
@@ -401,13 +423,14 @@ section below for why it is the only practical UI path to these two specific fin
 (e.g. **Weapon dropping**).
 
 **Steps:**
+
 1. Add an action, e.g. `AliasTest`. Open its **Edit commands…** editor.
 2. In **Add a raw command**, type `alias averylongaliasnamewellovertheusuallimit echo hi` and click
    **Add**. Click **Save**.
 3. Open **Validation**.
 
 **Expected result:** a finding appears naming that alias (`averylongaliasnamewellovertheusuallimit`)
-as too long for `MAX_ALIAS_NAME` (32), because the validator inspects the *rendered* profile text
+as too long for `MAX_ALIAS_NAME` (32), because the validator inspects the _rendered_ profile text
 for any `alias <name>` line regardless of where it came from — including one a user typed by hand
 into a raw command, not just the ones story 006/008's own generators produce (which always stay
 within the 32-character budget on their own).
@@ -419,16 +442,18 @@ within the 32-character budget on their own).
 Covers story 010, AC1–AC4.
 
 **Preparation:**
+
 - On disk, in **R1Q2 Client**'s installation folder: put a file `baseq2/gl_settings.cfg` with some
   content, e.g. `set gl_shadows "1"`. Copy that exact file into a known mod folder, e.g.
   `rogue/gl_settings.cfg` (create the `rogue` folder if it doesn't exist — it's one of the
   launcher's recognized mod-directory names, same as `xatrix` in S01's prerequisites). Additionally
-  create `rogue/config.cfg` with content that *differs* from whatever `baseq2/config.cfg` currently
+  create `rogue/config.cfg` with content that _differs_ from whatever `baseq2/config.cfg` currently
   holds (or create both fresh with different content).
 - If `Testbed` has ever been assigned to R1Q2 Client and played into `rogue` (per story 004), that
   folder may already contain an `autoexec.cfg` written by the launcher itself — leave it as is.
 
 **Steps:**
+
 1. On the Config **list** screen, scroll to the **Redundant config copies** panel.
 2. Pick **R1Q2 Client** from the installation dropdown, click **Scan**.
 3. Look at the findings list.
@@ -443,6 +468,7 @@ Covers story 010, AC1–AC4.
    selected** on whatever is found, then confirm).
 
 **Expected result:**
+
 - Step 3: `rogue/gl_settings.cfg` is listed. `rogue/config.cfg` is listed too, but flagged with a
   **Differs from baseq2** badge (decision 3 — only byte-identical copies are pre-selected).
   `rogue/autoexec.cfg` (if present, written by story 004's own pipeline) and any
@@ -474,10 +500,10 @@ this project's UI-acceptance policy:
   actions in story 008) nests at most two or three aliases deep and never has one call back into an
   earlier one — well inside the engine's 16-level `ALIAS_LOOP_COUNT`. A user could, in principle,
   manufacture a real loop by typing two raw commands like `alias loopA loopB` and `alias loopB
-  loopA` into two different actions' raw-command fields (the same mechanism Use case 12 uses for
+loopA` into two different actions' raw-command fields (the same mechanism Use case 12 uses for
   the alias-name-length finding), but this is contrived rather than a use case an actual player
   would hit, so it is not written up as a numbered use case above. The alias-name-length half of
-  the same acceptance criterion *is* covered, in Use case 12, using exactly this "type a raw
+  the same acceptance criterion _is_ covered, in Use case 12, using exactly this "type a raw
   console command by hand" path.
 - **Q2PRO's and R1Q2's own buffer-overflow findings (story 009 AC2, the ~64 KB thresholds) are
   impractical to trigger by hand.** Use case 11 only exercises vanilla's much smaller ~8190-byte
@@ -485,7 +511,7 @@ this project's UI-acceptance policy:
   65535-byte (compressed) thresholds through typing/pasting in the UI would need tens of thousands
   of characters of profile content — technically possible but not a reasonable manual test step.
   These two engines' overflow behavior is exercised by the automated test suite
-  (`validate-structure.test.ts`) instead; this document only confirms the *pattern* (an
+  (`validate-structure.test.ts`) instead; this document only confirms the _pattern_ (an
   over-budget file is reported per-engine, with that engine's own consequence) via vanilla's
   smaller number.
 - **The "unresolved" validation/engine-scope state (a profile's assignment pointing at an

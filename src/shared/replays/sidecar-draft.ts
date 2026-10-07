@@ -8,7 +8,13 @@
  * `Buffer`, no IPC, no electron.
  */
 
-import { normalizeSidecarFields, sidecarFieldsSchema, type SidecarFields } from './sidecar'
+import {
+  SIDECAR_LIMITS,
+  type SidecarComment,
+  normalizeSidecarFields,
+  sidecarFieldsSchema,
+  type SidecarFields,
+} from './sidecar'
 
 export type SidecarDraft = {
   name: string
@@ -21,11 +27,13 @@ export type SidecarDraft = {
   favourite: boolean
   tags: string[]
   sides: Array<{ team: string; result: string; players: string[] }>
+  comments: SidecarComment[]
   originalDate: string | null
 }
 
 export const RATING_ERROR_KEY = 'replays.editor.error.rating' as const
 export const DATE_ERROR_KEY = 'replays.editor.error.date' as const
+export const TOO_LONG_ERROR_KEY = 'replays.editor.error.tooLong' as const
 
 /** Renders an ISO datetime string (with offset) into the local `YYYY-MM-DD HH:MM:SS` draft text. */
 export function isoToDraftText(iso: string): string {
@@ -57,10 +65,11 @@ export function draftFromSidecar(values: Partial<SidecarFields>): SidecarDraft {
         ? values.sides.map((s) => ({
             team: s.team ?? '',
             result: s.result ?? '',
-            players: [...s.players]
+            players: [...s.players],
           }))
         : [],
-    originalDate: values.date ?? null
+    comments: values.comments !== undefined ? values.comments.map((c) => ({ ...c })) : [],
+    originalDate: values.date ?? null,
   }
 }
 
@@ -124,7 +133,9 @@ function convertRating(text: string): number | undefined | 'error' {
 }
 
 /** Converts the draft's date text; returns `undefined` for empty, an ISO string, or `'error'`. */
-function convertDate(draft: Pick<SidecarDraft, 'date' | 'originalDate'>): string | undefined | 'error' {
+function convertDate(
+  draft: Pick<SidecarDraft, 'date' | 'originalDate'>,
+): string | undefined | 'error' {
   const trimmed = draft.date.trim()
   if (trimmed === '') return undefined
 
@@ -151,11 +162,12 @@ function rawFieldsFromDraftBase(draft: SidecarDraft): SidecarFields {
     out.sides = draft.sides.map((s) => ({
       team: s.team,
       result: s.result,
-      players: [...s.players]
+      players: [...s.players],
     }))
   }
   if (draft.tags.length > 0) out.tags = [...draft.tags]
   if (draft.favourite) out.favourite = true
+  if (draft.comments.length > 0) out.comments = draft.comments.map((c) => ({ ...c }))
   return out
 }
 
@@ -164,8 +176,10 @@ function rawFieldsFromDraftBase(draft: SidecarDraft): SidecarFields {
  * field is normalised via `normalizeSidecarFields` and validated through `sidecarFieldsSchema`.
  */
 export function draftToFields(
-  draft: SidecarDraft
-): { ok: true; fields: SidecarFields } | { ok: false; errors: Partial<Record<'rating' | 'date', string>> } {
+  draft: SidecarDraft,
+):
+  | { ok: true; fields: SidecarFields }
+  | { ok: false; errors: Partial<Record<'rating' | 'date', string>> } {
   const rating = convertRating(draft.rating)
   const date = convertDate(draft)
 
@@ -219,13 +233,15 @@ export function addPlayer(draft: SidecarDraft, side: number, name: string): Side
   const exists = target.players.some((p) => p.toLowerCase() === trimmed.toLowerCase())
   if (exists) return draft
 
-  const sides = draft.sides.map((s, i) => (i === side ? { ...s, players: [...s.players, trimmed] } : s))
+  const sides = draft.sides.map((s, i) =>
+    i === side ? { ...s, players: [...s.players, trimmed] } : s,
+  )
   return { ...draft, sides }
 }
 
 export function removePlayer(draft: SidecarDraft, side: number, index: number): SidecarDraft {
   const sides = draft.sides.map((s, i) =>
-    i === side ? { ...s, players: s.players.filter((_, pi) => pi !== index) } : s
+    i === side ? { ...s, players: s.players.filter((_, pi) => pi !== index) } : s,
   )
   return { ...draft, sides }
 }
@@ -234,7 +250,7 @@ export function movePlayer(
   draft: SidecarDraft,
   side: number,
   index: number,
-  direction: -1 | 1
+  direction: -1 | 1,
 ): SidecarDraft {
   const target = draft.sides[side]
   if (target === undefined) return draft
@@ -250,16 +266,38 @@ export function movePlayer(
   return { ...draft, sides }
 }
 
+/**
+ * Removes then adds tags to a tag list under the sidecar's rules: trimmed, at most 40 characters,
+ * case-insensitive duplicates ignored, at most 50 tags. `overflow` is true when a valid new tag
+ * was dropped because the list was full.
+ */
+export function mergeTags(
+  tags: readonly string[],
+  add: readonly string[],
+  remove: readonly string[],
+): { tags: string[]; overflow: boolean } {
+  const removed = new Set(remove.map((t) => t.toLowerCase()))
+  const out = tags.filter((t) => !removed.has(t.toLowerCase()))
+  let overflow = false
+  for (const tag of add) {
+    const trimmed = tag.trim()
+    if (trimmed === '' || trimmed.length > SIDECAR_LIMITS.tag) continue
+    if (out.some((t) => t.toLowerCase() === trimmed.toLowerCase())) continue
+    if (out.length >= SIDECAR_LIMITS.tags) {
+      overflow = true
+      continue
+    }
+    out.push(trimmed)
+  }
+  return { tags: out, overflow }
+}
+
 export function addTag(draft: SidecarDraft, tag: string): SidecarDraft {
-  const trimmed = tag.trim()
-  if (trimmed === '' || trimmed.length > 40) return draft
-  if (draft.tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return draft
-  if (draft.tags.length >= 50) return draft
-  return { ...draft, tags: [...draft.tags, trimmed] }
+  return { ...draft, tags: mergeTags(draft.tags, [tag], []).tags }
 }
 
 export function removeTag(draft: SidecarDraft, tag: string): SidecarDraft {
-  return { ...draft, tags: draft.tags.filter((t) => t.toLowerCase() !== tag.toLowerCase()) }
+  return { ...draft, tags: mergeTags(draft.tags, [], [tag]).tags }
 }
 
 /**
@@ -267,7 +305,11 @@ export function removeTag(draft: SidecarDraft, tag: string): SidecarDraft {
  * tags already present on the current draft and keeping only those matching `input` as a
  * case-insensitive substring. Caps at 8 results.
  */
-export function suggestTags(otherDemosTags: string[][], input: string, current: string[]): string[] {
+export function suggestTags(
+  otherDemosTags: string[][],
+  input: string,
+  current: string[],
+): string[] {
   const currentLower = new Set(current.map((t) => t.toLowerCase()))
   const inputLower = input.toLowerCase()
 
@@ -312,7 +354,7 @@ export function suggestTags(otherDemosTags: string[][], input: string, current: 
  */
 export function withQuickEdit(
   values: Partial<SidecarFields>,
-  patch: { favourite?: boolean; rating?: number | null }
+  patch: { favourite?: boolean; rating?: number | null },
 ): SidecarFields {
   const out: SidecarFields = { ...values }
 
@@ -333,4 +375,79 @@ export function withQuickEdit(
   }
 
   return out
+}
+
+export type FieldError = { key: string; params?: Record<string, string | number> }
+
+export type SidecarField = 'name' | 'description' | 'date' | 'map' | 'mod' | 'gamemode'
+
+/**
+ * Turns one text field's typed text into a patch for that key alone: empty text removes the
+ * override (key set to `undefined`), over-long or unparsable text is refused with its reason.
+ */
+export function fieldPatchFromText(
+  field: SidecarField,
+  text: string,
+): { ok: true; patch: Partial<SidecarFields> } | { ok: false; error: FieldError } {
+  const trimmed = text.trim()
+  if (field === 'date') {
+    const date = convertDate({ date: trimmed, originalDate: null })
+    if (date === 'error') return { ok: false, error: { key: DATE_ERROR_KEY } }
+    return { ok: true, patch: { date } }
+  }
+  const max = SIDECAR_LIMITS[field]
+  if (trimmed.length > max) {
+    return { ok: false, error: { key: TOO_LONG_ERROR_KEY, params: { max } } }
+  }
+  return { ok: true, patch: { [field]: trimmed === '' ? undefined : trimmed } }
+}
+
+/** The reason a tag cannot be added, or null when it is acceptable. */
+export function validateTag(text: string): FieldError | null {
+  if (text.trim().length > SIDECAR_LIMITS.tag) {
+    return { key: TOO_LONG_ERROR_KEY, params: { max: SIDECAR_LIMITS.tag } }
+  }
+  return null
+}
+
+/** A pure edit of the on-disk fields; it never normalises or drops a field it does not name. */
+export type SidecarChange = (values: Partial<SidecarFields>) => SidecarFields
+
+export function setFields(patch: Partial<SidecarFields>): SidecarChange {
+  return (values) => {
+    const out: SidecarFields = { ...values }
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete (out as Record<string, unknown>)[key]
+      else (out as Record<string, unknown>)[key] = value
+    }
+    return out
+  }
+}
+
+export function addTagChange(tag: string): SidecarChange {
+  return (values) => {
+    const trimmed = tag.trim()
+    const tags = values.tags ?? []
+    if (trimmed === '' || validateTag(trimmed) !== null) return { ...values }
+    if (tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return { ...values }
+    if (tags.length >= SIDECAR_LIMITS.tags) return { ...values }
+    return { ...values, tags: [...tags, trimmed] }
+  }
+}
+
+export function removeTagChange(tag: string): SidecarChange {
+  return (values) => {
+    if (values.tags === undefined) return { ...values }
+    const tags = values.tags.filter((t) => t.toLowerCase() !== tag.toLowerCase())
+    const { tags: _dropped, ...rest } = values
+    return tags.length === 0 ? rest : { ...rest, tags }
+  }
+}
+
+export function quickChange(patch: { favourite?: boolean; rating?: number | null }): SidecarChange {
+  return (values) => withQuickEdit(values, patch)
+}
+
+export function composeChanges(...changes: SidecarChange[]): SidecarChange {
+  return (values) => changes.reduce<SidecarFields>((acc, change) => change(acc), { ...values })
 }

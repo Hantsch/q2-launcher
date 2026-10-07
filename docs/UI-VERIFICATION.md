@@ -29,7 +29,7 @@ exported `run()` **in the same process** — there is no longer a separate
 child process for screenshots and another for accessibility. In order,
 `run()`:
 
-1. Builds the app (`npm run build`) if `out/main/index.js` or
+1. Builds the app (`npm run build:dev` — the build that includes the dev-only modules) if `out/main/index.js` or
    `out/renderer/index.html` is missing.
 2. Resolves which screens to visit: the whole registry by default, or a
    `--screens=a,b,c` subset.
@@ -290,7 +290,7 @@ variant doesn't pop `DetectDialog` with `autoStart: true` and call it anyway.
 
 ## The importable `config.cfg` fixture
 
-`scripts/lib/fixture.mjs` writes a fixed, deterministic `baseq2/config.cfg`
+`scripts/lib/fixture/populated.mjs` writes a fixed, deterministic `baseq2/config.cfg`
 (`FIXTURE_CONFIG_CFG`) under exactly one installation's game directory —
 `fixture-install-writedir` (display name "Fixture WriteDir Install"), never
 under `fixture-install-favorite` or any other seeded installation. It exists
@@ -315,9 +315,14 @@ every time (`ui:seed`'s idempotency guarantee):
 
 Every app instance the harness launches gets `Q2L_UI_HARNESS=1` in its
 environment (`childEnv()` in `scripts/lib/harness.mjs` sets it
-unconditionally, on top of the caller's own environment). `src/main/window.ts`
-reads it once at module load and, only when it is exactly `'1'`, changes how
-the main window is created:
+unconditionally, on top of the caller's own environment). `resolveUiHarness`
+(`src/main/lib/ui-harness.ts`) decides the gate once at boot, exposed as
+`app.harness` on the `AppContext`; only when it is exactly `'1'` is the gate
+open and `src/main/window.ts` changes how the main window is created. The
+gate and the offscreen decision are frozen, but the `Q2L_UI_*` fixture
+variables are read live (`app.harness.read(name)`, `undefined` while the gate
+is closed), because flows mutate them in the running process via
+`app.evaluate()`:
 
 - The `BrowserWindow` is constructed with `focusable: false` (Windows:
   `WS_EX_NOACTIVATE`), so it can never be activated and clicking it never
@@ -428,7 +433,7 @@ of story 066 D8, replaced by one new entry, `config-import-files`:
   name), which triggers `DialogService`'s harness-only stub
   (`Q2L_UI_HARNESS==='1'`, `src/main/services/dialog.ts`) instead of
   a real OS dialog, handing back the three real fixture files
-  `scripts/lib/fixture.mjs` stages under `.ui-verify/fixture/import-files/`
+  `scripts/lib/fixture/installations.mjs` stages under `.ui-verify/fixture/import-files/`
   (`dm.cfg`, `dmalias.cfg`, `gfx.cfg` — the same three files
   `docs/fixtures/` and `import-fixtures.test.ts`'s corpus test use).
   `navigate()` waits for the third `config-import-file-row` to be visible.
@@ -448,7 +453,7 @@ Story 047 D3 adds three more dialog-entry screens, following the same shape:
   on the dialog's own content container.
 - **`install-detect-dialog`** — `DetectDialog`
   (`src/renderer/src/components/installations/DetectDialog.tsx`), reached via
-  Library header's `library-auto-detect` button. `navigate()` waits only for
+  Library header's `library-add` menu ("Search this PC…"). `navigate()` waits only for
   the dialog itself (`getByRole('dialog')`) and deliberately never clicks its
   "Start" button — per Decision 2, this screen captures the pre-scan state
   only, preserving the harness's guarantee (see "Isolation from your real app
@@ -544,10 +549,10 @@ Story 073 D6 updates one existing entry rather than adding a new one:
   the real `DownloadsView`, so the same click (`nav-downloads`) now reaches real content —
   `navigate()` was given a wait on the empty-jobs body text (`downloads.jobs.empty.body`) so a
   screenshot can never race a not-yet-mounted view the way a bare click could. Per the story's own
-  "Fixture split" decision, this screen only ever shows the *zero-jobs* state — a live job cannot
+  "Fixture split" decision, this screen only ever shows the _zero-jobs_ state — a live job cannot
   be seeded through the static `state.json` fixture — which is what `variant: 'populated'` means
   here: "the real view, populated with its own UI" (the archive cache's real figure, from the two
-  dummy archives `scripts/lib/fixture.mjs` seeds under `cache/downloads/`), not "populated with
+  dummy archives `scripts/lib/fixture/downloads.mjs` seeds under `cache/downloads/`), not "populated with
   jobs". The running and failed states live in `scripts/flows/downloads-tab.mjs` instead (see
   "Flows shipped so far" below), since only a flow can trigger `dev:simulateJob`.
 
@@ -605,6 +610,26 @@ is reachable from a running app via clicks, so the field exists in the
 registry's shape but isn't exercised by any entry yet. Each `coldStart: true`
 screen adds one extra `_electron.launch()` per viewport it lists, on top of
 its variant's one batched-session launch.
+
+## What a flow may assert
+
+A flow asserts user-visible outcomes and the `data-testid`s of its own story's
+surface. It never asserts:
+
+- literal cvar values (a default can change in any story);
+- Tab-key counts (the focus order of a screen is not the story's contract);
+- fixture ordinals ("the third installation", "row 2") — find the row by what
+  it shows, not by its position;
+- pixel geometry (sizes, offsets, line budgets) — unless the story is about
+  that geometry.
+
+New flows do not use `waitForTimeout`; they wait on a state (a testid
+appearing, text changing, a value settling). All fixture data comes from the
+one deterministic builder `scripts/lib/fixture/populated.mjs`, seeded by
+`scripts/seed.mjs`; a flow does not invent its own data on disk.
+
+A flow that asserts another story's incidental detail is fixed in the flow,
+not in the product.
 
 ## How to write a flow
 
@@ -675,16 +700,16 @@ already up):
   module scope; nothing is threaded back into the flow function.
 - `export async function teardown()` — runs after the app is closed, pass or
   fail, so a fixture server cannot outlive the run. The flow launches at the default 1280x800
-viewport (`scripts/flow.mjs`) — flows aren't part of the registry and don't
-take `viewports` of their own — against the `populated` fixture unless a
-second CLI argument names another variant: `npm run ui:flow -- <name>
+  viewport (`scripts/flow.mjs`) — flows aren't part of the registry and don't
+  take `viewports` of their own — against the `populated` fixture unless a
+  second CLI argument names another variant: `npm run ui:flow -- <name>
 <variant>` (story 066 D8, added so `import-from-files` could prove AC9 —
-"import from files needs no installation" — against the zero-installation
-`empty` variant; `variant` is also passed into the flow function's own
-context object, alongside `page`/`app`/`shot`/`log`/`step`, so a flow can
-tailor its own steps to whichever fixture it is actually running against).
-Every flow that predates story 066 keeps its exact prior behaviour with no
-argument needed.
+  "import from files needs no installation" — against the zero-installation
+  `empty` variant; `variant` is also passed into the flow function's own
+  context object, alongside `page`/`app`/`shot`/`log`/`step`, so a flow can
+  tailor its own steps to whichever fixture it is actually running against).
+  Every flow that predates story 066 keeps its exact prior behaviour with no
+  argument needed.
 
 Flows shipped so far, alongside `open-keycap-dialog` above:
 `alias-rename-dialog`, `controls-category-rename-reorder`,
@@ -727,16 +752,9 @@ until an explicit Save this flow does not perform, and (story 061 D1)
 count from `.cfg-code`'s real `clientHeight`, its `padding-block` and `--cfg-code-line-h` (each read
 via `getComputedStyle`), printing `lines=N margin=Mpx` and failing if the computed count drops below
 the story's 30-line budget — the measuring instrument for that budget, not a layout change, and
-(story 068 D5) **`engine-not-client`** — the only flow that opens
-`CreateInstallationDialog`: clicks the library header's `library-create` button, asserts the
-dialog's single `<select>` offers exactly `R1Q2` and `Q2PRO` under a `<label>` reading "Engine"
-(read off `HTMLSelectElement.labels`, plus a `getByRole('combobox', { name: /^engine$/i })` count
-so the name also exists in the accessibility tree), then closes it with Escape — it never clicks
-"Browse" and never submits, because submit is one step from the native folder picker the harness
-cannot drive (see "Known blind spots"). Afterwards it asserts the fixture's `unknown`-engine
-install badges as `Unknown engine (unsupported)` on its library card, its rail hover card and the
-hero panel (activating each install by clicking its rail tile, and restoring the fixture's own
-active install at the end) while an `r1q2` install badges as bare `R1Q2`, and that no visible line
+(story 068 D5) **`engine-not-client`** — asserts the fixture's `unknown`-engine
+install badges as `Unknown engine (unsupported)` on its library card and its rail hover card
+(hovering each rail tile) while an `r1q2` install badges as bare `R1Q2`, and that no visible line
 of `document.body.innerText` on home or library matches `/\bclient\b/i` — with absolute filesystem
 paths stripped first, since a checkout under a directory called `client` is not the launcher's
 vocabulary, and with a sentinel check so an empty text read cannot pass that assertion vacuously,
@@ -761,7 +779,7 @@ entry's translated reason persists across a `DownloadsView` remount, dismisses i
 "Dismissed" disclosure, and restores back into the visible list (AC2) — the only job source is
 `dev:simulateJob`, so the flow never touches the network (AC5). Story 075 D7 adds a further
 section after that dismiss/restore walk, exercised against the two static `downloadFailures`
-entries `scripts/lib/fixture.mjs`'s `populatedDownloadFailures()` seeds directly into `state.json`
+entries `scripts/lib/fixture/populated.mjs`'s `populatedDownloadFailures()` seeds directly into `state.json`
 (no job round trip, reachable fully offline, AC8): both the with-diagnostics and
 without-diagnostics entries render; only the diagnostics entry offers a copy action, the other
 renders none at all (not even a disabled stub, AC6); clicking copy and reading the OS clipboard
@@ -804,7 +822,7 @@ a failing bootstrap that leaves its installation in the Library, and the retry t
 (story 078 D9) **`bootstrap-failure`** — the wizard's own failed running step showing the same
 cause detail the Downloads tab mounts (AC4), driven by a REAL, deliberately broken package set
 rather than `dev:simulateJob` or hand-authored diagnostics; and (story 088 D6)
-**`bootstrap-retail-import`** — the wizard's *second* data source, copying the game data out of a
+**`bootstrap-retail-import`** — the wizard's _second_ data source, copying the game data out of a
 detected Steam/GOG installation instead of downloading it. All four also have their own sections
 below. (Story 091 D8) **`job-waits-for-running-game`** — `InstallationWriteGuard`'s own end-to-end
 proof: a write into a running installation waits instead of writing, names why on both the
@@ -813,7 +831,7 @@ holding the write lock disables Play and makes `launch:start` refuse — its own
 
 Story 079 D3 adds two flows proving every content mutation now cascades to every one of Plain
 Profile's assigned installations, not just its own canonical file — the fixture gave Plain Profile a
-second assignment (`INSTALL_TWO_ID`, `scripts/lib/fixture.mjs`) so "every assigned installation" has
+second assignment (`INSTALL_TWO_ID`, `scripts/lib/fixture/core.mjs`) so "every assigned installation" has
 two real targets to check, not one. (story 079 D3) **`raw-save-cascades`** (AC1) — types a
 deliberately hand-formatted line (a leading tab, trailing spaces — never a `renderProfileFile`
 fixed point) into the Raw file tab's editor, saves it the same way `raw-inline-edit` does, then
@@ -829,11 +847,11 @@ followed by a Reload click races the silent re-read below and is not a reliable 
 profile changing (opening a profile from the list, or re-selecting one while `ConfigView` stays
 mounted — depends on `params.profileId` itself, story 079 D6) and window focus regained
 (`chrome.focused` transitioning false → true). Part 1 of this flow uses the first of those: leaving
-to Library and re-selecting Plain Profile re-fires the re-read for a still-*clean* profile, which
+to Library and re-selecting Plain Profile re-fires the re-read for a still-_clean_ profile, which
 silently adopts the on-disk edit and cascades it to both installations with no dialog or button at
 all — the flow polls both installation copies on disk until they equal the adopted bytes (rather
 than asserting on the first read, since the adopt is a real async IPC round trip). Part 2 covers the conflict dialog's "take
-the file" resolution, which a clean profile can never reach (it needs unsaved edits *and* a changed
+the file" resolution, which a clean profile can never reach (it needs unsaved edits _and_ a changed
 file at once): it dirties Plain Profile through the Raw tab's real `unbindall` checkbox, hand-edits
 the canonical file a second time, and clicks the real Save button — `save`'s own `changedOnDisk`
 guard is a direct, synchronous response to that click, so `ConfigConflictDialog` opens deterministically
@@ -884,7 +902,7 @@ app does real network I/O, real archive extraction and real installation assembl
 starts a `node:http` fixture server on `127.0.0.1` (OS-assigned port) serving both manifest files
 (`engines/manifest.json`, `gamedata/manifest.json`) plus three real, `7za.exe`-written `.zip`
 archives whose declared `sha256`/`sizeBytes` are computed from the bytes actually on disk — so
-nothing about verification is faked. It then walks Library → "Download & install" → engine → target
+nothing about verification is faked. It then walks Library → Add an installation → "New installation…" → engine → target
 → confirm → run, lets the real job download, verify, extract and assemble all three packages, and
 finally asserts **on disk** that the target holds a `baseq2` directory and no `ctf`/`xatrix`/`rogue`
 anywhere under it (AC8). Everything it writes lives under `.ui-verify/fixture/bootstrap/`.
@@ -898,10 +916,10 @@ Four things about it are worth knowing before changing it:
   recreates the target folder.
 - **Two harness-only overrides, both behind the same gate** (`Q2L_UI_HARNESS === '1'`,
   `src/main/lib/ui-harness.ts` — never set by a real shipped build, and not reachable from its UI;
-  proven by the four gate cases in `src/main/modules/downloads/harness.test.ts`, which
+  proven by the four gate cases in `src/main/services/content/source.test.ts`, which
   mirror `dialog.test.ts`'s):
   `Q2L_UI_CONTENT_REPO_BASE` names the manifest/package base URL (`resolveDownloadSource()`,
-  `src/main/modules/downloads/harness.ts`) and is *refused* unless it is a `127.0.0.1` origin, so it
+  `src/main/services/content/source.ts`) and is _refused_ unless it is a `127.0.0.1` origin, so it
   can never redirect a run somewhere public; the production package schema stays https-only and the
   harness path selects a separately named `harnessLoopbackManifestPackageSchema` rather than
   widening it. `Q2L_UI_PICK_FOLDER` is what `installations:pickFolder` answers instead of opening a
@@ -919,7 +937,7 @@ Four things about it are worth knowing before changing it:
   ever installed anywhere near Program Files, and the only write attempted there is the same
   throwaway probe marker a real user picking that folder would trigger.
 - **AC6 is proven with an in-page sampler, not a single check.** "Play lights up the moment the
-  verdict stops being `invalid`/`missing`, even while the job is still copying" is a *window*: an
+  verdict stops being `invalid`/`missing`, even while the job is still copying" is a _window_: an
   injected `setInterval` records `bootstrap-running-step`'s `data-status` next to `actionbar-play`'s
   `disabled`/`data-action` every 5 ms for the whole run, and the flow asserts at least one sample had
   a `running` job and an enabled Play button. A one-shot `page.evaluate()` could only ever prove the
@@ -934,8 +952,9 @@ manifest, so a registry screen would make every `ui:verify` run reach out to
 raw.githubusercontent.com and break the harness's "never touches the network" guarantee. The flow
 takes its own `shot()`s of all four steps instead.
 
-The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) and refuses to run without it rather
-than quietly skipping the extraction — the whole point is that the *real* extractor runs.
+The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`; off Windows the vendored extractor is
+`7zz`) and refuses to run without it rather than quietly skipping the extraction — the whole point
+is that the _real_ extractor runs.
 
 ## The offline bootstrap-failure-retry flow (`bootstrap-failure-retry`)
 
@@ -948,9 +967,9 @@ above for what those are and why they are safe), and walks the wizard **twice** 
 
 - **Run 1** picks a genuinely fresh target folder (not the pre-seeded, deliberately-non-empty one
   `bootstrap-wizard.mjs` uses) and lets the job fail — the fixture server is started with a new
-  `startBootstrapFixtureServer({ failFirstAttemptFor })` option (`scripts/lib/fixture.mjs`) that
-  404s one named package's PRIMARY *and* MIRROR url on their first request only, then serves that
-  same package normally ever after. This has to be a property of the *server*, not of the flow:
+  `startBootstrapFixtureServer({ failFirstAttemptFor })` option (`scripts/lib/fixture/bootstrap.mjs`) that
+  404s one named package's PRIMARY _and_ MIRROR url on their first request only, then serves that
+  same package normally ever after. This has to be a property of the _server_, not of the flow:
   `Q2L_UI_CONTENT_REPO_BASE` is fixed for the whole app session, so one flow covering both the
   failing first run and the succeeding retry has no other way to make the second attempt succeed
   where the first did not. The flow fails the engine package specifically — the first one
@@ -961,7 +980,7 @@ above for what those are and why they are safe), and walks the wizard **twice** 
   microtag, the translated failure sentence (`installation-failure-reason`, reading exactly what
   `downloads.error.allMirrorsFailed` says) and a disabled Play control (AC1/AC5/AC6) — and that the
   target folder is empty on disk (AC1), read directly via `node:fs`, not scraped off the UI.
-- **Run 2** re-opens the wizard and picks the *same* folder again — the harness's `Q2L_UI_PICK_FOLDER`
+- **Run 2** re-opens the wizard and picks the _same_ folder again — the harness's `Q2L_UI_PICK_FOLDER`
   stub queues only one entry, and its last entry repeats forever, so the second Browse click hands
   back the same path with no second queued value needed. The fixture server now serves the
   previously-404'd package normally, so this run downloads, verifies, extracts and assembles for
@@ -969,7 +988,7 @@ above for what those are and why they are safe), and walks the wizard **twice** 
   refusing with `installations.error.duplicate` (AC7). Once it succeeds, the flow asserts the badge,
   the microtag and the failure sentence are all gone and Play is enabled again (AC4).
 
-This is a *different* fixture entry point than the restart half of AC1: `scripts/lib/fixture.mjs`'s
+This is a _different_ fixture entry point than the restart half of AC1: `scripts/lib/fixture.mjs`'s
 `populatedInstallations()` also seeds a fourth, standing installation (`Fixture Failed Install`,
 `INSTALL_FAILED_ID`) that already carries a `lastFailure` in `state.json` before the app ever boots.
 That row is what `npm run ui:verify --screens=library` reads — proving "after an app restart the
@@ -989,7 +1008,7 @@ extraction, same two harness-only overrides) but is its own file, kept deliberat
 `bootstrap-wizard.mjs`'s passing happy path is never touched by it (per the story's own "Decided
 during refine" note).
 
-**The broken fixture.** `scripts/lib/fixture.mjs`'s `buildBootstrapPackages({ wrapperNestedLayout:
+**The broken fixture.** `scripts/lib/fixture/bootstrap.mjs`'s `buildBootstrapPackages({ wrapperNestedLayout:
 true })` moves every package's payload one wrapper level deeper than any candidate
 `assemble.ts`'s allowlist (`buildFixedEntries()`, story 076 D1) accepts — the demo and
 point-release archives nest under `Install/Data/` (the story's own fixture bullet, matching
@@ -1004,16 +1023,16 @@ extraction and a real allowlist search that finds nothing — never a simulated 
 for a real `downloads.error.installationNotPlayable` failure. What a wrapper-nested archive
 genuinely produces on this codebase instead is `downloads.error.packageIncomplete` — not a
 shortcut this flow took, but the only reachable outcome: `bootstrap/job.ts` (story 076 D3) fails
-the job the moment even one required allowlist entry is not found, strictly *before* the
+the job the moment even one required allowlist entry is not found, strictly _before_ the
 revalidation that could ever produce `installationNotPlayable`. Reaching `installationNotPlayable`
 for real requires every required entry to be found (so the job never trips that earlier check) and
-the assembled folder to *still* fail `inspectInstallation` afterwards — which this codebase's
+the assembled folder to _still_ fail `inspectInstallation` afterwards — which this codebase's
 checks cannot do once every required file is genuinely present, since each is satisfied by mere
 presence at its target path. `job.test.ts`'s own `breakTargetBeforeValidate()` helper reaches
 `installationNotPlayable` only by mocking `installations.validate()` to delete the assembled paks a
 moment before the verdict is read — a test-only race no flow driving the real, unmodified app can
 reproduce. Consequently this flow's cause detail never shows a target verdict or failing checks
-(`diagnostics.target` is only ever recorded downstream of a *successful* core assemble pass, a line
+(`diagnostics.target` is only ever recorded downstream of a _successful_ core assemble pass, a line
 this run's `packageIncomplete` exit never reaches) — the flow asserts that gap explicitly (no
 "Installation check" text anywhere in the expanded detail) rather than silently skipping the check.
 What it proves instead, in full, is AC1's half: a real run where every package downloaded, verified
@@ -1053,7 +1072,7 @@ bootstrap flows never race over one directory. Three things about it are worth k
   standing promise never to trigger `detection:scan`, which would shell out to `reg.exe` and walk
   the developer's own Steam/GOG directories.
 - **The fixture store installations are real files at the real retail sizes.**
-  `writeBootstrapStoreSources()` (`scripts/lib/fixture.mjs`) writes two of them under
+  `writeBootstrapStoreSources()` (`scripts/lib/fixture/bootstrap.mjs`) writes two of them under
   `.ui-verify/fixture/bootstrap/store-sources/`: a GOG one whose `pak0.pak` is the 8 MiB demo size
   (its only defect, so its verdict is exactly `pak0SizeMismatch`) and a Steam one whose
   pak0/pak1/pak2 match `RETAIL_PAK_SIZES` to the byte. Every pak is created empty and `truncate`d to
@@ -1063,7 +1082,7 @@ bootstrap flows never race over one directory. Three things about it are worth k
   `rogue/`, a `pak3.pak` and a loose `quake2.exe`, so AC7 is a claim about real, rejected input.
 - **Both halves of AC1 in one launch.** A flow gets one app launch and a running process's
   environment block cannot be changed from outside, so the "no detected installation → no copy
-  choice" half is driven by setting `process.env.Q2L_UI_HARNESS_STORE_SOURCES` to `'[]'` *inside*
+  choice" half is driven by setting `process.env.Q2L_UI_HARNESS_STORE_SOURCES` to `'[]'` _inside_
   the main process via `app.evaluate()`, asserting the choice is absent (not disabled), and then
   restoring the fixture list before the real run. `detectedRetailSourcesFor()`
   (`src/main/modules/downloads/index.ts`) resolves the override fresh on every call precisely for
@@ -1075,7 +1094,7 @@ What the run asserts: the copy choice absent with an empty list and present with
 `disabled` and naming its reason (AC3); the confirm step naming the copy source, the engine-only
 download with its size and the target, plus the video/players toggle disabled with its reason, since
 neither fixture source has those directories (AC5, and the story's binding user decision); that the
-fixture server was asked for the engine archive and for *neither* game-data archive — evidence, not
+fixture server was asked for the engine archive and for _neither_ game-data archive — evidence, not
 inference, that the game data came from the copy (AC4); that the finished installation is named
 `Q2PRO` (not `Q2PRO Demo`) and carries no Demo badge on its library card or in the action bar (AC6);
 and on disk that the target holds `baseq2` only, with no `ctf`/`xatrix`/`rogue`, no `pak3.pak` and
@@ -1147,7 +1166,7 @@ writeup of both), but needs no fixture HTTP server and no `7za.exe` extraction a
 test (`src/main/modules/downloads/retail/upgrade-job.ts`) only copies local files, it never
 downloads or extracts anything.
 
-**The fixture demo installation.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains a
+**The fixture demo installation.** `scripts/lib/fixture/installations.mjs`'s `populatedInstallations()` gains a
 fifth, additive installation (`INSTALL_DEMO_UPGRADE_ID`, "Fixture Demo Upgrade Install") — the same
 convention `INSTALL_UNKNOWN_ENGINE_ID`/`INSTALL_FAILED_ID` already document (last `sortOrder`,
 assigned to no config profile). `writePopulatedFixture()` gives it real files: a demo-sized
@@ -1235,13 +1254,13 @@ installation's pak0.pak and the third depends on neither:
 2. **AC3** — starts the upgrade again while still running, confirms it enters `waiting` a second
    time, then flips `dev:simulateLaunch` to `'idle'` with **no further UI interaction**. The job
    resumes and finishes on its own; the flow waits for `bootstrap-running-step[data-status=
-   "succeeded"]` and asserts pak0.pak/pak1.pak are now retail-sized, the marker file and file
+"succeeded"]` and asserts pak0.pak/pak1.pak are now retail-sized, the marker file and file
    listing are otherwise as `retail-upgrade.mjs`'s own AC4 check expects.
 3. **AC5** — independent of the upgrade job: D7's `dev:simulateJob({ scenario: 'writing',
-   installationId })` takes the real write lock on the same (now already-upgraded) installation.
+installationId })` takes the real write lock on the same (now already-upgraded) installation.
    The flow asserts `actionbar-play` is `disabled`, then calls `window.q2.invoke('launch:start', {
-   installationId })` directly and asserts the response refuses with `launch.error.
-   installationBusy` — asserted against the real IPC outcome rather than through a click, since a
+installationId })` directly and asserts the response refuses with `launch.error.
+installationBusy` — asserted against the real IPC outcome rather than through a click, since a
    disabled `<button>` never dispatches one; the main process is the authoritative refusal surface
    regardless (091 Decisions: "the authoritative refusal is never derived from renderer-visible
    data"). It cancels the dev-only job afterwards so the write lock does not outlive the run.
@@ -1259,7 +1278,7 @@ update-job.ts`/`rollback-job.ts`) run a real verified download of the fixture's 
 a real `7za.exe` extraction, so this flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) exactly
 like `bootstrap-wizard.mjs` does.
 
-**The fixture installation.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains a sixth,
+**The fixture installation.** `scripts/lib/fixture/installations.mjs`'s `populatedInstallations()` gains a sixth,
 additive installation (`INSTALL_ENGINE_UPDATE_ID`, "Fixture Engine Update Install") - the same
 convention `INSTALL_DEMO_UPGRADE_ID` (090 D6) documents: last `sortOrder`, assigned to no config
 profile. Its `moduleData` records a recorded engine version (`ENGINE_UPDATE_OLD_VERSION`,
@@ -1283,7 +1302,7 @@ files" are on an EXISTING installation, so the fixture's pre-existing executable
 under the INSTALLED name (`ENGINE_INSTALLED_RELATIVE['q2pro64.exe']` = `'q2pro.exe'`), not the
 archive's own `q2pro64.exe` - an installation that still had a `q2pro64.exe` on disk would never be
 found or backed up by the real job at all, and the update would silently create a stray new
-`q2pro.exe` next to it instead of replacing anything. `ENGINE_INSTALLED_RELATIVE` in `fixture.mjs`
+`q2pro.exe` next to it instead of replacing anything. `ENGINE_INSTALLED_RELATIVE` in `fixture/installations.mjs`
 names this mapping explicitly so a future engine addition cannot reintroduce the same silent miss.
 
 **Warming the manifest cache.** `ManifestService.pinnedEnginePackage()` only ever answers from an
@@ -1293,8 +1312,9 @@ fresh session's `engine.updateStatus` would otherwise report `target: undefined`
 installation's own recorded version is. The bootstrap wizard's `EngineStep` warms that cache by
 calling `downloads.bootstrap.engineOptions` on mount; this flow makes the identical real IPC call
 directly (`warmManifestCache()`) - a real fetch of `/engines/manifest.json` against the fixture server
+
 - before touching the engine-update dialog at all, without opening the wizard UI or registering a
-second installation.
+  second installation.
 
 **The bleeding-edge route.** `probeBleedingEdge()` (`src/main/modules/downloads/engine/
 bleeding-edge.ts`) derives its `version.txt` request by swapping the pinned package's own asset URL's
@@ -1335,7 +1355,7 @@ for every one of them. Separately, `inspector.ts`'s `classifyEngine()` only reco
 one of THEIR OWN executable file names being present at the root - so once every such file is gone, a
 fresh inspection reports `engineKind: 'unknown'` and raises `validation.noExecutable` (error).
 `buildRepairPlan`'s `reinstall-engine` gate (`repair/plan.ts`) asks the manifest about the
-installation's *recorded* `engineKind`, not that fresh one, so `validation.noExecutable` and "the
+installation's _recorded_ `engineKind`, not that fresh one, so `validation.noExecutable` and "the
 manifest can supply this installation's engine" CAN co-occur in the real app (see `plan.test.ts`'s
 "gates reinstall-engine on the recorded engine kind..."). This flow doesn't build that exact fixture,
 though: AC1's "missing engine executable" fixture is built as `validation.executableMissing` (a stale
@@ -1343,7 +1363,7 @@ recorded `executablePath` next to a still-present, different engine file, `r1q2d
 the fresh and recorded engine kind equal) paired with an empty `baseq2` (`validation.pak0Missing`,
 error - purely so the action bar's Repair button exists to click at all).
 
-**The six fixture installations.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains five
+**The six fixture installations.** `scripts/lib/fixture/installations.mjs`'s `populatedInstallations()` gains five
 additive installations (last `sortOrder`s, assigned to no config profile - the convention every
 fixture since 090 documents): `INSTALL_REPAIR_ENGINE_ID` (AC1: `executableMissing` + `pak0Missing`),
 `INSTALL_REPAIR_POINT_RELEASE_ID` (AC2: `pointReleaseMissing`, warn),
@@ -1353,7 +1373,7 @@ under the machine's own `%ProgramFiles%` - `repairNonWritableDir()`, determinist
 process's own elevation since `isWritableDir()`'s plain `fs.access(..., W_OK)` fails closed on a
 non-existent path exactly as it does on a genuinely locked-down one), and
 `INSTALL_REPAIR_UNREPAIRABLE_ID` (AC6: `noExecutable` alone, with a fully valid retail `baseq2` and
-no engine marker anywhere, so `engineKind` inspects fresh as `'unknown'` - and its *recorded*
+no engine marker anywhere, so `engineKind` inspects fresh as `'unknown'` - and its _recorded_
 `engineKind` is `'unknown'` too, exactly what an ordinary installation's record decays to once every
 marker is gone, so the manifest is asked about `'unknown'` and answers no). AC3's demo-pak0 case
 reuses `INSTALL_DEMO_UPGRADE_ID` verbatim (090 D6)
@@ -1372,7 +1392,7 @@ tested, so nothing here needs a real detected source.
 `reinstall-engine`/`install-point-release` trigger with an unrelated `error`-severity finding this job
 never touches (`pak0Missing`/`baseDirMissing`/`retailPaksMissing`/`pak0NotRetail` all route to 088's
 retail-copy flow instead) - so, in this run, running one of this job's own repairs never flips the
-action bar from Repair to Play. A marker-less installation whose *recorded* engine the manifest can
+action bar from Repair to Play. A marker-less installation whose _recorded_ engine the manifest can
 supply (see the gate above) could in principle do that via `reinstall-engine` alone, but no fixture
 here constructs that shape. This flow instead asserts the always-true half of AC9 that every one of
 its fixtures CAN prove: after the AC1 engine repair succeeds, `validation.pak0Missing` is still
@@ -1422,7 +1442,7 @@ aggregate/summary tiles — so there is no dashboard surface this flow can addit
 library+rail is this story's whole per-installation surface.
 
 **The two fixture installations, and why AC5 reuses one instead of a third.**
-`scripts/lib/fixture.mjs`'s `populatedInstallations()` gains two additive installations (last
+`scripts/lib/fixture/installations.mjs`'s `populatedInstallations()` gains two additive installations (last
 `sortOrder`s, assigned to no config profile, the convention every fixture since 090 documents):
 `INSTALL_REMOVE_STORE_ID` (`source: 'steam'`, AC4's store-managed case) and `INSTALL_REMOVE_DISK_ID`
 (`source: 'manual'`, the one this flow actually deletes) — both plain, playable fixtures with no
@@ -1469,11 +1489,62 @@ game server:
 - **`servers-list-error`** (variant `servers-list-error`) — the same working stub `http-list`
   source alongside a second `http-list` source pointing at `SERVERS_DEAD_LIST_URL` (a loopback port
   nothing binds), so one source fails while the other's rows still render — `servers-list-source-
-  failures` next to real `servers-row-*` elements, proving a source failure never hides the rest of
+failures` next to real `servers-row-*` elements, proving a source failure never hides the rest of
   the list.
 
 Each screen's `navigate()` opens the Servers view and waits for `servers-scan-status[data-running=
 "false"]` before doing anything else, so the registry's run order never matters.
+
+### The flow gate: quarantine, shards, timeout
+
+`npm run ui:flows [-- <flow>... --affected[=<ref>] --shard=i/n --timeout=<seconds> --repeat=<n>]`
+(`scripts/flows-all.mjs`, decisions in `scripts/lib/flow-gate.mjs`) reseeds
+and runs every flow, or only the named ones.
+
+- `<flow>` is a name or a `scripts/flows/<name>.mjs` path (either separator).
+  An unknown name or path is a usage error, exit 1, never an empty run.
+- `--affected[=<ref>]` adds the flows `selectAffected`
+  (`scripts/lib/flow-select.mjs`) picks for `git diff --name-only <ref>`
+  (default `HEAD`) plus untracked files, deduplicated with the named ones, and
+  prints each added flow with its reason first. With `--affected`, only named
+  and affected flows run; if there are none the run says so and exits 0,
+  because no changed file reaches a flow.
+- `--repeat=<n>` (n >= 1) runs each selected flow n times in a row, each on a
+  fresh seed, to expose a flaky flow.
+
+- `--shard=i/n` runs the i-th of n slices, 1-based and round robin (flow k
+  goes to shard `k % n + 1`), so slow neighbouring flows spread out.
+- `--timeout=<seconds>` (default 300, must be > 0) kills a flow that runs
+  longer — the whole process tree, so no Electron survives — and counts it
+  failed.
+- Exit code 0 when the gate is ok, 1 when any non-quarantined flow failed, a
+  quarantined flow passed twice, the quarantine list is invalid or stale, or
+  the arguments are malformed.
+
+`scripts/flows/quarantine.json` lists flows that are known broken. Each entry
+has `flow` (a name in `scripts/flows/`), `reason`, `story` (the story that
+wrote the entry) and `since` (a sprint like `S32`), plus an optional `platform`
+(`win32` or `linux`) to limit it to one OS. Outcomes for a quarantined flow:
+
+- fails: an expected fail, noted but not counted against the run;
+- passes, and passes again on an immediate re-run: an unexpected pass, which
+  fails the run — remove the entry;
+- passes once, then fails on the re-run: reported as flaky only, the run is
+  not failed.
+
+`scripts/flows/areas.json` maps source areas to flows for changes no testid
+reveals. A flow is also picked by its own file, a helper it imports, and a
+changed renderer file declaring one of its testids. A row is
+`{ area, paths: [globs], flows: [...] }` and selects at most 12 flows. A new
+`src/` file fails the exhaustiveness test in `scripts/flow-select.test.mjs`
+until a flow testid or an area row reaches it: add the file to the row of the
+area it belongs to.
+
+Entries are validated: missing fields, a malformed `since`, an unknown
+`platform` or an unknown flow name are errors, and while the list is invalid
+nothing is treated as quarantined. An entry also fails the run when the
+current sprint minus `since` is greater than 3 — fix the flow or make it a
+story.
 
 ## Baselines and CI
 
@@ -1482,9 +1553,18 @@ deliberate, not a gap to fill in later: a pixel baseline rots on every design
 change and turns into noise nobody trusts. They exist purely as evidence for
 a human to look at during manual review.
 
-**CI is out of scope for this harness.** It is local-only for now — there is
-no GitHub Actions job (or equivalent) that runs `ui:verify`, and adding one is
-a decision for a future story, not an implicit consequence of this one.
+**CI runs the harness through `.github/workflows/ui-flows.yml`**, which has
+two jobs:
+
+- `ui-flows` — every flow on `ubuntu-latest` under xvfb, split into 6 shards
+  (`npm run ui:flows -- --shard=<i>/6`).
+- `windows-verify` — on `windows-latest`: build, `npm run ui:verify`
+  (screenshots + axe-core) and three flows (`about-release-notes`,
+  `steam-handoff`, `open-keycap-dialog`).
+
+Both trigger on pull requests into `main` and on `workflow_dispatch` only; a
+push or schedule run would re-verify a tree that only changes through PRs.
+`npm run ci:local:flows` rehearses the Linux leg locally with `act`.
 
 ## Known blind spots
 

@@ -49,14 +49,14 @@ Make `actions` the single authority and reconcile raw binds into it on every rea
       `CatalogRowKind`, the three builders, `commandsForRow`, plus `allCatalogRows()` (its order is
       the tie-break rule for ambiguous command text). The renderer's
       `modules/config/lib/catalog-binds.ts` imports and re-exports them, so no other renderer file
-      changed. Reason: main has to mint the *identical* `catalogId` for a bind it recognises.
+      changed. Reason: main has to mint the _identical_ `catalogId` for a bind it recognises.
 - [x] **D2 — one function owns the mirror value.** `src/shared/config/action-mirror.ts`:
       `bindValueFor(action)`, `isMirroredValue`, and `applyActionBindMirror` (moved out of
-      `setActions`, unchanged in rule, extended with a value-based strip). Every writer *and* every
+      `setActions`, unchanged in rule, extended with a value-based strip). Every writer _and_ every
       reader of a mirrored value now routes through it: `modifier-layers.ts`, `bind-collision.ts`,
       `bind-conflicts.ts`, `bind-slot-collision.ts`, `profiles.ts`.
 - [x] **D3 — adoption.** `src/shared/config/bind-adoption.ts`: `adoptRawBinds({binds, layers,
-      actions}, newId)` resolves a raw entry's command text to a catalogue row, finds or creates
+actions}, newId)` resolves a raw entry's command text to a catalogue row, finds or creates
       that row's action, claims Primary then Secondary, and rewrites the entry to `bindValueFor`.
       Modifier layers (ALT/CTRL/SHIFT) adopt as `keyModifier` slots.
 - [x] **D4 — run it on both paths.** `ProfilesStore.commit` (every write, incl. create/import) and
@@ -80,7 +80,7 @@ Make `actions` the single authority and reconcile raw binds into it on every rea
    release it. `bindValueFor` therefore returns the raw command for a `catalogId` row whose whole
    body is one `+command`, and the alias for everything else. This also fixes a latent pre-existing
    bug: movement rows bound in the Controls grid produced exactly that stuck-key form.
-3. **The strip pass is value-based *and* key-scoped.** A direct `+forward` mirror is
+3. **The strip pass is value-based _and_ key-scoped.** A direct `+forward` mirror is
    indistinguishable from a hand-typed one by value alone, so both mirrors strip "the value the
    previous action held on the key it held". Consequence and accepted trade-off: a `setActions`
    payload assembled from a stale actions array can drop that action's bind (the window is one

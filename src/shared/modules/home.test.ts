@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { z } from 'zod'
 import {
   HOME_EVENTS,
   HOME_HANDLERS,
   HOME_HANDLER_SCHEMAS,
+  type HomeContract,
   NEWS_BUTTON_HOST_ALLOWLIST,
   NEWS_SCHEMA_VERSION,
   isAllowedButtonHost,
@@ -50,20 +52,23 @@ describe('home module contract (story 082 D1)', () => {
 
 describe('newsButtonSchema', () => {
   it('accepts a label and a well-formed url', () => {
-    expect(newsButtonSchema.safeParse({ label: 'Get it', url: 'https://github.com/x' }).success).toBe(
-      true,
-    )
+    expect(
+      newsButtonSchema.safeParse({ label: 'Get it', url: 'https://github.com/x' }).success,
+    ).toBe(true)
   })
 
   it('rejects a missing label, an empty label, or a malformed url', () => {
     expect(newsButtonSchema.safeParse({ url: 'https://github.com/x' }).success).toBe(false)
-    expect(newsButtonSchema.safeParse({ label: '', url: 'https://github.com/x' }).success).toBe(false)
+    expect(newsButtonSchema.safeParse({ label: '', url: 'https://github.com/x' }).success).toBe(
+      false,
+    )
     expect(newsButtonSchema.safeParse({ label: 'Get it', url: 'not-a-url' }).success).toBe(false)
   })
 
   it('rejects unknown fields', () => {
     expect(
-      newsButtonSchema.safeParse({ label: 'Get it', url: 'https://github.com/x', extra: 1 }).success,
+      newsButtonSchema.safeParse({ label: 'Get it', url: 'https://github.com/x', extra: 1 })
+        .success,
     ).toBe(false)
   })
 })
@@ -83,12 +88,12 @@ describe('per-template content schemas', () => {
 
   it('newsSplitContentSchema/newsBannerContentSchema accept title+body with an optional image', () => {
     expect(newsSplitContentSchema.safeParse({ title: 't', body: 'b' }).success).toBe(true)
-    expect(newsSplitContentSchema.safeParse({ title: 't', body: 'b', image: 'x.png' }).success).toBe(
-      true,
-    )
-    expect(newsBannerContentSchema.safeParse({ title: 't', body: 'b', image: 'x.png' }).success).toBe(
-      true,
-    )
+    expect(
+      newsSplitContentSchema.safeParse({ title: 't', body: 'b', image: 'x.png' }).success,
+    ).toBe(true)
+    expect(
+      newsBannerContentSchema.safeParse({ title: 't', body: 'b', image: 'x.png' }).success,
+    ).toBe(true)
     expect(newsSplitContentSchema.safeParse({ body: 'b' }).success).toBe(false)
   })
 
@@ -98,9 +103,10 @@ describe('per-template content schemas', () => {
       url: 'https://github.com/x',
     }))
     expect(newsTextContentSchema.safeParse({ title: 't', body: 'b', buttons }).success).toBe(false)
-    expect(newsTextContentSchema.safeParse({ title: 't', body: 'b', buttons: buttons.slice(0, 3) }).success).toBe(
-      true,
-    )
+    expect(
+      newsTextContentSchema.safeParse({ title: 't', body: 'b', buttons: buttons.slice(0, 3) })
+        .success,
+    ).toBe(true)
   })
 })
 
@@ -121,5 +127,16 @@ describe('NEWS_BUTTON_HOST_ALLOWLIST / isAllowedButtonHost', () => {
     expect(isAllowedButtonHost('https://gist.github.com/x')).toBe(false)
     expect(isAllowedButtonHost('https://example.com/x')).toBe(false)
     expect(isAllowedButtonHost('not-a-url')).toBe(false)
+  })
+})
+
+describe('HomeContract', () => {
+  it('HomeContract req types are derived from HOME_HANDLER_SCHEMAS', () => {
+    type Schemas = typeof HOME_HANDLER_SCHEMAS
+    expectTypeOf<HomeContract['handlers']['slide.openUrl']['req']>().toEqualTypeOf<string>()
+    expectTypeOf<HomeContract['handlers']['news.get']['req']>().toEqualTypeOf<void>()
+    expectTypeOf<HomeContract['handlers']['layout.set']['req']>().toEqualTypeOf<
+      z.infer<Schemas['layout.set']>
+    >()
   })
 })

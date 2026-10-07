@@ -80,7 +80,8 @@ export const GAMEMODE_HEURISTICS: readonly GamemodeHeuristic[] = [
   {
     id: 'opentdm-pattern-or-dir',
     mode: 'tdm',
-    test: (input) => input.matchedPatternId === OPENTDM_PATTERN_ID || eqCi(input.gameDir, 'opentdm'),
+    test: (input) =>
+      input.matchedPatternId === OPENTDM_PATTERN_ID || eqCi(input.gameDir, 'opentdm'),
   },
 ]
 

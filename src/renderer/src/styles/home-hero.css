@@ -7,7 +7,7 @@
    is hardcoded, and the prefix (`home-hero-`) scopes the classes to this
    module the same way `ctrl-` scopes the Controls tab's.
 
-   Contributors fill frontmatter fields only (concept `docs/concepts/home-screen.md`
+   Contributors fill frontmatter fields only (concept `docs/systems/home-screen.md`
    §9's "no CSS, no HTML, no colours, no layout values in the feed") — these
    classes are the launcher's own, fixed for every slide regardless of its
    content, and are never read from or written by feed data.

@@ -59,7 +59,7 @@ needs". The `aliasDuplicate` check just doesn't carry it through yet.
   optional `focusAliasActionId` (or a small object) alongside the name, threading through
   `ConfigView`'s tab-state and the `onNavigateToAlias` callback signature.
 - `AliasesTab.tsx:252-266` (the focus effect): currently `displayRows.find((entry) =>
-  entry.row.key === targetKey)` — when an action id is present, match
+entry.row.key === targetKey)` — when an action id is present, match
   `entry.row.ownerActionId === focusActionId` first (falls back to the current name-only
   `find` when no id is given, so `undefinedAlias` and other non-duplicate deep-links are
   unaffected).
@@ -79,7 +79,7 @@ needs". The `aliasDuplicate` check just doesn't carry it through yet.
       `src/renderer/src/modules/config/lib/care-items.ts` (~line 294-297, pass `actionId`
       through to the `showInAliases` action), `src/renderer/src/modules/config/CareTab.tsx`
       (~line 346-349, `onNavigateToAlias` call/signature), `src/renderer/src/modules/config/
-      ConfigView.tsx` (~line 810, tab-state carrying the focus target),
+ConfigView.tsx` (~line 810, tab-state carrying the focus target),
       `src/renderer/src/modules/config/AliasesTab.tsx` (~line 62 `focusAlias` prop, ~line
       252-266 focus effect: match `ownerActionId` first, fall back to name-only). Acceptance:
       clicking "Show in Aliases" on either of two same-named duplicate findings scrolls to
@@ -106,7 +106,7 @@ Review: → default
    Expect: Aliases tab opens, scrolled to and highlighting one specific `drop_grenades` row
    (not just "a" row with that name).
 3. Go back to Care, click "Show in Aliases" on the second `duplicateAlias` finding for the
-   same name. Expect: Aliases tab highlights the *other* row this time.
+   same name. Expect: Aliases tab highlights the _other_ row this time.
 4. From the highlighted row, rename it to a unique name (or delete it) and save.
 5. Return to Care tab. Expect: the `duplicateAlias` warning for that name is gone.
 
@@ -124,6 +124,7 @@ automatically on save, so no code change was needed there.
 Commit message: `060: duplicate alias is fixable from aliases`
 
 Verification:
+
 - `npm run build` — green.
 - `npm test` — 2565/2565 passed (2 pre-existing `validate-actions.test.ts` assertions were updated
   to include the new `actionId` param, verified correct per-entry, not loosened).

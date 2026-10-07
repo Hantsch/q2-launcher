@@ -56,7 +56,10 @@ type ShippedPattern = { id: string; template: string }
  * neither already present nor tombstoned in `removedShippedIds` is appended, in shipped list
  * order, as an unedited shipped entry whose `id` is its `shippedId`.
  */
-export function mergeWithShipped(state: NameTemplatesState, shipped: readonly ShippedPattern[]): NameTemplatesState {
+export function mergeWithShipped(
+  state: NameTemplatesState,
+  shipped: readonly ShippedPattern[],
+): NameTemplatesState {
   const shippedIds = new Set(shipped.map((s) => s.id))
   const removed = new Set(state.removedShippedIds)
 
@@ -100,7 +103,10 @@ function resolve(entry: StoredNameTemplate, shipped: readonly ShippedPattern[]):
 }
 
 /** Resolves every stored entry to its display shape, in list order. */
-export function toView(state: NameTemplatesState, shipped: readonly ShippedPattern[]): NameTemplatesView {
+export function toView(
+  state: NameTemplatesState,
+  shipped: readonly ShippedPattern[],
+): NameTemplatesView {
   return {
     entries: state.entries.map((entry) => resolve(entry, shipped)),
     canRestore: state.removedShippedIds.length > 0,
@@ -108,11 +114,18 @@ export function toView(state: NameTemplatesState, shipped: readonly ShippedPatte
 }
 
 /** Ordered resolved template strings, top to bottom - what the pattern-matching engine consumes. */
-export function effectiveNameTemplates(state: NameTemplatesState, shipped: readonly ShippedPattern[]): string[] {
+export function effectiveNameTemplates(
+  state: NameTemplatesState,
+  shipped: readonly ShippedPattern[],
+): string[] {
   return state.entries.map((entry) => resolve(entry, shipped).template)
 }
 
-export function addTemplate(state: NameTemplatesState, template: string, newId: () => string): NameTemplatesState {
+export function addTemplate(
+  state: NameTemplatesState,
+  template: string,
+  newId: () => string,
+): NameTemplatesState {
   const entry: StoredNameTemplate = { id: newId(), kind: 'user', template }
   return { entries: [...state.entries, entry], removedShippedIds: state.removedShippedIds }
 }
@@ -162,7 +175,10 @@ export function removeTemplate(
  * ids (same members, same count) - anything else (a missing id, an extra id, a duplicate) throws
  * rather than silently dropping or duplicating an entry.
  */
-export function reorderTemplates(state: NameTemplatesState, ids: readonly string[]): NameTemplatesState {
+export function reorderTemplates(
+  state: NameTemplatesState,
+  ids: readonly string[],
+): NameTemplatesState {
   const currentIds = state.entries.map((e) => e.id)
   const sameMembers =
     ids.length === currentIds.length &&

@@ -10,13 +10,20 @@ import {
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
 const TIMEOUT_MS = 8_000
 const files = replaysTimelineEngineFiles()
 const en = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../../src/renderer/src/i18n/locales/en.json', import.meta.url)), 'utf8'),
+  readFileSync(
+    fileURLToPath(
+      new URL('../../src/renderer/src/modules/replays/locale/en.json', import.meta.url),
+    ),
+    'utf8',
+  ),
 )
 
 export async function setup() {
@@ -30,20 +37,7 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-cinema-unavailable: ${message}`)
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
-}
+const fail = makeFail('replays-cinema-unavailable')
 
 async function expectDisabledWithReason(page, expected, label) {
   const cinema = page.getByTestId('replays-timeline-cinema')
@@ -53,24 +47,33 @@ async function expectDisabledWithReason(page, expected, label) {
   for (;;) {
     const text = (await reason.isVisible()) ? ((await reason.textContent()) ?? '').trim() : null
     if (text === expected) break
-    if (Date.now() >= deadline) fail(`${label}: the reason shows ${JSON.stringify(text)}, expected ${JSON.stringify(expected)}`)
+    if (Date.now() >= deadline)
+      fail(
+        `${label}: the reason shows ${JSON.stringify(text)}, expected ${JSON.stringify(expected)}`,
+      )
     await sleep(100)
   }
-  if ((await cinema.getAttribute('aria-disabled')) !== 'true') fail(`${label}: Cinema is not aria-disabled`)
-  if ((await cinema.getAttribute('data-mode')) !== 'preview') fail(`${label}: the mode is not preview`)
+  if ((await cinema.getAttribute('aria-disabled')) !== 'true')
+    fail(`${label}: Cinema is not aria-disabled`)
+  if ((await cinema.getAttribute('data-mode')) !== 'preview')
+    fail(`${label}: the mode is not preview`)
 }
 
 export default async function replaysCinemaUnavailable({ page, app, step, shot }) {
   const wayland = en.replays?.stage?.unavailable?.wayland
   const notPrimary = en.replays?.cinema?.unavailable?.notPrimaryDisplay
   if (typeof wayland !== 'string') fail('en.json has no replays.stage.unavailable.wayland')
-  if (typeof notPrimary !== 'string') fail('en.json has no replays.cinema.unavailable.notPrimaryDisplay')
+  if (typeof notPrimary !== 'string')
+    fail('en.json has no replays.cinema.unavailable.notPrimaryDisplay')
 
   step('on Wayland Cinema is visible, aria-disabled, with the reason as text')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await openDemos(page)
+  await openFolder(page, 'ctf')
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -83,7 +86,9 @@ export default async function replaysCinemaUnavailable({ page, app, step, shot }
     process.env.Q2L_UI_SESSION_TYPE = 'x11'
     process.env.Q2L_UI_CINEMA_DISPLAY = 'secondary'
     // The availability is re-read on window events; a one-pixel nudge announces the change.
-    const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('cinema.html'))
+    const win = BrowserWindow.getAllWindows().find(
+      (w) => !w.webContents.getURL().includes('cinema.html'),
+    )
     const [w, h] = win.getSize()
     win.setSize(w + 1, h)
   })

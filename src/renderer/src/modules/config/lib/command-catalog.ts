@@ -55,7 +55,7 @@ export interface CommandCatalogEntry {
 
 /**
  * A browsable form of `STANDARD_COMMAND_LABELS`, for the keybinding editor's
- * (story 006 D4) pick list - derived from the label map rather than
+ * (story 006) pick list - derived from the label map rather than
  * duplicating it, so the two can never drift apart.
  */
 export const COMMAND_CATALOG: CommandCatalogEntry[] = Object.entries(STANDARD_COMMAND_LABELS).map(

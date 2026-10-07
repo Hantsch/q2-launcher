@@ -1,0 +1,748 @@
+{
+  "app": {
+    "name": "Q2 Launcher",
+    "wordmark": "Quake II",
+    "tagline": "Launcher",
+    "boot": {
+      "status": "Starting up"
+    },
+    "error": {
+      "invalidUrl": "That link could not be opened.",
+      "invalidPath": "That path is not valid.",
+      "pathNotAllowed": "Only folders belonging to a registered installation can be opened.",
+      "revealFailed": "Windows could not open that folder: {{message}}"
+    },
+    "toast": {
+      "stateRecoveredFromBackup": "Your settings file was damaged and has been restored from the backup.",
+      "statePersistFailed": "Your settings could not be saved to disk. Changes you make now may be lost when you quit.",
+      "stateReset": "Your settings file could not be read and has been reset. A copy of the damaged file was kept next to it."
+    }
+  },
+  "ipc": {
+    "error": {
+      "invalidPayload": "The launcher sent an invalid request. This is a bug.",
+      "handlerFailed": "The launcher failed while handling “{{channel}}”. This is a bug."
+    }
+  },
+  "common": {
+    "action": {
+      "add": "Add",
+      "addCvar": "Add cvar",
+      "addExisting": "Add existing",
+      "addExistingInstallation": "Add existing installation…",
+      "cancel": "Cancel",
+      "clear": "Clear",
+      "clearCache": "Clear cache",
+      "clearFilters": "Clear filters",
+      "close": "Close",
+      "confirmDelete": "Confirm delete",
+      "deleteEllipsis": "Delete…",
+      "discardChanges": "Discard changes",
+      "edit": "Edit",
+      "install": "Install",
+      "join": "Join",
+      "move": "Move",
+      "overwrite": "Overwrite",
+      "play": "Play",
+      "remove": "Remove",
+      "removeEllipsis": "Remove…",
+      "removeFromFavourites": "Remove from favourites",
+      "renameEllipsis": "Rename…",
+      "resetToDefault": "Reset to default",
+      "retry": "Retry",
+      "runInBackground": "Run in background",
+      "save": "Save",
+      "saving": "Saving…",
+      "scanning": "Scanning…",
+      "stopDemo": "Stop demo",
+      "stopping": "Stopping…",
+      "understandContinue": "I understand, continue anyway",
+      "update": "Update",
+      "useThisFolder": "Use this folder"
+    },
+    "label": {
+      "aliases": "Aliases",
+      "any": "Any",
+      "browse": "Browse…",
+      "checkingFolder": "Checking folder…",
+      "command": "Command",
+      "config": "Config",
+      "cvars": "Cvars",
+      "demo": "Demo",
+      "demoPlayback": "Demo playback",
+      "demos": "Demos",
+      "downloads": "Downloads",
+      "empty": "Empty",
+      "emptyValue": "(empty)",
+      "engine": "Engine",
+      "engineExecutable": "Engine executable",
+      "favourite": "Favourite",
+      "files": "Files",
+      "filters": "Filters",
+      "folder": "Folder",
+      "fullscreen": "Fullscreen",
+      "gamemode": "Gamemode",
+      "home": "Home",
+      "installationFolder": "Installation folder",
+      "installations": "Installations",
+      "key": "Key",
+      "layerTrigger": "Layer trigger",
+      "library": "Library",
+      "loading": "Loading…",
+      "map": "Map",
+      "missing": "Missing",
+      "mod": "Mod",
+      "mode": "Mode",
+      "moveTo": "Move to",
+      "name": "Name",
+      "needsAttention": "Needs attention",
+      "noConfigProfiles": "No config profiles yet",
+      "noInstallationSelected": "No installation selected",
+      "none": "None",
+      "notBound": "Not bound",
+      "noValue": "—",
+      "onDisk": "On disk",
+      "password": "Password",
+      "ping": "Ping",
+      "players": "Players",
+      "projectPage": "Project page",
+      "ready": "Ready",
+      "saved": "Saved",
+      "search": "Search",
+      "sectionHeaderStyle": "Section header style",
+      "selectedCount": "{{count}} selected",
+      "servers": "Servers",
+      "settings": "Settings",
+      "showingCount": "Showing {{shown}} of {{total}}",
+      "size": "Size",
+      "targetPath": "Target path",
+      "unknown": "Unknown",
+      "unlockCode": "Unlock code",
+      "unsavedChange": "Unsaved change",
+      "updateAvailable": "Update available",
+      "version": "Version {{version}}",
+      "versions": "Versions"
+    },
+    "dateRange": {
+      "any": "Any date",
+      "from": "From",
+      "to": "To",
+      "range": "{{from}} – {{to}}",
+      "fromOnly": "From {{from}}",
+      "toOnly": "Until {{to}}",
+      "fromAfterTo": "The from date is after the to date.",
+      "preset": {
+        "today": "Today",
+        "last7Days": "Last 7 days",
+        "last30Days": "Last 30 days"
+      }
+    }
+  },
+  "titlebar": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "nav": {
+    "settingsTitle": "Launcher settings",
+    "activeJobs_one": "{{count}} active job",
+    "activeJobs_other": "{{count}} active jobs"
+  },
+  "module": {
+    "home": {
+      "description": "Where the launcher tells you what's going on."
+    },
+    "library": {
+      "description": "Every Quake II installation the launcher knows about."
+    },
+    "downloads": {
+      "description": "Get the game files you need and keep them up to date.",
+      "settings": {
+        "description": "How many downloads run at once and how much disk the archive cache may use.",
+        "concurrency": {
+          "label": "Concurrent downloads"
+        },
+        "cacheBudget": {
+          "label": "Archive cache budget",
+          "option": "{{gb}} GB"
+        },
+        "whilePlaying": {
+          "label": "Allow downloads while playing"
+        },
+        "queueUnavailable": "Not available yet: downloads run one at a time",
+        "cacheSize": {
+          "value": "Cache: {{size}} ({{count}} archives)"
+        },
+        "clearCache": {
+          "confirmTitle": "Clear archive cache?",
+          "confirmBody": "This deletes {{size}} across {{count}} archives from the cache. This cannot be undone.",
+          "result": "Removed {{count}} archives ({{size}})."
+        }
+      }
+    },
+    "config": {
+      "description": "Edit r1q2 settings and cvars without touching a .cfg file."
+    },
+    "mods": {
+      "title": "Mods",
+      "description": "Add mods and switch between them whenever you like."
+    },
+    "assets": {
+      "title": "Assets",
+      "description": "Add new looks and sounds with texture, model and sound packs."
+    },
+    "servers": {
+      "description": "Browse Quake II servers and see who's playing before you join.",
+      "settings": {
+        "description": "Where the server list comes from and how servers are queried.",
+        "sourcesHeading": "Server lists",
+        "list": {
+          "label": "Master and list sources"
+        },
+        "type": {
+          "udp-master": "UDP master",
+          "http-list": "HTTP list"
+        },
+        "add": {
+          "type": {
+            "label": "Type"
+          },
+          "address": {
+            "label": "Address",
+            "placeholder": "host:port or https://…"
+          },
+          "submit": "Add source"
+        },
+        "toggle": {
+          "label": "Enabled"
+        },
+        "remove": {
+          "label": "Remove source"
+        },
+        "edit": {
+          "start": "Edit source"
+        },
+        "scan": {
+          "heading": "Scan",
+          "autoScanOnOpen": {
+            "label": "Scan when the view opens"
+          },
+          "autoRefreshEnabled": {
+            "label": "Keep scanning automatically"
+          },
+          "autoRefreshInterval": {
+            "label": "Auto-refresh interval"
+          },
+          "concurrency": {
+            "label": "Concurrency"
+          },
+          "timeout": {
+            "label": "Query timeout"
+          },
+          "retries": {
+            "label": "Retries"
+          },
+          "minSpacing": {
+            "label": "Minimum time between scans"
+          },
+          "duration": {
+            "ms": "{{value}} ms",
+            "seconds": "{{value}} s",
+            "minutes": "{{value}} min"
+          }
+        }
+      },
+      "view": {
+        "refresh": "Scan now",
+        "refreshShown": "Refresh {{count}} shown",
+        "scanAll": "Scan all",
+        "scanOptions": "More scan options",
+        "refreshShownNone": "No servers shown — use Scan all or clear the filter.",
+        "refreshFavourites": "Refresh favourites",
+        "refreshSelected": "Refresh this server",
+        "status": {
+          "idle": "Idle",
+          "line_one": "{{state}} · {{count}} known server",
+          "line_other": "{{state}} · {{count}} known servers"
+        }
+      }
+    },
+    "planned": {
+      "badge": "Planned",
+      "title": "{{module}} is coming in a later release",
+      "body": "This part of the launcher is on the way, but it is not here yet. For now, the rest of the launcher – your installation list and the launch path – is what you can use.",
+      "outlook": "What's coming",
+      "downloads": {
+        "intro": "Downloads will be the easiest way to get Quake II running and keep it that way, without hunting for files yourself.",
+        "highlight": {
+          "1": "Get the base game files with a couple of clicks",
+          "2": "Update to the latest version when one is available",
+          "3": "Repair an installation if files go missing or get corrupted"
+        }
+      },
+      "mods": {
+        "intro": "Mods will let you bring in extra content and switch between different play styles whenever you feel like it.",
+        "highlight": {
+          "1": "Browse and add mods to an installation",
+          "2": "Switch between installed mods without reinstalling anything",
+          "3": "Remove a mod cleanly when you no longer want it"
+        }
+      },
+      "assets": {
+        "intro": "Assets will let you change how the game looks and sounds with packs made by the community.",
+        "highlight": {
+          "1": "Add texture packs for a sharper or different look",
+          "2": "Add model packs to change how characters and objects appear",
+          "3": "Add sound packs to change music and effects"
+        }
+      },
+      "servers": {
+        "intro": "Servers will let you find a game to join without leaving the launcher.",
+        "highlight": {
+          "1": "See who's online across known servers at a glance",
+          "2": "Check a server's players and map before joining",
+          "3": "Join a server straight from its entry, no address to type"
+        }
+      }
+    }
+  },
+  "addInstallation": {
+    "new": "New installation…",
+    "hint": {
+      "existing": "Register a Quake II folder you already have.",
+      "detect": "Find Steam, GOG, Epic and other installations on this PC.",
+      "new": "Download or copy the engine and game data into a new, playable installation."
+    }
+  },
+  "rail": {
+    "label": "Installs",
+    "add": "Add an installation",
+    "autoDetect": "Search this PC…",
+    "manage": "Manage library",
+    "activeMarker": "Active installation"
+  },
+  "experimental": {
+    "badge": "Experimental"
+  },
+  "installation": {
+    "failedBadge": "Failed",
+    "engineChoice": {
+      "unsupported": "Not supported by the launcher yet",
+      "missing": "{{executable}} is missing from the folder"
+    },
+    "source": {
+      "manual": "Added manually",
+      "steam": "Steam",
+      "gog": "GOG",
+      "epic": "Epic Games",
+      "bethesda": "Bethesda",
+      "retail": "Retail / local",
+      "created": "Created by launcher",
+      "unknown": "Unknown"
+    },
+    "lastPlayed": "Last played",
+    "mods_one": "{{count}} game directory",
+    "mods_other": "{{count}} game directories",
+    "status": {
+      "invalid": "Not playable",
+      "missing": "Folder missing",
+      "unknown": "Not checked"
+    },
+    "action": {
+      "repair": "Repair",
+      "running": "Running",
+      "view": "View",
+      "writeLocked": "Writing…",
+      "locate": "Locate folder…",
+      "revalidate": "Check again",
+      "reveal": "Open folder",
+      "cleanup": "Clean up redundant config copies…",
+      "setIcon": "Set icon…",
+      "importRetail": "Import retail data…",
+      "favorite": "Add to favourites",
+      "selectExecutable": "Choose executable…",
+      "setWriteDir": "Choose write folder…"
+    }
+  },
+  "installations": {
+    "error": {
+      "duplicate": "That folder is already in your library as “{{name}}”.",
+      "rootMissing": "The folder {{path}} does not exist.",
+      "notQuake2": "{{path}} does not look like a Quake II installation. It needs a baseq2 folder or a known Quake II engine.",
+      "notFound": "That installation is no longer in your library.",
+      "createFailed": "The folder {{path}} could not be created. Check that you have permission to write there.",
+      "alreadyContainsGame": "{{path}} already contains a Quake II installation. Use “Add existing installation” instead.",
+      "deleteFromDiskStoreManaged": "Nothing was deleted: this installation's files are managed by its store. Uninstall it from there instead.",
+      "deleteFromDiskRunning": "Nothing was deleted: the game is running. Close it first, then try again.",
+      "deleteFromDiskMissing": "Nothing was deleted: the folder {{path}} does not exist.",
+      "deleteFromDiskRoot": "Nothing was deleted: {{path}} is a drive root, or too close to one, to be an installation folder.",
+      "deleteFromDiskUserData": "Nothing was deleted: {{path}} is the launcher’s own data folder, or holds it.",
+      "deleteFromDiskHome": "Nothing was deleted: {{path}} is your home folder, or holds it.",
+      "deleteFromDiskOverlapsInstallation": "Nothing was deleted: {{path}} also holds another installation ({{other}}).",
+      "deleteFromDiskFailed": "The folder {{path}} could not be fully deleted. Some files may still be there — check that the game is closed and that you have permission to delete them.",
+      "deleteFromDiskMisconfigured": "Removal from disk is not available right now.",
+      "nothingImported": "Nothing was imported.",
+      "engineNotDetected": "{{engine}} was not found in this installation's folder.",
+      "engineUnsupported": "{{engine}} is not supported by the launcher yet.",
+      "iconPickCancelled": "No image was chosen. The icon was left as it was.",
+      "iconUnsupportedFormat": "Only PNG and JPEG images can be used as an icon.",
+      "iconTooLarge": "That image is too large. Choose a file smaller than {{limit}} MB.",
+      "iconUnreadable": "That file could not be read as an image. It may be damaged, or not really an image.",
+      "iconStoreFailed": "The icon could not be saved. Check that the launcher can write to its own data folder."
+    },
+    "toast": {
+      "needsAttention_one": "{{count}} installation needs attention.",
+      "needsAttention_other": "{{count}} installations need attention.",
+      "added": "Added “{{name}}”.",
+      "removed": "Removed “{{name}}” from the launcher. The files are still on disk.",
+      "removedFromDisk": "Removed “{{name}}” from the launcher and deleted its files from disk.",
+      "imported_one": "Imported {{count}} installation.",
+      "imported_other": "Imported {{count}} installations."
+    }
+  },
+  "validation": {
+    "allGood": "Everything checks out.",
+    "rootMissing": "The installation folder is gone: {{path}}",
+    "baseDirMissing": "No {{dir}} folder – the game files are missing.",
+    "pak0Missing": "pak0.pak is missing from baseq2. Quake II cannot start without it.",
+    "pak0MissingButPaksPresent": "pak0.pak is missing, but other pak files are present. This may be a repacked or remastered install.",
+    "pak0NotRetail": "pak0.pak is not the size of the retail file. This is probably the shareware demo or a repacked copy – some maps and assets will be missing.",
+    "retailPaksMissing": "pak1.pak and pak2.pak are missing – this looks like the shareware demo rather than the full game.",
+    "pointReleaseMissing": "The 3.20 point release pak (pak2.pak) is missing.",
+    "noExecutable": "No engine executable found in this folder.",
+    "executableMissing": "The selected executable is gone: {{path}}",
+    "executableRunnable": "{{executable}} is a Windows program and needs a runner to play on Linux.",
+    "notWritable": "{{path}} is not writable. Configs and save games cannot be stored there.",
+    "engineUnknown": "The Quake II engine could not be identified.",
+    "fix": {
+      "locate-root": "Locate folder…",
+      "select-executable": "Choose executable…",
+      "set-write-dir": "Choose write folder…",
+      "revalidate": "Check again",
+      "install-game-files": "Get game files",
+      "choose-runner": "Choose a runner",
+      "choose-engine": "Choose engine…"
+    }
+  },
+  "engine": {
+    "unsupportedLabel": "{{engine}} (unsupported)",
+    "note": {
+      "r1q2": "r1q2 has no separate user folder – it writes config.cfg, saves and screenshots straight into the installation. The folder has to be writable, so avoid Program Files.",
+      "remaster": "The 2023 remaster is a different engine with its own game API, config location and network protocol. The launcher can start it, but it cannot join r1q2 servers and the config module will target r1q2 first."
+    }
+  },
+  "runner": {
+    "heading": "Runner",
+    "kind": {
+      "native": "Native",
+      "wine": "Wine",
+      "umu": "umu-run",
+      "proton": "Proton",
+      "steam": "Steam"
+    },
+    "unavailable": {
+      "native": "not available",
+      "wine": "wine not found — install wine to run Windows builds",
+      "umu": "umu-run not found — install umu-launcher to run Windows builds",
+      "proton": "not found in any Steam library",
+      "protonNotDriven_one": "{{count}} Proton build is used through umu-run, not launched directly — pick umu-run instead",
+      "protonNotDriven_other": "{{count}} Proton builds are used through umu-run, not launched directly — pick umu-run instead",
+      "steam": "Steam not found — install Steam to hand this game off to it",
+      "steamNotOwner": "this folder is not a Steam install — Steam can only start games it owns",
+      "steamUnknownApp": "this Steam game has no known launch options"
+    },
+    "steam": {
+      "caveat": "Steam runs its own copy of the game: the launcher's launch arguments and active game directory are not applied, there is no process to observe so no playtime is recorded, and the launcher cannot hold back its own writes (downloads, jobs) into this folder while the game runs.",
+      "client": {
+        "label": "Launch option"
+      }
+    }
+  },
+  "steam": {
+    "client": {
+      "enhanced": "2023 remaster (Enhanced)",
+      "original": "Original release",
+      "reckoning": "The Reckoning",
+      "groundZero": "Ground Zero"
+    }
+  },
+  "actionbar": {
+    "playable": "Playable",
+    "playWith": "Play with...",
+    "downloading": "Downloading {{done}}",
+    "filesRemaining_one": "{{count}} file remaining",
+    "filesRemaining_other": "{{count}} files remaining",
+    "eta": "{{time}} left",
+    "running": "Quake II is running",
+    "handedOff": "Handed off to Steam — not tracked",
+    "exited": "Quake II exited",
+    "buildLabel": "Build {{version}}"
+  },
+  "empty": {
+    "title": "No Quake II installations yet",
+    "body": "Add a folder you already have, let the launcher search this PC, or download or copy a new installation.",
+    "hint": "A valid installation is a folder containing baseq2 with pak0.pak in it."
+  },
+  "dialog": {
+    "addExisting": {
+      "title": "Add existing installation",
+      "body": "Choose the folder that contains baseq2 – not baseq2 itself.",
+      "folderPlaceholder": "C:\\Quake2",
+      "pickTitle": "Select your Quake II folder",
+      "detected": "Detected",
+      "nameLabel": "Name in the launcher",
+      "executableHint": "Several engine executables were found. Pick the one you want to launch.",
+      "submit": "Add installation"
+    },
+    "detect": {
+      "title": "Search this PC",
+      "body": "Checks Steam, GOG and Epic plus the usual Quake II locations. Fast, and it never touches your files.",
+      "deepBody": "A deep scan walks your drives looking for a baseq2 folder. It is much slower, but finds installations in unusual places.",
+      "start": "Start search",
+      "deepScan": "Also scan all drives (slow)",
+      "scanning": "Searching…",
+      "scanningPath": "Looking at {{path}}",
+      "found_one": "{{count}} installation found",
+      "found_other": "{{count}} installations found",
+      "none": "Nothing found. Add the folder manually instead.",
+      "alreadyAdded": "Already in your library",
+      "selectAll": "Select all",
+      "importCount": "Add {{count}} selected",
+      "phase": {
+        "starting": "Starting…",
+        "stores": "Asking Steam, GOG and Epic…",
+        "common-paths": "Checking common locations…",
+        "deep-scan": "Scanning drives…",
+        "done": "Done",
+        "cancelled": "Cancelled"
+      }
+    },
+    "remove": {
+      "title": "Remove “{{name}}”?",
+      "body": "This removes the installation from the launcher only. Nothing on your disk is touched.",
+      "pathNote": "The folder {{path}} stays exactly as it is.",
+      "confirm": "Remove from launcher",
+      "optionEntryOnly": "Remove entry only",
+      "optionDeleteFromDisk": "Remove from disk",
+      "diskDisabledWhileRunning": "Can’t delete files while this installation is running.",
+      "diskConfirmTitle": "This deletes files from disk",
+      "diskConfirmBody": "The installation’s folder and everything in it is deleted permanently. This cannot be undone.",
+      "diskConfirmButton": "Delete folder",
+      "storeManagedNote": "This installation is managed by its store. Uninstalling it there also removes its files – the launcher can only remove this entry."
+    },
+    "rename": {
+      "title": "Rename installation"
+    },
+    "cleanup": {
+      "title": "Redundant config copies",
+      "description": "Looks through {{name}} for mod-folder config files that duplicate a baseq2 file of the same name. Nothing is removed until you confirm, and a removal can be undone here afterwards."
+    },
+    "installationIcon": {
+      "title": "Set icon for “{{name}}”",
+      "shippedLabel": "Choose an icon",
+      "shippedIconLabel": "“{{id}}” icon",
+      "chooseFile": "Choose image file…",
+      "clear": "Clear icon"
+    },
+    "gameDir": {
+      "label": "Launch with",
+      "base": "Base game (baseq2)"
+    },
+    "resetLayout": {
+      "title": "Reset dashboard to default?",
+      "body": "This puts both dashboard modules back at their default size and position. Anything you have arranged is replaced."
+    }
+  },
+  "library": {
+    "subtitle_one": "{{count}} installation",
+    "subtitle_other": "{{count}} installations",
+    "revalidateAll": "Check all",
+    "stats": {
+      "needsAttention": "Need attention",
+      "playtime": "Total play time"
+    }
+  },
+  "settings": {
+    "section": {
+      "appearance": "Appearance",
+      "launch": "Launching",
+      "about": "About"
+    },
+    "sectionHint": {
+      "appearance": "Language and animations.",
+      "launch": "What the launcher does when a game starts.",
+      "library": "How installations are found and removed.",
+      "unlock": "Redeem a code to unlock extra features.",
+      "about": "Release notes, folders and technical details."
+    },
+    "nav": {
+      "label": "Settings sections",
+      "updates": "Version & updates"
+    },
+    "language": "Language",
+    "languageSystem": "Use system language",
+    "languageNote": "Only English ships today. More languages can be added without touching the UI code.",
+    "motion": "Animations",
+    "motionSystem": "Follow system setting",
+    "motionFull": "Full",
+    "motionReduced": "Reduced",
+    "minimizeOnLaunch": "Minimize the launcher when the game starts",
+    "closeAfterLaunch": "Quit the launcher when the game starts",
+    "closeAfterLaunchNote": "Play time is not recorded when the launcher quits.",
+    "confirmBeforeRemoving": "Ask before removing an installation",
+    "scanOnFirstRun": "Offer to search for installations on first start",
+    "electron": "Electron",
+    "chrome": "Chromium",
+    "node": "Node",
+    "userData": "Launcher data",
+    "logs": "Log file",
+    "openFolder": "Open",
+    "changelog": "Full changelog",
+    "about": {
+      "notesEmpty": "This version has no release notes.",
+      "notInstalled": "Not yet installed",
+      "lastChecked": "Last checked {{time}}",
+      "neverChecked": "Never checked for updates",
+      "checkNow": "Check now",
+      "checking": "Checking for updates…",
+      "currentVersion": "Launcher version",
+      "whatsNew": "What's new in this version",
+      "technical": "Technical details",
+      "checkUpToDate": "You're up to date.",
+      "checkAvailable": "Version {{version}} found."
+    },
+    "unlock": {
+      "installationId": {
+        "label": "Installation id",
+        "copy": "Copy installation id",
+        "copied": "Copied",
+        "hint": "Send this id to get a code"
+      },
+      "code": {
+        "placeholder": "Enter your unlock code",
+        "submit": "Redeem"
+      },
+      "reject": {
+        "not-a-code": "That doesn't look like an unlock code.",
+        "bad-signature": "This code isn't valid — it doesn't match what an unlock code should look like.",
+        "wrong-installation": "This code was issued for a different installation and can't be redeemed here.",
+        "redeem-window-elapsed": "This code's redemption window has passed.",
+        "feature-expired": "This code's features have already expired."
+      },
+      "feature": {
+        "watchlist": "Server watchlist",
+        "unknown": "Unknown feature ({{id}})"
+      },
+      "noExpiry": "Does not expire",
+      "expired": "This code expired on {{date}} — its features are no longer available.",
+      "takesEffectNextStart": "This takes effect the next time the launcher starts."
+    },
+    "devTools": "Development",
+    "simulateJob": "Simulate a download job",
+    "simulateJobStall": "Simulate a stalled job",
+    "simulateJobFailure": "Simulate a failed job",
+    "simulateUpdateAvailable": "Simulate an update becoming available",
+    "simulateUpdateProgress": "Simulate download progress",
+    "simulateUpdateDownloaded": "Simulate a finished download",
+    "simulateUpdateError": "Simulate a failed download",
+    "simulateUpdateUpToDate": "Simulate the installed version matching"
+  },
+  "launch": {
+    "error": {
+      "noExecutable": "No executable is set for “{{name}}”.",
+      "executableMissing": "The executable is missing: {{path}}",
+      "noRunner": "{{executable}} is a Windows program and nothing on this machine can run it. Install wine or umu-run and pick it as the runner, or add this folder's game data to a native engine instead.",
+      "alreadyRunning": "Quake II is already running.",
+      "installationBusy": "A job is writing files for this installation. It can be started once that job has finished.",
+      "spawnFailed": "The game could not be started: {{path}}",
+      "processError": "The game process reported an error: {{message}}",
+      "connectNeedsDirectLaunch": "This installation launches through Steam, which cannot join a server directly.",
+      "playbackNeedsDirectLaunch": "This installation launches through Steam, which cannot play a demo directly."
+    },
+    "userinfo": {
+      "reject": {
+        "empty": "Enter a value.",
+        "too-long": "This value is too long — use 63 characters or fewer.",
+        "forbidden-character": "This value contains a character that isn't allowed."
+      }
+    }
+  },
+  "jobs": {
+    "simulatedDownload": "Simulated download (development)",
+    "simulatedWrite": "Simulated installation write (development)",
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "paused": "Paused",
+      "waiting": "Waiting",
+      "succeeded": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "error": {
+      "notFound": "That job has already finished.",
+      "notCancellable": "This job cannot be cancelled.",
+      "installationBusy": "Another job is changing this installation. Try again when it has finished."
+    },
+    "waiting": {
+      "gameRunning": "Waiting for the game to close"
+    }
+  },
+  "update": {
+    "error": {
+      "network": "Could not reach the update server. Check your internet connection.",
+      "http": "The update server returned an error. Try again later.",
+      "notConfigured": "This build is not configured to check for updates.",
+      "timeout": "The update check took too long and was cancelled.",
+      "unknown": "The update check failed for an unknown reason."
+    }
+  },
+  "appUpdate": {
+    "action": {
+      "download": "Download",
+      "restart": "Restart and install",
+      "dismiss": "Dismiss"
+    },
+    "popover": {
+      "label": "Launcher update"
+    },
+    "whatChanged": "What changed",
+    "progress": {
+      "label": "Downloading update"
+    },
+    "error": {
+      "offline": "Could not download the update. Check your internet connection.",
+      "checksum": "The downloaded update failed verification and was discarded.",
+      "cancelled": "The download was cancelled.",
+      "downloadFailed": "The update could not be downloaded. Try again later.",
+      "notAvailable": "There is no update to download right now.",
+      "notReady": "The update has not finished downloading yet.",
+      "gameRunning": "Quake II is still running. Close it before installing the update.",
+      "jobActive": "A download is still in progress. Wait for it to finish before installing the update.",
+      "installFailed": "The update could not be installed. Nothing was changed."
+    }
+  },
+  "modules": {
+    "error": {
+      "notImplemented": "The {{moduleId}} module has no handler for “{{type}}” yet.",
+      "handlerFailed": "The {{moduleId}} module failed while handling “{{type}}”."
+    }
+  },
+  "dnd": {
+    "dragHandle": {
+      "label": "Drag to reorder"
+    },
+    "instructions": {
+      "draggable": "To pick up a draggable item, press the space bar. While dragging, use the arrow keys to move the item. Press space again to drop the item in its new position, or press escape to cancel."
+    },
+    "announcements": {
+      "pickedUp": "Picked up item {{id}}. It is at position {{position}} of {{total}}.",
+      "movedOver": "Item {{id}} was moved into position {{position}} of {{total}}.",
+      "movedOverTarget": "Item {{id}} is over {{target}}.",
+      "dropped": "Item {{id}} was dropped at position {{position}} of {{total}}.",
+      "droppedOnTarget": "Item {{id}} was dropped on {{target}}.",
+      "cancelled": "Dragging was cancelled. Item {{id}} was returned to position {{position}} of {{total}}."
+    }
+  }
+}

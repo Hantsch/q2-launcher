@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { compileNameTemplate } from '@shared/replays/name-template'
 import type { NameTemplateEntry, NameTemplatesView } from '@shared/replays/name-templates'
 import type { LocalizedMessage, Outcome } from '@shared/types'
+import { useModuleMutation, useModuleQuery } from '../../lib/useModuleQuery'
 import { SortableList, DragHandle, type SortableItemRenderState } from '../../components/dnd'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
@@ -18,7 +19,7 @@ import {
 } from './client'
 
 /**
- * Story 140 D3: the naming-pattern list a user actually edits - replaces the settings section's
+ * Story 140: the naming-pattern list a user actually edits - replaces the settings section's
  * placeholder paragraph. Every mutating handler resolves to the whole, reconciled
  * `NameTemplatesView`, so - same discipline as `servers/ServersSettingsSection.tsx`'s `mutate` - this
  * component always re-renders from what main just persisted, never an optimistic local patch, with
@@ -36,15 +37,21 @@ function validateText(text: string): ValidationResult {
   if (text.length === 0) return { ok: false, error: { key: 'replays.nameTemplate.error.empty' } }
   const compiled = compileNameTemplate(text)
   if (compiled.ok) return { ok: true }
-  return { ok: false, error: { key: compiled.error.key, params: compiled.error.params } }
+  return { ok: false, error: { key: compiled.reasonKey, params: compiled.params } }
 }
 
 export function NameTemplatesList() {
   const { t } = useTranslation()
 
-  const [view, setView] = useState<NameTemplatesView | null>(null)
-  const [listError, setListError] = useState<LocalizedMessage | null>(null)
-  const [saving, setSaving] = useState(false)
+  const query = useModuleQuery(listNameTemplates)
+  const mutation = useModuleMutation((action: () => Promise<Outcome<NameTemplatesView>>) =>
+    action(),
+  )
+  const view = query.data ?? null
+  const saving = mutation.busy
+  const { setData: setView } = query
+  const [mutationError, setListError] = useState<LocalizedMessage | null>(null)
+  const listError = mutationError ?? (query.state === 'error' ? query.error : null)
 
   const [addText, setAddText] = useState('')
   const [addError, setAddError] = useState<LocalizedMessage | null>(null)
@@ -54,49 +61,27 @@ export function NameTemplatesList() {
   const [editText, setEditText] = useState('')
   const [editError, setEditError] = useState<LocalizedMessage | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    void listNameTemplates().then((result) => {
-      if (cancelled) return
-      if (!result.ok) {
-        setListError(result.error)
-        return
-      }
-      const domain = result.value
-      if (!domain.ok) {
-        setListError(domain.error)
-        return
-      }
-      setView(domain.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   /** Every `nameTemplates.*` mutation goes through here: runs the action, and either applies main's
    * returned full view (success) or hands the refusal to whichever error slot the caller names -
    * the add field's, the edit field's, or the list's own, depending which action failed. Transport
-   * failure (`result.ok === false`) and this module's own domain refusal
-   * (`result.value.ok === false`) are two different shapes but both become the same error state -
-   * same two-layer unwrap `ServersSettingsSection.tsx`'s `mutate()` does for `MasterSourcesResult`. */
+   * or domain refusal (`result.ok === false`) is the one error state. */
   const mutate = async (
-    action: () => Promise<Outcome<Outcome<NameTemplatesView>>>,
+    action: () => Promise<Outcome<NameTemplatesView>>,
     onError: (error: LocalizedMessage) => void,
   ): Promise<boolean> => {
-    setSaving(true)
-    const result = await action()
-    setSaving(false)
-    if (!result.ok) {
-      onError(result.error)
-      return false
-    }
-    const domain = result.value
-    if (!domain.ok) {
-      onError(domain.error)
-      return false
-    }
-    setView(domain.value)
+    const result = await mutation.run(async () => {
+      let outcome: Outcome<NameTemplatesView>
+      try {
+        outcome = await action()
+      } catch (caught) {
+        onError({ key: 'ipc.error.unreachable' })
+        throw caught
+      }
+      if (!outcome.ok) onError(outcome.error)
+      return outcome
+    })
+    if (!result) return false
+    setView(result)
     return true
   }
 
@@ -268,11 +253,15 @@ export function NameTemplatesList() {
           disabled={!canAdd}
           data-testid="replays-name-template-add"
         >
-          {t('replays.nameTemplates.add')}
+          {t('common.action.add')}
         </Button>
       </div>
       {addError && (
-        <p className="text-xs text-danger" id="replays-name-template-error" data-testid="replays-name-template-error">
+        <p
+          className="text-xs text-danger"
+          id="replays-name-template-error"
+          data-testid="replays-name-template-error"
+        >
           {t(addError.key, addError.params)}
         </p>
       )}
@@ -339,7 +328,11 @@ function NameTemplateRow({
             data-testid={`replays-name-template-edit-input-${index}`}
           />
           {editError && (
-            <p className="text-xs text-danger" id={editErrorId} data-testid={`replays-name-template-edit-error-${index}`}>
+            <p
+              className="text-xs text-danger"
+              id={editErrorId}
+              data-testid={`replays-name-template-edit-error-${index}`}
+            >
               {t(editError.key, editError.params)}
             </p>
           )}
@@ -352,7 +345,11 @@ function NameTemplateRow({
 
       {!isEditing && (
         <Badge tone={entry.origin === 'shipped' ? 'neutral' : 'flame'}>
-          {t(entry.origin === 'shipped' ? 'replays.nameTemplates.badge.builtIn' : 'replays.nameTemplates.badge.custom')}
+          {t(
+            entry.origin === 'shipped'
+              ? 'replays.nameTemplates.badge.builtIn'
+              : 'replays.nameTemplates.badge.custom',
+          )}
         </Badge>
       )}
       {!isEditing && entry.edited && (
@@ -362,16 +359,16 @@ function NameTemplateRow({
       {isEditing ? (
         <>
           <Button size="sm" variant="neutral" onClick={onSaveEdit} disabled={!canSaveEdit}>
-            {t('replays.nameTemplates.save')}
+            {t('common.action.save')}
           </Button>
           <Button size="sm" variant="ghost" onClick={onCancelEdit} disabled={saving}>
-            {t('replays.nameTemplates.cancel')}
+            {t('common.action.cancel')}
           </Button>
         </>
       ) : (
         <>
           <IconButton
-            label={t('replays.nameTemplates.edit')}
+            label={t('common.action.edit')}
             size="sm"
             variant="ghost"
             onClick={onStartEdit}
@@ -392,7 +389,7 @@ function NameTemplateRow({
             </IconButton>
           )}
           <IconButton
-            label={t('replays.nameTemplates.remove')}
+            label={t('common.action.remove')}
             size="sm"
             variant="ghost"
             onClick={onRemove}

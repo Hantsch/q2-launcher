@@ -2,10 +2,35 @@ import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fail, ok, type Installation, type InstallationSource } from '@shared/types'
+import { engineLabel, fail, ok, type Installation, type InstallationSource } from '@shared/types'
 import { InstallationsService } from './installations'
 import { deleteInstallationFolder } from './installation-removal'
+import { inspectInstallation } from './inspector'
 import { StateStore } from './state'
+
+/**
+ * The real inspector, wrapped so a test can hold one inspection open (`holdNextInspection`) and
+ * change the state while the service awaits it. Every other call goes straight through.
+ */
+vi.mock('./inspector', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./inspector')>()
+  return { ...actual, inspectInstallation: vi.fn(actual.inspectInstallation) }
+})
+const inspectInstallationMock = vi.mocked(inspectInstallation)
+const realInspector = await vi.importActual<typeof import('./inspector')>('./inspector')
+
+/** Makes the next inspection wait for `release()` before it runs the real inspector. */
+function holdNextInspection(): { release: () => void } {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  inspectInstallationMock.mockImplementationOnce(async (...args) => {
+    await held
+    return realInspector.inspectInstallation(...args)
+  })
+  return { release }
+}
 
 /**
  * Story 094 D2: `deleteInstallationFolder` is mocked at the module boundary, the same as
@@ -18,7 +43,7 @@ const deleteInstallationFolderMock = vi.mocked(deleteInstallationFolder)
 
 /**
  * Story 077 D1: the persisted-failure-record foundation - `setLastFailure`, `findByRootPath` and
- * the clear-on-playable rule `applyInspection` applies. `InstallationsService` needs no `electron`
+ * the clear-on-playable rule `applyInspectionResult` applies. `InstallationsService` needs no `electron`
  * mock (unlike `installation-icons.test.ts`): it only touches the filesystem and `StateStore`.
  */
 
@@ -42,12 +67,13 @@ beforeEach(async () => {
   await mkdir(userData, { recursive: true })
   await mkdir(home, { recursive: true })
 
-  state = new StateStore(join(userData, 'state.json'))
+  state = new StateStore(join(userData, 'state.json'), { migrations: 'none' })
   await state.load()
 
   removedIds = []
   runningOverride = undefined
   deleteInstallationFolderMock.mockReset()
+  inspectInstallationMock.mockClear()
 
   installations = new InstallationsService({
     state,
@@ -162,9 +188,10 @@ describe('setLastFailure', () => {
   })
 })
 
-describe('setEngineState (story 092 D2)', () => {
-  it('round-trips a written engine state and mirrors version onto detectedVersion', () => {
+describe('setEngineState', () => {
+  it('records the engine state and mirrors detectedVersion in one write', () => {
     state.setInstallations([installation()])
+    const patch = vi.spyOn(installations, 'patch')
 
     const result = installations.setEngineState(INSTALLATION_ID, {
       version: '2.34',
@@ -172,18 +199,20 @@ describe('setEngineState (story 092 D2)', () => {
     })
 
     expect(result.ok).toBe(true)
-    const found = installations.find(INSTALLATION_ID)
-    expect(found?.moduleData?.downloads).toEqual({ version: '2.34', packageId: 'q2pro-win64' })
-    expect(found?.detectedVersion).toBe('2.34')
+    expect(patch).toHaveBeenCalledTimes(1)
+    expect(installations.find(INSTALLATION_ID)?.moduleData?.downloads).toEqual({
+      version: '2.34',
+      packageId: 'q2pro-win64',
+    })
+    expect(installations.find(INSTALLATION_ID)?.detectedVersion).toBe('2.34')
   })
 
   it('shallow-merges a second patch over the first', () => {
     state.setInstallations([installation()])
     installations.setEngineState(INSTALLATION_ID, { version: '2.34', packageId: 'q2pro-win64' })
 
-    const result = installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })
+    installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })
 
-    expect(result.ok).toBe(true)
     expect(installations.find(INSTALLATION_ID)?.moduleData?.downloads).toEqual({
       version: '2.34',
       packageId: 'q2pro-win64',
@@ -192,21 +221,57 @@ describe('setEngineState (story 092 D2)', () => {
     expect(installations.find(INSTALLATION_ID)?.detectedVersion).toBe('2.34')
   })
 
+  it('a patch without a version removes detectedVersion', () => {
+    state.setInstallations([installation({ detectedVersion: '1.0' })])
+
+    installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })
+
+    const found = installations.find(INSTALLATION_ID)
+    expect(found?.detectedVersion).toBeUndefined()
+    expect('detectedVersion' in (found ?? {})).toBe(false)
+  })
+
   it('parses a garbage moduleData back to "unknown" rather than throwing, and does not set detectedVersion', () => {
     state.setInstallations([
       installation({ moduleData: { downloads: { version: 42, backup: 'nope' } } }),
     ])
 
-    expect(() => installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })).not.toThrow()
+    expect(() =>
+      installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true }),
+    ).not.toThrow()
 
-    const found = installations.find(INSTALLATION_ID)
-    expect(found?.moduleData?.downloads).toEqual({ bleedingEdge: true })
-    expect(found?.detectedVersion).toBeUndefined()
+    expect(installations.find(INSTALLATION_ID)?.moduleData?.downloads).toEqual({
+      bleedingEdge: true,
+    })
+    expect(installations.find(INSTALLATION_ID)?.detectedVersion).toBeUndefined()
   })
 
   it('reports an unknown installation instead of writing anything', () => {
+    state.setInstallations([installation()])
+    const patch = vi.spyOn(installations, 'patch')
+
     const result = installations.setEngineState('nope', { version: '2.34' })
+
     expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+    expect(patch).not.toHaveBeenCalled()
+  })
+})
+
+describe('setModuleData (story 190 D2)', () => {
+  it('setModuleData persists under its module key only', () => {
+    state.setInstallations([installation({ moduleData: { downloads: { version: '2.34' } } })])
+
+    const result = installations.setModuleData(INSTALLATION_ID, 'mods', { records: [] })
+
+    expect(result.ok).toBe(true)
+    expect(installations.find(INSTALLATION_ID)?.moduleData).toEqual({
+      downloads: { version: '2.34' },
+      mods: { records: [] },
+    })
+    expect(installations.setModuleData('nope', 'mods', {})).toEqual({
+      ok: false,
+      error: { key: 'installations.error.notFound' },
+    })
   })
 })
 
@@ -244,7 +309,7 @@ describe('AC4: a playable verdict clears the last failure, an invalid one keeps 
   })
 })
 
-describe('applyInspection keeps a known engineKind when inspection comes back unknown (review fix, scoped to a failed installation)', () => {
+describe('applyInspectionResult keeps a known engineKind when inspection comes back unknown (review fix, scoped to a failed installation)', () => {
   it('leaves engineKind as q2pro after validate() sees an empty/unrecognizable folder on a failed installation', async () => {
     const rootPath = join(dir, 'emptied')
     await writeInvalidRoot(rootPath)
@@ -403,6 +468,124 @@ describe('update', () => {
   })
 })
 
+describe('writes that land while an inspection is awaited are kept', () => {
+  it('an installation added during validateAll survives', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+
+    const validating = installations.validateAll()
+    const addedRoot = join(dir, 'added-meanwhile')
+    await writePlayableRoot(addedRoot)
+    const added = await installations.addExisting({ rootPath: addedRoot })
+    if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
+    inspection.release()
+    await validating
+
+    expect(installations.list().map((i) => i.id)).toEqual([INSTALLATION_ID, added.value.id])
+    expect(installations.find(INSTALLATION_ID)?.lastValidatedAt).toBeDefined()
+    expect(state.installations().map((i) => i.id)).toContain(added.value.id)
+  })
+
+  it('a play session recorded during validateAll is kept', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+
+    const validating = installations.validateAll()
+    installations.recordPlaySession(INSTALLATION_ID, 120)
+    inspection.release()
+    await validating
+
+    const found = installations.find(INSTALLATION_ID)
+    expect(found?.totalPlaytimeSeconds).toBe(120)
+    expect(found?.lastPlayedAt).toBeDefined()
+    // The verdict still landed: the fixture root does not exist on disk.
+    expect(found?.status).toBe('missing')
+  })
+
+  it('setIcon during an awaited update() is not clobbered', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+    const executablePath = join(dir, 'game', INSTALLATION_ID, PLAYABLE_EXECUTABLE)
+
+    const updating = installations.update({ id: INSTALLATION_ID, executablePath })
+    await vi.waitFor(() => expect(inspectInstallationMock).toHaveBeenCalled())
+    installations.setIcon(INSTALLATION_ID, { kind: 'shipped', id: 'strogg' })
+    inspection.release()
+    const result = await updating
+
+    expect(result.ok === true && result.value.icon).toEqual({ kind: 'shipped', id: 'strogg' })
+    const found = installations.find(INSTALLATION_ID)
+    expect(found?.icon).toEqual({ kind: 'shipped', id: 'strogg' })
+    expect(found?.executablePath).toBe(executablePath)
+    expect(found?.status).toBe('missing')
+  })
+
+  it('a validate() verdict for a folder the user has since relocated away from is dropped', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+
+    const validating = installations.validate(INSTALLATION_ID)
+    const newRoot = join(dir, 'relocated')
+    await writePlayableRoot(newRoot)
+    const relocated = await installations.update({ id: INSTALLATION_ID, rootPath: newRoot })
+    expect(relocated.ok).toBe(true)
+    inspection.release()
+    const result = await validating
+
+    // The held verdict was for the old, missing root; the relocation's own inspection stands.
+    expect(result.ok === true && result.value.rootPath).toBe(newRoot)
+    expect(installations.find(INSTALLATION_ID)?.status).not.toBe('missing')
+  })
+
+  it('an update() whose installation is removed during its inspection reports notFound', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+
+    const updating = installations.update({ id: INSTALLATION_ID, executablePath: 'q2pro.exe' })
+    await vi.waitFor(() => expect(inspectInstallationMock).toHaveBeenCalled())
+    await installations.remove({ id: INSTALLATION_ID })
+    inspection.release()
+
+    expect(await updating).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+    expect(installations.list()).toEqual([])
+  })
+})
+
+describe('patch', () => {
+  it('patch merges onto the live record and an undefined key deletes the field', () => {
+    state.setInstallations([
+      installation({ writeDirPath: join(dir, 'write'), steamAppId: '2320', favorite: true }),
+    ])
+    const changes: string[][] = []
+    const observed = new InstallationsService({
+      state,
+      onChange: (list) => changes.push(list.map((i) => i.name)),
+      onSettingsChange: () => {},
+    })
+
+    const result = observed.patch(INSTALLATION_ID, { name: 'Renamed', writeDirPath: undefined })
+
+    expect(result.ok).toBe(true)
+    const stored = state.installations().find((i) => i.id === INSTALLATION_ID)
+    expect(stored?.name).toBe('Renamed')
+    expect(stored !== undefined && 'writeDirPath' in stored).toBe(false)
+    expect(stored?.steamAppId).toBe('2320')
+    expect(stored?.favorite).toBe(true)
+    expect(result.ok === true && result.value).toEqual(stored)
+    expect(changes).toEqual([['Renamed']])
+  })
+
+  it('patch reports an unknown installation instead of writing anything', () => {
+    state.setInstallations([installation()])
+
+    expect(installations.patch('nope', { name: 'x' })).toEqual({
+      ok: false,
+      error: { key: 'installations.error.notFound' },
+    })
+    expect(installations.find(INSTALLATION_ID)?.name).toBe('Fixture')
+  })
+})
+
 describe('remove({ deleteFromDisk: true }) (story 094 D2)', () => {
   const STORE_SOURCES: InstallationSource[] = ['steam', 'gog', 'epic', 'bethesda']
 
@@ -514,5 +697,172 @@ describe('remove({ deleteFromDisk: true }) (story 094 D2)', () => {
 
     expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
     expect(deleteInstallationFolderMock).not.toHaveBeenCalled()
+  })
+})
+
+/** An engine client's file name as `looksExecutable` accepts it on this host. */
+function client(name: string): string {
+  return process.platform === 'win32' ? `${name}.exe` : name
+}
+
+async function writeClient(rootPath: string, name: string): Promise<string> {
+  const path = join(rootPath, client(name))
+  await writeFile(path, 'stand-in executable')
+  if (process.platform !== 'win32') await chmod(path, 0o755)
+  return path
+}
+
+/** A playable `baseq2` plus one stand-in client per engine name. */
+async function writeEnginesRoot(rootPath: string, engines: readonly string[]): Promise<void> {
+  await mkdir(join(rootPath, 'baseq2'), { recursive: true })
+  await writeFile(join(rootPath, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
+  for (const engine of engines) await writeClient(rootPath, engine)
+}
+
+describe('an installation with several engines', () => {
+  it('a folder with r1q2 and q2pro lists both engines', async () => {
+    const rootPath = join(dir, 'both')
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+
+    const result = await installations.addExisting({ rootPath })
+
+    if (!result.ok) throw new Error(`fixture installation was rejected: ${result.error.key}`)
+    expect(result.value.detectedEngines).toEqual([
+      { kind: 'r1q2', executablePath: join(rootPath, client('r1q2')), supported: true },
+      { kind: 'q2pro', executablePath: join(rootPath, client('q2pro')), supported: true },
+    ])
+    expect(result.value.engineKind).toBe('q2pro')
+    expect(result.value.executablePath).toBe(join(rootPath, client('q2pro')))
+  })
+
+  it('choosing q2pro changes executable and engine and survives a reload', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+    state.setInstallations([
+      installation({ engineKind: 'r1q2', executablePath: join(rootPath, client('r1q2')) }),
+    ])
+    await installations.validate(INSTALLATION_ID)
+
+    const result = await installations.update({ id: INSTALLATION_ID, engine: 'q2pro' })
+
+    expect(result.ok === true && result.value.engineKind).toBe('q2pro')
+    expect(result.ok === true && result.value.executablePath).toBe(join(rootPath, client('q2pro')))
+
+    await state.settle()
+    const reloaded = new StateStore(join(userData, 'state.json'), { migrations: 'none' })
+    await reloaded.load()
+    const restarted = new InstallationsService({
+      state: reloaded,
+      onChange: () => {},
+      onSettingsChange: () => {},
+    })
+    await restarted.validateAll()
+    expect(restarted.find(INSTALLATION_ID)?.engineKind).toBe('q2pro')
+    expect(restarted.find(INSTALLATION_ID)?.executablePath).toBe(join(rootPath, client('q2pro')))
+    await reloaded.settle()
+  })
+
+  it('an engine added later appears and the choice stays', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    state.setInstallations([installation({ engineKind: 'r1q2', executablePath: r1q2 })])
+    await installations.validate(INSTALLATION_ID)
+    expect(installations.find(INSTALLATION_ID)?.detectedEngines?.map((e) => e.kind)).toEqual([
+      'r1q2',
+    ])
+
+    await writeClient(rootPath, 'q2pro')
+    const result = await installations.validate(INSTALLATION_ID)
+
+    if (!result.ok) throw new Error(result.error.key)
+    expect(result.value.detectedEngines?.map((e) => e.kind)).toEqual(['r1q2', 'q2pro'])
+    expect(result.value.engineKind).toBe('r1q2')
+    expect(result.value.executablePath).toBe(r1q2)
+  })
+
+  it('a missing chosen engine is reported, not switched', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+    const q2pro = join(rootPath, client('q2pro'))
+    state.setInstallations([
+      installation({ engineKind: 'q2pro', executablePath: q2pro, recordedEngineKind: 'q2pro' }),
+    ])
+
+    await rm(q2pro)
+    const result = await installations.validate(INSTALLATION_ID)
+
+    if (!result.ok) throw new Error(result.error.key)
+    expect(result.value.engineKind).toBe('q2pro')
+    expect(result.value.executablePath).toBe(q2pro)
+    expect(result.value.recordedEngineKind).toBe('q2pro')
+    expect(result.value.detectedEngines?.map((e) => e.kind)).toEqual(['r1q2'])
+    expect(result.value.checks).toContainEqual(
+      expect.objectContaining({ id: 'executable', fix: 'choose-engine' }),
+    )
+  })
+
+  it('an unsupported engine cannot be chosen', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'kmquake2'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    state.setInstallations([installation({ engineKind: 'r1q2', executablePath: r1q2 })])
+    await installations.validate(INSTALLATION_ID)
+    expect(installations.find(INSTALLATION_ID)?.detectedEngines?.map((e) => e.kind)).toContain(
+      'kmquake2',
+    )
+
+    const result = await installations.update({ id: INSTALLATION_ID, engine: 'kmquake2' })
+
+    expect(result).toEqual(
+      fail('installations.error.engineUnsupported', { engine: engineLabel('kmquake2') }),
+    )
+    expect(installations.find(INSTALLATION_ID)?.engineKind).toBe('r1q2')
+    expect(installations.find(INSTALLATION_ID)?.executablePath).toBe(r1q2)
+  })
+
+  it('an engine not in the folder cannot be chosen', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    state.setInstallations([installation({ engineKind: 'r1q2', executablePath: r1q2 })])
+    await installations.validate(INSTALLATION_ID)
+
+    const result = await installations.update({ id: INSTALLATION_ID, engine: 'q2pro' })
+
+    expect(result).toEqual(
+      fail('installations.error.engineNotDetected', { engine: engineLabel('q2pro') }),
+    )
+    expect(installations.find(INSTALLATION_ID)?.executablePath).toBe(r1q2)
+  })
+
+  it('an existing r1q2 installation keeps r1q2 when q2pro is present', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    // A record written before engines were listed: no `detectedEngines` key at all.
+    state.setInstallations([
+      installation({ engineKind: 'r1q2', executablePath: r1q2, recordedEngineKind: 'r1q2' }),
+    ])
+
+    await installations.validateAll()
+
+    const kept = installations.find(INSTALLATION_ID)
+    expect(kept?.engineKind).toBe('r1q2')
+    expect(kept?.executablePath).toBe(r1q2)
+    expect(kept?.recordedEngineKind).toBe('r1q2')
+    expect(kept?.detectedEngines?.map((e) => e.kind)).toEqual(['r1q2', 'q2pro'])
+  })
+
+  it('a relocated installation adopts the client of its own engine', async () => {
+    state.setInstallations([installation({ engineKind: 'r1q2' })])
+    const moved = join(dir, 'moved')
+    await writeEnginesRoot(moved, ['r1q2', 'q2pro'])
+
+    const result = await installations.update({ id: INSTALLATION_ID, rootPath: moved })
+
+    if (!result.ok) throw new Error(result.error.key)
+    expect(result.value.engineKind).toBe('r1q2')
+    expect(result.value.executablePath).toBe(join(moved, client('r1q2')))
   })
 })

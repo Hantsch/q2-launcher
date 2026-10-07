@@ -13,11 +13,11 @@ describe('cinema keys', () => {
     expect(cinemaKeyAction(press('ArrowRight'), 1)).toEqual({ kind: 'jump', deltaS: 10 })
     expect(cinemaKeyAction(press('ArrowLeft', 'ArrowLeft', true), 1)).toEqual({
       kind: 'jump',
-      deltaS: -60
+      deltaS: -60,
     })
     expect(cinemaKeyAction(press('ArrowRight', 'ArrowRight', true), 1)).toEqual({
       kind: 'jump',
-      deltaS: 60
+      deltaS: 60,
     })
     expect(cinemaKeyAction(press('Comma', ','), 1)).toEqual({ kind: 'speed', value: 0.5 })
     expect(cinemaKeyAction(press('Period', '.'), 1)).toEqual({ kind: 'speed', value: 2 })

@@ -14,7 +14,7 @@
   update those files (`/ai-scrum:setup`). Hashes of the managed copies: .claude/ai-scrum.lock
 -->
 
-ai-scrum-version: 4.4.0
+ai-scrum-version: 4.5.0
 project: Q2 Launcher
 
 ## Verify
@@ -24,7 +24,7 @@ step does not exist in this project.
 
 build: npm run build
 test: npm test
-lint: none
+lint: npm run lint
 typecheck: npm run typecheck
 e2e: npm run ui:verify
 <!--
@@ -37,17 +37,21 @@ e2e: npm run ui:verify
 <!-- npm run ui:verify: builds if needed, seeds the fixture, screenshots every screen and runs an accessibility report against the real app; see docs/UI-VERIFICATION.md. -->
 
 test-story: npx vitest run --changed HEAD
-e2e-story: npm run ui:flow -- {test}
+e2e-story: npm run ui:flows -- --affected {files}
 e2e-all: npm run ui:flows
 e2e-cleanup: none <!-- e.g. taskkill /F /IM electron.exe | pkill -f electron | none -->
 <!--
   Narrow gates /build runs per-story instead of the full `test`/`e2e` above.
   `/sprint` still runs full `test`, full `e2e` and `e2e-all` once after the last story.
-  `e2e-story` runs one flow by name from scripts/flows/ (npm run ui:flow -- <name>).
+  `e2e-story` is one run: the story's named flow files ({files}) plus the flows its diff can break
+  (--affected), each reseeded per flow (scripts/flows-all.mjs). `ui:flow -- <name>` still runs one flow.
   `e2e-all` runs every flow in scripts/flows/, each against a freshly seeded fixture
   (scripts/flows-all.mjs). `e2e` (ui:verify) does not cover it: it only screenshots and
   audits screens, and running all flows together is what caught S18's regression.
 -->
+
+test-support: src/test-support/ <!-- shared fixtures, builders and fakes — pasted into every deliverable prompt by /build -->
+e2e-quarantine: scripts/flows/quarantine.json <!-- e.g. tests/e2e/quarantine.json | none — the expected-failure list the e2e-all runner reads; /sprint's regression gate writes a pre-existing or flaky test into it -->
 
 ## Conventions
 
@@ -147,3 +151,9 @@ Keep this short — it is pasted into every subagent prompt.
 <!-- Free text. Never overwritten by setup/update. Project quirks worth knowing. -->
 
 This repo's CHANGELOG.md uses Keep-a-Changelog category headings (`### Added`/`### Changed`/`### Fixed`/`### Removed`/`### Security`), not the `changelog-path` comment's suggested `# Features`/`# Fixes` shape.
+
+Regression gate attribution and the sprint review judge a red flow against docs/UI-VERIFICATION.md#what-a-flow-may-assert — a flow asserting another story's incidental detail is fixed in the flow, not in the product.
+
+The sprint review (phase 3) checks that every story touching `src/main/modules/<id>/` or `src/renderer/src/modules/<id>/` also touched that module's doc under `docs/systems/`, and lists a miss as a finding.
+
+Unfixed review findings and ageing: in `/sprint` phase 3, an unfixed review finding that is a defect or debt goes into `docs/TECH-DEBT.md` as a row (next id, `since` = this sprint, source = this review) — not into a follow-up line and not into the review alone. `/roadmap check` step 4 runs `node scripts/check-docs.mjs --overdue` and lists every overdue row in its report for the maintainer to promote or delete (it does not delete rows itself). The plugin's follow-up ageing (older than three sprints -> draft or delete) applies unchanged. Overdue means current sprint minus `since` > 3.

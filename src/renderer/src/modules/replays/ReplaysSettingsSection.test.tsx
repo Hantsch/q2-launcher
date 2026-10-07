@@ -5,7 +5,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { vi } from 'vitest'
 import { getModuleManifest } from '@shared/types'
 import type { ReplaysExtraFolder } from '@shared/modules/replays'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { initI18n } from '../../i18n'
 import { moduleIcon } from '../../components/shell/moduleIcons'
 import type { ReplaysSettingsSection as ReplaysSettingsSectionType } from './ReplaysSettingsSection'
@@ -25,7 +25,10 @@ function defaultInvoke(
     // The real handler itself returns `Outcome<NameTemplatesView>` (its own domain refusal), and
     // the module registry wraps that in its own transport-level `ok(...)` on top - see client.ts's
     // doc comment on `listNameTemplates`. This stub mirrors that nesting.
-    return Promise.resolve({ ok: true, value: { ok: true, value: { entries: [], canRestore: false } } })
+    return Promise.resolve({
+      ok: true,
+      value: { entries: [], canRestore: false },
+    })
   }
   if (payload?.type === 'modWarning.read') {
     return Promise.resolve({ ok: true, value: { enabled: true, trustedMods: [] } })
@@ -62,16 +65,19 @@ beforeAll(async () => {
 
 afterEach(() => {
   cleanup()
-  ;(globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke.mockImplementation(
-    defaultInvoke,
-  )
+  ;(
+    globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }
+  ).q2.invoke.mockImplementation(defaultInvoke)
 })
 
 function stringAt(path: string): unknown {
   return path
     .split('.')
     .reduce<unknown>(
-      (acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined),
+      (acc, key) =>
+        acc && typeof acc === 'object' && key in acc
+          ? (acc as Record<string, unknown>)[key]
+          : undefined,
       en,
     )
 }
@@ -116,7 +122,7 @@ describe('replays module registration', () => {
 
     for (const key of keys) {
       expect(key).toBeDefined()
-      expect(key as string).toMatch(/^replays\./)
+      expect(key as string).toMatch(/^(replays|common\.label)\./)
       const value = stringAt(key as string)
       expect(typeof value).toBe('string')
       expect((value as string).length).toBeGreaterThan(0)
@@ -147,7 +153,10 @@ describe('replays extra folders', () => {
       if (payload?.type === 'extraFolders.add') {
         return Promise.resolve({
           ok: true,
-          value: { ok: true, folders: [...folders, { id: 'f2', path: 'C:/more-demos', addedAt: '2026-01-02' }] },
+          value: {
+            ok: true,
+            folders: [...folders, { id: 'f2', path: 'C:/more-demos', addedAt: '2026-01-02' }],
+          },
         })
       }
       if (payload?.type === 'extraFolders.remove') {
@@ -195,7 +204,10 @@ describe('replays extra folders', () => {
         return Promise.resolve({ ok: true, value: [] })
       }
       if (payload?.type === 'extraFolders.add') {
-        return Promise.resolve({ ok: true, value: { ok: false, reason: 'notAFolder' } })
+        return Promise.resolve({
+          ok: true,
+          value: { ok: false, reasonKey: 'replays.extraFolders.error.notAFolder' },
+        })
       }
       return defaultInvoke(channel, payload)
     })
@@ -212,6 +224,51 @@ describe('replays extra folders', () => {
     expect(alert.getAttribute('role')).toBe('alert')
     expect(alert.textContent).toBe(en.replays.extraFolders.error.notAFolder)
     expect(alert.textContent).not.toContain('replays.extraFolders.error.notAFolder')
+  })
+
+  it('extra-folder controls are disabled while a mutation runs', async () => {
+    const folders: ReplaysExtraFolder[] = [{ id: 'f1', path: 'C:/demos', addedAt: '2026-01-01' }]
+    let release: (value: unknown) => void = () => {}
+
+    invokeMock().mockImplementation((channel: string, payload: { type?: string }) => {
+      if (payload?.type === 'extraFolders.list') {
+        return Promise.resolve({ ok: true, value: folders })
+      }
+      if (payload?.type === 'extraFolders.remove') {
+        return new Promise((resolve) => {
+          release = resolve
+        })
+      }
+      return defaultInvoke(channel, payload)
+    })
+
+    render(createElement(ReplaysSettingsSection))
+
+    const remove = await screen.findByTestId('replays-extra-folder-remove')
+    await act(async () => {
+      remove.click()
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect((screen.getByTestId('replays-extra-folders-add') as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+      expect(
+        (screen.getByTestId('replays-extra-folder-remove') as HTMLButtonElement).disabled,
+      ).toBe(true)
+    })
+
+    await act(async () => {
+      release({ ok: true, value: { ok: true, folders: [] } })
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect((screen.getByTestId('replays-extra-folders-add') as HTMLButtonElement).disabled).toBe(
+        false,
+      )
+    })
   })
 
   it('a cancelled pick adds nothing', async () => {
@@ -252,21 +309,23 @@ describe('replays extra folders', () => {
 describe('replays mod warning settings', () => {
   it('mod warning switch and reset call their handlers and render the returned state', async () => {
     const invoke = (globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke
-    invoke.mockImplementation((channel: string, payload: { type?: string; payload?: { enabled: boolean } }) => {
-      if (payload?.type === 'modWarning.read') {
-        return Promise.resolve({ ok: true, value: { enabled: true, trustedMods: ['opentdm'] } })
-      }
-      if (payload?.type === 'modWarning.setEnabled') {
-        return Promise.resolve({
-          ok: true,
-          value: { enabled: payload.payload?.enabled, trustedMods: ['opentdm'] },
-        })
-      }
-      if (payload?.type === 'modWarning.resetTrusted') {
-        return Promise.resolve({ ok: true, value: { enabled: false, trustedMods: [] } })
-      }
-      return defaultInvoke(channel, payload)
-    })
+    invoke.mockImplementation(
+      (channel: string, payload: { type?: string; payload?: { enabled: boolean } }) => {
+        if (payload?.type === 'modWarning.read') {
+          return Promise.resolve({ ok: true, value: { enabled: true, trustedMods: ['opentdm'] } })
+        }
+        if (payload?.type === 'modWarning.setEnabled') {
+          return Promise.resolve({
+            ok: true,
+            value: { enabled: payload.payload?.enabled, trustedMods: ['opentdm'] },
+          })
+        }
+        if (payload?.type === 'modWarning.resetTrusted') {
+          return Promise.resolve({ ok: true, value: { enabled: false, trustedMods: [] } })
+        }
+        return defaultInvoke(channel, payload)
+      },
+    )
 
     render(createElement(ReplaysSettingsSection))
 
@@ -280,9 +339,9 @@ describe('replays mod warning settings', () => {
     expect(toggle?.getAttribute('aria-checked')).toBe('true')
     fireEvent.click(toggle as Element)
     await waitFor(() => {
-      expect(
-        screen.getByTestId('replays-mod-warning-enabled').getAttribute('aria-checked'),
-      ).toBe('false')
+      expect(screen.getByTestId('replays-mod-warning-enabled').getAttribute('aria-checked')).toBe(
+        'false',
+      )
     })
     expect(invoke).toHaveBeenCalledWith(
       'module:invoke',
@@ -295,7 +354,9 @@ describe('replays mod warning settings', () => {
         en.replays.modWarning.trustedEmpty,
       )
     })
-    expect((screen.getByTestId('replays-mod-warning-reset') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('replays-mod-warning-reset') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
     expect(invoke).toHaveBeenCalledWith(
       'module:invoke',
       expect.objectContaining({ type: 'modWarning.resetTrusted' }),

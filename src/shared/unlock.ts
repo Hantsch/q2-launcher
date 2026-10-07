@@ -49,8 +49,7 @@ export interface UnlockRejected {
  * code itself carries them.
  */
 export type UnlockVerdict =
-  | { ok: true; features: string[]; label?: string; expiresAt?: number }
-  | UnlockRejected
+  { ok: true; features: string[]; label?: string; expiresAt?: number } | UnlockRejected
 
 export interface UnlockSnapshot {
   launcherInstallId: string | null

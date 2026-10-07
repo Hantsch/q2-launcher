@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseDemoHeader } from '@shared/demos/demo-header'
 import { discoveredDemoSchema, type DemoSource, type DiscoveredDemo } from '@shared/modules/replays'
-import { resolveExtractorPath } from '../downloads/7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import * as zipEntries from '../../lib/zip-entries'
 import { ZIP_ENTRY_MAX_BYTES, type ZipDeps, type ZipEntry } from '../../lib/zip-entries'
 import { expandZip } from './zip-demos'
@@ -18,11 +18,39 @@ describe('expandZip (fake listing/reader)', () => {
     vi.restoreAllMocks()
   })
 
+  it("zip entries sit inside the zip's folder", async () => {
+    vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({
+      ok: true,
+      entries: [
+        { path: 'top.dm2', isFolder: false, size: null, modified: null, encrypted: false },
+        {
+          path: 'cup/final/two.dm2',
+          isFolder: false,
+          size: null,
+          modified: null,
+          encrypted: false,
+        },
+      ],
+    })
+
+    const result = await expandZip('C:/demos/cups/pack.zip', SOURCE, 0, {} as ZipDeps, ['cups'])
+    expect(result.rows.map((r) => [r.fileName, r.folder])).toEqual([
+      ['top.dm2', ['cups', 'pack.zip']],
+      ['two.dm2', ['cups', 'pack.zip', 'cup', 'final']],
+    ])
+  })
+
   it('oversized and encrypted entries are unparsable rows and a broken archive is a source error', async () => {
     vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({
       ok: true,
       entries: [
-        { path: 'big.dm2', isFolder: false, size: ZIP_ENTRY_MAX_BYTES + 1, modified: null, encrypted: false },
+        {
+          path: 'big.dm2',
+          isFolder: false,
+          size: ZIP_ENTRY_MAX_BYTES + 1,
+          modified: null,
+          encrypted: false,
+        },
         { path: 'secret.dm2', isFolder: false, size: 10, modified: null, encrypted: true },
         { path: 'null-size.dm2', isFolder: false, size: null, modified: null, encrypted: false },
       ],
@@ -32,19 +60,30 @@ describe('expandZip (fake listing/reader)', () => {
     const result = await expandZip('C:/demos/pack.zip', SOURCE, 0, {} as ZipDeps)
     expect(result.error).toBeNull()
     expect(readSpy).not.toHaveBeenCalled()
-    expect(result.rows.map((r) => ({ fileName: r.fileName, unparsableReason: r.unparsableReason }))).toEqual([
+    expect(
+      result.rows.map((r) => ({ fileName: r.fileName, unparsableReason: r.unparsableReason })),
+    ).toEqual([
       { fileName: 'big.dm2', unparsableReason: 'entry-too-large' },
       { fileName: 'secret.dm2', unparsableReason: 'encrypted' },
       { fileName: 'null-size.dm2', unparsableReason: 'entry-too-large' },
     ])
     for (const row of result.rows) {
-      expect(row.archiveEntry).toEqual({ archivePath: 'C:/demos/pack.zip', entryPath: row.fileName })
+      expect(row.archiveEntry).toEqual({
+        archivePath: 'C:/demos/pack.zip',
+        entryPath: row.fileName,
+      })
       expect(row.map).toBeNull()
     }
 
-    vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({ ok: false, code: 'archive-unreadable' })
+    vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({
+      ok: false,
+      code: 'archive-unreadable',
+    })
     const errored = await expandZip('C:/demos/broken.zip', SOURCE, 0, {} as ZipDeps)
-    expect(errored).toEqual({ rows: [], error: { archivePath: 'C:/demos/broken.zip', code: 'archive-unreadable' } })
+    expect(errored).toEqual({
+      rows: [],
+      error: { archivePath: 'C:/demos/broken.zip', code: 'archive-unreadable' },
+    })
   })
 
   it('a zip inside a zip is never read', async () => {
@@ -108,7 +147,12 @@ describe('expandZip (fake listing/reader)', () => {
       players: ['lamb shanker', 'lamb shanker'],
       durationMs: 620100,
     })
-    expect(facts.get('garbage.dm2')).toEqual({ gameDir: null, pov: null, players: [], durationMs: null })
+    expect(facts.get('garbage.dm2')).toEqual({
+      gameDir: null,
+      pov: null,
+      players: [],
+      durationMs: null,
+    })
     for (const row of result.rows) expect(discoveredDemoSchema.safeParse(row).success).toBe(true)
   })
 })
@@ -131,8 +175,12 @@ describe('expandZip (real 7za binary)', () => {
 
     const src = join(dir, 'src')
     await mkdir(join(src, 'sub'), { recursive: true })
-    await import('node:fs/promises').then(({ copyFile }) => copyFile(dm2Fixture, join(src, 'test.dm2')))
-    await import('node:fs/promises').then(({ copyFile }) => copyFile(mvd2Fixture, join(src, 'test.mvd2')))
+    await import('node:fs/promises').then(({ copyFile }) =>
+      copyFile(dm2Fixture, join(src, 'test.dm2')),
+    )
+    await import('node:fs/promises').then(({ copyFile }) =>
+      copyFile(mvd2Fixture, join(src, 'test.mvd2')),
+    )
     await writeFile(join(src, 'test.dm2.gz'), gzipSync(await readFile(dm2Fixture)))
     await writeFile(join(src, 'readme.txt'), Buffer.from('not a demo'))
     await writeFile(join(src, 'sub', '.keep'), Buffer.from(''))
@@ -141,9 +189,13 @@ describe('expandZip (real 7za binary)', () => {
     const innerSrc = join(dir, 'inner-src')
     await mkdir(innerSrc, { recursive: true })
     await writeFile(join(innerSrc, 'a.dm2'), Buffer.from('nested demo bytes'))
-    execFileSync(realBinary.path, ['a', '-tzip', '-y', '-spd', '--', join(src, 'inner.zip'), 'a.dm2'], {
-      cwd: innerSrc,
-    })
+    execFileSync(
+      realBinary.path,
+      ['a', '-tzip', '-y', '-spd', '--', join(src, 'inner.zip'), 'a.dm2'],
+      {
+        cwd: innerSrc,
+      },
+    )
 
     execFileSync(
       realBinary.path,
@@ -240,7 +292,9 @@ describe('expandZip (real 7za binary)', () => {
       pov: null,
       players: [],
       durationMs: null,
+      roster: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+      folder: [],
       nameFacts: null,
     }
     expect(looseRow.archiveEntry).toBeNull()

@@ -21,7 +21,7 @@ three built-ins first in the file (`render.ts`: movement -> weapons -> drops -> 
 
 For an imported config with its own structure this is wrong twice: it shows three categories with
 dozens of "Empty" rows my file does not have, and it hides my own structure behind them. It does
-not feel like an editor for *my* config; it feels like a form I am supposed to fill in.
+not feel like an editor for _my_ config; it feels like a form I am supposed to fill in.
 
 What I want: the categories are a **template**, not a fixture. A new profile starts with the
 structure as it is today - Movement, Weapons, Weapon dropping with their rows - as a suggestion.
@@ -168,82 +168,82 @@ Files touched, in order: `src/shared/modules/config.ts`, `src/shared/config/cata
 ## Deliverables
 
 - [x] **D1 — Template seeds categories and rows.** `TEMPLATE_ACTION_CATEGORIES` + `nameKey` on
-  `ConfigActionCategory`; `STANDARD_TEMPLATE` carries `categories` + `actions` built from
-  `catalog-rows.ts`; `profiles.ts#create` seeds them for `from: 'template'` and nothing for
-  `empty`; zod schemas widened.
-  Files: `src/shared/modules/config.ts`, `src/shared/config/catalog-rows.ts`,
-  `src/main/modules/config/profiles.ts`, `src/main/lib/schemas.ts`,
-  `src/main/modules/config/schemas.ts` + tests.
-  Accept: a template profile has the three categories with every catalogue row (unbound except the
-  template's own 6 binds); an empty profile has none. *(AC 4)*
+      `ConfigActionCategory`; `STANDARD_TEMPLATE` carries `categories` + `actions` built from
+      `catalog-rows.ts`; `profiles.ts#create` seeds them for `from: 'template'` and nothing for
+      `empty`; zod schemas widened.
+      Files: `src/shared/modules/config.ts`, `src/shared/config/catalog-rows.ts`,
+      `src/main/modules/config/profiles.ts`, `src/main/lib/schemas.ts`,
+      `src/main/modules/config/schemas.ts` + tests.
+      Accept: a template profile has the three categories with every catalogue row (unbound except the
+      template's own 6 binds); an empty profile has none. _(AC 4)_
 
 - [x] **D2 — The unbound line is written.** `render.ts` emits
-  `//bind  "<cmd>"   // <name> [q2l …]` in the `Entries: <cat>` section for any entry that would
-  otherwise leave no trace; grammar documented. Mirror: the anchor-line block, `render.ts:763-905`.
-  Files: `src/shared/config/render.ts`, `docs/systems/profile-file-format.md`,
-  `src/shared/config/render.test.ts`.
-  Accept: a seeded, unbound template profile renders a line per row; a bound entry renders exactly
-  as today (no second trace). *(AC 5, write half)*
+      `//bind  "<cmd>"   // <name> [q2l …]` in the `Entries: <cat>` section for any entry that would
+      otherwise leave no trace; grammar documented. Mirror: the anchor-line block, `render.ts:763-905`.
+      Files: `src/shared/config/render.ts`, `docs/systems/profile-file-format.md`,
+      `src/shared/config/render.test.ts`.
+      Accept: a seeded, unbound template profile renders a line per row; a bound entry renders exactly
+      as today (no second trace). _(AC 5, write half)_
 
 - [x] **D3 — The unbound line is read back.** `claimsUnboundEntry` + matcher in `profile-restore.ts`,
-  claimed so it never reaches preserved lines / the import preview. Mirror: `claimsEntryAnchor` /
-  `matchAnchor`.
-  Files: `src/shared/config/profile-restore.ts`, `src/main/modules/config/import.ts`,
-  `src/shared/config/profile-restore.test.ts`.
-  Accept: save -> reload -> rebuild-from-file -> re-import of the launcher's own file keeps every
-  seeded row with its name, category, `catalogId` and commands. *(AC 5, read half)*
+      claimed so it never reaches preserved lines / the import preview. Mirror: `claimsEntryAnchor` /
+      `matchAnchor`.
+      Files: `src/shared/config/profile-restore.ts`, `src/main/modules/config/import.ts`,
+      `src/shared/config/profile-restore.test.ts`.
+      Accept: save -> reload -> rebuild-from-file -> re-import of the launcher's own file keeps every
+      seeded row with its name, category, `catalogId` and commands. _(AC 5, read half)_
 
 - [x] **D4 — No category is special in the core.** `orderedCategoryIds` follows the profile's order;
-  restore mints real categories for built-in ids; `alias-import.ts` creates the category it files
-  into; `comment-labels.ts` and `tidy-up.ts` stop consulting the built-in list.
-  Files: `src/shared/config/{render,profile-restore,alias-import,comment-labels,tidy-up}.ts` + tests.
-  Accept: file section order follows `profile.categories`; renaming a category renames its header;
-  importing a file creates only the categories that file has. *(AC 7, AC 8)*
+      restore mints real categories for built-in ids; `alias-import.ts` creates the category it files
+      into; `comment-labels.ts` and `tidy-up.ts` stop consulting the built-in list.
+      Files: `src/shared/config/{render,profile-restore,alias-import,comment-labels,tidy-up}.ts` + tests.
+      Accept: file section order follows `profile.categories`; renaming a category renames its header;
+      importing a file creates only the categories that file has. _(AC 7, AC 8)_
 
 - [x] **D5 — Adversarial round-trip pass.** New fixtures: unbound entry with no commands, display name
-  that looks like a section banner (`Binds: …`, `Entries: …`), duplicate category names, a category
-  literally named "Other", reordered categories, non-ASCII names, an unbound entry whose alias slug
-  collides with another entry's. Re-run 042's fixed-point property over all of them.
-  Files: `src/shared/config/fixtures/profiles.ts`, `src/main/modules/config/round-trip.test.ts`.
-  Accept: `render(parse(render(p))) === render(p)` green for every new fixture; no entry merges or
-  disappears. *(AC 5, AC 8)*
+      that looks like a section banner (`Binds: …`, `Entries: …`), duplicate category names, a category
+      literally named "Other", reordered categories, non-ASCII names, an unbound entry whose alias slug
+      collides with another entry's. Re-run 042's fixed-point property over all of them.
+      Files: `src/shared/config/fixtures/profiles.ts`, `src/main/modules/config/round-trip.test.ts`.
+      Accept: `render(parse(render(p))) === render(p)` green for every new fixture; no entry merges or
+      disappears. _(AC 5, AC 8)_
 
 - [x] **D6 — Existing profiles migrate once.** One `MigrationStep` + `STATE_SCHEMA_VERSION` bump:
-  materialise every catalogue row into the three categories, append in catalogue order, keep
-  existing actions in place, mark the profile dirty.
-  Files: `src/main/services/migrations.ts`, `src/shared/constants.ts`, migration test.
-  Accept: a pre-update profile shows the same rows in the same three categories after the update;
-  running the migration twice changes nothing. *(AC 8, migration criterion)*
+      materialise every catalogue row into the three categories, append in catalogue order, keep
+      existing actions in place, mark the profile dirty.
+      Files: `src/main/services/migrations.ts`, `src/shared/constants.ts`, migration test.
+      Accept: a pre-update profile shows the same rows in the same three categories after the update;
+      running the migration twice changes nothing. _(AC 8, migration criterion)_
 
 - [x] **D7 — The rail is the profile's.** Rail renders `profile.categories` in profile order with
-  rename / delete / move-up / move-down on every one; empty state with a one-click "Add the
-  standard template". Mirror: the existing custom-chip CRUD at `ControlsTab.tsx:1039-1101`.
-  Files: `src/renderer/src/modules/config/ControlsTab.tsx`, `src/renderer/src/i18n/locales/en.json`.
-  Accept: an imported-only profile shows only its own categories; a former built-in can be renamed,
-  moved and deleted. *(AC 1, AC 2)*
+      rename / delete / move-up / move-down on every one; empty state with a one-click "Add the
+      standard template". Mirror: the existing custom-chip CRUD at `ControlsTab.tsx:1039-1101`.
+      Files: `src/renderer/src/modules/config/ControlsTab.tsx`, `src/renderer/src/i18n/locales/en.json`.
+      Accept: an imported-only profile shows only its own categories; a former built-in can be renamed,
+      moved and deleted. _(AC 1, AC 2)_
 
 - [x] **D8 — Rows are the profile's entries.** `controls-row-entries.ts` builds rows from
-  `profile.actions` alone; lazy materialisation in `catalog-binds.ts` removed; move up/down on every
-  row; dual-bind / drop / ammo / message editing keeps working against real entries.
-  Files: `.../lib/controls-row-entries.ts`, `.../lib/catalog-binds.ts`, `.../ControlsTab.tsx`,
-  `.../lib/controls-row-groups.ts` (grouping over existing rows only) + tests.
-  Accept: no row appears for an entry the profile does not have; every row moves; editing a
-  catalogue-backed row behaves like editing any other entry. *(AC 3)*
+      `profile.actions` alone; lazy materialisation in `catalog-binds.ts` removed; move up/down on every
+      row; dual-bind / drop / ammo / message editing keeps working against real entries.
+      Files: `.../lib/controls-row-entries.ts`, `.../lib/catalog-binds.ts`, `.../ControlsTab.tsx`,
+      `.../lib/controls-row-groups.ts` (grouping over existing rows only) + tests.
+      Accept: no row appears for an entry the profile does not have; every row moves; editing a
+      catalogue-backed row behaves like editing any other entry. _(AC 3)_
 
 - [x] **D9 — Suggestions and the delete choice.** "Add action" offers catalogue actions (with their
-  commands and drop/ammo knowledge) next to free-form; "New category" offers the template's
-  categories next to a blank one; deleting a category with entries opens a modal offering
-  delete-or-move, default move. Mirror: `DeleteProfileDialog.tsx`.
-  Files: `.../ControlsTab.tsx`, new `.../components/DeleteCategoryDialog.tsx`, `en.json`.
-  Accept: both dialogs list suggestions and still allow a free-form entry; the delete dialog states
-  what happens to the entries and defaults to move. *(AC 6, AC 9)*
+      commands and drop/ammo knowledge) next to free-form; "New category" offers the template's
+      categories next to a blank one; deleting a category with entries opens a modal offering
+      delete-or-move, default move. Mirror: `DeleteProfileDialog.tsx`.
+      Files: `.../ControlsTab.tsx`, new `.../components/DeleteCategoryDialog.tsx`, `en.json`.
+      Accept: both dialogs list suggestions and still allow a free-form entry; the delete dialog states
+      what happens to the entries and defaults to move. _(AC 6, AC 9)_
 
 - [x] **D10 — Harness coverage.** Screen entries for a template-seeded and an imported-only Controls
-  tab; a `ui:flow` that renames and reorders a former built-in category through the real UI.
-  Files: `scripts/lib/screens.mjs`, `scripts/lib/fixture.mjs`,
-  `scripts/flows/controls-category-rename-reorder.mjs`.
-  Accept: `npm run ui:verify` green (0 axe violations) with both new screens; the flow's
-  screenshots show the renamed, reordered category. *(AC 10)*
+      tab; a `ui:flow` that renames and reorders a former built-in category through the real UI.
+      Files: `scripts/lib/screens.mjs`, `scripts/lib/fixture.mjs`,
+      `scripts/flows/controls-category-rename-reorder.mjs`.
+      Accept: `npm run ui:verify` green (0 axe violations) with both new screens; the flow's
+      screenshots show the renamed, reordered category. _(AC 10)_
 
 ## Model Hints
 
@@ -314,7 +314,7 @@ built-in category through the real UI.
 - **Category name display**: `nameKey` is only trusted when `i18n.exists(nameKey)`; a stale or
   hand-edited key falls back to the stored `name` rather than rendering the literal key (added
   during the review-fix cycle, F9 — the story's own decision already established `nameKey` as a
-  display *hint*, `name` as ground truth, this closes a gap the original decision didn't spell out).
+  display _hint_, `name` as ground truth, this closes a gap the original decision didn't spell out).
 - **Catalogue-suggestion actions persist `nameForCatalogRow(row)`, never a translated label**, so a
   future non-`en` locale can't make the persisted `.cfg` file's byte content depend on UI language
   (found and fixed during review, F8 — every other catalogue-derived name in the codebase already
@@ -351,7 +351,7 @@ built-in category through the real UI.
 - `npm run typecheck` - clean (node + web).
 - `npm test` - 80 test files, **2131 passed, 0 failed**. Two pre-existing, unrelated `Vitest`
   "Failed to start forks worker" errors remain on this machine's Node v20.20.2 (`TypeError:
-  webidl.util.markAsUncloneable is not a function`, a jsdom/undici API that needs Node ≥22 -
+webidl.util.markAsUncloneable is not a function`, a jsdom/undici API that needs Node ≥22 -
   `package.json`'s `engines` already requires `>=22`). One of the two affected files
   (`ControlsTab.dialogs.test.ts`) is new, from D9/the review-fix cycle. Verified independently under
   Node v26.1.0 (via `nvm`, then reverted back to v20.20.2 to leave the machine's global Node

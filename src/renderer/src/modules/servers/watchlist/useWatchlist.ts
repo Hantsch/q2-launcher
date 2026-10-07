@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import type { Outcome } from '@shared/types'
-import type { ScanStartResult, WatchlistMatchMode, WatchlistSnapshot } from '@shared/modules/servers'
+import type {
+  ScanStartResult,
+  WatchlistMatchMode,
+  WatchlistMutationResult,
+  WatchlistSnapshot,
+} from '@shared/modules/servers'
 import {
   addWatchlistEntry,
   onWatchlistChanged,
@@ -8,12 +13,15 @@ import {
   recheckWatchlistEntry,
   removeWatchlistEntry,
   updateWatchlistEntry,
-  type WatchlistMutationResult,
 } from '../client'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 
 export interface UseWatchlistResult {
   snapshot: WatchlistSnapshot | null
-  add: (input: { name: string; mode: WatchlistMatchMode }) => Promise<Outcome<WatchlistMutationResult>>
+  add: (input: {
+    name: string
+    mode: WatchlistMatchMode
+  }) => Promise<Outcome<WatchlistMutationResult>>
   update: (input: {
     id: string
     name: string
@@ -24,7 +32,7 @@ export interface UseWatchlistResult {
 }
 
 /**
- * Story 132 D1. Mirrors `ServersView.tsx`'s own `readScan`/`onScanChanged` idiom: a one-shot read
+ * Story 132. Mirrors `ServersView.tsx`'s own `readScan`/`onScanChanged` idiom: a one-shot read
  * on mount followed by a live subscription to the pushed snapshot (`watchlist.changed`) - nothing
  * here polls. `add`/`update`/`remove` additionally apply their own successful result's snapshot
  * immediately (not waiting for the round-trip event) so the caller's UI reflects its own edit
@@ -34,34 +42,20 @@ export interface UseWatchlistResult {
  * `scanStart`/`scan.changed`.
  */
 export function useWatchlist(): UseWatchlistResult {
-  const [snapshot, setSnapshot] = useState<WatchlistSnapshot | null>(null)
+  const { data, setData } = useModuleQuery(readWatchlist, { subscribe: onWatchlistChanged })
 
-  useEffect(() => {
-    let cancelled = false
-
-    void readWatchlist().then((result) => {
-      if (!cancelled && result.ok) setSnapshot(result.value)
-    })
-
-    const unsubscribe = onWatchlistChanged((next) => {
-      if (cancelled) return
-      setSnapshot(next)
-    })
-
-    return () => {
-      cancelled = true
-      unsubscribe()
-    }
-  }, [])
-
-  const applyMutationResult = useCallback((result: Outcome<WatchlistMutationResult>): void => {
-    if (result.ok && result.value.ok) {
-      setSnapshot(result.value.snapshot)
-    }
-  }, [])
+  const applyMutationResult = useCallback(
+    (result: Outcome<WatchlistMutationResult>): void => {
+      if (result.ok && result.value.ok) setData(result.value.snapshot)
+    },
+    [setData],
+  )
 
   const add = useCallback(
-    async (input: { name: string; mode: WatchlistMatchMode }): Promise<Outcome<WatchlistMutationResult>> => {
+    async (input: {
+      name: string
+      mode: WatchlistMatchMode
+    }): Promise<Outcome<WatchlistMutationResult>> => {
       const result = await addWatchlistEntry(input)
       applyMutationResult(result)
       return result
@@ -95,5 +89,5 @@ export function useWatchlist(): UseWatchlistResult {
     return recheckWatchlistEntry(id)
   }, [])
 
-  return { snapshot, add, update, remove, recheck }
+  return { snapshot: data ?? null, add, update, remove, recheck }
 }

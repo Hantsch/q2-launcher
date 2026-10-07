@@ -14,7 +14,9 @@ describe('deriveLauncherInstallId', () => {
   })
 
   it('a different input produces a different output', () => {
-    expect(deriveLauncherInstallId(SAMPLE_GUID)).not.toBe(deriveLauncherInstallId('other-guid-value'))
+    expect(deriveLauncherInstallId(SAMPLE_GUID)).not.toBe(
+      deriveLauncherInstallId('other-guid-value'),
+    )
   })
 })
 
@@ -25,7 +27,10 @@ describe('resolveLauncherInstallId', () => {
 
     const id = await resolveLauncherInstallId({ platform: 'win32', readRegistry, readFile })
 
-    expect(readRegistry).toHaveBeenCalledWith('HKLM\\SOFTWARE\\Microsoft\\Cryptography', 'MachineGuid')
+    expect(readRegistry).toHaveBeenCalledWith(
+      'HKLM\\SOFTWARE\\Microsoft\\Cryptography',
+      'MachineGuid',
+    )
     expect(readFile).not.toHaveBeenCalled()
     expect(id).toBe(deriveLauncherInstallId(SAMPLE_GUID))
   })
@@ -79,7 +84,11 @@ describe('resolveLauncherInstallId', () => {
   it('an empty MachineGuid returns null', async () => {
     const readRegistry = vi.fn().mockResolvedValue('   ')
 
-    const id = await resolveLauncherInstallId({ platform: 'win32', readRegistry, readFile: vi.fn() })
+    const id = await resolveLauncherInstallId({
+      platform: 'win32',
+      readRegistry,
+      readFile: vi.fn(),
+    })
 
     expect(id).toBeNull()
   })
@@ -87,7 +96,11 @@ describe('resolveLauncherInstallId', () => {
   it('a null MachineGuid returns null', async () => {
     const readRegistry = vi.fn().mockResolvedValue(null)
 
-    const id = await resolveLauncherInstallId({ platform: 'win32', readRegistry, readFile: vi.fn() })
+    const id = await resolveLauncherInstallId({
+      platform: 'win32',
+      readRegistry,
+      readFile: vi.fn(),
+    })
 
     expect(id).toBeNull()
   })
@@ -114,7 +127,11 @@ describe('the raw machine value is never returned or logged', () => {
     ]
 
     const readRegistry = vi.fn().mockResolvedValue(RAW_SECRET)
-    const id = await resolveLauncherInstallId({ platform: 'win32', readRegistry, readFile: vi.fn() })
+    const id = await resolveLauncherInstallId({
+      platform: 'win32',
+      readRegistry,
+      readFile: vi.fn(),
+    })
 
     expect(id).not.toBeNull()
     expect(id).not.toBe(RAW_SECRET)
@@ -134,7 +151,9 @@ describe('the raw machine value is never returned or logged', () => {
       vi.spyOn(console, 'info').mockImplementation(() => {}),
     ]
 
-    const readRegistry = vi.fn().mockRejectedValue(new Error(`registry read failed for ${RAW_SECRET}`))
+    const readRegistry = vi
+      .fn()
+      .mockRejectedValue(new Error(`registry read failed for ${RAW_SECRET}`))
 
     let thrown: unknown = null
     let id: string | null = 'unset'

@@ -44,7 +44,12 @@ function pushCString(bytes: number[], value: string): void {
 }
 
 /** Builds one `svc_serverdata` message's bytes. */
-function buildServerdataMessage(protocol: number, gameDir: string, playernum: number, level: string): number[] {
+function buildServerdataMessage(
+  protocol: number,
+  gameDir: string,
+  playernum: number,
+  level: string,
+): number[] {
   const msg: number[] = []
   msg.push(SVC_SERVERDATA)
   pushInt32LE(msg, protocol) // protocol
@@ -73,7 +78,15 @@ function buildConfigstringMessage(index: number, value: string): number[] {
  * followed by the `-1` terminator block.
  */
 export function buildDm2(opts: BuildDm2Options): Uint8Array {
-  const { protocol, gameDir, playernum, configstrings, maxBlockPayload, trailingFrameBytes, terminate } = opts
+  const {
+    protocol,
+    gameDir,
+    playernum,
+    configstrings,
+    maxBlockPayload,
+    trailingFrameBytes,
+    terminate,
+  } = opts
 
   const messages: number[][] = []
   messages.push(buildServerdataMessage(protocol, gameDir, playernum, 'level'))

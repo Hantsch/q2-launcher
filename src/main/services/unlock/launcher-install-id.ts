@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs'
 import { regReadValue } from '../../lib/win-registry'
 
 /**
- * Derives this machine's launcher installation id (story 128 D2).
+ * Derives this machine's launcher installation id (story 128).
  *
  * The id is a one-way, salted hash of a platform machine identifier
  * (`MachineGuid` on Windows, `/etc/machine-id` on Linux), never the raw value
@@ -39,7 +39,9 @@ function base32Encode60Bits(bytes: Buffer): string {
 /** Pure: `sha256(SALT + normalized raw value)`, truncated to 60 bits and base32-encoded. */
 export function deriveLauncherInstallId(raw: string): string {
   const normalized = raw.trim().toLowerCase()
-  const digest = createHash('sha256').update(SALT + normalized).digest()
+  const digest = createHash('sha256')
+    .update(SALT + normalized)
+    .digest()
   return base32Encode60Bits(digest)
 }
 
@@ -51,13 +53,16 @@ export interface ResolveLauncherInstallIdDeps {
 
 function defaultDeps(): ResolveLauncherInstallIdDeps {
   return {
+    // platform-read: injectable default, tests pass their own
     platform: process.platform,
     readRegistry: regReadValue,
     readFile: (path: string) => fs.readFile(path, 'utf8'),
   }
 }
 
-async function readLinuxMachineId(readFile: ResolveLauncherInstallIdDeps['readFile']): Promise<string | null> {
+async function readLinuxMachineId(
+  readFile: ResolveLauncherInstallIdDeps['readFile'],
+): Promise<string | null> {
   for (const path of ['/etc/machine-id', '/var/lib/dbus/machine-id']) {
     try {
       const contents = await readFile(path)

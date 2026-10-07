@@ -1,0 +1,550 @@
+{
+  "replays": {
+    "module": {
+      "description": "Browse, tag and watch your Quake II demos."
+    },
+    "planned": {
+      "intro": "A demo library is on the way: find, describe and play back every demo you've recorded.",
+      "highlight": {
+        "1": "Find every demo across installations and folders",
+        "2": "See map, players and length before playing",
+        "3": "Play and scrub a demo from the launcher"
+      }
+    },
+    "settings": {
+      "description": "Where the launcher looks for demos and how it names them."
+    },
+    "modWarning": {
+      "heading": "Missing-mod warning",
+      "enabled": "Warn when a demo's mod is not installed",
+      "trustedHeading": "Remembered mods",
+      "trustedEmpty": "No mods remembered - every missing mod asks once.",
+      "reset": "Forget remembered mods"
+    },
+    "extraFolders": {
+      "heading": "Extra demo folders",
+      "empty": "No extra folders added yet.",
+      "add": "Add folder",
+      "remove": "Remove {{path}}",
+      "pickTitle": "Choose a demo folder",
+      "error": {
+        "notAbsolute": "That path isn't valid.",
+        "unresolvable": "That folder couldn't be found.",
+        "notAFolder": "That path isn't a folder.",
+        "alreadyListed": "That folder is already in the list."
+      }
+    },
+    "nameTemplate": {
+      "error": {
+        "empty": "Enter a naming pattern.",
+        "unclosedBrace": "This pattern has an unclosed { at position {{position}}.",
+        "strayBrace": "Unexpected } at position {{position}}.",
+        "unknownToken": "Unknown token {{token}}.",
+        "duplicateToken": "{{token}} is used more than once.",
+        "adjacentTextTokens": "{{first}} and {{second}} can't sit next to each other with nothing between them.",
+        "capturesNothing": "This pattern captures nothing — add at least one token.",
+        "incompleteDate": "A date needs year, month and day together.",
+        "timeWithoutDate": "A time needs a full date to go with it.",
+        "misplacedExtension": "{{extension}} can only appear at the very end."
+      }
+    },
+    "nameTemplates": {
+      "heading": "Naming patterns",
+      "hint": "Tried top to bottom; the first that matches wins",
+      "badge": {
+        "builtIn": "Built-in",
+        "custom": "Custom",
+        "edited": "Edited"
+      },
+      "reset": "Reset",
+      "restore": "Restore built-in patterns",
+      "placeholder": "{date}_{map}_{p1}_vs_{p2}",
+      "error": {
+        "tooMany": "You've reached the limit of naming patterns.",
+        "notFound": "That naming pattern no longer exists.",
+        "invalidReorder": "That reorder couldn't be applied."
+      }
+    },
+    "stage": {
+      "label": "The demo plays here",
+      "unavailable": {
+        "wayland": "Not available on Wayland: the launcher cannot place the game window, so the demo plays in its own window"
+      },
+      "notOnTop": {
+        "x11": "Not kept on top on X11: the launcher could not reach the game window, so it may hide behind the launcher"
+      }
+    },
+    "cinema": {
+      "unavailable": {
+        "notPrimaryDisplay": "Not available: the launcher is not on the primary display. Move it there to watch in cinema mode.",
+        "noStage": "Not available: this demo is not playing on the launcher's stage, so the game window cannot be moved under the overlay. Play it on the stage to watch in cinema mode.",
+        "fullscreen": "Not available: the demo is fullscreen. Go back to the window first."
+      }
+    },
+    "timeline": {
+      "pause": "Pause",
+      "back": "Back 10 seconds",
+      "forward": "Forward 10 seconds",
+      "cinema": {
+        "label": "Cinema controls",
+        "enter": "Cinema mode",
+        "leave": "Exit cinema mode",
+        "back60": "Back 60 seconds",
+        "forward60": "Forward 60 seconds"
+      },
+      "fullscreenKeys": "Fullscreen: steer the demo with your keys. Your \"Back to window\" key (Controls tab, Demo playback) returns it here.",
+      "seek": "Seek",
+      "seekValueText": "{{position}} of {{duration}}",
+      "volume": {
+        "label": "Game volume",
+        "mute": "Mute",
+        "unmute": "Unmute",
+        "muted": "Muted",
+        "percent": "{{value}} %"
+      },
+      "speed": "Playback speed",
+      "speedOption": "{{value}}x",
+      "statePlaying": "Playing",
+      "statePaused": "Paused",
+      "stateFinished": "Finished",
+      "error": "The demo could not be steered.",
+      "seekNeedsDuration": "Seeking by click needs the demo's length",
+      "durationUnknown": "--:--",
+      "waiting": {
+        "pause": "Waiting for the game… (pause)",
+        "seek": "Waiting for the game… (seek)",
+        "speed": "Waiting for the game… (speed)"
+      }
+    },
+    "console": {
+      "label": "Console command",
+      "placeholder": "e.g. fov 110",
+      "send": "Send",
+      "stageInputHint": "The game's own console and key binds do not reach the game while it plays on the stage. Use this console field, switch to fullscreen, or close the game window (Alt+F4).",
+      "error": {
+        "empty": "Type a command first.",
+        "multiline": "A command must be a single line.",
+        "control": "The command contains control characters.",
+        "nonAscii": "Only plain ASCII characters are allowed.",
+        "tooLong": "The command is too long.",
+        "noSession": "No demo is playing, so there is nobody to send this to."
+      }
+    },
+    "play": {
+      "modMissingConfirm": {
+        "title": "Mod not fully installed",
+        "confirm": "Play anyway",
+        "install": "Install {{name}}",
+        "installFailed": "The install could not be started."
+      },
+      "modWarning": {
+        "body": "The mod `{{gameDir}}` is not fully installed in this installation, so the demo may not play correctly. Play it anyway?",
+        "dontAsk": "Don't ask again"
+      },
+      "withInstallationQ2pro": "Plays with this installation's Q2PRO.",
+      "unavailable": {
+        "notQ2pro": "The selected installation is not Q2PRO — demo playback needs Q2PRO. Pick a Q2PRO installation in the left rail.",
+        "modMissing": "Mod `{{gameDir}}` is not fully installed in this installation — the demo may not play correctly.",
+        "linuxNoQ2pro": "Not available on Linux: demo playback needs a Q2PRO installation",
+        "needsDirectLaunch": "This installation launches through Steam — switch it to a direct launch to play demos.",
+        "gameRunning": "A game is already running — quit it before playing a demo.",
+        "unsafeName": "This file name has characters the game console can't take — rename the demo (letters, digits, dot, dash and underscore only)."
+      },
+      "error": {
+        "notFound": "This demo is no longer in the list — rescan to update it.",
+        "fileMissing": "This demo's file is no longer on disk — rescan to update the list.",
+        "copyDirNotWritable": "Can't write a temporary copy to {{path}}. Nothing was started.",
+        "archiveEntry": "Can't read this demo out of its archive ({{code}}). Nothing was started."
+      }
+    },
+    "playback": {
+      "error": {
+        "noSession": "No demo is playing, so there is nothing to control.",
+        "invalidCommand": "This command has characters the game console can't take.",
+        "busy": "The game is still working on earlier commands — try again in a moment.",
+        "fullscreen": "The demo is in fullscreen — steer it with your keys."
+      }
+    },
+    "rowMenu": {
+      "label": "Demo actions"
+    },
+    "fileActions": {
+      "reveal": "Reveal in file manager",
+      "copyPath": "Copy path",
+      "pathCopied": "Path copied",
+      "move": "Move…"
+    },
+    "rename": {
+      "title": "Rename demo",
+      "error": {
+        "empty": "Enter a name.",
+        "separator": "Can't contain / or \\.",
+        "dotDot": "Can't contain \"..\".",
+        "invalidChar": "Can't contain \"{{char}}\".",
+        "trailingDotOrSpace": "Can't end with a dot or space.",
+        "reserved": "\"{{name}}\" is a reserved name on Windows.",
+        "tooLong": "At most {{max}} characters.",
+        "unknownDemo": "This demo is no longer in the index.",
+        "archiveEntry": "Demos inside an archive can't be renamed.",
+        "playing": "Cannot rename while playing.",
+        "scanning": "Can't rename while a scan is running.",
+        "demoMissing": "The file is no longer on disk.",
+        "exists": "\"{{name}}\" already exists.",
+        "sidecarExists": "\"{{name}}\" already exists.",
+        "sidecarBroken": "Fix or replace this demo's notes file first.",
+        "renameFailed": "Rename failed ({{code}}).",
+        "notWritable": "{{folder}} isn't writable.",
+        "rollbackFailed": "Rename failed and couldn't be fully undone — check {{demo}} and {{sidecar}}."
+      }
+    },
+    "bulk": {
+      "error": {
+        "scanning": "Demos can't be changed while a scan is running.",
+        "notAFolder": "That is not a folder."
+      },
+      "action": {
+        "delete": "Delete selected",
+        "tag": "Tag",
+        "deleteMenu": "Delete {{count}} demos…",
+        "moveMenu": "Move {{count}} demos…"
+      },
+      "tag": {
+        "title_one": "Tag {{count}} demo",
+        "title_other": "Tag {{count}} demos",
+        "description": "Changes apply to every selected demo when you press Apply.",
+        "carried": "Tags on the selection",
+        "carriedBy": "{{count}} of {{total}}",
+        "none": "None of the selected demos has a tag.",
+        "keep": "Keep tag {{tag}}",
+        "addLabel": "Add to every selected demo",
+        "apply": "Apply"
+      },
+      "move": {
+        "title_one": "Move {{count}} demo to…",
+        "title_other": "Move {{count}} demos to…",
+        "current": "Current folder",
+        "pick": "Choose folder…"
+      },
+      "busy": "Working on the selection…",
+      "zipSkipped_one": "{{count}} zip entry is skipped: demos inside a zip are read-only.",
+      "zipSkipped_other": "{{count}} zip entries are skipped: demos inside a zip are read-only.",
+      "delete": {
+        "title_one": "Delete {{count}} demo?",
+        "title_other": "Delete {{count}} demos?",
+        "body_one": "The demo and its notes file move to the trash.",
+        "body_other": "The demos and their notes files move to the trash."
+      },
+      "summary": {
+        "deleted": "{{count}} deleted",
+        "tagged": "{{count}} tagged",
+        "moved": "{{count}} moved",
+        "failed": "{{count}} failed",
+        "skipped": "{{count}} skipped"
+      },
+      "reason": {
+        "unknownDemo": "No longer in the demo list.",
+        "archiveEntry": "Inside a zip, so read-only.",
+        "playing": "Playing right now.",
+        "inUse": "In use by another program.",
+        "trashFailed": "Could not be moved to the trash.",
+        "sidecarTrashFailed": "The demo was trashed, but its notes file {{name}} could not be.",
+        "alreadyThere": "Already in that folder.",
+        "exists": "A demo named {{name}} is already there.",
+        "sidecarExists": "A notes file named {{name}} is already there.",
+        "rollbackFailed": "Move failed and could not be fully undone: check {{demo}} and {{sidecar}}.",
+        "notWritable": "{{folder}} is not writable.",
+        "moveFailed": "Could not be moved ({{code}}).",
+        "sidecarBroken": "Fix or replace its notes file first.",
+        "tagLimit": "Would exceed the tag limit.",
+        "sidecarWriteFailed": "Its notes file could not be written."
+      }
+    },
+    "move": {
+      "error": {
+        "unknownDemo": "This demo is no longer in the index, so it can't be moved.",
+        "archiveEntry": "Demos inside an archive can't be moved.",
+        "playing": "Cannot move while playing.",
+        "scanning": "Can't move while a scan is running.",
+        "demoMissing": "The file to move is no longer on disk.",
+        "unknownFolder": "That folder no longer exists.",
+        "archiveFolder": "Archives are read-only — nothing can be moved into one.",
+        "outsideSource": "That folder lies outside the demo folder it belongs to.",
+        "exists": "\"{{name}}\" already exists in that folder.",
+        "sidecarExists": "The notes file \"{{name}}\" already exists in that folder.",
+        "moveFailed": "Move failed ({{code}}).",
+        "notWritable": "Can't move into {{folder}} — it isn't writable.",
+        "rollbackFailed": "Move failed and couldn't be fully undone — check {{demo}} and {{sidecar}}."
+      }
+    },
+    "folder": {
+      "breadcrumb": "Demo folder path",
+      "allDemos": "All demos",
+      "archive": "Archive — read-only",
+      "newFolder": "New folder",
+      "newDisabledTop": "Open a folder first",
+      "create": "Create",
+      "rename": "Rename folder",
+      "delete": {
+        "action": "Delete folder…",
+        "title": "Delete folder {{name}}?",
+        "body_one": "The folder and the {{count}} demo in it move to the trash.",
+        "body_other": "The folder and the {{count}} demos in it move to the trash.",
+        "confirm": "Move to trash"
+      },
+      "dropHere": "Move here",
+      "dragHint": "Press Ctrl+Space to pick up this demo, the arrow keys to choose a folder, Enter to drop it, Escape to cancel.",
+      "demoCount_one": "{{count}} demo",
+      "demoCount_other": "{{count}} demos",
+      "error": {
+        "empty": "Enter a folder name.",
+        "separator": "A folder name can't contain / or \\.",
+        "dotDot": "A folder can't be named \".\" or \"..\".",
+        "invalidChar": "A folder name can't contain \"{{char}}\".",
+        "trailingDotOrSpace": "A folder name can't end with a dot or space.",
+        "reserved": "\"{{name}}\" is a reserved folder name on Windows.",
+        "tooLong": "A folder name has at most {{max}} characters.",
+        "unknownFolder": "That folder is no longer there. Refresh the list and try again.",
+        "archive": "Folders inside a zip archive are read-only.",
+        "root": "A demo source's own folder can't be renamed.",
+        "isRoot": "A demo source's own folder can't be deleted.",
+        "trashFailed": "The folder could not be moved to the trash.",
+        "scanning": "Wait for the demo scan to finish, then try again.",
+        "exists": "A folder named \"{{name}}\" already exists here.",
+        "playing": "A demo in this folder is playing. Stop it first.",
+        "outsideSource": "This folder links outside its demo source and can't be changed here.",
+        "notWritable": "The launcher can't write to {{folder}}.",
+        "failed": "The folder couldn't be changed ({{code}})."
+      }
+    },
+    "list": {
+      "loading": "Looking for demos…",
+      "loadingProgress": "Reading demos… {{scanned}} of {{total}}",
+      "empty": "No demos found.",
+      "openSettings": "Add a demo folder in Settings",
+      "source": "{{installation}} · {{gameDir}}",
+      "archiveSource": "{{base}} › {{archive}} › {{entry}}",
+      "sourceError": "Couldn't read {{source}}: {{reason}}",
+      "sourceErrorArchive": "{{base}} · {{archive}}",
+      "sourceErrorReason": {
+        "missing": "the folder no longer exists",
+        "notAFolder": "that path is not a folder",
+        "permissionDenied": "access was denied",
+        "unreadable": "the folder could not be read",
+        "extractor-missing": "the tool needed to open archives is missing",
+        "archive-unreadable": "the archive could not be opened",
+        "archive-too-large": "the archive is too large to scan"
+      },
+      "refresh": "Refresh"
+    },
+    "scope": {
+      "installation": "{{name}}'s demos",
+      "all": "All installations",
+      "extraGroup": "Extra folders",
+      "noInstallation": "No installation yet — add one to see its demos.",
+      "noneSelected": "Select an installation in the rail to see its demos.",
+      "emptyFor": "No demos in {{name}} yet. It looks in:"
+    },
+    "source": {
+      "extraFolder": "extra folder: {{path}}"
+    },
+    "unreadable": {
+      "marker": "Unreadable",
+      "reason": {
+        "empty": "The file is empty.",
+        "truncated": "The file ends before its header is complete.",
+        "not-a-demo": "This is not a Quake II demo.",
+        "unknown-protocol": "Unknown protocol {{protocol}}",
+        "header-too-large": "The header is larger than any known demo.",
+        "unreadable": "The file could not be read.",
+        "unknown-version": "Unknown MVD version {{version}}",
+        "entry-too-large": "Too large to read inside an archive",
+        "encrypted": "Encrypted archive entry"
+      }
+    },
+    "archive": {
+      "readOnly": {
+        "edit": "Demos inside an archive are read-only — extract it to annotate it.",
+        "rename": "Demos inside an archive can't be renamed — the archive is read-only.",
+        "change": "Demos inside an archive can't be moved or deleted — the archive is read-only.",
+        "row": "Read-only (in an archive)"
+      }
+    },
+    "sidecar": {
+      "error": {
+        "unknownDemo": "This demo is no longer in the list. Rescan and try again.",
+        "archiveEntry": "Demos inside a zip archive cannot have notes.",
+        "demoMissing": "The demo file is gone, so its notes were not saved.",
+        "existingInvalid": "The existing notes file for this demo cannot be read, so it was not overwritten.",
+        "notWritable": "Cannot save notes: the folder {{folder}} is not writable. Nothing was written.",
+        "writeFailed": "Saving the notes failed ({{code}}). Nothing was changed."
+      },
+      "issue": {
+        "invalidJson": "This notes file isn't valid JSON (line {{line}}, column {{column}}).",
+        "notAnObject": "This notes file isn't a valid notes file (expected an object).",
+        "invalidField": "The \"{{field}}\" field isn't valid and was ignored.",
+        "unknownField": "The \"{{field}}\" field isn't recognised and will be lost if you save.",
+        "unknownVersion": "This notes file was written by a newer version of the launcher (version {{version}}) — some fields may not show.",
+        "unreadable": "This notes file could not be read ({{code}})."
+      }
+    },
+    "editor": {
+      "placeholder": {
+        "name": "Give this demo a name",
+        "map": "e.g. q2dm1",
+        "mod": "e.g. baseq2",
+        "gamemode": "e.g. ctf",
+        "date": "YYYY-MM-DD HH:MM"
+      },
+      "error": {
+        "rating": "Rating must be a whole number from 1 to 10.",
+        "date": "Enter a real date and time as YYYY-MM-DD HH:MM.",
+        "tooLong": "Too long — at most {{max}} characters."
+      },
+      "replaceDialog": {
+        "title": "Replace the broken notes file?",
+        "body": "The notes file {{fileName}} on disk has problems. Saving replaces it with your notes:",
+        "confirm": "Replace it"
+      },
+      "sides": {
+        "section": "Sides",
+        "addSide": "Add side",
+        "team": "Team name",
+        "result": "Result",
+        "removeSide": "Remove side",
+        "addPlayerPlaceholder": "Add a player…",
+        "movePlayerUp": "Move {{name}} up",
+        "movePlayerDown": "Move {{name}} down",
+        "removePlayer": "Remove {{name}}",
+        "knownPlayer": {
+          "fromDemo": "from the demo",
+          "fromFileName": "from the file name"
+        }
+      },
+      "tags": {
+        "placeholder": "Add a tag…",
+        "remove": "Remove tag {{tag}}"
+      }
+    },
+    "gamemode": {
+      "ctf": "CTF",
+      "tdm": "TDM",
+      "duel": "Duel",
+      "unknown": "unknown"
+    },
+    "multi": {
+      "zip_one": "{{count}} zip entry (read-only)",
+      "zip_other": "{{count}} zip entries (read-only)",
+      "count_one": "{{count}} demo selected",
+      "count_other": "{{count}} demos selected"
+    },
+    "row": {
+      "select": "Select {{name}}",
+      "morePlayers": "+{{count}}",
+      "ratingValue": "{{rating}}/10",
+      "quick": {
+        "favouriteAriaLabel": "Toggle favourite for {{name}}",
+        "ratingAriaLabel": "Rating for {{name}}"
+      }
+    },
+    "sort": {
+      "column": {
+        "map": "Map",
+        "mod": "Mod",
+        "players": "Players",
+        "date": "Recorded",
+        "duration": "Length",
+        "rating": "Rating"
+      },
+      "direction": {
+        "asc": "ascending",
+        "desc": "descending"
+      }
+    },
+    "filter": {
+      "searchPlaceholder": "Name, map or player — \"quotes\" for exact",
+      "favourites": "Favourites only",
+      "rating": "Minimum rating",
+      "ratingAtLeast_one": "At least {{count}} star",
+      "ratingAtLeast_other": "At least {{count}} stars",
+      "tags": "Tags",
+      "noTags": "No tags yet.",
+      "date": {
+        "label": "Date"
+      },
+      "noMatch": "No demos match your filters."
+    },
+    "format": {
+      "dm2": "DM2",
+      "mvd2": "MVD2",
+      "gzip": "{{format}} (gz)"
+    },
+    "marker": {
+      "sidecar": "Has notes",
+      "sidecarError": "Notes have a problem",
+      "archive": "Inside an archive"
+    },
+    "comments": {
+      "heading": "Comments",
+      "empty": "No comments yet.",
+      "archiveReadOnly": "Demos inside a zip cannot carry comments",
+      "edit": "Edit comment at {{time}}",
+      "delete": "Delete comment at {{time}}",
+      "add": "Add comment",
+      "save": "Save comment",
+      "playFromHere": "Play from {{time}}",
+      "markLabel": "Comment at {{time}}: {{text}}",
+      "fieldLabel": "Comment at {{time}}",
+      "error": {
+        "limit": "A demo holds at most 200 comments.",
+        "tooLong": "A comment can be at most 500 characters.",
+        "empty": "A comment cannot be empty.",
+        "notFound": "That comment changed meanwhile and could not be found.",
+        "failed": "The comment could not be saved."
+      }
+    },
+    "detail": {
+      "sides": {
+        "edit": "Edit sides",
+        "refused": "These sides were not saved. Fix them, or press Escape to discard them."
+      },
+      "favourite": {
+        "ariaLabel": "Favourite {{name}}"
+      },
+      "rating": {
+        "label": "Rating",
+        "none": "Not rated",
+        "star_one": "{{count}} star",
+        "star_other": "{{count}} stars"
+      },
+      "mvd2Note": "Server-side demo with every player. Q2PRO chooses whom the camera follows — switch in game with invnext / invprev or cmd chase <player>.",
+      "players": {
+        "side": "Side {{n}}",
+        "pov": "POV",
+        "spectators": "Spectators ({{count}})"
+      },
+      "field": {
+        "map": "Map",
+        "mod": "Mod",
+        "gamemode": "Gamemode",
+        "date": "Recorded",
+        "pov": "Point of view",
+        "description": "Description",
+        "tags": "Tags",
+        "favourite": "Favourite",
+        "rating": "Rating",
+        "fileName": "File name",
+        "duration": "Length"
+      }
+    }
+  },
+  "x11": {
+    "noDisplay": "No X display is set",
+    "refused": "The X server refused the connection",
+    "closed": "The X connection is closed",
+    "timeout": "The X server did not answer in time",
+    "requestFailed": "The X server rejected a request",
+    "connectionLost": "The X server connection was lost",
+    "protocolError": "Could not understand the X server",
+    "noXResource": "The X server lacks the Resource extension"
+  }
+}

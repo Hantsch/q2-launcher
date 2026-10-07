@@ -1,5 +1,5 @@
 /**
- * Sort/filter shaping for the Aliases tab's row list (story 044, D4).
+ * Sort/filter shaping for the Aliases tab's row list (story 044).
  *
  * Pure, like every other `lib/*.ts` file in this module (see `cvar-rows.ts`) - no DOM, no hooks, no
  * i18n - so sorting and filtering can be unit-tested without a component harness. Generic over the
@@ -8,7 +8,9 @@
  * so the tab never has to unwrap-then-rewrap its own list to use these.
  */
 
-import type { AliasIndexRow } from '@shared/config/alias-references'
+import { compareStrings } from '@shared/list/sort'
+import type { SortDirection } from '@shared/list/sort'
+import type { AliasIndexRow } from '@shared/config/aliases/alias-references'
 
 /** Anything the sort/filter helpers below need: the underlying index row, nested the same way
  * `AliasesTab.tsx`'s `DisplayRow` already carries it (`{ row: AliasIndexRow, ... }`). Generic so a
@@ -17,8 +19,6 @@ import type { AliasIndexRow } from '@shared/config/alias-references'
 export interface HasAliasIndexRow {
   row: AliasIndexRow
 }
-
-export type AliasSortDirection = 'asc' | 'desc'
 
 /**
  * `rows` sorted by `row.name`, case-insensitively (`localeCompare` with `sensitivity: 'base'` - the
@@ -31,11 +31,9 @@ export type AliasSortDirection = 'asc' | 'desc'
  */
 export function sortAliasRows<T extends HasAliasIndexRow>(
   rows: readonly T[],
-  direction: AliasSortDirection = 'asc',
+  direction: SortDirection = 'asc',
 ): T[] {
-  const sorted = [...rows].sort((a, b) =>
-    a.row.name.localeCompare(b.row.name, undefined, { sensitivity: 'base' }),
-  )
+  const sorted = [...rows].sort((a, b) => compareStrings(a.row.name, b.row.name))
   if (direction === 'desc') sorted.reverse()
   return sorted
 }

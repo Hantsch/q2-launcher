@@ -171,7 +171,6 @@ describe('deleteInstallationFolder', () => {
       // Windows needs Developer Mode or elevation for symlinks, but never for a junction - which
       // exercises the same "do not descend into a link" property.
       if ((error as NodeJS.ErrnoException).code !== 'EPERM') throw error
-      console.warn('symlink() returned EPERM; falling back to a directory junction')
       await symlink(outsideDir, linkPath, 'junction')
       linkKind = 'directory junction'
     }

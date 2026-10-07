@@ -1,12 +1,13 @@
-import { Component, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/cn'
 import { Button } from '../../../components/ui/Button'
+import { ErrorBoundary } from '../../../components/ui/ErrorBoundary'
 import { EmptyState, Spinner } from '../../../components/ui/primitives'
 
 /**
- * Story 087 D2. Content handed to the `empty` state - the same shape `EmptyState`
+ * Story 087. Content handed to the `empty` state - the same shape `EmptyState`
  * (`components/ui/primitives.tsx`) already takes, minus `className` (the frame owns that).
  */
 export interface DashboardTileFrameEmptyContent {
@@ -42,7 +43,7 @@ export type DashboardTileFrameProps = {
 } & DashboardTileFrameStateProps
 
 /**
- * Story 087 D2 (AC4): the ONE shared frame every dashboard tile body renders through. Four explicit,
+ * Story 087: the ONE shared frame every dashboard tile body renders through. Four explicit,
  * mutually exclusive states - loading, error (with a working retry), empty (a sentence and an
  * action, via the existing `EmptyState` primitive), filled (arbitrary children) - plus its own error
  * boundary around the filled path, so a throwing tile body cannot unmount the whole dashboard grid
@@ -85,9 +86,8 @@ export type DashboardTileFrameProps = {
  *
  * ## Error boundary
  *
- * Only the `filled` path can run arbitrary tile-body code, so only it is wrapped (`TileFrameBoundary`
- * below, internal to this file). Simplification picked, per this deliverable's brief: the boundary's
- * fallback is its own minimal message with a "try again" button that clears the caught error and
+ * Only the `filled` path can run arbitrary tile-body code, so only it is wrapped (`ErrorBoundary`).
+ * Its fallback is its own minimal message with a "try again" button that clears the caught error and
  * re-attempts rendering `children` - it does not reuse the `error` state's `onRetry` callback, which
  * belongs to `useTileData` and would not fix a render fault anyway (the data was fine; the render
  * wasn't). If a tile's `children` reference stays the same across a retry that doesn't actually fix
@@ -120,7 +120,7 @@ function renderTileFrameState(props: DashboardTileFrameProps, t: TFunction): Rea
           className="flex flex-1 items-center justify-center gap-2 text-xs text-ink-muted"
         >
           <Spinner />
-          <span>{t('home.dashboard.tileFrame.loading')}</span>
+          <span>{t('common.label.loading')}</span>
         </div>
       )
 
@@ -129,7 +129,7 @@ function renderTileFrameState(props: DashboardTileFrameProps, t: TFunction): Rea
         <TileFrameErrorFallback
           testId="dashboard-tile-frame-error"
           message={props.message ?? t('home.dashboard.tileFrame.error')}
-          retryLabel={t('common.retry')}
+          retryLabel={t('common.action.retry')}
           onRetry={props.onRetry}
         />
       )
@@ -150,9 +150,21 @@ function renderTileFrameState(props: DashboardTileFrameProps, t: TFunction): Rea
 
     case 'filled':
       return (
-        <TileFrameBoundary fallbackMessage={t('home.dashboard.tileFrame.renderError')} retryLabel={t('common.retry')}>
-          {props.children}
-        </TileFrameBoundary>
+        <ErrorBoundary
+          scope="dashboard tile"
+          fallback={(_error, reset) => (
+            <TileFrameErrorFallback
+              testId="dashboard-tile-frame-error"
+              message={t('home.dashboard.tileFrame.renderError')}
+              retryLabel={t('common.action.retry')}
+              onRetry={reset}
+            />
+          )}
+        >
+          <div data-testid="dashboard-tile-frame-filled" className="flex min-h-0 flex-1 flex-col">
+            {props.children}
+          </div>
+        </ErrorBoundary>
       )
   }
 }
@@ -179,56 +191,4 @@ function TileFrameErrorFallback({
       </Button>
     </div>
   )
-}
-
-interface TileFrameBoundaryProps {
-  children: ReactNode
-  fallbackMessage: string
-  retryLabel: string
-}
-
-interface TileFrameBoundaryState {
-  hasError: boolean
-}
-
-/**
- * Internal to this file on purpose: the "each tile body is wrapped in its own error boundary so a
- * throwing tile cannot unmount the grid" guarantee (Decisions (Sprint)) has to hold for
- * `DashboardTileFrame` even in isolation (unit tests, Storybook-less as this codebase is), not only
- * once some future call site remembers to add one - see the file doc comment for which fallback
- * shape was picked and why.
- */
-class TileFrameBoundary extends Component<TileFrameBoundaryProps, TileFrameBoundaryState> {
-  override state: TileFrameBoundaryState = { hasError: false }
-
-  static getDerivedStateFromError(): TileFrameBoundaryState {
-    return { hasError: true }
-  }
-
-  override componentDidCatch(error: unknown): void {
-    console.error('[dashboard tile] render error', error)
-  }
-
-  private readonly reset = (): void => this.setState({ hasError: false })
-
-  override render(): ReactNode {
-    if (this.state.hasError) {
-      return (
-        <TileFrameErrorFallback
-          testId="dashboard-tile-frame-error"
-          message={this.props.fallbackMessage}
-          retryLabel={this.props.retryLabel}
-          onRetry={this.reset}
-        />
-      )
-    }
-    return (
-      <div
-        data-testid="dashboard-tile-frame-filled"
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        {this.props.children}
-      </div>
-    )
-  }
 }

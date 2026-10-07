@@ -1,5 +1,13 @@
-import { useRef, type KeyboardEvent, type MouseEvent } from 'react'
+import { isContextMenuKey, menuPointOf, type MenuPoint } from '../row-menu'
+import {
+  useRef,
+  type KeyboardEvent,
+  type KeyboardEventHandler,
+  type MouseEvent,
+  type PointerEventHandler,
+} from 'react'
 import { useTranslation } from 'react-i18next'
+import { useDraggable } from '@dnd-kit/core'
 import { Archive, FileWarning, Star, StickyNote, TriangleAlert } from 'lucide-react'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
 import type { GamemodeSource } from '@shared/demos/gamemode'
@@ -11,14 +19,23 @@ import { IconButton } from '../../../components/ui/Button'
 import { DEMO_LIST_GRID } from '../list-grid'
 import { formatDemoDate, formatLabel, sidesText } from '../row-format'
 import { useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
+import type { DemoDragData } from './DemoDragZone'
 
 export interface DemoRowProps {
   row: DemoRowData
   selected: boolean
   onSelect: (id: string) => void
+  /** Ctrl/Cmd-click and the row checkbox. */
+  onToggle: (id: string) => void
+  /** Shift-click. */
+  onRange: (id: string) => void
   /** Patches this row's `sidecar` part in the view's list after a quick edit - same patcher the
    * detail panel's own save uses (`ReplaysView`'s `handleRowPatched`). */
   onRowPatched?: RowPatcher
+  /** Right-click, Shift+F10 or the context-menu key on the row. */
+  onContextMenu?: (id: string, at: MenuPoint) => void
+  /** Search mode only: `root label / folder / folder`, shown in place of the source text. */
+  folderText?: string
 }
 
 const RATING_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1)
@@ -37,20 +54,40 @@ function UnknownValue() {
   return (
     <span>
       <span aria-hidden="true">–</span>
-      <span className="sr-only">{t('replays.row.unknown')}</span>
+      <span className="sr-only">{t('common.label.unknown')}</span>
     </span>
   )
 }
 
 /**
- * D3: one row of the demos list - identity (name, gamemode, format, source) on the shared
+ * one row of the demos list - identity (name, gamemode, format, source) on the shared
  * `DEMO_LIST_GRID` template (so every cell lines up under `DemoListHeader`'s labels), plus a set of
  * status markers (sidecar/sidecar-error/archive/unreadable), each a visible icon with an accessible
  * name - status is never colour-only. Mirrors `../../servers/ServerRow.tsx`'s shape and
  * conventions.
  */
-export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps) {
+export function DemoRow({
+  row,
+  selected,
+  onSelect,
+  onToggle,
+  onRange,
+  onRowPatched,
+  onContextMenu,
+  folderText,
+}: DemoRowProps) {
   const { t, i18n } = useTranslation()
+  const dragData: DemoDragData = { fileName: row.fileName }
+  const {
+    setNodeRef: setDragRef,
+    listeners: dragListeners,
+    attributes: dragAttributes,
+    isDragging,
+  } = useDraggable({
+    id: row.id,
+    data: dragData,
+    disabled: row.archiveEntry !== null,
+  })
   const archiveMarkerId = `replays-marker-archive-${row.id}`
   const archiveReadonlyRowId = `replays-archive-readonly-row-${row.id}`
 
@@ -100,9 +137,19 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
   const rating = row.sidecar.values.rating
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    // A keyboard drag owns Enter (drop) and the arrows while it runs; Ctrl+Space picks the row up,
+    // so only Ctrl+Enter toggles with Ctrl held.
+    if (isDragging || (event.ctrlKey && event.key !== 'Enter')) return
+    if (isContextMenuKey(event) && onContextMenu !== undefined) {
+      event.preventDefault()
+      onContextMenu(row.id, menuPointOf(event.currentTarget))
+      return
+    }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      onSelect(row.id)
+      if (event.shiftKey) onRange(row.id)
+      else if (event.metaKey || event.ctrlKey) onToggle(row.id)
+      else onSelect(row.id)
     } else if (event.key === 'ArrowRight') {
       event.preventDefault()
       favouriteRef.current?.focus()
@@ -136,13 +183,29 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
     // already stop propagation, so clicking them never selects the row. Mirrors
     // `../../servers/ServerRow.tsx`'s copy-address button.
     <div
-      onClick={() => onSelect(row.id)}
+      ref={setDragRef}
+      // The keyboard sensor only reacts to its own Ctrl+Space chord, never to plain Enter/Space.
+      onKeyDown={dragListeners?.onKeyDown as KeyboardEventHandler<HTMLDivElement> | undefined}
+      onPointerDown={
+        dragListeners?.onPointerDown as PointerEventHandler<HTMLDivElement> | undefined
+      }
+      onClick={(event) => {
+        if (event.ctrlKey || event.metaKey) onToggle(row.id)
+        else if (event.shiftKey) onRange(row.id)
+        else onSelect(row.id)
+      }}
+      onContextMenu={(event) => {
+        if (onContextMenu === undefined) return
+        event.preventDefault()
+        onContextMenu(row.id, { x: event.clientX, y: event.clientY })
+      }}
       data-testid="replays-demo-row"
       data-demo-id={row.id}
       {...(row.archiveEntry !== null ? { 'data-archive-entry': 'true' } : {})}
       className={cn(
         DEMO_LIST_GRID,
         'w-full cursor-default border-b border-b-line/60 py-1.5 text-xs text-ink-dim transition-colors duration-[--dur-fast]',
+        isDragging && 'opacity-50',
         selected ? 'border-l-flame-500 bg-flame-900/20' : 'border-l-transparent hover:bg-hover',
       )}
       style={{ minHeight: 56 }}
@@ -153,87 +216,110 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
         tabIndex={0}
         onKeyDown={handleKeyDown}
         aria-pressed={selected}
+        aria-describedby={dragAttributes['aria-describedby']}
         className="col-span-full row-start-1 grid grid-cols-subgrid items-center"
       >
-      <div className="min-w-0">
-        <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
-          <span className="min-w-0 flex-1 truncate" data-testid="replays-demo-name">
-            {name !== null ? name : <UnknownValue />}
-          </span>
-        </p>
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate text-[11px] text-ink-muted" data-testid="replays-demo-gamemode">
-            {gamemodeDescription.labelKey !== undefined
-              ? t(gamemodeDescription.labelKey)
-              : gamemodeDescription.text}
-          </span>
-          <Badge tone="neutral" testId="replays-demo-format">
-            {formatLabel(row.format, row.gzip, t)}
-          </Badge>
-          <span className="truncate text-[11px] text-ink-muted" data-testid="replays-demo-source">
-            {sourceText}
-          </span>
+        {/* The checkbox itself is the outer div's sibling below (a control cannot sit inside the
+          row's role="button"); this placeholder keeps the subgrid's columns lined up. */}
+        <span aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
+            <span className="min-w-0 flex-1 truncate" data-testid="replays-demo-name">
+              {name !== null ? name : <UnknownValue />}
+            </span>
+          </p>
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className="truncate text-[11px] text-ink-muted"
+              data-testid="replays-demo-gamemode"
+            >
+              {gamemodeDescription.labelKey !== undefined
+                ? t(gamemodeDescription.labelKey)
+                : gamemodeDescription.text}
+            </span>
+            <Badge tone="neutral" testId="replays-demo-format">
+              {formatLabel(row.format, row.gzip, t)}
+            </Badge>
+            <span className="truncate text-[11px] text-ink-muted" data-testid="replays-demo-source">
+              {folderText ?? sourceText}
+            </span>
 
-          {row.sidecar.state !== 'none' && (
-            <span
-              data-testid="replays-marker-sidecar"
-              className="inline-flex items-center gap-1 text-ink-muted"
-            >
-              <StickyNote className="size-3" aria-hidden="true" />
-              <span className="sr-only">{t('replays.marker.sidecar')}</span>
-            </span>
-          )}
-          {row.sidecar.state === 'error' && (
-            <Badge tone="danger" testId="replays-marker-sidecar-error">
-              <TriangleAlert className="size-3" aria-hidden="true" />
-              {t('replays.marker.sidecarError')}
-            </Badge>
-          )}
-          {row.archiveEntry !== null && (
-            <span
-              id={archiveMarkerId}
-              data-testid="replays-marker-archive"
-              className="inline-flex items-center gap-1 text-ink-muted"
-            >
-              <Archive className="size-3" aria-hidden="true" />
-              <span className="sr-only">{t('replays.marker.archive')}</span>
-            </span>
-          )}
-          {!row.readable && (
-            <Badge tone="warning" testId="replays-marker-unreadable">
-              <FileWarning className="size-3" aria-hidden="true" />
-              {t('replays.unreadable.marker')}
-            </Badge>
-          )}
+            {row.sidecar.state !== 'none' && (
+              <span
+                data-testid="replays-marker-sidecar"
+                className="inline-flex items-center gap-1 text-ink-muted"
+              >
+                <StickyNote className="size-3" aria-hidden="true" />
+                <span className="sr-only">{t('replays.marker.sidecar')}</span>
+              </span>
+            )}
+            {row.sidecar.state === 'error' && (
+              <Badge tone="danger" testId="replays-marker-sidecar-error">
+                <TriangleAlert className="size-3" aria-hidden="true" />
+                {t('replays.marker.sidecarError')}
+              </Badge>
+            )}
+            {row.archiveEntry !== null && (
+              <span
+                id={archiveMarkerId}
+                data-testid="replays-marker-archive"
+                className="inline-flex items-center gap-1 text-ink-muted"
+              >
+                <Archive className="size-3" aria-hidden="true" />
+                <span className="sr-only">{t('replays.marker.archive')}</span>
+              </span>
+            )}
+            {!row.readable && (
+              <Badge tone="warning" testId="replays-marker-unreadable">
+                <FileWarning className="size-3" aria-hidden="true" />
+                {t('replays.unreadable.marker')}
+              </Badge>
+            )}
+          </div>
         </div>
-      </div>
 
-      <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-map">
-        {row.effective.map.value !== null ? row.effective.map.value : <UnknownValue />}
-      </span>
-      <span className="truncate text-right" data-testid="replays-demo-mod">
-        {row.effective.mod.value !== null ? row.effective.mod.value : <UnknownValue />}
-      </span>
-      <span className="truncate text-right" data-testid="replays-demo-sides">
-        {sides !== '' ? sides : <UnknownValue />}
-      </span>
-      <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-date">
-        {date !== null ? date : <UnknownValue />}
-      </span>
-      <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-duration">
-        {duration.kind === 'known' ? duration.text : <UnknownValue />}
-      </span>
-      {/* This column's real content (badges + quick controls) is the outer div's sibling below -
+        <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-map">
+          {row.effective.map.value !== null ? row.effective.map.value : <UnknownValue />}
+        </span>
+        <span className="truncate text-right" data-testid="replays-demo-mod">
+          {row.effective.mod.value !== null ? row.effective.mod.value : <UnknownValue />}
+        </span>
+        <span className="truncate text-right" data-testid="replays-demo-sides">
+          {sides !== '' ? sides : <UnknownValue />}
+        </span>
+        <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-date">
+          {date !== null ? date : <UnknownValue />}
+        </span>
+        <span
+          className="numeric truncate text-right text-[11px]"
+          data-testid="replays-demo-duration"
+        >
+          {duration.kind === 'known' ? duration.text : <UnknownValue />}
+        </span>
+        {/* This column's real content (badges + quick controls) is the outer div's sibling below -
           this placeholder just keeps the subgrid's column count lined up with the header. */}
-      <span aria-hidden="true" />
+        <span aria-hidden="true" />
       </div>
 
-      <span className="col-start-7 row-start-1 flex items-center justify-end gap-1.5">
+      <label className="col-start-1 row-start-1 flex size-6 cursor-pointer items-center justify-center">
+        <input
+          type="checkbox"
+          checked={selected}
+          tabIndex={-1}
+          aria-label={t('replays.row.select', { name: name ?? row.fileName })}
+          data-testid="replays-row-select"
+          className="size-4 cursor-pointer accent-flame-500"
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => onToggle(row.id)}
+        />
+      </label>
+
+      <span className="col-start-8 row-start-1 flex items-center justify-end gap-1.5">
         {favourite && (
           <span
             data-testid="replays-demo-favourite"
             role="img"
-            aria-label={t('replays.row.favourite')}
+            aria-label={t('common.label.favourite')}
             className="inline-flex items-center"
           >
             <Star className="size-3.5 fill-flame-500 text-flame-500" aria-hidden="true" />
@@ -262,7 +348,10 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
           onKeyDown={handleFavouriteKeyDown}
         >
           <Star
-            className={cn('size-3.5', favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted')}
+            className={cn(
+              'size-3.5',
+              favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted',
+            )}
             aria-hidden="true"
           />
         </IconButton>
@@ -282,10 +371,14 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
             const value = event.target.value
             void useDemoEditorStore
               .getState()
-              .quickEdit(row.id, { rating: value === '' ? null : Number(value) }, onRowPatched ?? (() => {}))
+              .quickEdit(
+                row.id,
+                { rating: value === '' ? null : Number(value) },
+                onRowPatched ?? (() => {}),
+              )
           }}
         >
-          <option value="">{t('replays.row.quick.noRating')}</option>
+          <option value="">{t('common.label.noValue')}</option>
           {RATING_OPTIONS.map((value) => (
             <option key={value} value={value}>
               {value}

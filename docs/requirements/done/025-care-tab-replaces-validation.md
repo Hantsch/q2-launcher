@@ -64,7 +64,7 @@ files.
    `CleanupPanel` are mounted as sections, not rewritten** — AC 1 and AC 5 both demand existing
    behaviour "unchanged", and re-mounting keeps that literal instead of trusting a rewrite.
 3. **The validation report keeps validating the live draft (story 009 untouched); the tidy-up
-   section computes against the *saved* profile** — tidy-up applies in main to the saved profile,
+   section computes against the _saved_ profile** — tidy-up applies in main to the saved profile,
    so a preview computed on unsaved draft state would promise a change apply would not make.
 4. **The sync section reads through exactly one renderer adapter,
    `modules/config/lib/care-sync.ts`** — story 022 is being refined in parallel, so confining the
@@ -84,7 +84,7 @@ files.
    place for the running-installation guard to be forgotten. The build step greps that no retry
    affordance survives anywhere else after 023.
 8. **Tidy-up items are their own derived model (`TidyUpFinding`), not an extension of `Finding`** —
-   a `Finding` carries a translated fix *hint*, a tidy-up item needs machine-readable operations,
+   a `Finding` carries a translated fix _hint_, a tidy-up item needs machine-readable operations,
    and overloading `Finding` would force every validator rule to answer "am I fixable".
 9. **Tidy-up mutations go through one new atomic handler `tidyUp.apply`, taking explicit operation
    descriptors, not through the four existing whole-field setters** — a re-classify touches
@@ -95,10 +95,10 @@ files.
     than throwing** — mirrors `cleanup.apply`'s re-scan guard, the pattern this module already
     uses for "the renderer's list may be stale".
 11. **"Safe" = fully determined without a user choice AND removes only something that has no
-    effect in the rendered config.** That makes *remove shadowed duplicate bind* and *remove empty
-    layer* safe/`auto`; *drop or re-classify a preserved line* and *remove an unreferenced alias*
-    are `review` (individual apply only — they need a choice or destroy authored content); *binding
-    references an undefined alias* is `report` (no automatic fix; removing the bind or inventing
+    effect in the rendered config.** That makes _remove shadowed duplicate bind_ and _remove empty
+    layer_ safe/`auto`; _drop or re-classify a preserved line_ and _remove an unreferenced alias_
+    are `review` (individual apply only — they need a choice or destroy authored content); _binding
+    references an undefined alias_ is `report` (no automatic fix; removing the bind or inventing
     the alias is a judgement call, and AC 3 only asks that it be reported).
 12. **The duplicate-bind fix keeps the binding that actually wins in the rendered file and removes
     the shadowed ones** — in Quake II the last `bind` for a key wins, so the shadowed entries have
@@ -110,7 +110,7 @@ files.
 14. **One cleanup surface only: `CleanupPanel` leaves the profile-list screen for the Care tab,
     its installation picker restricted to the profile's assigned installations, plus an explicit
     "scan any installation" widening control** — that satisfies AC 5's move literally and the
-    (User) decision's profile scoping *and* its route to the rest, without leaving two duplicate
+    (User) decision's profile scoping _and_ its route to the rest, without leaving two duplicate
     cleanup surfaces behind.
 15. **The cleanup's scan → review → apply → undo flow, its handlers and its backup-once contract
     are untouched; only the installation list is filtered and the scope control is added** — AC 5
@@ -297,7 +297,7 @@ review, apply, undo and the backup-once contract are unchanged.
 
 A summary at the top of `CareTab` that states, per section, whether it is clean, has n items, or
 has not been checked yet (cleanup, which needs a scan) — and one overall line that only says "all
-clear" when every section is clean *and* the cleanup has been scanned. The `ConfigView` tab badge
+clear" when every section is clean _and_ the cleanup has been scanned. The `ConfigView` tab badge
 now counts validation findings plus tidy-up findings, de-duplicated by finding id, errors before
 warnings.
 
@@ -313,23 +313,23 @@ warnings.
 
 ## Coverage
 
-| AC | Deliverable |
-| --- | --- |
-| Tab is called "Care", story-009 report unchanged | D1 |
-| Sync section: in-sync / missing / out-of-sync / failed + retry (022 data) | D2 |
-| Tidy-up section with preview, all five item classes | D3 (contract + apply), D4 (detection), D5 (preview + apply UI) |
-| "Fix all safe findings" + explicit pre-apply warning (new) | D6 |
-| "Preserved lines" tab folded in | D1 (fold-in), D4/D5 (drop + re-classify actions) |
-| Mod-copies cleanup (010) moves here, flow + backup-once intact | D7 |
-| Nothing on disk without a preview; deletes/overwrites undoable | D5 (per-item preview), D6 (batch warning), D7 (cleanup undo), D3 (main re-validates) |
-| Explicit "nothing to report, nothing to clean" ≠ "not checked" | D8 |
+| AC                                                                        | Deliverable                                                                          |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Tab is called "Care", story-009 report unchanged                          | D1                                                                                   |
+| Sync section: in-sync / missing / out-of-sync / failed + retry (022 data) | D2                                                                                   |
+| Tidy-up section with preview, all five item classes                       | D3 (contract + apply), D4 (detection), D5 (preview + apply UI)                       |
+| "Fix all safe findings" + explicit pre-apply warning (new)                | D6                                                                                   |
+| "Preserved lines" tab folded in                                           | D1 (fold-in), D4/D5 (drop + re-classify actions)                                     |
+| Mod-copies cleanup (010) moves here, flow + backup-once intact            | D7                                                                                   |
+| Nothing on disk without a preview; deletes/overwrites undoable            | D5 (per-item preview), D6 (batch warning), D7 (cleanup undo), D3 (main re-validates) |
+| Explicit "nothing to report, nothing to clean" ≠ "not checked"            | D8                                                                                   |
 
 ## Model Hints
 
 - D1 → default (a rename plus a composing tab component; the risk is mechanical, and ui:verify
   catches a missed harness id).
 - D2 → default (a pure mapping plus a status list, both with existing mirrors).
-- D3 → **deliverable-hard** — `applyTidyUpOps` is the first code path that mutates a *saved*
+- D3 → **deliverable-hard** — `applyTidyUpOps` is the first code path that mutates a _saved_
   profile from a finding, and every mutation it makes is written straight to disk in every assigned
   installation, so a wrong or half-applied op silently corrupts real config files.
 - D4 → **deliverable-hard** — which of two duplicate binds actually wins depends on the renderer's
@@ -373,7 +373,7 @@ Run `npm run dev` and drive the real UI (P1: every step below is a real user act
     assigned installations until "scan any installation" is used. Run scan → apply → **Undo
     removal**: the file comes back byte-for-byte.
 11. With everything fixed and the cleanup scanned, the top of the tab says **all clear**
-    explicitly. Reload the app and re-enter the tab: it now says the cleanup has *not been checked*
+    explicitly. Reload the app and re-enter the tab: it now says the cleanup has _not been checked_
     rather than "all clear".
 
 ## Done
@@ -387,11 +387,13 @@ installations with a "scan any installation" widening control). All eight accept
 met and ticked above.
 
 **Commit message:**
+
 ```
 025: Care tab replaces Validation — sync, tidy-up and cleanup in one place
 ```
 
 **Decisions made during build (beyond the refine-time ones already in this file):**
+
 - D8's sync/cleanup status reaches `CareTab` via one optional callback prop each
   (`CareSyncSection`'s `onStateLoaded`/`onStatusChange`, `CleanupPanel`'s `onStatusChange`) rather
   than a second IPC call or lifted fetch — each section keeps owning its own live state and only
@@ -403,6 +405,7 @@ met and ticked above.
 **Verification:** `npm run build`, `npm test` (932 tests), `npm run typecheck` all green. Clean-agent
 review (`story-review-hard`) returned FAIL on first pass with 3 confirmed findings, fixed in one
 review-fix cycle, then all three gates re-verified green:
+
 - F1: the tab badge's de-duplication (decision 18) only matched finding ids for r1q2-assigned
   profiles, because `Finding.id` is engine-prefixed while the tidy-up analyzer always computes
   alias-wiring findings at a fixed `r1q2`. Fixed by normalizing the `<engine>:actions:...` prefix
@@ -426,8 +429,9 @@ pattern elsewhere (`ImportProfileDialog`, `CreateProfileDialog`, `LayersPanel`, 
 `ActionEditor`, `CreateInstallationDialog`) is out of this story's scope and left as-is.
 
 **Accepted-but-unfixed findings (reviewed, judged acceptable, not fixed):**
-1. *Main-side `removeShadowedBind` re-validation trusts the op's claimed "loser," not just that the
-   claim exists and the key is contested* (`src/shared/config/tidy-up.ts`). Decision 11/12 already
+
+1. _Main-side `removeShadowedBind` re-validation trusts the op's claimed "loser," not just that the
+   claim exists and the key is contested_ (`src/shared/config/tidy-up.ts`). Decision 11/12 already
    frame "which claim wins" as the analyzer's call, not the applier's; D4's UI is the only caller and
    only ever emits loser ops, so this is unreachable today. Left as documented, not hardened further,
    to avoid re-deriving "who wins" a second time in the applier.

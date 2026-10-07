@@ -6,8 +6,8 @@ display name, category, entry kind, key-slot pairing, layer membership — none 
 Quake II config syntax has a place for. Story 050 then cut the tag down to the fields the file
 genuinely cannot say itself: entry identity and key-slot order come from the file's own text and
 line order instead of from a hash or an index. This document is the grammar reference; the
-implementation is `src/shared/config/profile-metadata.ts` (grammar), `src/shared/config/render.ts`
-(what each line writes) and `src/shared/config/profile-restore.ts` (how a line is read back), and
+implementation is `src/shared/config/profile/profile-metadata.ts` (grammar), `src/shared/config/render/render.ts`
+(what each line writes) and `src/shared/config/profile/profile-restore.ts` (how a line is read back), and
 their tests.
 
 ## Where it lives
@@ -36,7 +36,7 @@ never learns the format never has to.
   closing `]`. Nothing may follow the `]` except the end of the line.
 - A comment with no `[q2l` tail is plain prose — every pre-042 comment and every foreign config's
   comment parses this way, unchanged.
-- The tag is always the *last* thing in the comment. `parseMetaTag` anchors on the last occurrence
+- The tag is always the _last_ thing in the comment. `parseMetaTag` anchors on the last occurrence
   of `[q2l` in the text for exactly this reason: prose comes first, the machine part comes last, and
   there is never more than one tag per comment.
 
@@ -58,13 +58,13 @@ right-aligned so its closing `]` lands on `BANNER_WIDTH` (80) — falling back t
 left-aligned `//  <tag>` (the name line's own shape) on the rare file whose tag alone is too long
 for that (only reachable from a hand-edited store with an absurd profile id), never truncated.
 
-That tag line is the file's *only* technical content, and it is the one compact
+That tag line is the file's _only_ technical content, and it is the one compact
 `[q2l v=1 id=<uuid>]` line — nothing else in the block is machine-readable. `v` is the format
 version (`META_FORMAT_VERSION`, still 1 as of this story) and `id` is the profile's own stable
 ownership id; `id` is registered in `KNOWN_META_KEYS` (`profile-metadata.ts`) directly after `v`,
 and — like `v` — is only ever emitted in the header block's tag, never on a per-line tag. `id`'s
-*presence* alongside `v` is what tells this new banner shape apart from the header-only,
-`v`-alone tag that shipped before it; its *absence* on an otherwise well-formed header tag is not
+_presence_ alongside `v` is what tells this new banner shape apart from the header-only,
+`v`-alone tag that shipped before it; its _absence_ on an otherwise well-formed header tag is not
 an error, it just means the file predates this shape (see "Legacy header shape" below).
 
 ### Legacy header shape (read-only)
@@ -81,7 +81,7 @@ A profile file written before this story carries a different, five-line header i
 
 A sentinel comment line naming the profile's id in prose, an `=` rule, the name with an inline
 `[q2l v=1]` tag (no `id`), a fixed hand-edit sentence (`HAND_EDIT_SENTENCE`), then a closing `=`
-rule. This shape is still **read** — `src/shared/config/file-ownership.ts`'s
+rule. This shape is still **read** — `src/shared/config/render/file-ownership.ts`'s
 `readOwnershipStamp`/`isLauncherOwnedFile` recognise it as launcher-owned exactly as before, so a
 profile from before this story is not orphaned or reported as "changed outside the launcher" — but
 it is never **written** any more: the very next time that profile is saved, its header is rewritten
@@ -93,23 +93,23 @@ read-only, not as an alternative current format.
 The current registry, after story 050's cut and story 045's, 051's, 052's, 053's and 059's
 additions:
 
-| key       | where it appears           | meaning                                                        |
-| --------- | --------------------------- | --------------------------------------------------------------- |
-| `v`       | header block only           | format version this file was written with (`META_FORMAT_VERSION`, still 1) |
-| `id`      | header block only           | the profile's own stable ownership id (story 051) — see "Header block" above; registered in `KNOWN_META_KEYS` directly after `v`, and, like `v`, never emitted on a per-line tag |
-| `cid`     | bind/alias/anchor/unbound lines | catalogue id (`catalogId`), when the entry is catalogue-backed  |
-| `an`      | anchor lines and unbound lines | the entry's own `aliasName`. Emitted only where no alias line exists to spell it out as code — an entry that keeps its alias line gets no `an`, since that line's own name *is* the value and a tag would be a second source able to drift from it. On an anchor or unbound line, present exactly when the entry actually has a non-empty `aliasName` of its own — never unconditionally, since forcing it onto a line for an entry with no alias name at all would let the reader restore a name the file never really recorded |
-| `key`     | anchor lines only           | the key of the slot this line records. Only ever emitted where the config text cannot say it — an anchor line is a comment, so it has no code to read a key off. A real `bind` line never carries it: the line already spells its key. Never on an unbound line (story 052 D2) — an unbound entry has no key slot at all |
-| `mod`     | anchor lines only           | that slot's `modifier`                                          |
-| `cat`     | section header (category)   | category id — since story 052 D4, a template id (`movement`/`weapons`/`drops`) is minted as an ordinary local category like any other, keeping only its own id (not a fresh one) rather than being adopted as-is with nothing created; its `nameKey` is re-attached when the header's title is still exactly the template's own default name. An id this build doesn't recognise as a template mints a local category named from the header's title |
-| `ord`     | section header (category)   | that category's position in `profile.categories`, counting only the categories that carry at least one entry — the same value on all three of a category's headers. It is the only thing in the file that can state the order of two categories whose sections never share a block: the writer emits its category sections in three separate passes (aliases, then binds, then `Entries:`), so a category whose entries are all unbound (`Entries:` only) and one whose entries are all bound (`Binds:` only) render byte-identically whichever order the profile has them in. A file written without the field (an older build, or a hand-deleted tag) simply falls back to the section layout, as this reader always did |
-| `layer`   | section header (layer)      | layer ref                                                        |
-| `mode`    | section header (layer)      | layer mode                                                       |
-| `trigger` | section header (layer)      | layer trigger key; the key is omitted entirely (not emitted as empty) when the trigger is `null` |
-| `lbl`     | a toggle/press-release state's own alias line only | that state's display label (story 045) — never on the dispatch alias or a `_p<n>` chunk line |
-| `sub`     | section header (sub-category, second level) | sub-category id (story 053) — the parent category is derivable from the section the banner sits inside, so no `cat`/`ord` rides alongside it |
-| `cvs`     | section header (cvar section) | cvar-section id (story 059) — a distinct namespace from `cat`: a cvar section and a bind category never share this key, so the reader can never adopt one as the other |
-| `cvsub`   | section header (cvar sub-section, second level) | cvar-sub-section id (story 059) — the `cvsub` counterpart of `sub`; the parent cvar section is likewise derivable from the section the banner sits inside |
+| key       | where it appears                                   | meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v`       | header block only                                  | format version this file was written with (`META_FORMAT_VERSION`, still 1)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `id`      | header block only                                  | the profile's own stable ownership id (story 051) — see "Header block" above; registered in `KNOWN_META_KEYS` directly after `v`, and, like `v`, never emitted on a per-line tag                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `cid`     | bind/alias/anchor/unbound lines                    | catalogue id (`catalogId`), when the entry is catalogue-backed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `an`      | anchor lines and unbound lines                     | the entry's own `aliasName`. Emitted only where no alias line exists to spell it out as code — an entry that keeps its alias line gets no `an`, since that line's own name _is_ the value and a tag would be a second source able to drift from it. On an anchor or unbound line, present exactly when the entry actually has a non-empty `aliasName` of its own — never unconditionally, since forcing it onto a line for an entry with no alias name at all would let the reader restore a name the file never really recorded                                                                                                                                                                                           |
+| `key`     | anchor lines only                                  | the key of the slot this line records. Only ever emitted where the config text cannot say it — an anchor line is a comment, so it has no code to read a key off. A real `bind` line never carries it: the line already spells its key. Never on an unbound line (story 052 D2) — an unbound entry has no key slot at all                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `mod`     | anchor lines only                                  | that slot's `modifier`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `cat`     | section header (category)                          | category id — since story 052 D4, a template id (`movement`/`weapons`/`drops`) is minted as an ordinary local category like any other, keeping only its own id (not a fresh one) rather than being adopted as-is with nothing created; its `nameKey` is re-attached when the header's title is still exactly the template's own default name. An id this build doesn't recognise as a template mints a local category named from the header's title                                                                                                                                                                                                                                                                        |
+| `ord`     | section header (category)                          | that category's position in `profile.categories`, counting only the categories that carry at least one entry — the same value on all three of a category's headers. It is the only thing in the file that can state the order of two categories whose sections never share a block: the writer emits its category sections in three separate passes (aliases, then binds, then `Entries:`), so a category whose entries are all unbound (`Entries:` only) and one whose entries are all bound (`Binds:` only) render byte-identically whichever order the profile has them in. A file written without the field (an older build, or a hand-deleted tag) simply falls back to the section layout, as this reader always did |
+| `layer`   | section header (layer)                             | layer ref                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `mode`    | section header (layer)                             | layer mode                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `trigger` | section header (layer)                             | layer trigger key; the key is omitted entirely (not emitted as empty) when the trigger is `null`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `lbl`     | a toggle/press-release state's own alias line only | that state's display label (story 045) — never on the dispatch alias or a `_p<n>` chunk line                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `sub`     | section header (sub-category, second level)        | sub-category id (story 053) — the parent category is derivable from the section the banner sits inside, so no `cat`/`ord` rides alongside it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `cvs`     | section header (cvar section)                      | cvar-section id (story 059) — a distinct namespace from `cat`: a cvar section and a bind category never share this key, so the reader can never adopt one as the other                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `cvsub`   | section header (cvar sub-section, second level)    | cvar-sub-section id (story 059) — the `cvsub` counterpart of `sub`; the parent cvar section is likewise derivable from the section the banner sits inside                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 `KNOWN_META_KEYS` in `profile-metadata.ts` lists these in the exact order `formatMetaTag` always
 emits them — that fixed order is part of the format's determinism guarantee: the same fields always
@@ -163,7 +163,7 @@ expose one for that kind.
 
 An entry's `keys` is `ConfigAction.keys?: readonly ActionKeySlot[]` — an arbitrary number of
 `{ key, modifier? }` slots, not capped at two, read and written through one accessor module,
-`src/shared/config/action-slots.ts` (`actionKeySlots`, `keySlotAt`, `withKeySlot`, `clearKeySlot`,
+`src/shared/config/catalog/action-slots.ts` (`actionKeySlots`, `keySlotAt`, `withKeySlot`, `clearKeySlot`,
 `keySlotCount`).
 
 On read, an entry's slot claims are simply taken **in the order the claiming lines appear in the
@@ -185,9 +185,9 @@ Because slot identity is positional rather than tagged, an entry whose **modifie
 before its **plain** slot in the rendered file comes back with the two swapped after a reload.
 
 Concretely: an anchor line (for a modified slot) is always written in the "Entries" section, which
-comes *after* every bind section but *before* every layer section. If an entry's slot 1 is
-modified and its slot 2 is plain, the *plain* slot's `bind` line is written earlier in the file (in
-its category's bind section) than the *modified* slot's anchor line (in the entries section) — so
+comes _after_ every bind section but _before_ every layer section. If an entry's slot 1 is
+modified and its slot 2 is plain, the _plain_ slot's `bind` line is written earlier in the file (in
+its category's bind section) than the _modified_ slot's anchor line (in the entries section) — so
 on the next read, the plain slot's bind line is scanned and claimed first, becoming slot 1, and the
 modified slot's anchor line is claimed second, becoming slot 2. The intra-entry slot **order**
 flips once; nothing is lost — both keys and both modifiers survive intact, and the file re-renders
@@ -221,7 +221,7 @@ every layer section).
 
 **A modified key slot** (`Alt+W`). Quake II has no modifiers, so that binding is not a `bind` line at
 all — it is an override inside the modifier layer's generated `+alt`/`-alt` alias pair, and that pair
-covers *every* override of the layer at once, so there is no per-override line for a tag to ride on.
+covers _every_ override of the layer at once, so there is no per-override line for a tag to ride on.
 Nothing else in the file can say which of the entry's slots that key is, or which modifier it
 carries — not even the entry's own alias line, which is the entry rather than one of its keys. So
 **every** modified slot is anchored — every slot of every entry, in slot order, with no cap of two —
@@ -239,9 +239,9 @@ alias or bind line never gets `an`/`key`/`mod` repeated on its other lines — o
 A continuous catalogue row with no key mirrors as its own bare `+forward`, so its alias line is
 dropped (a self-mirroring `alias weapnext weapnext` is dropped outright too) and with no key there is
 no bind line either — so before story 052 such an entry left no trace in the file at all and was
-dropped on re-import. An earlier review round (story 042) did give it a slotless *entry* anchor to
+dropped on re-import. An earlier review round (story 042) did give it a slotless _entry_ anchor to
 keep its name, kind, category and catalogue id; that was reverted, because the file had nowhere to
-record what an unbound entry *runs*, so the entry came back with `commands: []` — and the Controls
+record what an unbound entry _runs_, so the entry came back with `commands: []` — and the Controls
 tab's slot editor is find-or-create on `catalogId` (`catalog-binds.ts#applySlot`), so the next bind of
 that same row reused the empty entry and produced a key pointing at an alias nothing defines. Being
 dropped was better than that, at the time: `freshAction` would regenerate the row's commands from the
@@ -249,7 +249,7 @@ catalogue.
 
 Story 052 removes the reason that revert was needed (its own D4/D8 replace the lazy
 find-or-create-by-`catalogId` path with something that no longer treats a restored empty entry as
-dangerous), and gives this exact entry shape a line that *does* carry what it runs — see "Unbound
+dangerous), and gives this exact entry shape a line that _does_ carry what it runs — see "Unbound
 lines" below. D2 wrote that line and D3 reads it back
 (`profile-restore.ts#claimsUnboundEntry`), so such an entry now survives a save/reload/re-import
 round trip with its name, category, `catalogId` and command intact.
@@ -276,9 +276,9 @@ Both example lines carry `key`/`mod`, because that is what makes them anchors at
 belongs to a catalogue-backed entry that has an alias or bind line of its own elsewhere (hence no
 `an`), the second to an anchor-only entry whose `aliasName` has no other line to live on.
 
-A slot anchor carries the entry's identity and which slot it is; the *command* is still read back out
+A slot anchor carries the entry's identity and which slot it is; the _command_ is still read back out
 of the layer override the anchor names, because that is where the profile really keeps it. A slot that
-does have a bind line never gets an anchor — one fact, one place — and neither does an *unmodified*
+does have a bind line never gets an anchor — one fact, one place — and neither does an _unmodified_
 slot with no bind line: the file's bind table is the observable truth about which key runs what, so
 recording a key claim it contradicts would hand that key back to the entry on import.
 
@@ -292,7 +292,7 @@ disagree about which line is which. (`key` replaced `e` as this discriminator wh
 removed the `e` field — `key` is exactly as narrow a signal, since only an anchor line ever carries
 a non-empty `key`.)
 
-Anything the ACs already list that is *not* in this table (command order, `keepEmptyAlias`) is
+Anything the ACs already list that is _not_ in this table (command order, `keepEmptyAlias`) is
 deliberately left out of the tag: it is already carried by the plain config text itself (the rendered
 body order, a rendered `""`), so a tag for it would just be a second, driftable source of the same
 fact.
@@ -306,10 +306,10 @@ slot at all — no `bind` line of its own, and no modifier layer to anchor it in
 (see "An entry with no line at all" above), so for it the unbound line is the file's only trace (a
 catalogue's own continuous row that nothing calls by name, or an entry seeded with no commands at
 all — see `STANDARD_TEMPLATE`, story 052 D1's "every catalogue row becomes an action, unbound"); an
-unbound line is what a re-import needs so the entry's identity and, load-bearingly, its *command* are
+unbound line is what a re-import needs so the entry's identity and, load-bearingly, its _command_ are
 not lost.
 
-Story 063 D1: a keyless `bind`/`message` entry that *does* have a body — and therefore an alias
+Story 063 D1: a keyless `bind`/`message` entry that _does_ have a body — and therefore an alias
 line — gets the unbound line too, alongside that alias line rather than instead of it. The alias line
 records the entry's commands; only the unbound line records that its key slot is empty. Before this
 deliverable the two were treated as alternatives (an alias line was itself taken as "this entry left
@@ -340,7 +340,7 @@ themselves — the same rule "The marker tag" above states for every other entry
 
 **How it is read back.** `claimsUnboundEntry` is the discriminator, the sibling of
 `claimsEntryAnchor` and consulted by the same two scans (`claimedByEntryScan`, so a claimed line can
-never *also* be minted as a section header out of its own display prose): the comment text starts
+never _also_ be minted as a section header out of its own display prose): the comment text starts
 `bind ` with an argument, a readable `[q2l …]` tag is present, and the tag carries none of the
 fields that make a tagged comment something else — `key` (an anchor), `cat`/`layer` (a section
 header), `v` (the header block). The line is then split back into its two halves with the config
@@ -386,7 +386,7 @@ alias line of its own (story 045 D3's "always kept" guard in `actionsWithAliasLi
 those three kinds has a key slot of its own at all, so giving one of them an unbound line too would
 record the same fact twice — "one fact, one place" holds here exactly as it does for the
 anchor/bind-line split above. A `bind`/`message` entry is different: its alias line, when it has one,
-records its *commands*, not whether its key slot is filled, so the two are independent — the entry
+records its _commands_, not whether its key slot is filled, so the two are independent — the entry
 gets the unbound line whenever it has no owned bind line and no anchor, regardless of whether it also
 has an alias line (story 063 D1; before it, having an alias line wrongly suppressed the unbound line
 for this shape, which is what let a keyless bind/message entry with a body be misread as
@@ -404,7 +404,7 @@ into entries purely from what the config text itself says:
 - **A bind line**, by its bind value. `render.ts` writes one value per entry (`bindValueFor`) on
   every one of its keys, so several `bind` lines running the same command are one entry with several
   keys — a third such line, hand-added or otherwise, is simply a third key.
-- **The two join** by sharing that one key space: a bind value that *equals* a grouped alias name
+- **The two join** by sharing that one key space: a bind value that _equals_ a grouped alias name
   lands in that alias line's group — exactly what the mirror wrote there — a lookup rather than a
   guess.
 - **An anchor line**, by `matchAnchor`: scoped to its own category section, then in two steps, the
@@ -418,10 +418,10 @@ into entries purely from what the config text itself says:
   writer meant (`profile-restore.ts#matchUnbound`/`joinableUnboundGroup`). Failing that match, the
   line falls back to its own position (`unbound:<file>:<line>`) and becomes an entry of its own — the
   pre-D2 behaviour, still what happens for a genuinely unmatched line (see "Unbound lines" above for
-  why a *wrong* match would only ever fold two rows into one).
+  why a _wrong_ match would only ever fold two rows into one).
 
   The prose match is exact and nothing wider. An earlier version had a third step that accepted a
-  *prefix* relationship in either direction, for a long display name `fitProseAndTag` might cut to
+  _prefix_ relationship in either direction, for a long display name `fitProseAndTag` might cut to
   different lengths on different line kinds. It could not tell that apart from two genuinely
   different sibling names where one nests inside the other (`Reload` and `Reload weapon`), and
   merging those two costs one of them its name, its commands and its key with no warning at all —
@@ -430,7 +430,7 @@ into entries purely from what the config text itself says:
   characters), and the persisted schema caps an entry name at 120.
 
 **Every key above is scoped to the category section the line sits in.** Two entries can legitimately
-share one *bind value* — a continuous catalogue row bound in two categories mirrors as its own bare
+share one _bind value_ — a continuous catalogue row bound in two categories mirrors as its own bare
 `+forward` in both — and keyed on the bare value those two collapsed into a single entry on read: one
 `cid` and one set of keys survived and the other entry was gone without a warning. Every line of one
 entry sits in one category scope by construction (`Aliases: X`, `Binds: X` and `Entries: X` are one
@@ -444,7 +444,7 @@ decision: the name is the user's contract with whatever binding calls it, so a c
 by Care's `aliasDuplicate` rule, never silently renamed). Two entries whose display names slug to
 the same thing — `Fire` and `fire!` both give `fire` — therefore render two `alias fire` lines.
 
-Quake II's alias name space is flat and whole-file: the engine keeps only the *last* definition of a
+Quake II's alias name space is flat and whole-file: the engine keeps only the _last_ definition of a
 name, so in the game both keys already run the last entry's commands. Every reader here folds `alias`
 lines the same way, and it does so **before** the entry reconstruction runs, so the earlier
 definition's body is gone before anything can attribute it to an entry. Section scoping does not help
@@ -489,7 +489,7 @@ standalone entry of its own rather than being dropped or guessed onto the wrong 
 accepted drift, not a bug: "if the user later renames the entry's display text inconsistently
 across its lines, the anchor and the entry drift apart into two separate rows in the UI" is the
 user's own decision from this story's refine — splitting is the safe failure direction, since a
-wrong *merge* would silently rewrite which keys one Controls-tab row owns, while a split leaves
+wrong _merge_ would silently rewrite which keys one Controls-tab row owns, while a split leaves
 every key and every config line intact and visible, just filed under two rows instead of one.
 
 A code line carrying no `[q2l` tag at all is not an entry line — tag presence is the whole
@@ -523,11 +523,11 @@ A cvar section banner carries no `Settings: ` prefix — the same bare-label rul
 banner already follows — and, like a sub-category banner, is written even when the section (or
 sub-section) is empty: an empty section still gets a line in the file, so a freshly-created one
 survives to the next reload. Unlike a category section, a cvar section's own file position is the
-*only* record of the profile's section order — `buildCvarSections` renders `profile.cvarSections` in
+_only_ record of the profile's section order — `buildCvarSections` renders `profile.cvarSections` in
 one single pass, never split across several the way alias/bind/entry sections are, so there is no
 `ord=`-style field to disambiguate two sections that never share a block.
 
-A cvar name that appears in none of the profile's sections is *unplaced*, never an error — mirroring
+A cvar name that appears in none of the profile's sections is _unplaced_, never an error — mirroring
 a dangling `categoryId`/`subcategoryId` falling into the trailing "other" bucket — and a name listed
 in two sections is claimed by whichever placement the writer reaches first. Unplaced cvars land in
 one of two reserved, never-user-owned buckets, both always written last:
@@ -552,7 +552,7 @@ layer's warnings) so a caller can surface "this file uses fields this version do
 instead of the data silently vanishing. A hand-edited `e=…`/`k=…`/`slot=…` left over from an older
 file, or typed by hand, is one example of such a key — read back, reported, and otherwise ignored.
 This is what makes the format forward-compatible: a future launcher version can add a key, and an
-older launcher parsing that file still recovers every field it *does* understand instead of failing
+older launcher parsing that file still recovers every field it _does_ understand instead of failing
 the whole tag — or worse, the whole line.
 
 ## The version rule
@@ -566,7 +566,7 @@ alone is already a free discriminator between the new banner header shape and th
 unrecognised `v` (larger than this build's `META_FORMAT_VERSION`) is not fatal. Parsing is
 tag-by-tag and key-by-key regardless of `v`: an unknown `v` just means "this file may carry keys I
 don't recognise", and any key that genuinely is unrecognised is reported the same way an unknown
-key under a *known* `v` would be. A file with no `v` at all (no `[q2l …]` tag anywhere) is not a
+key under a _known_ `v` would be. A file with no `v` at all (no `[q2l …]` tag anywhere) is not a
 042-era file at all — it falls back to the plain, pre-042 import path.
 
 ## Escaping
@@ -586,7 +586,7 @@ contain one. Escaping `%` itself is what keeps the scheme unambiguous in both di
 literal `%` in a value becomes `%25` on the way out, so a decoder never has to guess whether a `%`
 it sees on the way in was already an escape.
 
-Escaping `/` is what keeps the *tag text* free of a literal `//` substring — required because these
+Escaping `/` is what keeps the _tag text_ free of a literal `//` substring — required because these
 lines already live inside a `//` comment, and a second `//` inside a comment is used elsewhere in
 this codebase as a command separator. Since every `/` in a value is escaped, `//` cannot occur
 structurally anywhere in a rendered tag.

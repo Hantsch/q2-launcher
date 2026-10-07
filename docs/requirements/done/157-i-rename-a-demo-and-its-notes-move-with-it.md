@@ -118,9 +118,9 @@ The rename target is the second renderer-supplied value that touches the filesys
 
 1. **Shared validator** — `src/shared/replays/demo-rename.ts`: `demoExtension(fileName)` and
    `validateDemoRename(stem, currentFileName) → { ok: true, fileName } | { ok: false, reason,
-   params? }`, reasons mapping 1:1 to `replays.rename.error.<reason>` keys.
+params? }`, reasons mapping 1:1 to `replays.rename.error.<reason>` keys.
 2. **Index patch + playing registry** — `scan-service.ts` gets `applyRename(oldId, newAbsolutePath,
-   newFileName)`; `discovery.ts` exports its id derivation; new `playback-sessions.ts` registry.
+newFileName)`; `discovery.ts` exports its id derivation; new `playback-sessions.ts` registry.
 3. **Rename service + handler** — `src/main/modules/replays/demo-rename.ts` orchestrates guards →
    validation → collision → fact preservation → renames with rollback → index patch; contract
    `demoRename` in `src/shared/modules/replays.ts`; wired in `src/main/modules/replays/index.ts`.
@@ -137,12 +137,12 @@ Order: D1 → D2 → D3 → D4. See `## Decisions (Sprint)` for every rule.
       trailing `.dm2`/`.mvd2`/`.dm2.gz`/`.mvd2.gz`, matched case-insensitively, returned in the
       file's original case) and `validateDemoRename(stem: string, currentFileName: string)` →
       `{ ok: true; fileName: string } | { ok: false; reason: DemoRenameReason; params?: Record<string,
-      string | number> }`. Rules, in this order: trim; strip the demo's own extension once if the
+string | number> }`. Rules, in this order: trim; strip the demo's own extension once if the
       stem ends with it (case-insensitive); `empty`; `separator` (`/` or `\`); `dotDot` (`..`
       anywhere); `invalidChar` (any of `<>:"|?*` or U+0000–U+001F, `params: { char }`);
       `trailingDotOrSpace`; `reserved` (part before the first `.` is CON, PRN, AUX, NUL, COM1–9,
       LPT1–9, case-insensitive, `params: { name }`); `tooLong` (stem > 100 chars, `params: { max:
-      100 }`). `fileName` = stem + original extension. Export `DEMO_RENAME_MAX_STEM = 100` and the
+100 }`). `fileName` = stem + original extension. Export `DEMO_RENAME_MAX_STEM = 100` and the
       `DemoRenameReason` union. Tests in `src/shared/replays/demo-rename.test.ts`: one case per
       reason, extension kept for all four extensions incl. mixed case (`FINAL.DM2.GZ`), typed
       extension stripped once, a name with spaces and a single inner dot accepted.
@@ -151,7 +151,7 @@ Order: D1 → D2 → D3 → D4. See `## Decisions (Sprint)` for every rule.
       `demoIdForPath(absolutePath: string): string` and use it at the existing call sites (no
       behaviour change). (b) `src/main/modules/replays/scan-service.ts`: add
       `applyRename(oldId: string, newAbsolutePath: string, newFileName: string):
-      Promise<DiscoveredDemo | undefined>` to `ReplaysScanService` — computes the new id via
+Promise<DiscoveredDemo | undefined>` to `ReplaysScanService` — computes the new id via
       `demoIdForPath`, replaces the row in `snapshot` (new `id`, `fileName`, name facts re-matched
       with the current `nameMatcher()` through the same `withNameFacts` path `runScan` uses, all
       parsed facts and `fileTime` kept), moves the `fileById` entry (new `absolutePath`,
@@ -169,7 +169,7 @@ Order: D1 → D2 → D3 → D4. See `## Decisions (Sprint)` for every rule.
       schema `{ id: <existing demo-id schema>, name: z.string().max(255) }`, response
       `{ demo: DiscoveredDemo }` (mirror `sidecarWrite`'s entry). New
       `src/main/modules/replays/demo-rename.ts`: `createDemoRename({ scan, sidecars, sessions,
-      nameMatcher, fs? })` → `rename(id, name): Promise<Outcome<{ demo: DiscoveredDemo }>>`,
+nameMatcher, fs? })` → `rename(id, name): Promise<Outcome<{ demo: DiscoveredDemo }>>`,
       errors as `fail('replays.rename.error.<reason>', params)`. Steps: unknown id →
       `unknownDemo`; archive entry → `archiveEntry`; `sessions.isPlaying(id)` → `playing`;
       `scan.isScanning()` → `scanning`; demo file gone → `demoMissing`; `validateDemoRename` (D1)
@@ -198,7 +198,7 @@ Order: D1 → D2 → D3 → D4. See `## Decisions (Sprint)` for every rule.
       existing fields; a players template (`{p1}_vs_{p2}`) → sidecar gains `sides`; a broken
       sidecar + facts → `sidecarBroken`, nothing renamed; case-only rename allowed.
 - [ ] **D4 — Rename dialog, detail-panel trigger and flow.** `src/renderer/src/modules/replays/
-      client.ts`: `renameDemo(id, name)` over `REPLAYS_HANDLERS.demoRename` (mirror the existing
+client.ts`: `renameDemo(id, name)` over `REPLAYS_HANDLERS.demoRename` (mirror the existing
       `callModule` wrappers). New `src/renderer/src/modules/replays/RenameDemoDialog.tsx`
       mirroring `src/renderer/src/modules/config/RenameProfileDialog.tsx` (props `demo`,
       `onClose`, `onRenamed(demo)`; `Modal` + `Field`/`Input`, Enter submits): the stem input
@@ -283,9 +283,11 @@ Order: D1 → D2 → D3 → D4. See `## Decisions (Sprint)` for every rule.
 
 Implemented rename-with-rollback for a demo + its sidecar across 4 deliverables (shared
 validator, scan-index patch + playback registry, the rename service/handler, the renderer dialog
-+ flow), then a review-fix cycle on the hard-tier findings below.
+
+- flow), then a review-fix cycle on the hard-tier findings below.
 
 Commit message:
+
 ```
 157: I rename a demo and its notes move with it
 ```
@@ -298,6 +300,7 @@ AC → test mapping verified as listed above; AC6's e2e gap is real and accepted
 trigger exists before story [[159]]), not silently dropped.
 
 Decisions made while building (verified against the plan + ACs):
+
 - The build's own e2e run surfaced three real bugs, fixed before verification could pass: a
   flow selector scoped `demo-rename-save` under the dialog's content div when `Modal` renders
   `footer` as a sibling (fixed the flow); `DemoDetailPanel`'s title `<h2>` had an `id` but no

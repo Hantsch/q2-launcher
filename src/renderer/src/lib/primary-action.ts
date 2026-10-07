@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import type { LocalizedMessage } from '@shared/types'
 
 /**
- * Story 180 D1: the seam through which a module view contributes the action bar's primary
+ * Story 180: the seam through which a module view contributes the action bar's primary
  * button for its own tab. The view publishes; the action bar applies it only while the
  * publisher's route is the active one, and only in place of the shell's final `play` case.
  */

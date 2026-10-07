@@ -36,7 +36,7 @@ archives).
   on it and main gates on `ResolvedDemo.kind === 'archive-entry'`, so neither side guesses from a
   path string.
 - The sidecar editor stays fully visible for an entry with its inputs disabled (one `<fieldset
-  disabled>` around the form, Save/Cancel disabled) and **one** reason notice above the form, not a
+disabled>` around the form, Save/Cancel disabled) and **one** reason notice above the form, not a
   per-field message — one reason for one cause, and the effective values stay readable (AC1).
 - Reason texts (en): edit — "Demos inside an archive are read-only — extract it to annotate it.";
   rename — "Demos inside an archive can't be renamed — the archive is read-only."; row — "Read-only
@@ -73,12 +73,12 @@ channel + control). Locate their files by the testids/channels they introduced; 
 marked "(from 155/157)" are the expected ones.
 
 1. **Main (D1):** in [[157]]'s rename service add `if (resolved.kind === 'archive-entry') return
-   fail('replays.rename.error.archiveEntry')` as the first check after the unknown-id check; add the
+fail('replays.rename.error.archiveEntry')` as the first check after the unknown-id check; add the
    key to the rename failure union/type and to `en.json`. Add registered-handler tests
    (`registry.invoke`, as `index.test.ts:295`) proving `sidecar.write` and the rename channel both
    return `{ ok: false, error: { key: '…archiveEntry' } }` for an archive-entry id and touch no file.
 2. **Renderer detail (D2):** in the detail panel/editor, derive `const readOnly = demo.archiveEntry
-   !== null`; wrap the form in `<fieldset disabled={readOnly}>`, disable Save/Cancel, render the
+!== null`; wrap the form in `<fieldset disabled={readOnly}>`, disable Save/Cancel, render the
    reason notice (`replays.archive.readOnly.edit`); disable the rename control and render
    `replays.archive.readOnly.rename` beside it. Reveal/copy path untouched. Component tests + new
    e2e flow `replays-archive-readonly`.
@@ -180,6 +180,7 @@ cue.
 Commit message: `158: an archive entry says why it cannot be edited`
 
 **Decisions:**
+
 - The review's one finding (the new e2e flow never asserted "Play, if present, is enabled" per the
   story's own Plan/Decisions) was fixed directly: added a guarded check
   (`scripts/flows/replays-archive-readonly.mjs`, before the loose-demo step) that only asserts
@@ -187,6 +188,7 @@ Commit message: `158: an archive entry says why it cannot be edited`
   present so the coverage isn't forgotten.
 
 **Verification - narrow gate:**
+
 - `npm run build` - green. `npm run typecheck` - green. `npx vitest run --changed HEAD` - green,
   96 files / 730 tests.
 - `npm run ui:flow -- replays-archive-readonly` (e2e-story) - RED: times out waiting for

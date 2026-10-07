@@ -2,7 +2,7 @@ import { ARMPOS_CVAR, BACK_TO_WINDOW_CFG, SESSION_CVAR } from '@shared/replays/d
 import { fail, ok, type Outcome } from '@shared/types'
 
 /**
- * Story 164 D1: the Q2PRO console protocol - pure, no node, no electron. The launcher makes the game
+ * Story 164: the Q2PRO console protocol - pure, no node, no electron. The launcher makes the game
  * poll a control cfg (`q2l_ctl.cfg`) that echoes the demo position and runs one guarded pending command.
  */
 
@@ -73,7 +73,7 @@ export function checkLine(line: string): Outcome<void> {
 /**
  * The position + fullscreen + pause poll: the game answers `POS <pos> FS <0|1> P <cl_paused>`. The
  * pause state is read, not inferred from a still position: the pause state stays explicit so a still
- * position is never mistaken for a pause. Story 185 D1: the Windows logfile is unbuffered
+ * position is never mistaken for a pause. Story 185: the Windows logfile is unbuffered
  * (`logfile_flush 3`, _IONBF; `1` was line-buffered through the MSVC CRT, which delivered POS lines in
  * ~1.3 s bursts). Spike 183 measured control->ACK p95 254.4 ms at a 10 ms poll and 290.6 ms at the 50 ms
  * production poll; the combo-4 run (flush 3 + multiseq at wait 13) held 10.0 console lines/s against
@@ -98,7 +98,7 @@ export function buildLoopCfg(waitFrames = LOOP_WAIT_FRAMES): string[] {
   ]
 }
 
-/** Story 166 D3: the per-sequence cfg that holds command `seq`'s console line, beside the control file. */
+/** Story 166: the per-sequence cfg that holds command `seq`'s console line, beside the control file. */
 export function commandCfgName(seq: number): string {
   return `q2l_cmd_${seq}.cfg`
 }
@@ -108,14 +108,16 @@ export function commandCfgName(seq: number): string {
  * fixed text - it execs command N's own cfg - so no console line ever sits inside the guard's quoted
  * string, where Q2's tokenizer (no escaping) would let a `"` in it close the string early.
  *
- * Story 185 D2: the guard is monotone (`if $q2l_seq < N`), so several commands share one file and
+ * Story 185: the guard is monotone (`if $q2l_seq < N`), so several commands share one file and
  * run in seq order in one pass. A re-read after a later seq ran never re-runs an earlier one, and a
  * seq dropped from the file (timed out) never blocks the ones after it. Spike 183 verified this form.
  */
 export function buildControlFile(seqs: readonly number[]): string[] {
   const lines = [POLL_LINE]
   for (const seq of [...seqs].sort((a, b) => a - b)) {
-    lines.push(`if $q2l_seq < ${seq} then "exec ${commandCfgName(seq)}; set q2l_seq ${seq}; echo ACK ${seq}"`)
+    lines.push(
+      `if $q2l_seq < ${seq} then "exec ${commandCfgName(seq)}; set q2l_seq ${seq}; echo ACK ${seq}"`,
+    )
   }
   return lines
 }
@@ -146,12 +148,15 @@ export function toCfgText(lines: string[]): string {
 }
 
 /**
- * Story 172 D3: the command-cfg lines of the internal "enter fullscreen" command (they bypass
+ * Story 172: the command-cfg lines of the internal "enter fullscreen" command (they bypass
  * `checkLine`, which rejects `"`). The alias replaces the control loop by a body that only arms the
  * guard with the current position, so presses queued behind the loop find the position unchanged.
  */
 export function buildEnterFullscreenLines({ switchMode }: { switchMode: boolean }): string[] {
-  return [...(switchMode ? ['vid_fullscreen 1'] : []), `alias q2l_loop "set ${ARMPOS_CVAR} $cl_demopos"`]
+  return [
+    ...(switchMode ? ['vid_fullscreen 1'] : []),
+    `alias q2l_loop "set ${ARMPOS_CVAR} $cl_demopos"`,
+  ]
 }
 
 /**
@@ -232,7 +237,16 @@ export function windowsLaunchArgs(): LaunchArgs {
 
 export function linuxLaunchArgs(): LaunchArgs {
   return {
-    argsBeforeDemo: ['+set', 'sys_console', '1', '+set', SESSION_CVAR, '1', ...notifySessionArgs(), ...mouseSessionArgs()],
+    argsBeforeDemo: [
+      '+set',
+      'sys_console',
+      '1',
+      '+set',
+      SESSION_CVAR,
+      '1',
+      ...notifySessionArgs(),
+      ...mouseSessionArgs(),
+    ],
     argsAfterDemo: [],
   }
 }

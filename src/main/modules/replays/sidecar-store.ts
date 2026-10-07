@@ -8,7 +8,12 @@
 import { createHash } from 'node:crypto'
 import { readFile, rm as nodeRm } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
-import { isEmptySidecar, normalizeSidecarFields, serializeSidecar, type SidecarFields } from '@shared/replays/sidecar'
+import {
+  isEmptySidecar,
+  normalizeSidecarFields,
+  serializeSidecar,
+  type SidecarFields,
+} from '@shared/replays/sidecar'
 import type { SidecarIssue, SidecarSaveResult, SidecarState } from '@shared/modules/replays'
 import { fail, ok, type Outcome } from '@shared/types/common'
 import { isFile, writeFileAtomic } from '../../lib/fs-utils'
@@ -36,7 +41,11 @@ export interface CreateSidecarStoreOptions {
 
 export interface SidecarStore {
   read(id: string): Promise<Outcome<{ state: SidecarState; values: Partial<SidecarFields> }>>
-  write(id: string, fields: SidecarFields, confirmReplace?: string): Promise<Outcome<SidecarSaveResult>>
+  write(
+    id: string,
+    fields: SidecarFields,
+    confirmReplace?: string,
+  ): Promise<Outcome<SidecarSaveResult>>
 }
 
 const defaultFs: SidecarStoreFs = {
@@ -82,7 +91,9 @@ export function createSidecarStore(options: CreateSidecarStoreOptions): SidecarS
   const { resolveDemo } = options
   const fs = options.fs ?? defaultFs
 
-  async function read(id: string): Promise<Outcome<{ state: SidecarState; values: Partial<SidecarFields> }>> {
+  async function read(
+    id: string,
+  ): Promise<Outcome<{ state: SidecarState; values: Partial<SidecarFields> }>> {
     const resolved = resolveDemo(id)
     if (resolved === undefined || resolved.kind === 'archive-entry') {
       return ok({ state: { state: 'none' }, values: {} })

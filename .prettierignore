@@ -3,3 +3,15 @@ out/
 dist/
 release/
 package-lock.json
+
+# Hash-locked by .claude/ai-scrum.lock and .claude/tech-rules.lock.
+.claude/
+# Byte-identical mirror, checked by scripts/check-content-repo.mjs.
+content/
+# Fixtures are compared byte for byte.
+**/__fixtures__/
+docs/fixtures/
+resources/
+# Carry literal NUL bytes that prettier's markdown printer would strip.
+docs/requirements/done/040-profile-file-is-structured-and-readable.md
+docs/sprints/done/S02/review.md

@@ -30,7 +30,10 @@ afterEach(() => {
 describe('ControlsGrid sub-category group header', () => {
   const groups: ControlsRowGroup[] = [
     { subcategory: null, entries: [{ kind: 'action', action: action('ungrouped-1') }] },
-    { subcategory: { id: 'sub-1', name: 'Use weapon' }, entries: [{ kind: 'action', action: action('a1') }] },
+    {
+      subcategory: { id: 'sub-1', name: 'Use weapon' },
+      entries: [{ kind: 'action', action: action('a1') }],
+    },
     { subcategory: { id: 'sub-2', name: 'Cycling' }, entries: [] },
   ]
 
@@ -56,7 +59,9 @@ describe('ControlsGrid sub-category group header', () => {
         boundCount: 0,
       }),
     )
-    const upButtons = screen.getAllByRole('button', { name: 'Move sub-category up' }) as HTMLButtonElement[]
+    const upButtons = screen.getAllByRole('button', {
+      name: 'Move sub-category up',
+    }) as HTMLButtonElement[]
     const downButtons = screen.getAllByRole('button', {
       name: 'Move sub-category down',
     }) as HTMLButtonElement[]

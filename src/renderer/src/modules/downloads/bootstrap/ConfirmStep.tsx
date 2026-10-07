@@ -5,24 +5,24 @@ import { Checkbox } from '../../../components/ui/controls'
 import { KeyValue, Panel, SectionLabel } from '../../../components/ui/primitives'
 
 /**
- * Story 074 D6, step 3: names every package the bootstrap would download, the summed size and
- * the target path (AC4), plus the AC7 video/players toggle - off by default (Decisions
+ * Story 074, step 3: names every package the bootstrap would download, the summed size and
+ * the target path, plus the video/players toggle - off by default (Decisions
  * (Sprint): "most players only want multiplayer and treat the cinematics as dead weight").
  *
- * Story 088 D5 (AC5): for a `'store-copy'` summary, adds a line naming the copy source
+ * Story 088: for a `'store-copy'` summary, adds a line naming the copy source
  * (`summary.copySource`) above the packages panel - which, for that data source, already lists
  * the engine build alone (`buildBootstrapSummary`, main). The free-download rendering is
  * unchanged.
  *
- * Story 089 D5 (AC6): widens that same line to a `'existing-folder'` summary too -
+ * Story 089: widens that same line to a `'existing-folder'` summary too -
  * `summary.copySource` is populated the same way for that data source (`buildBootstrapSummary`),
  * just without a `store`, so the store-name span is skipped rather than rendering "undefined".
  *
- * Story 088 D5 (toggle availability rule): `includeExtrasDisabledReason`, when set, disables the
+ * Story 088 (toggle availability rule): `includeExtrasDisabledReason`, when set, disables the
  * video/players checkbox and shows the reason instead of the usual hint - the wizard computes this
  * from the chosen detected source's `hasVideo`/`hasPlayers`, this component only renders it.
  *
- * Story 089 D5 (Decisions: "no video/players toggle for this source"): `hideIncludeExtras`, when
+ * Story 089 (Decisions: "no video/players toggle for this source"): `hideIncludeExtras`, when
  * true, omits the checkbox row entirely rather than rendering it disabled - an existing-folder run
  * never offers the toggle at all, unlike a `'store-copy'` run where it stays visible but may be
  * disabled per source.
@@ -33,6 +33,7 @@ import { KeyValue, Panel, SectionLabel } from '../../../components/ui/primitives
  */
 export function ConfirmStep({
   summary,
+  targetPath,
   loading,
   includeVideoAndPlayers,
   onIncludeVideoAndPlayersChange,
@@ -40,6 +41,7 @@ export function ConfirmStep({
   hideIncludeExtras,
 }: {
   summary: BootstrapSummary | null
+  targetPath: string
   loading: boolean
   includeVideoAndPlayers: boolean
   onIncludeVideoAndPlayersChange: (next: boolean) => void
@@ -84,11 +86,13 @@ export function ConfirmStep({
 
       <Panel className="space-y-1.5 p-3">
         <KeyValue label={t('bootstrapWizard.confirm.totalSizeLabel')}>
-          <span data-testid="bootstrap-confirm-total-size">{formatBytes(summary.totalSizeBytes)}</span>
+          <span data-testid="bootstrap-confirm-total-size">
+            {formatBytes(summary.totalSizeBytes)}
+          </span>
         </KeyValue>
         <KeyValue label={t('bootstrapWizard.confirm.targetLabel')}>
-          <span data-testid="bootstrap-confirm-target-path" title={summary.targetPath}>
-            {summary.targetPath}
+          <span data-testid="bootstrap-confirm-target-path" title={targetPath}>
+            {targetPath}
           </span>
         </KeyValue>
       </Panel>

@@ -32,10 +32,17 @@ export interface VerifyUnlockOptions {
 
 export type UnlockVerification = { ok: true; payload: UnlockPayload } | UnlockRejected
 
-function signatureIsValid(signedBytes: Buffer, signature: Buffer, publicKey: KeyObject | string): boolean {
+function signatureIsValid(
+  signedBytes: Buffer,
+  signature: Buffer,
+  publicKey: KeyObject | string,
+): boolean {
   try {
     // `createPublicKey` rejects a KeyObject that is already public.
-    const key = typeof publicKey !== 'string' && publicKey.type === 'public' ? publicKey : createPublicKey(publicKey)
+    const key =
+      typeof publicKey !== 'string' && publicKey.type === 'public'
+        ? publicKey
+        : createPublicKey(publicKey)
     // `verify(null, ...)` picks the algorithm from the key type, so a key of any
     // other type would verify under its own rules. Only Ed25519 is accepted.
     if (key.asymmetricKeyType !== 'ed25519') return false
@@ -52,7 +59,8 @@ export function verifyUnlockCode(code: string, options: VerifyUnlockOptions): Un
   if (!parsed.ok) return { ok: false, reason: 'malformed' }
   const { payload, signedBytes, signature } = parsed
 
-  if (!signatureIsValid(signedBytes, signature, publicKey)) return { ok: false, reason: 'badSignature' }
+  if (!signatureIsValid(signedBytes, signature, publicKey))
+    return { ok: false, reason: 'badSignature' }
 
   if (launcherInstallId === null || launcherInstallId !== payload.launcherInstallId) {
     return { ok: false, reason: 'wrongInstallation' }

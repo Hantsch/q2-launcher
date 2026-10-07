@@ -1,7 +1,3 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -51,35 +47,34 @@ describe('decodeLatin1 / encodeLatin1', () => {
 
 describe('readConnectionlessReply', () => {
   it('a broken envelope is rejected with its own reason', () => {
-    expect(readConnectionlessReply(new Uint8Array(0), 'info')).toEqual({ ok: false, reason: 'too-short' })
-    expect(readConnectionlessReply(new Uint8Array([0xff]), 'info')).toEqual({ ok: false, reason: 'too-short' })
+    expect(readConnectionlessReply(new Uint8Array(0), 'info')).toEqual({
+      ok: false,
+      reason: 'too-short',
+    })
+    expect(readConnectionlessReply(new Uint8Array([0xff]), 'info')).toEqual({
+      ok: false,
+      reason: 'too-short',
+    })
 
     const wrongPrefix = new Uint8Array([0x00, 0x00, 0x00, 0x00, ...encodeLatin1('info\n')])
-    expect(readConnectionlessReply(wrongPrefix, 'info')).toEqual({ ok: false, reason: 'not-connectionless' })
+    expect(readConnectionlessReply(wrongPrefix, 'info')).toEqual({
+      ok: false,
+      reason: 'not-connectionless',
+    })
 
     const printReply = new Uint8Array([...OOB_PREFIX, ...encodeLatin1('print\nsome serverinfo\n')])
-    expect(readConnectionlessReply(printReply, 'info')).toEqual({ ok: false, reason: 'unexpected-command' })
+    expect(readConnectionlessReply(printReply, 'info')).toEqual({
+      ok: false,
+      reason: 'unexpected-command',
+    })
 
-    const infoReply = new Uint8Array([...OOB_PREFIX, ...encodeLatin1('info\n\\hostname\\my server\n')])
+    const infoReply = new Uint8Array([
+      ...OOB_PREFIX,
+      ...encodeLatin1('info\n\\hostname\\my server\n'),
+    ])
     expect(readConnectionlessReply(infoReply, 'info')).toEqual({
       ok: true,
       body: '\\hostname\\my server\n',
     })
-  })
-})
-
-describe('purity', () => {
-  it('no codec in the servers folder imports node, electron or the IPC layer', () => {
-    const here = dirname(fileURLToPath(import.meta.url))
-    const files = readdirSync(here).filter((name: string) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
-
-    expect(files.length).toBeGreaterThan(0)
-
-    for (const file of files) {
-      const source = readFileSync(join(here, file), 'utf-8')
-      expect(source, `${file} imports node:*`).not.toMatch(/from\s+['"]node:/)
-      expect(source, `${file} imports electron`).not.toMatch(/from\s+['"]electron['"]/)
-      expect(source, `${file} imports the IPC layer`).not.toMatch(/from\s+['"][^'"]*\/ipc[^'"]*['"]/)
-    }
   })
 })

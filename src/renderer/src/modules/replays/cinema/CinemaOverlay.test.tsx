@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 
 vi.hoisted(() => {
@@ -10,15 +11,17 @@ vi.hoisted(() => {
 
 const playbackTimeline = vi.fn()
 const playbackCinema = vi.fn()
-vi.mock('../client', () => ({
-  playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
-  playbackStop: vi.fn(),
-  playbackCinema: (...args: unknown[]) => playbackCinema(...args),
-  playbackDisplayRead: () => new Promise(() => {}),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
+    playbackStop: vi.fn(),
+    playbackCinema: (...args: unknown[]) => playbackCinema(...args),
+    playbackDisplayRead: () => new Promise(() => {}),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+  }),
+)
 
 let CinemaOverlay: typeof import('./CinemaOverlay').CinemaOverlay
 let usePlaybackStore: typeof import('../playback-store').usePlaybackStore
@@ -30,7 +33,7 @@ beforeAll(async () => {
 })
 
 beforeEach(() => {
-  playbackTimeline.mockResolvedValue({ ok: true, value: { ok: true, value: undefined } })
+  playbackTimeline.mockResolvedValue({ ok: true, value: undefined })
   playbackCinema.mockResolvedValue({ ok: true, value: undefined })
   act(() => {
     usePlaybackStore.getState().beginSession('a.dm2', 100_000)
@@ -59,7 +62,17 @@ describe('CinemaOverlay (story 187 D7)', () => {
     fireEvent.click(screen.getByTestId('cinema-forward60'))
     fireEvent.change(screen.getByTestId('cinema-speed'), { target: { value: '2' } })
     const seek = screen.getByTestId('cinema-seek')
-    seek.getBoundingClientRect = () => ({ left: 0, width: 200, top: 0, height: 20, right: 200, bottom: 20, x: 0, y: 0, toJSON: () => ({}) })
+    seek.getBoundingClientRect = () => ({
+      left: 0,
+      width: 200,
+      top: 0,
+      height: 20,
+      right: 200,
+      bottom: 20,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    })
     fireEvent.click(seek, { clientX: 100 })
     expect(sent()).toEqual([
       { kind: 'fullscreen' },

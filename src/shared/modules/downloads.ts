@@ -1,149 +1,57 @@
+import { z } from 'zod'
+import { absolutePathSchema, engineKindSchema } from '../schemas'
+import { engineLabel } from '../types'
 import type { EngineKind, InstallationStatus, ValidationCheck, ValidationCheckId } from '../types'
 
-/**
- * The downloads module's contract.
- *
- * Each module owns one file under `src/shared/modules/` describing the data it
- * exchanges with the UI. Main implements the handlers, the renderer gets a typed
- * client, and neither side imports the other's code - this file is the only
- * thing they share. Same pattern as `library.ts`.
- *
- * Story 070 D1 adds only the contract and its wire types: the curated manifest
- * of downloadable engine builds / game-data packages, fetched from a public
- * GitHub content repo (D2/D3), validated and parsed by
- * `src/main/modules/downloads/manifest-parse.ts` (this deliverable), and served
- * to the renderer by a `manifest.get` handler (D4, not implemented here).
- *
- * Story 071 D1 adds this module's own settings shape/defaults, its verified-download input type
- * and its fixed failure-reason key set - see each export's own doc comment below. No IPC channel
- * is added by story 071 (Decisions (Sprint): "the `downloads` manifest entry stays
- * `status: 'planned'` and the first channel arrives with the wizard, [[074]]").
- */
+/** The downloads module's contract. */
 export const DOWNLOADS_HANDLERS = {
-  manifestGet: 'manifest.get',
-  /** Story 072 D2: reads the persisted `DownloadsSettings` (D4 implements the handler). */
   getSettings: 'downloads.getSettings',
-  /** Story 072 D2: validates and persists a partial `DownloadsSettings` patch (D4). */
   patchSettings: 'downloads.patchSettings',
-  /** Story 072 D2: reads the current archive cache's `ArchiveCacheStatus` (D3/D4). */
   cacheStatus: 'downloads.cacheStatus',
-  /** Story 072 D2: deletes evictable cache entries and reports a `ClearArchiveCacheResult` (D3/D4). */
   clearCache: 'downloads.clearCache',
-  /** Story 073 D1: reads the persisted, pruned failure log (D2 implements the handler). */
   failures: 'downloads.failures',
-  /** Story 073 D1: marks one failure entry dismissed - it stays in the 7-day history (D2). */
+  /** Marks one failure entry dismissed - it stays in the 7-day history. */
   dismissFailure: 'downloads.dismissFailure',
-  /** Story 073 D1: un-dismisses a failure entry, moving it back out of the history (D2). */
   restoreFailure: 'downloads.restoreFailure',
-  /**
-   * Story 074 D1: lists the engines the bootstrap wizard can offer this sprint - only the ones
-   * both pinned by the manifest and named in `BOOTSTRAP_SUPPORTED_ENGINES` below (D1 implements
-   * the handler; D2+ build the rest of the wizard on top of it).
-   *
-   * Story 100 D7: answers a `BootstrapEngineOptionsResult` (options plus an `emptyReason`) rather
-   * than a bare array, so an empty answer can say *why*.
-   */
+  /** Lists the engines the bootstrap wizard can offer. */
   bootstrapEngineOptions: 'bootstrap.engineOptions',
-  /**
-   * Story 074 D4: the `BootstrapTargetVerdict` for one candidate target folder - a thin wrapper
-   * around `computeTargetVerdict` (`main/modules/downloads/bootstrap/target.ts`, D2). No failure
-   * mode of its own (same convention as `getSettings`): every answer is a verdict, including
-   * "blocked".
-   */
+  /** The `BootstrapTargetVerdict` for one candidate target folder. */
   bootstrapTargetVerdict: 'bootstrap.targetVerdict',
-  /**
-   * Story 074 D4 (AC4): the packages a bootstrap would download and their summed size, for the
-   * wizard's confirm step. Fails when the manifest cannot resolve all three required packages.
-   */
+  /** The folder a bootstrap installs into, proposed from a parent folder and an installation name. */
+  bootstrapProposeTarget: 'bootstrap.proposeTarget',
+  /** The packages a bootstrap would download and their summed size. */
   bootstrapSummary: 'bootstrap.summary',
-  /**
-   * Story 074 D4: starts the bootstrap job and answers its `Job.id` immediately - the job itself
-   * runs in the background and reports through `JobsService` (`jobs:changed`), never through this
-   * call's return value.
-   */
+  /** Starts the bootstrap job and answers its `Job.id` immediately. */
   bootstrapStart: 'bootstrap.start',
-  /**
-   * Story 088 D2: the detected Steam/GOG/Epic Quake II sources the wizard's game-data step can
-   * offer to copy from (AC1/AC2) - a thin wrapper around `listDetectedRetailSources`
-   * (`main/modules/downloads/bootstrap/retail-source.ts`). No failure mode of its own (same
-   * convention as `bootstrapEngineOptions`): an empty array is a legitimate "nothing detected",
-   * which the wizard is expected to handle by not offering the option at all.
-   */
+  /** The detected Steam/GOG/Epic sources; empty means "nothing detected", not a failure. */
   bootstrapRetailSources: 'bootstrap.retailSources',
-  /**
-   * Story 089 D1: the `GameDataSourceVerdict` for a hand-picked folder the wizard's game-data step
-   * offers alongside the detected retail sources ([[088]]) - a thin wrapper around a folder
-   * inspection that reads its paks and reports whether they are retail-complete. Not wired to a
-   * handler yet (D3); D1 only reserves the channel name.
-   */
+  /** The `GameDataSourceVerdict` for a hand-picked folder: are its paks retail-complete? */
   bootstrapGameDataSource: 'bootstrap.gameDataSource',
-  /**
-   * Story 090 D1: starts the retail-upgrade job for one demo installation - imports
-   * `pak0.pak`/`pak1.pak` from a verified store source into an already-registered installation,
-   * turning it into a normal, non-demo one (INST-D4), reusing [[088]]'s verify/copy routines rather
-   * than a second implementation. Deliberately no new store-source lister alongside this: the
-   * picker this channel's caller uses is [[088]]'s existing `bootstrapRetailSources` above. D1 only
-   * reserves this channel and its contract shape; D2 implements the real job
-   * (`main/modules/downloads/retail/upgrade-job.ts`) behind this handler's current stub.
-   */
+  /** Upgrades a demo installation with `pak0.pak`/`pak1.pak` from a verified store source; answers a `Job.id`. */
   retailUpgradeStart: 'retail.upgradeStart',
-  /**
-   * Story 092 D1: reports one installation's `EngineUpdateStatus` - whether its pinned engine
-   * build is current, and whether a backup exists to roll back to. D1 only reserves this channel
-   * and its contract shape; a later deliverable implements the handler (`engineUpdateStatus`'s
-   * current stub answers nothing).
-   */
   engineUpdateStatus: 'engine.updateStatus',
-  /**
-   * Story 092 D1: starts the engine-update job for one installation - downloads the currently
-   * pinned build for its engine, backs up the running one, and swaps it in. Mirrors
-   * `retailUpgradeStart`'s "reserve the channel, D2 implements the job" convention.
-   */
+  /** Downloads the pinned build, backs up the running one and swaps it in; answers a `Job.id`. */
   engineUpdateStart: 'engine.updateStart',
-  /**
-   * Story 092 D1: starts the engine-rollback job for one installation - restores the single
-   * backed-up build over the current one. Fails outright (`downloads.error.engineNoBackup`) when
-   * `EngineUpdateStatus.backup` is absent.
-   */
+  /** Restores the single backed-up build; fails with `downloads.error.engineNoBackup` when `EngineUpdateStatus.backup` is absent. */
   engineRollbackStart: 'engine.rollbackStart',
-  /**
-   * Story 092 D1: flips one installation's update channel between `'pinned'` and
-   * `'bleeding-edge'` (`EngineUpdateChannel`). D1 only reserves the channel and its contract
-   * shape; a later deliverable implements the probe/switch behind it.
-   */
+  /** Flips one installation's update channel between `'pinned'` and `'bleeding-edge'`. */
   engineSetBleedingEdge: 'engine.setBleedingEdge',
-  /**
-   * Story 093 D2: one installation's `RepairPlan` - what a "repair" dialog (D3) would offer given
-   * a fresh inspection of that installation right now. Always recomputed (AC7): the handler never
-   * reads `Installation.checks`, the stored snapshot the library card itself renders from.
-   */
+  /** Always recomputed from a fresh inspection; never reads the stored `Installation.checks`. */
   repairPlan: 'repair.plan',
-  /**
-   * Story 093 D4: starts the repair job for one installation - re-inspects it, then downloads and
-   * puts back exactly what the *fresh* verdict still justifies out of the `offers` the caller
-   * authorised. Mirrors `retailUpgradeStart`'s "answers a `Job.id`, progress arrives through
-   * `jobs:changed`" convention. Only `'reinstall-engine'` and `'install-point-release'` are carried
-   * out here; `'retail-copy'` and `'set-write-dir'` are the dialog's to route to the existing
-   * retail-upgrade flow and the installation card's own remedy.
-   */
+  /** Only `'reinstall-engine'` and `'install-point-release'` are carried out; `'retail-copy'` and `'set-write-dir'` are the dialog's to route. */
   repairStart: 'repair.start',
 } as const
 
 /**
- * One file to copy out of a package's archive, and where it lands relative to
- * an installation: `'root'` (the installation root itself) or `'baseq2'` (the
- * base game directory).
+ * One file to copy out of a package's archive, and where it lands relative to an installation:
+ * `'root'` (the installation root itself) or `'baseq2'` (the base game directory).
  */
 export interface ManifestPackageContentEntry {
   from: string
   to: 'root' | 'baseq2'
 }
 
-/**
- * Fields every package carries regardless of what it installs. `mirrors` is a
- * list of fallback URLs alongside `url` - D2/D3's business to actually use,
- * not this deliverable's.
- */
+/** Fields every package carries regardless of what it installs. */
 interface ManifestPackageBase {
   id: string
   version: string
@@ -154,23 +62,14 @@ interface ManifestPackageBase {
   contents: ManifestPackageContentEntry[]
 }
 
-/**
- * A downloadable package: either an engine build (tagged with the `EngineKind`
- * it provides) or a game-data package (a demo or a point-release patch).
- */
+/** A downloadable package: an engine build or a game-data package (demo or point release). */
 export type ManifestPackage = ManifestPackageBase &
   (
-    | { kind: 'engine'; engine: EngineKind }
+    | { kind: 'engine'; engine: EngineKind; arch?: 'x86' | 'x86_64' }
     | { kind: 'gamedata'; role: 'demo' | 'point-release' }
   )
 
-/**
- * The parsed, cache-ready view of one manifest fetch - what `manifest.get`
- * (D4) hands the renderer. `schemaVersion` is always exactly `1` here: a
- * fetch that could not produce this (wrong version, malformed envelope) never
- * reaches this shape at all (see `parseManifestFile`,
- * `src/main/modules/downloads/manifest-parse.ts`).
- */
+/** The parsed, cache-ready view of one manifest fetch. */
 export interface ManifestSnapshot {
   schemaVersion: 1
   packages: ManifestPackage[]
@@ -181,13 +80,7 @@ export interface ManifestSnapshot {
   fromCache: boolean
 }
 
-/**
- * Story 071 D1: one package the verified-download pipeline can fetch - the pipeline's own
- * minimal input type, deliberately not `ManifestPackage` above (Decisions (Sprint): "the
- * pipeline takes its own minimal `PackageSource`... so this story stays buildable and testable
- * while the manifest shape is still in flight; the adapter lands with the caller, [[074]]"). Do
- * not import this into `main/modules/downloads/manifest-service.ts` or wire it into that file.
- */
+/** One package the verified-download pipeline can fetch. */
 export interface PackageSource {
   /** Name the archive is written under, e.g. `<name>.part` while in flight. */
   fileName: string
@@ -198,41 +91,22 @@ export interface PackageSource {
   sha256: string
 }
 
-/** Lowest/highest value `DownloadsSettings.concurrentJobs` may hold (Decisions (Sprint)). */
+/** Lowest/highest value `DownloadsSettings.concurrentJobs` may hold. */
 export const MIN_CONCURRENT_DOWNLOAD_JOBS = 1
 export const MAX_CONCURRENT_DOWNLOAD_JOBS = 6
 
-/**
- * Story 072 D2: the only archive-cache budgets `DownloadsSettings.archiveCacheBudgetGB` may hold
- * (Decisions (Sprint): "Both numeric settings are `Select`s ... budget 1/2/5/10/20 GB") - a
- * closed set shared by main's validation and the renderer's `Select`, so an out-of-set value is
- * unrepresentable in the UI rather than merely rejected after the fact.
- */
+/** The only archive-cache budgets `DownloadsSettings.archiveCacheBudgetGB` may hold. */
 export const ARCHIVE_CACHE_BUDGET_CHOICES_GB = [1, 2, 5, 10, 20] as const
 
 export type ArchiveCacheBudgetGB = (typeof ARCHIVE_CACHE_BUDGET_CHOICES_GB)[number]
 
-/**
- * Story 071 D1: the `downloads` module's own settings, persisted under `state.json`'s
- * `downloads` top-level key (`main/services/state.ts`). [[072]] only contributes the UI section
- * over this same shape - "reads the limit" needs a source that exists, which is what this story
- * provides.
- *
- * Story 072 D2 adds `archiveCacheBudgetGB` and `downloadWhilePlayingAllowed` alongside the
- * existing `concurrentJobs` - all three live in this one top-level `downloads` key, never merged
- * into `LauncherSettings` (Decisions (Sprint): "an own top-level ... key in `state.json`").
- */
+/** The module's own settings, persisted under `state.json`'s own `downloads` key. */
 export interface DownloadsSettings {
-  /**
-   * How many jobs the queue admits at once; the rest stay `queued` (AC2). Range
-   * `MIN_CONCURRENT_DOWNLOAD_JOBS`-`MAX_CONCURRENT_DOWNLOAD_JOBS`, default 2 - enough parallelism
-   * to matter without hammering a mirror or the disk.
-   */
+  /** How many jobs the queue admits at once; the rest stay `queued`. */
   concurrentJobs: number
   /**
-   * How large the archive cache (`<userData>/cache/downloads/`, D3) is allowed to grow before
-   * budget enforcement evicts the oldest entries (AC5). One of
-   * `ARCHIVE_CACHE_BUDGET_CHOICES_GB`, default 5.
+   * How large the archive cache is allowed to grow before budget enforcement evicts the oldest
+   * entries.
    */
   archiveCacheBudgetGB: ArchiveCacheBudgetGB
   /** Whether a download job may start/continue while a game session is active. Default `true`. */
@@ -245,33 +119,20 @@ export const DEFAULT_DOWNLOADS_SETTINGS: DownloadsSettings = {
   downloadWhilePlayingAllowed: true,
 }
 
-/**
- * Story 072 D2: the archive cache's current size, as `cacheStatus` (D4) reports it and the
- * settings section (D5) renders it (AC3). Producer TBD by D3/D4 - this is only the wire shape.
- */
+/** The archive cache's current size. */
 export interface ArchiveCacheStatus {
   /** Total size, in bytes, of every evictable archive currently on disk. */
   totalBytes: number
-  /** Count of evictable archives currently on disk. */
   itemCount: number
 }
 
-/**
- * Story 072 D2: what a `clearCache` call (D4) actually removed, so the confirm dialog's stated
- * size/count (AC4) and the real deletion can never disagree (Decisions (Sprint)).
- */
+/** What a `clearCache` call actually removed, so the confirm dialog never disagrees with it. */
 export interface ClearArchiveCacheResult {
-  /** Bytes freed by the clear. */
   removedBytes: number
-  /** Number of archives removed by the clear. */
   removedCount: number
 }
 
-/**
- * Story 071 D1: the fixed, small set of reasons a download/extraction job can fail with
- * (Decisions (Sprint)) - main sends one of these keys, never prose, so the renderer's failure
- * log (a later deliverable, [[073]]) stays a closed, renderable set instead of an open string.
- */
+/** The fixed, small set of reasons a download/extraction job can fail with. */
 export const DOWNLOADS_ERROR_KEYS = [
   'downloads.error.allMirrorsFailed',
   'downloads.error.verificationFailed',
@@ -279,360 +140,167 @@ export const DOWNLOADS_ERROR_KEYS = [
   'downloads.error.extractionFailed',
   'downloads.error.diskWrite',
   'downloads.error.network',
-  /**
-   * Story 074 D4: one of the three packages a bootstrap needs (the pinned engine build, the demo
-   * game data, the point release) could not be resolved from the manifest - it is not listed, or
-   * the manifest itself was unavailable. Its own key rather than
-   * `downloads.error.manifestUnavailable` (which is not a member of this set and describes the
-   * *fetch* failing) because a reachable manifest that simply does not list a `role: 'demo'`
-   * package is a different problem with a different remedy.
-   */
+  /** One of the three packages a bootstrap needs is not listed (or the manifest is down). */
   'downloads.error.packageUnavailable',
-  /**
-   * Story 074 D4 (AC6): everything downloaded, verified and assembled, yet `inspectInstallation`
-   * still reports the target as `invalid`/`missing`. The job fails rather than succeeding into a
-   * registered installation nobody can play - and, like every other failure here, its cleanup
-   * leaves neither the partial files nor the library entry behind.
-   */
+  /** Everything downloaded and assembled, yet `inspectInstallation` still says not playable. */
   'downloads.error.installationNotPlayable',
-  /**
-   * Story 076 D3 (AC5): one of the bootstrap's packages was resolved, downloaded, verified and
-   * extracted without a hitch, and still contributed none of the allowlisted files the installation
-   * needs to be playable - the 2026-09-08 failure, where the demo archive's real layout put
-   * `pak0.pak` somewhere the allowlist did not look. Distinct from
-   * `downloads.error.packageUnavailable` (the manifest never offered the package at all) and from
-   * `downloads.error.installationNotPlayable` (the end-of-run verdict, which names no package).
-   * Carries `params: { packageId }` - a manifest package id, data rather than prose, so the
-   * sentence itself stays in `en.json`.
-   */
+  /** A package extracted fine yet contributed none of the allowlisted files (carries `packageId`). */
   'downloads.error.packageIncomplete',
-  /**
-   * Story 080 D3 (AC5): the pinned engine build's binaries import the x86 Visual C++ runtime
-   * (`VCRUNTIME140.dll`), which the bootstrap never bundles or installs itself - only R1Q2 needs
-   * this check this sprint, since its archive carries no runtime of its own. Fires after the core
-   * assemble pass (the files are on disk and would otherwise look playable) and before the first
-   * revalidation, so a missing runtime is an actionable failure rather than a silent "not playable".
-   */
+  /** The pinned engine build needs the x86 Visual C++ runtime, which is never bundled. */
   'downloads.error.missingRuntime',
-  /**
-   * Story 088 fix cycle (review F1): the `store-copy` counterpart to `downloads.error.packageIncomplete` -
-   * a detected retail installation verified at the D4 pre-check and, by the time the actual copy
-   * ran, contributed none of the required `baseq2` paks (e.g. the source was moved or deleted in
-   * between). Distinct key because nothing was downloaded for a `store-copy` run - the sentence
-   * describes a copy, not a download, and carries no package id to name.
-   */
+  /** The `store-copy` counterpart to `downloads.error.packageIncomplete`. */
   'downloads.error.retailCopyIncomplete',
-  /**
-   * Story 089 D1: the `'existing-folder'` counterpart to `downloads.error.retailCopyIncomplete` -
-   * a hand-picked folder's `GameDataSourceVerdict` came back `kind: 'unusable'` (no retail paks, or
-   * a demo-only set) by the time the copy actually ran. Distinct key because, like a `store-copy`
-   * run, nothing was downloaded here either - the sentence describes a folder that turned out not
-   * to hold the game, not a download.
-   */
+  /** The `'existing-folder'` counterpart to `downloads.error.retailCopyIncomplete`. */
   'downloads.error.gameDataSourceUnusable',
-  /**
-   * Story 092 D1: an engine-update run (`engineUpdateStart`) was asked for on an installation
-   * whose engine has no update available - the manifest's pinned build for that engine is not
-   * newer than `EngineUpdateStatus.current` (or the installation is on `'bleeding-edge'`, where
-   * "update" has no fixed target to compare against). Distinct from `downloads.error.
-   * packageUnavailable`: the manifest resolved fine, there is simply nothing to install.
-   */
+  /** `engineUpdateStart` on an installation with nothing newer pinned (or on `'bleeding-edge'`). */
   'downloads.error.engineUpdateUnavailable',
-  /**
-   * Story 092 D1: an engine-rollback run (`engineRollbackStart`) was asked for on an installation
-   * with no backed-up build - `EngineUpdateStatus.backup` was absent. Same "reject rather than
-   * repair" convention as the rest of this set: the handler never fabricates a backup that was
-   * never taken.
-   */
+  /** `engineRollbackStart` on an installation with no backed-up build; a backup is never fabricated. */
   'downloads.error.engineNoBackup',
-  /**
-   * Story 092 D1: an engine-update or -rollback run downloaded/located the replacement build but
-   * failed to swap it into place over the running one (e.g. a locked file, a denied write). The
-   * job's cleanup leaves the previously running build untouched - the same "never leave the
-   * installation half-changed" discipline as `downloads.error.installationNotPlayable`.
-   */
+  /** The replacement build could not be swapped in; the running build is left untouched. */
   'downloads.error.engineReplaceFailed',
-  /**
-   * Story 092 D1: `engineSetBleedingEdge({ enabled: true })` was asked for on an engine kind the
-   * bleeding-edge channel does not support this sprint.
-   */
+  /** `engineSetBleedingEdge({ enabled: true })` on an engine kind without a bleeding-edge channel. */
   'downloads.error.bleedingEdgeUnsupported',
-  /**
-   * Story 092 D1: switching to the bleeding-edge channel needs to probe the upstream build source
-   * (to resolve what "latest" currently means) and that probe failed - a network/transport
-   * failure distinct from `downloads.error.network` because it names the bleeding-edge probe
-   * specifically, not a download in progress.
-   */
+  /** Probing the upstream build source for the bleeding-edge channel failed. */
   'downloads.error.bleedingEdgeProbeFailed',
-  /**
-   * Story 092 D1: the bleeding-edge probe resolved a build, but the size it reported does not
-   * match what was actually downloaded - the same "verify, don't trust" stance as
-   * `downloads.error.verificationFailed`, kept as its own key because it is specific to the
-   * bleeding-edge probe/fetch path rather than the general archive-verification pipeline.
-   */
+  /** The probed build's reported size differs from what was downloaded (bleeding-edge path only). */
   'downloads.error.bleedingEdgeSizeMismatch',
 ] as const
 
 export type DownloadsErrorKey = (typeof DOWNLOADS_ERROR_KEYS)[number]
 
-/**
- * Story 073 D1: one persisted entry of the Downloads tab's failure log (AC2). The log is global
- * across the app (Decisions (Sprint): "the list has no installation filter"), so this carries its
- * own `labelKey`/`installationId` rather than being looked up from the job that produced it - the
- * job itself is long gone from `JobsService` by the time this is read.
- *
- * `error` mirrors `Job.error` (`@shared/types/jobs`) field-for-field - the i18n key/params the
- * failing job carried, never prose (CLAUDE.md's cross-IPC rule), so the renderer can translate a
- * failure exactly like it already translates a live job's label.
- *
- * `createdAt`/`dismissedAt` are epoch milliseconds, not ISO strings - `failure-log.ts`'s retention
- * math (the 7-day prune) is plain arithmetic against `Date.now()`, so both fields are in the same
- * unit as what it is compared with. `dismissedAt` is absent for an entry the user has not dismissed
- * yet, which `pruneFailures` never touches (Decisions (Sprint): "an undismissed entry is never
- * pruned").
- */
+/** One persisted entry of the Downloads tab's failure log. */
 export interface DownloadFailure {
   id: string
-  /** The `Job.id` that produced this entry. The job itself may since have been cleared. */
   jobId: string
   /** i18n key describing the job that failed - the same key the live job's row would show. */
   labelKey: string
   labelParams?: Record<string, string | number>
-  /** The installation the failing job acted on, when it was installation-scoped. */
   installationId?: string
   /** The job's own failure reason - one of `DOWNLOADS_ERROR_KEYS`, never prose. */
   error: { key: string; params?: Record<string, string | number> }
   createdAt: number
   /** Set once the user dismisses the entry; cleared again by a restore. */
   dismissedAt?: number
-  /**
-   * Story 075 D1: structured, machine-readable diagnostics captured in main while the job ran -
-   * ids, URLs, byte counts, verdicts, raw log lines, never prose (Requirement: "the i18n key stays
-   * the only prose main produces"). Optional by construction (Decisions (Refine): "AC1 says a
-   * failure entry *can* carry diagnostics") - only bootstrap jobs populate it this sprint (D2/D3);
-   * every other failure, and every entry persisted before this story, simply has none.
-   */
+  /** Structured, machine-readable diagnostics captured in main while the job ran. */
   diagnostics?: DownloadDiagnostics
 }
 
-/**
- * Story 075 D1 (AC1/AC2): one job's diagnostic snapshot, attached to its `DownloadFailure` when
- * one exists. Mirrors `Job` field-for-field where it overlaps (`jobId` ~ `Job.id`, `kind` ~
- * `Job.kind`, `startedAt`/`finishedAt` as ISO strings like `Job.startedAt`/`Job.finishedAt`,
- * `errorKey` ~ `Job.error.key`) rather than reusing `Job` itself - `Job` is broadcast on every
- * `jobs:changed` tick to every job surface in the app (Decisions (Refine)), so this lives only in
- * the failure log, captured once at the end.
- */
+/** One job's diagnostic snapshot, attached to its `DownloadFailure` when one exists. */
 export interface DownloadDiagnostics {
-  /** The `Job.id` that produced this snapshot - same value as the owning `DownloadFailure.jobId`. */
   jobId: string
-  /** Module-defined discriminator, mirroring `Job.kind` (e.g. `bootstrap`). */
   kind: string
-  /** ISO timestamp, mirroring `Job.startedAt`. */
   startedAt: string
-  /** ISO timestamp, mirroring `Job.finishedAt`. */
   finishedAt: string
   /** The job's own failure reason - one of `DOWNLOADS_ERROR_KEYS`, mirroring `Job.error.key`. */
   errorKey: string
-  /** Every package the job touched, in the order it processed them. */
   packages: DownloadDiagnosticsPackage[]
-  /** Present only for a job that reached the install-target stage (AC2) - a bootstrap that failed
-   * earlier (e.g. `downloads.error.packageUnavailable`) has no target yet. */
+  /** Present only for a job that reached the install-target stage. */
   target?: DownloadDiagnosticsTarget
-  /**
-   * Story 078 D1/D2/D3 (AC7): one record per allowlist entry `assembleInstallation` planned, in
-   * plan order, plus one per expanded glob dir - what it looked for, whether it was found, and
-   * which package's extraction served it. Absent for a job that failed before assembly ran.
-   */
+  /** One record per allowlist entry (and expanded glob dir) `assembleInstallation` planned. */
   assembly?: DownloadDiagnosticsAssemblyEntry[]
-  /**
-   * The job's own log lines (Decisions (Refine): "the collector *tees* it"), oldest-first, capped
-   * to a bounded ring - developer-facing content by explicit design (Requirement: "the same
-   * category as a stack trace"), never rendered in the UI, only inside a copied report.
-   */
+  /** The job's own log lines, oldest-first, capped to a bounded ring. */
   logTail: string[]
-  /** Set when `capDiagnostics` (`failure-log.ts`) had to trim this record to fit the per-entry size
-   * cap. Absent when the record was persisted whole. */
+  /** Set when `capDiagnostics` had to trim this record to fit the per-entry size cap. */
   truncated?: boolean
 }
 
-/** Story 075 D1 (AC1): one package a diagnosed job touched. */
+/** One package a diagnosed job touched. */
 export interface DownloadDiagnosticsPackage {
-  /** The `ManifestPackage.id`. */
   id: string
   /** The URL the package was actually fetched from - `url` or, when it fired, a `mirrors` entry. */
   url: string
   sizeBytes: number
-  /** Whether the package's checksum verification succeeded. */
   verified: boolean
-  /** Whether the package's archive extracted successfully. */
   extracted: boolean
-  /**
-   * Story 078 D1/D3 (AC8): a bounded, sorted, top-level listing of the package's extraction dir -
-   * names only, capped (`EXTRACTION_LISTING_CAP`, `diagnostics.ts`), never a recursive file tree.
-   * Absent when the package's extraction failed rather than simply empty.
-   */
+  /** A bounded, sorted, top-level listing of the package's extraction dir - names only, capped. */
   contents?: string[]
   /** Set when `contents` was capped - there were more top-level entries than the cap allowed. */
   contentsTruncated?: boolean
-  /**
-   * Story 078 D1/D3 (AC1): whether this package's extraction served at least one file that
-   * assembly actually copied into the install target - derived from `assembly` in main, so the
-   * renderer can show the per-package step reached without reading `assembly` itself.
-   */
+  /** Whether assembly copied at least one file from this package; derived from `assembly`. */
   contributed?: boolean
 }
 
-/**
- * Story 078 D1/D2 (AC7): one entry `assembleInstallation` planned - either one of its allowlist
- * entries (plan order) or one expanded glob dir (`video`/`players`) - and what it found for it.
- */
+/** One entry `assembleInstallation` planned - either one of its allowlist entries. */
 export interface DownloadDiagnosticsAssemblyEntry {
-  /** The relative path (or glob dir) that was found; when nothing was, every candidate path that
-   * was tried, joined by ` | ` (story 078 review finding M3 - a single candidate would otherwise
-   * hide that the allowlist tried more than one layout). Redacted like every other path here. */
+  /** The relative path (or glob dir) that was found. */
   from: string
-  /** The path within the install target it would have been copied to. */
   to: string
-  /** Whether a source provided this entry. */
   found: boolean
   /** The `ManifestPackage.id` whose extraction served this entry, when `found` is true. */
   sourcePackageId?: string
 }
 
-/** Story 075 D1 (AC2): the install target a diagnosed job reached, and why `inspectInstallation`
- * judged it the way it did. */
+/** The install target a diagnosed job reached, and why `inspectInstallation` judged it so. */
 export interface DownloadDiagnosticsTarget {
   /** Redacted (`redactHome`, `diagnostics.ts`) absolute target path - never a real account name. */
   targetPath: string
   /** `Installation.status` the target was left with when the job gave up. */
   verdict: InstallationStatus
-  /** The failing `ValidationCheck`s that made `verdict` what it is - id and i18n `messageKey`,
-   * never prose. */
-  missingChecks: { id: ValidationCheckId; messageKey: string }[]
+  /** The failing `ValidationCheck`s that made `verdict` what it is. */
+  missingChecks: {
+    id: ValidationCheckId
+    messageKey: string
+    /** Message params; string values are reduced to their basename so no full path is reported. */
+    params?: Record<string, string | number>
+  }[]
 }
 
-/**
- * Story 074 D1, extended by 080 D2: the engine kinds the bootstrap wizard is willing to offer,
- * whatever the manifest pins. Q2PRO and R1Q2 (Decisions (Sprint)) - kept as its own list, rather
- * than folding this into `isEngineSupported()` (`@shared/types/engine`), because "supported by the
- * launcher in general" and "offered by the wizard" are different questions that happen to agree
- * today; a future engine can become launcher-supported well before the wizard is taught to
- * bootstrap it.
- */
+/** The engine kinds the bootstrap wizard is willing to offer, whatever the manifest pins. */
 export const BOOTSTRAP_SUPPORTED_ENGINES: readonly EngineKind[] = ['q2pro', 'r1q2']
 
-/**
- * Story 074 D1: one engine choice the wizard's first step can offer - resolved from a manifest pin
- * that survived the `BOOTSTRAP_SUPPORTED_ENGINES` filter (`bootstrapEngineOptions`'s handler,
- * `src/main/modules/downloads/index.ts`). Deliberately its own shape, not `ManifestPackage` reused
- * as-is - the wizard step only ever needs to identify and label a choice, never the mirrors/
- * contents a `ManifestPackage` also carries.
- */
+/** One engine choice the wizard's first step can offer. */
 export interface BootstrapEngineOption {
   engine: EngineKind
-  /** The pinned `ManifestPackage.id` this option would install. */
   packageId: string
-  /** The pinned package's version, for display. */
   version: string
-  /** The pinned package's download size, for display. */
   sizeBytes: number
 }
 
 /**
- * Story 100 D7: why `bootstrapEngineOptions` came back empty, so the wizard can tell "the manifest
- * simply has nothing pinned yet" apart from "this host's platform has nothing to offer" (the
- * Linux-with-a-Windows-only-manifest case D5/D6 made possible). `null` whenever `options` is
- * non-empty - this is a reason for the *absence* of options, not a general status field.
- *
- * - `'none-for-platform'` - the manifest configures at least one pin (for some platform, for some
- *   engine), but none of `BOOTSTRAP_SUPPORTED_ENGINES`' pins resolve for the host this process is
- *   running on.
- * - `'none-pinned'` - the manifest configures no pins at all, for any engine, on any platform (or
- *   the manifest itself could not be fetched and nothing is cached).
+ * Why `bootstrapEngineOptions` came back empty; `null` whenever `options` is non-empty.
+ * `'none-for-platform'`: pins exist but none resolve for this host; `'none-pinned'`: no pins at
+ * all (or the manifest is unavailable and uncached).
  */
 export type BootstrapEngineOptionsEmptyReason = 'none-for-platform' | 'none-pinned' | null
 
-/**
- * Story 100 D7: `bootstrapEngineOptions`'s answer - the options themselves, unchanged from before
- * this deliverable, plus `emptyReason` so an empty `options` array is no longer ambiguous between
- * "nothing pinned" and "nothing pinned for this platform". `emptyReason` is always `null` when
- * `options` is non-empty.
- */
 export interface BootstrapEngineOptionsResult {
   options: BootstrapEngineOption[]
   emptyReason: BootstrapEngineOptionsEmptyReason
 }
 
 /**
- * Story 074 D2: the verdict `computeTargetVerdict` (`src/main/modules/downloads/bootstrap/target.ts`)
- * produces for a folder the wizard's target-folder step is considering - "the wizard renders
- * verdicts, it never judges paths itself" (Decisions (Sprint)). Every field is a plain fact about
- * the folder; whether a given combination is merely a warning ("continue anyway") or blocks the
- * wizard entirely is `blocked`'s job, not something the renderer re-derives from the other fields.
+ * `installHere` means the parent itself is the install folder (missing or empty), so `folderName`
+ * is empty; otherwise `targetPath` is `parent/folderName`. (story 240)
  */
-export interface BootstrapTargetVerdict {
-  /** Canonicalised, absolute path the wizard would install into. */
+export interface BootstrapTargetProposal {
   targetPath: string
-  /**
-   * True when the canonicalised target sits under `%ProgramFiles%` or `%ProgramFiles(x86)%`
-   * (case-insensitive prefix match, since Windows paths are). Writing there needs elevation, but
-   * the remedy - the existing `set-write-dir` mechanism `inspectInstallation` already uses - is a
-   * later deliverable's UI concern, not this flag's: it only reports the fact.
-   */
+  folderName: string
+  installHere: boolean
+}
+
+/** The verdict `computeTargetVerdict` produces; the wizard renders it, never judges paths. */
+export interface BootstrapTargetVerdict {
+  targetPath: string
+  /** True when the canonicalised target sits under `%ProgramFiles%` or `%ProgramFiles(x86)%`. */
   programFiles: boolean
-  /**
-   * True when a cheap writability probe against the target (or, if the target does not exist yet,
-   * its nearest existing ancestor) failed. Not blocking by itself: a `programFiles` target is
-   * *expected* to fail this and is handled by that flag's remedy flow, not by generic blocking, so
-   * a folder can be `notWritable: true` and `blocked: false` at the same time.
-   */
+  /** True when a writability probe against the target (or its nearest ancestor) failed. */
   notWritable: boolean
-  /**
-   * A directory listing of the target folder, capped at `MAX_TARGET_VERDICT_ENTRIES` entries -
-   * names only, not full metadata, since this is purely informational content for the AC3 "this
-   * folder isn't empty" warning. Empty when the target does not exist yet or holds nothing.
-   */
+  /** A directory listing of the target folder, capped at `MAX_TARGET_VERDICT_ENTRIES` entries. */
   entries: string[]
-  /**
-   * True when `inspectInstallation` already recognises the target as a working Quake II
-   * installation. Unlike a merely non-empty folder (which is only a warning), this blocks the
-   * wizard outright - the wizard's copy is "add it as an existing installation instead", not
-   * "continue anyway".
-   */
+  /** True when `inspectInstallation` already recognises a working Quake II; blocks, unlike a merely non-empty folder. */
   alreadyInstalled: boolean
-  /**
-   * True when the wizard can never proceed against this target, whatever the user says -
-   * `alreadyInstalled`, or the path itself failed a path-safety check (see `blockedReason`). Any
-   * other warning (`programFiles`, `notWritable`, a non-empty `entries`) leaves this `false`:
-   * "continue anyway" is the wizard's call, not this function's.
-   */
+  /** True when the wizard can never proceed: `alreadyInstalled` or an unsafe path; other warnings leave it `false`. */
   blocked: boolean
   /**
-   * Why `blocked` is `true`; absent whenever it is `false`.
-   *
-   * - `'alreadyInstalled'` - `alreadyInstalled` above is `true`.
-   * - `'unsafePath'` - the target is not a path this launcher will ever write to: not absolute
-   *   once canonicalised, a Windows device path (`\\.\...`) or a reserved device name (`CON`,
-   *   `NUL`, `PRN`, `COM1`-`COM9`, `LPT1`-`LPT9`), or inside the launcher's own installation
-   *   directory.
+   * Why `blocked` is `true`; absent otherwise. `'unsafePath'`: not absolute once canonicalised, a
+   * device path or reserved device name, or inside the launcher's own installation directory.
    */
   blockedReason?: 'alreadyInstalled' | 'unsafePath'
 }
 
-/**
- * Story 088 D1: the fixed, closed set of reasons `inspectRetailSource`
- * (`src/main/modules/downloads/bootstrap/retail-source.ts`) reports when a candidate source folder
- * does not verify as a known retail Quake II install (AC3: "tells the user this installation's data
- * could not be verified as retail"). Never prose, same convention as `DOWNLOADS_ERROR_KEYS` above -
- * the actual byte size behind a `*SizeMismatch` reason is not folded into the key/params here; it is
- * already sitting on the matching `RetailPakInfo.sizeBytes` in the same `RetailSourceInspection`, so
- * a later UI can render "expected X, got Y" from `RETAIL_PAK_SIZES` plus that field without this key
- * needing to carry a duplicate.
- */
+/** The closed set of reasons `inspectRetailSource` can report a source as unverified. */
 export const RETAIL_SOURCE_UNVERIFIED_REASON_KEYS = [
-  /** No `baseq2` directory at all under the candidate root - `rerelease/baseq2` never counts (the
-   * remaster is a whole second game, not this check's concern; see `NON_GAME_DIRS`). */
+  /** No `baseq2` directory at all under the candidate root - `rerelease/baseq2` never counts. */
   'bootstrap.retailSource.baseDirMissing',
   'bootstrap.retailSource.pak0Missing',
   'bootstrap.retailSource.pak1Missing',
@@ -644,27 +312,17 @@ export const RETAIL_SOURCE_UNVERIFIED_REASON_KEYS = [
 
 export type RetailSourceUnverifiedReasonKey = (typeof RETAIL_SOURCE_UNVERIFIED_REASON_KEYS)[number]
 
-/**
- * Story 088 D2: one store installation `listDetectedRetailSources`
- * (`main/modules/downloads/bootstrap/retail-source.ts`) found and already inspected - what the
- * wizard's `bootstrap.retailSources` handler answers, and exactly what the wizard's source picker
- * needs to render one row (AC2: "each is identified by its store and its path") and, via
- * `inspection`, whether it can be chosen at all (AC3). Deliberately just these three fields - no
- * extra convenience data the renderer could grow to depend on instead of reading `inspection`.
- */
+/** One store installation `listDetectedRetailSources` found. */
 export interface DetectedRetailSource {
-  /** Narrower than `InstallationSource`: only the three stores this data source ever offers
-   * (Decisions (Sprint): "offered only if it is a store source"). */
+  /** Narrower than `InstallationSource`: only the three stores this data source ever offers. */
   source: 'steam' | 'gog' | 'epic'
-  /** The candidate root as the detector found it - the same path `inspection` was computed from. */
   rootPath: string
   inspection: RetailSourceInspection
 }
 
 /**
- * Story 088 D1: one pak file's presence/size fact, as `inspectRetailSource` reports it for each of
- * `pak0.pak`/`pak1.pak`/`pak2.pak`. `matchesRetailSize` is always `false` when `exists` is `false` -
- * there is no size to compare.
+ * One pak file's presence/size fact, as `inspectRetailSource` reports it for each of
+ * `pak0.pak`/`pak1.pak`/`pak2.pak`.
  */
 export interface RetailPakInfo {
   exists: boolean
@@ -674,19 +332,8 @@ export interface RetailPakInfo {
   matchesRetailSize: boolean
 }
 
-/**
- * Story 088 D1: what `inspectRetailSource` reports about one candidate source folder's `baseq2` -
- * the retail-detection half of the bootstrap wizard's "install from a source I already own" path
- * (AC3). `rerelease/` is never probed, deliberately (the story's Decisions): a folder that only has
- * `rerelease/baseq2` and no top-level `baseq2` reports as unverified, not silently discovered.
- *
- * `verified` gates on `pak0.pak`/`pak1.pak` only - both must exist and match `RETAIL_PAK_SIZES`
- * exactly. `pak2.pak` (the mission-pack-adjacent bonus pak in a retail install) is reported the same
- * way for completeness, but its presence or size never affects `verified`.
- */
+/** What `inspectRetailSource` reports about one candidate source folder's `baseq2`. */
 export interface RetailSourceInspection {
-  /** The candidate root passed in - the folder `<rootPath>/baseq2` was resolved against, not
-   * `<rootPath>/baseq2` itself. */
   rootPath: string
   pak0: RetailPakInfo
   pak1: RetailPakInfo
@@ -695,44 +342,31 @@ export interface RetailSourceInspection {
   verified: boolean
   /** Set only when `verified` is `false`; one of `RETAIL_SOURCE_UNVERIFIED_REASON_KEYS`. */
   unverifiedReason?: RetailSourceUnverifiedReasonKey
-  /** Whether `baseq2/video` exists as a directory. */
   hasVideo: boolean
-  /** Whether `baseq2/players` exists as a directory. */
   hasPlayers: boolean
 }
 
-/**
- * Story 074 D4: the name a bootstrapped installation gets when the wizard does not carry one
- * (Decisions (Sprint)). Not an i18n key: an installation name is user data the user can rename,
- * not a translated label - the same reason `suggestName()` (`main/services/inspector.ts`) hands
- * back a bare folder name. Exported from the contract so the wizard's name field can prefill with
- * exactly what main would default to.
- */
+/** Default name when the wizard carries none; user data, not an i18n key. */
 export const DEFAULT_BOOTSTRAP_INSTALLATION_NAME = 'Q2PRO Demo'
 
 /**
- * Story 088 D4: where a bootstrap run's *game data* comes from - [[074]]'s free demo + point-release
- * download, or a copy of a retail installation the user already owns (a detected Steam/GOG/Epic
- * source, [[088]]; a hand-picked folder, [[089]]). The engine build is downloaded either way, so
- * this never selects "download or not" - only which archive, or which folder, `baseq2`'s paks come
- * out of. Same two members as `assemble.ts`'s own `dataSource` (`buildAssemblePlan`), which is what
- * this value is ultimately forwarded to.
- *
- * Story 089 D1 adds the third member, `'existing-folder'`: a hand-picked folder the user points at
- * directly, rather than a store install the launcher detected on its own. It reuses `copySourcePath`
- * verbatim (`StartBootstrapInput`/`refineCopySource`) - the field already means "path to copy
- * game data from", and a second path field would only fork that meaning in two.
+ * Which archive or folder `baseq2`'s paks come from; the engine is downloaded either way. An
+ * `'existing-folder'` source reuses `copySourcePath` rather than adding a second path field.
  */
 export type BootstrapDataSource = 'free-download' | 'store-copy' | 'existing-folder'
 
 /**
- * Story 089 D1: what inspecting a hand-picked folder for game data reports - the folder's own paks
- * and whether they add up to a playable retail set. `kind: 'demo'` and `'unusable'` are both
- * non-retail outcomes the wizard refuses to bootstrap from, but are kept distinct so a later
- * deliverable's copy can tell "this is the free demo, which you can already get without picking a
- * folder" from "this folder has nothing recognisable in it" - `reason` carries an i18n key for the
- * latter case's detail (e.g. no paks found at all vs. paks present but none retail-sized).
+ * The name a run gets when the user types none: only the free download is the demo; a copied or
+ * pointed-at folder has no demo identity, so it takes the engine's own label.
  */
+export function defaultBootstrapInstallationName(
+  engine: EngineKind,
+  dataSource: BootstrapDataSource,
+): string {
+  return dataSource === 'free-download' ? DEFAULT_BOOTSTRAP_INSTALLATION_NAME : engineLabel(engine)
+}
+
+/** What inspecting a hand-picked folder for game data reports. */
 export interface GameDataSourceVerdict {
   /** The folder that was inspected, as sent by the caller - not re-canonicalised for display. */
   rootPath: string
@@ -743,17 +377,10 @@ export interface GameDataSourceVerdict {
   paks: { name: string; sizeBytes: number; retail: boolean }[]
 }
 
-/**
- * Story 089 D2: the fixed, closed set of reasons `inspectGameDataSource`
- * (`src/main/modules/downloads/bootstrap/game-data-source.ts`) reports for `kind: 'unusable'` -
- * same convention as `RETAIL_SOURCE_UNVERIFIED_REASON_KEYS` above, never prose.
- */
+/** The closed set of reasons `inspectGameDataSource` can report a folder as unusable. */
 export const GAME_DATA_SOURCE_UNUSABLE_REASON_KEYS = [
-  /** The folder itself does not exist (or is not a directory). */
   'bootstrap.gameDataSource.rootMissing',
-  /** No `baseq2` directory under the candidate root. */
   'bootstrap.gameDataSource.baseDirMissing',
-  /** `baseq2` exists but has no `pak0.pak` at all. */
   'bootstrap.gameDataSource.pak0Missing',
   /** The path itself fails `isUnsafeAbsolutePath` (device path, non-absolute, reserved name). */
   'bootstrap.gameDataSource.unsafePath',
@@ -761,77 +388,37 @@ export const GAME_DATA_SOURCE_UNUSABLE_REASON_KEYS = [
 
 export type GameDataSourceUnusableReasonKey = (typeof GAME_DATA_SOURCE_UNUSABLE_REASON_KEYS)[number]
 
-/**
- * Story 074 D1 placeholder, finalized by D4: what `bootstrap.start` takes. `engine` is validated
- * against `BOOTSTRAP_SUPPORTED_ENGINES` by the handler's schema, so it is always one of the
- * currently bootstrap-supported engines (Q2PRO, R1Q2 - story 080 D2).
- */
 export interface StartBootstrapInput {
   engine: EngineKind
-  /** Absolute folder to install into. Re-verified in main by `computeTargetVerdict` - a renderer
-   * that skipped or ignored the target step cannot get past the handler. */
   targetPath: string
   /** Installation name; main falls back to `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` when absent. */
   name?: string
-  /** AC7's optional extras: `video/*` and `players/*` out of the point-release archive. */
+  /** Optional extras: `video/*` and `players/*` out of the point-release archive. */
   includeVideoAndPlayers: boolean
-  /**
-   * Story 074 AC2's remedy, threaded end to end: when the target step's Program-Files warning
-   * offered "pick a write dir" and the user picked one, this is that path. Persisted on the
-   * freshly-created installation via the same `Installation.writeDirPath` field
-   * `ChecksList.tsx`'s existing `set-write-dir` remedy writes - not a second write-access concept.
-   * Absent when the user never picked a remedy path (or the warning never applied).
-   */
+  /** The write dir the user picked when the Program-Files warning offered one. */
   writeDirPath?: string
-  /**
-   * Story 088 D4: which game-data source this run uses. Optional and defaulting to
-   * `'free-download'` - the only source that existed before [[088]] - so every caller written
-   * against [[074]]'s wizard keeps meaning exactly what it meant, the same choice
-   * `BuildAssemblePlanInput.dataSource` (`bootstrap/assemble.ts`, D3) makes one layer down.
-   */
+  /** Defaults to `'free-download'`. */
   dataSource?: BootstrapDataSource
   /**
-   * Story 088 D4: the root of the retail installation to copy `baseq2`'s paks from. Required when
-   * `dataSource` is `'store-copy'` and refused otherwise - `startBootstrapInputSchema`
-   * (`main/modules/downloads/schemas.ts`) enforces both, so neither combination reaches main.
-   *
-   * **Never trusted** (CLAUDE.md, and Decisions (Sprint): "the picker list is a UI convenience, not
-   * an authorisation"): before anything is registered or copied, `startBootstrap` re-lists the
-   * detected sources in main and re-inspects them, and refuses this run with
-   * `downloads.error.retailSourceUnverified` unless this path is among them *and* still verifies as
-   * retail. What is then copied from is main's own `DetectedRetailSource.rootPath`, not this string.
+   * Required for `'store-copy'`, refused otherwise. Never trusted: main re-lists and re-inspects
+   * the detected sources and refuses unless this path is among them and still verifies as retail.
    */
   copySourcePath?: string
 }
 
-/**
- * Story 090 D1: `retail.upgradeStart`'s payload - the demo installation to upgrade and which
- * detected store source ([[088]]'s `DetectedRetailSource.rootPath`) to copy `pak0.pak`/`pak1.pak`
- * from (INST-D4). Mirrors `StartBootstrapInput.copySourcePath`'s "the picker list is a UI
- * convenience, not an authorisation" discipline (CLAUDE.md): D2's handler re-lists and re-verifies
- * `sourceRootPath` against main's own fresh `listDetectedRetailSources()` before copying anything,
- * never trusting this string alone.
- */
+/** `sourceRootPath` is never trusted: main re-lists and re-verifies it against its own detected sources. */
 export interface StartRetailUpgradeInput {
   installationId: string
   sourceRootPath: string
 }
 
-/**
- * Story 090 D1: what `retail.upgradeStart` answers on success - the `Job.id` the upgrade runs as
- * (Decisions (Refine): "a `JobsService` job ... visible in the Downloads tab like every other
- * download job"). Progress and the eventual outcome arrive through `jobs:changed`, never through
- * this call's return value, same convention as `bootstrapStart`'s `{ jobId, installationId }`
- * (`installationId` is omitted here - unlike a bootstrap run, this call never registers a new
- * installation, it only acts on one that already exists).
- */
+/** Progress and outcome arrive through `jobs:changed`, never through the return value. */
 export interface StartRetailUpgradeResult {
   jobId: string
 }
 
 /** One package a bootstrap would download, as the confirm step lists it. */
 export interface BootstrapSummaryPackage {
-  /** The `ManifestPackage.id`. */
   id: string
   version: string
   sizeBytes: number
@@ -839,132 +426,67 @@ export interface BootstrapSummaryPackage {
   role: 'engine' | 'demo' | 'point-release'
 }
 
-/**
- * Story 074 D1 placeholder, finalized by D4: what the wizard's confirm step renders before
- * anything is downloaded (AC4) - the three packages and their summed size.
- *
- * D1 guessed a post-run summary (`installationId`); the shape the story actually needs is this
- * pre-run one, because AC4's "the confirm step states what will be downloaded and how large it is"
- * is the only place a summary is read. What comes out of a *finished* bootstrap is the
- * `Installation` itself plus its job - neither needs a second wire type.
- */
+/** What the wizard's confirm step renders before anything is downloaded. */
 export interface BootstrapSummary {
-  /** The target path as the wizard sent it to `bootstrapSummary` - not independently
-   * re-canonicalised here (that already happened once, in the target step's own
-   * `computeTargetVerdict` call); AC4 only needs the same path echoed back for display. */
   targetPath: string
   engine: EngineKind
-  /** Engine build, demo data, point release - in download order. For a `'store-copy'` summary
-   * (story 088 D4) the engine build alone: nothing else is downloaded. */
+  /** Engine build, demo data, point release - in download order. */
   packages: BootstrapSummaryPackage[]
-  /** Sum of every entry's `sizeBytes`; the number AC4's confirm step states. */
+  /** Sum of every entry's `sizeBytes`; the number the confirm step states. */
   totalSizeBytes: number
   includeVideoAndPlayers: boolean
-  /**
-   * Story 088 D4 (AC5): which game-data source the summarised run would use. Always present -
-   * `'free-download'` for a summary that names no other source, which is every summary written
-   * before [[088]].
-   */
   dataSource: BootstrapDataSource
-  /** Story 088 D4 (AC5): what a `'store-copy'` run would copy from. Absent for `'free-download'`. */
+  /** What a `'store-copy'` run would copy from. Absent for `'free-download'`. */
   copySource?: BootstrapSummaryCopySource
 }
 
-/**
- * Story 088 D4 (AC5): the copy source the confirm step names, next to the engine-only download and
- * the target. Produced in main from its *own* freshly listed detected sources, never echoed back
- * from the wizard - so the path shown is the path the job would read from.
- */
+/** The copy source the confirm step names; built in main from its own fresh list, never echoed from the wizard. */
 export interface BootstrapSummaryCopySource {
-  /** The retail installation root the paks would be copied out of. */
   path: string
-  /** Which store it was detected in; absent when main's fresh list no longer holds this path (in
-   * which case `bootstrap.start` will refuse the run outright - the summary only reports). */
+  /** Which store it was detected in; absent when main's fresh list no longer holds this path. */
   store?: DetectedRetailSource['source']
 }
 
-/**
- * Story 092 D1: which build feed an installation's engine tracks. `'pinned'` follows the
- * manifest's per-engine pinned build (`ManifestSnapshot.pinned`) - the same version every other
- * installation on the same engine would update to. `'bleeding-edge'` tracks the latest build from
- * the upstream source directly, ahead of whatever the manifest currently pins.
- */
+/** Which build feed an installation's engine tracks. */
 export type EngineUpdateChannel = 'pinned' | 'bleeding-edge'
 
-/**
- * Story 092 D1: the one backup slot an installation's engine keeps - enough for
- * `engineRollbackStart` to restore it and for the UI to state what it would roll back to.
- * Singular by design (Decisions): a second update before a rollback overwrites this slot, it does
- * not stack a history.
- */
+/** The one backup slot an installation's engine keeps; a second update overwrites it. */
 export interface EngineBackupInfo {
   /** The engine version the backup holds - what `engineRollbackStart` would restore. */
   version: string
-  /** The manifest package id the backup was taken from, when known. */
   packageId?: string
-  /** Epoch milliseconds the backup was taken at. */
   createdAt: number
 }
 
-/**
- * Story 092 D1: `engineUpdateStatus`'s answer for one installation - what `EngineKind` build it
- * is currently on, what the manifest would update it to, and whether an update/rollback is
- * actually available.
- *
- * An installation with no recorded engine version has `current: undefined` and still reports
- * `updateAvailable: true` (Decisions) - "no version on record" is treated as "not up to date",
- * never as "nothing to compare, so nothing to do".
- */
+/** No recorded `current` still reports `updateAvailable: true`: unknown version means not up to date. */
 export interface EngineUpdateStatus {
   installationId: string
   engine: EngineKind
-  /** The engine version this installation currently runs, when known. */
   current?: string
-  /** The version an update would install - the manifest's pinned build for `channel: 'pinned'`,
-   * or the latest bleeding-edge build for `channel: 'bleeding-edge'`. */
   target?: string
-  /** Whether `engineUpdateStart` has something to do - see this type's own doc comment for the
-   * no-recorded-version case. */
   updateAvailable: boolean
   channel: EngineUpdateChannel
   /** The installation's current backup slot, when one has been taken; absent otherwise. */
   backup?: EngineBackupInfo
 }
 
-/**
- * Story 092 D1: `engineUpdateStart`'s payload - the installation whose engine to update. Mirrors
- * `StartRetailUpgradeInput`'s single-id shape.
- */
 export interface StartEngineUpdateInput {
   installationId: string
 }
 
-/**
- * Story 092 D1: what `engineUpdateStart`/`engineRollbackStart` answer on success - the `Job.id`
- * the run is visible under in the Downloads tab. Mirrors `StartRetailUpgradeResult`'s
- * "progress/outcome arrive through `jobs:changed`, never through this call's return value"
- * convention.
- */
+/** The `Job.id` of an update or rollback run; outcome arrives through `jobs:changed`. */
 export interface StartEngineUpdateResult {
   jobId: string
 }
 
-/**
- * Story 092 D1: `engineSetBleedingEdge`'s payload - the installation to flip and the channel to
- * flip it to.
- */
 export interface SetBleedingEdgeInput {
   installationId: string
   enabled: boolean
 }
 
 /**
- * Story 093 D2: one concrete fix `repair.plan` can offer for a finding `inspectInstallation`
- * raised. Deliberately narrower than `ValidationFix` (`@shared/types`) - `'locate-root'`,
- * `'select-executable'` and `'revalidate'` stay out of the repair dialog's scope: the first two are
- * already one click away on the installation card itself, and `'select-executable'` in particular
- * must never auto-pick a binary for the user (see `buildRepairPlan`'s handling of
- * `validation.engineUnknown`, `main/modules/downloads/repair/plan.ts`).
+ * One fix `repair.plan` can offer. Narrower than `ValidationFix`: `'select-executable'` must
+ * never auto-pick a binary for the user.
  */
 export const REPAIR_OFFER_KINDS = [
   'reinstall-engine',
@@ -973,56 +495,421 @@ export const REPAIR_OFFER_KINDS = [
   'set-write-dir',
 ] as const
 
-/**
- * Story 093 D4 widened this from a hand-written union to one derived from `REPAIR_OFFER_KINDS`
- * above - the same "one closed list, the type comes off it" convention `DOWNLOADS_ERROR_KEYS` and
- * `RETAIL_SOURCE_UNVERIFIED_REASON_KEYS` already follow, so `repair.start`'s payload schema
- * (`main/modules/downloads/schemas.ts`) validates against the contract's own list rather than a
- * second copy of it. The type itself is unchanged.
- */
+/** Derived from `REPAIR_OFFER_KINDS` so `repair.start`'s payload schema shares the one list. */
 export type RepairOfferKind = (typeof REPAIR_OFFER_KINDS)[number]
 
-/**
- * One row a `RepairPlan` carries: which fix, and the finding it addresses - the same `messageKey`
- * (and, when present, `params`) the originating `ValidationCheck` carries, so the repair dialog (D3)
- * renders the exact sentence already used everywhere else a finding is shown, rather than a second
- * copy of it.
- */
+/** One row a `RepairPlan` carries: which fix, and the finding it addresses. */
 export interface RepairOffer {
   kind: RepairOfferKind
   messageKey: string
   params?: Record<string, string | number>
 }
 
-/**
- * Story 093 D2: `repair.plan`'s answer for one installation - a fresh set of `findings`
- * (`ValidationCheck[]`, straight off `inspectInstallation`, never a stored snapshot - AC7) and
- * whatever `offers` `buildRepairPlan` derived from them. An empty `offers` array alongside a
- * non-empty `findings` array is a legitimate answer (AC6: "nothing here is repairable by this
- * dialog" still shows what is wrong), not a failure.
- */
+/** `repair.plan`'s answer: fresh findings, never a stored snapshot; empty `offers` with findings is legitimate. */
 export interface RepairPlan {
   installationId: string
   offers: RepairOffer[]
   findings: ValidationCheck[]
 }
 
-/**
- * Story 093 D2: the payload a later deliverable's `repair.startXxx` job handler(s) take - the
- * installation to repair and which offer kind(s) from its current `RepairPlan` to act on. Mirrors
- * `StartRetailUpgradeInput`'s single-installation shape; `offers` is a list (not a single kind)
- * because a plan can carry more than one applicable offer at once.
- */
+/** The payload `repair.start` takes. */
 export interface StartRepairInput {
   installationId: string
   offers: RepairOfferKind[]
 }
 
-/**
- * Story 093 D4: what `repair.start` answers on success - the `Job.id` the repair is visible under in
- * the Downloads tab. Mirrors `StartRetailUpgradeResult`/`StartEngineUpdateResult`: progress and the
- * eventual outcome arrive through `jobs:changed`, never through this call's return value.
- */
+/** The `Job.id` of the repair run; outcome arrives through `jobs:changed`. */
 export interface StartRepairResult {
   jobId: string
+}
+
+// IPC payload validation for the downloads module's handlers (strict: a bad payload is a caller bug).
+
+/**
+ * `getSettings`/`cacheStatus`/`clearCache` take no meaningful input - same `z.void()`
+ * convention as `listInputSchema`/`writeStateInputSchema` in `shared/modules/config-schemas.ts`. (story 072)
+ */
+export const downloadsNoInputSchema = z.void()
+
+/**
+ * `dismissFailure`/`restoreFailure`'s payload - one failure-log entry id and nothing
+ * else. Shape-identical, so the two alias one schema rather than duplicate it (same convention as
+ * `unassignProfileInputSchema`/`setDefaultProfileInputSchema` in `shared/modules/config-schemas.ts`),
+ * and shape-only on purpose: whether the id names an entry the log actually holds depends on
+ * persisted data this schema never sees, and a missing id is already a documented no-op in
+ * `failure-log.ts`, not an invalid payload. (story 073)
+ *
+ * `.strict()` for the same reason `patchDownloadsSettingsInputSchema` below is strict - a payload
+ * carrying anything beyond the id is a caller bug, and this file's convention is to reject a caller
+ * bug rather than quietly ignore part of it.
+ */
+export const dismissFailureInputSchema = z.object({ id: z.string().min(1) }).strict()
+
+export const restoreFailureInputSchema = dismissFailureInputSchema
+
+/**
+ * `patchSettings`'s payload - a partial `DownloadsSettings`. Each present field is
+ * validated against the exact same bounds `main/modules/downloads/persisted.ts`'s `downloadsSettingsSchema` uses to
+ * parse the persisted value (`MIN_CONCURRENT_DOWNLOAD_JOBS`-`MAX_CONCURRENT_DOWNLOAD_JOBS`,
+ * `ARCHIVE_CACHE_BUDGET_CHOICES_GB`) - reusing those same constants, not a hand-copied range, is
+ * what keeps the two from ever drifting apart. (story 072)
+ *
+ * Unlike that persisted schema, this one is strict rather than forgiving: this file's convention
+ * is "a bad payload is a caller bug, not a state to repair", so an out-of-range value here is rejected outright by `MainModuleRegistry.invoke()`
+ * (`fail('ipc.error.invalidPayload')`) before any handler runs, rather than silently degraded to a
+ * default the way a hand-edited `state.json` would be.
+ */
+/**
+ * `bootstrapEngineOptions` takes no input - same `z.void()` convention as
+ * `downloadsNoInputSchema` above; kept as its own named export so this handler's schema reads
+ * self-documenting at the call site rather than reusing an unrelated-sounding name. (story 074)
+ */
+export const bootstrapEngineOptionsInputSchema = downloadsNoInputSchema
+
+/**
+ * `bootstrap.retailSources` takes no input - same `z.void()` convention as
+ * `bootstrapEngineOptionsInputSchema` above. (story 088)
+ */
+export const bootstrapRetailSourcesInputSchema = downloadsNoInputSchema
+
+/**
+ * The eventual `bootstrap.targetVerdict` handler's payload - one absolute path, the
+ * folder the wizard's target-folder step is considering. `.strict()` for the same "a bad payload is
+ * a caller bug" reason as `dismissFailureInputSchema` above; `absolutePathSchema` (`@shared/schemas`)
+ * already rejects a non-absolute path (empty, relative, drive-relative) and a NUL byte before this ever reaches `computeTargetVerdict`
+ * (`bootstrap/target.ts`), which then does its own, deeper path-safety validation (device paths,
+ * reserved names, containment) as part of the verdict itself rather than at the schema layer. (story 074)
+ */
+export const bootstrapTargetVerdictInputSchema = z
+  .object({ targetPath: absolutePathSchema })
+  .strict()
+
+/** `bootstrap.proposeTarget` payload; `userTyped` freezes the folder name against auto-numbering. (story 240) */
+export const bootstrapProposeTargetInputSchema = z
+  .object({
+    parentPath: absolutePathSchema,
+    folderName: z.string().max(255),
+    userTyped: z.boolean(),
+  })
+  .strict()
+
+/**
+ * The eventual `bootstrap.gameDataSource` handler's payload (a later stage wires the handler) -
+ * one absolute path, the folder the wizard's game-data step is asking about. Same
+ * `bootstrapTargetVerdictInputSchema` convention: `.strict()` because a bad payload is a caller bug,
+ * `absolutePathSchema` rejects a non-absolute path/NUL byte before anything looks at the filesystem, and
+ * the deeper "does this folder actually hold retail data" judgement is left to the verdict itself. (story 089)
+ */
+export const bootstrapGameDataSourceInputSchema = z
+  .object({ rootPath: absolutePathSchema })
+  .strict()
+
+/**
+ * The engine a bootstrap may be asked for. Narrower than `engineKindSchema` on
+ * purpose - `BOOTSTRAP_SUPPORTED_ENGINES` is the wizard's own list ("offered by this sprint's
+ * wizard", not "supported by the launcher in general", see its doc comment), and rejecting an
+ * unsupported engine at the schema is better than resolving no package for it three steps later. (story 074)
+ */
+const bootstrapEngineSchema = engineKindSchema.refine(
+  (value) => BOOTSTRAP_SUPPORTED_ENGINES.includes(value),
+  'the bootstrap wizard does not support this engine',
+)
+
+/**
+ * Which game-data source a bootstrap run uses (`BootstrapDataSource`,
+ * `@shared/modules/downloads`). Optional at both call sites below, defaulted in main rather than
+ * here, so a payload written against the first wizard keeps meaning `'free-download'` - the schema
+ * only decides which values are *representable*. (story 088)
+ */
+const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy', 'existing-folder'])
+
+/**
+ * `copySourcePath` is meaningful for exactly one `dataSource`, so both halves of that
+ * are enforced here rather than left to the handler - a `'store-copy'` payload without a source
+ * path, and any other payload carrying one, are equally caller bugs and this file's convention is to
+ * reject a caller bug outright. Shared by the two
+ * schemas below so "when is a copy source required" cannot come to differ between the confirm step's
+ * summary and the run it summarises. (story 088)
+ *
+ * It validates only the *combination*: whether the path names a source main actually detected, and
+ * whether that source still verifies as retail, is re-decided in main against its own fresh list
+ * (`startBootstrap`, `downloads.error.retailSourceUnverified`) - a schema can know neither.
+ *
+ * `'existing-folder'` needs exactly the same `copySourcePath` a `'store-copy'` run
+ * does - a hand-picked folder is copied from the same way a detected retail install is - so it
+ * joins `storeCopy` below rather than getting a second required-path branch. (story 089)
+ */
+function refineCopySource(
+  value: {
+    dataSource?: 'free-download' | 'store-copy' | 'existing-folder'
+    copySourcePath?: string
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const storeCopy = value.dataSource === 'store-copy' || value.dataSource === 'existing-folder'
+  if (storeCopy && value.copySourcePath === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "a 'store-copy' or 'existing-folder' run must name the source it copies from",
+      path: ['copySourcePath'],
+    })
+  }
+  if (!storeCopy && value.copySourcePath !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "'copySourcePath' is only meaningful for a 'store-copy' or 'existing-folder' run",
+      path: ['copySourcePath'],
+    })
+  }
+}
+
+/**
+ * `bootstrap.summary`'s payload - the same facts `bootstrap.start` takes minus the
+ * name, since a summary states what would be downloaded and how large it is, which no name can
+ * change. `.strict()` for the same "a bad payload is a caller bug" reason as
+ * `dismissFailureInputSchema` above. (story 074)
+ *
+ * Plus the data source and, for a `'store-copy'` one, the path it would copy
+ * from - so the confirm step's summary is computed from exactly the payload the run will be started
+ * with, not from a subset of it. (story 088)
+ */
+export const bootstrapSummaryInputSchema = z
+  .object({
+    engine: bootstrapEngineSchema,
+    targetPath: absolutePathSchema,
+    includeVideoAndPlayers: z.boolean(),
+    dataSource: bootstrapDataSourceSchema.optional(),
+    copySourcePath: absolutePathSchema.optional(),
+  })
+  .strict()
+  .superRefine(refineCopySource)
+
+/**
+ * `bootstrap.start`'s payload. `targetPath` passes `absolutePathSchema` here and is
+ * then re-judged in main by `computeTargetVerdict` (`bootstrap/target.ts`), which is where the real
+ * path-safety decision lives - a schema cannot know whether a folder already holds a game. (story 074)
+ *
+ * `name` is optional and only shape-checked: an installation name is user data, and main falls back
+ * to `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` (or, for a `'store-copy'` run, the engine's label) for an absent or blank one rather than rejecting it.
+ *
+ * `copySourcePath` passes `absolutePathSchema` here and is then re-resolved in main
+ * against its own freshly listed detected sources - the same "the schema checks the shape, main
+ * makes the decision" split `targetPath` already has, and the reason a path that merely *looks*
+ * fine still cannot get a run past `startBootstrap`. (story 088)
+ */
+export const startBootstrapInputSchema = z
+  .object({
+    engine: bootstrapEngineSchema,
+    targetPath: absolutePathSchema,
+    name: z.string().min(1).max(120).optional(),
+    includeVideoAndPlayers: z.boolean(),
+    // The remedy: the write-dir path the user picked from the target step's
+    // Program-Files warning, if any - same `absolutePathSchema` convention as `targetPath` above.
+    writeDirPath: absolutePathSchema.optional(),
+    dataSource: bootstrapDataSourceSchema.optional(),
+    copySourcePath: absolutePathSchema.optional(),
+  })
+  .strict()
+  .superRefine(refineCopySource)
+
+/**
+ * `retail.upgradeStart`'s payload - the demo installation to upgrade and which
+ * detected store source (`DetectedRetailSource.rootPath`) to copy `pak0.pak`/`pak1.pak`
+ * from. `.strict()` for the same "a bad payload is a caller bug" reason as
+ * `dismissFailureInputSchema` above. Like `copySourcePath` elsewhere in this file, `sourceRootPath`
+ * is never trusted as-is: the handler re-lists and re-verifies it against main's own fresh
+ * `listDetectedRetailSources()` before copying anything (CLAUDE.md's "paths from the renderer are
+ * never trusted"). (story 090)
+ */
+export const startRetailUpgradeInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    sourceRootPath: absolutePathSchema,
+  })
+  .strict()
+
+/**
+ * `engineUpdateStatus`/`engineUpdateStart`/`engineRollbackStart`'s shared shape - one
+ * installation id and nothing else. `.strict()` for the same "a bad payload is a caller bug"
+ * reason as `dismissFailureInputSchema` above. (story 092)
+ */
+export const engineInstallationInputSchema = z
+  .object({ installationId: z.string().min(1) })
+  .strict()
+
+export const engineUpdateStatusInputSchema = engineInstallationInputSchema
+
+export const startEngineUpdateInputSchema = engineInstallationInputSchema
+
+/**
+ * `repair.plan`'s payload - one installation id, nothing else. Same single-field
+ * shape as `engineInstallationInputSchema` above, kept as its own export since this module's
+ * checklist is unrelated to the engine-update surface. (story 093)
+ */
+export const repairPlanInputSchema = z.object({ installationId: z.string().min(1) }).strict()
+
+/**
+ * `repair.start`'s payload - the installation and the offer kinds the user
+ * authorised. The enum is `REPAIR_OFFER_KINDS` (`@shared/modules/downloads`) itself, never a
+ * hand-copied list, so a kind added to the contract cannot silently fail validation here. (story 093)
+ *
+ * `.min(1)`: a repair of nothing is a caller bug, and this file's convention is to reject a bad
+ * payload rather than let a handler discover it. Which of the accepted kinds the *job* actually
+ * performs is a different question, answered in `repair/job.ts` (`REPAIRS_BY_JOB`) - the schema
+ * validates the contract's shape, not one job's scope.
+ */
+export const startRepairInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    offers: z.array(z.enum(REPAIR_OFFER_KINDS)).min(1),
+  })
+  .strict()
+
+export const startEngineRollbackInputSchema = engineInstallationInputSchema
+
+/**
+ * `engineSetBleedingEdge`'s payload - the installation to flip and the channel to
+ * flip it to. `.strict()` for the same reason as the schemas above. (story 092)
+ */
+export const setBleedingEdgeInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    enabled: z.boolean(),
+  })
+  .strict()
+
+export const patchDownloadsSettingsInputSchema = z
+  .object({
+    concurrentJobs: z
+      .number()
+      .int()
+      .min(MIN_CONCURRENT_DOWNLOAD_JOBS)
+      .max(MAX_CONCURRENT_DOWNLOAD_JOBS)
+      .optional(),
+    archiveCacheBudgetGB: z
+      .number()
+      .refine((value): value is ArchiveCacheBudgetGB =>
+        ARCHIVE_CACHE_BUDGET_CHOICES_GB.includes(value as ArchiveCacheBudgetGB),
+      )
+      .optional(),
+    downloadWhilePlayingAllowed: z.boolean().optional(),
+  })
+  .strict()
+
+/** Every `downloads` handler paired with its payload schema. */
+export const DOWNLOADS_HANDLER_SCHEMAS = {
+  [DOWNLOADS_HANDLERS.getSettings]: downloadsNoInputSchema,
+  [DOWNLOADS_HANDLERS.patchSettings]: patchDownloadsSettingsInputSchema,
+  [DOWNLOADS_HANDLERS.cacheStatus]: downloadsNoInputSchema,
+  [DOWNLOADS_HANDLERS.clearCache]: downloadsNoInputSchema,
+  [DOWNLOADS_HANDLERS.failures]: downloadsNoInputSchema,
+  [DOWNLOADS_HANDLERS.dismissFailure]: dismissFailureInputSchema,
+  [DOWNLOADS_HANDLERS.restoreFailure]: restoreFailureInputSchema,
+  [DOWNLOADS_HANDLERS.bootstrapEngineOptions]: bootstrapEngineOptionsInputSchema,
+  [DOWNLOADS_HANDLERS.bootstrapTargetVerdict]: bootstrapTargetVerdictInputSchema,
+  [DOWNLOADS_HANDLERS.bootstrapProposeTarget]: bootstrapProposeTargetInputSchema,
+  [DOWNLOADS_HANDLERS.bootstrapSummary]: bootstrapSummaryInputSchema,
+  [DOWNLOADS_HANDLERS.bootstrapStart]: startBootstrapInputSchema,
+  [DOWNLOADS_HANDLERS.bootstrapRetailSources]: bootstrapRetailSourcesInputSchema,
+  [DOWNLOADS_HANDLERS.bootstrapGameDataSource]: bootstrapGameDataSourceInputSchema,
+  [DOWNLOADS_HANDLERS.retailUpgradeStart]: startRetailUpgradeInputSchema,
+  [DOWNLOADS_HANDLERS.engineUpdateStatus]: engineUpdateStatusInputSchema,
+  [DOWNLOADS_HANDLERS.engineUpdateStart]: startEngineUpdateInputSchema,
+  [DOWNLOADS_HANDLERS.engineRollbackStart]: startEngineRollbackInputSchema,
+  [DOWNLOADS_HANDLERS.engineSetBleedingEdge]: setBleedingEdgeInputSchema,
+  [DOWNLOADS_HANDLERS.repairPlan]: repairPlanInputSchema,
+  [DOWNLOADS_HANDLERS.repairStart]: startRepairInputSchema,
+} satisfies Record<(typeof DOWNLOADS_HANDLERS)[keyof typeof DOWNLOADS_HANDLERS], z.ZodTypeAny>
+
+type DownloadsSchemas = typeof DOWNLOADS_HANDLER_SCHEMAS
+
+/** The downloads module's typed contract; `req` is each schema's parsed output. */
+export type DownloadsContract = {
+  handlers: {
+    [DOWNLOADS_HANDLERS.getSettings]: {
+      req: z.infer<DownloadsSchemas['downloads.getSettings']>
+      res: DownloadsSettings
+    }
+    [DOWNLOADS_HANDLERS.patchSettings]: {
+      req: z.infer<DownloadsSchemas['downloads.patchSettings']>
+      res: DownloadsSettings
+    }
+    [DOWNLOADS_HANDLERS.cacheStatus]: {
+      req: z.infer<DownloadsSchemas['downloads.cacheStatus']>
+      res: ArchiveCacheStatus
+    }
+    [DOWNLOADS_HANDLERS.clearCache]: {
+      req: z.infer<DownloadsSchemas['downloads.clearCache']>
+      res: ClearArchiveCacheResult
+    }
+    [DOWNLOADS_HANDLERS.failures]: {
+      req: z.infer<DownloadsSchemas['downloads.failures']>
+      res: DownloadFailure[]
+    }
+    [DOWNLOADS_HANDLERS.dismissFailure]: {
+      req: z.infer<DownloadsSchemas['downloads.dismissFailure']>
+      res: DownloadFailure[]
+    }
+    [DOWNLOADS_HANDLERS.restoreFailure]: {
+      req: z.infer<DownloadsSchemas['downloads.restoreFailure']>
+      res: DownloadFailure[]
+    }
+    [DOWNLOADS_HANDLERS.bootstrapEngineOptions]: {
+      req: z.infer<DownloadsSchemas['bootstrap.engineOptions']>
+      res: BootstrapEngineOptionsResult
+    }
+    [DOWNLOADS_HANDLERS.bootstrapTargetVerdict]: {
+      req: z.infer<DownloadsSchemas['bootstrap.targetVerdict']>
+      res: BootstrapTargetVerdict
+    }
+    [DOWNLOADS_HANDLERS.bootstrapProposeTarget]: {
+      req: z.infer<DownloadsSchemas['bootstrap.proposeTarget']>
+      res: BootstrapTargetProposal
+    }
+    [DOWNLOADS_HANDLERS.bootstrapSummary]: {
+      req: z.infer<DownloadsSchemas['bootstrap.summary']>
+      res: BootstrapSummary
+    }
+    [DOWNLOADS_HANDLERS.bootstrapStart]: {
+      req: z.infer<DownloadsSchemas['bootstrap.start']>
+      res: { jobId: string; installationId: string }
+    }
+    [DOWNLOADS_HANDLERS.bootstrapRetailSources]: {
+      req: z.infer<DownloadsSchemas['bootstrap.retailSources']>
+      res: DetectedRetailSource[]
+    }
+    [DOWNLOADS_HANDLERS.bootstrapGameDataSource]: {
+      req: z.infer<DownloadsSchemas['bootstrap.gameDataSource']>
+      res: GameDataSourceVerdict
+    }
+    [DOWNLOADS_HANDLERS.retailUpgradeStart]: {
+      req: z.infer<DownloadsSchemas['retail.upgradeStart']>
+      res: StartRetailUpgradeResult
+    }
+    [DOWNLOADS_HANDLERS.engineUpdateStatus]: {
+      req: z.infer<DownloadsSchemas['engine.updateStatus']>
+      res: EngineUpdateStatus | undefined
+    }
+    [DOWNLOADS_HANDLERS.engineUpdateStart]: {
+      req: z.infer<DownloadsSchemas['engine.updateStart']>
+      res: StartEngineUpdateResult
+    }
+    [DOWNLOADS_HANDLERS.engineRollbackStart]: {
+      req: z.infer<DownloadsSchemas['engine.rollbackStart']>
+      res: StartEngineUpdateResult
+    }
+    [DOWNLOADS_HANDLERS.engineSetBleedingEdge]: {
+      req: z.infer<DownloadsSchemas['engine.setBleedingEdge']>
+      res: void
+    }
+    [DOWNLOADS_HANDLERS.repairPlan]: {
+      req: z.infer<DownloadsSchemas['repair.plan']>
+      res: RepairPlan | undefined
+    }
+    [DOWNLOADS_HANDLERS.repairStart]: {
+      req: z.infer<DownloadsSchemas['repair.start']>
+      res: StartRepairResult
+    }
+  }
+  events: {}
 }

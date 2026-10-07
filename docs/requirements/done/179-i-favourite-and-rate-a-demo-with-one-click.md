@@ -19,7 +19,7 @@ mode of [[178]].
 
 The roadmap carries a known race: `demo-editor-store.ts`'s `quickEdit` is a fire-and-forget
 read-merge-write, so a favourite toggle and a rating pick fired back-to-back on the same demo can
-drop one of them ([S27 review](../sprints/done/S27/review.md)). With both controls side by side in
+drop one of them ([S27 review](../../sprints/done/S27/review.md)). With both controls side by side in
 the header this becomes easy to hit, so this story closes it.
 
 ## Acceptance Criteria
@@ -40,8 +40,8 @@ the header this becomes easy to hit, so this story closes it.
       as visible text ([[158]]).
 - [x] **AC8** — The favourite and rating inputs no longer appear in [[178]]'s edit mode.
 - [x] **AC9** — The "Minimum rating" filter's options are labelled in stars ("At least 1 star",
-      "At least 7 stars", …) instead of bare numbers. *(Added in refine from the (User) decision
-      below.)*
+      "At least 7 stars", …) instead of bare numbers. _(Added in refine from the (User) decision
+      below.)_
 
 ## Open Questions
 
@@ -184,7 +184,7 @@ CHANGELOG entry under `### Changed` with D3.
 - **D3 — star rating in the detail panel.**
   - New `src/renderer/src/modules/replays/components/StarRating.tsx` (+ `StarRating.test.tsx`):
     props `{ value: number | null; onChange(value: number | null): void; disabled?: boolean;
-    describedBy?: string; label: string }`. Renders a `role="radiogroup"` (`aria-label={label}`,
+describedBy?: string; label: string }`. Renders a `role="radiogroup"` (`aria-label={label}`,
     `data-testid="replays-detail-rating"`) of ten `<button role="radio">` stars (values 1–10,
     `data-testid="replays-detail-rating-star-<n>"`, `aria-checked={n === value}`, accessible name
     `t('replays.detail.rating.star', { count: n })` → "1 star"/"7 stars" via `_one`/`_other`).
@@ -318,6 +318,7 @@ AC8 flow `replays-edit-sidecar` + unit (in `DemoDetailPanel.test.tsx`, not DemoN
 replaced that file with `DemoDetailEditor`); AC9 `DemoListFilterBar.test.tsx`. No manual residue.
 
 Decisions:
+
 - D1 added `confirmQuickEdit` (ReplaysView confirm path): the old confirm called `quickEdit` while `replace`
   was set, which the new merge-into-pending rule would have swallowed. `save` also folds `pendingQuickEdit`
   into its write so a click made behind the editor's replace dialog is not lost.

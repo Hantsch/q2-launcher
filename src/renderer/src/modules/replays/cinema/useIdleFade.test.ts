@@ -8,7 +8,9 @@ afterEach(() => vi.useRealTimers())
 
 describe('useIdleFade (story 187 D7)', () => {
   it('controls hide after 3 s idle and stay while hovered or paused', () => {
-    const { result, rerender } = renderHook(({ hold }) => useIdleFade(3000, hold), { initialProps: { hold: false } })
+    const { result, rerender } = renderHook(({ hold }) => useIdleFade(3000, hold), {
+      initialProps: { hold: false },
+    })
     expect(result.current.visible).toBe(true)
     act(() => void vi.advanceTimersByTime(2900))
     expect(result.current.visible).toBe(true)

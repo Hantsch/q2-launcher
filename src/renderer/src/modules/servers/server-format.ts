@@ -2,7 +2,7 @@ import type { ServerListRow } from '@shared/modules/servers'
 import { knownPlayerCount } from '@shared/servers/row-markers'
 
 /**
- * Story 122 D3: the row's value formatters, moved out of `ServerRow.tsx` so `ServerDetailHeader.tsx`
+ * Story 122: the row's value formatters, moved out of `ServerRow.tsx` so `ServerDetailHeader.tsx`
  * can reuse the exact same rules rather than re-deriving them - one bad field must render `—`
  * without breaking the rest, so every value on both surfaces is routed through these.
  */

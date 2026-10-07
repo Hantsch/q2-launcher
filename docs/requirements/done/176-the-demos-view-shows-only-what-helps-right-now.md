@@ -171,6 +171,7 @@ AC1-AC4 -> the tests named in `## Acceptance Tests` ran and passed (unit Console
 the four flows). No manual residue. Review (default tier, 1 cycle): PASS.
 
 Decisions:
+
 - Unfixed cosmetic review note: two consecutive blank lines left in `ReplaysView.tsx` (~309) where `sortCaption` was — no behaviour impact.
 - CHANGELOG: Unreleased already had two `### Changed` headings; the D1 line sits in the first, `### Removed` was added after the last.
 - Review note accepted: `line`/`serverError` state persist in the hidden field after a finish; invisible since the reason text is suppressed when not live and a new demo remounts the field.

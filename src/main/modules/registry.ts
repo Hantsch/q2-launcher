@@ -2,7 +2,7 @@ import type { ZodType } from 'zod'
 import {
   MODULE_MANIFESTS,
   fail,
-  ok,
+  isOutcome,
   type ModuleId,
   type ModuleInvokeRequest,
   type ModuleManifest,
@@ -39,6 +39,7 @@ interface RegisteredHandler {
 export class MainModuleRegistry {
   private readonly modules = new Map<ModuleId, MainModule>()
   private readonly handlers = new Map<string, RegisteredHandler>()
+  private readonly disposers: Array<{ moduleId: ModuleId; cb: () => void | Promise<void> }> = []
 
   /**
    * Story 130: `features` decides which feature-gated handlers get registered. It defaults to
@@ -58,6 +59,15 @@ export class MainModuleRegistry {
 
   registered(): ModuleId[] {
     return [...this.modules.keys()]
+  }
+
+  /** Handler types registered under `moduleId`, sorted. Feature-locked handlers are absent by design. */
+  handlerTypes(moduleId: ModuleId): string[] {
+    const prefix = `${moduleId}/`
+    return [...this.handlers.keys()]
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => key.slice(prefix.length))
+      .sort()
   }
 
   async register(module: MainModule, app: AppContext): Promise<void> {
@@ -104,6 +114,10 @@ export class MainModuleRegistry {
         emit: (type, payload) => {
           app.broadcast.emit('module:event', { moduleId: module.id, type, payload })
         },
+        // Kept even when `setup()` throws later: what was acquired before the throw still needs releasing.
+        onDispose: (cb) => {
+          this.disposers.push({ moduleId: module.id, cb })
+        },
       })
     } catch (error) {
       log.error(`module '${module.id}' failed to set up`, error)
@@ -136,7 +150,14 @@ export class MainModuleRegistry {
     }
 
     try {
-      return ok(await entry.handler(parsed.data))
+      const result = await entry.handler(parsed.data)
+      if (isOutcome(result)) return result
+      // Never wrap: wrapping a non-envelope would hand the client a shape it cannot type.
+      log.error(`module '${request.moduleId}' handler '${request.type}' returned a non-Outcome`)
+      return fail('modules.error.handlerFailed', {
+        moduleId: request.moduleId,
+        type: request.type,
+      })
     } catch (error) {
       log.error(`module '${request.moduleId}' handler '${request.type}' threw`, error)
       return fail('modules.error.handlerFailed', {
@@ -147,11 +168,11 @@ export class MainModuleRegistry {
   }
 
   async disposeAll(): Promise<void> {
-    for (const module of this.modules.values()) {
+    for (const { moduleId, cb } of this.disposers.splice(0).reverse()) {
       try {
-        await module.dispose?.()
+        await cb()
       } catch (error) {
-        log.error(`module '${module.id}' failed to dispose`, error)
+        log.error(`module '${moduleId}' failed to dispose`, error)
       }
     }
     this.modules.clear()

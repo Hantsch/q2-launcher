@@ -15,7 +15,7 @@ Reachability (GB-D4): the browser measures a round-trip every time it queries a 
 — the stage-1 sweep, a scoped refresh, a manual detail-view refresh. Concept §9 item 5 asks for that
 history, not just the latest number, because a single ping cannot tell "reliable" apart from
 "answered once and has gone quiet since". The same section also requires a plain statement of
-whether the *last* scan round got an answer at all — GB-N6 already establishes that a non-answering
+whether the _last_ scan round got an answer at all — GB-N6 already establishes that a non-answering
 server keeps its last known state rather than being shown as empty; this story is where that "stale"
 fact becomes something the user actually reads in the detail view, next to the history that explains
 it.
@@ -92,15 +92,15 @@ Order: D1 → D2. No IPC channel change (the field rides the existing `scan.read
 
 - **D1 — per-server RTT history in the scan service (shared + main).**
   Files: `src/shared/modules/servers.ts` (add `export interface RttSample { at: string; rttMs:
-  number | null }` — `null` = no answer that round; `rttHistory?: RttSample[]` on
+number | null }` — `null` = no answer that round; `rttHistory?: RttSample[]` on
   `ServerListEntry` with a doc comment; `export const RTT_HISTORY_LIMIT = 20`),
   `src/main/modules/servers/scan-merge.ts` (new pure `appendRttSample(history: RttSample[] |
-  undefined, sample: RttSample): RttSample[]` — returns a new array, keeps the last
+undefined, sample: RttSample): RttSample[]` — returns a new array, keeps the last
   `RTT_HISTORY_LIMIT`; `mergeStaleRound` gets a `now: string` parameter and appends
   `{ at: now, rttMs: null }` to each target it flips stale — unchanged early return when `aborted`,
   targets without an entry still get no row), `src/main/modules/servers/scan-service.ts`
   (`mergeSuccessfulReply` sets `rttHistory: appendRttSample(existing?.rttHistory, { at: now, rttMs:
-  result.rttMs })`; pass `new Date().toISOString()` to `mergeStaleRound`). `rttMs` (latest) stays as
+result.rttMs })`; pass `new Date().toISOString()` to `mergeStaleRound`). `rttMs` (latest) stays as
   it is. History is in-memory only — do not persist it.
   Tests: `src/main/modules/servers/scan-merge.test.ts` › "appendRttSample keeps only the newest
   RTT_HISTORY_LIMIT samples", › "a stale-flipped server gets a no-answer sample", › "an aborted
@@ -109,14 +109,14 @@ Order: D1 → D2. No IPC channel change (the field rides the existing `scan.read
   oldest first; a third round timed out → last sample `rttMs: null`, `status: 'stale'`).
 - **D2 — reachability section in the detail view (renderer) + its e2e flow.**
   Files: new `src/renderer/src/modules/servers/ServerReachabilitySection.tsx` (props `{ entry:
-  ServerListEntry }`; mirror the section structure/tokens of the detail sections story 122 added in
+ServerListEntry }`; mirror the section structure/tokens of the detail sections story 122 added in
   the same folder), the detail-view component 122 added (mount the section; locate it via 122's
   players panel), `src/renderer/src/i18n/locales/en.json` (`module.servers.detail.reachability.*`:
   `title`, `lastRound.answered` "Answered the last scan", `lastRound.noAnswer` "Did not answer the
   last scan — showing what it last reported", `lastAnswered` "Last answered {{time}}", `sample.ms`
   "{{ms}} ms", `sample.noAnswer` "No answer", `sample.unknown` "Unknown", `empty` "No response time
   measured yet this session"), new test `src/renderer/src/modules/servers/
-  ServerReachabilitySection.test.tsx`, new flow `scripts/flows/servers-detail-reachability.mjs`
+ServerReachabilitySection.test.tsx`, new flow `scripts/flows/servers-detail-reachability.mjs`
   (mirror `scripts/flows/servers-scoped-refresh.mjs`: its loopback `dgram` responder helpers,
   `SERVERS_DISABLED_SOURCES` fixture seeding with one manual loopback server, never a real host).
   Behaviour: statement from `entry.status` (`online` → answered; `stale` → no-answer + last
@@ -145,7 +145,7 @@ Review: → default — the tempting wrong implementation (history accumulated i
   show ≥2 ms values; after navigating to another module and back the same samples are still
   listed) + unit `src/main/modules/servers/scan-service.test.ts` › "every successful reply appends
   one RTT sample across rounds" + unit `src/renderer/src/modules/servers/
-  ServerReachabilitySection.test.tsx` › "renders samples newest first, null as No answer".
+ServerReachabilitySection.test.tsx` › "renders samples newest first, null as No answer".
 - AC2 → e2e `scripts/flows/servers-detail-reachability.mjs` › flow "servers-detail-reachability"
   (while answering, `server-reachability-last-round` reads "Answered the last scan"; responder
   stopped + refresh → it reads "Did not answer the last scan…" with a "Last answered" time, and the

@@ -58,7 +58,7 @@ Downloads tab. The library — the screen the user actually lands on — showed 
 
 ## Open Questions
 
-- ~~**Q1 — Do the half-built *files* stay too?**~~ answered → Decisions (Sprint)
+- ~~**Q1 — Do the half-built _files_ stay too?**~~ answered → Decisions (Sprint)
 - ~~**Q2 — Cancel (AC2).**~~ answered → Decisions (Sprint)
 
 None open. Everything else the refine needed (where the record lives, who clears it, how the retry
@@ -132,12 +132,12 @@ adopts, the shell surfaces, the offline proof) was decided against the ACs, [[07
   the flow runner gives a flow exactly one app (`scripts/flow.mjs` → one `withApp`), so an in-flow
   relaunch would mean harness surgery this story does not otherwise need.
 - **The offline failing run comes from a fixture-server option** that 404s one package's primary
-  *and* mirror on its first attempt only, then serves it normally. Reason: `Q2L_UI_CONTENT_REPO_BASE`
+  _and_ mirror on its first attempt only, then serves it normally. Reason: `Q2L_UI_CONTENT_REPO_BASE`
   is fixed at launch, so failing-then-succeeding has to be a property of the server if one flow is to
   cover the failure (AC1/AC5) and the adopting retry (AC4/AC7) in one app session.
 - **The Downloads tab's failure log is not touched.** The global, dismissible log ([[073]]/[[075]])
   and the installation's own `lastFailure` coexist and are written from the same failure exit.
-  Reason: the log answers "what went wrong recently", the field answers "what is wrong with *this*
+  Reason: the log answers "what went wrong recently", the field answers "what is wrong with _this_
   installation"; merging them was concept open question 20 and is not what any AC asks for.
 
 ### Decided during review
@@ -148,16 +148,16 @@ that).
 
 - **`InstallationLastFailure` gained an optional `params` field** (F1: a templated key like
   `downloads.error.packageIncomplete` reads `{{packageId}}`; without interpolation values the
-  library card rendered the raw placeholder). `job.ts`'s `failed()` attaches the *same* `params`
+  library card rendered the raw placeholder). `job.ts`'s `failed()` attaches the _same_ `params`
   object it already hands `Job.error`, so the library card and the Downloads tab render identical
   wording for one failure. Additive and optional, so AC8 (a record predating this field parses
   unchanged) is untouched.
-- **Cancelling an *adopted* retry (D3) keeps the installation registered and restores the
+- **Cancelling an _adopted_ retry (D3) keeps the installation registered and restores the
   `lastFailure` that adoption cleared when the retry started** (F2). Decisions (Sprint) Q2 ("cancel
   keeps today's full removal") was decided before D3's adoption existed and covers the ordinary
-  case (a cancel unregisters an installation *this run* created) unchanged. Adoption is different:
+  case (a cancel unregisters an installation _this run_ created) unchanged. Adoption is different:
   the installation predates this run, so deleting it on cancel would recreate the empty-library
-  problem this story exists to fix, and merely leaving it registered *without* restoring
+  problem this story exists to fix, and merely leaving it registered _without_ restoring
   `lastFailure` would still dead-end every later retry on that folder at
   `installations.error.duplicate` — the adoption predicate (D3) only matches an installation that
   carries a `lastFailure`. So a cancelled adopted retry now returns the installation to exactly its
@@ -166,17 +166,17 @@ that).
 - **The engine-preservation guard added during D2 (`applyInspection`, `installations.ts`) is scoped
   to installations that carry a `lastFailure`** (F4). The unscoped version preserved a known engine
   kind whenever re-inspection came back `unknown` — correct for AC1 (a failed installation's
-  cleanup-emptied folder must not lose the wizard's engine choice) but *also* live for any ordinary
+  cleanup-emptied folder must not lose the wizard's engine choice) but _also_ live for any ordinary
   installation whose folder happens to inspect as `unknown` for any other reason, which is exactly
   what AC8 ("an installation without the new field renders exactly as today") rules out. Scoping the
   guard to `installation.lastFailure !== undefined` makes it fire only for the case this story
   introduces; an ordinary installation keeps the pre-077 unconditional overwrite. `job.ts`'s
-  `failed()` records the failure *before* calling `validate()` (not after) specifically so this
+  `failed()` records the failure _before_ calling `validate()` (not after) specifically so this
   guard can see it — see the comment at that call site.
 - **Considered and rejected: revalidating before recording the failure**, to close the (narrower,
   one-commit) window where a renderer subscribed between the two writes could see the failure badge
   next to a not-yet-revalidated status. Rejected because it directly conflicts with the F4 fix above
-  — for a *first* failure, `validate()` needs `lastFailure` already written to preserve the known
+  — for a _first_ failure, `validate()` needs `lastFailure` already written to preserve the known
   engine kind. The original order (record, then validate) stays; the residual window is bounded by
   the job itself never reporting `failed` until after both writes.
 
@@ -207,85 +207,85 @@ Order: D1 → D2 → D3 → D4 → D5. D4 may start once D1 exists.
 ## Deliverables
 
 - [x] **D1 — The persisted failure record and when it disappears.**
-  Edit `src/shared/types/installation.ts` (`InstallationLastFailure`, `Installation.lastFailure?`,
-  next to `icon` at [installation.ts:77](../../src/shared/types/installation.ts#L77)); edit
-  `src/main/lib/schemas.ts` (forgiving `.optional().catch(undefined)` field mirroring the `icon`
-  block at [schemas.ts:90](../../src/main/lib/schemas.ts#L90)); edit
-  `src/main/services/installations.ts` (`setLastFailure(id, failure | null)` mirroring `setIcon`;
-  `findByRootPath(rootPath)` using the same `pathKey(canonicalizePath(...))` comparison the two
-  inline duplicate checks already use; clear-on-playable inside the inspection-applying helper).
-  *Acceptance:* the record round-trips through `state.json`; an installation written before this
-  story parses unchanged and reports `lastFailure: undefined`; a garbage `lastFailure` drops only
-  that field, not the row; `setLastFailure(id, null)` removes it; a `validate()` whose verdict is
-  `ok`/`warning`/`unknown` clears it while an `invalid`/`missing` verdict keeps it;
-  `findByRootPath` matches the same way `create()`'s duplicate check does (canonicalised,
-  case-insensitive where `pathKey` is) and returns `undefined` for an unrelated path.
-  Tests: `src/main/services/installations.test.ts`, `src/main/lib/schemas.test.ts`.
+      Edit `src/shared/types/installation.ts` (`InstallationLastFailure`, `Installation.lastFailure?`,
+      next to `icon` at [installation.ts:77](../../src/shared/types/installation.ts#L77)); edit
+      `src/main/lib/schemas.ts` (forgiving `.optional().catch(undefined)` field mirroring the `icon`
+      block at [schemas.ts:90](../../src/main/lib/schemas.ts#L90)); edit
+      `src/main/services/installations.ts` (`setLastFailure(id, failure | null)` mirroring `setIcon`;
+      `findByRootPath(rootPath)` using the same `pathKey(canonicalizePath(...))` comparison the two
+      inline duplicate checks already use; clear-on-playable inside the inspection-applying helper).
+      _Acceptance:_ the record round-trips through `state.json`; an installation written before this
+      story parses unchanged and reports `lastFailure: undefined`; a garbage `lastFailure` drops only
+      that field, not the row; `setLastFailure(id, null)` removes it; a `validate()` whose verdict is
+      `ok`/`warning`/`unknown` clears it while an `invalid`/`missing` verdict keeps it;
+      `findByRootPath` matches the same way `create()`'s duplicate check does (canonicalised,
+      case-insensitive where `pathKey` is) and returns `undefined` for an unrelated path.
+      Tests: `src/main/services/installations.test.ts`, `src/main/lib/schemas.test.ts`.
 
 - [x] **D2 — A failed bootstrap keeps its installation; a cancelled one still does not.**
-  Edit `src/main/modules/downloads/bootstrap/job.ts` only: split `cleanUp()`
-  ([job.ts:550](../../src/main/modules/downloads/bootstrap/job.ts#L550)) into a parameterised
-  cleanup; `cancelledOutcome()` ([job.ts:565](../../src/main/modules/downloads/bootstrap/job.ts#L565))
-  keeps `{ unregister: true, removeRoot: !targetPreexisted }`; `failed()`
-  ([job.ts:571](../../src/main/modules/downloads/bootstrap/job.ts#L571)) uses
-  `{ unregister: false, removeRoot: false }`, then `installations.setLastFailure(id, { errorKey: key,
-  at: Date.now(), jobId })`, then `installations.validate(id)`, then `jobs.finish(..., 'failed')`.
-  *Acceptance:* every failure exit (`packageUnavailable`/`allMirrorsFailed`, verification,
-  extraction, disk write, `installationNotPlayable`) leaves the installation registered with the
-  wizard's name, root path and engine, an `invalid`/`missing` status that came from
-  `inspectInstallation` (never hand-set), and a `lastFailure` carrying that exit's key, a timestamp
-  and the job id; the assembled files and the extract cache are gone and the target root directory
-  still exists; a cancel removes installation *and* files exactly as today; the success path is
-  untouched; the Downloads tab failure log still receives its entry.
-  Test: `src/main/modules/downloads/bootstrap/job.test.ts` (extend the existing fake-deps setup).
+      Edit `src/main/modules/downloads/bootstrap/job.ts` only: split `cleanUp()`
+      ([job.ts:550](../../src/main/modules/downloads/bootstrap/job.ts#L550)) into a parameterised
+      cleanup; `cancelledOutcome()` ([job.ts:565](../../src/main/modules/downloads/bootstrap/job.ts#L565))
+      keeps `{ unregister: true, removeRoot: !targetPreexisted }`; `failed()`
+      ([job.ts:571](../../src/main/modules/downloads/bootstrap/job.ts#L571)) uses
+      `{ unregister: false, removeRoot: false }`, then `installations.setLastFailure(id, { errorKey: key,
+at: Date.now(), jobId })`, then `installations.validate(id)`, then `jobs.finish(..., 'failed')`.
+      _Acceptance:_ every failure exit (`packageUnavailable`/`allMirrorsFailed`, verification,
+      extraction, disk write, `installationNotPlayable`) leaves the installation registered with the
+      wizard's name, root path and engine, an `invalid`/`missing` status that came from
+      `inspectInstallation` (never hand-set), and a `lastFailure` carrying that exit's key, a timestamp
+      and the job id; the assembled files and the extract cache are gone and the target root directory
+      still exists; a cancel removes installation _and_ files exactly as today; the success path is
+      untouched; the Downloads tab failure log still receives its entry.
+      Test: `src/main/modules/downloads/bootstrap/job.test.ts` (extend the existing fake-deps setup).
 
 - [x] **D3 — Retrying adopts the failed installation.**
-  Edit `src/main/modules/downloads/bootstrap/job.ts` around the registration at
-  [job.ts:440](../../src/main/modules/downloads/bootstrap/job.ts#L440): before `create()`, look the
-  canonical target path up via `findByRootPath`; if the hit carries a `lastFailure`, adopt it
-  (update the name to the wizard's, clear the failure, keep the existing id/engine/icon/sortOrder)
-  and skip `create()`; otherwise proceed exactly as today.
-  *Acceptance:* a second wizard run pointed at a failed installation's folder starts a job on the
-  existing installation and never returns `installations.error.duplicate`; the adopted installation
-  keeps its id (so the rail's position and any assignments survive) and loses its `lastFailure` when
-  the run starts; a duplicate *without* `lastFailure` still fails with
-  `installations.error.duplicate`; a run on a fresh path still creates as before; the adopted run's
-  own failure records a new `lastFailure` again.
-  Test: `src/main/modules/downloads/bootstrap/job.test.ts`.
+      Edit `src/main/modules/downloads/bootstrap/job.ts` around the registration at
+      [job.ts:440](../../src/main/modules/downloads/bootstrap/job.ts#L440): before `create()`, look the
+      canonical target path up via `findByRootPath`; if the hit carries a `lastFailure`, adopt it
+      (update the name to the wizard's, clear the failure, keep the existing id/engine/icon/sortOrder)
+      and skip `create()`; otherwise proceed exactly as today.
+      _Acceptance:_ a second wizard run pointed at a failed installation's folder starts a job on the
+      existing installation and never returns `installations.error.duplicate`; the adopted installation
+      keeps its id (so the rail's position and any assignments survive) and loses its `lastFailure` when
+      the run starts; a duplicate _without_ `lastFailure` still fails with
+      `installations.error.duplicate`; a run on a fresh path still creates as before; the adopted run's
+      own failure records a new `lastFailure` again.
+      Test: `src/main/modules/downloads/bootstrap/job.test.ts`.
 
 - [x] **D4 — The library card and the rail tile say a download failed.**
-  New `src/renderer/src/components/ui/FailureBadge.tsx` (mirror
-  `src/renderer/src/components/ui/DemoBadge.tsx`); edit `src/renderer/src/views/LibraryView.tsx`
-  (badge + a line reading `t(installation.lastFailure.errorKey)` above the existing checks list at
-  [LibraryView.tsx:230](../../src/renderer/src/views/LibraryView.tsx#L230)); edit
-  `src/renderer/src/components/installations/InstallationTile.tsx` and
-  `src/renderer/src/styles/surfaces.css` (a `.tile-failed-tag` corner microtag mirroring
-  `.tile-demo-tag` at [surfaces.css:236](../../src/renderer/src/styles/surfaces.css#L236)); edit
-  `src/renderer/src/components/shell/InstallationRail.tsx` (badge in the hover card, next to
-  `DemoBadge`); edit `src/renderer/src/i18n/locales/en.json`.
-  *Acceptance:* an installation with `lastFailure` shows the badge (text, not colour alone), the
-  translated failure sentence and the microtag on its tile; an `invalid` installation *without*
-  `lastFailure` renders exactly as today (no badge, no microtag); the Play control stays disabled
-  for the failed one via the unchanged `isPlayable(status)` gate; no raw i18n key and no prose from
-  main is rendered; no shell file imports from `modules/downloads`.
-  Tests: `src/renderer/src/components/ui/FailureBadge.test.tsx` (new),
-  `src/renderer/src/components/installations/InstallationTile.test.tsx` (extend).
+      New `src/renderer/src/components/ui/FailureBadge.tsx` (mirror
+      `src/renderer/src/components/ui/DemoBadge.tsx`); edit `src/renderer/src/views/LibraryView.tsx`
+      (badge + a line reading `t(installation.lastFailure.errorKey)` above the existing checks list at
+      [LibraryView.tsx:230](../../src/renderer/src/views/LibraryView.tsx#L230)); edit
+      `src/renderer/src/components/installations/InstallationTile.tsx` and
+      `src/renderer/src/styles/surfaces.css` (a `.tile-failed-tag` corner microtag mirroring
+      `.tile-demo-tag` at [surfaces.css:236](../../src/renderer/src/styles/surfaces.css#L236)); edit
+      `src/renderer/src/components/shell/InstallationRail.tsx` (badge in the hover card, next to
+      `DemoBadge`); edit `src/renderer/src/i18n/locales/en.json`.
+      _Acceptance:_ an installation with `lastFailure` shows the badge (text, not colour alone), the
+      translated failure sentence and the microtag on its tile; an `invalid` installation _without_
+      `lastFailure` renders exactly as today (no badge, no microtag); the Play control stays disabled
+      for the failed one via the unchanged `isPlayable(status)` gate; no raw i18n key and no prose from
+      main is rendered; no shell file imports from `modules/downloads`.
+      Tests: `src/renderer/src/components/ui/FailureBadge.test.tsx` (new),
+      `src/renderer/src/components/installations/InstallationTile.test.tsx` (extend).
 
 - [x] **D5 — Offline proof: a real failing run, and the retry that adopts it.**
-  Edit `scripts/lib/fixture.mjs` (a fourth installation in `populatedInstallations()`
-  ([fixture.mjs:192](../../scripts/lib/fixture.mjs#L192)) carrying a `lastFailure`, additive per that
-  function's own documented rule — `sortOrder: 3`, no profile assignment; and a
-  `startBootstrapFixtureServer({ failFirstAttemptFor })` option that 404s one package's primary and
-  mirror on its first attempt only); new `scripts/flows/bootstrap-failure-retry.mjs` (mirror
-  `scripts/flows/bootstrap-wizard.mjs`, including its `setup()`/`teardown()` shape); edit
-  `docs/UI-VERIFICATION.md`.
-  *Acceptance:* `npm run ui:flow -- bootstrap-failure-retry` passes offline and proves, through the
-  real surface: the wizard's first run fails; the Library still shows that installation with its
-  chosen name, the failure badge, the translated reason and a disabled Play button; the target
-  folder on disk is empty; a second wizard run on the same folder starts without a duplicate error,
-  succeeds, and the badge and microtag are gone afterwards. `npm run ui:verify -- --screens=library`
-  stays axe-clean with the seeded failed installation visible and the three existing installations
-  rendering unchanged.
+      Edit `scripts/lib/fixture.mjs` (a fourth installation in `populatedInstallations()`
+      ([fixture.mjs:192](../../scripts/lib/fixture.mjs#L192)) carrying a `lastFailure`, additive per that
+      function's own documented rule — `sortOrder: 3`, no profile assignment; and a
+      `startBootstrapFixtureServer({ failFirstAttemptFor })` option that 404s one package's primary and
+      mirror on its first attempt only); new `scripts/flows/bootstrap-failure-retry.mjs` (mirror
+      `scripts/flows/bootstrap-wizard.mjs`, including its `setup()`/`teardown()` shape); edit
+      `docs/UI-VERIFICATION.md`.
+      _Acceptance:_ `npm run ui:flow -- bootstrap-failure-retry` passes offline and proves, through the
+      real surface: the wizard's first run fails; the Library still shows that installation with its
+      chosen name, the failure badge, the translated reason and a disabled Play button; the target
+      folder on disk is empty; a second wizard run on the same folder starts without a duplicate error,
+      succeeds, and the badge and microtag are gone afterwards. `npm run ui:verify -- --screens=library`
+      stays axe-clean with the seeded failed installation visible and the three existing installations
+      rendering unchanged.
 
 ## Model Hints
 
@@ -371,6 +371,7 @@ and a second run on the same folder adopting and succeeding.
 **Commit message:** `077: a failed install stays in my library and shows its last error`
 
 **Verification:**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (both TS projects).
 - `npm test` — 154 files / 3142 tests passed.
@@ -385,8 +386,9 @@ three prior findings (F1 raw `{{packageId}}` placeholder, F2 cancel-of-adopted-r
 engine-preservation guard narrowness) already correctly fixed in the code, but surfaced two real
 gaps in what shipped alongside those fixes and two test-quality nits — see "Decided during review"
 above for the reasoning, resolved as follows:
+
 - **N1 (AC8 regression)** — the D2 engine-preservation guard (`applyInspection`) was unconditional,
-  so it also changed the engine badge for *ordinary* installations whose folder happens to inspect
+  so it also changed the engine badge for _ordinary_ installations whose folder happens to inspect
   as `unknown` (two of the three standing fixture installations, concretely). Fixed: scoped to
   `installation.lastFailure !== undefined`; a new negative test
   (`installations.test.ts` › "AC8: an ordinary installation…") pins the pre-077 behaviour for an
@@ -395,7 +397,7 @@ above for the reasoning, resolved as follows:
   restored, not deleted) existed only in `job.ts` code comments, while AC2 requires the choice
   stated in the story. Fixed: added to "Decided during review" above.
 - **A stale test from the interrupted fix cycle** — `job.test.ts` › "finding fix: cancelling an
-  adopted retry keeps the installation registered" still asserted the *pre-F2-fix* behaviour
+  adopted retry keeps the installation registered" still asserted the _pre-F2-fix_ behaviour
   (`lastFailure` staying cleared after cancel), left over from before the F2 fix landed. Corrected
   to assert the restored record, independently re-verified against the F2 fix's own reasoning by
   the fresh review pass (dead-end avoidance) rather than trusted at face value.
@@ -406,11 +408,11 @@ above for the reasoning, resolved as follows:
   failure, to close a narrower one-commit window where a renderer could observe the failure badge
   next to a not-yet-revalidated status. Attempted and reverted: it broke the AC1 test outright,
   because the engine-preservation guard (N1's fix) needs `lastFailure` already written by the time
-  `validate()` runs on a *first* failure. The original order stays; recorded under "Decided during
+  `validate()` runs on a _first_ failure. The original order stays; recorded under "Decided during
   review" as a rejected alternative rather than silently dropped.
-No other findings from either review pass; no weakened or deleted tests, no scope creep beyond
-the fixes above, no CLAUDE.md guardrail violations (no IPC channel touched, no raw renderer path
-trusted, no image asset added, i18n keys/params only across the boundary).
+  No other findings from either review pass; no weakened or deleted tests, no scope creep beyond
+  the fixes above, no CLAUDE.md guardrail violations (no IPC channel touched, no raw renderer path
+  trusted, no image asset added, i18n keys/params only across the boundary).
 
 **AC → test mapping, as verified:** all eight criteria PASS — see the "Acceptance Tests" section
 above (updated with the review's added tests) for the exact test names; every criterion has a

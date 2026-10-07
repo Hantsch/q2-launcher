@@ -5,18 +5,18 @@ import { ENGINE_DEFINITIONS, type EngineKind } from '@shared/types'
 import { resolveRelaxed } from '../../../lib/fs-utils'
 
 /**
- * Story 074 D3, revised by 076 D1 and 080 D2. Assembles a clean `baseq2` installation out of the
+ * Assembles a clean `baseq2` installation out of the
  * bootstrap wizard's separate archive extractions (an engine build - Q2PRO or R1Q2 -,
  * `q2-314-demo-x86.exe`, `q2-3.20-x86-full-ctf.exe`).
  *
- * Story 080 D2 (AC1/AC3/AC5/AC7): the fixed allowlist is now split into an engine-independent
+ * Story 080: the fixed allowlist is now split into an engine-independent
  * block (demo + point-release game data) and an engine-specific block chosen by
  * `buildAssemblePlan`'s `engine` input. `findSource` also now restricts its search, per entry, to
  * `sources` whose `role` matches that entry's own role - so an `engine`-role entry (the client
  * binary, the renderer, the game module DLL) can only ever be satisfied by the engine package's
  * own extraction, never by a demo/point-release archive that happens to carry a same-named file.
  *
- * AC8 is a hard negative requirement: the 3.20 package also contains a `ctf/` payload that must
+ * It is a hard negative requirement: the 3.20 package also contains a `ctf/` payload that must
  * never end up in the target installation, alongside `xatrix/`/`rogue/` from other real-world Q2
  * archives. The mechanism that guarantees this is an *allowlist*, not a filter: `buildAssemblePlan`
  * enumerates the exact files this function is willing to copy, and `assembleInstallation` never
@@ -25,26 +25,26 @@ import { resolveRelaxed } from '../../../lib/fs-utils'
  * even those are expanded by listing that one specific subdirectory's immediate children, not by
  * touching anything else in the source tree.
  *
- * Story 076 D1: the allowlist now matches the *real* archives (confirmed by extracting the pinned
- * packages), not the guessed layout 074 D8 shipped with. Two shapes changed to make that possible:
+ * Story 076: the allowlist now matches the *real* archives (confirmed by extracting the pinned
+ * packages), not the guessed layout it first shipped with. Two shapes changed to make that possible:
  *
  * - `from` is now an ordered list of candidate relative paths, tried in turn - a package's real
  *   layout can differ from an older guess without dropping the old candidate (a future re-pin could
  *   go back to it).
  * - Every entry now carries `role` (which manifest package it belongs to) and `required` (whether a
- *   missing copy means the installation isn't playable). Both are unused by this file - D2/D3 will
- *   read them to report `missingRequired` - but D1 populates them correctly on every entry.
+ *   missing copy means the installation isn't playable). Both are unused by this file - later stages will
+ *   read them to report `missingRequired` - but this populates them correctly on every entry.
  *
- * Story 088 D3: a second game-data source, `dataSource: 'store-copy'`, reuses this same allowlist
- * mechanism (AC7) rather than a second copier. Its game-data block is `baseq2/pak0.pak`+`pak1.pak`
+ * Story 088: a second game-data source, `dataSource: 'store-copy'`, reuses this same allowlist
+ * mechanism rather than a second copier. Its game-data block is `baseq2/pak0.pak`+`pak1.pak`
  * (role `'retail'`, required) plus `baseq2/pak2.pak` (role `'retail'`, optional) - never the
  * demo/point-release entries. `pak2.pak` also carries `expectedSizeBytes`: a found-but-wrong-size
  * file is treated exactly like a missing one (skipped, not copied) - the copier's existing "missing
  * optional entries are silently skipped" behaviour, generalised to "wrong-size" as well as
  * "absent", so a 3.20 pak2 that doesn't match `RETAIL_PAK_SIZES` never lands in the target.
  *
- * Story 089 D3: a third game-data source, `dataSource: 'existing-folder'`, joins them on the same
- * terms (AC7) - role `'folder'`, one required entry per pak the picked folder was just found to
+ * Story 089: a third game-data source, `dataSource: 'existing-folder'`, joins them on the same
+ * terms - role `'folder'`, one required entry per pak the picked folder was just found to
  * hold (`folderPakNames`), and nothing else. It is a *computed* block rather than a fixed one for
  * the one reason the other two do not need: a demo folder legitimately has no `pak1.pak`, so a
  * fixed list would fail such a run for a file the wizard already said it would not find.
@@ -52,7 +52,7 @@ import { resolveRelaxed } from '../../../lib/fs-utils'
 
 /** Which manifest package (see `content/q2_community_content/gamedata/manifest.json`) an entry's
  * source comes from - or, for `'retail'`, the detected store installation being copied from
- * (story 088 D3), or, for `'folder'`, the folder the user hand-picked (story 089 D3). */
+ * (story 088), or, for `'folder'`, the folder the user hand-picked (story 089). */
 export type AssembleFileRole = 'engine' | 'demo' | 'point-release' | 'retail' | 'folder'
 
 /** One file to copy, resolved relative to a source extraction dir and to the target installation root. */
@@ -66,7 +66,7 @@ export interface AssembleFileEntry {
   /** Whether a missing copy of this entry means the assembled installation is not playable. */
   required: boolean
   /**
-   * Story 088 D3: when set, a found source file whose actual size doesn't match this exact byte
+   * Story 088: when set, a found source file whose actual size doesn't match this exact byte
    * count is treated as not found (skipped, never copied) - used for the optional `pak2.pak` retail
    * entry, whose "present but wrong version" case must not silently copy unverified data.
    */
@@ -76,28 +76,32 @@ export interface AssembleFileEntry {
 export interface BuildAssemblePlanInput {
   /**
    * Which engine this run is assembling - selects the engine-specific block below. Optional
-   * (story 088 D3): `copyRetailGameData` calls `buildAssemblePlan`/`assembleInstallation` for game
+   * (story 088): `copyRetailGameData` calls `buildAssemblePlan`/`assembleInstallation` for game
    * data only, with no engine package to copy, so an omitted `engine` yields a plan with no
    * engine-role entries at all rather than defaulting to one engine's binaries.
    */
   engine?: EngineKind
-  /** Whether the wizard's video/players toggle is on - see the module doc comment above. */
-  includeVideoAndPlayers: boolean
   /**
-   * Story 088 D3: which game-data block this plan copies - the demo + point-release archives
+   * `core` plans the allowlist (never a glob dir); `extras` plans only `GLOB_DIRS` (the wizard's
+   * video/players toggle), never an allowlist file - so the two passes can never name the same
+   * target and a file is recorded and copied once.
+   */
+  scope: 'core' | 'extras'
+  /**
+   * Story 088: which game-data block this plan copies - the demo + point-release archives
    * (`'free-download'`, [[074]]'s original and only source) or a detected retail installation's
    * own `baseq2` (`'store-copy'`, [[088]]). Defaults to `'free-download'` so every caller that
    * predates this story keeps compiling and behaving unchanged.
    *
-   * Story 089 D3 adds `'existing-folder'`: a folder the user hand-picked, whose block is built from
+   * Story 089 adds `'existing-folder'`: a folder the user hand-picked, whose block is built from
    * `folderPakNames` rather than from a fixed list - see there.
    */
   dataSource?: 'free-download' | 'store-copy' | 'existing-folder'
   /**
-   * Story 089 D3: for a `'existing-folder'` run only, the pak file names that folder was just found
+   * Story 089: for a `'existing-folder'` run only, the pak file names that folder was just found
    * to actually hold (`GameDataSourceVerdict.paks`, re-derived from disk by `inspectGameDataSource`
    * immediately before the job registered anything). One required entry is built per name, and
-   * nothing else is ever copied out of that folder - so AC7's "baseq2 only" is guaranteed by the
+   * nothing else is ever copied out of that folder - so "baseq2 only" is guaranteed by the
    * same fixed-allowlist mechanism as the other two sources, not by a filter.
    *
    * Passed in rather than re-derived here because "which paks does this folder have" is a fact about
@@ -113,16 +117,20 @@ export interface BuildAssemblePlanInput {
 function getQ2proDefinition() {
   const definition = ENGINE_DEFINITIONS.find((engine) => engine.kind === 'q2pro')
   if (!definition) {
-    throw new Error('ENGINE_DEFINITIONS has no q2pro entry - bootstrap assembly cannot resolve a target binary name')
+    throw new Error(
+      'ENGINE_DEFINITIONS has no q2pro entry - bootstrap assembly cannot resolve a target binary name',
+    )
   }
   return definition
 }
 
-/** The r1q2 engine definition (story 080 D2). */
+/** The r1q2 engine definition (story 080). */
 function getR1q2Definition() {
   const definition = ENGINE_DEFINITIONS.find((engine) => engine.kind === 'r1q2')
   if (!definition) {
-    throw new Error('ENGINE_DEFINITIONS has no r1q2 entry - bootstrap assembly cannot resolve a target binary name')
+    throw new Error(
+      'ENGINE_DEFINITIONS has no r1q2 entry - bootstrap assembly cannot resolve a target binary name',
+    )
   }
   return definition
 }
@@ -153,10 +161,10 @@ function buildGameDataEntries(): AssembleFileEntry[] {
 }
 
 /**
- * Story 088 D3: the `'store-copy'` game-data block - a detected retail installation's own
+ * Story 088: the `'store-copy'` game-data block - a detected retail installation's own
  * `baseq2/pak0.pak`/`pak1.pak` (required) plus `baseq2/pak2.pak` (optional, and only when its size
  * matches `RETAIL_PAK_SIZES['pak2.pak']` - see `expectedSizeBytes` and `assembleInstallation`'s
- * copy loop). No demo or point-release entry ever appears here - AC7's "baseq2 only, no ctf/xatrix/
+ * copy loop). No demo or point-release entry ever appears here - the "baseq2 only, no ctf/xatrix/
  * rogue" is already guaranteed by this being a fixed allowlist of exactly three files, same as the
  * free-download block above.
  */
@@ -175,7 +183,7 @@ function buildRetailGameDataEntries(): AssembleFileEntry[] {
 }
 
 /**
- * Story 089 D3: the `'existing-folder'` game-data block - one entry per pak the hand-picked folder
+ * Story 089: the `'existing-folder'` game-data block - one entry per pak the hand-picked folder
  * was *just found to hold* (`BuildAssemblePlanInput.folderPakNames`), each `required`, each copied
  * from `baseq2/<name>` to `baseq2/<name>`.
  *
@@ -183,7 +191,7 @@ function buildRetailGameDataEntries(): AssembleFileEntry[] {
  *
  *  - **the list is the folder's, not a fixed three.** A `demo` verdict's folder has `pak0.pak` and
  *    no `pak1.pak`, and a fixed list would fail such a run at `missingRequired` for a file the
- *    wizard already told the user it was not going to find (AC4).
+ *    wizard already told the user it was not going to find.
  *  - **no `expectedSizeBytes`.** The verdict this list comes from was produced by
  *    `inspectGameDataSource` moments earlier, and *it* is what decided retail vs. demo by size; a
  *    second size gate here would mean a `pak2.pak` this run was admitted with could still be
@@ -222,7 +230,12 @@ function buildQ2proEngineEntries(): AssembleFileEntry[] {
     // load a map with, so a "playable" installation missing this entry could not actually run a
     // map even though `inspectInstallation` may still call it playable (that inspector only checks
     // for the engine binary + base game dir, not for this DLL).
-    { from: ['baseq2/gamex86_64.dll'], to: 'baseq2/gamex86_64.dll', role: 'engine', required: true },
+    {
+      from: ['baseq2/gamex86_64.dll'],
+      to: 'baseq2/gamex86_64.dll',
+      role: 'engine',
+      required: true,
+    },
     // Ships alongside the engine binary and DLL in the same package. Not required - its absence
     // doesn't make the installation unplayable, just missing a menu asset.
     { from: ['baseq2/q2pro.menu'], to: 'baseq2/q2pro.menu', role: 'engine', required: false },
@@ -230,10 +243,10 @@ function buildQ2proEngineEntries(): AssembleFileEntry[] {
 }
 
 /**
- * The R1Q2-specific entries (story 080 D2, AC3). The three files measured against the real,
+ * The R1Q2-specific entries (story 080). The three files measured against the real,
  * pinned `r1q2-b8012-msvs2022-win32` package: the client binary, its OpenGL renderer (the archive
  * carries only `ref_r1gl.dll`, at the installation root - not `baseq2`), and its own game module
- * DLL. `dedicated.exe` is deliberately never on this list (AC3's exclusion). No optional menu
+ * DLL. `dedicated.exe` is deliberately never on this list (a deliberate exclusion). No optional menu
  * entry - none is known to ship with this package.
  */
 function buildR1q2EngineEntries(): AssembleFileEntry[] {
@@ -257,12 +270,12 @@ export interface GlobDirEntry {
 
 /**
  * Directories whose immediate children are copied by name when the toggle is on. Never required.
- * Exported (story 076 review finding F1) only so `archive-layouts.test.ts` can cross-check its
+ * Exported only so `archive-layouts.test.ts` can cross-check its
  * `from` candidates against the recorded listing too - `buildAssemblePlan()`'s fixed entries were
  * checked, but these glob dirs, being outside that plan, previously were not.
  */
 export const GLOB_DIRS: GlobDirEntry[] = [
-  // AC4: sourced from `baseq2/players/` and lands at `baseq2/players/` (not the source root, and
+  // sourced from `baseq2/players/` and lands at `baseq2/players/` (not the source root, and
   // not bare `players` at the target root either).
   { from: ['baseq2/players'], to: 'baseq2/players' },
   { from: ['baseq2/video'], to: 'baseq2/video' },
@@ -270,7 +283,7 @@ export const GLOB_DIRS: GlobDirEntry[] = [
 
 /**
  * Which of the three game-data blocks this run copies. Written as one exhaustive switch (story 089
- * D3) rather than a chain of ternaries, so a fourth data source cannot silently fall into the
+ * ) rather than a chain of ternaries, so a fourth data source cannot silently fall into the
  * free-download block the way an unhandled value would.
  */
 function selectGameDataEntries(input: BuildAssemblePlanInput): AssembleFileEntry[] {
@@ -290,18 +303,29 @@ function selectGameDataEntries(input: BuildAssemblePlanInput): AssembleFileEntry
  * against whichever source dir actually has them.
  *
  * Dispatches on `input.engine` for the engine-specific block; the game-data entries (demo,
- * point-release, or - story 088 D3 - retail) are the same regardless of engine, and selected by
+ * point-release, or - story 088 - retail) are the same regardless of engine, and selected by
  * `input.dataSource` rather than by engine. `buildAssemblePlan` is only ever called with an engine
  * from `BOOTSTRAP_SUPPORTED_ENGINES` (the wizard/job gate it upstream), so an unknown engine here
  * throws rather than silently falling back to Q2PRO's plan. `engine` may be omitted entirely
- * (story 088 D3's `copyRetailGameData`, which copies game data only) - the plan then carries no
+ * (story 088's `copyRetailGameData`, which copies game data only) - the plan then carries no
  * engine-role entries at all.
  */
-export function buildAssemblePlan(input: BuildAssemblePlanInput): AssembleFileEntry[] {
-  // `video/*`/`players/*` are not literal entries here - a glob is not a relative path. When the
-  // toggle is on, `assembleInstallation` expands GLOB_DIRS at copy time against whichever source
-  // dir actually has them, rather than this pure function guessing file names in advance.
-  void input.includeVideoAndPlayers
+export function buildAssemblePlan(
+  input: BuildAssemblePlanInput & { scope: 'extras' },
+): GlobDirEntry[]
+export function buildAssemblePlan(
+  input: BuildAssemblePlanInput & { scope: 'core' },
+): AssembleFileEntry[]
+export function buildAssemblePlan(
+  input: BuildAssemblePlanInput,
+): AssembleFileEntry[] | GlobDirEntry[]
+export function buildAssemblePlan(
+  input: BuildAssemblePlanInput,
+): AssembleFileEntry[] | GlobDirEntry[] {
+  // `video/*`/`players/*` are not literal entries - a glob is not a relative path.
+  // `assembleInstallation` expands them at copy time against whichever source dir has them,
+  // rather than this pure function guessing file names in advance.
+  if (input.scope === 'extras') return GLOB_DIRS.map((dir) => ({ from: dir.from, to: dir.to }))
 
   const gameData = selectGameDataEntries(input)
 
@@ -328,7 +352,7 @@ export interface AssembleSource {
   /** Absolute path to the package's extraction dir. */
   dir: string
   /**
-   * Story 080 D2 (AC5): which manifest-package role this extraction dir came from - `findSource`
+   * Story 080: which manifest-package role this extraction dir came from - `findSource`
    * restricts a plan entry's search to sources whose `role` matches the entry's own, so an
    * `engine`-role entry can never be satisfied by a `demo`/`point-release` source (or vice versa),
    * even when both happen to contain a file at the same relative path.
@@ -343,16 +367,17 @@ export interface AssembleInstallationInput {
   targetRoot: string
   /**
    * Which engine this run is assembling - selects the engine-specific allowlist entries. Optional
-   * (story 088 D3): `copyRetailGameData` assembles game data only, with no engine entries.
+   * (story 088): `copyRetailGameData` assembles game data only, with no engine entries.
    */
   engine?: EngineKind
-  includeVideoAndPlayers: boolean
-  /** Story 088 D3 / 089 D3: forwarded to `buildAssemblePlan` - see its own doc comment. */
+  /** Forwarded to `buildAssemblePlan` - see its own doc comment. */
+  scope: 'core' | 'extras'
+  /** Story 088 / 089: forwarded to `buildAssemblePlan` - see its own doc comment. */
   dataSource?: 'free-download' | 'store-copy' | 'existing-folder'
-  /** Story 089 D3: forwarded to `buildAssemblePlan` - see its own doc comment. */
+  /** Story 089: forwarded to `buildAssemblePlan` - see its own doc comment. */
   folderPakNames?: string[]
   /**
-   * Story 093 D3: narrows which of `buildAssemblePlan`'s already-allowlisted entries this call
+   * Story 093: narrows which of `buildAssemblePlan`'s already-allowlisted entries this call
    * actually copies, without changing the allowlist itself. `roles`/`targets` each filter
    * independently when present (an entry must pass every filter given, not just one of them), and
    * `missingRequired` is computed over the filtered set - a required entry excluded by `restrictTo`
@@ -365,13 +390,13 @@ export interface AssembleInstallationInput {
 }
 
 /**
- * Story 078 D2 (AC7): what assembly looked for, and whether it found it - one per allowlist entry
+ * Story 078: what assembly looked for, and whether it found it - one per allowlist entry
  * (plan order) plus one per expanded glob dir. Mirrors `DownloadDiagnosticsAssemblyEntry`
  * (`shared/modules/downloads.ts`), which is filled from this shape one layer up.
  */
 export interface AssembleEntryResult {
   /** The relative candidate path (or glob dir) that was found; when none was, every candidate that
-   * was tried, joined by ` | ` (story 078 review finding M3) - so a report reader can tell "the
+   * was tried, joined by ` | ` (story 078) - so a report reader can tell "the
    * archive's real layout doesn't match any candidate" from "the allowlist only ever tries one
    * path", which a single candidate would silently collapse into the same row. */
   from: string
@@ -398,7 +423,7 @@ export interface AssembleInstallationResult {
  * ordered candidate list, first that exists wins" - a later candidate in an earlier source does
  * not pre-empt an earlier candidate found in a later source.
  *
- * Story 080 D2 (AC5): `sources` is filtered to `role` before searching - a `demo`/`point-release`
+ * Story 080: `sources` is filtered to `role` before searching - a `demo`/`point-release`
  * extraction can never satisfy an `engine`-role entry (or vice versa), even when it happens to
  * contain a file at the same relative path. Not applied to `expandGlobDir` below - `GLOB_DIRS`
  * search every source dir regardless of role, by design (see its own doc comment).
@@ -420,7 +445,7 @@ async function findSource(
       // already registered. Every other role's sources are this launcher's own extractions, whose
       // layout is already known exactly, so they keep the cheap case-sensitive `join`.
       //
-      // Story 089 D3: `'folder'` is the same case for the same reason - a hand-picked folder is
+      // Story 089: `'folder'` is the same case for the same reason - a hand-picked folder is
       // foreign too, and `inspectGameDataSource` (`game-data-source.ts`) admitted it through
       // `resolveRelaxed`/`findChild`, so resolving it any more strictly here would fail a run that
       // was already registered on the strength of that verdict.
@@ -444,7 +469,12 @@ async function findSource(
 async function expandGlobDir(
   sources: AssembleSource[],
   candidates: string[],
-): Promise<{ absoluteDir: string; relativePath: string; names: string[]; packageId: string } | null> {
+): Promise<{
+  absoluteDir: string
+  relativePath: string
+  names: string[]
+  packageId: string
+} | null> {
   for (const dirRelativePath of candidates) {
     for (const source of sources) {
       const absoluteDir = join(source.dir, dirRelativePath)
@@ -468,19 +498,46 @@ async function expandGlobDir(
 export async function assembleInstallation(
   input: AssembleInstallationInput,
 ): Promise<AssembleInstallationResult> {
-  const { sources, targetRoot, engine, includeVideoAndPlayers, dataSource, folderPakNames, restrictTo } =
-    input
+  const { sources, targetRoot, engine, scope, dataSource, folderPakNames, restrictTo } = input
   const copiedFiles: string[] = []
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
   const entries: AssembleEntryResult[] = []
 
-  const fullPlan = buildAssemblePlan({ engine, includeVideoAndPlayers, dataSource, folderPakNames })
+  if (scope === 'extras') {
+    for (const globDir of buildAssemblePlan({ scope, engine, dataSource, folderPakNames })) {
+      const expanded = await expandGlobDir(sources, globDir.from)
+      if (!expanded) {
+        entries.push({ from: globDir.from.join(' | '), to: globDir.to, found: false })
+        continue
+      }
+
+      entries.push({
+        from: expanded.relativePath,
+        to: globDir.to,
+        found: true,
+        sourcePackageId: expanded.packageId,
+      })
+
+      for (const name of expanded.names) {
+        const source = join(expanded.absoluteDir, name)
+        const toRelative = join(globDir.to, name)
+        const dest = join(targetRoot, toRelative)
+        await mkdir(dirname(dest), { recursive: true })
+        await cp(source, dest, { recursive: true, dereference: true })
+        copiedFiles.push(toRelative)
+      }
+    }
+    return { copiedFiles, missingRequired, entries }
+  }
+
+  const fullPlan = buildAssemblePlan({ scope, engine, dataSource, folderPakNames })
   const plan =
     restrictTo === undefined
       ? fullPlan
       : fullPlan.filter((entry) => {
           if (restrictTo.roles !== undefined && !restrictTo.roles.includes(entry.role)) return false
-          if (restrictTo.targets !== undefined && !restrictTo.targets.includes(entry.to)) return false
+          if (restrictTo.targets !== undefined && !restrictTo.targets.includes(entry.to))
+            return false
           return true
         })
   for (const entry of plan) {
@@ -493,7 +550,7 @@ export async function assembleInstallation(
       continue
     }
 
-    // Story 088 D3: a found-but-wrong-size file (only `pak2.pak` sets `expectedSizeBytes` today)
+    // Story 088: a found-but-wrong-size file (only `pak2.pak` sets `expectedSizeBytes` today)
     // is treated exactly like a missing one - skipped, never copied. `pak2.pak` is never
     // `required`, so this never adds to `missingRequired`.
     if (entry.expectedSizeBytes !== undefined) {
@@ -519,35 +576,9 @@ export async function assembleInstallation(
     // Story 089 review F3: `cp`'s `dereference` defaults to `false`, so a symlinked source file
     // (reachable for every role now that this story lets the source folder be entirely
     // renderer/user-picked) would land as a symlink at `dest`, still pointing at the original -
-    // not the independent copy AC3 promises. Forced true so the target is always real bytes.
+    // not the independent copy that is promised. Forced true so the target is always real bytes.
     await cp(source.absolutePath, dest, { dereference: true })
     copiedFiles.push(entry.to)
-  }
-
-  if (includeVideoAndPlayers) {
-    for (const globDir of GLOB_DIRS) {
-      const expanded = await expandGlobDir(sources, globDir.from)
-      if (!expanded) {
-        entries.push({ from: globDir.from.join(' | '), to: globDir.to, found: false })
-        continue
-      }
-
-      entries.push({
-        from: expanded.relativePath,
-        to: globDir.to,
-        found: true,
-        sourcePackageId: expanded.packageId,
-      })
-
-      for (const name of expanded.names) {
-        const source = join(expanded.absoluteDir, name)
-        const toRelative = join(globDir.to, name)
-        const dest = join(targetRoot, toRelative)
-        await mkdir(dirname(dest), { recursive: true })
-        await cp(source, dest, { recursive: true, dereference: true })
-        copiedFiles.push(toRelative)
-      }
-    }
   }
 
   return { copiedFiles, missingRequired, entries }

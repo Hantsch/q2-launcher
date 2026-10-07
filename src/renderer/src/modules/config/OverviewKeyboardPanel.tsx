@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Play, Square } from 'lucide-react'
-import type { AltLayer } from '@shared/config/alt-layers'
-import type { ConfigProfile } from '@shared/modules/config'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import { cn } from '../../lib/cn'
 import { Button } from '../../components/ui/Button'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
@@ -10,6 +9,7 @@ import { KeyBindDialog } from './components/KeyBindDialog'
 import { LayerSwitcher } from './components/LayerSwitcher'
 import { TestModeReadout } from './components/TestModeReadout'
 import { keycapCommandLabel } from './lib/command-catalog'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import {
   ARROW_CLUSTER,
   KEYBOARD_ROWS,
@@ -83,31 +83,28 @@ const MOUSE_BUTTON_NAMES: Record<number, string> = {
  * that layer's own `overrides` (concept doc §5 "Alternate binding layers").
  */
 export function OverviewKeyboardPanel({
-  profile,
   activeLayer,
-  onChanged,
   onSelectLayer,
 }: {
-  profile: ConfigProfile
   activeLayer: AltLayer | null
-  onChanged: (profiles: ConfigProfile[]) => void
   onSelectLayer: (layerId: string | null) => void
 }) {
   const { t } = useTranslation()
+  const { profile, save } = useProfileDraftContext()
   const [testMode, setTestMode] = useState(false)
   const [press, setPress] = useState<TestPress | null>(null)
   const [editingKey, setEditingKey] = useState<{ key: string; label: string } | null>(null)
   /**
-   * Test mode's own view of the board (story 018 D3): which layer is displayed
+   * Test mode's own view of the board (story 018): which layer is displayed
    * and which `hold` trigger is currently down. Panel-local, and shaped exactly
    * like `lib/test-mode.ts`'s reducer state so the pure functions can be handed
    * the whole object. It is deliberately NOT a write to `ConfigView`'s
    * selection: a hold layer flipping that would drag `LayersPanel` along and
-   * outlive test mode, which AC 5 forbids (decision 6).
+   * outlive test mode, which is forbidden (decision 6).
    */
   const [testSwitch, setTestSwitch] = useState<TestModeSwitchState>(IDLE_TEST_SWITCH)
   /**
-   * Quake key names currently physically held (story 018 D4, decision 13) - fed
+   * Quake key names currently physically held (story 018, decision 13) - fed
    * by the same capturing keydown/keyup listeners below, so a keycap can light
    * up while held without touching `press`, which only tracks the latest one.
    */
@@ -150,24 +147,11 @@ export function OverviewKeyboardPanel({
     [profile.binds, profile.layers, profile.actions],
   )
 
-  // Switching profile drops everything test mode was showing - AC 5's
-  // profile-switch teardown. Test mode itself goes off, so the seeded layer and
-  // any held trigger have to go with it or the next start would inherit a layer
-  // from the profile you just left.
-  useEffect(() => {
-    setTestMode(false)
-    setPress(null)
-    setEditingKey(null)
-    setPressedKeys(new Set())
-    heldPhysicalCodesRef.current.clear()
-    commitTestSwitch(IDLE_TEST_SWITCH)
-  }, [profile.id])
-
   /**
    * Start/stop test mode. Starting borrows the currently selected layer as the
    * displayed one, so the board does not change under you the moment you press
    * Start (decision 7); stopping drops the local state, and since the selection
-   * was never written, that alone restores what you were looking at (AC 5).
+   * was never written, that alone restores what you were looking at.
    */
   const toggleTestMode = (): void => {
     const next = !testMode
@@ -238,7 +222,7 @@ export function OverviewKeyboardPanel({
       commitTestSwitch(applyTriggerRelease(testSwitchRef.current, quakeKey))
     }
     // Focus loss is the release we will never see: without this the held
-    // trigger's layer would stay on the board for good (AC 5). It ends the hold
+    // trigger's layer would stay on the board for good. It ends the hold
     // and nothing else - a `toggle` layer is not held, so it stays displayed,
     // which is exactly how narrow "clears any hold-layer state" is.
     const handleBlur = (): void => {
@@ -259,7 +243,7 @@ export function OverviewKeyboardPanel({
     }
   }, [testMode, testProfile, activeLayer])
 
-  // Physical mouse buttons (018 D5, decisions 16-18): same `pressedKeys` set
+  // Physical mouse buttons (018, decisions 16-18): same `pressedKeys` set
   // and resolve/commit pattern as the keydown effect above, so a mouse button
   // lights up its keycap exactly like a keyboard key. The wheel is excluded
   // entirely (decision 18) - no listener, no press/release semantics. Blur
@@ -425,7 +409,7 @@ export function OverviewKeyboardPanel({
       // key is never dimmed: it is what got you onto this layer.
       Boolean(displayedLayer) && !trigger && !hasOverride && bound && 'opacity-70',
       trigger ? 'cursor-pointer hover:border-strogg-300' : 'cursor-pointer hover:border-flame-400',
-      // Physically held (018 D4, decision 14): a ring layered on top of whichever
+      // Physically held (018, decision 14): a ring layered on top of whichever
       // tone already applies above, never a fourth colour of its own.
       pressedKeys.has(def.key) && 'ring-2 ring-inset ring-ink',
     )
@@ -555,13 +539,13 @@ export function OverviewKeyboardPanel({
           <Badge tone="warning" className={cn(!displayedLayer && 'opacity-60')}>
             {t('config.overview.legend.altLayer')}
           </Badge>
-          <Badge tone="strogg">{t('config.overview.legend.trigger')}</Badge>
+          <Badge tone="strogg">{t('common.label.layerTrigger')}</Badge>
           <Badge tone="neutral" className="ring-2 ring-inset ring-ink">
             {t('config.overview.legend.pressed')}
           </Badge>
         </div>
         {/*
-          D6: the readout's home, right-hand cell under the test-mode button
+          The readout's home, right-hand cell under the test-mode button
           cluster above (same `justify-between` pattern as the header row).
           Renders unconditionally - `TestModeReadout` itself picks the inactive
           hint, the placeholder or a resolved press (decisions 20-21).
@@ -632,7 +616,7 @@ export function OverviewKeyboardPanel({
           layer={activeLayer}
           onClose={() => setEditingKey(null)}
           onSaved={(profiles) => {
-            onChanged(profiles)
+            save(profiles)
             setEditingKey(null)
           }}
         />

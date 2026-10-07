@@ -5,17 +5,17 @@ game `opentdm`, demo `test-demo-for-launcher.dm2` (~40 s), Windows 11, windowed 
 commands and 10 bursts per configuration. Every number below is a value from one of the 16 files in
 `results/` (one per configuration, named here by timestamp prefix):
 
-| Config | File | Config | File |
-| --- | --- | --- | --- |
-| baseline | `2026-09-30T07-30-22-186Z.json` | multiseq | `2026-09-30T07-58-08-308Z.json` |
-| wait5 | `2026-09-30T07-33-47-947Z.json` | coalesce | `2026-09-30T08-01-09-856Z.json` |
-| wait2 | `2026-09-30T07-36-29-175Z.json` | fileack | `2026-09-30T08-04-26-881Z.json` |
-| wait1 | `2026-09-30T07-38-50-836Z.json` | combo-1 | `2026-09-30T08-06-46-195Z.json` |
-| flush0 | `2026-09-30T07-41-10-010Z.json` | combo-2 | `2026-09-30T08-08-56-851Z.json` |
-| flush2 | `2026-09-30T07-45-31-314Z.json` | combo-3 | `2026-09-30T08-11-12-234Z.json` |
-| flush3 | `2026-09-30T07-47-49-447Z.json` | logtoggle | `2026-09-30T07-50-10-307Z.json` |
-| pad | `2026-09-30T07-55-50-434Z.json` | flush1 | = baseline (production is `logfile_flush 1`) |
-| combo-4 | `2026-09-30T08-26-04-154Z.json` | | |
+| Config   | File                            | Config    | File                                         |
+| -------- | ------------------------------- | --------- | -------------------------------------------- |
+| baseline | `2026-09-30T07-30-22-186Z.json` | multiseq  | `2026-09-30T07-58-08-308Z.json`              |
+| wait5    | `2026-09-30T07-33-47-947Z.json` | coalesce  | `2026-09-30T08-01-09-856Z.json`              |
+| wait2    | `2026-09-30T07-36-29-175Z.json` | fileack   | `2026-09-30T08-04-26-881Z.json`              |
+| wait1    | `2026-09-30T07-38-50-836Z.json` | combo-1   | `2026-09-30T08-06-46-195Z.json`              |
+| flush0   | `2026-09-30T07-41-10-010Z.json` | combo-2   | `2026-09-30T08-08-56-851Z.json`              |
+| flush2   | `2026-09-30T07-45-31-314Z.json` | combo-3   | `2026-09-30T08-11-12-234Z.json`              |
+| flush3   | `2026-09-30T07-47-49-447Z.json` | logtoggle | `2026-09-30T07-50-10-307Z.json`              |
+| pad      | `2026-09-30T07-55-50-434Z.json` | flush1    | = baseline (production is `logfile_flush 1`) |
+| combo-4  | `2026-09-30T08-26-04-154Z.json` |           |                                              |
 
 All times are ms, `p50 / p95` unless stated. "Effect" is the engine-written marker file (never the log), so the
 flush share is visible. "ACK" is the configuration's own ACK (log line; the marker for `fileack`).
@@ -24,7 +24,7 @@ flush share is visible. "ACK" is the configuration's own ACK (log line; the mark
 
 **Go** for a latency fix, with **combo-4 = `logfile_flush 3` + multiseq at the production loop wait 13**
 (`…08-26-04-154Z.json`). Production's control written -> ACK read is **1277.3 / 1537.4** ms
-(`…07-30-22-186Z.json`), of which the command *taking effect* is only **117.4 / 209.4**: ~1.1 s is the log
+(`…07-30-22-186Z.json`), of which the command _taking effect_ is only **117.4 / 209.4**: ~1.1 s is the log
 buffer flushing 525 bytes at a time plus the 50 ms poll, and every command is serialised behind it. combo-4
 measures control -> ACK **107 / 257** (**138.4 / 293.4** at the 50 ms production poll), bursts of 3 last ACK
 **289.4 / 293.7** against baseline **3750.1 / 3762.1**, 0 timeouts, exactly-once 60/60, tookEffect 60/60, at
@@ -35,27 +35,27 @@ knowingly. It does **not** fix input starvation (nothing does; see below). Linux
 
 ## AC1 — baseline (`…07-30-22-186Z.json`, production unmodified; `productionUnmodified` all true)
 
-| Measure | p50 / p95 (max) |
-| --- | --- |
-| control written -> took effect (`effect`) | 117.4 / 209.4 (223.4) |
-| tick share: control written -> marker (`controlToMarker`) | 116.2 / 208.5 (222.4) |
-| control written -> ACK read (`ack`) | 1277.3 / 1537.4 (1538.3) |
-| same at the production 50 ms poll (`ackAtProductionPoll`) | 1315.3 / 1545.3 (1576.3) |
-| flush + poll share: marker -> log ACK (`markerToAck`) | 1090 / 1510 (1520) |
-| burst (pause, seek -10, pause, 100 ms apart): first request -> last ACK | 3750.1 / 3762.1 |
-| burst: first request -> last effect | 2681.1 / 2892.1 |
-| burst serialisation cost: burst last ACK vs single (`lastAckVsSingleMs`) | 2472.8 |
+| Measure                                                                  | p50 / p95 (max)          |
+| ------------------------------------------------------------------------ | ------------------------ |
+| control written -> took effect (`effect`)                                | 117.4 / 209.4 (223.4)    |
+| tick share: control written -> marker (`controlToMarker`)                | 116.2 / 208.5 (222.4)    |
+| control written -> ACK read (`ack`)                                      | 1277.3 / 1537.4 (1538.3) |
+| same at the production 50 ms poll (`ackAtProductionPoll`)                | 1315.3 / 1545.3 (1576.3) |
+| flush + poll share: marker -> log ACK (`markerToAck`)                    | 1090 / 1510 (1520)       |
+| burst (pause, seek -10, pause, 100 ms apart): first request -> last ACK  | 3750.1 / 3762.1          |
+| burst: first request -> last effect                                      | 2681.1 / 2892.1          |
+| burst serialisation cost: burst last ACK vs single (`lastAckVsSingleMs`) | 2472.8                   |
 
 The loop tick is cheap; the wait is the log. Timeouts 0, exactly-once 60/60, took-effect 60/60.
 
 ## AC2 — flush interval at the current tick (baseline)
 
-| Series | p50 / p95 / max |
-| --- | --- |
+| Series                                                                            | p50 / p95 / max      |
+| --------------------------------------------------------------------------------- | -------------------- |
 | interval between read batches carrying new POS/ACK lines, 10 ms host poll (n=123) | 1300 / 1520 / 1523.5 |
-| same snapped to the 50 ms production poll | 1300 / 1550 / 1550 |
-| lines per batch (per flush) | 6 / 7 / 7 |
-| bytes per flush | 525 / 526 / 526 |
+| same snapped to the 50 ms production poll                                         | 1300 / 1550 / 1550   |
+| lines per batch (per flush)                                                       | 6 / 7 / 7            |
+| bytes per flush                                                                   | 525 / 526 / 526      |
 
 The preflight measured the flush size directly: `bufferBytes.fromSizeJumpsAtFlush1` p50 525, p95 526, max 526
 (n=7), hence `padBytes` 589. With `logfile_flush 1` the MSVC CRT fully buffers (`semantics` in the preflight:
@@ -68,24 +68,24 @@ Columns: effect and ACK p50/p95; flush interval p50/p95 (10 ms poll); lines/s = 
 (Execing + POS + ACK + PAD + other; baseline 10.5); CPU = `cpuDeltaPct` (loop running vs stopped, 30 s each);
 timeouts. Every configuration also had exactly-once 60/60. Lines/s of the wait-1 rows depend on the engine frame rate (Execing/s x wait = 45.1 to 50.2 command frames/s there against 65.0 in baseline), so at baseline's ~65 fps they would be roughly 1.4x higher (extrapolation, unmeasured). Screenshots are `results/<timestamp>-<config>.png`.
 
-| Config | Effect | ACK | Flush int. | Lines/s | Starved | CPU Δ% | Timeouts | Go / no-go | Screenshot |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| baseline | 117.4 / 209.4 | 1277.3 / 1537.4 | 1300 / 1520 | 10.5 | yes | 248.5 | 0 | reference | `2026-09-30T07-30-22-186Z-baseline.png` |
-| wait5 | 42.3 / 79.3 | 292.3 / 566.3 | 500 / 590 | 26.0 | yes | 199.3 | 0 | **no-go** alone: p95 566 still misses the 300 bar, flush share (250 / 500) remains | `2026-09-30T07-33-47-947Z-wait5.png` |
-| wait2 | 22.7 / 41.7 | 217.7 / 341.7 | 260 / 385.1 | 47.5 | yes | 27.8 | 0 | **no-go** alone: p95 341.7 misses 300; 3 of 60 state checks contradicted | `2026-09-30T07-36-29-175Z-wait2.png` |
-| wait1 | 14 / 26 | 69.2 / 133 | 120.2 / 200 | 93.0 | yes | -8 | 0 | **latency floor, no-go on console volume** (ACK 69.2 / 133, 97.3 / 163.5 at the 50 ms poll; best L1 by latency); alone ACK is held up by the flush (markerToAck 50 / 110); lines/s ~9x baseline | `2026-09-30T07-38-50-836Z-wait1.png` |
-| flush0 | 101.1 / 206.1 | 5867.1 / 10361 | 10180 / 11494.9 | 10.3 | yes | 245.6 | **53** | **no-go**: CRT default buffering flushes 4201 bytes at a time; 53 timeouts | `2026-09-30T07-41-10-010Z-flush0.png` |
-| flush2 | 115.4 / 322.4 | 115.4 / 322.4 | 220 / 370.3 | 9.5 | yes | -2.5 | 0 | **go as a component, ranked below flush3** (`_IONBF`): ACK == effect (markerToAck 0), fewer lines than baseline; but tick-bound at wait 13. Its state check is invalid (the demo never played), so it is unvalidated. Caveat: the `tookEffect` state check contradicted 40 of 60 (yes 20) although the marker fired every time — unexplained, see caveats | `2026-09-30T07-45-31-314Z-flush2.png` |
-| flush3 | 127.4 / 254.4 | 127.4 / 254.4 | 300 / 380 | 9.3 | yes | -9.8 | 0 | **go as a component; preferred over flush2** (also `_IONBF`): ACK p95 254.4 (290.6 at the 50 ms poll, `ackAtProductionPoll`), 9.3 lines/s, tookEffect 60/60; alone, bursts stay serialised (last ACK 780.6 / 1111.6) | `2026-09-30T07-47-49-447Z-flush3.png` |
-| logtoggle | 163.8 / 301.8 | 163.8 / 301.8 | 261.1 / 373.1 | 16.3 | yes | -21.1 | 0 | **no-go**: no better than flush2, and `other` lines rise to 7.9/s (baseline 0.5) | `2026-09-30T07-50-10-307Z-logtoggle.png` |
-| pad | 109.1 / 326.3 | 109.1 / 326.3 | 217.6 / 341.7 | 15.0 | yes | 1373.5 | 0 | **no-go**: no better than flush2, adds 4.2 PAD lines/s of console noise, and the highest CPU delta (0.7472 CPU-s/s running vs 0.0507 stopped) | `2026-09-30T07-55-50-434Z-pad.png` |
-| multiseq | 116 / 209.2 | 1289.2 / 1526.1 | 1300 / 1520 | 10.8 | yes | 213.5 | 0 | **go for bursts, in combination (see combo-4)**: singles unchanged (ACK 1289.2 / 1526.1, expected, the flush is the single-command cost), but the burst metric it targets improves from last ACK 3750.1 / 3762.1 to 940.2 / 1495 (last effect 290.2 / 415 vs 2681.1 / 2892.1) at about baseline line volume (10.8 vs 10.5 lines/s); 20 of 60 state checks unknown (marker took effect 60/60) | `2026-09-30T07-58-08-308Z-multiseq.png` |
-| coalesce | 137.5 / 330.5 | 1296.3 / 2518.4 | 1530 / 2462.2 | 8.4 | yes | 69.9 | **6** | **no-go**: it did not improve bursts (last ACK 2470.6 / 4181.6 vs baseline 3750.1 / 3762.1: p50 better, p95 worse). Its 6 timeouts (3 singles, 3 bursts) and single ACK p95 2518.4 are run variance for singles: every single had `batchSize` 1, i.e. the baseline configuration; only bursts coalesced (batch sizes 1, 2, 2) | `2026-09-30T08-01-09-856Z-coalesce.png` |
-| fileack | 116.2 / 290.2 | 116.2 / 290.2 | 1290 / 2401.7 | 9.3 | yes | -1.6 | 0 | **go as an alternative** (no flush lever needed, lines/s below baseline), but tick-bound at wait 13 and the log still lags (markerToAck 870 / 1420) | `2026-09-30T08-04-26-881Z-fileack.png` |
-| combo-1 (wait1 + flush2) | 14 / 32.7 | 15.6 / 32.7 | 30 / 46.6 | 91.5 | yes | -20.3 | 0 | **no-go on console volume** (91.5 lines/s, ~9x the 10/s cap of 174/185); kept as the latency floor: ACK 15.6 / 32.7, 40.7 / 66.7 at the 50 ms poll. Built on flush2's unvalidated run (see caveats) | `2026-09-30T08-06-46-195Z-combo-1.png` |
-| combo-2 (wait1 + flush2 + multiseq) | 13.4 / 25.8 | 13.4 / 25.8 | 20.3 / 47.1 | 101.4 | yes | -17.3 | 0 | **no-go**: console volume and no gain over combo-1 (ACK p95 25.8 vs 32.7, burst last ACK 222.5 vs 212.2) and the most lines/s of all | `2026-09-30T08-08-56-851Z-combo-2.png` |
-| combo-3 (wait1 + fileack + multiseq) | 16.6 / 34.3 | 16.6 / 34.3 | 150 / 201.2 | 91.2 | yes | -1.2 | 0 | **no-go vs combo-1**: ACK at the 50 ms poll p95 73.2 (combo-1 66.7) and the log stays ~200 ms behind (markerToAck 50 / 170); adds a marker-file dependency and multiseq for nothing | `2026-09-30T08-11-12-234Z-combo-3.png` |
-| **combo-4 (flush3 + multiseq, wait 13)** | 107 / 257 | 107 / 257 | 220 / 372.4 | 10.0 | yes | 116.4 | 0 | **GO - recommended** (in budget by the line-count gate; bursts 289.4 / 293.7; ACK at 50 ms poll 138.4 / 293.4; tookEffect 60/60, 38 confirmed / 22 unknown / 0 contradicted) | `2026-09-30T08-26-04-154Z-combo-4.png` |
+| Config                                   | Effect        | ACK             | Flush int.      | Lines/s | Starved | CPU Δ% | Timeouts | Go / no-go                                                                                                                                                                                                                                                                                                                                                                                   | Screenshot                               |
+| ---------------------------------------- | ------------- | --------------- | --------------- | ------- | ------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| baseline                                 | 117.4 / 209.4 | 1277.3 / 1537.4 | 1300 / 1520     | 10.5    | yes     | 248.5  | 0        | reference                                                                                                                                                                                                                                                                                                                                                                                    | `2026-09-30T07-30-22-186Z-baseline.png`  |
+| wait5                                    | 42.3 / 79.3   | 292.3 / 566.3   | 500 / 590       | 26.0    | yes     | 199.3  | 0        | **no-go** alone: p95 566 still misses the 300 bar, flush share (250 / 500) remains                                                                                                                                                                                                                                                                                                           | `2026-09-30T07-33-47-947Z-wait5.png`     |
+| wait2                                    | 22.7 / 41.7   | 217.7 / 341.7   | 260 / 385.1     | 47.5    | yes     | 27.8   | 0        | **no-go** alone: p95 341.7 misses 300; 3 of 60 state checks contradicted                                                                                                                                                                                                                                                                                                                     | `2026-09-30T07-36-29-175Z-wait2.png`     |
+| wait1                                    | 14 / 26       | 69.2 / 133      | 120.2 / 200     | 93.0    | yes     | -8     | 0        | **latency floor, no-go on console volume** (ACK 69.2 / 133, 97.3 / 163.5 at the 50 ms poll; best L1 by latency); alone ACK is held up by the flush (markerToAck 50 / 110); lines/s ~9x baseline                                                                                                                                                                                              | `2026-09-30T07-38-50-836Z-wait1.png`     |
+| flush0                                   | 101.1 / 206.1 | 5867.1 / 10361  | 10180 / 11494.9 | 10.3    | yes     | 245.6  | **53**   | **no-go**: CRT default buffering flushes 4201 bytes at a time; 53 timeouts                                                                                                                                                                                                                                                                                                                   | `2026-09-30T07-41-10-010Z-flush0.png`    |
+| flush2                                   | 115.4 / 322.4 | 115.4 / 322.4   | 220 / 370.3     | 9.5     | yes     | -2.5   | 0        | **go as a component, ranked below flush3** (`_IONBF`): ACK == effect (markerToAck 0), fewer lines than baseline; but tick-bound at wait 13. Its state check is invalid (the demo never played), so it is unvalidated. Caveat: the `tookEffect` state check contradicted 40 of 60 (yes 20) although the marker fired every time — unexplained, see caveats                                    | `2026-09-30T07-45-31-314Z-flush2.png`    |
+| flush3                                   | 127.4 / 254.4 | 127.4 / 254.4   | 300 / 380       | 9.3     | yes     | -9.8   | 0        | **go as a component; preferred over flush2** (also `_IONBF`): ACK p95 254.4 (290.6 at the 50 ms poll, `ackAtProductionPoll`), 9.3 lines/s, tookEffect 60/60; alone, bursts stay serialised (last ACK 780.6 / 1111.6)                                                                                                                                                                         | `2026-09-30T07-47-49-447Z-flush3.png`    |
+| logtoggle                                | 163.8 / 301.8 | 163.8 / 301.8   | 261.1 / 373.1   | 16.3    | yes     | -21.1  | 0        | **no-go**: no better than flush2, and `other` lines rise to 7.9/s (baseline 0.5)                                                                                                                                                                                                                                                                                                             | `2026-09-30T07-50-10-307Z-logtoggle.png` |
+| pad                                      | 109.1 / 326.3 | 109.1 / 326.3   | 217.6 / 341.7   | 15.0    | yes     | 1373.5 | 0        | **no-go**: no better than flush2, adds 4.2 PAD lines/s of console noise, and the highest CPU delta (0.7472 CPU-s/s running vs 0.0507 stopped)                                                                                                                                                                                                                                                | `2026-09-30T07-55-50-434Z-pad.png`       |
+| multiseq                                 | 116 / 209.2   | 1289.2 / 1526.1 | 1300 / 1520     | 10.8    | yes     | 213.5  | 0        | **go for bursts, in combination (see combo-4)**: singles unchanged (ACK 1289.2 / 1526.1, expected, the flush is the single-command cost), but the burst metric it targets improves from last ACK 3750.1 / 3762.1 to 940.2 / 1495 (last effect 290.2 / 415 vs 2681.1 / 2892.1) at about baseline line volume (10.8 vs 10.5 lines/s); 20 of 60 state checks unknown (marker took effect 60/60) | `2026-09-30T07-58-08-308Z-multiseq.png`  |
+| coalesce                                 | 137.5 / 330.5 | 1296.3 / 2518.4 | 1530 / 2462.2   | 8.4     | yes     | 69.9   | **6**    | **no-go**: it did not improve bursts (last ACK 2470.6 / 4181.6 vs baseline 3750.1 / 3762.1: p50 better, p95 worse). Its 6 timeouts (3 singles, 3 bursts) and single ACK p95 2518.4 are run variance for singles: every single had `batchSize` 1, i.e. the baseline configuration; only bursts coalesced (batch sizes 1, 2, 2)                                                                | `2026-09-30T08-01-09-856Z-coalesce.png`  |
+| fileack                                  | 116.2 / 290.2 | 116.2 / 290.2   | 1290 / 2401.7   | 9.3     | yes     | -1.6   | 0        | **go as an alternative** (no flush lever needed, lines/s below baseline), but tick-bound at wait 13 and the log still lags (markerToAck 870 / 1420)                                                                                                                                                                                                                                          | `2026-09-30T08-04-26-881Z-fileack.png`   |
+| combo-1 (wait1 + flush2)                 | 14 / 32.7     | 15.6 / 32.7     | 30 / 46.6       | 91.5    | yes     | -20.3  | 0        | **no-go on console volume** (91.5 lines/s, ~9x the 10/s cap of 174/185); kept as the latency floor: ACK 15.6 / 32.7, 40.7 / 66.7 at the 50 ms poll. Built on flush2's unvalidated run (see caveats)                                                                                                                                                                                          | `2026-09-30T08-06-46-195Z-combo-1.png`   |
+| combo-2 (wait1 + flush2 + multiseq)      | 13.4 / 25.8   | 13.4 / 25.8     | 20.3 / 47.1     | 101.4   | yes     | -17.3  | 0        | **no-go**: console volume and no gain over combo-1 (ACK p95 25.8 vs 32.7, burst last ACK 222.5 vs 212.2) and the most lines/s of all                                                                                                                                                                                                                                                         | `2026-09-30T08-08-56-851Z-combo-2.png`   |
+| combo-3 (wait1 + fileack + multiseq)     | 16.6 / 34.3   | 16.6 / 34.3     | 150 / 201.2     | 91.2    | yes     | -1.2   | 0        | **no-go vs combo-1**: ACK at the 50 ms poll p95 73.2 (combo-1 66.7) and the log stays ~200 ms behind (markerToAck 50 / 170); adds a marker-file dependency and multiseq for nothing                                                                                                                                                                                                          | `2026-09-30T08-11-12-234Z-combo-3.png`   |
+| **combo-4 (flush3 + multiseq, wait 13)** | 107 / 257     | 107 / 257       | 220 / 372.4     | 10.0    | yes     | 116.4  | 0        | **GO - recommended** (in budget by the line-count gate; bursts 289.4 / 293.7; ACK at 50 ms poll 138.4 / 293.4; tookEffect 60/60, 38 confirmed / 22 unknown / 0 contradicted)                                                                                                                                                                                                                 | `2026-09-30T08-26-04-154Z-combo-4.png`   |
 
 Lines/s for every row is the sum of `sideEffects.linesPerSec` (Execing + POS + ACK + PAD + other); the JSONs have no
 separate total field, combo-4 included (4.5 + 3.8 + 0.7 + 0 + 1 = 10.0). wait2 + flush3 was **not measured**.
@@ -210,8 +210,7 @@ Code-level assessment of `src/main/modules/replays/playback-channel/linux-channe
   (2x speed shows in `msPerTick`, not judged). The flush2 pause/timescale effect is thus not evidenced by the state check.
 - **Late ACKs stay in the ACK stats.** The harness nulls a log ACK seen only after the session exit
   (`logAckAfterExit`, `harness.mjs` line 590), which would censor timed-out samples. The JSONs show 0 samples with
-  `logAckAfterExit` in every config and `ack.n` 30 everywhere: flush0 (26 of 30 singles timed out) and coalesce (3 of
-  30) did get a log ACK before exit, after the 2000 ms timeout, so their p95s (10361, 2518.4) include those late ACKs
+  `logAckAfterExit` in every config and `ack.n` 30 everywhere: flush0 (26 of 30 singles timed out) and coalesce (3 of 30) did get a log ACK before exit, after the 2000 ms timeout, so their p95s (10361, 2518.4) include those late ACKs
   and are not censored.
 - The demo is ~40 s; a housekeeping `seek 5` (excluded from the stats) rewinds it past 20 s; `demoFinished` is true in every config file except flush2, where it is false because the demo never left 100 ms (see above).
 - CPU figures: see the side-effects note; one 30 s sample pair per configuration.

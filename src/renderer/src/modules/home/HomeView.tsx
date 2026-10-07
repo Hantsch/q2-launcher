@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import type { NewsFeed } from '@shared/modules/home'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { getNews, onNewsChanged, refreshNews } from './client'
 import { Dashboard } from './dashboard/Dashboard'
 import { NewsHero } from './NewsHero'
@@ -13,7 +12,7 @@ import { NewsHero } from './NewsHero'
  * scrollable sein wenn overflow ist"). The hero still brings no horizontal padding of its own -
  * all padding lives on the dashboard region, never on both.
  *
- * This is the feed's data-fetching boundary (D4 fixup): `getNews()` is fetched
+ * This is the feed's data-fetching boundary: `getNews()` is fetched
  * once on mount, `onNewsChanged` keeps it live for the component's lifetime, and
  * `onRefresh` calls `refreshNews()` - mirrors `DownloadsView.tsx`'s
  * fetch-on-mount shape (a `cancelled` guard around a `client.ts` call, `Outcome`
@@ -29,21 +28,7 @@ import { NewsHero } from './NewsHero'
  * announcing that news "will live" here only cost vertical space.
  */
 export function HomeView() {
-  const [feed, setFeed] = useState<NewsFeed | undefined>(undefined)
-
-  useEffect(() => {
-    let cancelled = false
-    void getNews().then((result) => {
-      if (!cancelled && result.ok) setFeed(result.value)
-    })
-    const unsubscribe = onNewsChanged((next) => {
-      if (!cancelled) setFeed(next)
-    })
-    return () => {
-      cancelled = true
-      unsubscribe()
-    }
-  }, [])
+  const { data: feed, setData: setFeed } = useModuleQuery(getNews, { subscribe: onNewsChanged })
 
   function handleRefresh() {
     void refreshNews().then((result) => {

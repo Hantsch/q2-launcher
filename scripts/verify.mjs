@@ -110,11 +110,11 @@ function npmCommand() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm'
 }
 
-/** Spawns `npm run build`, inheriting stdio. Returns true on exit 0 — mirrors old ui-verify.mjs. */
+/** Spawns `npm run build:dev`, inheriting stdio. Returns true on exit 0 — mirrors old ui-verify.mjs. */
 function runBuild() {
-  console.log('verify.mjs — build missing, running "npm run build"')
+  console.log('verify.mjs — build missing, running "npm run build:dev"')
   try {
-    execFileSync(npmCommand(), ['run', 'build'], {
+    execFileSync(npmCommand(), ['run', 'build:dev'], {
       cwd: REPO_ROOT,
       stdio: 'inherit',
       shell: process.platform === 'win32',

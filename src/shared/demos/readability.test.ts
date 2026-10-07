@@ -7,19 +7,26 @@ import { buildMvd2 } from './mvd2-writer'
 import { DEMO_UNREADABLE_REASONS, demoReadability } from './readability'
 
 describe('demoReadability', () => {
-  it.each(DEMO_UNREADABLE_REASONS)('every unparsable reason becomes readable false with its code: %s', (reason) => {
-    const result = { ok: false, reason } as unknown as DemoHeaderResult
-    const projected = demoReadability(result)
+  it.each(DEMO_UNREADABLE_REASONS)(
+    'every unparsable reason becomes readable false with its code: %s',
+    (reason) => {
+      const result = { ok: false, reason } as unknown as DemoHeaderResult
+      const projected = demoReadability(result)
 
-    expect(projected.readable).toBe(false)
-    expect(projected.unreadable).not.toBeNull()
-    expect(projected.unreadable?.reason).toBe(reason)
-    expect(projected.unreadable).not.toHaveProperty('protocol')
-    expect(projected.unreadable).not.toHaveProperty('version')
-  })
+      expect(projected.readable).toBe(false)
+      expect(projected.unreadable).not.toBeNull()
+      expect(projected.unreadable?.reason).toBe(reason)
+      expect(projected.unreadable).not.toHaveProperty('protocol')
+      expect(projected.unreadable).not.toHaveProperty('version')
+    },
+  )
 
   it('carries protocol through when present on the result', () => {
-    const result = { ok: false, reason: 'unknown-protocol', protocol: 36 } as unknown as DemoHeaderResult
+    const result = {
+      ok: false,
+      reason: 'unknown-protocol',
+      protocol: 36,
+    } as unknown as DemoHeaderResult
     const projected = demoReadability(result)
 
     expect(projected.readable).toBe(false)
@@ -28,7 +35,11 @@ describe('demoReadability', () => {
   })
 
   it('carries version through when present on the result', () => {
-    const result = { ok: false, reason: 'unknown-version', version: 2008 } as unknown as DemoHeaderResult
+    const result = {
+      ok: false,
+      reason: 'unknown-version',
+      version: 2008,
+    } as unknown as DemoHeaderResult
     const projected = demoReadability(result)
 
     expect(projected.readable).toBe(false)
@@ -84,7 +95,10 @@ describe('demoReadability', () => {
     dm2Bytes[7] = 0
     dm2Bytes[8] = 0
     const unknownProtocol = demoReadability(parseDemoHeader(dm2Bytes))
-    expect(unknownProtocol).toEqual({ readable: false, unreadable: { reason: 'unknown-protocol', protocol: 35 } })
+    expect(unknownProtocol).toEqual({
+      readable: false,
+      unreadable: { reason: 'unknown-protocol', protocol: 35 },
+    })
 
     // Layout: "MVD2"(4) + [uint16 block length](2) + [byte cmd](1) + [int32 protocol](4) +
     // [uint16 version] — version lives at absolute offset 11..12.
@@ -98,6 +112,9 @@ describe('demoReadability', () => {
     mvd2Bytes[11] = 2008 & 0xff
     mvd2Bytes[12] = (2008 >> 8) & 0xff
     const unknownVersion = demoReadability(parseDemoHeader(mvd2Bytes))
-    expect(unknownVersion).toEqual({ readable: false, unreadable: { reason: 'unknown-version', version: 2008 } })
+    expect(unknownVersion).toEqual({
+      readable: false,
+      unreadable: { reason: 'unknown-version', version: 2008 },
+    })
   })
 })

@@ -21,6 +21,7 @@ function subject(overrides: Partial<DemoFilterSubject> = {}): DemoFilterSubject 
     sidecar: null,
     headerPlayers: [],
     namePlayers: [],
+    rosterTerms: [],
     date: null,
     ...overrides,
   }
@@ -31,6 +32,13 @@ function filter(overrides: Partial<DemoListFilter> = {}): DemoListFilter {
 }
 
 describe('matchesDemoSearch', () => {
+  it('search finds a demo by its team name', () => {
+    const s = subject({ rosterTerms: ['Home', 'Away', 'Zed', 'Watcher'] })
+    expect(matchesDemoSearch(s, 'Away')).toBe(true)
+    expect(matchesDemoSearch(s, 'watcher')).toBe(true)
+    expect(matchesDemoSearch(subject(), 'Away')).toBe(false)
+  })
+
   it('matches every field case-insensitively', () => {
     const s = subject({
       name: 'Grudge Match',
@@ -64,11 +72,47 @@ describe('matchesDemoSearch', () => {
     expect(matchesDemoSearch(s, '   ')).toBe(true)
     expect(matchesDemoSearch(s, 'anything')).toBe(false)
   })
+
+  it('a quoted search matches a whole field exactly', () => {
+    const s = subject({
+      name: 'Grudge Match',
+      fileName: 'grudge_final.dm2',
+      map: 'q2ctf5',
+      sidecar: { description: 'Epic finale', tags: ['lan'], sides: [{ players: ['Tom'] }] },
+      headerPlayers: ['Rex'],
+      namePlayers: ['Zed'],
+    })
+    for (const whole of [
+      'GRUDGE MATCH',
+      'grudge_final.dm2',
+      'q2ctf5',
+      'epic finale',
+      'LAN',
+      'tom',
+      'rex',
+      'zed',
+    ]) {
+      expect(matchesDemoSearch(s, `"${whole}"`)).toBe(true)
+    }
+  })
+
+  it('a quoted partial value matches nothing', () => {
+    const s = subject({ map: 'q2ctf5', sidecar: { tags: ['final'] }, headerPlayers: ['WallFly'] })
+    expect(matchesDemoSearch(s, 'q2ctf')).toBe(true)
+    expect(matchesDemoSearch(s, '"q2ctf"')).toBe(false)
+    expect(matchesDemoSearch(s, '"fina"')).toBe(false)
+    expect(matchesDemoSearch(s, '"wall"')).toBe(false)
+  })
 })
 
 describe('matchesDemoFilter — one criterion at a time', () => {
   const rows: DemoFilterSubject[] = [
-    subject({ fileName: 'a', mod: 'ctf', gamemode: { value: 'ctf', source: 'sidecar' }, map: 'q2dm1' }),
+    subject({
+      fileName: 'a',
+      mod: 'ctf',
+      gamemode: { value: 'ctf', source: 'sidecar' },
+      map: 'q2dm1',
+    }),
     subject({
       fileName: 'b',
       mod: 'baseq2',
@@ -86,35 +130,35 @@ describe('matchesDemoFilter — one criterion at a time', () => {
   ]
 
   it('mod', () => {
-    expect(rows.filter((r) => matchesDemoFilter(r, filter({ mod: 'baseq2' }))).map((r) => r.fileName)).toEqual([
-      'b',
-      'c',
-    ])
+    expect(
+      rows.filter((r) => matchesDemoFilter(r, filter({ mod: 'baseq2' }))).map((r) => r.fileName),
+    ).toEqual(['b', 'c'])
   })
 
   it('gamemode, including a guessed value', () => {
-    expect(rows.filter((r) => matchesDemoFilter(r, filter({ gamemode: 'duel' }))).map((r) => r.fileName)).toEqual([
-      'b',
-    ])
+    expect(
+      rows.filter((r) => matchesDemoFilter(r, filter({ gamemode: 'duel' }))).map((r) => r.fileName),
+    ).toEqual(['b'])
   })
 
   it('map', () => {
-    expect(rows.filter((r) => matchesDemoFilter(r, filter({ map: 'q2dm1' }))).map((r) => r.fileName)).toEqual([
-      'a',
-      'c',
-    ])
+    expect(
+      rows.filter((r) => matchesDemoFilter(r, filter({ map: 'q2dm1' }))).map((r) => r.fileName),
+    ).toEqual(['a', 'c'])
   })
 
   it('favouritesOnly', () => {
     expect(
-      rows.filter((r) => matchesDemoFilter(r, filter({ favouritesOnly: true }))).map((r) => r.fileName),
+      rows
+        .filter((r) => matchesDemoFilter(r, filter({ favouritesOnly: true })))
+        .map((r) => r.fileName),
     ).toEqual(['b'])
   })
 
   it('minRating', () => {
-    expect(rows.filter((r) => matchesDemoFilter(r, filter({ minRating: 5 }))).map((r) => r.fileName)).toEqual([
-      'b',
-    ])
+    expect(
+      rows.filter((r) => matchesDemoFilter(r, filter({ minRating: 5 }))).map((r) => r.fileName),
+    ).toEqual(['b'])
   })
 
   it('a rating filter excludes unrated demos', () => {
@@ -127,7 +171,10 @@ describe('matchesDemoFilter — one criterion at a time', () => {
     const b = subject({ fileName: 'b', sidecar: { tags: ['sad'] } })
     const c = subject({ fileName: 'c', sidecar: { tags: ['boring'] } })
     const f = filter({ tags: ['Funny', 'SAD'] })
-    expect([a, b, c].filter((r) => matchesDemoFilter(r, f)).map((r) => r.fileName)).toEqual(['a', 'b'])
+    expect([a, b, c].filter((r) => matchesDemoFilter(r, f)).map((r) => r.fileName)).toEqual([
+      'a',
+      'b',
+    ])
   })
 })
 
@@ -195,7 +242,9 @@ describe('filterDemos', () => {
       { id: 'm', mod: 'ctf' },
     ]
     const original = [...rows]
-    const result = filterDemos(rows, filter({ mod: 'baseq2' }), (r) => subject({ fileName: r.id, mod: r.mod }))
+    const result = filterDemos(rows, filter({ mod: 'baseq2' }), (r) =>
+      subject({ fileName: r.id, mod: r.mod }),
+    )
     expect(result.map((r) => r.id)).toEqual(['z', 'a'])
     expect(rows).toEqual(original)
   })
@@ -204,9 +253,24 @@ describe('filterDemos', () => {
 describe('demoFilterOptions', () => {
   it('is distinct, case-insensitive and sorted', () => {
     const subjects: DemoFilterSubject[] = [
-      subject({ mod: 'baseq2', map: 'Q2DM1', gamemode: { value: 'duel', source: 'sidecar' }, sidecar: { tags: ['Fun'] } }),
-      subject({ mod: 'BaseQ2', map: 'q2dm3', gamemode: { value: 'ctf', source: 'guessed' }, sidecar: { tags: ['fun', 'epic'] } }),
-      subject({ mod: 'ctf', map: 'q2dm1', gamemode: { value: null, source: 'none' }, sidecar: null }),
+      subject({
+        mod: 'baseq2',
+        map: 'Q2DM1',
+        gamemode: { value: 'duel', source: 'sidecar' },
+        sidecar: { tags: ['Fun'] },
+      }),
+      subject({
+        mod: 'BaseQ2',
+        map: 'q2dm3',
+        gamemode: { value: 'ctf', source: 'guessed' },
+        sidecar: { tags: ['fun', 'epic'] },
+      }),
+      subject({
+        mod: 'ctf',
+        map: 'q2dm1',
+        gamemode: { value: null, source: 'none' },
+        sidecar: null,
+      }),
     ]
     const options = demoFilterOptions(subjects)
     expect(options.mods).toEqual(['baseq2', 'ctf'])
@@ -224,6 +288,8 @@ describe('demoListFilterSchema', () => {
     expect(demoListFilterSchema.safeParse(filter({ minRating: 11 })).success).toBe(false)
     expect(demoListFilterSchema.safeParse(filter({ search: 'x'.repeat(201) })).success).toBe(false)
     expect(demoListFilterSchema.safeParse(filter({ tags: ['x'.repeat(41)] })).success).toBe(false)
-    expect(demoListFilterSchema.safeParse({ ...EMPTY_DEMO_LIST_FILTER, extra: 1 }).success).toBe(false)
+    expect(demoListFilterSchema.safeParse({ ...EMPTY_DEMO_LIST_FILTER, extra: 1 }).success).toBe(
+      false,
+    )
   })
 })

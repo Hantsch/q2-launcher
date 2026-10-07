@@ -11,7 +11,7 @@ A user on Linux downloads a packaged launcher, installs Quake II with it, and is
 the same update flow a Windows user gets: the launcher notices a new version, the user chooses when
 to take it, and it restarts into it.
 
-This is the second half of Linux support and the risky half. Story 100 makes the launcher *work* on
+This is the second half of Linux support and the risky half. Story 100 makes the launcher _work_ on
 Linux when run from source; this one makes it something a stranger can download. It touches two
 things that currently have exactly one proven configuration each — the release ritual
 (`scripts/release.mjs`, `scripts/lib/release/artifacts.mjs`, `.github/workflows/release.yml`,
@@ -23,13 +23,13 @@ concern with its own trust and maintenance decision, and it is now story [[102]]
 here is self-contained and shippable on its own: a Linux user downloads a packaged launcher that
 self-updates and manages a Q2PRO they already have, which is exactly the outcome story 100's
 `none-for-platform` path was built to make coherent. Evidence for the engine question:
-[linux-support-analysis.md](../linux-support-analysis.md) §3 B1.
+[linux-support-analysis.md](../../linux-support-analysis.md) §3 B1.
 
 The release-side traps are already documented in the code that will have to change:
 `win.artifactName` in `electron-builder.yml` carries a long comment about why a space in the
 artifact name breaks the URL `electron-updater` resolves — and the `linux:` block below it is
 marked untested and has no `artifactName` at all. `collectAssets` hardcodes the four Windows assets
-and *throws* on any set it does not recognise, which is correct behaviour that will refuse the
+and _throws_ on any set it does not recognise, which is correct behaviour that will refuse the
 first multi-platform build.
 
 ## Acceptance Criteria
@@ -97,7 +97,7 @@ Four things are genuinely missing:
    (`release.mjs:334`). An AppImage cannot be built there, and Wine-on-Linux for the Windows half
    would change the one configuration that is proven. So the workflow grows to three jobs —
    `plan` (ubuntu, decides the version), `build-linux` (ubuntu, builds at that version, uploads
-   the artifacts), `release` (windows, downloads them, builds Windows, checks *both* sets, tags
+   the artifacts), `release` (windows, downloads them, builds Windows, checks _both_ sets, tags
    and publishes once). The Linux files are staged into `release/<version>/` **after** the Windows
    build and **before** the asset check, so AC3's "refuses when any expected file is missing" is
    true for the Linux half too rather than a second upload nobody gates.
@@ -108,7 +108,7 @@ Four things are genuinely missing:
 
 **How D6 gets an honest oracle.** A fresh `--user-data-dir` means `lastSuccessAt` is null, which
 `isWindowOpen()` (`service.ts:435`) reads as "due" — so the startup check fires on first launch and
-*is* the daily check AC6 names. The feed is redirected without touching app code, by building with
+_is_ the daily check AC6 names. The feed is redirected without touching app code, by building with
 `-c.publish.provider=generic -c.publish.url=http://127.0.0.1:<port>/`, which electron-builder writes
 straight into `app-update.yml`. After `update:installAndRestart` the AppImage re-execs itself via
 `$APPIMAGE` and Playwright's connection dies, so the assertion cannot be in-process: the app logs
@@ -125,7 +125,7 @@ D1 and D4).
       with a why-comment pointing at the `win.artifactName` comment above it and naming the
       `${arch}` → `x86_64` quirk), `scripts/lib/release/wiring.test.mjs` (extend — it already
       asserts `win.artifactName` against `artifacts.mjs`; add the mirrored Linux assertion).
-      *Acceptance:* `npm run package:linux` on a Linux machine or CI produces a file whose name
+      _Acceptance:_ `npm run package:linux` on a Linux machine or CI produces a file whose name
       carries no space and starts with `Q2-Launcher-`. Covers AC4.
 
 - [x] **D2 — the asset check knows two platforms.**
@@ -137,7 +137,7 @@ D1 and D4).
       expecting a phantom fifth Windows file made every real build refuse; confirm the AppImage
       set (`.AppImage`, `latest-linux.yml`, and whether a `.AppImage.blockmap` is actually
       emitted) against one real `electron-builder --linux` run before fixing it.
-      *Acceptance:* a directory missing only the AppImage throws naming only the AppImage.
+      _Acceptance:_ a directory missing only the AppImage throws naming only the AppImage.
       Covers AC3 (check half) and AC5.
 
 - [x] **D3 — one run publishes both.**
@@ -150,7 +150,7 @@ D1 and D4).
       `scripts/lib/release/wiring.test.mjs` (extend — it already reads the real workflow file),
       `CHANGELOG.md` + `README.md` (a Linux build is a user-facing change and the download section
       names it; `wiring.test.mjs` already asserts README's release wording).
-      *Acceptance:* a dry run produces, from one invocation, an asset list containing both
+      _Acceptance:_ a dry run produces, from one invocation, an asset list containing both
       platforms' files; deleting one Linux file makes it refuse and name that file.
       Covers AC3 (one-run half).
 
@@ -160,7 +160,7 @@ D1 and D4).
       injection and its `assertInside()` guard unchanged — Electron honours that flag in a
       packaged app too), `scripts/verify.mjs` + `scripts/ui-verify.mjs` + `scripts/flow.mjs` (a
       `--app=<path>` flag threaded through), `scripts/lib/harness.test.mjs` (new).
-      *Acceptance:* `npm run ui:flow about-release-notes -- --app=<path>` drives the packaged app;
+      _Acceptance:_ `npm run ui:flow about-release-notes -- --app=<path>` drives the packaged app;
       with no `--app` nothing about today's behaviour changes. Covers AC8's mechanism.
 
 - [x] **D5 — the Linux build is screenshotted and audited.**
@@ -169,7 +169,7 @@ D1 and D4).
       `npm run ui:flow about-release-notes -- --app=<AppImage>`; uploads the screenshot set,
       `a11y.json` and `a11y.md` as job artifacts. Reuses the existing flows
       (`scripts/flows/about-release-notes.mjs`, `linux-user-journey.mjs`) — no new flow needed.
-      *Acceptance:* the job is green and its artifacts contain the same screen list Windows
+      _Acceptance:_ the job is green and its artifacts contain the same screen list Windows
       produces. Covers AC7 and AC8.
 
 - [x] **D6 — a packaged AppImage really takes an update.**
@@ -182,7 +182,7 @@ D1 and D4).
       a paths filter on the update and release files), `src/main/index.ts` (one boot line logging
       `app.getVersion()` — the out-of-band oracle, and a thing support logs should have had
       anyway).
-      *Acceptance:* the job asserts the relaunched process reports the bumped version; deleting
+      _Acceptance:_ the job asserts the relaunched process reports the bumped version; deleting
       the served `latest-linux.yml` makes it fail rather than pass quietly. Covers AC6.
 
 ## Model Hints
@@ -221,7 +221,7 @@ D1 and D4).
   `.github/workflows/linux-verify.yml` (D5). Review (F2) found the `build-linux` job packaged the
   AppImage from an un-promoted `CHANGELOG.md` (still `## Unreleased`), so About would show the
   empty state forever on Linux; fixed with a new `scripts/release.mjs --promote-changelog
-  --version <v>` mode (reusing `planRelease`'s own changelog-promotion write) run in `build-linux`
+--version <v>` mode (reusing `planRelease`'s own changelog-promotion write) run in `build-linux`
   before `npm run package:linux`, asserted in `scripts/lib/release/wiring.test.mjs` (order,
   against the real workflow file).
 - AC8 → e2e `npm run ui:verify -- --app=<AppImage>` in `.github/workflows/linux-verify.yml`, whose
@@ -274,6 +274,7 @@ which were also fixed and re-verified.
 Commit message: `101: a linux release ships and updates itself`
 
 Verification:
+
 - `npm run build` — green.
 - `npm run typecheck` — green (node + web).
 - `npm test` — 4133 passed, 2 failed; both failures are pre-existing and unrelated to this story

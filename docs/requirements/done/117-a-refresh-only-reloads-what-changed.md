@@ -56,7 +56,7 @@ user in the clarification round. -->
   set (enabled sources + favourites + manual servers) with no separate branch, so "Refresh servers"
   and the auto-scan are the same run with the same scope value.
 - **A single-server refresh sends `status` only, no `info`.** AC3 says "exactly one stage-2 `status`
-  query", and per concept §6.1 the `status` reply carries the full serverinfo line *plus* players —
+  query", and per concept §6.1 the `status` reply carries the full serverinfo line _plus_ players —
   everything a row needs — so a preceding `info` query would be a second packet buying nothing.
 - **Out-of-scope rows are untouched, not stale.** A scoped run merges its replies into the existing
   server map; addresses outside the scope keep their data and their existing stale flag unchanged —
@@ -83,7 +83,7 @@ user in the clarification round. -->
   measurement and the watchlist stories; it is explicitly out of scope here and belongs to [[131]].
 - **The e2e flow talks to a local fake Quake II responder.** A real internet scan is neither
   deterministic nor offline-safe, so the flow spawns `dgram` responders on `127.0.0.1` and asserts
-  *which ports received which packet* — the only way AC2's "does not issue any query for a
+  _which ports received which packet_ — the only way AC2's "does not issue any query for a
   non-favourite address" and AC3's "exactly one query" are observable at all.
 
 ## Plan
@@ -128,7 +128,7 @@ the scan's cadence settings ([[115]]) or to the stale rule itself ([[116]]).
   unchanged, `favourites` → `listFavourites(state)`'s addresses only, `server` → exactly one address
   (allowed even when it is in no source/favourite/manual list).
   Mirror: `src/main/modules/servers/favourites.ts`'s pure-helper-plus-colocated-test shape.
-  Acceptance: unit test proves a favourites scope yields *only* favourite addresses given a state
+  Acceptance: unit test proves a favourites scope yields _only_ favourite addresses given a state
   that also holds sources and manual servers.
 
 - **D3 — the scheduler runs a scope.** Thread the scope through 114's scan run: stage 1 over the
@@ -173,7 +173,7 @@ the scan's cadence settings ([[115]]) or to the stale rule itself ([[116]]).
   116's "no reply → stale" fire for addresses this round never asked, a silent regression no
   compiler and no single-story test catches.
 - D1, D2, D4, D5, D6 → default tier (contract, pure helper, handler wiring, small UI, one flow).
-- Review: → `story-review-hard` — AC1 is a *structural* claim ("not a separate, parallel
+- Review: → `story-review-hard` — AC1 is a _structural_ claim ("not a separate, parallel
   implementation") that a cheap diff review will tick green on a second scan path that merely
   happens to produce the right rows.
 
@@ -227,11 +227,13 @@ each; D3 ran on the `deliverable-hard` tier per `## Model Hints`. One review-fix
 allowed) followed the clean-agent review.
 
 **Commit message:**
+
 ```
 117: a refresh only reloads what changed
 ```
 
 **Verification — narrow gate (no `--full`):**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `test-story` (`npx vitest run --changed HEAD`) — 90 test files, 1490 tests, all passing (run once
@@ -248,6 +250,7 @@ allowed) followed the clean-agent review.
 
 **AC → test mapping, as verified** (see `## Acceptance Tests` above, corrected in place per step 7 to
 the real test names):
+
 - AC1 — e2e `servers-scoped-refresh` PASS + `scan-scope.test.ts`'s "all scope" test PASS (deep-equals
   114's own `buildScanAddressSet` output for the same inputs, proving the same path, not a parallel
   one).
@@ -260,8 +263,9 @@ the real test names):
 
 **Decisions (reconciling the speculative plan with 114/115/116's real, final code — made during
 implementation, per this sprint's "decide yourself, document here" rule):**
+
 - **`ScanService.start`'s real signature** is `start(options?: { scope?: ScanScope; selectedAddress?:
-  string }): ScanStartResult`, not the story's placeholder "`scan.start` gains a `ScanScope` argument"
+string }): ScanStartResult`, not the story's placeholder "`scan.start` gains a `ScanScope` argument"
   — `selectedAddress` (114's own pre-existing "currently selected server" concept, orthogonal to
   scope) had to keep coexisting, so an options object replaced the old single positional parameter.
   `scan-cadence.ts`'s existing bare `scanService.start()` calls needed no change: an omitted scope
@@ -302,12 +306,13 @@ tsc projects, this story's own e2e flow, and the two other in-sprint stories' e2
 regression check) rather than trusting the implementation's own reports. Two findings were fixed in
 one review-fix cycle (of the 3 allowed); the rest are documented below as deliberately left, each
 with its reason:
+
 - **Fixed — a scoped-refresh timing gap against 114 AC2.** "Refresh servers" (`{kind:'all'}`) did not
   pass the view's `selectedAddress`, so a server the user had just selected (this story's own new
   affordance) would not get a guaranteed stage-2 `status` query from a full refresh if stage 1
   reported it empty — narrowing 114 AC2's own "currently selected server" guarantee now that a real
   selection UI exists. Fixed: `handleRefresh` now calls `startScan({kind:'all'}, selectedAddress ??
-  undefined)`. No test asserted the old (gap-having) behavior, so nothing was weakened; re-verified
+undefined)`. No test asserted the old (gap-having) behavior, so nothing was weakened; re-verified
   clean (full changed-tests run, both tsc projects, the story's own e2e flow, all still green).
 - **Fixed — an unreachable-in-practice normalization gap.** `scan-scope.ts`'s `'favourites'` branch
   used a stored favourite's address raw instead of normalizing it the same way the `'server'` branch

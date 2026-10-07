@@ -7,9 +7,10 @@ import { Field, Input } from '../../../components/ui/controls'
 import { consoleSend } from '../client'
 import { useLauncher } from '../../../store/useLauncher'
 import { usePlaybackStore } from '../playback-store'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 
 /**
- * Story 166 D4 / 176 D1: the one-line console field next to the timeline. It only shows while a demo
+ * Story 166 / 176: the one-line console field next to the timeline. It only shows while a demo
  * plays: otherwise the band keeps its size (story 170: the stage box must not change when the session
  * goes live) but is invisible, inert and names no reason. The shared validator
  * gives the immediate reason (an empty line just disables Send, no error); main's refusal shows in
@@ -18,14 +19,19 @@ import { usePlaybackStore } from '../playback-store'
 export function ConsoleCommandField() {
   const { t } = useTranslation()
   const reasonId = useId()
-  const live = usePlaybackStore((state) => state.session !== null && state.session.view?.ended !== true)
+  const live = usePlaybackStore(
+    (state) => state.session !== null && state.session.view?.ended !== true,
+  )
   const platform = useLauncher((state) => state.appInfo?.platform ?? '')
   const showStageHint = usePlaybackStore(
     (state) =>
-      platform === 'win32' && state.session !== null && state.session.view?.ended !== true && !state.session.fullscreen,
+      platform === 'win32' &&
+      state.session !== null &&
+      state.session.view?.ended !== true &&
+      !state.session.fullscreen,
   )
   const [line, setLine] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const [serverError, setServerError] = useState<LocalizedMessage | null>(null)
 
   const validation = validateConsoleLine(line)
@@ -41,17 +47,16 @@ export function ConsoleCommandField() {
 
   async function submit(): Promise<void> {
     if (!canSend) return
-    setSubmitting(true)
     setServerError(null)
-    try {
-      const outcome = await consoleSend(line)
-      if (outcome.ok) setLine('')
-      else setServerError(outcome.error)
-    } catch {
-      setServerError({ key: 'replays.console.error.noSession' })
-    } finally {
-      setSubmitting(false)
-    }
+    await run(async () => {
+      try {
+        const outcome = await consoleSend(line)
+        if (outcome.ok) setLine('')
+        else setServerError(outcome.error)
+      } catch {
+        setServerError({ key: 'replays.console.error.noSession' })
+      }
+    })
   }
 
   return (

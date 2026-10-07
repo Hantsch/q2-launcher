@@ -13,10 +13,11 @@ import {
   RENDERER_INDEX_URL,
   RENDERER_SCHEME,
   createRendererProtocolHandler,
-  resolveRendererSource,
+  rendererSourceFromEnv,
   type RendererSource,
 } from './lib/renderer-source'
-import { getNewsImagesCacheDir } from './modules/home/images/paths'
+import { getNewsImagesCacheDir } from './lib/news-image-paths'
+import { installShutdown } from './shutdown'
 import { createMainWindow, type MainWindow } from './window'
 
 const APP_USER_MODEL_ID = 'io.github.hantsch.q2launcher'
@@ -48,6 +49,7 @@ protocol.registerSchemesAsPrivileged([
  * Windows occlusion tracking would then treat it as hidden and stop painting it, which stalls
  * screenshots - so the harness turns it off. Must be set before `ready`, hence module load.
  */
+// exempt: runs before `createAppContext`
 if (process.env['Q2L_UI_HARNESS'] === '1' && process.env['Q2L_UI_VISIBLE'] !== '1') {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 }
@@ -74,7 +76,7 @@ async function bootstrap(): Promise<void> {
   await app.whenReady()
 
   // The one line every support log should have had anyway: which build is actually running. It is
-  // also story 101 D6's out-of-process oracle - after an AppImage self-update the launcher re-execs
+  // also story 101's out-of-process oracle - after an AppImage self-update the launcher re-execs
   // itself through `$APPIMAGE`, so the relaunched process is a *different* process that no test
   // driver is still attached to; `scripts/linux-update-e2e.mjs` polls this line out of the log file
   // on disk to prove the new version really came back up. Logged after `whenReady()` because
@@ -89,11 +91,25 @@ async function bootstrap(): Promise<void> {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Story 171 D2: the window's events reach modules through `context.mainWindow` (read-only);
+  // Story 171: the window's events reach modules through `context.mainWindow` (read-only);
   // `createMainWindow` gets the write side. Same late binding over `mainWindow` as below.
   const windowEvents = createMainWindowEvents({
-    getWindow: () => mainWindow?.window ?? null,
-    scaleFactorFor: (bounds) => screen.getDisplayMatching(bounds).scaleFactor,
+    getWindow: () => {
+      const win = mainWindow?.window
+      if (!win) return null
+      return {
+        isDestroyed: () => win.isDestroyed(),
+        getContentBounds: () => win.getContentBounds(),
+        getBounds: () => win.getBounds(),
+        getZoomFactor: () => win.webContents.getZoomFactor(),
+        isMinimized: () => win.isMinimized(),
+        isFocused: () => win.isFocused(),
+      }
+    },
+    displayFor: (bounds) => {
+      const { id, scaleFactor } = screen.getDisplayMatching(bounds)
+      return { id, scaleFactor }
+    },
     onListenerError: (error) => logger.warn(`main window listener failed: ${String(error)}`),
   })
   context = await createAppContext({
@@ -103,7 +119,8 @@ async function bootstrap(): Promise<void> {
     // than capturing today's (still-null) value.
     getMainWindow: () => mainWindow?.window ?? null,
     mainWindow: windowEvents.observer,
-    cinemaWindow: createCinemaWindow(),
+    screen,
+    createCinemaWindow,
   })
   registerAllIpc(context)
   mainWindow = await createMainWindow(context, windowEvents.notify)
@@ -115,7 +132,7 @@ async function bootstrap(): Promise<void> {
   // waits for something that is never coming again. The `await` above is itself the guarantee the
   // listener was there for - "the UI can display the result" is true the moment it returns.
   //
-  // Caught by `scripts/linux-update-e2e.mjs` (story 101 D6/AC6): its packaged AppImage sat at
+  // Caught by `scripts/linux-update-e2e.mjs` (story 101): its packaged AppImage sat at
   // `{ status: 'idle', lastCheckedAt: null, supported: true }` for the full 180s, i.e. a build that
   // supports updates had simply never checked for one.
 
@@ -123,9 +140,9 @@ async function bootstrap(): Promise<void> {
   // have been deleted, moved or unplugged while the launcher was closed.
   void revalidateOnStartup(context)
 
-  // Story 097 D5: the update-check's startup kick - fire-and-forget, after a short delay so it
+  // Story 097: the update-check's startup kick - fire-and-forget, after a short delay so it
   // never competes with the window's own first paint, and never awaited
-  // (`scheduleStartupCheck()` itself returns synchronously; AC3's "does not block startup").
+  // (`scheduleStartupCheck()` itself returns synchronously; so startup is not blocked).
   setTimeout(() => {
     context?.update.scheduleStartupCheck()
   }, 3_000)
@@ -167,8 +184,7 @@ async function revalidateOnStartup(app: AppContext): Promise<void> {
  * `window.ts` derives the same value from the same function; it is pure, so the two agree.
  */
 function currentRendererSource(): RendererSource {
-  const devServerUrl = process.env['ELECTRON_RENDERER_URL']
-  return resolveRendererSource({ isDev: Boolean(devServerUrl), devServerUrl })
+  return rendererSourceFromEnv(process.env)
 }
 
 /**
@@ -213,7 +229,7 @@ function serveRendererFromScheme(): void {
       root: join(__dirname, '../renderer'),
       csp: PRODUCTION_CSP,
       readFile: (path) => readFile(path),
-      // Story 084 D3: cached slide images are served from their own root under `userData`, on the
+      // Story 084: cached slide images are served from their own root under `userData`, on the
       // same origin as the document (a second host would be a second origin and `img-src 'self'`
       // would need widening). The directory need not exist yet - it is created when the first
       // image is fetched, and until then every request here is simply a 404.
@@ -236,11 +252,21 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('before-quit', () => {
-  // Geometry and state are written asynchronously; make sure they land.
-  void Promise.all([mainWindow?.settle(), context?.state.settle()])
+// Registered at module load, like the quit handlers above; `context` and `mainWindow` are read at
+// quit time and may still be null if quit arrives during boot.
+installShutdown({
+  app,
+  log: logger,
   // The launcher lets go of any playback session's pipe; the game keeps running.
-  context?.launch.releasePlaybackSession()
+  releasePlayback: () => context?.launch.releasePlaybackSession(),
+  disposeModules: async () => {
+    await context?.modules.disposeAll()
+  },
+  settles: [
+    { label: 'state', run: async () => (await context?.state.settle()) ?? { ok: true } },
+    { label: 'window state', run: async () => (await mainWindow?.settle()) ?? { ok: true } },
+    { label: 'persistence', run: async () => (await context?.persistence.settleAll()) ?? [] },
+  ],
 })
 
 process.on('uncaughtException', (error) => {

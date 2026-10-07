@@ -1,10 +1,13 @@
 import { join } from 'node:path'
+import { demoSourceSchema, discoveredFolderSchema } from '@shared/modules/replays'
+import type { DiscoveredFolder } from '@shared/replays/demo-folders'
 import { z } from 'zod'
 import { JsonStore } from '../../lib/json-store'
 import { userDataDir } from '../../lib/paths'
+import type { DemoRootDir } from './discovery'
 
 /**
- * Story 144 D1: the replays/demos index's own disposable cache file under `userData`, mirroring
+ * Story 144: the replays/demos index's own disposable cache file under `userData`, mirroring
  * `src/main/modules/home/news/feed-cache.ts`.
  *
  * `replays-index.json` holds one entry per discovered demo, keyed by discovery's opaque entry id,
@@ -19,7 +22,7 @@ import { userDataDir } from '../../lib/paths'
 
 /** Bump whenever any cached fact shape changes - parsed facts, name facts - a bump discards,
  * never migrates, exactly like `NEWS_CACHE_VERSION` in feed-cache.ts. */
-export const REPLAYS_INDEX_CACHE_VERSION = 2
+export const REPLAYS_INDEX_CACHE_VERSION = 6
 
 export const REPLAYS_INDEX_CACHE_FILE = 'replays-index.json'
 
@@ -60,10 +63,19 @@ const cachedDemoSchema = z.object({
   name: z.unknown(),
 }) satisfies z.ZodType<CachedDemo>
 
+const demoRootDirSchema = z.object({
+  sourceKey: z.string(),
+  source: demoSourceSchema,
+  dir: z.string().min(1),
+  canonicalDir: z.string().min(1),
+}) satisfies z.ZodType<DemoRootDir>
+
 /** The on-disk envelope: JSON has no native Map, so entries round-trip as a plain record. */
 const cacheDocumentSchema = z.object({
   cacheVersion: z.literal(REPLAYS_INDEX_CACHE_VERSION),
   entries: z.record(z.string(), cachedDemoSchema),
+  folders: z.array(discoveredFolderSchema),
+  roots: z.array(demoRootDirSchema),
 })
 
 type CacheDocument = z.infer<typeof cacheDocumentSchema> | null
@@ -112,12 +124,33 @@ export class ReplaysIndexCache {
     return new Map(Object.entries(document.entries))
   }
 
-  /** Persists `entries` and resolves once it has reached the disk. */
-  async write(entries: Map<string, CachedDemo>): Promise<void> {
+  /** The cached folder list, or `[]` when there is nothing usable to read. Never rejects. */
+  async readFolders(): Promise<DiscoveredFolder[]> {
+    return (await this.store.load())?.folders ?? []
+  }
+
+  /** The cached demo root directories, or `[]` when there is nothing usable to read. Never rejects. */
+  async readRoots(): Promise<DemoRootDir[]> {
+    return (await this.store.load())?.roots ?? []
+  }
+
+  /** Persists `entries`, `folders` and `roots` and resolves once they have reached the disk. */
+  async write(
+    entries: Map<string, CachedDemo>,
+    folders: DiscoveredFolder[] = [],
+    roots: DemoRootDir[] = [],
+  ): Promise<void> {
     this.store.set({
       cacheVersion: REPLAYS_INDEX_CACHE_VERSION,
       entries: Object.fromEntries(entries),
+      folders,
+      roots,
     })
     await this.store.settle()
+  }
+
+  /** Resolves once pending writes have reached the disk; `ok: false` if one failed. */
+  settle(): Promise<{ ok: boolean }> {
+    return this.store.settle()
   }
 }

@@ -14,12 +14,12 @@ the file name. The demo browser takes a file name apart with known patterns and 
 
 This story is the pattern engine plus the v1 set of **shipped** patterns (§7):
 
-| Origin | Pattern |
-| --- | --- |
-| r1q2 `cl_autorecord 1` | `%Y-%m-%d-%H%M-<map>.dm2` |
-| Q2PRO `cl_beginmapcmd` recipe (§7) | `<map>_%Y-%m-%d_%H-%M-%S.dm2` |
-| OpenTDM | `<player>-<teamA>-<teamB>-<hostname>-<map>_YYYY-MM-DD_HH-MM-SS`, unsafe characters → `_` |
-| AQ2-TNG `use_mvd2` | `YYYYMMDD-HHMMSS-<map>.mvd2` |
+| Origin                             | Pattern                                                                                  |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| r1q2 `cl_autorecord 1`             | `%Y-%m-%d-%H%M-<map>.dm2`                                                                |
+| Q2PRO `cl_beginmapcmd` recipe (§7) | `<map>_%Y-%m-%d_%H-%M-%S.dm2`                                                            |
+| OpenTDM                            | `<player>-<teamA>-<teamB>-<hostname>-<map>_YYYY-MM-DD_HH-MM-SS`, unsafe characters → `_` |
+| AQ2-TNG `use_mvd2`                 | `YYYYMMDD-HHMMSS-<map>.mvd2`                                                             |
 
 Q2PRO `sv_mvd_autorecord` follows the mod's own `record` name and gets no pattern of its own;
 TastySpleen and Q2Admin patterns are unknown until real samples exist (§17.3) — each becomes a new
@@ -66,7 +66,7 @@ is settled here.
   digit tokens and ordinary literals (`{year}{month}{day}-{hour}{min}{sec}`), which covers all four
   shipped shapes with one rule; `{date}`/`{time}` use `-` because `:` is illegal in Windows names.
 - **Q1 separators inside values.** Separators are plain literals; a text token matches any non-empty
-  run, and the matcher counts *every* way the name can be split — more than one split means
+  run, and the matcher counts _every_ way the name can be split — more than one split means
   ambiguous (AC5), so `-` inside an OpenTDM team or host is handled by refusing, not guessing.
 - **Q1 validity rules** (the reasons [[140]] AC2 shows): empty template, unclosed `{`/stray `}`,
   unknown token, a token used twice (`{skip}` excepted, `{date}` counts as its three parts), two
@@ -75,7 +75,7 @@ is settled here.
   `.dm2`/`.mvd2` — each rejection is an i18n key plus params, never prose (CLAUDE.md i18n rule).
 - **Q2 order.** The engine takes one ordered list `{ id, template }[]` and never knows "shipped" vs
   "user" — exactly [[140]]'s unified, editable, top-to-bottom list; the first pattern that matches
-  **uniquely** wins, because that list's order *is* the user-visible precedence.
+  **uniquely** wins, because that list's order _is_ the user-visible precedence.
 - **Q2 ambiguity stops the walk.** A pattern that matches ambiguously ends the search with
   `ambiguous` (no facts) instead of falling through: a looser later pattern would otherwise fill in
   a wrong fact — e.g. an ambiguous OpenTDM name would fall to the Q2PRO pattern and report
@@ -121,7 +121,7 @@ scan, [[148]] displays the pattern id.
   `electron` or DOM. Mirror the pure-module + colocated-test style of
   `src/shared/servers/list-filter.ts`.
   - `compileNameTemplate(text: string): { ok: true; template: CompiledNameTemplate } | { ok: false;
-    error: { key: string; params?: Record<string, string | number> } }`. Error keys under
+error: { key: string; params?: Record<string, string | number> } }`. Error keys under
     `replays.nameTemplate.error.*` (`empty`, `unclosedBrace`, `strayBrace`, `unknownToken`,
     `duplicateToken`, `adjacentTextTokens`, `capturesNothing`, `incompleteDate`, `timeWithoutDate`,
     `misplacedExtension`); export them as a const. No locale strings in this D.
@@ -134,18 +134,18 @@ scan, [[148]] displays the pattern id.
     year/month/day without the other two; hour/min/sec without a full date, or hour without min;
     `.dm2`/`.mvd2` anywhere but as the template's trailing literal.
   - `matchNameTemplate(t, fileName): { kind: 'none' } | { kind: 'ambiguous' } | { kind: 'match';
-    facts: NameFacts }`. Normalise: drop trailing `.gz`, require and strip `.dm2`/`.mvd2`
+facts: NameFacts }`. Normalise: drop trailing `.gz`, require and strip `.dm2`/`.mvd2`
     (case-insensitive; else `none`); a template with a trailing extension only matches that format.
     Literals compare ASCII-case-insensitively; captures keep original case. Count all splits with a
     memoised DP over (segment, offset), capped at 2 — no regex, no unbounded backtracking; digit
     values out of range (month 1–12, real day incl. leap years, hour 0–23, min/sec 0–59) are not a
     split. Exactly one split → facts; ≥2 → `ambiguous`.
   - `NameFacts`: `{ date?: { year; month; day; hour?; minute?; second? }; map?; pov?;
-    players?: string[] (p1…p9 in index order, gaps skipped); teamA?; teamB?; host? }`; `{skip}`
+players?: string[] (p1…p9 in index order, gaps skipped); teamA?; teamB?; host? }`; `{skip}`
     yields nothing. Missing `{sec}` → `second` absent.
   - Tests: one per rejection key; the four shipped shapes' happy paths; `.gz`/upper-case extension;
     extension restriction; out-of-range date → `none`; `{a}-{b}-{c}`-style ambiguity (three-way,
-    where all-greedy and all-lazy readings differ *and* a case where they agree); a property test
+    where all-greedy and all-lazy readings differ _and_ a case where they agree); a property test
     comparing the DP's count (capped at 2) against a brute-force enumerator over random short names
     of `-`/`_`/letters/digits; a 250-character name with 120 `-` against a five-text-token template
     completes in < 100 ms.
@@ -161,7 +161,7 @@ scan, [[148]] displays the pattern id.
     `{year}-{month}-{day}-{hour}{min}-{map}.dm2`; `q2pro-beginmapcmd` `{map}_{date}_{time}.dm2`.
     Plain template strings in the user syntax — no special-cased code path.
   - `parseDemoName(fileName, patterns: readonly { id; template }[]): { status: 'matched';
-    patternId; facts } | { status: 'ambiguous'; patternId } | { status: 'none' }`. Walk top to
+patternId; facts } | { status: 'ambiguous'; patternId } | { status: 'none' }`. Walk top to
     bottom; skip entries that fail to compile; first unique match wins; the first ambiguous match
     stops the walk (no fall-through). Compile once per distinct list (cache by array identity).
   - Tests: AC1 `2026-09-26-2130-q2dm1.dm2` → r1q2, 2026-09-26 21:30, `q2dm1`; AC1b
@@ -197,7 +197,7 @@ scan, [[148]] displays the pattern id.
   (engine-level: `src/shared/replays/name-template.test.ts` › "split count matches a brute-force enumerator")
 - AC6 → unit `src/shared/replays/name-patterns.test.ts` › "an unmatched name yields no facts and a match names its pattern"
 - AC7 → unit `src/shared/replays/name-patterns.test.ts` › "every shipped pattern compiles in the user template syntax"
-  + unit `src/main/modules/replays/name-template-doc.test.ts` › "concept §17.2 documents the resolved template syntax"
+  - unit `src/main/modules/replays/name-template-doc.test.ts` › "concept §17.2 documents the resolved template syntax"
 - AC8 → unit `src/shared/replays/name-patterns.test.ts` (one test per shipped pattern, AC1–AC3 above);
   purity is enforced by `tsconfig.web.json`/`tsconfig.node.json` compiling `src/shared` without
   node/DOM (`npm run typecheck`).
@@ -213,6 +213,7 @@ ordering rules, mirroring `deviation-doc.test.ts` for the doc test.
 **Commit message:** `139: parse a file name into date/map/players/teams/host facts via templates`
 
 **Changed files:**
+
 - `src/shared/replays/name-template.ts`, `src/shared/replays/name-template.test.ts` (D1)
 - `src/shared/replays/name-patterns.ts`, `src/shared/replays/name-patterns.test.ts` (D2)
 - `src/main/modules/replays/name-template-doc.test.ts` (D2, mirrors `deviation-doc.test.ts`)
@@ -233,6 +234,7 @@ accidentally unique or ambiguous elsewhere); no `node:*`/`electron`/DOM import i
 file; all rejections are i18n key+params, no prose.
 
 **Decisions** (implementation details not fully pinned by the plan, made here):
+
 - Validation order in `compileNameTemplate`: empty → brace structure → unknown token → misplaced
   extension → duplicate → adjacent-text-tokens → captures-nothing → incomplete-date →
   time-without-date (first failing rule wins when several apply).

@@ -91,7 +91,7 @@ maybe `linux-channel.ts`, `scripts/lib/stub-engine.cjs`, `scripts/flows/replays-
   note in `## Done`) only if 183's RESULT.md marks "several sequences in one control file" no-go.
   - `protocol.ts`: `buildControlFile(seqs: number[])` (today `seq | null`, :106) emits `POLL_LINE`
     then one line per seq **ascending**: `if $q2l_seq < N then "exec q2l_cmd_N.cfg; set q2l_seq N;
-    echo ACK N"` — monotone guard, so re-reading the file after a later seq ran never re-runs an
+echo ACK N"` — monotone guard, so re-reading the file after a later seq ran never re-runs an
     earlier one, and a skipped/timed-out seq never blocks later ones. Adjust `encodeControlCommand`
     and the protocol tests ("builds the guarded control file" :99).
   - `windows-channel.ts`: replace the single `inFlight` (:94) with an ordered set of in-flight seqs.

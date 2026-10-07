@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ARCHIVE_CACHE_BUDGET_CHOICES_GB,
   MAX_CONCURRENT_DOWNLOAD_JOBS,
   MIN_CONCURRENT_DOWNLOAD_JOBS,
   type ArchiveCacheBudgetGB,
-  type ArchiveCacheStatus,
   type ClearArchiveCacheResult,
   type DownloadsSettings,
 } from '@shared/modules/downloads'
 import { Button } from '../../components/ui/Button'
 import { Select, Switch } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { formatBytes } from '../../lib/format'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import {
   clearArchiveCache,
   getArchiveCacheStatus,
@@ -26,19 +26,23 @@ const CONCURRENCY_CHOICES = Array.from(
 )
 
 /**
- * Story 072 D5: the downloads module's Settings section - inner content only, the shell
- * (`SettingsView.tsx`, D1) already wraps every contributed section in its own `Panel` +
+ * Story 072: the downloads module's Settings section - inner content only, the shell
+ * (`SettingsView.tsx`) already wraps every contributed section in its own `Panel` +
  * `SectionLabel` chrome.
  *
- * Renders the three settings (AC2) and the live archive cache size (AC3); "Clear cache" opens a
- * `Modal` confirm that states the current size/count before `clearArchiveCache` is ever called
- * (AC4) - mirrors `config/CleanupPanel.tsx`'s scan-then-confirm-then-apply discipline.
+ * Renders the three settings and the live archive cache size; "Clear cache" opens a
+ * `ConfirmDialog` that states the current size/count before `clearArchiveCache` is ever called
+ * - mirrors `config/CleanupPanel.tsx`'s scan-then-confirm-then-apply discipline.
  */
 export function DownloadsSettingsSection() {
   const { t } = useTranslation()
 
-  const [settings, setSettings] = useState<DownloadsSettings | null>(null)
-  const [cacheStatus, setCacheStatus] = useState<ArchiveCacheStatus | null>(null)
+  const settingsQuery = useModuleQuery(getDownloadsSettings)
+  const cacheQuery = useModuleQuery(getArchiveCacheStatus)
+  const settings = settingsQuery.data ?? null
+  const cacheStatus = cacheQuery.data ?? null
+  const { setData: setSettings } = settingsQuery
+  const { setData: setCacheStatus } = cacheQuery
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [lastClearResult, setLastClearResult] = useState<ClearArchiveCacheResult | null>(null)
@@ -50,19 +54,6 @@ export function DownloadsSettingsSection() {
     const result = await getArchiveCacheStatus()
     if (result.ok) setCacheStatus(result.value)
   }
-
-  useEffect(() => {
-    let cancelled = false
-    void getDownloadsSettings().then((result) => {
-      if (!cancelled && result.ok) setSettings(result.value)
-    })
-    void getArchiveCacheStatus().then((result) => {
-      if (!cancelled && result.ok) setCacheStatus(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const applyPatch = async (patch: Partial<DownloadsSettings>): Promise<void> => {
     const result = await patchDownloadsSettings(patch)
@@ -84,7 +75,7 @@ export function DownloadsSettingsSection() {
     setClearing(false)
     if (result.ok) {
       setConfirmOpen(false)
-      // The confirm dialog's stated size/count and the actual deletion must never disagree (AC4) -
+      // The confirm dialog's stated size/count and the actual deletion must never disagree -
       // use what was actually removed, not an assumed "everything is now gone".
       setLastClearResult(result.value)
       await refreshCacheStatus()
@@ -95,20 +86,31 @@ export function DownloadsSettingsSection() {
     <>
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-1.5 block" data-testid="downloads-settings-concurrency">
-            <span className="stencil block">
-              {t('module.downloads.settings.concurrency.label')}
-            </span>
-            <Select
-              value={settings ? String(settings.concurrentJobs) : ''}
-              disabled={!settings}
-              onChange={(event) => void applyPatch({ concurrentJobs: Number(event.target.value) })}
-              options={CONCURRENCY_CHOICES.map((value) => ({
-                value: String(value),
-                label: String(value),
-              }))}
-            />
-          </label>
+          <div className="space-y-1.5" data-testid="downloads-settings-concurrency">
+            <label className="block space-y-1.5">
+              <span className="stencil block">
+                {t('module.downloads.settings.concurrency.label')}
+              </span>
+              {/* Downloads run one at a time, so the persisted value is shown but cannot be
+                  changed; main still validates and stores it. */}
+              <Select
+                value={settings ? String(settings.concurrentJobs) : ''}
+                disabled
+                aria-describedby="downloads-settings-concurrency-reason"
+                options={CONCURRENCY_CHOICES.map((value) => ({
+                  value: String(value),
+                  label: String(value),
+                }))}
+              />
+            </label>
+            <p
+              id="downloads-settings-concurrency-reason"
+              className="text-xs text-ink-muted"
+              data-testid="downloads-settings-concurrency-reason"
+            >
+              {t('module.downloads.settings.queueUnavailable')}
+            </p>
+          </div>
 
           <label className="space-y-1.5 block" data-testid="downloads-settings-cache-budget">
             <span className="stencil block">
@@ -134,11 +136,17 @@ export function DownloadsSettingsSection() {
           <Switch
             label={t('module.downloads.settings.whilePlaying.label')}
             checked={settings?.downloadWhilePlayingAllowed ?? false}
-            disabled={!settings}
-            onChange={(downloadWhilePlayingAllowed) =>
-              void applyPatch({ downloadWhilePlayingAllowed })
-            }
+            disabled
+            describedBy="downloads-settings-while-playing-reason"
+            onChange={() => undefined}
           />
+          <p
+            id="downloads-settings-while-playing-reason"
+            className="text-xs text-ink-muted"
+            data-testid="downloads-settings-while-playing-reason"
+          >
+            {t('module.downloads.settings.queueUnavailable')}
+          </p>
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
@@ -157,7 +165,7 @@ export function DownloadsSettingsSection() {
             onClick={openConfirm}
             data-testid="downloads-settings-clear-cache"
           >
-            {t('module.downloads.settings.clearCache.button')}
+            {t('common.action.clearCache')}
           </Button>
         </div>
 
@@ -172,39 +180,26 @@ export function DownloadsSettingsSection() {
       </div>
 
       {confirmOpen && cacheStatus && (
-        <Modal
-          open
-          size="sm"
+        <ConfirmDialog
           title={t('module.downloads.settings.clearCache.confirmTitle')}
-          onClose={() => setConfirmOpen(false)}
-          closeLabel={t('common.close')}
-          preventClose={clearing}
-          footer={
-            <>
-              <Button variant="ghost" disabled={clearing} onClick={() => setConfirmOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="danger"
-                disabled={clearing}
-                onClick={() => void handleConfirmClear()}
-                data-testid="downloads-settings-clear-cache-confirm-button"
-              >
-                {t('module.downloads.settings.clearCache.confirm')}
-              </Button>
-            </>
+          body={
+            <p
+              className="text-sm leading-relaxed text-ink-dim"
+              data-testid="downloads-settings-clear-cache-confirm"
+            >
+              {t('module.downloads.settings.clearCache.confirmBody', {
+                size: formatBytes(cacheStatus.totalBytes),
+                count: cacheStatus.itemCount,
+              })}
+            </p>
           }
-        >
-          <p
-            className="text-sm leading-relaxed text-ink-dim"
-            data-testid="downloads-settings-clear-cache-confirm"
-          >
-            {t('module.downloads.settings.clearCache.confirmBody', {
-              size: formatBytes(cacheStatus.totalBytes),
-              count: cacheStatus.itemCount,
-            })}
-          </p>
-        </Modal>
+          confirmLabel={t('common.action.clearCache')}
+          tone="danger"
+          busy={clearing}
+          onConfirm={() => void handleConfirmClear()}
+          onClose={() => setConfirmOpen(false)}
+          testIds={{ confirm: 'downloads-settings-clear-cache-confirm-button' }}
+        />
       )}
     </>
   )

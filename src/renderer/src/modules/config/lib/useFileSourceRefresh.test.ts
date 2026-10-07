@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { createElement, useRef, type MutableRefObject } from 'react'
+import { makeConfigProfile } from '../../../../../test-support/fixtures'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { ConfigProfile } from '@shared/modules/config'
 import { ok } from '@shared/types'
 import { RawDraftProvider, useRawDraft, type RawDraftHandle } from './raw-draft'
@@ -37,27 +39,15 @@ vi.mock('../../../store/useLauncher', () => ({
     selector({ pushToast }),
 }))
 
-vi.mock('../client', () => ({
-  refreshProfilesFromFiles: vi.fn(),
-  // Pulled in by `RawDraftProvider` and the conflict dialog it mounts.
-  saveConfigProfileRawText: vi.fn(),
-  saveConfigProfile: vi.fn(),
-}))
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('../client', (importOriginal) => mockClient<typeof import('../client')>(importOriginal))
 
 const refresh = vi.mocked(refreshProfilesFromFiles)
 
 const FILE_TEXT = 'set sensitivity "3"\nbind w "+forward"\n'
 const TYPED = `${FILE_TEXT}bind q "+zoom"\n`
 
-const PROFILE: ConfigProfile = {
-  id: 'p1',
-  name: 'Profile One',
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-  cvars: {},
-  binds: {},
-  assignments: [],
-}
+const PROFILE: ConfigProfile = makeConfigProfile()
 
 /** Publishes the draft handle to the test, the same way `raw-draft.provider.test.ts` does. */
 let latest: RawDraftHandle | null = null

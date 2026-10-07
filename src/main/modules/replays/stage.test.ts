@@ -6,7 +6,13 @@ import {
   replaysPlaybackStageSchema,
   replaysStageRectSchema,
 } from '@shared/modules/replays'
-import { normalWindowArgs, stageAvailability, stageGeometry, stageLaunchArgs } from './stage'
+import {
+  normalWindowArgs,
+  stageAvailability,
+  stageGeometry,
+  stageLaunchArgs,
+  stageWindowKeeper,
+} from './stage'
 
 const WAYLAND = { available: false, reason: { key: 'replays.stage.unavailable.wayland' } }
 
@@ -16,16 +22,24 @@ describe('stageAvailability', () => {
     expect(stageAvailability('linux', { WAYLAND_DISPLAY: 'wayland-0' })).toEqual(WAYLAND)
     expect(stageAvailability('linux', { XDG_SESSION_TYPE: 'x11' })).toEqual({ available: true })
     expect(stageAvailability('linux', { WAYLAND_DISPLAY: '' })).toEqual({ available: true })
-    expect(stageAvailability('win32', { XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'w' })).toEqual({
+    expect(
+      stageAvailability('win32', { XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'w' }),
+    ).toEqual({
       available: true,
     })
     expect(stageAvailability('darwin', { WAYLAND_DISPLAY: 'w' })).toEqual({ available: true })
   })
 
   it('the harness lever is honoured only with Q2L_UI_HARNESS', () => {
-    expect(stageAvailability('win32', {}, { Q2L_UI_HARNESS: '1', Q2L_UI_SESSION_TYPE: 'wayland' })).toEqual(WAYLAND)
-    expect(stageAvailability('win32', {}, { Q2L_UI_SESSION_TYPE: 'wayland' })).toEqual({ available: true })
-    expect(stageAvailability('win32', {}, { Q2L_UI_HARNESS: '1', Q2L_UI_SESSION_TYPE: 'x11' })).toEqual({
+    expect(
+      stageAvailability('win32', {}, { Q2L_UI_HARNESS: '1', Q2L_UI_SESSION_TYPE: 'wayland' }),
+    ).toEqual(WAYLAND)
+    expect(stageAvailability('win32', {}, { Q2L_UI_SESSION_TYPE: 'wayland' })).toEqual({
+      available: true,
+    })
+    expect(
+      stageAvailability('win32', {}, { Q2L_UI_HARNESS: '1', Q2L_UI_SESSION_TYPE: 'x11' }),
+    ).toEqual({
       available: true,
     })
   })
@@ -33,7 +47,8 @@ describe('stageAvailability', () => {
   it('the unavailable reason is an i18n key', () => {
     const result = stageAvailability('linux', { XDG_SESSION_TYPE: 'wayland' })
     expect(result.available).toBe(false)
-    if (!result.available) expect(result.reason.key).toMatch(/^replays\.stage\.unavailable\.[a-z]+$/)
+    if (!result.available)
+      expect(result.reason.key).toMatch(/^replays\.stage\.unavailable\.[a-z]+$/)
   })
 })
 
@@ -49,15 +64,27 @@ describe('stageGeometry', () => {
       height: r.height * 1.5,
     })
     expect(
-      stageGeometry({ x: 100, y: 50, width: 640, height: 480 }, { contentBounds: { x: 1920, y: 30 }, zoomFactor: 1 }, at150),
+      stageGeometry(
+        { x: 100, y: 50, width: 640, height: 480 },
+        { contentBounds: { x: 1920, y: 30 }, zoomFactor: 1 },
+        at150,
+      ),
     ).toBe('960x720+3030+120')
     // scale 1, zoom != 1: CSS px are multiplied by the zoom factor before conversion.
     expect(
-      stageGeometry({ x: 10, y: 20, width: 100, height: 50 }, { contentBounds: { x: 5, y: 7 }, zoomFactor: 1.25 }, identity),
+      stageGeometry(
+        { x: 10, y: 20, width: 100, height: 50 },
+        { contentBounds: { x: 5, y: 7 }, zoomFactor: 1.25 },
+        identity,
+      ),
     ).toBe('125x63+18+32')
     // negative display origin (a monitor left of the primary) stays signed in the geometry
     expect(
-      stageGeometry({ x: 0, y: 0, width: 200, height: 100 }, { contentBounds: { x: -1920, y: 0 }, zoomFactor: 1 }, identity),
+      stageGeometry(
+        { x: 0, y: 0, width: 200, height: 100 },
+        { contentBounds: { x: -1920, y: 0 }, zoomFactor: 1 },
+        identity,
+      ),
     ).toBe('200x100+-1920+0')
   })
 
@@ -68,7 +95,11 @@ describe('stageGeometry', () => {
       return { x: 1000.4, y: 2000.6, width: 800.5, height: 600.49 }
     }
     expect(
-      stageGeometry({ x: 10.5, y: 20.25, width: 100.5, height: 50.5 }, { contentBounds: { x: 5, y: 7 }, zoomFactor: 1 }, stub),
+      stageGeometry(
+        { x: 10.5, y: 20.25, width: 100.5, height: 50.5 },
+        { contentBounds: { x: 5, y: 7 }, zoomFactor: 1 },
+        stub,
+      ),
     ).toBe('801x600+1000+2001')
     expect(seen).toEqual([{ x: 15.5, y: 27.25, width: 100.5, height: 50.5 }])
   })
@@ -77,13 +108,27 @@ describe('stageGeometry', () => {
 describe('stage args', () => {
   it('stage args in exact order', () => {
     expect(stageLaunchArgs('640x480+10+20')).toEqual([
-      '+set', 'vid_fullscreen', '0',
-      '+set', 'win_noborder', '1',
-      '+set', 'win_notitle', '1',
-      '+set', 'win_alwaysontop', '1',
-      '+set', 'win_noresize', '1',
-      '+set', 's_driver', 'wave',
-      '+set', 'vid_geometry', '640x480+10+20',
+      '+set',
+      'vid_fullscreen',
+      '0',
+      '+set',
+      'win_noborder',
+      '1',
+      '+set',
+      'win_notitle',
+      '1',
+      '+set',
+      'win_alwaysontop',
+      '1',
+      '+set',
+      'win_noresize',
+      '1',
+      '+set',
+      's_driver',
+      'wave',
+      '+set',
+      'vid_geometry',
+      '640x480+10+20',
     ])
     expect(normalWindowArgs()).toEqual(['+set', 'vid_fullscreen', '0'])
   })
@@ -94,7 +139,9 @@ describe('stage rect schema', () => {
   it('accepts a whole-pixel rect and is registered for playback.stage', () => {
     expect(replaysStageRectSchema.safeParse(ok).success).toBe(true)
     expect(REPLAYS_HANDLER_SCHEMAS[REPLAYS_HANDLERS.playbackStage]).toBe(replaysPlaybackStageSchema)
-    expect(replaysDemoPlaySchema.safeParse({ demoId: 'a', installationId: 'b', stage: ok }).success).toBe(true)
+    expect(
+      replaysDemoPlaySchema.safeParse({ demoId: 'a', installationId: 'b', stage: ok }).success,
+    ).toBe(true)
   })
 
   it('rejects negative, fractional, zero-size, oversize or extra-key rects', () => {
@@ -109,7 +156,9 @@ describe('stage rect schema', () => {
       { ...ok, extra: 1 },
     ]) {
       expect(replaysStageRectSchema.safeParse(bad).success).toBe(false)
-      expect(replaysDemoPlaySchema.safeParse({ demoId: 'a', installationId: 'b', stage: bad }).success).toBe(false)
+      expect(
+        replaysDemoPlaySchema.safeParse({ demoId: 'a', installationId: 'b', stage: bad }).success,
+      ).toBe(false)
       expect(replaysPlaybackStageSchema.safeParse({ rect: bad }).success).toBe(false)
     }
   })
@@ -126,6 +175,32 @@ describe('stage rect schema', () => {
       { rect: { ...ok, width: Number.POSITIVE_INFINITY } },
     ]) {
       expect(replaysPlaybackStageSchema.safeParse(bad).success).toBe(false)
+    }
+  })
+})
+
+describe('stageWindowKeeper', () => {
+  const H = { Q2L_UI_HARNESS: '1' }
+  it.each([
+    ['linux X11', 'linux', { XDG_SESSION_TYPE: 'x11' }, {}, 'x11'],
+    ['linux Wayland', 'linux', { XDG_SESSION_TYPE: 'wayland' }, {}, 'none'],
+    ['win32', 'win32', {}, {}, 'none'],
+    [
+      'win32 with the harness forcing x11',
+      'win32',
+      {},
+      { ...H, Q2L_UI_SESSION_TYPE: 'x11' },
+      'x11',
+    ],
+    ['win32 with x11 but no harness flag', 'win32', {}, { Q2L_UI_SESSION_TYPE: 'x11' }, 'none'],
+    ['the harness forcing wayland', 'linux', {}, { ...H, Q2L_UI_SESSION_TYPE: 'wayland' }, 'none'],
+  ] as const)('%s -> %s', (_name, platform, env, harness, expected) => {
+    expect(stageWindowKeeper(platform, env, harness)).toBe(expected)
+  })
+
+  it('the X11 keeper is never selected on win32', () => {
+    for (const env of [{}, { XDG_SESSION_TYPE: 'x11' }, { WAYLAND_DISPLAY: 'w' }]) {
+      expect(stageWindowKeeper('win32', env)).toBe('none')
     }
   })
 })

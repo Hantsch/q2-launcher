@@ -55,9 +55,15 @@ async function openDemoCategory(page, profileName) {
   // Already inside another profile: back to the list first (the list and a profile are two screens).
   const back = page.getByRole('button', { name: 'Back to profiles' })
   if (await back.isVisible()) await back.click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('config-profile-row').filter({ hasText: profileName }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('config-profile-row')
+    .filter({ hasText: profileName })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   await page.getByTestId('config-tab-controls').click({ timeout: TIMEOUT_MS })
-  await page.getByRole('button', { name: 'Demo playback', exact: true }).click({ timeout: TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: 'Demo playback', exact: true })
+    .click({ timeout: TIMEOUT_MS })
 }
 
 async function waitForFile(path, predicate, label) {
@@ -70,7 +76,10 @@ async function waitForFile(path, predicate, label) {
     } catch {
       /* not written yet */
     }
-    if (Date.now() >= deadline) throw new Error(`${label}: not satisfied after ${TIMEOUT_MS}ms in ${path}; got ${JSON.stringify(text.slice(-300))}`)
+    if (Date.now() >= deadline)
+      throw new Error(
+        `${label}: not satisfied after ${TIMEOUT_MS}ms in ${path}; got ${JSON.stringify(text.slice(-300))}`,
+      )
     await new Promise((r) => setTimeout(r, 100))
   }
 }
@@ -83,9 +92,12 @@ export default async function demoActionsBind({ page, shot, step }) {
   for (const { name } of ROWS) {
     const row = rowFor(page, name)
     await row.first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-    if ((await row.count()) !== 1) throw new Error(`expected exactly one "${name}" row, found ${await row.count()}`)
-    if ((await row.getAttribute('aria-disabled')) !== null) throw new Error(`"${name}" is aria-disabled on a Q2PRO profile`)
-    if (await row.locator('.ctrl-keycell .ctrl-slot').first().isDisabled()) throw new Error(`"${name}" bind slot is disabled on a Q2PRO profile`)
+    if ((await row.count()) !== 1)
+      throw new Error(`expected exactly one "${name}" row, found ${await row.count()}`)
+    if ((await row.getAttribute('aria-disabled')) !== null)
+      throw new Error(`"${name}" is aria-disabled on a Q2PRO profile`)
+    if (await row.locator('.ctrl-keycell .ctrl-slot').first().isDisabled())
+      throw new Error(`"${name}" bind slot is disabled on a Q2PRO profile`)
   }
   for (const text of ['Seeking needs Q2PRO', 'Speed steps need Q2PRO']) {
     if (await page.getByText(text).count()) throw new Error(`"${text}" shown on a Q2PRO profile`)
@@ -96,13 +108,19 @@ export default async function demoActionsBind({ page, shot, step }) {
   const jump = rowFor(page, 'Demo jump forward')
   await jump.locator('.ctrl-keycell .ctrl-slot').first().click({ timeout: TIMEOUT_MS })
   await page.keyboard.press(KEY)
-  await jump.locator('.ctrl-keycell .ctrl-slot.is-bound').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await jump
+    .locator('.ctrl-keycell .ctrl-slot.is-bound')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('config-save').click({ timeout: TIMEOUT_MS })
 
   const canonical = join(variantUserDataDir('populated'), Q2PRO_FILE)
   try {
     step('the profile file on disk holds the seek bind')
-    await waitForFile(canonical, (text) => resolvedBind(text) === EXPECTED_COMMAND, `bind ${KEY} -> "${EXPECTED_COMMAND}"`)
+    await waitForFile(
+      canonical,
+      (text) => resolvedBind(text) === EXPECTED_COMMAND,
+      `bind ${KEY} -> "${EXPECTED_COMMAND}"`,
+    )
     await shot('q2pro-bound-saved')
   } finally {
     step('unbind (DEL while capturing) and save back')
@@ -110,7 +128,9 @@ export default async function demoActionsBind({ page, shot, step }) {
     if ((await slot.getAttribute('class'))?.includes('is-bound')) {
       await slot.click({ timeout: TIMEOUT_MS })
       await page.keyboard.press('Delete')
-      await jump.locator('.ctrl-keycell .ctrl-slot.is-bound').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+      await jump
+        .locator('.ctrl-keycell .ctrl-slot.is-bound')
+        .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
       await page.getByTestId('config-save').click({ timeout: TIMEOUT_MS })
     }
   }
@@ -121,18 +141,26 @@ export default async function demoActionsBind({ page, shot, step }) {
   const back = rowFor(page, 'Back to window')
   await back.locator('.ctrl-keycell .ctrl-slot').first().click({ timeout: TIMEOUT_MS })
   await page.keyboard.press(KEY)
-  await back.locator('.ctrl-keycell .ctrl-slot.is-bound').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await back
+    .locator('.ctrl-keycell .ctrl-slot.is-bound')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('config-save').click({ timeout: TIMEOUT_MS })
   try {
     step('the profile file on disk holds the exec q2l_back.cfg bind')
-    await waitForFile(canonical, (text) => resolvedBind(text) === BACK_COMMAND, `bind ${KEY} -> "${BACK_COMMAND}"`)
+    await waitForFile(
+      canonical,
+      (text) => resolvedBind(text) === BACK_COMMAND,
+      `bind ${KEY} -> "${BACK_COMMAND}"`,
+    )
   } finally {
     step('unbind Back to window and save back')
     const slot = back.locator('.ctrl-keycell .ctrl-slot').first()
     if ((await slot.getAttribute('class'))?.includes('is-bound')) {
       await slot.click({ timeout: TIMEOUT_MS })
       await page.keyboard.press('Delete')
-      await back.locator('.ctrl-keycell .ctrl-slot.is-bound').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+      await back
+        .locator('.ctrl-keycell .ctrl-slot.is-bound')
+        .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
       await page.getByTestId('config-save').click({ timeout: TIMEOUT_MS })
     }
   }
@@ -151,11 +179,15 @@ export default async function demoActionsBind({ page, shot, step }) {
     if (n === 0) throw new Error(`"${name}" has no bind slot`)
     for (let i = 0; i < n; i += 1) {
       const disabled = await slots.nth(i).isDisabled()
-      if (disabled !== (reason !== null)) throw new Error(`"${name}" slot ${i}: disabled=${disabled}, expected ${reason !== null}`)
+      if (disabled !== (reason !== null))
+        throw new Error(`"${name}" slot ${i}: disabled=${disabled}, expected ${reason !== null}`)
     }
     if (reason) {
-      await row.getByText(reason, { exact: true }).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-      if ((await row.getAttribute('aria-disabled')) !== 'true') throw new Error(`"${name}" row lacks aria-disabled`)
+      await row
+        .getByText(reason, { exact: true })
+        .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+      if ((await row.getAttribute('aria-disabled')) !== 'true')
+        throw new Error(`"${name}" row lacks aria-disabled`)
     } else if ((await row.getAttribute('aria-disabled')) !== null) {
       throw new Error(`"${name}" must not be aria-disabled`)
     }

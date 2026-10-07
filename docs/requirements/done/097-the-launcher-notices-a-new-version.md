@@ -79,7 +79,7 @@ and restarting belong to [[098]]; showing the notes in About belongs to [[099]].
   `semver` dependency, no hand-rolled comparison in main, none in the renderer (AC6).
 - **Repository coordinates come from the generated `app-update.yml`** ([[096]]'s `publish` block),
   never hardcoded in `src/` — one source for where releases live.
-- **State shape:** `status` is the last *attempt's* outcome; `update` is the last *known* available
+- **State shape:** `status` is the last _attempt's_ outcome; `update` is the last _known_ available
   release and survives a later failed attempt, so a failure can never hide an update already found.
   Errors are `LocalizedMessage` (i18n key), never prose, per the repo's IPC rule.
 - **`update:check` answers with the resulting `UpdateState`, not an `Outcome`** — a failed check is
@@ -91,7 +91,7 @@ and restarting belong to [[098]]; showing the notes in About belongs to [[099]].
   long-running session re-checks at the next start or when the user asks (AC7).
 - **A failure never toasts and never retries inside a session** — `broadcast.toast` is deliberately
   unused here (AC3's "no repeated retry storm").
-- **The 24h window is measured from the last *successful* check** (`lastSuccessAt`), which makes
+- **The 24h window is measured from the last _successful_ check** (`lastSuccessAt`), which makes
   AC4 true by construction rather than by a special case.
 - **In-flight de-duplication plus a 20s timeout guard** — a manual check during a running one joins
   it, and a hung request cannot strand the state in `checking` forever.
@@ -120,9 +120,9 @@ A main-process update-check service behind the typed IPC contract. Nothing rende
      status: 'idle' | 'checking' | 'upToDate' | 'available' | 'error'
      update: { version: string; notes: string; releasedAt: string | null } | null
      error: LocalizedMessage | null
-     lastCheckedAt: string | null   // any completed attempt
-     lastSuccessAt: string | null   // drives the 24h window (AC4)
-     supported: boolean             // false in an unpackaged build (AC5)
+     lastCheckedAt: string | null // any completed attempt
+     lastSuccessAt: string | null // drives the 24h window (AC4)
+     supported: boolean // false in an unpackaged build (AC5)
    }
    ```
 
@@ -149,50 +149,50 @@ A main-process update-check service behind the typed IPC contract. Nothing rende
 ## Deliverables
 
 - [x] **D1 — The contract.** `src/shared/types/update.ts` (new), `src/shared/types/index.ts`,
-  `src/shared/ipc.ts` (2 invoke channels + 1 event + both runtime arrays),
-  `src/shared/ipc-schemas.ts` (two `z.void()` schemas, in map order). Mirror: the `launch:*`
-  entries in all three files. Plus its test in `src/shared/ipc-schemas.test.ts` (the update
-  channels are declared, listed and reject a non-void payload).
-  _Acceptance:_ `npm run typecheck` passes; the compile-time `ALL_*_CHANNELS_LISTED` guards hold.
+      `src/shared/ipc.ts` (2 invoke channels + 1 event + both runtime arrays),
+      `src/shared/ipc-schemas.ts` (two `z.void()` schemas, in map order). Mirror: the `launch:*`
+      entries in all three files. Plus its test in `src/shared/ipc-schemas.test.ts` (the update
+      channels are declared, listed and reject a non-void payload).
+      _Acceptance:_ `npm run typecheck` passes; the compile-time `ALL_*_CHANNELS_LISTED` guards hold.
 
 - [x] **D2 — The persisted record.** `src/main/services/update/store.ts` (new) + its test
-  `store.test.ts`. Mirror: `src/main/modules/home/news/feed-cache.ts` (own `JsonStore`, own
-  `cacheVersion`, damaged file degrades to "nothing known" instead of throwing).
-  _Acceptance:_ a written record reads back identically; a corrupt/foreign-version file reads as
-  "nothing known".
+      `store.test.ts`. Mirror: `src/main/modules/home/news/feed-cache.ts` (own `JsonStore`, own
+      `cacheVersion`, damaged file degrades to "nothing known" instead of throwing).
+      _Acceptance:_ a written record reads back identically; a corrupt/foreign-version file reads as
+      "nothing known".
 
 - [x] **D3 — The service.** `src/main/services/update/service.ts` (new) + its test `service.test.ts`.
-  Mirror: `src/main/modules/home/news/news-service.ts` (injected `now`, injected checker, injected
-  store, never throws). Owns: restore-on-load, the 24h window from `lastSuccessAt`, the unpackaged
-  no-op, in-flight de-duplication, the timeout guard, error keys, `onStateChange`, and
-  `scheduleStartupCheck()` returning `void` without awaiting the check.
-  _Acceptance:_ the AC1–AC5/AC7/AC8 test names below all pass with no Electron and no network.
+      Mirror: `src/main/modules/home/news/news-service.ts` (injected `now`, injected checker, injected
+      store, never throws). Owns: restore-on-load, the 24h window from `lastSuccessAt`, the unpackaged
+      no-op, in-flight de-duplication, the timeout guard, error keys, `onStateChange`, and
+      `scheduleStartupCheck()` returning `void` without awaiting the check.
+      _Acceptance:_ the AC1–AC5/AC7/AC8 test names below all pass with no Electron and no network.
 
 - [x] **D4 — The `electron-updater` adapter.** `src/main/services/update/checker.ts` (new) + its test
-  `checker.test.ts` (fakes the `autoUpdater` object), `package.json` (`electron-updater` in
-  `dependencies`).
-  _Acceptance:_ `autoDownload`/`autoInstallOnAppQuit` are off and `allowPrerelease` is on; an
-  available release is normalised to `{version, notes, releasedAt}` with array notes joined and
-  capped; offline / HTTP / missing-config / unknown errors map to distinct `update.error.*` keys.
+      `checker.test.ts` (fakes the `autoUpdater` object), `package.json` (`electron-updater` in
+      `dependencies`).
+      _Acceptance:_ `autoDownload`/`autoInstallOnAppQuit` are off and `allowPrerelease` is on; an
+      available release is normalised to `{version, notes, releasedAt}` with array notes joined and
+      capped; offline / HTTP / missing-config / unknown errors map to distinct `update.error.*` keys.
 
 - [x] **D5 — Wiring into the app.** `src/main/ipc/update.ts` (new, mirror `src/main/ipc/launch.ts`),
-  `src/main/ipc/index.ts`, `src/main/context.ts`, `src/main/index.ts` (startup kick in the existing
-  `did-finish-load` hook) + its test `src/main/ipc/update.test.ts`.
-  _Acceptance:_ both channels are registered (`assertContractFullyHandled` passes at boot) and
-  answer with the service's state; `update:check` resolves with the state and never rejects.
+      `src/main/ipc/index.ts`, `src/main/context.ts`, `src/main/index.ts` (startup kick in the existing
+      `did-finish-load` hook) + its test `src/main/ipc/update.test.ts`.
+      _Acceptance:_ both channels are registered (`assertContractFullyHandled` passes at boot) and
+      answer with the service's state; `update:check` resolves with the state and never rejects.
 
 - [x] **D6 — The renderer read path.** `src/renderer/src/store/useLauncher.ts` (slice + bootstrap read
-  + `onEvent('update:state')`, mirror the `launch` slice),
-  `src/renderer/src/i18n/locales/en.json` (`update.error.*`) + its test
-  `src/renderer/src/store/useLauncher.update.test.ts` (mirror
-  `useLauncher.routeFocus.test.ts`).
-  _Acceptance:_ the store mirrors the pushed state; every `update.error.*` key the adapter can
-  produce exists in `en.json`.
+  - `onEvent('update:state')`, mirror the `launch` slice),
+    `src/renderer/src/i18n/locales/en.json` (`update.error.*`) + its test
+    `src/renderer/src/store/useLauncher.update.test.ts` (mirror
+    `useLauncher.routeFocus.test.ts`).
+    _Acceptance:_ the store mirrors the pushed state; every `update.error.*` key the adapter can
+    produce exists in `en.json`.
 
 ## Model Hints
 
 - `D3 → deliverable-hard` — it is the only piece with real regression surface: a time window that
-  must survive restarts, a failure path that must *not* consume that window (AC4) and must not
+  must survive restarts, a failure path that must _not_ consume that window (AC4) and must not
   erase a previously known update, plus concurrency (startup check vs. manual check) and a timeout
   that together decide whether the state can get stuck in `checking`.
 - D1, D2, D4, D5, D6 → default tier (contract edits, a mirrored store, a thin adapter, mechanical
@@ -223,7 +223,7 @@ A main-process update-check service behind the typed IPC contract. Nothing rende
 - AC7 → unit `src/main/services/update/service.test.ts` › "a manual check runs regardless of the
   24-hour window and reports its failure reason"; unit `src/main/ipc/update.test.ts` › "update:check
   triggers a check and resolves with the resulting state".
-  **Coverage gap (sprint review):** the *user-facing* trigger does not exist in this story — About's
+  **Coverage gap (sprint review):** the _user-facing_ trigger does not exist in this story — About's
   "check now" is [[099]] AC4, which carries the `ui:verify` proof through the real surface in this
   same sprint. Not a manual step, and not deferred beyond S21.
 - AC8 → unit `src/main/services/update/store.test.ts` › "a written result reads back after a
@@ -236,17 +236,19 @@ A main-process update-check service behind the typed IPC contract. Nothing rende
 (GitHub provider, `autoDownload: false`), behind a new typed IPC contract
 (`update:getState`, `update:check`, `update:state`). It restores its last known result from
 `userData/update-check.json` on cold start, checks at most once per 24h measured from the last
-*successful* check, never toasts, never blocks or delays startup, and no-ops entirely in an
+_successful_ check, never toasts, never blocks or delays startup, and no-ops entirely in an
 unpackaged build. The renderer store mirrors the pushed state; no version comparison or network
 access happens outside `checker.ts`. Nothing renders yet — [[098]] and [[099]] build the act and
 the display on top of this slice.
 
 **Commit message:**
+
 ```
 097: the launcher notices a new version
 ```
 
 **Verification:**
+
 - `npm run build` — pass.
 - `npm run typecheck` — pass (node + web).
 - `npm test` — 3982 passed, 1 skipped, 2 failed; both failures are pre-existing and unrelated to
@@ -282,7 +284,7 @@ the display on top of this slice.
   - AC3 → `service.test.ts` › "a failed check keeps the reason, never throws, never toasts and
     never retries" and › "scheduleStartupCheck returns before the check settles" — pass.
   - AC4 → `service.test.ts` › "a failed check does not start the 24-hour window" — pass (verified
-    to actually simulate a failure then assert a *subsequent* start still checks, not just an
+    to actually simulate a failure then assert a _subsequent_ start still checks, not just an
     internal-field assertion).
   - AC5 → `service.test.ts` › "an unpackaged build never checks and reports supported: false" —
     pass.
@@ -298,6 +300,7 @@ the display on top of this slice.
     start restores last known result before any check runs) — pass.
 
 **Decisions made during implementation (beyond the story's own Decisions section):**
+
 - Checker-service seam: `type UpdateChecker = () => Promise<UpdateCheckOutcome>` with
   `UpdateCheckOutcome` a discriminated union of `{ ok: true; available: true; update }`,
   `{ ok: true; available: false }` and `{ ok: false; reason }`, `reason` one of

@@ -54,7 +54,7 @@ export function DateRangePicker({ value, onChange, presets, label, testId }: Dat
   // mid-edit in a rejected `from > to` state. Without this, an abandoned edit's last *individually*
   // valid partial commit (e.g. typing `From` alone before `To` turns out to conflict with it) stays
   // applied and persisted forever, even though the picker's own error text told the user nothing
-  // was accepted - AC3's "the list keeps the last valid date filter" means the filter that was
+  // was accepted - "the list keeps the last valid date filter" means the filter that was
   // actually in effect before this edit, not a half-typed value the user never got to finish.
   const openValueRef = useRef<DateRangeValue | null>(value)
 
@@ -170,7 +170,7 @@ export function DateRangePicker({ value, onChange, presets, label, testId }: Dat
             data-testid={testId ? `${testId}-clear` : undefined}
             onClick={handleClear}
           >
-            {t('common.dateRange.clear')}
+            {t('common.action.clear')}
           </Button>
         </div>
       )}

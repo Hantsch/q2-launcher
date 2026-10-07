@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 5,
+  "settings": {
+    "locale": "en",
+    "motion": "system",
+    "activeInstallationId": "inst-1",
+    "lastRoute": "/home",
+    "minimizeOnLaunch": true,
+    "closeAfterLaunch": false,
+    "confirmBeforeRemoving": true,
+    "scanOnFirstRun": false,
+    "deepScanDrives": []
+  },
+  "installations": [
+    {
+      "id": "inst-1",
+      "rootPath": "/games/inst-1",
+      "name": "Quake II inst-1",
+      "engineKind": "unknown",
+      "launchArgs": [
+        "+set",
+        "fov",
+        "100"
+      ],
+      "activeGameDir": "baseq2",
+      "source": "unknown",
+      "status": "unknown",
+      "checks": [],
+      "gameDirs": [
+        "baseq2"
+      ],
+      "favorite": true,
+      "sortOrder": 1,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-02T00:00:00.000Z",
+      "totalPlaytimeSeconds": 120
+    },
+    {
+      "id": "inst-2",
+      "rootPath": "/games/inst-2",
+      "name": "Quake II inst-2",
+      "engineKind": "unknown",
+      "launchArgs": [
+        "+set",
+        "fov",
+        "100"
+      ],
+      "activeGameDir": "baseq2",
+      "source": "unknown",
+      "status": "unknown",
+      "checks": [],
+      "gameDirs": [
+        "baseq2"
+      ],
+      "favorite": true,
+      "sortOrder": 1,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-02T00:00:00.000Z",
+      "totalPlaytimeSeconds": 120
+    },
+    {
+      "id": "",
+      "rootPath": "/bad"
+    },
+    "junk",
+    {
+      "id": "inst-3"
+    }
+  ],
+  "configProfiles": [
+    {
+      "id": "p1",
+      "name": "Pre-existing profile",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "cvars": {
+        "sensitivity": "5",
+        "rate": "25000",
+        "my_custom_cvar": "hello"
+      },
+      "binds": {
+        "UPARROW": "+forward",
+        "SPACE": "+moveup"
+      },
+      "assignments": [
+        {
+          "installationId": "inst-1",
+          "isDefault": true
+        }
+      ],
+      "actions": [],
+      "categories": [],
+      "cvarSections": []
+    },
+    {
+      "name": "no id"
+    },
+    null
+  ],
+  "configPlayedMods": {
+    "inst-1": [
+      "mod-a",
+      "mod-b"
+    ],
+    "bad": "x"
+  },
+  "configSwitchBinds": {
+    "inst-1": "F5",
+    "bad": 5
+  },
+  "configWriteFailures": {
+    "p1|own": {
+      "messageKey": "config.write.failed",
+      "at": "2026-09-30T10:00:00.000Z"
+    },
+    "bad": 3
+  },
+  "configFileSourceMigratedAt": "2026-08-01T08:00:00.000Z",
+  "configPendingWrites": {
+    "inst-1": "p1"
+  },
+  "downloads": {
+    "concurrentJobs": 2
+  },
+  "downloadFailures": [
+    {
+      "id": "f1",
+      "jobId": "j1",
+      "labelKey": "downloads.job.bootstrap",
+      "installationId": "inst-1",
+      "error": {
+        "key": "downloads.error.network"
+      },
+      "createdAt": 1790938800000
+    },
+    {
+      "id": "f2",
+      "jobId": "j2",
+      "labelKey": "downloads.job.bootstrap",
+      "error": {
+        "key": "downloads.error.network"
+      },
+      "createdAt": 1787486400000,
+      "dismissedAt": 1788350400000
+    },
+    {
+      "id": "f3",
+      "jobId": "j3",
+      "labelKey": "downloads.job.bootstrap",
+      "createdAt": 1790942400000
+    },
+    {
+      "id": "f4",
+      "jobId": "j4",
+      "labelKey": "downloads.job.bootstrap",
+      "error": {
+        "key": "downloads.error.disk",
+        "params": {
+          "path": "C"
+        }
+      },
+      "createdAt": 1790935200000,
+      "dismissedAt": 1790938800000
+    }
+  ],
+  "homeLayout": {
+    "tiles": [
+      {
+        "moduleId": "playtime",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "moduleId": "configProfiles",
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "moduleId": "playtime",
+        "x": 0,
+        "y": 4,
+        "w": 3,
+        "h": 3
+      },
+      {
+        "moduleId": "nonsense",
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "moduleId": "playtime",
+        "x": -1,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ]
+  },
+  "servers": {
+    "sources": [
+      {
+        "id": "s1",
+        "type": "http-list",
+        "address": "https://example.org/servers.json",
+        "enabled": true
+      },
+      {
+        "id": "s1",
+        "type": "http-list",
+        "address": "https://example.org/dup.json",
+        "enabled": false
+      },
+      {
+        "id": "s2",
+        "type": "bogus",
+        "address": "x",
+        "enabled": true
+      }
+    ],
+    "favourites": [
+      {
+        "address": "127.0.0.1:27910",
+        "addedAt": "2026-01-01T00:00:00.000Z"
+      },
+      {
+        "address": "127.0.0.1:27910",
+        "addedAt": "2026-02-01T00:00:00.000Z"
+      },
+      {
+        "address": "bad address;rm",
+        "addedAt": "x"
+      },
+      {
+        "addedAt": "x"
+      }
+    ],
+    "manualServers": [
+      {
+        "address": "192.168.0.5:27910",
+        "origin": "manual",
+        "addedAt": "2026-01-01T00:00:00.000Z"
+      },
+      {
+        "address": "192.168.0.6:27910",
+        "origin": "other",
+        "addedAt": "x"
+      }
+    ],
+    "history": [
+      {
+        "address": "10.0.0.1:27910",
+        "connectedAt": "2026-09-01T00:00:00.000Z"
+      },
+      {
+        "address": "10.0.0.2:27910",
+        "connectedAt": 5
+      }
+    ],
+    "scan": {
+      "concurrency": 16,
+      "timeoutMs": 12345,
+      "autoScanOnOpen": false
+    },
+    "listSort": {
+      "key": "nonsense"
+    },
+    "watchlist": [
+      {
+        "id": "w1",
+        "name": "bob",
+        "mode": "exact",
+        "tooSlow": false
+      },
+      {
+        "id": "w2",
+        "name": "x",
+        "mode": "fuzzy",
+        "tooSlow": false
+      }
+    ],
+    "quickFilters": [
+      {
+        "id": "q1",
+        "name": "Empty",
+        "criteria": {}
+      },
+      {
+        "id": "q2",
+        "name": "",
+        "criteria": {}
+      },
+      "junk"
+    ]
+  },
+  "unlock": {
+    "codes": [
+      {
+        "code": "ABC-123",
+        "redeemedAt": "2026-05-01T00:00:00.000Z"
+      },
+      {
+        "code": "ABC-123",
+        "redeemedAt": "2026-06-01T00:00:00.000Z"
+      },
+      {
+        "code": "",
+        "redeemedAt": "x"
+      },
+      {
+        "code": "NO-DATE"
+      }
+    ]
+  },
+  "replays": {
+    "nameTemplates": {
+      "entries": [
+        {
+          "id": "t1",
+          "kind": "user",
+          "template": "%map%"
+        },
+        {
+          "id": "t2",
+          "kind": "shipped",
+          "shippedId": "default",
+          "template": null
+        },
+        {
+          "id": "t3",
+          "kind": "mystery"
+        }
+      ],
+      "removedShippedIds": [
+        "old",
+        5,
+        "old"
+      ]
+    },
+    "extraFolders": [
+      {
+        "id": "x"
+      },
+      "junk"
+    ],
+    "listFilter": "garbage",
+    "modWarning": {
+      "enabled": false,
+      "trustedMods": [
+        "Rogue",
+        "rogue",
+        "..",
+        "a b"
+      ]
+    }
+  }
+}

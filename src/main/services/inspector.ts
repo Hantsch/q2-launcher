@@ -1,9 +1,16 @@
 import { basename, join } from 'node:path'
 import { BASE_GAME_DIR, KNOWN_GAME_DIRS, NON_GAME_DIRS, RETAIL_PAK_SIZES } from '@shared/constants'
-import { ENGINE_DEFINITIONS, type EngineDefinition, type EngineKind } from '@shared/types'
+import {
+  defaultEngineKind,
+  ENGINE_DEFINITIONS,
+  getEngineDefinition,
+  type EngineDefinition,
+  type EngineKind,
+} from '@shared/types'
 import type {
   BinaryKind,
   CheckSeverity,
+  DetectedEngine,
   InstallationStatus,
   ValidationCheck,
   ValidationResult,
@@ -19,6 +26,7 @@ import {
   resolveRelaxed,
 } from '../lib/fs-utils'
 import { readSteamAppId } from './steam'
+import { isWindows } from '../lib/platform'
 
 /**
  * Decides whether a folder is a usable Quake II installation, what engine it
@@ -60,21 +68,32 @@ function statusFrom(checks: ValidationCheck[], rootMissing: boolean): Installati
   return 'ok'
 }
 
+async function markersMatch(
+  rootPath: string,
+  rootFileNames: Set<string>,
+  definition: EngineDefinition,
+): Promise<boolean> {
+  for (const marker of definition.markers) {
+    // Markers may be nested (`baseq2/game.dll`) or a bare directory (`rerelease`).
+    if (marker.includes('/')) {
+      if (await resolveRelaxed(rootPath, marker)) return true
+    } else if (rootFileNames.has(marker.toLowerCase())) {
+      return true
+    } else if (await isDirectory(join(rootPath, marker))) {
+      return true
+    }
+  }
+  return false
+}
+
 /** Matches an engine by its marker files first, falling back to executable names. */
 async function classifyEngine(
   rootPath: string,
   rootFileNames: Set<string>,
 ): Promise<{ kind: EngineKind; definition?: EngineDefinition }> {
   for (const definition of ENGINE_DEFINITIONS) {
-    for (const marker of definition.markers) {
-      // Markers may be nested (`baseq2/game.dll`) or a bare directory (`rerelease`).
-      if (marker.includes('/')) {
-        if (await resolveRelaxed(rootPath, marker)) return { kind: definition.kind, definition }
-      } else if (rootFileNames.has(marker.toLowerCase())) {
-        return { kind: definition.kind, definition }
-      } else if (await isDirectory(join(rootPath, marker))) {
-        return { kind: definition.kind, definition }
-      }
+    if (await markersMatch(rootPath, rootFileNames, definition)) {
+      return { kind: definition.kind, definition }
     }
   }
 
@@ -88,16 +107,56 @@ async function classifyEngine(
 }
 
 /**
+ * Every known engine client in the root, in table order. A name several definitions list
+ * (`quake2.exe`, `quake2`) is credited to the first of them whose markers match, so it never
+ * yields two engines; dedicated-server binaries never count.
+ */
+async function detectEngines(
+  rootPath: string,
+  rootListing: Awaited<ReturnType<typeof listDir>>,
+): Promise<DetectedEngine[]> {
+  const rootFileNames = new Set(rootListing.files.map((f) => f.toLowerCase()))
+  const engines: DetectedEngine[] = []
+  for (const definition of ENGINE_DEFINITIONS) {
+    for (const exe of definition.executables) {
+      const onDisk = rootListing.byLowerName.get(exe.toLowerCase())
+      if (!onDisk || !rootListing.files.includes(onDisk)) continue
+      if (!(await looksExecutable(rootPath, onDisk))) continue
+      const owners = ENGINE_DEFINITIONS.filter((d) =>
+        d.executables.some((e) => e.toLowerCase() === exe.toLowerCase()),
+      )
+      if (owners.length > 1) {
+        let credited: EngineDefinition | undefined
+        for (const owner of owners) {
+          if (await markersMatch(rootPath, rootFileNames, owner)) {
+            credited = owner
+            break
+          }
+        }
+        if (credited !== definition) continue
+      }
+      engines.push({
+        kind: definition.kind,
+        executablePath: join(rootPath, onDisk),
+        supported: definition.supported,
+      })
+      break
+    }
+  }
+  return engines
+}
+
+/**
  * Client executables in the root, best first: the identified engine's preferred
  * names, then anything else that looks runnable. Dedicated-server binaries are
  * pushed to the back so they are never auto-selected.
  *
- * Story 103 D2: off Windows, a native binary (`elf`/`script`) outranks a Windows `pe` before any
+ * Story 103: off Windows, a native binary (`elf`/`script`) outranks a Windows `pe` before any
  * of that name ranking applies - a folder holding both `quake2` and `quake2.exe` on Linux must
  * pick the one the machine can actually execute, and the name ranking alone picks the `.exe`. The
  * name ranking then decides the order *within* each of the two groups, unchanged.
  *
- * On Windows this function is exactly what it has always been (AC8): the platform branch returns
+ * On Windows this function is exactly what it has always been: the platform branch returns
  * before any header is read, so no installation on the platform ~80% of users are on can get a
  * different executable out of this than it did before the story.
  */
@@ -127,7 +186,7 @@ async function rankExecutables(
 
   const byName = (a: string, b: string): number => rank(a) - rank(b) || a.localeCompare(b)
 
-  if (process.platform === 'win32') return executables.sort(byName)
+  if (isWindows()) return executables.sort(byName)
 
   const kinds = new Map<string, BinaryKind>()
   for (const name of executables) {
@@ -145,13 +204,13 @@ async function rankExecutables(
 }
 
 /**
- * Story 103 D2: the header kind of the executable an inspection settled on, or `undefined` on
- * Windows - where `.exe` is the whole question and AC8 forbids the read. Deliberately reads the
+ * Story 103: the header kind of the executable an inspection settled on, or `undefined` on
+ * Windows - where `.exe` is the whole question and the read is forbidden. Deliberately reads the
  * chosen path rather than reusing `rankExecutables`' map: the chosen executable may be the
  * caller's own `executablePath`, which does not have to be one of the root's ranked candidates.
  */
 async function chosenExecutableKind(executablePath: string): Promise<BinaryKind | undefined> {
-  if (process.platform === 'win32') return undefined
+  if (isWindows()) return undefined
   return readBinaryKind(executablePath)
 }
 
@@ -193,6 +252,7 @@ export async function inspectInstallation(
       gameDirs: [],
       executables: [],
       engineKind: 'unknown',
+      engines: [],
       checkedAt,
     }
   }
@@ -200,7 +260,11 @@ export async function inspectInstallation(
   const rootListing = await listDir(rootPath)
   const rootFileNames = new Set(rootListing.files.map((f) => f.toLowerCase()))
 
-  const { kind: engineKind, definition } = await classifyEngine(rootPath, rootFileNames)
+  const classified = await classifyEngine(rootPath, rootFileNames)
+  const engines = await detectEngines(rootPath, rootListing)
+  const engineKind = defaultEngineKind(engines, classified.kind)
+  const definition =
+    engineKind === classified.kind ? classified.definition : getEngineDefinition(engineKind)
   if (engineKind === 'unknown') {
     checks.push(
       check('engine-identified', 'warn', 'validation.engineUnknown', { fix: 'select-executable' }),
@@ -283,23 +347,23 @@ export async function inspectInstallation(
     checks.push(
       check('executable', 'warn', 'validation.executableMissing', {
         params: { path: options.executablePath },
-        fix: 'select-executable',
+        fix: engines.length > 0 ? 'choose-engine' : 'select-executable',
       }),
     )
   }
 
-  // Story 103 D3: off Windows, a `.exe` the machine cannot run natively is never silently
-  // playable - it needs a runner (Proton/Wine or similar), which D7 lets the user pick.
+  // Story 103: off Windows, a `.exe` the machine cannot run natively is never silently
+  // playable - it needs a runner (Proton/Wine or similar), which the runner picker lets the user pick.
   //
   // `warn`, not `error`, and that severity is load-bearing: `statusFrom` turns any `error` into
   // status `'invalid'`, which `isPlayable` (renderer `lib/status.ts`) refuses, so an `error` here
   // would grey out Play permanently - even after the user picks a working wine/umu runner in the
-  // Runner section (D7), making AC5's "a launch like any other" unreachable through the UI and
-  // AC7's "pressing Play refuses with that reason" unpressable. The refusal AC7 asks for belongs
-  // to `LaunchService.plan()` (`launch.error.noRunner`, D5), which fires before `spawn` and is
+  // Runner section, making "a launch like any other" unreachable through the UI and
+  // "pressing Play refuses with that reason" unpressable. The refusal belongs
+  // to `LaunchService.plan()` (`launch.error.noRunner`), which fires before `spawn` and is
   // toasted by the store's generic launch-error path; this check's job is only to *say* so up
-  // front, in visible text (AC2) - which `warn` does, while leaving the installation startable.
-  if (executablePath && process.platform !== 'win32' && executableKind === 'pe') {
+  // front, in visible text - which `warn` does, while leaving the installation startable.
+  if (executablePath && !isWindows() && executableKind === 'pe') {
     checks.push(
       check('executable-runnable', 'warn', 'validation.executableRunnable', {
         params: { executable: basename(executablePath) },
@@ -336,10 +400,23 @@ export async function inspectInstallation(
     gameDirs,
     executables: executables.map((name) => join(rootPath, name)),
     engineKind,
+    engines,
     ...(executableKind ? { executableKind } : {}),
     ...(steamAppId ? { steamAppId } : {}),
     checkedAt,
   }
+}
+
+/**
+ * The single "is this folder a Quake II install" rule: the folder exists and holds either the base
+ * game or a recognisable engine. Keeps store folders for unrelated games out of every caller.
+ */
+export function looksLikeQuake2(result: ValidationResult): boolean {
+  if (result.status === 'missing') return false
+  const missingBaseDir = result.checks.some(
+    (check) => check.id === 'base-game-dir' && check.severity === 'error',
+  )
+  return !missingBaseDir || result.engineKind !== 'unknown'
 }
 
 /**

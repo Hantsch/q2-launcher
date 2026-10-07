@@ -6,7 +6,7 @@ import type { NewsSlide } from '@shared/modules/home'
 import { NEWS_IMAGE_PATH_PREFIX, RENDERER_ORIGIN } from '../../../lib/renderer-source'
 import { NEWS_DIRECTORY } from '../news/feed-fetcher'
 import { contentRepoUrl } from '../../../lib/content-repo'
-import { getNewsImagesCacheDir, newsImageFileName } from './paths'
+import { getNewsImagesCacheDir, newsImageFileName } from '../../../lib/news-image-paths'
 import { resolveFeedImages, type ResolveFeedImagesOptions } from './resolve-feed-images'
 
 /**
@@ -46,7 +46,11 @@ function sourceUrlFor(image: string, base?: string): string {
   return contentRepoUrl(`${NEWS_DIRECTORY}/${image}`, base)
 }
 
-async function writeCachedImage(sourceUrl: string, ext = 'png', mtimeMs = Date.now()): Promise<string> {
+async function writeCachedImage(
+  sourceUrl: string,
+  ext = 'png',
+  mtimeMs = Date.now(),
+): Promise<string> {
   const fileName = newsImageFileName(sourceUrl, ext)
   const path = join(cacheDir, fileName)
   await writeFile(path, Buffer.alloc(16, 0x71))
@@ -59,7 +63,9 @@ async function listCache(): Promise<string[]> {
   return (await readdir(cacheDir)).sort()
 }
 
-function run(options: Partial<ResolveFeedImagesOptions> & Pick<ResolveFeedImagesOptions, 'slides'>) {
+function run(
+  options: Partial<ResolveFeedImagesOptions> & Pick<ResolveFeedImagesOptions, 'slides'>,
+) {
   return resolveFeedImages({
     userDataPath,
     networkReached: false,
@@ -107,8 +113,16 @@ describe('resolveFeedImages', () => {
   it('a refresh evicts every cached image the new feed does not reference', async () => {
     const keptImage = 'img/kept.png'
     const keptFileName = await writeCachedImage(sourceUrlFor(keptImage), 'png', Date.now() - 1000)
-    const staleFileNameA = await writeCachedImage('https://example.test/stale-a', 'png', Date.now() - 5000)
-    const staleFileNameB = await writeCachedImage('https://example.test/stale-b', 'jpg', Date.now() - 9000)
+    const staleFileNameA = await writeCachedImage(
+      'https://example.test/stale-a',
+      'png',
+      Date.now() - 5000,
+    )
+    const staleFileNameB = await writeCachedImage(
+      'https://example.test/stale-b',
+      'jpg',
+      Date.now() - 9000,
+    )
 
     const result = await run({
       slides: [slide({ image: keptImage })],
@@ -130,7 +144,10 @@ describe('resolveFeedImages', () => {
 
     const fetchImpl = vi.fn(async (url: string) => {
       if (url === sourceUrlFor(rejectedImage)) {
-        return new Response('not-an-image', { status: 200, headers: { 'content-type': 'text/plain' } })
+        return new Response('not-an-image', {
+          status: 200,
+          headers: { 'content-type': 'text/plain' },
+        })
       }
       if (url === sourceUrlFor(goneImage)) {
         return new Response(null, { status: 404 })

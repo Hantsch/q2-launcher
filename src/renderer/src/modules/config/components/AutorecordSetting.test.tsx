@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { applyAutorecord } from '@shared/config/autorecord'
+import { applyAutorecord } from '@shared/config/catalog/autorecord'
 import type { EngineKind } from '@shared/types/engine'
 import { initI18n } from '../../../i18n'
 import type { EngineScopeStatus } from '../lib/engine-scope'

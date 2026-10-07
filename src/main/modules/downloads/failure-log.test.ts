@@ -37,8 +37,20 @@ function newDiagnostics(overrides: Partial<DownloadDiagnostics> = {}): DownloadD
     finishedAt: '2026-01-08T00:01:00.000Z',
     errorKey: 'downloads.error.installationNotPlayable',
     packages: [
-      { id: 'q2pro-win64', url: 'https://example.test/q2pro.zip', sizeBytes: 1234, verified: true, extracted: true },
-      { id: 'demo', url: 'https://example.test/demo.zip', sizeBytes: 5678, verified: true, extracted: false },
+      {
+        id: 'q2pro-win64',
+        url: 'https://example.test/q2pro.zip',
+        sizeBytes: 1234,
+        verified: true,
+        extracted: true,
+      },
+      {
+        id: 'demo',
+        url: 'https://example.test/demo.zip',
+        sizeBytes: 5678,
+        verified: true,
+        extracted: false,
+      },
     ],
     target: {
       targetPath: 'C:\\Users\\%HOME%\\Games\\Quake2',
@@ -123,7 +135,9 @@ describe('appendFailure', () => {
   })
 
   it('an oversized diagnostics record is trimmed to the cap and marked truncated when appended', () => {
-    const oversized = newDiagnostics({ logTail: Array.from({ length: 5000 }, (_, i) => `line ${i}`) })
+    const oversized = newDiagnostics({
+      logTail: Array.from({ length: 5000 }, (_, i) => `line ${i}`),
+    })
     const log = appendFailure([], newEntry({ diagnostics: oversized }), T0)
 
     const stored = log[0]?.diagnostics
@@ -211,14 +225,20 @@ describe('capDiagnostics', () => {
 
     // Fits once logTail and packages are both gone, but not with just logTail gone (the huge
     // package URL alone still overshoots) - packages must go too.
-    const packageTrimResult = capDiagnostics(diagnostics, JSON.stringify(withNoPackages).length + 50)
+    const packageTrimResult = capDiagnostics(
+      diagnostics,
+      JSON.stringify(withNoPackages).length + 50,
+    )
     expect(packageTrimResult?.logTail).toEqual([])
     expect(packageTrimResult?.packages).toEqual([])
     expect(packageTrimResult?.target).toEqual(diagnostics.target)
     expect(packageTrimResult?.truncated).toBe(true)
 
     // Fits once packages are also gone, but not with them present - target must go.
-    const targetDroppedResult = capDiagnostics(diagnostics, JSON.stringify(withNoTarget).length + 50)
+    const targetDroppedResult = capDiagnostics(
+      diagnostics,
+      JSON.stringify(withNoTarget).length + 50,
+    )
     expect(targetDroppedResult?.target).toBeUndefined()
     expect(targetDroppedResult?.truncated).toBe(true)
 
@@ -231,8 +251,22 @@ describe('capDiagnostics', () => {
     const bigLine = (label: string): string => `${label}-${'x'.repeat(2000)}`
     const diagnostics = newDiagnostics({ logTail: [] })
     diagnostics.packages = [
-      { id: 'first', url: 'https://example.invalid/first.zip', sizeBytes: 1, verified: true, extracted: true, contents: [bigLine('first-contents')] },
-      { id: 'second', url: 'https://example.invalid/second.zip', sizeBytes: 1, verified: true, extracted: true, contents: [bigLine('second-contents')] },
+      {
+        id: 'first',
+        url: 'https://example.invalid/first.zip',
+        sizeBytes: 1,
+        verified: true,
+        extracted: true,
+        contents: [bigLine('first-contents')],
+      },
+      {
+        id: 'second',
+        url: 'https://example.invalid/second.zip',
+        sizeBytes: 1,
+        verified: true,
+        extracted: true,
+        contents: [bigLine('second-contents')],
+      },
     ]
     diagnostics.assembly = [
       { from: bigLine('oldest-from'), to: 'base/pak0.pak', found: true, sourcePackageId: 'first' },
@@ -252,7 +286,10 @@ describe('capDiagnostics', () => {
 
     // Fits once every package's `contents` is gone, but not with them present - `contents` must
     // go before `assembly` or `packages`.
-    const contentsTrimResult = capDiagnostics(diagnostics, JSON.stringify(withNoContents).length + 50)
+    const contentsTrimResult = capDiagnostics(
+      diagnostics,
+      JSON.stringify(withNoContents).length + 50,
+    )
     expect(contentsTrimResult?.packages.every((pkg) => pkg.contents === undefined)).toBe(true)
     expect(contentsTrimResult?.assembly).toEqual(diagnostics.assembly)
     expect(contentsTrimResult?.packages.map((pkg) => pkg.id)).toEqual(['first', 'second'])
@@ -260,7 +297,10 @@ describe('capDiagnostics', () => {
 
     // Fits once `assembly` entries are also gone (oldest-first), but not with `contents` alone
     // gone.
-    const assemblyTrimResult = capDiagnostics(diagnostics, JSON.stringify(withNoAssembly).length + 50)
+    const assemblyTrimResult = capDiagnostics(
+      diagnostics,
+      JSON.stringify(withNoAssembly).length + 50,
+    )
     expect(assemblyTrimResult?.assembly).toEqual([])
     expect(assemblyTrimResult?.packages.every((pkg) => pkg.contents === undefined)).toBe(true)
     expect(assemblyTrimResult?.truncated).toBe(true)
@@ -287,9 +327,18 @@ describe('capDiagnostics', () => {
       },
     })
     diagnostics.packages = [
-      { id: 'p1', url: 'https://example.invalid/p1.zip', sizeBytes: 1, verified: true, extracted: true, contents: ['a', 'b'] },
+      {
+        id: 'p1',
+        url: 'https://example.invalid/p1.zip',
+        sizeBytes: 1,
+        verified: true,
+        extracted: true,
+        contents: ['a', 'b'],
+      },
     ]
-    diagnostics.assembly = [{ from: 'base/pak0.pak', to: 'base/pak0.pak', found: true, sourcePackageId: 'p1' }]
+    diagnostics.assembly = [
+      { from: 'base/pak0.pak', to: 'base/pak0.pak', found: true, sourcePackageId: 'p1' },
+    ]
 
     expect(capDiagnostics(diagnostics, 10)).toBeUndefined()
   })

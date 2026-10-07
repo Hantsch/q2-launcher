@@ -69,7 +69,11 @@ describe('WatchlistPanel (story 132 D2)', () => {
     const snapshot: WatchlistSnapshot = {
       asOf: '2026-01-01T00:00:00.000Z',
       entries: [
-        { entry: { id: '1', name: 'Alice', mode: 'exact', tooSlow: false }, state: 'offline', recheck: null },
+        {
+          entry: { id: '1', name: 'Alice', mode: 'exact', tooSlow: false },
+          state: 'offline',
+          recheck: null,
+        },
         {
           entry: { id: '2', name: 'Bob', mode: 'substring', tooSlow: false },
           state: 'found',
@@ -106,7 +110,11 @@ describe('WatchlistPanel (story 132 D2)', () => {
     const snapshot: WatchlistSnapshot = {
       asOf: '2026-01-01T00:00:00.000Z',
       entries: [
-        { entry: { id: '1', name: 'Alice', mode: 'exact', tooSlow: false }, state: 'offline', recheck: null },
+        {
+          entry: { id: '1', name: 'Alice', mode: 'exact', tooSlow: false },
+          state: 'offline',
+          recheck: null,
+        },
         {
           entry: { id: '2', name: 'Carl', mode: 'exact', tooSlow: false },
           state: 'left',
@@ -184,7 +192,9 @@ describe('WatchlistPanel (story 132 D2)', () => {
     const row = screen.getByTestId('servers-watchlist-row-4')
     expect(row.textContent).toMatch(/checking/i)
     // recheck button disabled while pending
-    expect((screen.getByTestId('servers-watchlist-recheck-4') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('servers-watchlist-recheck-4') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
 
     const left: WatchlistSnapshot = {
       asOf: '2026-01-01T00:15:00.000Z',
@@ -229,7 +239,10 @@ describe('WatchlistPanel (story 132 D2)', () => {
     // no server data yet, since asOf is null and there's no offline row here - verify add refusal instead
     invokeMock.mockImplementation((_channel: string, args: { type: string }) => {
       if (args?.type === SERVERS_WATCHLIST_HANDLERS.add) {
-        return Promise.resolve({ ok: true, value: { ok: false, reasonKey: 'servers.watchlist.error.empty' } })
+        return Promise.resolve({
+          ok: true,
+          value: { ok: false, reasonKey: 'servers.watchlist.error.empty' },
+        })
       }
       if (args?.type === SERVERS_WATCHLIST_HANDLERS.read) {
         return Promise.resolve({ ok: true, value: snapshot })
@@ -241,14 +254,20 @@ describe('WatchlistPanel (story 132 D2)', () => {
     fireEvent.click(screen.getByTestId('servers-watchlist-add-submit'))
 
     await waitFor(() => expect(screen.getByTestId('servers-watchlist-add-error')).toBeTruthy())
-    expect(screen.getByTestId('servers-watchlist-add-error').textContent).toContain('cannot be empty')
+    expect(screen.getByTestId('servers-watchlist-add-error').textContent).toContain(
+      'cannot be empty',
+    )
   })
 
   it('edit and remove call the watchlist handlers', async () => {
     const snapshot: WatchlistSnapshot = {
       asOf: null,
       entries: [
-        { entry: { id: '6', name: 'Gina', mode: 'exact', tooSlow: false }, state: 'offline', recheck: null },
+        {
+          entry: { id: '6', name: 'Gina', mode: 'exact', tooSlow: false },
+          state: 'offline',
+          recheck: null,
+        },
       ],
     }
 

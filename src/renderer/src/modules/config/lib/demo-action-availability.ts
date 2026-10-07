@@ -1,7 +1,7 @@
 import type { EngineKind } from '@shared/types/engine'
 
 /**
- * Story 167 D4: why a demo-playback row cannot be bound on the profile's assigned engines, as an
+ * Story 167: why a demo-playback row cannot be bound on the profile's assigned engines, as an
  * i18n key - or `undefined` when it can.
  *
  * `seek` and the speed `if` chain are Q2PRO verbs; `pause` is stock Quake II and always available.

@@ -1,7 +1,7 @@
 import type { CachedDemo } from './index-cache'
 
 /**
- * Story 144 D2: the incremental scan core. Given the previous scan's cache and this scan's file
+ * Story 144: the incremental scan core. Given the previous scan's cache and this scan's file
  * listing, decides per file whether to reuse cached facts, re-run only the name matcher, re-parse
  * from scratch, or skip a file that looks like it is still being written by a running game.
  *

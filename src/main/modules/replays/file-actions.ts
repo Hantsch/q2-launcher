@@ -1,4 +1,5 @@
 import type { DemoFileActionResult } from '@shared/modules/replays'
+import { refuse } from '@shared/types'
 
 /**
  * Story 156: `demos.reveal`/`demos.copyPath`'s shared logic - resolve a demo id to its real
@@ -47,13 +48,13 @@ async function resolveAndCheck(
   deps: Pick<DemoFileActionsDeps, 'resolveFile' | 'stat'>,
 ): Promise<{ file: ResolvedDemoFile } | { refusal: DemoFileActionResult }> {
   const file = deps.resolveFile(demoId)
-  if (!file) return { refusal: { ok: false, reason: 'unknownDemo' } }
+  if (!file) return { refusal: refuse('replays.play.error.notFound') }
 
   try {
     await deps.stat(file.absolutePath)
   } catch (error) {
     if (hasErrnoCode(error, 'ENOENT') || hasErrnoCode(error, 'ENOTDIR')) {
-      return { refusal: { ok: false, reason: 'fileMissing' } }
+      return { refusal: refuse('replays.play.error.fileMissing') }
     }
     // Any other stat error (e.g. a transient permission hiccup) never blocks the action - proceed
     // as if stat succeeded.

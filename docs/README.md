@@ -46,6 +46,8 @@ docs/
 - Once a concept is fully implemented (all stories done): `git mv` it to `systems/` and update
   its status line — checked in the `/sprint` review (phase 3) and
   `/roadmap check`.
+- A story that changes a shipped module updates its systems doc (`systems/<id>-module.md`); the
+  `/sprint` review checks it.
 - Status tables do not belong in this index — only in the roadmap.
 - The roadmap is compacted, not archived: `/roadmap check` removes done follow-ups and
   collapses finished phases to one row per milestone. Git and the sprint reviews are the
@@ -53,4 +55,16 @@ docs/
 
 ## Project-specific
 
+- **Test paths for story/sprint templates** — e2e flows `scripts/flows/<name>.mjs`, run by
+  `npm run ui:flow -- <name>`; unit/component tests `src/**/*.test.ts(x)`; script tests
+  `scripts/**/*.test.mjs`.
 - **How the app is put together** → [ARCHITECTURE.md](ARCHITECTURE.md).
+- **What a whole-codebase review found, and which stories address it** →
+  [reviews/](reviews/) (one dated report per review; findings table + story map).
+- **Open defects and tech debt of an area** → [TECH-DEBT.md](TECH-DEBT.md) — read the area's
+  rows before touching it.
+- **Where unfixed findings live (overrides the generated "Follow-ups" / "Gaps, findings"
+  bullets above)** — a review finding left unfixed becomes a [TECH-DEBT.md](TECH-DEBT.md) row
+  (or a story draft), never a list in the review alone; the roadmap's follow-ups hold only
+  non-defect to-dos; a follow-up or row older than three sprints is promoted to a story or
+  deleted; rows are removed when done (git is the history).

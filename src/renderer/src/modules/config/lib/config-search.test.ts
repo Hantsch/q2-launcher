@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { ConfigSyntaxLine } from '@shared/config/config-syntax'
-import { tokenizeConfigText } from '@shared/config/config-syntax'
+import type { ConfigSyntaxLine } from '@shared/config/syntax/config-syntax'
+import { tokenizeConfigText } from '@shared/config/syntax/config-syntax'
 import { findMatches, splitTokenByMatches, type ConfigSearchMatch } from './config-search'
 
 /** Tokenizes `text` and returns just the lines, for tests that only care about search

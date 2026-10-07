@@ -2,7 +2,7 @@
 
 Status: **Implemented.** v1 shipped across [S16](../sprints/done/S16/review.md) (bootstrap to a
 playable Q2PRO demo), [S17](../sprints/done/S17/review.md) (real-run gaps), [S19](../sprints/done/S19/review.md)
-(retail import + demo-to-retail upgrade, stories 088–090) and [S20](../sprints/S20/review.md)
+(retail import + demo-to-retail upgrade, stories 088–090) and [S20](../sprints/done/S20/review.md)
 (the write-guard, engine update/rollback, repair and removal from disk, stories 091–094), closing
 Phase 4 milestone 1. This document now describes the system as built, not a plan; the `downloads`
 module is a wizard that turns nothing into a playable Quake II installation, an engine manager that
@@ -50,9 +50,8 @@ transport the [home-screen concept](home-screen.md) already fixed.
   There is no "install anyway".
 - **Archives are extracted with a bundled 7-Zip binary** — the free game data ships as Windows
   self-extractors, and one tool covers those plus every engine ZIP.
-- **Jobs:** parallel with a user-configurable limit, pause/resume with HTTP range resume across
-  restarts, cancel cleans up. Downloading while the game runs is a user setting; **writing** into a
-  running installation always waits.
+- **Jobs:** one at a time, no pause/resume yet, cancel cleans up. **Writing** into a running
+  installation always waits.
 - **Three settings**, and the Settings view learns to render **module-contributed sections** to
   hold them: concurrency limit, archive-cache budget (with current size and a clear button that
   says what it will delete), and download-while-playing.
@@ -94,8 +93,8 @@ asset packs and config templates belong to their own modules.
 - A **bootstrap wizard**, started from the Library: engine → data source → target folder → run.
 - A **curated manifest** in `Hantsch/q2_community_content` covering engine builds and free
   game-data packages, with mirrors, sizes and SHA256; fetched by main, validated with zod, cached.
-- **Downloading** with progress, pause/resume (HTTP range, surviving app restarts), cancel with
-  cleanup, and parallelism up to a user-set limit.
+- **Downloading** with progress, one download at a time, and cancel with cleanup (pause/resume and
+  parallel downloads are not available yet).
 - **Verification** of every downloaded file against the manifest's size and SHA256, with mirror
   fallback and hard failure.
 - **Extraction** via a bundled 7-Zip binary: Windows self-extractors (`q2-314-demo-x86.exe`,
@@ -113,7 +112,7 @@ asset packs and config templates belong to their own modules.
   cache.
 - **Three settings** in a module-contributed Settings section.
 - Redeeming the shell's existing job pipeline — this module is its first real producer, which also
-  unblocks the parked [downloads badge story 032](../requirements/032-downloads-badge-active-count.md).
+  unblocks the parked [downloads badge story 032](../requirements/done/032-downloads-badge-active-count.md).
 
 ### Deliberately not in v1
 
@@ -148,47 +147,47 @@ asset packs and config templates belong to their own modules.
 
 ## 3. Design decisions taken (from the requirements interview)
 
-| Topic | Decision | Rationale (user's) |
-| --- | --- | --- |
-| Core of v1 | Bootstrap: from nothing to playable — free data + engine in one flow | The strongest moment the module can deliver; engine management and repair come with the same machinery |
-| r1q2 has no live official source | A **curated manifest** in `Hantsch/q2_community_content` carries URL + size + SHA256 per engine and version; no URLs in launcher code | A dead mirror must cost a repo commit, not a launcher release; consistent with the home-screen concept's content repo |
-| Retail game data | The launcher downloads only the free parts and **copies** retail paks out of a detected Steam/GOG/Epic installation | Same model as Quake II Starter; detection for those stores already exists |
-| Retail paks: copy or link | **Copy** (~190 MB per installation) | Each installation stands on its own; a store update or uninstall must not break it |
-| Archive extraction | A **7-Zip binary bundled with the app**, invoked as a child process | The free data ships as Windows self-extractors; one tool covers those and every engine ZIP, and it is the path Quake II Starter itself takes |
-| Manifest scope | **Engines and free game-data packages**, each with URL, mirrors, size, SHA256 | All URLs out of the code; a dead mirror is one commit |
-| Update detection | The **manifest is the truth** (pinned version per engine), **plus** an optional per-installation "bleeding edge" that follows upstream | Reproducible by default, current on request — both needs served |
-| Hash mismatch | **Hard abort**: delete the file, try the next mirror, fail the job if all fail. No override | We execute foreign code from the network |
-| Install target | The user picks any folder; a target under `Program Files` produces a **hard warning** that can be acknowledged | Freedom, but the damage is named before it happens |
-| Non-empty target folder | Always warn, listing what is in there, with "continue anyway" | The user decides |
-| Job parallelism | **Parallel with a limit the user sets in the settings** | Different machines and connections want different answers |
-| Pause / resume / cancel | Resume (HTTP range, across app restarts), an explicit pause control, and cancel that removes partial files and the half-built installation | Full control over a long-running operation |
-| Downloaded archives | **Kept in a cache with a budget**, configurable in the settings, which also shows the current cache size and offers a clear action that states what it will delete | A second installation and every repair should not re-download |
-| Downloading while the game runs | A **user setting** | The user knows their bandwidth situation |
-| Writing while the game runs | Always deferred: the download may run, extraction and copying wait for the process to exit | Never mutate the files of a running game |
-| Where the settings live | The **Settings view learns to render module-contributed sections**; the module owns its values | Rule-conform (a feature is a module) and reusable by mods/assets later |
-| Wizard entry point | An own **wizard, launched from the Library**; first-start onboarding is a separate concept | Onboarding has to cover profiles, mods and assets too |
-| "Playable" during a job | The existing `inspectInstallation` verdict decides: as soon as the status is no longer `invalid`/`missing`, the installation is playable | Use the truth source that exists instead of inventing a second rule |
-| Repair scope | Everything the manifest can supply (engine, executable, `pak2.pak`); missing retail paks turn into the offer to copy them from a store installation | Redeems the reserved `install-game-files` fix |
-| Engine update | Replace the files, move the previous ones into a backup inside the installation, offer rollback | One rollback step, little complexity |
-| Demo installations | A **visible state of the installation** — a "Demo" badge on tile, library card and action bar — plus a hint how to move to retail | Honest about what the user has |
-| Addons in v1 | `baseq2` only | Clean boundary to the Mods module |
-| Removal from disk | Allowed for any installation **with confirmation and the path shown** | The entry-only removal of today is not enough once the launcher creates folders itself |
-| Removal safety | **Locked where `source` is Steam/GOG/Epic** — those offer entry removal only, with a note that the store uninstalls | Raised as an objection during the interview and accepted: the launcher must not dismantle a Steam library |
-| Manifest transport | `raw.githubusercontent` on `main` of `Hantsch/q2_community_content`, last good copy cached in userData; offline shows the cache with an "as of …" note and works from the archive cache | Same transport as the news feed |
-| Downloads tab content | Running jobs plus a **failure log** that persists until dismissed; successes fade | Only what one actually goes back to read |
+| Topic                            | Decision                                                                                                                                                                                | Rationale (user's)                                                                                                                           |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core of v1                       | Bootstrap: from nothing to playable — free data + engine in one flow                                                                                                                    | The strongest moment the module can deliver; engine management and repair come with the same machinery                                       |
+| r1q2 has no live official source | A **curated manifest** in `Hantsch/q2_community_content` carries URL + size + SHA256 per engine and version; no URLs in launcher code                                                   | A dead mirror must cost a repo commit, not a launcher release; consistent with the home-screen concept's content repo                        |
+| Retail game data                 | The launcher downloads only the free parts and **copies** retail paks out of a detected Steam/GOG/Epic installation                                                                     | Same model as Quake II Starter; detection for those stores already exists                                                                    |
+| Retail paks: copy or link        | **Copy** (~190 MB per installation)                                                                                                                                                     | Each installation stands on its own; a store update or uninstall must not break it                                                           |
+| Archive extraction               | A **7-Zip binary bundled with the app**, invoked as a child process                                                                                                                     | The free data ships as Windows self-extractors; one tool covers those and every engine ZIP, and it is the path Quake II Starter itself takes |
+| Manifest scope                   | **Engines and free game-data packages**, each with URL, mirrors, size, SHA256                                                                                                           | All URLs out of the code; a dead mirror is one commit                                                                                        |
+| Update detection                 | The **manifest is the truth** (pinned version per engine), **plus** an optional per-installation "bleeding edge" that follows upstream                                                  | Reproducible by default, current on request — both needs served                                                                              |
+| Hash mismatch                    | **Hard abort**: delete the file, try the next mirror, fail the job if all fail. No override                                                                                             | We execute foreign code from the network                                                                                                     |
+| Install target                   | The user picks any folder; a target under `Program Files` produces a **hard warning** that can be acknowledged                                                                          | Freedom, but the damage is named before it happens                                                                                           |
+| Non-empty target folder          | Always warn, listing what is in there, with "continue anyway"                                                                                                                           | The user decides                                                                                                                             |
+| Job parallelism                  | **Parallel with a limit the user sets in the settings**                                                                                                                                 | Different machines and connections want different answers (superseded: downloads run one at a time, see §9)                                  |
+| Pause / resume / cancel          | Resume (HTTP range, across app restarts), an explicit pause control, and cancel that removes partial files and the half-built installation                                              | Full control over a long-running operation (superseded: downloads run one at a time, see §9)                                                 |
+| Downloaded archives              | **Kept in a cache with a budget**, configurable in the settings, which also shows the current cache size and offers a clear action that states what it will delete                      | A second installation and every repair should not re-download                                                                                |
+| Downloading while the game runs  | A **user setting**                                                                                                                                                                      | The user knows their bandwidth situation                                                                                                     |
+| Writing while the game runs      | Always deferred: the download may run, extraction and copying wait for the process to exit                                                                                              | Never mutate the files of a running game                                                                                                     |
+| Where the settings live          | The **Settings view learns to render module-contributed sections**; the module owns its values                                                                                          | Rule-conform (a feature is a module) and reusable by mods/assets later                                                                       |
+| Wizard entry point               | An own **wizard, launched from the Library**; first-start onboarding is a separate concept                                                                                              | Onboarding has to cover profiles, mods and assets too                                                                                        |
+| "Playable" during a job          | The existing `inspectInstallation` verdict decides: as soon as the status is no longer `invalid`/`missing`, the installation is playable                                                | Use the truth source that exists instead of inventing a second rule                                                                          |
+| Repair scope                     | Everything the manifest can supply (engine, executable, `pak2.pak`); missing retail paks turn into the offer to copy them from a store installation                                     | Redeems the reserved `install-game-files` fix                                                                                                |
+| Engine update                    | Replace the files, move the previous ones into a backup inside the installation, offer rollback                                                                                         | One rollback step, little complexity                                                                                                         |
+| Demo installations               | A **visible state of the installation** — a "Demo" badge on tile, library card and action bar — plus a hint how to move to retail                                                       | Honest about what the user has                                                                                                               |
+| Addons in v1                     | `baseq2` only                                                                                                                                                                           | Clean boundary to the Mods module                                                                                                            |
+| Removal from disk                | Allowed for any installation **with confirmation and the path shown**                                                                                                                   | The entry-only removal of today is not enough once the launcher creates folders itself                                                       |
+| Removal safety                   | **Locked where `source` is Steam/GOG/Epic** — those offer entry removal only, with a note that the store uninstalls                                                                     | Raised as an objection during the interview and accepted: the launcher must not dismantle a Steam library                                    |
+| Manifest transport               | `raw.githubusercontent` on `main` of `Hantsch/q2_community_content`, last good copy cached in userData; offline shows the cache with an "as of …" note and works from the archive cache | Same transport as the news feed                                                                                                              |
+| Downloads tab content            | Running jobs plus a **failure log** that persists until dismissed; successes fade                                                                                                       | Only what one actually goes back to read                                                                                                     |
 
 ## 4. Tech decisions
 
-| Area | Choice | Rationale |
-| --- | --- | --- |
-| HTTP | Main-process only, Node/Electron built-in `fetch` with range requests; no new HTTP dependency unless resume forces one | The repo has no network code and only three runtime dependencies; the production CSP is `connect-src 'self'` and stays that way |
-| Archive extraction | A bundled 7-Zip CLI binary behind one `Extractor` interface in main, invoked with a fixed absolute path and a fixed argument shape | Self-extracting `.exe` installers cannot be read by a JS ZIP library; the interface keeps the door open for other platforms |
-| Hashing | `node:crypto` SHA256, streamed while writing the download | Already used in the config module; no dependency |
-| Manifest format | JSON with `schemaVersion`, validated with zod in main; unvalidated data never reaches the renderer | The repo's validation convention |
-| Job state | The existing `JobsService` and `Job`/`JobProgress` types; the module is their first producer | Built for exactly this, unused so far |
-| Module state | A new top-level key in `state.json` with its own zod schema and defensive parse (the `configProfiles` precedent) for the module's settings, the failure log and resumable-download bookkeeping | `LauncherSettings` is a closed shape |
-| Installation-scoped data | `Installation.moduleData['downloads']` for what belongs to one installation (pinned engine version, bleeding-edge flag, backup pointer) | The slot the model reserves for exactly this, with a worked migration example in `migrations.ts` |
-| Cache location | `userData/cache/downloads/` for archives, partial files as `<name>.part` plus a sidecar with URL, size, hash and offset | Not in `state.json`; a cache is files |
+| Area                     | Choice                                                                                                                                                                                         | Rationale                                                                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP                     | Main-process only, Node/Electron built-in `fetch` with range requests; no new HTTP dependency unless resume forces one                                                                         | The repo has no network code and only three runtime dependencies; the production CSP is `connect-src 'self'` and stays that way     |
+| Archive extraction       | A bundled 7-Zip CLI binary behind one `Extractor` interface in main, invoked with a fixed absolute path and a fixed argument shape                                                             | Self-extracting `.exe` installers cannot be read by a JS ZIP library; the interface keeps the door open for other platforms         |
+| Hashing                  | `node:crypto` SHA256, streamed while writing the download                                                                                                                                      | Already used in the config module; no dependency                                                                                    |
+| Manifest format          | JSON with `schemaVersion`, validated with zod in main; unvalidated data never reaches the renderer                                                                                             | The repo's validation convention                                                                                                    |
+| Job state                | The existing `JobsService` and `Job`/`JobProgress` types; the module is their first producer                                                                                                   | Built for exactly this, unused so far                                                                                               |
+| Module state             | A new top-level key in `state.json` with its own zod schema and defensive parse (the `configProfiles` precedent) for the module's settings, the failure log and resumable-download bookkeeping | `LauncherSettings` is a closed shape                                                                                                |
+| Installation-scoped data | `Installation.moduleData['downloads']` for what belongs to one installation (pinned engine version, bleeding-edge flag, backup pointer)                                                        | The slot the model reserves for exactly this, with a migration step in the owner's `persisted-migrations.ts` when its shape changes |
+| Cache location           | `userData/cache/downloads/` for archives, partial files as `<name>.part` plus a sidecar with URL, size, hash and offset                                                                        | Not in `state.json`; a cache is files                                                                                               |
 
 ## 5. Core terms & model
 
@@ -233,22 +232,22 @@ exists, and it is the state a story has to re-check before pinning anything.
 
 **Engines**
 
-| Engine | State | Source |
-| --- | --- | --- |
-| **Q2PRO** | Live. Rolling `nightly` release with `q2pro-client_win32_x86.zip`, `q2pro-client_win64_x64.zip`, server variants and a `version.txt`; last publish 2025-12-11 | [github.com/q2pro/q2pro/releases/tag/nightly](https://github.com/q2pro/q2pro/releases/tag/nightly) |
-| Q2PRO (old official) | **Dead.** `skuller.net/q2pro/nightly/…` answers 302 to a parked domain; `skullernet/q2pro` no longer exists (the org `q2pro` does, and `skullernet/q2pro-ng` is a separate experimental line) | — |
-| **r1q2** | **No live official distribution.** `r1ch.net/stuff/r1q2/` is 404; r1ch.net itself is alive but no longer lists r1q2. The updater every guide points at has no server | — |
-| r1q2 (reachable prebuilt) | `r1q2-7387.exe`, 758 272 bytes, last modified **2008-03-21**, in tastyspleen's archive; and the Quake II Starter r1q2 package `q2starter-1.3.2-setup.zip`, 2 940 750 bytes, 2015-11-14 | [tastyspleen clients/r1q2/old/](http://tastyspleen.net/quake/downloads/clients/r1q2/old/), [q2s.tastyspleen.net](http://q2s.tastyspleen.net/) |
-| r1q2 (source) | Full release archive and maintained forks | [tastyspleen/r1q2-archive](https://github.com/tastyspleen/r1q2-archive), [Slipyx/r1q2](https://github.com/Slipyx/r1q2) |
-| Other engines | Not supported (`supported: false` in `ENGINE_DEFINITIONS`) and out of scope, but they do have live sources — yquake2 at `deponie.yamagi.org`, Q2RTX as GitHub releases (v1.8.1, 2025-12-11), q2repro nightlies | — |
+| Engine                    | State                                                                                                                                                                                                          | Source                                                                                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Q2PRO**                 | Live. Rolling `nightly` release with `q2pro-client_win32_x86.zip`, `q2pro-client_win64_x64.zip`, server variants and a `version.txt`; last publish 2025-12-11                                                  | [github.com/q2pro/q2pro/releases/tag/nightly](https://github.com/q2pro/q2pro/releases/tag/nightly)                                            |
+| Q2PRO (old official)      | **Dead.** `skuller.net/q2pro/nightly/…` answers 302 to a parked domain; `skullernet/q2pro` no longer exists (the org `q2pro` does, and `skullernet/q2pro-ng` is a separate experimental line)                  | —                                                                                                                                             |
+| **r1q2**                  | **No live official distribution.** `r1ch.net/stuff/r1q2/` is 404; r1ch.net itself is alive but no longer lists r1q2. The updater every guide points at has no server                                           | —                                                                                                                                             |
+| r1q2 (reachable prebuilt) | `r1q2-7387.exe`, 758 272 bytes, last modified **2008-03-21**, in tastyspleen's archive; and the Quake II Starter r1q2 package `q2starter-1.3.2-setup.zip`, 2 940 750 bytes, 2015-11-14                         | [tastyspleen clients/r1q2/old/](http://tastyspleen.net/quake/downloads/clients/r1q2/old/), [q2s.tastyspleen.net](http://q2s.tastyspleen.net/) |
+| r1q2 (source)             | Full release archive and maintained forks                                                                                                                                                                      | [tastyspleen/r1q2-archive](https://github.com/tastyspleen/r1q2-archive), [Slipyx/r1q2](https://github.com/Slipyx/r1q2)                        |
+| Other engines             | Not supported (`supported: false` in `ENGINE_DEFINITIONS`) and out of scope, but they do have live sources — yquake2 at `deponie.yamagi.org`, Q2RTX as GitHub releases (v1.8.1, 2025-12-11), q2repro nightlies | —                                                                                                                                             |
 
 **Free game data** — both mirrored twice and both answering 200:
 
-| File | Size | Purpose | Mirrors |
-| --- | --- | --- | --- |
-| `q2-314-demo-x86.exe` | 39 015 499 B | Demo `pak0.pak` + `players/`; must **not** be patched | [yamagi](https://deponie.yamagi.org/quake2/idstuff/q2-314-demo-x86.exe), [tastyspleen](http://tastyspleen.net/quake/downloads/q2-314-demo-x86.exe) |
+| File                       | Size                                                 | Purpose                                                                          | Mirrors                                                                                                                                                      |
+| -------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `q2-314-demo-x86.exe`      | 39 015 499 B                                         | Demo `pak0.pak` + `players/`; must **not** be patched                            | [yamagi](https://deponie.yamagi.org/quake2/idstuff/q2-314-demo-x86.exe), [tastyspleen](http://tastyspleen.net/quake/downloads/q2-314-demo-x86.exe)           |
 | `q2-3.20-x86-full-ctf.exe` | 19 267 584 B, MD5 `490557d4a90ff346a175d865a2bade87` | The point release: `pak2.pak`, required for every full version; also carries ctf | [yamagi](https://deponie.yamagi.org/quake2/idstuff/q2-3.20-x86-full-ctf.exe), [tastyspleen](http://tastyspleen.net/quake/downloads/q2-3.20-x86-full-ctf.exe) |
-| `q2-3.20-x86-full.exe` | — | The same point release without ctf | [tastyspleen](http://tastyspleen.net/quake/downloads/q2-3.20-x86-full.exe) |
+| `q2-3.20-x86-full.exe`     | —                                                    | The same point release without ctf                                               | [tastyspleen](http://tastyspleen.net/quake/downloads/q2-3.20-x86-full.exe)                                                                                   |
 
 **Retail data** stays with the user: `pak0.pak` (183 997 730 B) and `pak1.pak` (12 992 754 B) come
 from a retail CD, Steam or GOG — the sizes already in `RETAIL_PAK_SIZES`. The yquake2
@@ -290,17 +289,25 @@ What the launcher does with it:
 
 ## 8. The bootstrap wizard
 
-Launched from the Library. Four steps, then a job:
+Launched from "New installation…" in the rail "+" and the Library's add menu. Four steps, then a job:
 
 1. **Engine.** The supported engines from `ENGINE_DEFINITIONS` (r1q2, Q2PRO today), each with the
    version the manifest pins.
 2. **Game data.** Three ways: download the free parts, copy from a detected store installation
    (the detection service already finds Steam/GOG/Epic), or point at a folder that already has
    data. The free path produces a **demo installation** unless retail paks are supplied.
-3. **Target folder.** Free choice. Under `Program Files` the wizard shows a hard warning that
-   names the consequence — Quake II writes into its own directory — and offers the existing
-   `set-write-dir` remedy; the user can acknowledge and continue. A non-empty folder produces a
-   warning listing what is in there, with "continue anyway".
+3. **Target folder.** The user picks a location; the step proposes a subfolder of it named after
+   the installation (`Quake II (2)` when a non-empty folder of that name exists) and always shows
+   the final path. The subfolder name is free to edit; an empty picked folder is used as is
+   ("install here"). The step also takes the installation's name, defaulting to
+   `defaultBootstrapInstallationName`. Every check is judged on the final path: under
+   `Program Files` the wizard shows a hard warning that names the consequence � Quake II writes
+   into its own directory � and offers the existing `set-write-dir` remedy; the user can
+   acknowledge and continue. A non-empty final folder produces a warning listing what is in there,
+   with "continue anyway". The job creates the final folder when it starts. On failure the
+   registration and `lastFailure` survive; the folder the job created is removed when it is empty
+   (a pre-existing folder never is), so the installation shows `missing`, and a retry recreates it
+   via the start mkdir and adopts the installation by path.
 4. **Confirm.** What will be downloaded, how large it is, where it goes.
 
 Then one job runs the pipeline of §5. The Play button lights up the moment `inspectInstallation`
@@ -310,24 +317,28 @@ stops saying `invalid`/`missing`, even while the job continues.
 
 - Jobs are the shell's `Job` objects, produced by this module for the first time. `JobProgress`
   already carries bytes, speed, ETA, files remaining and `playableAtRatio`.
-- **Parallelism** up to the user's limit; the rest queue. The count of active jobs is what
-  [story 032](../requirements/032-downloads-badge-active-count.md)'s titlebar badge shows.
-- **Pause** puts a job into the existing `paused` status. **Resume** continues from the byte offset
-  recorded next to the partial file, using an HTTP range request, and survives an app restart.
+- **Downloads run one at a time.** There is no parallelism, no queue limit and no pause/resume. The
+  count of active jobs is what [story 032](../requirements/done/032-downloads-badge-active-count.md)'s
+  titlebar badge shows.
 - **Cancel** removes partial files and, for a bootstrap job, the half-built installation.
 - **A running game** never blocks downloading (subject to the user's setting) but always blocks
   writing: extraction and copying into that installation wait for the process to exit and then
   continue on their own, with the reason visible in the UI.
 - **The Downloads tab** shows running jobs, a failure log that persists until dismissed, and the
-  archive cache with its size.
+  archive cache with its size. The failure log covers every module's jobs (there is no module
+  filter), and writing jobs are exclusive per installation: while any job targets an installation,
+  a second writing job on it is refused with `jobs.error.installationBusy`. Every job's lifecycle
+  (cancel, write guard, revalidation, the single finish) is owned by the shared `JobRunner`.
 
-Three settings, in a Settings section the module contributes:
+Three settings, in a Settings section the module contributes. Concurrent jobs and download while
+playing are still persisted but shown disabled, with the visible reason "Not available yet:
+downloads run one at a time":
 
-| Setting | Effect |
-| --- | --- |
-| Concurrent jobs | Upper bound on simultaneously running jobs |
-| Archive cache budget | Maximum cache size; oldest archives are evicted first. Shows the current size and offers a clear action that first states what it will delete |
-| Download while playing | Whether downloads may run while Quake II is running (writing always waits) |
+| Setting                | Effect                                                                                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concurrent jobs        | Disabled; would bound simultaneously running jobs                                                                                             |
+| Archive cache budget   | Maximum cache size; oldest archives are evicted first. Shows the current size and offers a clear action that first states what it will delete |
+| Download while playing | Disabled; would allow downloads while Quake II runs (writing always waits)                                                                    |
 
 ## 10. Update and rollback
 
@@ -336,7 +347,10 @@ Three settings, in a Settings section the module contributes:
 - An update downloads and verifies the package, then replaces the engine files, moving the previous
   ones into a backup inside the installation. **Rollback** restores that backup in one step.
 - **Bleeding edge** is a per-installation opt-in: instead of the pinned version, the launcher asks
-  upstream what the newest build is. The exact probe and its trust model are open (§15).
+  upstream what the newest build is. The exact probe and its trust model are open (§15). A
+  bleeding-edge update uses the same downloader as a pinned one (stall timer, retry/mirror loop,
+  size cap) with a size-only check instead of sha256. A transport failure ends as "every download
+  source failed", like a pinned download.
 - The installation's recorded engine version is a natural candidate to finally populate
   `detectedVersion`, which is defined in the model but never written today.
 
@@ -344,13 +358,13 @@ Three settings, in a Settings section the module contributes:
 
 Repair answers the checks `inspectInstallation` already produces:
 
-| Finding | Repair in v1 |
-| --- | --- |
-| Engine executable missing or unusable | Re-install the pinned engine package |
-| `pak2.pak` missing | Download and extract the 3.20 point release |
-| `pak0.pak` is demo data, retail wanted | Offer to copy retail paks from a detected store installation |
-| Retail `pak0`/`pak1` missing | Same offer; if no store installation exists, say so plainly |
-| Not writable (e.g. under `Program Files`) | The existing `set-write-dir` fix, unchanged |
+| Finding                                   | Repair in v1                                                 |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| Engine executable missing or unusable     | Re-install the pinned engine package                         |
+| `pak2.pak` missing                        | Download and extract the 3.20 point release                  |
+| `pak0.pak` is demo data, retail wanted    | Offer to copy retail paks from a detected store installation |
+| Retail `pak0`/`pak1` missing              | Same offer; if no store installation exists, say so plainly  |
+| Not writable (e.g. under `Program Files`) | The existing `set-write-dir` fix, unchanged                  |
 
 This is the redemption of `ValidationFix`'s `install-game-files`, which the model reserved for
 "the install/update module" from the start, and it makes the `Repair` state of the action bar —
@@ -386,9 +400,9 @@ which today only navigates to the Downloads tab — do something.
 - **Jobs** use `JobsService` and the `jobs:changed` broadcast unchanged. The dev-only
   `dev:simulateJob` channel keeps working and stays the fixture path for UI verification.
 - **Persistence:** module settings, the failure log and resume bookkeeping become a new top-level
-  key in `state.json` with its own schema and defensive parse; per-installation data goes into
+  key in `state.json`, owned by `src/main/modules/downloads/persisted.ts` (schema, defensive parse, `downloadsState` section handles); per-installation data goes into
   `Installation.moduleData['downloads']`. Anything that changes the `Installation` shape (the demo
-  state) needs a `MIGRATIONS` step — `migrations.ts` carries a worked example for exactly this.
+  state) needs a `MIGRATIONS` step in the owner's `persisted-migrations.ts` plus a `STATE_SCHEMA_VERSION` bump.
 - **Inspector:** the single source of truth for health stays `inspectInstallation`. The module
   calls it, it does not re-implement validation. Its `pak0NotRetail` warning is what the demo state
   builds on.
@@ -468,10 +482,10 @@ which today only navigates to the Downloads tab — do something.
 - **INST-J1** — The module produces `Job` objects through `JobsService`; no parallel progress
   mechanism is introduced.
 - **INST-J2** — At most as many jobs run simultaneously as the concurrency setting allows; the rest
-  are `queued`.
+  are `queued`. (superseded: downloads run one at a time, see §9)
 - **INST-J3** — A job can be paused and resumed; resume continues at the recorded byte offset via
-  an HTTP range request.
-- **INST-J4** — A resumable download survives an app restart.
+  an HTTP range request. (superseded: downloads run one at a time, see §9)
+- **INST-J4** — A resumable download survives an app restart. (superseded: downloads run one at a time, see §9)
 - **INST-J5** — Cancelling removes partial files and, for a bootstrap job, the half-built
   installation.
 - **INST-J6** — `playableAtRatio` is set from the point at which `inspectInstallation` first stops
@@ -577,13 +591,21 @@ which today only navigates to the Downloads tab — do something.
     output parsing or a coarser per-step model.
 15. **Disk-space precheck** before a job starts, and what the wizard does when space is short.
 16. **Naming and identity of a bootstrapped installation** — default name, whether an icon is
-    assigned, and where it lands in the rail's sort order.
+    assigned, and where it lands in the rail's sort order. Resolved by story 239.
 17. **Where the wizard's entry point sits in the Library** — a button next to the existing "create
     installation", or a replacement of it, and what happens to the current
-    `CreateInstallationDialog` and its bare-folder `installations:create` path.
+    `CreateInstallationDialog` and its bare-folder `installations:create` path. Resolved by story
+    239: "New installation…" replaced both; the dialog and the channel are removed.
 18. **First-start onboarding** — deliberately out of scope; it is expected to reuse this wizard as
     one of its steps, together with profiles, mods and assets.
 19. **i18n of failure reasons** — every job failure needs a key, not prose, across IPC; the set of
     reasons is not enumerated yet.
 20. **Whether the failure log is per installation or global**, and how long a dismissed failure
     stays recoverable.
+
+## Library module
+
+The `library` module (`src/main/modules/library/`) serves the installation library's summary.
+
+- `stats` — counts installations by state (ok, needs attention, missing, favourites), by engine
+  kind, their total playtime and the most recently played one; derived from the shell's own state.

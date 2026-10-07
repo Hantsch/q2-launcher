@@ -37,7 +37,7 @@ function nullableOptions(
 ): SelectOption[] {
   const values = current !== null && !known.includes(current) ? [...known, current] : known
   return [
-    { value: '', label: t('replays.filter.any') },
+    { value: '', label: t('common.label.any') },
     ...values.map((value) => ({ value, label: value })),
   ]
 }
@@ -45,13 +45,19 @@ function nullableOptions(
 const RATINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
 
 /**
- * Story 153 D4: the demo list's filter/search rail — a controlled component over `DemoListFilter`
+ * Story 153: the demo list's filter/search rail — a controlled component over `DemoListFilter`
  * (`@shared/replays/list-filter`), the same "controller owns state, this component only renders it
  * and reports a change" shape as `ServerListFilterBar`. Every field writes its own partial update on
  * every interaction (no debounce, no local buffering) — the caller is the single source of truth for
  * `filter`.
  */
-export function DemoListFilterBar({ filter, onChange, options, shown, total }: DemoListFilterBarProps) {
+export function DemoListFilterBar({
+  filter,
+  onChange,
+  options,
+  shown,
+  total,
+}: DemoListFilterBarProps) {
   const { t } = useTranslation()
 
   const modOptions = nullableOptions(options.mods, filter.mod, t)
@@ -63,7 +69,7 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
       ? [...options.gamemodes, { value: filter.gamemode, label: filter.gamemode }]
       : options.gamemodes
   const gamemodeOptions: SelectOption[] = [
-    { value: '', label: t('replays.filter.any') },
+    { value: '', label: t('common.label.any') },
     ...gamemodeValues.map((g) => ({
       value: g.value,
       label: g.labelKey !== undefined ? t(g.labelKey) : (g.label ?? g.value),
@@ -71,8 +77,11 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
   ]
 
   const ratingOptions: SelectOption[] = [
-    { value: '', label: t('replays.filter.any') },
-    ...RATINGS.map((n) => ({ value: String(n), label: t('replays.filter.ratingAtLeast', { count: n }) })),
+    { value: '', label: t('common.label.any') },
+    ...RATINGS.map((n) => ({
+      value: String(n),
+      label: t('replays.filter.ratingAtLeast', { count: n }),
+    })),
   ]
 
   const active = isDemoFilterActive(filter)
@@ -83,11 +92,11 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionLabel>{t('replays.filter.title')}</SectionLabel>
+      <SectionLabel>{t('common.label.filters')}</SectionLabel>
 
       <Input
         type="search"
-        aria-label={t('replays.filter.search')}
+        aria-label={t('common.label.search')}
         value={filter.search}
         placeholder={t('replays.filter.searchPlaceholder')}
         onChange={(event) => onChange({ ...filter, search: event.target.value })}
@@ -95,7 +104,7 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
       />
 
       <div className="space-y-3">
-        <Field label={t('replays.filter.mod')}>
+        <Field label={t('common.label.mod')}>
           <Select
             value={filter.mod ?? ''}
             options={modOptions}
@@ -106,18 +115,21 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
           />
         </Field>
 
-        <Field label={t('replays.filter.gamemode')}>
+        <Field label={t('common.label.gamemode')}>
           <Select
             value={filter.gamemode ?? ''}
             options={gamemodeOptions}
             onChange={(event) =>
-              onChange({ ...filter, gamemode: event.target.value === '' ? null : event.target.value })
+              onChange({
+                ...filter,
+                gamemode: event.target.value === '' ? null : event.target.value,
+              })
             }
             data-testid="replays-filter-gamemode"
           />
         </Field>
 
-        <Field label={t('replays.filter.map')}>
+        <Field label={t('common.label.map')}>
           <Select
             value={filter.map ?? ''}
             options={mapOptions}
@@ -199,11 +211,11 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
           disabled={!active}
           data-testid="replays-filter-clear"
         >
-          {t('replays.filter.clear')}
+          {t('common.action.clearFilters')}
         </Button>
         {active && (
           <span className="px-2.5 text-xs text-ink-muted" data-testid="replays-filter-count">
-            {t('replays.filter.count', { shown, total })}
+            {t('common.label.showingCount', { shown, total })}
           </span>
         )}
       </div>

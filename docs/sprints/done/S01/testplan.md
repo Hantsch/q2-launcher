@@ -52,6 +52,7 @@ Covers story 001, AC1.
 **Preparation:** none beyond the prerequisites above.
 
 **Steps:**
+
 1. In the left navigation, click **Config**.
 
 **Expected result:** a real Config view opens — a page titled "Config" with a "New profile"
@@ -67,6 +68,7 @@ Covers story 001, AC2.
 **Preparation:** none.
 
 **Steps:**
+
 1. Click **New profile**.
 2. In the "Start from" dropdown, leave it on **Empty profile**. In the **Name** field, type
    `Competitive`.
@@ -87,6 +89,7 @@ Covers story 001, AC3 and AC4.
 **Preparation:** the two profiles from Use case 2 (`Competitive`, `Classic`) exist.
 
 **Steps:**
+
 1. Click **New profile** → **Empty profile**, name it `Scratch (delete me)`, click **Create
    profile**.
 2. With `Scratch (delete me)` selected, click the pencil (**Rename…**) icon next to its name in
@@ -112,6 +115,7 @@ Covers story 002, AC1–AC6.
 registered (see Prerequisites).
 
 **Steps:**
+
 1. Select `Competitive`. In the **Assigned installations** panel, check the box for
    **R1Q2 Client**, then check the box for **Q2PRO Client**.
 2. Still on `Competitive`, look at the row for **R1Q2 Client**.
@@ -128,6 +132,7 @@ registered (see Prerequisites).
    installations again.
 
 **Expected result:**
+
 - Step 1: both installations show as checked under `Competitive`, and because R1Q2 Client was
   checked first, its row shows a **Default** badge for `Competitive`; Q2PRO Client's row shows
   a **Set default** button instead (not yet default there).
@@ -156,6 +161,7 @@ Covers story 003, AC1–AC5.
 case 4).
 
 **Steps:**
+
 1. Select `Competitive`. Scroll to the **Settings** section. Above the Player/Graphics panels,
    the **Engine facts shown for** selector should already read **R1Q2** (it defaults to R1Q2
    when the profile is assigned there).
@@ -166,14 +172,15 @@ case 4).
 5. Change the **Engine facts shown for** selector to **Q2PRO**.
 6. With the selector still on **Q2PRO**, look again at the **Render FPS cap** row (still set to
    `0` from step 3) and at **Crosshair size**.
-7. *(Optional — only if you have a third installation on an out-of-scope engine, see
-   Prerequisites)* Assign `Competitive` to that installation too (Assigned installations panel),
+7. _(Optional — only if you have a third installation on an out-of-scope engine, see
+   Prerequisites)_ Assign `Competitive` to that installation too (Assigned installations panel),
    then look at the Engine facts selector and the row list again.
 8. Change **FOV** to `110`. Wait about a second.
 9. Close the launcher completely, run `npm run dev` again, open **Config**, select
    `Competitive`.
 
 **Expected result:**
+
 - Step 2: the FOV row shows the current value, **Engine default: 90**, and **Range: 60–140**
   (R1Q2's clamp).
 - Step 3: a warning badge appears on the Render FPS cap row explaining that R1Q2 treats `0` as
@@ -200,6 +207,7 @@ case 4).
 Covers story 004, AC1–AC5.
 
 **Preparation:**
+
 - `Competitive` is assigned to and default for **R1Q2 Client** (Use case 4/5's end state; if
   you changed the default away from `Competitive` on R1Q2 Client in Use case 4, set it back:
   select `Competitive`, click **Set default** on the R1Q2 Client row).
@@ -214,12 +222,13 @@ Covers story 004, AC1–AC5.
   view resets which edit is treated as "new" for the write trigger, which would make the next
   edit silently not fire a write until a second one. Launching the game in steps 7–8 is done
   from the bottom action bar instead, precisely so you never have to leave Config.
-- Make sure **R1Q2 Client** is the launcher's *active* installation (the one named in the
+- Make sure **R1Q2 Client** is the launcher's _active_ installation (the one named in the
   bottom action bar) before starting — if it isn't, switch to **Library** once beforehand,
   select **R1Q2 Client** there, then go back to **Config** and re-select `Competitive`. Do this
   before step 1, not in the middle of the sequence.
 
 **Steps:**
+
 1. Select `Competitive`. Scroll to **Write targets**. Under the **R1Q2 Client** row, in
    **Played mods**, check **xatrix**.
 2. Scroll to **Settings** and change **Mouse sensitivity** to `5`. Wait for the "Saving…" /
@@ -238,6 +247,7 @@ Covers story 004, AC1–AC5.
    click **Retry** on the R1Q2 Client row.
 
 **Expected result:**
+
 - Step 1–2: shortly after the sensitivity edit settles, the R1Q2 Client row in Write targets
   shows **Writing…** and then flips to **Written**.
 - Step 4: the Preview dialog lists two files — `.../baseq2/q2l-profile-<id>.cfg` (containing a
@@ -265,11 +275,13 @@ Covers story 004, AC1–AC5.
 Covers story 005, AC1–AC5.
 
 **Preparation:**
+
 - **Q2PRO Client** has not yet been written to by the config module (only R1Q2 Client was, in
   Use case 6), so its `baseq2` is a clean place to hand-place an "existing config" to import.
   Using a text editor, create these three files inside `<Q2PRO Client folder>/baseq2/`:
 
   `config.cfg`:
+
   ```
   set name "Ranger"
   set skin "male/grunt"
@@ -279,16 +291,19 @@ Covers story 005, AC1–AC5.
   ```
 
   `extra.cfg` (same folder):
+
   ```
   bind e "+use"
   ```
 
   `autoexec.cfg`:
+
   ```
   set name "RangerAX"
   ```
 
 **Steps:**
+
 1. In **Config**, click **New profile**.
 2. Set "Start from" to **Import from installation**, then click **Continue**.
 3. In the **Installation** dropdown, choose **Q2PRO Client**.
@@ -309,6 +324,7 @@ Covers story 005, AC1–AC5.
     `Imported Q2PRO`.
 
 **Expected result:**
+
 - Step 5: the preview shows **Cvars: 2** (`name`, `skin` — each counted once despite `name`
   being set in both `config.cfg` and `autoexec.cfg`) and **Key binds: 2** (`w` from
   `config.cfg`, `e` pulled in from `extra.cfg` via the `exec` line — proving `exec` resolution,

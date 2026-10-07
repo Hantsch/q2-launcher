@@ -31,7 +31,7 @@ other browser-security defaults, need in order to work at all. This story is tha
 proof that the policy is in force.
 
 Scope boundary: this is the loader and the policy plumbing, not a policy rewrite. If the move to
-`app://` means the production policy can be *tightened* (e.g. dropping `'unsafe-inline'` from
+`app://` means the production policy can be _tightened_ (e.g. dropping `'unsafe-inline'` from
 `style-src` once Tailwind's emitted stylesheet is a real file request), that is a welcome
 side effect but not the goal — the goal is that the policy on the books is the policy in force.
 
@@ -62,9 +62,9 @@ side effect but not the goal — the goal is that the policy on the books is the
 - **(User)** Custom scheme name: `q2launcher://` (project-specific, not the generic `app://`).
 - **(User)** `style-src 'unsafe-inline'` tightening: stays a separate follow-up; this story only
   makes the policy on the books the policy in force.
-- The mode that decides *loading + CSP* is derived from the **dev server**, not from `is.dev`:
+- The mode that decides _loading + CSP_ is derived from the **dev server**, not from `is.dev`:
   `ELECTRON_RENDERER_URL` present → dev server + dev policy, otherwise → `q2launcher://` +
-  production policy. Reason: `is.dev` is `!app.isPackaged`, so today the harness runs the *dev*
+  production policy. Reason: `is.dev` is `!app.isPackaged`, so today the harness runs the _dev_
   policy over a `file://` load — a third mode nobody designed — and deriving from the dev server
   makes `ui:verify` drive production mode with no new flag.
 - `is.dev` stays the source of truth for everything else it decides today (dev-only IPC
@@ -91,16 +91,16 @@ side effect but not the goal — the goal is that the policy on the books is the
   fire.
 - No `<meta http-equiv="Content-Security-Policy">` in `index.html`. Reason: a meta fallback would
   paper over exactly the failure this story exists to make impossible to miss.
-- AC6 resolves to a *comment*, not a policy change: nothing becomes redundant (`'self'` starts
+- AC6 resolves to a _comment_, not a policy change: nothing becomes redundant (`'self'` starts
   meaning something for the first time) and the one tightenable directive is the deferred
   `style-src 'unsafe-inline'`. The deferral gets a bullet under ROADMAP "Hardening" rather than a
   new story file — that is where the other unsprinted hardening items live.
-- AC5 is read as *no new* failures against the pre-change baseline. Reason: `ui:verify` is
+- AC5 is read as _no new_ failures against the pre-change baseline. Reason: `ui:verify` is
   documented as exiting non-zero today (the `config-raw` renderer crash, plus known axe findings);
   making the full run green is story 037's job, not this one's.
 - `/electron-arch`'s checklist line "`will-navigate` blocks anything outside the dev server /
   `file://`" needs no CLAUDE.md deviation entry. Reason: the rule is "block navigation away from
-  your own content", and `q2launcher://app/` *is* our own content — `file://` is the example's
+  your own content", and `q2launcher://app/` _is_ our own content — `file://` is the example's
   default loader, not the rule.
 
 ## Open Questions
@@ -125,7 +125,7 @@ One new pure module owns the scheme, the two policy strings and the request hand
    - `createRendererProtocolHandler({ root, csp, readFile })` → `(request) => Promise<Response>`:
      empty/`/` path → `index.html`; reject a foreign host and anything resolving outside `root`
      (404, no body); `readFile` + explicit MIME map (`.html .js .css .woff2 .svg .png .ico
-     .json`); every response carries `Content-Security-Policy: csp`.
+.json`); every response carries `Content-Security-Policy: csp`.
 2. **`src/main/index.ts`** — `protocol.registerSchemesAsPrivileged([...])` at module top level
    (must run before `app.whenReady()`); in `bootstrap()`, for `kind: 'scheme'`,
    `protocol.handle(RENDERER_SCHEME, handler)` with `root = join(__dirname, '../renderer')`, then
@@ -152,7 +152,7 @@ One new pure module owns the scheme, the two policy strings and the request hand
       (constants, `DEV_CSP`/`PRODUCTION_CSP` moved verbatim, `resolveRendererSource`,
       `createRendererProtocolHandler`) and new `src/main/lib/renderer-source.test.ts` (mirror
       `src/main/lib/schemas.test.ts` for style). No `electron` import in either file.
-      *Acceptance:* `npm test` + `npm run typecheck` green; tests prove that `index.html` and an
+      _Acceptance:_ `npm test` + `npm run typecheck` green; tests prove that `index.html` and an
       asset both come back 200 with the production CSP header and the right content type, that
       `/` maps to `index.html`, that `../` traversal and a foreign host give 404 with no body,
       that a missing file gives 404, and that `resolveRendererSource` picks `dev-server` only
@@ -162,7 +162,7 @@ One new pure module owns the scheme, the two policy strings and the request hand
       plus the `isProtocolHandled` boot assertion and one log line, `onHeadersReceived` only in
       dev-server mode, policy strings imported instead of inlined) and `src/main/window.ts`
       (`loadURL(RENDERER_INDEX_URL)`, `will-navigate` allowlist).
-      *Acceptance:* `npm run build` + `npm run typecheck` + `npm test` green; a production-mode
+      _Acceptance:_ `npm run build` + `npm run typecheck` + `npm test` green; a production-mode
       launch renders the app (no blank window, no missing stylesheet — the built tags are
       `./assets/...` with `crossorigin`) and reports `location.origin === 'q2launcher://app'`;
       `npm run dev` still loads from the dev server with the dev policy.
@@ -170,20 +170,20 @@ One new pure module owns the scheme, the two policy strings and the request hand
       `ELECTRON_RENDERER_URL`; origin + CSP assertion beside the existing `assertInside` check on
       the userData path the app reports) and `docs/UI-VERIFICATION.md` ("Production-mode
       guarantee").
-      *Acceptance:* `npm run ui:verify -- --screens=home` passes; temporarily removing the CSP
+      _Acceptance:_ `npm run ui:verify -- --screens=home` passes; temporarily removing the CSP
       header from the handler makes it fail with a message naming the missing policy (verified by
       hand, not left in the tree); `node scripts/lib/harness.mjs` self-check still passes.
 - [x] **D4 — Evidence + the deferred follow-up.** A full `npm run ui:verify` run and a
       `npm run dev` smoke, both recorded in the Done section against the pre-change baseline (the
       known `config-raw` crash and the known axe findings are 037's, not new); `docs/ROADMAP.md`
       "Hardening" gains the `style-src 'unsafe-inline'` follow-up bullet.
-      *Acceptance:* the Done section names every screen whose verdict changed (expected: none) and
+      _Acceptance:_ the Done section names every screen whose verdict changed (expected: none) and
       confirms zero new console CSP violations; the ROADMAP bullet is present.
 
 ## Model Hints
 
 - D1 → default
-- D2 → **deliverable-hard** — the one change that can fail only in the *packaged* build: scheme
+- D2 → **deliverable-hard** — the one change that can fail only in the _packaged_ build: scheme
   registration has to happen before `app.whenReady()`, the renderer root is asar-relative, the
   privilege flags decide whether `./assets/...` and `fetch` resolve at all, and the
   `will-navigate` allowlist has to keep both `page.reload()` and the ErrorBoundary reload alive —
@@ -191,8 +191,8 @@ One new pure module owns the scheme, the two policy strings and the request hand
 - D3 → default
 - D4 → default
 - Review: → **story-review-hard** — a security guardrail that has already failed open once; the
-  review has to judge whether the policy is genuinely *enforced* and the path guard genuinely
-  *contains*, not whether the diff compiles.
+  review has to judge whether the policy is genuinely _enforced_ and the path guard genuinely
+  _contains_, not whether the diff compiles.
 
 ## Test Plan (manual acceptance)
 
@@ -230,6 +230,7 @@ fail with a message naming the missing policy. `docs/ROADMAP.md` gained the defe
 **Review (story-review-hard):** first pass verdict FAIL, with hands-on empirical verification
 (a live Electron protocol probe, header-strip experiment, full `ui:verify` run). Two confirmed
 bugs were fixed:
+
 - A Windows-specific path-traversal bypass: `resolveWithinRoot` split only on `/`, so a
   percent-encoded backslash (`%5C`) survived as one opaque segment and escaped `root` once Node
   resolved it as a path separator. Fixed by normalizing `\` → `/` in the decoded request path
@@ -249,7 +250,7 @@ so a packaged build would still honour `ELECTRON_RENDERER_URL` if it were someho
 environment, rather than being blocked by `is.dev`/`app.isPackaged`. This is exactly what the
 story's Decisions section specifies verbatim ("`ELECTRON_RENDERER_URL` present → dev server +
 dev policy, otherwise → production", with `is.dev` explicitly scoped to "everything else it
-decides today" and *not* this decision) — changing it would contradict the recorded Decision,
+decides today" and _not_ this decision) — changing it would contradict the recorded Decision,
 which this build explicitly must not re-decide. Noted here for visibility: exploiting it
 requires an attacker who can already set environment variables for the packaged process, at
 which point CSP is not the primary line of defence being bypassed.
@@ -265,6 +266,7 @@ http://localhost:5173, dev CSP via onHeadersReceived"), HMR/Fast Refresh alive (
 logged, no process restart), no new console violations.
 
 **Decisions (implementation, not re-litigating the sprint's binding ones):**
+
 - 404 responses now carry the CSP header via a closure-local helper instead of the original
   shared module-level constant, since the header value is only known once `csp` is bound inside
   `createRendererProtocolHandler`.

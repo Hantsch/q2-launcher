@@ -1,7 +1,21 @@
-import { constants as FS } from 'node:fs'
-import { access, mkdir, open, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path'
+import { createHash } from 'node:crypto'
+import { constants as FS, createReadStream } from 'node:fs'
+import {
+  access,
+  cp,
+  mkdir,
+  open,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises'
+import { basename, dirname, isAbsolute, join, posix, resolve, sep, win32 } from 'node:path'
+import { pipeline } from 'node:stream/promises'
 import type { BinaryKind } from '@shared/types'
+import { foldPathCase, isWindows } from './platform'
 
 export async function pathExists(target: string): Promise<boolean> {
   try {
@@ -61,7 +75,26 @@ export async function writeFileAtomic(
   const tmpPath = `${filePath}.tmp`
   await mkdir(dirname(filePath), { recursive: true })
   await writeFile(tmpPath, content, encoding)
-  await rename(tmpPath, filePath)
+  await renameWithRetry(tmpPath, filePath)
+}
+
+/** Windows refuses a rename over a file something else holds open for a moment (a virus scanner or
+ * indexer that just saw the previous write); the hold is released within milliseconds. */
+const TRANSIENT_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES'])
+const RENAME_RETRY_DELAYS_MS = [10, 25, 50, 100, 200]
+
+async function renameWithRetry(from: string, to: string): Promise<void> {
+  for (const delay of RENAME_RETRY_DELAYS_MS) {
+    try {
+      await rename(from, to)
+      return
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (!isWindows() || code === undefined || !TRANSIENT_RENAME_CODES.has(code)) throw error
+      await new Promise<void>((resolve) => setTimeout(resolve, delay))
+    }
+  }
+  await rename(from, to)
 }
 
 /**
@@ -88,7 +121,28 @@ export function pathKey(target: string): string {
   while (normalized.length > 3 && normalized.endsWith(sep)) {
     normalized = normalized.slice(0, -1)
   }
-  return process.platform === 'linux' ? normalized : normalized.toLowerCase()
+  return foldPathCase(normalized)
+}
+
+/**
+ * True when `target` is `root` itself or lies beneath it, under the same case rule as `pathKey`.
+ *
+ * Lexical only: both paths are `resolve`d (so `..` segments and trailing separators are
+ * collapsed), never `realpath`ed - a symlink or junction under `root` that points elsewhere still
+ * counts as inside. Callers that need symlink safety realpath both paths first.
+ *
+ * The path flavour is picked per call from `process.platform`, not bound at module load, so the
+ * Windows and POSIX rules can both be exercised on one host. Case is folded before `relative`
+ * because `posix.relative` compares byte-for-byte, which would put a case-differing child of a
+ * macOS root outside it.
+ */
+export function isInside(root: string, target: string): boolean {
+  const p = isWindows() ? win32 : posix
+  const rel = p.relative(foldPathCase(p.resolve(root)), foldPathCase(p.resolve(target)))
+  if (rel === '') return true
+  // Only a whole `..` segment escapes; a child literally named `..foo` is inside. An absolute
+  // result is win32's answer for a target on another drive or UNC share.
+  return rel !== '..' && !rel.startsWith(`..${p.sep}`) && !p.isAbsolute(rel)
 }
 
 export interface DirListing {
@@ -139,7 +193,7 @@ export async function listDir(dir: string): Promise<DirListing> {
 
 /**
  * Classifies a failed directory read's error code into one of the reasons `discoverDemos` (story
- * 151 D1) reports per source: `ENOENT` -> missing, `ENOTDIR` -> notAFolder (a file sits where a
+ * 151) reports per source: `ENOENT` -> missing, `ENOTDIR` -> notAFolder (a file sits where a
  * folder was expected), `EACCES`/`EPERM` -> permissionDenied, anything else -> unreadable.
  */
 export function dirReadFailureReason(
@@ -153,13 +207,15 @@ export function dirReadFailureReason(
 
 /**
  * Same entry loop as `listDir`, but reports *why* a read failed instead of silently returning an
- * empty listing - story 151 D1 needs this to tell "there is nothing here" (not an error) apart
+ * empty listing - story 151 needs this to tell "there is nothing here" (not an error) apart
  * from "there is something here and it could not be read" (reported per source). `listDir` itself
  * is untouched: it has many callers that only ever want the forgiving empty-listing behaviour.
  */
 export async function listDirOrReason(
   dir: string,
-): Promise<{ ok: true; listing: DirListing } | { ok: false; reason: ReturnType<typeof dirReadFailureReason> }> {
+): Promise<
+  { ok: true; listing: DirListing } | { ok: false; reason: ReturnType<typeof dirReadFailureReason> }
+> {
   let entries
   try {
     entries = await readdir(dir, { withFileTypes: true })
@@ -209,10 +265,10 @@ export async function resolveRelaxed(root: string, relativePath: string): Promis
  * On Windows that is still a name question - the `.exe` extension is what makes a file
  * runnable - so nothing is read from disk. Everywhere else the name says nothing at all
  * (`README` and `q2pro` are equally extension-less): the file has to be a regular file
- * carrying an execute bit, which is why this is async - it stats (story 100 D3).
+ * carrying an execute bit, which is why this is async - it stats (story 100).
  */
 export async function looksExecutable(dir: string, name: string): Promise<boolean> {
-  if (process.platform === 'win32') return name.toLowerCase().endsWith('.exe')
+  if (isWindows()) return name.toLowerCase().endsWith('.exe')
 
   try {
     const stats = await stat(join(dir, name))
@@ -243,7 +299,13 @@ export async function readBinaryKind(path: string): Promise<BinaryKind> {
   try {
     const header = Buffer.alloc(4)
     const { bytesRead } = await handle.read(header, 0, 4, 0)
-    if (bytesRead >= 4 && header[0] === 0x7f && header[1] === 0x45 && header[2] === 0x4c && header[3] === 0x46) {
+    if (
+      bytesRead >= 4 &&
+      header[0] === 0x7f &&
+      header[1] === 0x45 &&
+      header[2] === 0x4c &&
+      header[3] === 0x46
+    ) {
       return 'elf'
     }
     if (bytesRead >= 2 && header[0] === 0x4d && header[1] === 0x5a) return 'pe'
@@ -254,4 +316,123 @@ export async function readBinaryKind(path: string): Promise<BinaryKind> {
   } finally {
     await handle.close()
   }
+}
+
+export type BinaryArch = 'x86' | 'x86_64' | 'unknown'
+
+/**
+ * Reads the CPU architecture out of a PE (`Machine`, via `e_lfanew`) or ELF (`EI_CLASS`/`e_machine`)
+ * header. Never throws - a missing, truncated, unrecognised or other-architecture file is `'unknown'`.
+ */
+export async function readBinaryArch(path: string): Promise<BinaryArch> {
+  let handle
+  try {
+    handle = await open(path, 'r')
+  } catch {
+    return 'unknown'
+  }
+
+  try {
+    const head = Buffer.alloc(64)
+    const { bytesRead } = await handle.read(head, 0, 64, 0)
+    if (
+      bytesRead >= 20 &&
+      head[0] === 0x7f &&
+      head[1] === 0x45 &&
+      head[2] === 0x4c &&
+      head[3] === 0x46
+    ) {
+      const littleEndian = head[5] !== 2
+      const machine = littleEndian ? head.readUInt16LE(18) : head.readUInt16BE(18)
+      if (machine === 3) return 'x86'
+      if (machine === 62) return 'x86_64'
+      return 'unknown'
+    }
+    if (bytesRead >= 64 && head[0] === 0x4d && head[1] === 0x5a) {
+      const peOffset = head.readUInt32LE(0x3c)
+      const pe = Buffer.alloc(6)
+      const read = await handle.read(pe, 0, 6, peOffset)
+      if (read.bytesRead < 6 || pe.toString('latin1', 0, 4) !== 'PE\0\0') return 'unknown'
+      const machine = pe.readUInt16LE(4)
+      if (machine === 0x14c) return 'x86'
+      if (machine === 0x8664) return 'x86_64'
+    }
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  } finally {
+    await handle.close()
+  }
+}
+
+/**
+ * Where a new engine file goes when the installation has none at that path yet: under the *existing*
+ * spelling of its parent directory where there is one (a traditional `BASEQ2` install must not gain
+ * a second, lowercase `baseq2` the inspector never looks at), under the canonical one otherwise.
+ */
+export async function plannedDestination(root: string, relative: string): Promise<string> {
+  const segments = relative.split(/[\\/]+/).filter(Boolean)
+  const name = segments.pop()
+  if (name === undefined) return root
+  if (segments.length === 0) return join(root, name)
+  const parent = await resolveRelaxed(root, segments.join('/'))
+  return parent ? join(parent, name) : join(root, ...segments, name)
+}
+
+/**
+ * `rename`, with a copy+delete fallback for the one case `rename` cannot serve: a `baseq2` that is a
+ * junction or symlink onto another volume (legal, and something a user with a small SSD does on
+ * purpose) makes the move into `<root>/.q2launcher-engine-backup/` a cross-device one, which
+ * `rename` refuses with `EXDEV`. The fallback keeps the same before/after states - the file is at
+ * the destination and gone from the source - at the cost of not being atomic.
+ */
+export async function moveFile(from: string, to: string): Promise<void> {
+  try {
+    await rename(from, to)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code !== 'EXDEV') throw error
+    await cp(from, to, { dereference: true })
+    await rm(from, { force: true, maxRetries: 3, retryDelay: 50 })
+  }
+}
+
+/** Best-effort: a directory that cannot be removed must not also fail (or un-fail) the caller. */
+export async function removeDir(dir: string, log?: { warn(message: string): void }): Promise<void> {
+  try {
+    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  } catch (error) {
+    log?.warn(`the directory ${dir} could not be removed: ${String(error)}`)
+  }
+}
+
+/** Streams `path` once; the size is the bytes actually hashed, not a separate stat. */
+export async function hashFile(path: string): Promise<{ sha256: string; sizeBytes: number }> {
+  const hash = createHash('sha256')
+  let sizeBytes = 0
+  await pipeline(createReadStream(path), async (source) => {
+    for await (const chunk of source as AsyncIterable<Buffer>) {
+      sizeBytes += chunk.length
+      hash.update(chunk)
+    }
+  })
+  return { sha256: hash.digest('hex'), sizeBytes }
+}
+
+/**
+ * Every non-directory entry under `dir`, depth-first, with `rel` always forward-slashed. `isFile`
+ * is false for symlinks and special files so a caller can refuse them. Read errors propagate; a
+ * caller that tolerates a missing directory catches them itself.
+ */
+export async function listFilesRecursive(
+  dir: string,
+  prefix = '',
+): Promise<{ rel: string; abs: string; isFile: boolean }[]> {
+  const out: { rel: string; abs: string; isFile: boolean }[] = []
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const abs = join(dir, entry.name)
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) out.push(...(await listFilesRecursive(abs, rel)))
+    else out.push({ rel, abs, isFile: entry.isFile() })
+  }
+  return out
 }

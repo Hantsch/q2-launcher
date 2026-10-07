@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CircleCheck, CircleHelp, CircleX } from 'lucide-react'
-import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction } from '@shared/modules/config'
 import type { Installation } from '@shared/types/installation'
 import { engineLabel } from '@shared/types/engine'
 import { Panel, SectionLabel, Spinner } from '../../components/ui/primitives'
 import { Button } from '../../components/ui/Button'
 import { useLauncher } from '../../store/useLauncher'
+import { toastOutcomeError } from '../../lib/toast'
 import { CareBatchFixDialog } from './CareBatchFixDialog'
 import { CareItemRow } from './CareItemRow'
 import { ConfigConflictDialog } from './ConfigConflictDialog'
@@ -14,12 +15,13 @@ import { RenameActionDialog } from './components/RenameActionDialog'
 import { applyTidyUp, updateProfileActions } from './client'
 import { buildCareItems, itemsInGroup, type CareItem, type CareItemAction } from './lib/care-items'
 import { careSummary, type CareSummary, type CareSyncStatus } from './lib/care-summary'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { analyzeTidyUp, type TidyUpFinding } from './lib/tidy-up-findings'
 import { useCareSync } from './lib/use-care-sync'
 import type { ProfileValidation } from './lib/validation-scope'
 
 /**
- * Story 058 D2/D3: Care is a to-do list, not a stack of sections that each
+ * Story 058: Care is a to-do list, not a stack of sections that each
  * get a turn regardless of whether they have anything to say (the story's
  * own framing). `ValidationPanel` and `PreservedLinesPanel` are gone — the
  * Config health group they used to cover is now either folded into the All
@@ -29,14 +31,14 @@ import type { ProfileValidation } from './lib/validation-scope'
  * 058 decision 3 — this is the regression story 025's review already had to
  * catch once).
  *
- * D3 converts Files the same way: `CareSyncSection` (deleted) owned both the
+ * Files is converted the same way: `CareSyncSection` (deleted) owned both the
  * sync fetch and its own row rendering; the fetch moved into `useCareSync`
  * (`lib/use-care-sync.ts`) and the rows now render through the shared
  * `CareItemRow`, same as Config health. Only rows `buildCareItems` kept (not
  * `inSync`) become items — an all-in-sync profile renders no Files group at
- * all, its count folded into the All clear block instead (AC 5).
+ * all, its count folded into the All clear block instead.
  *
- * D4 converts Tidy-up the same way: `CareTidyUpSection` (deleted) owned the
+ * Tidy-up is converted the same way: `CareTidyUpSection` (deleted) owned the
  * finding-to-row rendering, its own apply/pending state and the "Fix all safe
  * findings" trigger; all three move into `TidyUpGroup` below. Preserved lines
  * are no longer a separate panel and no longer duplicated — they are one
@@ -46,50 +48,44 @@ import type { ProfileValidation } from './lib/validation-scope'
  * trigger renders only when at least one `mode: 'auto'` finding exists — never
  * disabled, never with a second copy of its own explanation.
  *
- * D6 removes the last thing here that was not a to-do item: `CleanupPanel` (with
+ * The last thing here that was not a to-do item: `CleanupPanel` (with
  * its own installation picker and scope control) is no longer mounted at all. The
  * redundant-copies cleanup is an action on the installation row in Library now,
- * so Care never reports on a manual scan it did not run (AC 2, AC 7).
+ * so Care never reports on a manual scan it did not run.
  */
 export function CareTab({
-  profile,
   validation,
-  onProfileUpdated,
-  installations,
   syncStatus,
   onRefetchSyncState,
   onNavigateToAlias,
   onNavigateToAction,
 }: {
-  profile: ConfigProfile
   validation: ProfileValidation
-  onProfileUpdated: (profile: ConfigProfile) => void
-  /** Story 058 D6: only the Files group still needs these - to name the installation a sync row
-   * belongs to. The redundant-copies cleanup that used to pick an installation here is now an
-   * action on the installation row in Library. */
-  installations: Installation[]
-  /** Story 079 D6: the drift rows, fetched by `ConfigView`'s `useDriftState` on the canonical
+  /** Story 079: the drift rows, fetched by `ConfigView`'s `useDriftState` on the canonical
    * re-read triggers (mount/profile-open, window focus) plus a save - not by this tab itself, so a
-   * changed/missing/stale installation copy is caught even while Care is never opened (AC5). Passed
+   * changed/missing/stale installation copy is caught even while Care is never opened. Passed
    * straight through to `useCareSync`, unchanged in behaviour otherwise. */
   syncStatus: CareSyncStatus
   onRefetchSyncState: () => void
-  /** Story 044 D6: the Tidy-up group's "show in Aliases" action, threaded straight through - this
+  /** Story 044: the Tidy-up group's "show in Aliases" action, threaded straight through - this
    * component owns no navigation logic of its own, same as every other prop it only stacks. Story
-   * 060 D1 adds the optional owning-entry id: only a duplicate-name finding's per-entry detail rows
+   * 060 adds the optional owning-entry id: only a duplicate-name finding's per-entry detail rows
    * carry one (`CareItemAction.actionId`), and it lets the Aliases tab focus one specific colliding
    * row instead of the first row matching the name. */
   onNavigateToAlias: (aliasName: string, actionId?: string) => void
-  /** Story 058 D5: the Tidy-up group's "Show in Controls" action - mirrors `onNavigateToAlias`,
+  /** Story 058: the Tidy-up group's "Show in Controls" action - mirrors `onNavigateToAlias`,
    * wired by `ConfigView` through the same lifted `goToTab('controls', { focusActionId })` state the
    * Aliases tab's own "show on Controls" link already uses. */
   onNavigateToAction: (actionId: string) => void
 }) {
+  // The Files group names an installation per sync row; the saved profile (not the draft) is what
+  // tidy-up and sync answer against.
+  const { profile, installations, save } = useProfileDraftContext()
   const tidyUpFindings = useMemo(() => analyzeTidyUp(profile), [profile])
 
   const sync = useCareSync({
     profile,
-    onProfileUpdated,
+    onProfileUpdated: save,
     status: syncStatus,
     refetchSyncState: onRefetchSyncState,
   })
@@ -124,8 +120,6 @@ export function CareTab({
           <TidyUpGroup
             items={itemsInGroup(items, 'tidy')}
             autoFindings={tidyUpFindings.filter((finding) => finding.mode === 'auto')}
-            profile={profile}
-            onProfileUpdated={onProfileUpdated}
             onNavigateToAlias={onNavigateToAlias}
             onNavigateToAction={onNavigateToAction}
           />
@@ -145,7 +139,7 @@ export function CareTab({
 }
 
 /**
- * AC 1's "one calm block and stop": one summary line per checked thing
+ * The "one calm block and stop" rule: one summary line per checked thing
  * (`careSummary`'s `lines`), no illustration, no disabled button, no header
  * over nothing. Only rendered when `summary.allClear` — zero items and every
  * source resolved.
@@ -171,17 +165,17 @@ function AllClearBlock({ summary }: { summary: CareSummary }) {
 }
 
 /**
- * The Config health group (story 058 D2): one `CareItemRow` per finding under
+ * The Config health group (story 058): one `CareItemRow` per finding under
  * a single heading, the engine already named on each row via `titleKey`
  * (`lib/care-items.ts`'s `healthItems`) — never a per-engine panel, so
  * "equally weighted, per engine" stays true without a header over nothing.
  *
- * `validation.status !== 'ok'` is its own explicit state (story 025 review
- * finding F2, story 058 decision 3): it is neither folded into the All clear
+ * `validation.status !== 'ok'` is its own explicit state (story 025,
+ * story 058 decision 3): it is neither folded into the All clear
  * block nor silently dropped, and it renders even while `summary.allClear` is
  * (necessarily) false because of it.
  *
- * A validated profile with zero findings renders nothing at all — AC 3's "a
+ * A validated profile with zero findings renders nothing at all — "a
  * group with no items is not rendered" — its cleanliness is only ever spoken
  * for by the All clear block above, once every group agrees.
  */
@@ -203,7 +197,7 @@ function ConfigHealthGroup({
           {validation.status === 'unassigned'
             ? t('config.validation.empty.unassigned')
             : validation.status === 'unresolved'
-              ? t('config.validation.empty.unresolved')
+              ? t('config.engineScope.unresolved')
               : t('config.validation.empty.noFacts', {
                   engines: validation.omitted.map(engineLabel).join(', '),
                 })}
@@ -227,7 +221,7 @@ function ConfigHealthGroup({
 }
 
 /**
- * The Files group (story 058 D3): one `CareItemRow` per row that is not `inSync` - the profile's
+ * The Files group (story 058): one `CareItemRow` per row that is not `inSync` - the profile's
  * own canonical file, then one per assigned installation, same order `toCareSyncRows` produces.
  *
  * `buildCareItems`'s `fileItems` cannot name the installation on the row itself (`lib/care-items.ts`'s
@@ -238,13 +232,13 @@ function ConfigHealthGroup({
  * installation list.
  *
  * Empty - every assigned file in sync - renders nothing at all, same "a group with no items is not
- * rendered" rule `ConfigHealthGroup` already follows (AC 3, AC 5): the count lives in the All clear
+ * rendered" rule `ConfigHealthGroup` already follows: the count lives in the All clear
  * block instead.
  *
  * "Empty" only means that when `syncStatus.kind === 'loaded'`, though - while the fetch is still
  * loading or has errored, `buildCareItems` never has rows to turn into items either (the file doc
  * comment's point 2), so an empty list there does NOT mean "nothing to report", it means "nothing
- * answered yet". This group must say so explicitly (review finding: the tab used to go entirely
+ * answered yet". This group must say so explicitly (the tab used to go entirely
  * blank on a sync error, since the All clear block is unreachable whenever `careSummary` is not
  * `allClear`, which it never is while a source is `notChecked`) - mirrors the deleted
  * `CareSyncSection`'s own `t(result.error.key)` line for the error case.
@@ -268,7 +262,7 @@ function FilesGroup({
     if (syncStatus.kind === 'loading') {
       return (
         <div className="space-y-2">
-          <SectionLabel>{t('config.care.group.files')}</SectionLabel>
+          <SectionLabel>{t('common.label.files')}</SectionLabel>
           <p className="flex items-center gap-2 text-xs text-ink-dim" data-selectable>
             <Spinner className="size-3.5" />
             {t('config.care.files.loading')}
@@ -279,7 +273,7 @@ function FilesGroup({
     if (syncStatus.kind === 'error') {
       return (
         <div className="space-y-2">
-          <SectionLabel>{t('config.care.group.files')}</SectionLabel>
+          <SectionLabel>{t('common.label.files')}</SectionLabel>
           <p className="flex items-start gap-2 text-xs text-danger" data-selectable>
             <CircleX className="mt-0.5 size-3.5 shrink-0" />
             {t('config.care.files.error')}
@@ -297,7 +291,7 @@ function FilesGroup({
 
   return (
     <div className="space-y-2">
-      <SectionLabel>{t('config.care.group.files')}</SectionLabel>
+      <SectionLabel>{t('common.label.files')}</SectionLabel>
       <ul className="space-y-1.5">
         {items.map((item) => {
           const target = String(item.params['target'] ?? '')
@@ -316,15 +310,15 @@ function FilesGroup({
 }
 
 /**
- * The Tidy-up group (story 058 D4): one `CareItemRow` per finding, exactly the row
+ * The Tidy-up group (story 058): one `CareItemRow` per finding, exactly the row
  * `buildCareItems`'s `tidyItems` already built - Apply for every kind but `preservedLine`, which
- * splits into Drop and Re-classify (AC 4), "Show in Aliases" for the three alias-wiring kinds, and
+ * splits into Drop and Re-classify, "Show in Aliases" for the three alias-wiring kinds, and
  * no action at all for a `'report'` finding (its consequence sentence is the whole explanation).
  *
- * Preserved lines are no longer a separate panel (`PreservedLinesPanel`, deleted in D2) - each is
+ * Preserved lines are no longer a separate panel (`PreservedLinesPanel`, deleted) - each is
  * one row here, its line text already interpolated into the consequence sentence
  * (the `config.care.tidyUp.preservedLine*` keys' `{{text}}`), so it appears exactly once in the
- * whole tab (AC 4's accept criterion).
+ * whole tab.
  *
  * "Fix all safe findings" (`CareBatchFixDialog`, reused unchanged) renders only when
  * `autoFindings` is non-empty - never a disabled button with a duplicated "nothing is safe yet"
@@ -337,19 +331,16 @@ function FilesGroup({
 function TidyUpGroup({
   items,
   autoFindings,
-  profile,
-  onProfileUpdated,
   onNavigateToAlias,
   onNavigateToAction,
 }: {
   items: CareItem[]
   autoFindings: TidyUpFinding[]
-  profile: ConfigProfile
-  onProfileUpdated: (profile: ConfigProfile) => void
   onNavigateToAlias: (aliasName: string, actionId?: string) => void
   onNavigateToAction: (actionId: string) => void
 }) {
   const { t } = useTranslation()
+  const { profile, save } = useProfileDraftContext()
   const pushToast = useLauncher((state) => state.pushToast)
   const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(new Set())
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
@@ -379,16 +370,11 @@ function TidyUpGroup({
     })
 
     if (!outcome.ok) {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, outcome)
       return false
     }
     const updated = outcome.value.find((candidate) => candidate.id === profile.id)
-    if (updated) onProfileUpdated(updated)
+    if (updated) save(updated)
     return true
   }
 
@@ -407,13 +393,13 @@ function TidyUpGroup({
   }
 
   // `unreferencedAlias`/`duplicateAlias` name the alias as `params.name`, `undefinedAlias` as
-  // `params.alias` (`@shared/config/validate-actions.ts`'s own param shapes) - the only three kinds
+  // `params.alias` (`@shared/config/validation/validate-actions.ts`'s own param shapes) - the only three kinds
   // this action ever appears on (`lib/care-items.ts`'s `ALIAS_LINK_KINDS`), so reading either is
   // enough without threading the finding kind through the item as well.
   const handleAction = async (action: CareItemAction, item: CareItem): Promise<void> => {
     if (action.kind === 'showInAliases') {
       const aliasName = String(item.params['name'] ?? item.params['alias'] ?? '')
-      // Story 060 D1 threaded the owning entry's real id into this link so a duplicate-name finding
+      // Story 060 threaded the owning entry's real id into this link so a duplicate-name finding
       // could target one specific colliding row rather than the first row matching the name. Since
       // the collision is one row with one detail line per side (bug fix, 2026-09-07), that id comes
       // off the clicked *detail's* action; a row-level link (`undefinedAlias` and friends) carries
@@ -438,7 +424,7 @@ function TidyUpGroup({
       )
       return
     }
-    // Story 058 D5: the item's own `actionId` (`lib/care-items.ts`'s `tidyItems`), not a params
+    // Story 058: the item's own `actionId` (`lib/care-items.ts`'s `tidyItems`), not a params
     // lookup - unlike the alias link above, a `ConfigAction.id` is never a display string a row
     // would also want to show.
     if (action.kind === 'showInControls') {
@@ -456,12 +442,7 @@ function TidyUpGroup({
     })
 
     if (!outcome.ok) {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, outcome)
       return
     }
     if (outcome.value.rejected.length > 0) {
@@ -471,7 +452,7 @@ function TidyUpGroup({
         timeoutMs: 0,
       })
     }
-    onProfileUpdated(outcome.value.profile)
+    save(outcome.value.profile)
   }
 
   return (
@@ -500,11 +481,11 @@ function TidyUpGroup({
           profile={profile}
           findings={autoFindings}
           onClose={() => setBatchDialogOpen(false)}
-          onProfileUpdated={onProfileUpdated}
+          onProfileUpdated={save}
         />
       )}
 
-      {/* The same dialog the Controls and Aliases tabs rename an entry through (story 044 D5's
+      {/* The same dialog the Controls and Aliases tabs rename an entry through (story 044's
           extraction), so its refusal rules and its own-alias-name escape hatch apply here too -
           which is the whole point of offering the rename on the finding itself. */}
       {renamingAction && (

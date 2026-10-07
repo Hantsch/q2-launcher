@@ -1,13 +1,24 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { AltLayer } from '@shared/config/alt-layers'
-import { derivedAliasName, renderedAliasNames } from '@shared/config/alias-render'
-import { validateAliasName } from '@shared/config/alias-names'
-import { findAliasReferrers, type AliasReferrer } from '@shared/config/alias-references'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
+import { derivedAliasName, renderedAliasNames } from '@shared/config/aliases/alias-render'
+import { validateAliasName } from '@shared/config/aliases/alias-names'
+import { findAliasReferrers, type AliasReferrer } from '@shared/config/aliases/alias-references'
 import type { ConfigAction } from '@shared/modules/config'
-import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
-import { Modal } from '../../../components/ui/Modal'
+import { NameDialog } from '../../../components/ui/NameDialog'
+
+const ALIAS_NAME_ERROR_KEYS: Record<
+  Extract<ReturnType<typeof validateAliasName>, { ok: false }>['reason'],
+  string
+> = {
+  empty: 'config.controls.actions.renameDialog.aliasName.error.empty',
+  illegalCharacters: 'config.controls.actions.renameDialog.aliasName.error.illegalCharacters',
+  tooLong: 'config.controls.actions.renameDialog.aliasName.error.tooLong',
+  reserved: 'config.controls.actions.renameDialog.aliasName.error.reserved',
+  duplicate: 'config.controls.actions.renameDialog.aliasName.error.duplicate',
+  signedBaseName: 'config.controls.actions.renameDialog.aliasName.error.signedBaseName',
+}
 
 /**
  * Renames one action. Mirrors `RenameProfileDialog`'s shape, plus - since story 039 - a second,
@@ -19,7 +30,7 @@ import { Modal } from '../../../components/ui/Modal'
  * `findAliasReferrers` scans to decide whether changing the *display* name would leave a dangling
  * reference behind.
  *
- * Story 044, D5: extracted out of `ControlsTab.tsx` verbatim (same props, same behaviour) so both
+ * Story 044: extracted out of `ControlsTab.tsx` verbatim (same props, same behaviour) so both
  * that tab and `AliasesTab.tsx` share the one rename-refusal implementation - story 039's rule lives
  * in exactly one place rather than being duplicated for the second caller.
  */
@@ -39,22 +50,25 @@ export function RenameActionDialog({
   onSubmit: (input: { name: string; aliasName: string | undefined }) => Promise<boolean>
 }) {
   const { t } = useTranslation()
+  // Mirrors the dialog's name field: the rename refusal below depends on the name being typed.
   const [name, setName] = useState(action.name)
   const [ownAliasName, setOwnAliasName] = useState(action.aliasName ?? '')
-  const [submitting, setSubmitting] = useState(false)
 
   const placeholder = derivedAliasName(action)
 
   // The other entries' already-resolved alias names - `validateAliasName`'s duplicate check, same
-  // shape D2's own doc comment describes (`alias-names.ts`).
+  // shape the own doc comment describes (`alias-names.ts`).
   //
-  // `renderedAliasNames`, not `aliasNameFor` (story-045 review, finding 3): a two-part entry defines
+  // `renderedAliasNames`, not `aliasNameFor` (story-045: a two-part entry defines
   // more names than the one it is called by (a toggle's `_s1`/`_s2` states, a press/release pair's
   // `+`/`-` halves), and every one of them is a name this dialog must refuse to hand out a second
   // time - the file has one definition per name, so a collision means the loser's body is simply
   // gone on the next save.
   const otherAliasNames = useMemo(
-    () => actions.filter((other) => other.id !== action.id).flatMap((other) => renderedAliasNames(other)),
+    () =>
+      actions
+        .filter((other) => other.id !== action.id)
+        .flatMap((other) => renderedAliasNames(other)),
     [actions, action.id],
   )
 
@@ -67,12 +81,9 @@ export function RenameActionDialog({
       : { ok: true as const }
   const aliasError = aliasValidation.ok
     ? undefined
-    : t(
-        `config.controls.actions.renameDialog.aliasName.error.${aliasValidation.reason}`,
-        aliasValidation.params,
-      )
+    : t(ALIAS_NAME_ERROR_KEYS[aliasValidation.reason], aliasValidation.params)
 
-  // Rename refusal (story 039, D9): only the entry's *current* alias name - resolved before any
+  // Rename refusal (story 039): only the entry's *current* alias name - resolved before any
   // edit in this dialog - and only while the display name is actually changing. Changing solely the
   // alias-name field is never refused; that field is the story's own escape hatch.
   //
@@ -87,15 +98,18 @@ export function RenameActionDialog({
     () => findAliasReferrers(action, { actions, binds, layers }),
     [action, actions, binds, layers],
   )
-  const nameChanged = name.trim() !== action.name
-  const renameRefused = nameChanged && trimmedOwnAliasName.length === 0 && referrers.length > 0
+  const isRefused = (trimmedName: string): boolean =>
+    trimmedName !== action.name && trimmedOwnAliasName.length === 0 && referrers.length > 0
+  const renameRefused = isRefused(name.trim())
 
   const formatReferrer = (referrer: AliasReferrer): string => {
     switch (referrer.kind) {
       case 'action':
         return referrer.name
       case 'bind':
-        return t('config.controls.actions.renameDialog.refusal.handTypedBind', { key: referrer.key })
+        return t('config.controls.actions.renameDialog.refusal.handTypedBind', {
+          key: referrer.key,
+        })
       case 'override':
         return t('config.controls.actions.renameDialog.refusal.handTypedOverride', {
           key: referrer.key,
@@ -106,53 +120,36 @@ export function RenameActionDialog({
 
   const referrerLabels = renameRefused ? referrers.map(formatReferrer) : []
   const refusalMessage = renameRefused
-    ? t('config.controls.actions.renameDialog.refusal.message', { names: referrerLabels.join(', ') })
+    ? t('config.controls.actions.renameDialog.refusal.message', {
+        names: referrerLabels.join(', '),
+      })
     : undefined
 
-  const canSubmit = name.trim().length > 0 && !submitting && aliasValidation.ok && !renameRefused
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    await onSubmit({
-      name: name.trim(),
-      aliasName: trimmedOwnAliasName.length > 0 ? trimmedOwnAliasName : undefined,
-    })
-    setSubmitting(false)
-  }
-
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.actions.renameDialog.title')}
+    <NameDialog
+      titleKey="config.controls.actions.renameDialog.title"
+      labelKey="common.label.name"
+      initialName={action.name}
+      maxLength={120}
+      error={refusalMessage}
+      submittable={(trimmedName) => aliasValidation.ok && !isRefused(trimmedName)}
+      onNameChange={setName}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('common.save')}
-          </Button>
-        </>
+      onSubmit={(trimmedName) =>
+        onSubmit({
+          name: trimmedName,
+          aliasName: trimmedOwnAliasName.length > 0 ? trimmedOwnAliasName : undefined,
+        })
       }
     >
-      <div className="space-y-4">
-        <Field label={t('config.controls.actions.renameDialog.label')} error={refusalMessage}>
-          <Input
-            value={name}
-            autoFocus
-            maxLength={120}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
-            }}
-          />
-        </Field>
+      {(submit) => (
         <Field
           label={t('config.controls.actions.renameDialog.aliasName.label')}
-          hint={aliasError ? undefined : t('config.controls.actions.renameDialog.aliasName.hint', { placeholder })}
+          hint={
+            aliasError
+              ? undefined
+              : t('config.controls.actions.renameDialog.aliasName.hint', { placeholder })
+          }
           error={aliasError}
         >
           <Input
@@ -161,17 +158,17 @@ export function RenameActionDialog({
             // Deliberately not `MAX_OWN_ALIAS_NAME_LENGTH`: an input-level `maxLength` at exactly
             // the budget would silently stop the keystroke instead of ever reaching
             // `validateAliasName`'s `tooLong` reason, so a name past the budget could never be
-            // rejected *with a reason* (AC6) - only ever truncated without one. `120` mirrors the
+            // rejected *with a reason* - only ever truncated without one. `120` mirrors the
             // display-name field above and is generous enough that a user typing past the real
             // budget still sees the `tooLong` error instead of a truncated string.
             maxLength={120}
             onChange={(event) => setOwnAliasName(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
+              if (event.key === 'Enter') submit()
             }}
           />
         </Field>
-      </div>
-    </Modal>
+      )}
+    </NameDialog>
   )
 }

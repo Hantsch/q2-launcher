@@ -1,11 +1,15 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join } from 'node:path'
 import { z } from 'zod'
-import { limitsFor } from '@shared/config/engine-limits'
-import { effectiveWriteDirs, type DiscoverableInstallation, type DiscoverContext } from './discovery'
+import { limitsFor } from '@shared/config/syntax/engine-limits'
+import {
+  effectiveWriteDirs,
+  type DiscoverableInstallation,
+  type DiscoverContext,
+} from './discovery'
 
 /**
- * Story 170 D3: a stage play sets `vid_fullscreen`/`vid_geometry` on the command line, and Q2PRO
+ * Story 170: a stage play sets `vid_fullscreen`/`vid_geometry` on the command line, and Q2PRO
  * archives both into the user's own `q2config.cfg` when it exits. This puts back exactly those lines
  * afterwards - it never rewrites the file from a snapshot:
  *
@@ -93,12 +97,41 @@ function splitLines(text: string): Segment[] {
   return out
 }
 
-const joinLines = (segments: readonly Segment[]): string => segments.map((s) => s.content + s.eol).join('')
+const joinLines = (segments: readonly Segment[]): string =>
+  segments.map((s) => s.content + s.eol).join('')
 
 /** The cvar a `set`/`seta` line assigns, or null for any other line. */
 function cvarNameOf(content: string): string | null {
   const match = /^[ \t]*seta?[ \t]+"?([^\s";]+)"?(?:[ \t]|$)/i.exec(content)
   return match?.[1] ?? null
+}
+
+/** The value a `set`/`seta` line assigns, quoted or bare; null when the line carries none. */
+function cvarValueOf(content: string): string | null {
+  const match = /^[ \t]*seta?[ \t]+"?[^\s";]+"?[ \t]+(?:"([^"]*)"?|([^\s";]+))/i.exec(content)
+  return match?.[1] ?? match?.[2] ?? null
+}
+
+/**
+ * The value `name` gets when the engine execs `configPath`: the last `set`/`seta` line wins. Null when
+ * the file cannot be read or has no such line - a caller falls back to the engine's own default.
+ */
+export async function readArchivedCvar(
+  configPath: string,
+  name: string,
+  fs: Pick<CvarRestoreFs, 'readFile'> = nodeCvarRestoreFs,
+): Promise<string | null> {
+  let text: string
+  try {
+    text = (await fs.readFile(configPath)).toString('latin1')
+  } catch {
+    return null
+  }
+  let value: string | null = null
+  for (const segment of splitLines(text)) {
+    if (cvarNameOf(segment.content) === name) value = cvarValueOf(segment.content)
+  }
+  return value
 }
 
 function isMissing(error: unknown): boolean {
@@ -131,8 +164,13 @@ export function createCvarRestore({
     }
   }
 
+  // Not fs-utils' writeAtomic: writes through the injected fs and removes the tmp file on failure.
   /** Temp file then rename: a crash mid-write never leaves a half-written file behind. */
-  async function writeAtomic(path: string, data: string, encoding: 'latin1' | 'utf8'): Promise<void> {
+  async function writeAtomic(
+    path: string,
+    data: string,
+    encoding: 'latin1' | 'utf8',
+  ): Promise<void> {
     const tmp = `${path}.q2l-tmp`
     try {
       await fs.writeFile(tmp, data, encoding)
@@ -184,7 +222,9 @@ export function createCvarRestore({
       const result = pendingSchema.safeParse(JSON.parse(raw))
       if (result.success) {
         // Only the names this launcher owns - a stray key never edits an unrelated line.
-        const lines = new Map(Object.entries(result.data.lines).filter(([name]) => names.includes(name)))
+        const lines = new Map(
+          Object.entries(result.data.lines).filter(([name]) => names.includes(name)),
+        )
         return { exists: true, snapshot: { configPath: result.data.configPath, lines } }
       }
     } catch {
@@ -218,7 +258,11 @@ export function createCvarRestore({
         }
         current = { configPath, lines }
         await fs.mkdir(dirname(pendingPath), { recursive: true })
-        await writeAtomic(pendingPath, JSON.stringify({ configPath, lines: Object.fromEntries(lines) }), 'utf8')
+        await writeAtomic(
+          pendingPath,
+          JSON.stringify({ configPath, lines: Object.fromEntries(lines) }),
+          'utf8',
+        )
       })
     },
     restore() {

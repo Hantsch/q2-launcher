@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 
 /**
- * Story 086 D3: measures an element's own content width via `ResizeObserver`, updating whenever it
+ * Story 086: measures an element's own content width via `ResizeObserver`, updating whenever it
  * resizes. `DashboardGrid` needs this to decide grid vs. single-column mode from the dashboard
  * container's own width, never `window.innerWidth` (Decisions (Sprint) - the 900px narrow
  * threshold is measured on the container so it is reachable at all: the window's own minimum is

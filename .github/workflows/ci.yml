@@ -22,24 +22,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-node-electron
         with:
-          node-version: 22
-          cache: npm
+          # Unit tests resolve `electron` to a stub (vitest.config.ts) and never need the binary.
+          electron: 'false'
 
-      - run: npm ci
+      - name: Audit (non-blocking until 2026-10-09)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm audit --audit-level=high
+        continue-on-error: true
 
-      # electron@43 has no postinstall: the binary is downloaded lazily, the first time something
-      # requires `electron`. Under `vitest run` that "something" is several test files at once
-      # (they import `src/main/lib/logger`, which loads `electron-log/main`, which requires
-      # `electron`), so concurrent install.js processes race for the same download and one of
-      # them loses with "Electron failed to install correctly". Downloading once, serially, up
-      # front removes the race - mirrors release.yml's "Install Electron binary" step.
-      - name: Install Electron binary
-        run: node node_modules/electron/install.js
+      # One leg is enough: .gitattributes makes every text file LF on both OSes, so the check
+      # cannot differ between them.
+      - name: Format check
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run format:check
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
 
       # Story 100 D9: vendors the real 7-Zip Linux binary so extractor.test.ts's real-archive
       # block (gated on the binary's presence via resolveExtractorPath) actually runs here instead
@@ -61,21 +64,13 @@ jobs:
     # needs a display (`xvfb-run`) and a real build, neither of which the unit-test leg needs.
     name: linux user journey (ubuntu-latest, xvfb)
     runs-on: ubuntu-latest
+    # Advisory on GitHub: a red Linux job must not block a PR or a release. Under act (the local
+    # `verify:release` / `rehearse` gate) it stays strict, so the local run still reports it.
+    continue-on-error: ${{ github.actor != 'nektos/act' }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      # Same race this workflow's own `test` job already guards against (see its "Install Electron
-      # binary" step above) - Playwright's `_electron` driver resolves the local `electron`
-      # devDependency, whose binary is otherwise downloaded lazily on first use.
-      - name: Install Electron binary
-        run: node node_modules/electron/install.js
+      - uses: ./.github/actions/setup-node-electron
 
       # `ubuntu-latest` does not ship `xvfb-run` - Electron needs a real display even for a
       # "headless" CI run on Linux.

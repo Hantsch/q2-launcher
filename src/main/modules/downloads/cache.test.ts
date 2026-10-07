@@ -12,8 +12,8 @@ import {
   status,
   type CacheEntry,
 } from './cache'
-import { MANIFEST_CACHE_FILE_NAME } from './manifest-service'
-import { getDownloadsCacheDir, PART_SUFFIX } from './paths'
+import { MANIFEST_CACHE_FILE_NAME } from '../../services/content/manifest-service'
+import { getDownloadsCacheDir, PART_SUFFIX } from '../../lib/net/download-cache-paths'
 
 /**
  * Story 072 D3. This suite guards the only code in the launcher that deletes files inside the

@@ -22,7 +22,7 @@ Then a missing or wrong schema is a compile error, and the argument about which 
 validation is settled once at the seam instead of per handler.
 
 The value is not that every existing handler gets stricter — most are fine. The value is that
-the *next* channel is safe by construction, and that reading a handler tells you what its
+the _next_ channel is safe by construction, and that reading a handler tells you what its
 payload is allowed to be without having to trace into the body.
 
 Two things this must not become:
@@ -82,7 +82,7 @@ Two things this must not become:
 - **`src/main/lib/schemas.ts` keeps the persisted-state schemas** (state.json, installations,
   profiles, window state); only the IPC-payload part moves out. Reason: AC5's "reusable schemas
   live where the existing ones do" is about not redeclaring per call site; the user decision moved
-  the *IPC* schemas to shared, and dragging `randomUUID` and the forgiving `.catch()` persisted
+  the _IPC_ schemas to shared, and dragging `randomUUID` and the forgiving `.catch()` persisted
   schemas along would break the shared layer's no-node rule.
 - **Two wrappers, so the error shape does not change:** `handle(channel, schema, handler)` throws
   on an invalid payload (rejected invoke — today's behaviour for the `.parse()` call sites) and
@@ -150,7 +150,7 @@ Move the IPC payload schemas into the shared layer, make the schema a required p
    order and under the same section comments). The IPC-payload half of `src/main/lib/schemas.ts`
    moves there; the persisted half stays. No handler changes yet.
 2. **The seam** (D2): `handle(channel, schema, handler)` + `handleOutcome(channel, schema, handler,
-   invalidKey?)` in `src/main/ipc/index.ts`; validation happens once, in the wrapper. The three small
+invalidKey?)` in `src/main/ipc/index.ts`; validation happens once, in the wrapper. The three small
    registrars migrate in the same step.
 3. **Shell call sites, grouped by registrar** (D3, D4): `installations`/`detection`, then
    `launch`/`jobs`/`modules`/`dev`. Each handler loses its own `.parse()`/`safeParse()` block.
@@ -183,9 +183,9 @@ channel, mirroring `IpcInvokeMap`'s sections and order, including the schemas th
 `installations:inspectPath`, `idSchema` for `detection:cancel`). The IPC-payload block of
 `src/main/lib/schemas.ts` moves out; the persisted schemas stay and import the primitives from
 shared. Fix up imports in `src/main/ipc/*.ts` and `src/main/lib/schemas.test.ts`.
-*Files:* `src/shared/schemas.ts`, `src/shared/ipc-schemas.ts`, `src/main/lib/schemas.ts`,
+_Files:_ `src/shared/schemas.ts`, `src/shared/ipc-schemas.ts`, `src/main/lib/schemas.ts`,
 `src/main/lib/schemas.test.ts`, import lines in `src/main/ipc/*.ts`.
-*Acceptance:* `npm run typecheck` + `npm test` green; `src/shared/**` contains no `node:`/`electron`
+_Acceptance:_ `npm run typecheck` + `npm test` green; `src/shared/**` contains no `node:`/`electron`
 import and `src/shared/ipc.ts` still has no zod import; after `npm run build`,
 `out/preload/index.js` contains no `require("zod")`.
 
@@ -195,22 +195,22 @@ typed `z.ZodType<InvokeRequest<C>>`, parse once before the handler body runs, an
 the same path (so `assertContractFullyHandled` is untouched). Migrate `app.ts`, `window.ts`,
 `settings.ts` — including the `invalidKey` overrides for `app:openExternal` / `app:revealPath` and
 the removal of their inline shape checks (the reveal allowlist check stays in the body).
-*Files:* `src/main/ipc/index.ts`, `src/main/ipc/app.ts`, `src/main/ipc/window.ts`,
+_Files:_ `src/main/ipc/index.ts`, `src/main/ipc/app.ts`, `src/main/ipc/window.ts`,
 `src/main/ipc/settings.ts`.
-*Acceptance:* omitting the schema is a compile error; a wrong-shaped schema is a compile error; the
+_Acceptance:_ omitting the schema is a compile error; a wrong-shaped schema is a compile error; the
 app starts and logs `registered 32 IPC channels`; window buttons, settings toggles and "open log
 file" still work.
 
 **D3 — installations + detection call sites** [x]
 15 channels; every `safeParse`/`parse` block in the body disappears, domain checks stay.
-*Files:* `src/main/ipc/installations.ts`, `src/main/ipc/detection.ts`. *Mirror:* D2's `app.ts`.
-*Acceptance:* add/import/reorder/rename/remove an installation and run a scan through the UI, all
+_Files:_ `src/main/ipc/installations.ts`, `src/main/ipc/detection.ts`. _Mirror:_ D2's `app.ts`.
+_Acceptance:_ add/import/reorder/rename/remove an installation and run a scan through the UI, all
 unchanged; no `.parse(` left in either file.
 
 **D4 — launch + jobs + modules + dev call sites** [x]
-*Files:* `src/main/ipc/launch.ts`, `src/main/ipc/jobs.ts`, `src/main/ipc/modules.ts`,
-`src/main/ipc/dev.ts`. *Mirror:* D3.
-*Acceptance:* launch plan + start still work, `module:invoke` still routes (Library stats render),
+_Files:_ `src/main/ipc/launch.ts`, `src/main/ipc/jobs.ts`, `src/main/ipc/modules.ts`,
+`src/main/ipc/dev.ts`. _Mirror:_ D3.
+_Acceptance:_ launch plan + start still work, `module:invoke` still routes (Library stats render),
 `dev:simulateJob` still produces the fake job; `module:invoke`'s schema keeps
 `payload: z.unknown().optional()`.
 
@@ -221,24 +221,24 @@ answering `fail('ipc.error.invalidPayload')` on failure; library module passes `
 six fake `handle` harnesses in `src/main/modules/config/index.test.ts` so they apply the schema too
 (a harness that skips it would silently disable validation in every module test), and fix whatever
 loose test payloads that surfaces.
-*Files:* `src/main/modules/types.ts`, `src/main/modules/registry.ts`,
+_Files:_ `src/main/modules/types.ts`, `src/main/modules/registry.ts`,
 `src/main/modules/library/index.ts`, `src/main/modules/config/index.test.ts`.
-*Acceptance:* `npm test` green; Library view still shows stats; an unknown module/type still answers
+_Acceptance:_ `npm test` green; Library view still shows stats; an unknown module/type still answers
 `modules.error.notImplemented`.
 
 **D6 — Config handlers, part 1 (profiles and setters)** [x]
 `list`, `create`, `rename`, `remove`, `setCvars`, `setBinds`, `setLayers`, `setActions`, `assign`,
 `unassign`, `setDefault` — pass the existing schema from `src/main/modules/config/schemas.ts`,
 delete the parse block, keep every domain check and every comment that explains one.
-*Files:* `src/main/modules/config/index.ts` (+ `schemas.ts` only if a `z.void()` export is added).
-*Acceptance:* create/rename/delete a profile, edit a cvar and a bind, assign/unassign and set a
+_Files:_ `src/main/modules/config/index.ts` (+ `schemas.ts` only if a `z.void()` export is added).
+_Acceptance:_ create/rename/delete a profile, edit a cvar and a bind, assign/unassign and set a
 default through the Config UI — unchanged behaviour, including the error toasts.
 
 **D7 — Config handlers, part 2 (write, raw files, import, cleanup, tidy-up)** [x]
 `write`, `preview`, `writeState`, `syncState`, `rawFiles`, `openFile`, `setPlayedMods`,
 `switchBinds`, `setSwitchBind`, `import.*`, `cleanup.*`, `tidyUp.apply`. Same mechanic as D6.
-*Files:* `src/main/modules/config/index.ts`. *Mirror:* D6.
-*Acceptance:* Care tab (sync + tidy-up), Raw File tab, import dialog and cleanup run through the UI
+_Files:_ `src/main/modules/config/index.ts`. _Mirror:_ D6.
+_Acceptance:_ Care tab (sync + tidy-up), Raw File tab, import dialog and cleanup run through the UI
 unchanged; no `safeParse(` left in `index.ts`.
 
 **D8 — IPC contract test** [x]
@@ -248,30 +248,30 @@ channel rejects, an invalid payload on an Outcome channel resolves to
 `{ ok: false, messageKey: 'ipc.error.invalidPayload' }` and the handler body never runs, and a
 channel-specific `invalidKey` is preserved. Plus one registry test: an invalid module payload never
 reaches the module handler.
-*Files:* `src/main/ipc/index.test.ts`, `src/main/modules/registry.test.ts` (new, or a case in
+_Files:_ `src/main/ipc/index.test.ts`, `src/main/modules/registry.test.ts` (new, or a case in
 `src/main/modules/config/index.test.ts`).
-*Acceptance:* `npm test` green; removing a schema argument or a handler registration makes the suite
+_Acceptance:_ `npm test` green; removing a schema argument or a handler registration makes the suite
 fail (spot-checked once, then reverted).
 
 **D9 — Live pass + architecture doc** [x]
 `npm run ui:verify` green, the manual test plan below walked in the running app, and the IPC section
 of `docs/ARCHITECTURE.md` updated to describe the required schema parameter, both wrappers and where
 the schemas live.
-*Files:* `docs/ARCHITECTURE.md`.
-*Acceptance:* `npm run build`, `npm run typecheck`, `npm test`, `npm run ui:verify` all green; no
+_Files:_ `docs/ARCHITECTURE.md`.
+_Acceptance:_ `npm run build`, `npm run typecheck`, `npm test`, `npm run ui:verify` all green; no
 screen regressed; the doc matches the code.
 
 ## Coverage
 
-| AC | Deliverable |
-| --- | --- |
-| `handle()` takes the schema as a required parameter | D2 (module seam: D5) |
-| all ~60 call sites pass a real schema, no blanket `z.any()` | D2, D3, D4 (shell, 32) · D5, D6, D7 (modules, 28) |
-| validation happens once, in the wrapper; no double `.parse()` | D2 (wrapper) · D3, D4, D6, D7 (parse blocks removed) |
-| invalid payload rejected before the body, existing error shape, with a test | D2 (semantics) + D8 (tests) |
-| reusable schemas in one place, none redeclared per call site | D1 |
-| `assertContractFullyHandled` + coverage test pass, channel count unchanged (32) | D8 |
-| build / typecheck / test green, every `ui:verify` screen still works | D9 |
+| AC                                                                              | Deliverable                                          |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `handle()` takes the schema as a required parameter                             | D2 (module seam: D5)                                 |
+| all ~60 call sites pass a real schema, no blanket `z.any()`                     | D2, D3, D4 (shell, 32) · D5, D6, D7 (modules, 28)    |
+| validation happens once, in the wrapper; no double `.parse()`                   | D2 (wrapper) · D3, D4, D6, D7 (parse blocks removed) |
+| invalid payload rejected before the body, existing error shape, with a test     | D2 (semantics) + D8 (tests)                          |
+| reusable schemas in one place, none redeclared per call site                    | D1                                                   |
+| `assertContractFullyHandled` + coverage test pass, channel count unchanged (32) | D8                                                   |
+| build / typecheck / test green, every `ui:verify` screen still works            | D9                                                   |
 
 ## Model Hints
 
@@ -319,6 +319,7 @@ the behaviour in.
 **Commit message:** `036: make handle() require a payload schema`
 
 **Verification:**
+
 - `npm run build`, `npm run typecheck`, `npm test` (54 files / 957 tests) — all green.
 - `npm run ui:verify` — 30/30 screens written, zero console/page errors, only pre-existing,
   unrelated a11y findings (missing label on the keybind-dialog input, duplicate banner/contentinfo
@@ -332,6 +333,7 @@ the behaviour in.
 - No review-fix cycle was needed; zero confirmed findings.
 
 **Decisions:**
+
 - Treated `npm run ui:verify`'s clean 30/30-screen, zero-console-error run as this project's defined
   live-smoke gate (`live-smoke-how` in `.claude/ai-scrum.md` names exactly this command), since this
   story is a mechanical validation refactor with no behaviour change to any domain check — every

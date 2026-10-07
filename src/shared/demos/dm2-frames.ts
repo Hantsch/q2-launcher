@@ -53,12 +53,29 @@
  * rerelease types q2pro accepts in every protocol (`TE_BLUEHYPERBLASTER_2` .. `TE_EXPLOSION2_NL`,
  * `TE_DAMAGE_DEALT` = 128). `TE_FLAME` (32) has no reader in any client and is `undecodable`.
  *
+ * ## Observing the walk
+ *
+ * An optional `Dm2FrameObserver` receives each `svc_serverdata` protocol, `svc_configstring` and
+ * `svc_layout` the walk passes (so only what precedes a block's `svc_frame`). Observing decodes
+ * those payloads but never moves the cursor differently: the offsets are the skip path's own, so
+ * the count is the same with or without an observer. A failed count may already have forwarded
+ * messages from the failing block.
+ *
  * Never throws; every loop consumes at least one byte per iteration. Pure by contract: this file
  * lives in `src/shared`, so no `node:*` import, no DOM types, no `Buffer`, no IPC.
  */
 
 import { BlockBuffer, DEMO_MAX_BLOCK_BYTES, framesResult } from './frame-count'
 import type { FrameCounter, FrameCountResult } from './frame-count'
+import { decodeLatin1 } from '../servers/protocol'
+
+/** Receives the messages a `.dm2` frame count walks past (see "Observing the walk"). */
+export interface Dm2FrameObserver {
+  onServerdata(protocol: number): void
+  /** `value` is the NUL-less string, decoded byte-for-byte as latin1. */
+  onConfigstring(index: number, value: string): void
+  onLayout(text: string): void
+}
 
 const SVC_MUZZLEFLASH = 1
 const SVC_MUZZLEFLASH2 = 2
@@ -195,7 +212,7 @@ function skipDownload(bytes: Uint8Array, p: number, end: number): number {
 }
 
 function readInt32LE(bytes: Uint8Array, p: number): number {
-  return (bytes[p]! | (bytes[p + 1]! << 8) | (bytes[p + 2]! << 16) | (bytes[p + 3]! << 24)) | 0
+  return bytes[p]! | (bytes[p + 1]! << 8) | (bytes[p + 2]! << 16) | (bytes[p + 3]! << 24) | 0
 }
 
 type BlockOutcome = 'frame' | 'frameless' | 'undecodable' | 'not-a-demo'
@@ -204,7 +221,7 @@ type BlockOutcome = 'frame' | 'frameless' | 'undecodable' | 'not-a-demo'
  * Creates a streaming `.dm2` frame counter. See the file doc comment for the counting method and
  * the per-protocol message sizes.
  */
-export function createDm2FrameCounter(): FrameCounter {
+export function createDm2FrameCounter(observer?: Dm2FrameObserver): FrameCounter {
   const buffer = new BlockBuffer()
   let consumedBytes = 0 // file offset of `buffer.readOffset`
   let protocol: number | null = null
@@ -232,23 +249,39 @@ export function createDm2FrameCounter(): FrameCounter {
           const read = readInt32LE(bytes, p)
           if (!ACCEPTED_PROTOCOLS.has(read)) return first ? 'not-a-demo' : 'undecodable'
           protocol = read
+          observer?.onServerdata(read)
           return 'frameless'
         }
         case SVC_SPAWNBASELINE:
           return 'frameless'
-        case SVC_CONFIGSTRING:
+        case SVC_CONFIGSTRING: {
+          const indexAt = p
           p = skipFixed(p, 2, end)
-          if (p !== OVERRUN) p = skipString(bytes, p, end)
+          if (p !== OVERRUN) {
+            const valueAt = p
+            p = skipString(bytes, p, end)
+            if (observer !== undefined && p !== OVERRUN) {
+              const index = bytes[indexAt]! | (bytes[indexAt + 1]! << 8)
+              observer.onConfigstring(index, decodeLatin1(bytes.subarray(valueAt, p - 1)))
+            }
+          }
           break
+        }
         case SVC_PRINT:
           p = skipFixed(p, 1, end)
           if (p !== OVERRUN) p = skipString(bytes, p, end)
           break
         case SVC_STUFFTEXT:
         case SVC_CENTERPRINT:
-        case SVC_LAYOUT:
           p = skipString(bytes, p, end)
           break
+        case SVC_LAYOUT: {
+          const textAt = p
+          p = skipString(bytes, p, end)
+          if (observer !== undefined && p !== OVERRUN)
+            observer.onLayout(decodeLatin1(bytes.subarray(textAt, p - 1)))
+          break
+        }
         case SVC_INVENTORY:
           p = skipFixed(p, MAX_ITEMS * 2, end)
           break

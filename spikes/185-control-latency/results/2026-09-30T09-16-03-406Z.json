@@ -23,9 +23,7 @@
       "alias q2l_loop \"exec q2l_ctl.cfg; wait 13; q2l_loop\"",
       "q2l_loop"
     ],
-    "controlIdle": [
-      "echo POS $cl_demopos FS $vid_fullscreen P $cl_paused"
-    ],
+    "controlIdle": ["echo POS $cl_demopos FS $vid_fullscreen P $cl_paused"],
     "controlThreeSeqs": [
       "echo POS $cl_demopos FS $vid_fullscreen P $cl_paused",
       "if $q2l_seq < 1 then \"exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1\"",
@@ -56,10 +54,7 @@
         "in_grab",
         "2"
       ],
-      "argsAfterDemo": [
-        "+exec",
-        "q2l_loop.cfg"
-      ]
+      "argsAfterDemo": ["+exec", "q2l_loop.cfg"]
     }
   },
   "harness": {
@@ -69,19 +64,8 @@
     "SINGLE_JITTER_MS": 400,
     "BURST_GAP_MS": 100,
     "CPU_WINDOW_MS": 30000,
-    "SINGLE_MIX": [
-      "pause",
-      "pause",
-      "seek +10",
-      "seek -10",
-      "timescale 2",
-      "timescale 1"
-    ],
-    "BURST_MIX": [
-      "seek +10",
-      "seek -10",
-      "seek +10"
-    ],
+    "SINGLE_MIX": ["pause", "pause", "seek +10", "seek -10", "timescale 2", "timescale 1"],
+    "BURST_MIX": ["seek +10", "seek -10", "seek +10"],
     "REWIND_ABOVE_MS": 20000,
     "GEOMETRY": "960x540+80+80"
   },
@@ -213,10 +197,7 @@
           "in_grab",
           "2"
         ],
-        "argsAfterDemo": [
-          "+exec",
-          "q2l_loop.cfg"
-        ]
+        "argsAfterDemo": ["+exec", "q2l_loop.cfg"]
       },
       "firstCommand": {
         "seq": 1,
@@ -331,26 +312,10 @@
           "burst": 0,
           "requestSpanMs": 202.3,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            1.9,
-            103,
-            204.3
-          ],
-          "effectAtMs": [
-            128.9,
-            128.9,
-            348.9
-          ],
-          "ackAtMs": [
-            128.9,
-            128.9,
-            348.9
-          ],
-          "seqs": [
-            31,
-            32,
-            33
-          ],
+          "writtenAtMs": [1.9, 103, 204.3],
+          "effectAtMs": [128.9, 128.9, 348.9],
+          "ackAtMs": [128.9, 128.9, 348.9],
+          "seqs": [31, 32, 33],
           "inOrder": true,
           "eachOnce": true
         },
@@ -358,26 +323,10 @@
           "burst": 1,
           "requestSpanMs": 202,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            1.9,
-            102.9,
-            205.1
-          ],
-          "effectAtMs": [
-            71.4,
-            291.4,
-            291.4
-          ],
-          "ackAtMs": [
-            71.4,
-            291.4,
-            291.4
-          ],
-          "seqs": [
-            34,
-            35,
-            36
-          ],
+          "writtenAtMs": [1.9, 102.9, 205.1],
+          "effectAtMs": [71.4, 291.4, 291.4],
+          "ackAtMs": [71.4, 291.4, 291.4],
+          "seqs": [34, 35, 36],
           "inOrder": true,
           "eachOnce": true
         },
@@ -385,26 +334,10 @@
           "burst": 2,
           "requestSpanMs": 204,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            2.9,
-            104.4,
-            206.8
-          ],
-          "effectAtMs": [
-            120.4,
-            120.4,
-            340.4
-          ],
-          "ackAtMs": [
-            120.4,
-            120.4,
-            340.4
-          ],
-          "seqs": [
-            38,
-            39,
-            40
-          ],
+          "writtenAtMs": [2.9, 104.4, 206.8],
+          "effectAtMs": [120.4, 120.4, 340.4],
+          "ackAtMs": [120.4, 120.4, 340.4],
+          "seqs": [38, 39, 40],
           "inOrder": true,
           "eachOnce": true
         },
@@ -412,26 +345,10 @@
           "burst": 3,
           "requestSpanMs": 203,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            2,
-            103.8,
-            205.6
-          ],
-          "effectAtMs": [
-            72.4,
-            292.4,
-            292.4
-          ],
-          "ackAtMs": [
-            72.4,
-            292.4,
-            292.4
-          ],
-          "seqs": [
-            41,
-            42,
-            43
-          ],
+          "writtenAtMs": [2, 103.8, 205.6],
+          "effectAtMs": [72.4, 292.4, 292.4],
+          "ackAtMs": [72.4, 292.4, 292.4],
+          "seqs": [41, 42, 43],
           "inOrder": true,
           "eachOnce": true
         },
@@ -439,26 +356,10 @@
           "burst": 4,
           "requestSpanMs": 203,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            2.6,
-            103.9,
-            205.3
-          ],
-          "effectAtMs": [
-            31.4,
-            371.4,
-            371.4
-          ],
-          "ackAtMs": [
-            31.4,
-            371.4,
-            371.4
-          ],
-          "seqs": [
-            45,
-            46,
-            47
-          ],
+          "writtenAtMs": [2.6, 103.9, 205.3],
+          "effectAtMs": [31.4, 371.4, 371.4],
+          "ackAtMs": [31.4, 371.4, 371.4],
+          "seqs": [45, 46, 47],
           "inOrder": true,
           "eachOnce": true
         },
@@ -466,26 +367,10 @@
           "burst": 5,
           "requestSpanMs": 203,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            1.8,
-            103.1,
-            204.8
-          ],
-          "effectAtMs": [
-            36.4,
-            366.4,
-            366.4
-          ],
-          "ackAtMs": [
-            36.4,
-            366.4,
-            366.4
-          ],
-          "seqs": [
-            48,
-            49,
-            50
-          ],
+          "writtenAtMs": [1.8, 103.1, 204.8],
+          "effectAtMs": [36.4, 366.4, 366.4],
+          "ackAtMs": [36.4, 366.4, 366.4],
+          "seqs": [48, 49, 50],
           "inOrder": true,
           "eachOnce": true
         },
@@ -493,26 +378,10 @@
           "burst": 6,
           "requestSpanMs": 204.4,
           "writtenBeforeFirstAck": true,
-          "writtenAtMs": [
-            2.7,
-            104.9,
-            206.8
-          ],
-          "effectAtMs": [
-            357.9,
-            357.9,
-            357.9
-          ],
-          "ackAtMs": [
-            357.9,
-            357.9,
-            357.9
-          ],
-          "seqs": [
-            52,
-            53,
-            54
-          ],
+          "writtenAtMs": [2.7, 104.9, 206.8],
+          "effectAtMs": [357.9, 357.9, 357.9],
+          "ackAtMs": [357.9, 357.9, 357.9],
+          "seqs": [52, 53, 54],
           "inOrder": true,
           "eachOnce": true
         },
@@ -520,26 +389,10 @@
           "burst": 7,
           "requestSpanMs": 203,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            1.6,
-            103.1,
-            205.1
-          ],
-          "effectAtMs": [
-            73.5,
-            443.4,
-            443.4
-          ],
-          "ackAtMs": [
-            73.5,
-            443.4,
-            443.4
-          ],
-          "seqs": [
-            55,
-            56,
-            57
-          ],
+          "writtenAtMs": [1.6, 103.1, 205.1],
+          "effectAtMs": [73.5, 443.4, 443.4],
+          "ackAtMs": [73.5, 443.4, 443.4],
+          "seqs": [55, 56, 57],
           "inOrder": true,
           "eachOnce": true
         },
@@ -547,26 +400,10 @@
           "burst": 8,
           "requestSpanMs": 204,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            2,
-            104,
-            207.1
-          ],
-          "effectAtMs": [
-            22.4,
-            372.4,
-            372.4
-          ],
-          "ackAtMs": [
-            22.4,
-            372.4,
-            372.4
-          ],
-          "seqs": [
-            59,
-            60,
-            61
-          ],
+          "writtenAtMs": [2, 104, 207.1],
+          "effectAtMs": [22.4, 372.4, 372.4],
+          "ackAtMs": [22.4, 372.4, 372.4],
+          "seqs": [59, 60, 61],
           "inOrder": true,
           "eachOnce": true
         },
@@ -574,26 +411,10 @@
           "burst": 9,
           "requestSpanMs": 204,
           "writtenBeforeFirstAck": false,
-          "writtenAtMs": [
-            2.5,
-            104.8,
-            205.7
-          ],
-          "effectAtMs": [
-            38.4,
-            408.4,
-            408.4
-          ],
-          "ackAtMs": [
-            38.4,
-            408.4,
-            408.4
-          ],
-          "seqs": [
-            62,
-            63,
-            64
-          ],
+          "writtenAtMs": [2.5, 104.8, 205.7],
+          "effectAtMs": [38.4, 408.4, 408.4],
+          "ackAtMs": [38.4, 408.4, 408.4],
+          "seqs": [62, 63, 64],
           "inOrder": true,
           "eachOnce": true
         }

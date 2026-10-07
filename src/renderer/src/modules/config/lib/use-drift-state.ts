@@ -4,15 +4,15 @@ import { toCareSyncRows } from './care-sync'
 import type { CareSyncStatus } from './care-summary'
 
 /**
- * Story 079 D6 (AC5): the profile's file-sync/drift rows, fetched on the same re-read triggers
+ * Story 079: the profile's file-sync/drift rows, fetched on the same re-read triggers
  * `useFileSourceRefresh.ts` already re-reads the canonical file on (a profile becoming the selected
  * one - including switching to it from the profile list while `ConfigView` stays mounted - and
  * window focus regained), plus a save (`profile.updatedAt` bumping while the same profile stays
  * selected). Owned by `ConfigView.tsx`, not by `CareTab.tsx`/`use-care-sync.ts`, so a changed,
  * missing or stale installation copy is caught even while the Care tab has never been opened.
  *
- * Split out of `use-care-sync.ts`'s old `fetchSyncState` effect (story 025 D8, story 058 D3), which
- * only ever ran while `CareTab` itself was mounted - moving the fetch up here is what makes AC5 true;
+ * Split out of `use-care-sync.ts`'s old `fetchSyncState` effect (story 025, story 058), which
+ * only ever ran while `CareTab` itself was mounted - moving the fetch up here is what makes that true;
  * `use-care-sync.ts` now just consumes `status`/`refetch` instead of owning either.
  *
  * `getProfileSyncState` is read-only - it never adopts a file's bytes onto the cached profile the way
@@ -59,7 +59,6 @@ export function useDriftState(
   useEffect(() => {
     if (profileId) fetchFor(profileId)
     // profileUpdatedAt is read only to trigger this refetch; fetchFor itself already captures the id.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, profileUpdatedAt, fetchFor])
 
   const refetch = useCallback((): void => {

@@ -18,7 +18,7 @@
 
 import { spawn, execFileSync } from 'node:child_process'
 import { createSocket } from 'node:dgram'
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -46,7 +46,10 @@ function writeAtomic(path, text) {
 
 function ctlFile(seq, command) {
   const lines = ['echo POS $cl_demopos']
-  if (seq !== null) lines.push(`if $q2l_s169_seq != ${seq} then "${command}; set q2l_s169_seq ${seq}; echo ACK ${seq}"`)
+  if (seq !== null)
+    lines.push(
+      `if $q2l_s169_seq != ${seq} then "${command}; set q2l_s169_seq ${seq}; echo ACK ${seq}"`,
+    )
   return `${lines.join('\n')}\n`
 }
 
@@ -71,8 +74,11 @@ async function send(command, timeoutMs = 3000) {
   const mine = seq
   const sentAt = Date.now()
   // Story 166's route: the line sits alone in its own cfg, the guard only execs it.
-  writeAtomic(join(GAME_DIR, `q2l_s169_cmd_${mine}.cfg`), `${command}
-`)
+  writeAtomic(
+    join(GAME_DIR, `q2l_s169_cmd_${mine}.cfg`),
+    `${command}
+`,
+  )
   writeAtomic(join(GAME_DIR, CTL_CFG), ctlFile(mine, `exec q2l_s169_cmd_${mine}.cfg`))
   while (Date.now() - sentAt < timeoutMs) {
     pollLog()
@@ -86,7 +92,15 @@ async function send(command, timeoutMs = 3000) {
 }
 
 function probe(pid, activate = 0) {
-  const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(SPIKE_DIR, 'win-probe.ps1'), '-ProcessId', String(pid)]
+  const args = [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    join(SPIKE_DIR, 'win-probe.ps1'),
+    '-ProcessId',
+    String(pid),
+  ]
   if (activate) args.push('-Activate', String(activate))
   try {
     return JSON.parse(execFileSync('powershell.exe', args, { encoding: 'utf-8' }).trim())
@@ -104,7 +118,12 @@ function posRate(fromT, toT) {
   if (pos.length < 2) return { samples: pos.length }
   const a = pos[0]
   const b = pos[pos.length - 1]
-  return { samples: pos.length, demoSecondsPerSecond: +((b.p - a.p) / ((b.t - a.t) / 1000)).toFixed(2), from: a.p, to: b.p }
+  return {
+    samples: pos.length,
+    demoSecondsPerSecond: +((b.p - a.p) / ((b.t - a.t) / 1000)).toFixed(2),
+    from: a.p,
+    to: b.p,
+  }
 }
 
 function parsePos(text) {
@@ -126,7 +145,11 @@ function otherWindowPid() {
   // Any other visible top-level window will do: prefer VS Code, else Explorer.
   const out = execFileSync(
     'powershell.exe',
-    ['-NoProfile', '-Command', "(Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.ProcessName -match '^(Code|explorer|WindowsTerminal)$' } | Select-Object -First 1).Id"],
+    [
+      '-NoProfile',
+      '-Command',
+      "(Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.ProcessName -match '^(Code|explorer|WindowsTerminal)$' } | Select-Object -First 1).Id",
+    ],
     { encoding: 'utf-8' },
   ).trim()
   return Number(out) || 0
@@ -137,17 +160,56 @@ async function main() {
   rmSync(LOG_PATH, { force: true })
   writeAtomic(
     join(GAME_DIR, LOOP_CFG),
-    ['set q2l_s169_seq 0', `alias q2l_s169_loop "exec ${CTL_CFG}; wait 5; q2l_s169_loop"`, 'q2l_s169_loop', 'echo AFTERLOOP', ''].join('\n'),
+    [
+      'set q2l_s169_seq 0',
+      `alias q2l_s169_loop "exec ${CTL_CFG}; wait 5; q2l_s169_loop"`,
+      'q2l_s169_loop',
+      'echo AFTERLOOP',
+      '',
+    ].join('\n'),
   )
   writeAtomic(join(GAME_DIR, CTL_CFG), ctlFile(null))
 
   const args = [
-    '+set', 'game', GAME,
-    '+set', 'logfile', '2', '+set', 'logfile_flush', '1', '+set', 'logfile_name', LOG_NAME,
-    '+set', 'vid_fullscreen', '0', '+set', 'win_noborder', '1', '+set', 'win_notitle', '1',
-    '+set', 'win_alwaysontop', '1', '+set', 'win_noresize', '1', '+set', 'vid_geometry', GEOMETRY_1,
-    '+set', 'net_clientport', String(CLIENT_PORT),
-    '+demo', DEMO, '+exec', LOOP_CFG, '+echo', 'AFTERARG',
+    '+set',
+    'game',
+    GAME,
+    '+set',
+    'logfile',
+    '2',
+    '+set',
+    'logfile_flush',
+    '1',
+    '+set',
+    'logfile_name',
+    LOG_NAME,
+    '+set',
+    'vid_fullscreen',
+    '0',
+    '+set',
+    'win_noborder',
+    '1',
+    '+set',
+    'win_notitle',
+    '1',
+    '+set',
+    'win_alwaysontop',
+    '1',
+    '+set',
+    'win_noresize',
+    '1',
+    '+set',
+    'vid_geometry',
+    GEOMETRY_1,
+    '+set',
+    'net_clientport',
+    String(CLIENT_PORT),
+    '+demo',
+    DEMO,
+    '+exec',
+    LOOP_CFG,
+    '+echo',
+    'AFTERARG',
   ]
   console.log('launch', args.join(' '))
   const child = spawn(Q2PRO, args, { cwd: ROOT, stdio: 'ignore' })
@@ -169,11 +231,24 @@ async function main() {
   }
 
   const tUdp = Date.now()
-  await sendUdp(Buffer.concat([Buffer.from([0xff, 0xff, 0xff, 0xff]), Buffer.from('cmd\necho UDPHELLO1\0', 'latin1')]))
-  await sendUdp(Buffer.concat([Buffer.from([0xff, 0xff, 0xff, 0xff]), Buffer.from('cmd echo UDPHELLO2\n', 'latin1')]))
+  await sendUdp(
+    Buffer.concat([
+      Buffer.from([0xff, 0xff, 0xff, 0xff]),
+      Buffer.from('cmd\necho UDPHELLO1\0', 'latin1'),
+    ]),
+  )
+  await sendUdp(
+    Buffer.concat([
+      Buffer.from([0xff, 0xff, 0xff, 0xff]),
+      Buffer.from('cmd echo UDPHELLO2\n', 'latin1'),
+    ]),
+  )
   await sleep(1500)
   pollLog()
-  r.probes.P3_oobCmd = log.filter((l) => l.t >= tUdp && !/^(POS|Execing|ACK)/.test(l.line)).map((l) => l.line).slice(0, 10)
+  r.probes.P3_oobCmd = log
+    .filter((l) => l.t >= tUdp && !/^(POS|Execing|ACK)/.test(l.line))
+    .map((l) => l.line)
+    .slice(0, 10)
 
   r.probes.P4_liveGeometry = { send: await send(`set vid_geometry ${GEOMETRY_2}`) }
   await sleep(1500)
@@ -192,7 +267,12 @@ async function main() {
   const afterActivate = probe(child.pid, other)
   await sleep(3000)
   pollLog()
-  r.probes.P5b_unfocused = { otherPid: other, right_after_activate: afterActivate, rate: posRate(tUnfocused, Date.now()), later: probe(child.pid) }
+  r.probes.P5b_unfocused = {
+    otherPid: other,
+    right_after_activate: afterActivate,
+    rate: posRate(tUnfocused, Date.now()),
+    later: probe(child.pid),
+  }
 
   r.probes.P6_fullscreen = { on: await send('set vid_fullscreen 1', 5000) }
   await sleep(3000)
@@ -215,8 +295,15 @@ async function main() {
   r.probes.P8_quitViaControl = { exited: exitedAt !== null, ms: exitedAt ? exitedAt - tQuit : null }
   if (exitedAt === null) child.kill()
 
-  r.notableLines = [...new Set(log.map((l) => l.line).filter((l) => !/^(POS|Execing|ACK)/.test(l)))].slice(0, 80)
-  for (const f of [LOOP_CFG, CTL_CFG, ...Array.from({ length: seq + 1 }, (_, i) => `q2l_s169_cmd_${i}.cfg`)]) rmSync(join(GAME_DIR, f), { force: true })
+  r.notableLines = [
+    ...new Set(log.map((l) => l.line).filter((l) => !/^(POS|Execing|ACK)/.test(l))),
+  ].slice(0, 80)
+  for (const f of [
+    LOOP_CFG,
+    CTL_CFG,
+    ...Array.from({ length: seq + 1 }, (_, i) => `q2l_s169_cmd_${i}.cfg`),
+  ])
+    rmSync(join(GAME_DIR, f), { force: true })
   mkdirSync(join(SPIKE_DIR, 'results'), { recursive: true })
   const out = join(SPIKE_DIR, 'results', `${r.startedAt.replace(/[:.]/g, '-')}.json`)
   writeFileSync(out, JSON.stringify(r, null, 2))

@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type {
   ConfigProfile,
   ImportFilesCommitInput,
@@ -54,22 +55,27 @@ const PREVIEW_OK: ImportPreviewResult = {
   cvarSections: [],
 }
 
-vi.mock('./client', () => ({
-  pickImportFiles: vi.fn(async (): Promise<Outcome<PickedConfigFile[]>> => {
-    pickCalls += 1
-    return { ok: true, value: [FILE_A, FILE_B, FILE_C] }
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    pickImportFiles: vi.fn(async (): Promise<Outcome<PickedConfigFile[]>> => {
+      pickCalls += 1
+      return { ok: true, value: [FILE_A, FILE_B, FILE_C] }
+    }),
+    previewImportFiles: vi.fn(
+      async (input: ImportFilesPreviewInput): Promise<Outcome<ImportPreviewResult>> => {
+        previewCalls.push(input)
+        return { ok: true, value: PREVIEW_OK }
+      },
+    ),
+    commitImportFiles: vi.fn(
+      async (input: ImportFilesCommitInput): Promise<Outcome<ConfigProfile[]>> => {
+        commitCalls.push(input)
+        return { ok: true, value: [] }
+      },
+    ),
   }),
-  previewImportFiles: vi.fn(
-    async (input: ImportFilesPreviewInput): Promise<Outcome<ImportPreviewResult>> => {
-      previewCalls.push(input)
-      return { ok: true, value: PREVIEW_OK }
-    },
-  ),
-  commitImportFiles: vi.fn(async (input: ImportFilesCommitInput): Promise<Outcome<ConfigProfile[]>> => {
-    commitCalls.push(input)
-    return { ok: true, value: [] }
-  }),
-}))
+)
 
 beforeAll(async () => {
   await initI18n('en')
@@ -140,9 +146,7 @@ describe('ImportProfileDialog file list', () => {
     expect(previewCalls[0].fileIds).toEqual(['id-a', 'id-b', 'id-c'])
 
     // Move the first row ("config.cfg") down: a -> [b, a, c].
-    fireEvent.click(
-      within(fileRows()[0]).getByRole('button', { name: 'Move file down' }),
-    )
+    fireEvent.click(within(fileRows()[0]).getByRole('button', { name: 'Move file down' }))
     await waitFor(() => expect(previewCalls).toHaveLength(2))
     expect(previewCalls[1].fileIds).toEqual(['id-b', 'id-a', 'id-c'])
     expect(fileRows().map((row) => row.textContent)).toEqual([
@@ -152,16 +156,12 @@ describe('ImportProfileDialog file list', () => {
     ])
 
     // Move the second row ("config.cfg", now at index 1) back up: [b, a, c] -> [a, b, c].
-    fireEvent.click(
-      within(fileRows()[1]).getByRole('button', { name: 'Move file up' }),
-    )
+    fireEvent.click(within(fileRows()[1]).getByRole('button', { name: 'Move file up' }))
     await waitFor(() => expect(previewCalls).toHaveLength(3))
     expect(previewCalls[2].fileIds).toEqual(['id-a', 'id-b', 'id-c'])
 
     // Remove the last row ("gfx.cfg"): [a, b, c] -> [a, b].
-    fireEvent.click(
-      within(fileRows()[2]).getByRole('button', { name: 'Remove file' }),
-    )
+    fireEvent.click(within(fileRows()[2]).getByRole('button', { name: 'Remove file' }))
     await waitFor(() => expect(previewCalls).toHaveLength(4))
     expect(previewCalls[3].fileIds).toEqual(['id-a', 'id-b'])
     expect(fileRows()).toHaveLength(2)

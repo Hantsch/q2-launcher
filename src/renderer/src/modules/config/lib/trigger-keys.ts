@@ -1,5 +1,5 @@
 /**
- * Trigger-key resolution for the overview keyboard — story 014 D1.
+ * Trigger-key resolution for the overview keyboard — story 014.
  *
  * A layer's trigger key (story 011's `assignLayerTrigger`) is what puts that
  * layer's overrides on the board, so the board itself has to be able to
@@ -11,7 +11,7 @@
  * that renders it.
  */
 
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 
 /** One resolved trigger key: which layer it activates, and whether that layer is the one currently shown. */
 export interface TriggerInfo {

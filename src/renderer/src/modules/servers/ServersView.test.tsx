@@ -9,8 +9,9 @@ import type {
   ServerListEntry,
   ServersScanState,
 } from '@shared/modules/servers'
-import type { ServerListSort } from '@shared/servers/list-sort'
+import { sortServerRows, type ServerListSort } from '@shared/servers/list-sort'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 
 /**
  * Story 116 D5. Mirrors `DownloadsView.test.tsx`'s convention: the module's own typed client
@@ -40,6 +41,7 @@ const {
   getListSortMock,
   setListSortMock,
   readServerDetailMock,
+  setModeMock,
 } = vi.hoisted(() => ({
   readScanMock: vi.fn(),
   startScanMock: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
@@ -48,24 +50,37 @@ const {
   onScanServerMock: vi.fn(),
   listMasterSourcesMock: vi.fn(async () => ({ ok: true as const, value: [] as MasterSource[] })),
   getListSortMock: vi.fn(async () => ({ ok: true as const, value: null as ServerListSort | null })),
-  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({ ok: true as const, value: sort })),
+  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({
+    ok: true as const,
+    value: sort,
+  })),
+  setModeMock: vi.fn(async () => ({ ok: true as const, value: undefined })),
   readServerDetailMock: vi.fn(async () => ({
     ok: true as const,
     value: null as ServerDetail | null,
   })),
 }))
 
-vi.mock('./client', () => ({
-  readScan: readScanMock,
-  startScan: startScanMock,
-  setScanViewActive: setScanViewActiveMock,
-  onScanChanged: onScanChangedMock,
-  onScanServer: onScanServerMock,
-  listMasterSources: listMasterSourcesMock,
-  getListSort: getListSortMock,
-  setListSort: setListSortMock,
-  readServerDetail: readServerDetailMock,
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listQuickFilters: async () => ({ ok: true as const, value: [] }),
+    readScan: readScanMock,
+    startScan: startScanMock,
+    setScanViewActive: setScanViewActiveMock,
+    onScanChanged: onScanChangedMock,
+    onScanServer: onScanServerMock,
+    listMasterSources: listMasterSourcesMock,
+    getListSort: getListSortMock,
+    setListSort: setListSortMock,
+    readServerDetail: readServerDetailMock,
+    setMode: setModeMock,
+  }),
+)
+
+vi.mock('@shared/servers/list-sort', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shared/servers/list-sort')>()
+  return { ...actual, sortServerRows: vi.fn(actual.sortServerRows) }
+})
 
 let ServersView: typeof import('./ServersView').ServersView
 
@@ -106,6 +121,7 @@ const BASE_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 function snapshot(overrides: {
@@ -117,6 +133,8 @@ function snapshot(overrides: {
     // `favourite` is not this test file's concern - always `false` here so the fixture entries
     // (still written as plain `ServerListEntry`s) satisfy `ScanSnapshot.entries`'s `ServerListRow[]`.
     entries: (overrides.entries ?? []).map((entry) => ({ ...entry, favourite: false })),
+    mode: 'online',
+    lan: { lastFinishedAt: null, failureKey: null },
   }
 }
 
@@ -125,6 +143,17 @@ const SELECTED_ENTRY: ServerListEntry = {
   origins: ['manual'],
   status: 'online',
   lastSeenAt: 'x',
+}
+
+/** Opens the mod multi-select if closed, then toggles one option by name. */
+function toggleMod(name: string): void {
+  const trigger = screen.getByTestId('servers-filter-mod')
+  if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger)
+  const option = screen
+    .getAllByTestId('servers-filter-mod-option')
+    .find((el) => el.textContent === name)
+  if (!option) throw new Error(`no mod option ${name}`)
+  fireEvent.click(option)
 }
 
 async function renderView(initial: ScanSnapshot): Promise<void> {
@@ -260,18 +289,18 @@ describe('ServersView - scoped refresh controls (story 117 D5)', () => {
     expect(busy.textContent).toBe('A scan is already running.')
 
     expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
-    expect(
-      (screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled,
-    ).toBe(true)
+    expect((screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
   })
 
   it('disables the toolbar refresh controls while blocked by the game running', async () => {
     await renderView(snapshot({ state: { blockedReason: 'game-running' } }))
 
     expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
-    expect(
-      (screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled,
-    ).toBe(true)
+    expect((screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
     // Blocked is the more specific/urgent reason - the busy banner does not also render.
     expect(screen.queryByTestId('servers-scan-busy')).toBeNull()
   })
@@ -343,9 +372,7 @@ describe('ServersView - list sort (story 119 D3)', () => {
     expect(setListSortMock).toHaveBeenCalledWith({ column: 'name', direction: 'asc' })
     const button = screen.getByTestId('servers-sort-name')
     expect(button.getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByTestId('servers-sort-current').textContent).toBe(
-      'Sorted by Name, ascending',
-    )
+    expect(screen.getByTestId('servers-sort-current').textContent).toBe('Sorted by Name, ascending')
   })
 
   it('restores the persisted sort on mount', async () => {
@@ -358,9 +385,7 @@ describe('ServersView - list sort (story 119 D3)', () => {
 
     const button = await screen.findByTestId('servers-sort-map')
     expect(button.getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByTestId('servers-sort-current').textContent).toBe(
-      'Sorted by Map, descending',
-    )
+    expect(screen.getByTestId('servers-sort-current').textContent).toBe('Sorted by Map, descending')
   })
 })
 
@@ -369,8 +394,22 @@ describe('ServersView - list filter (story 120 D2)', () => {
     await renderView(
       snapshot({
         entries: [
-          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
-          { address: 'b:1', name: 'Bravo', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'baseq2' },
+          {
+            address: 'a:1',
+            name: 'Alpha',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'ctf',
+          },
+          {
+            address: 'b:1',
+            name: 'Bravo',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'baseq2',
+          },
         ],
       }),
     )
@@ -378,7 +417,7 @@ describe('ServersView - list filter (story 120 D2)', () => {
     fireEvent.click(screen.getByTestId('servers-sort-name'))
     await screen.findAllByRole('button', { name: /Alpha|Bravo/ })
 
-    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+    toggleMod('ctf')
 
     const rows = await screen.findAllByRole('button', { name: /Alpha|Bravo/ })
     expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual(['servers-row-a:1'])
@@ -391,8 +430,22 @@ describe('ServersView - list filter (story 120 D2)', () => {
     await renderView(
       snapshot({
         entries: [
-          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
-          { address: 'b:1', name: 'Bravo', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'baseq2' },
+          {
+            address: 'a:1',
+            name: 'Alpha',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'ctf',
+          },
+          {
+            address: 'b:1',
+            name: 'Bravo',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'baseq2',
+          },
         ],
       }),
     )
@@ -401,7 +454,7 @@ describe('ServersView - list filter (story 120 D2)', () => {
     fireEvent.click(rowA)
     expect(rowA.getAttribute('data-selected')).toBe('true')
 
-    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'baseq2' } })
+    toggleMod('baseq2')
 
     await screen.findAllByRole('button', { name: /Bravo/ })
     expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
@@ -413,12 +466,21 @@ describe('ServersView - list filter (story 120 D2)', () => {
     await renderView(
       snapshot({
         entries: [
-          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
+          {
+            address: 'a:1',
+            name: 'Alpha',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'ctf',
+          },
         ],
       }),
     )
 
-    fireEvent.change(screen.getByTestId('servers-filter-search'), { target: { value: 'nope-nothing-matches' } })
+    fireEvent.change(screen.getByTestId('servers-filter-search'), {
+      target: { value: 'nope-nothing-matches' },
+    })
 
     const noMatch = await screen.findByTestId('servers-filter-no-match')
     expect(noMatch.textContent).toContain('No servers match your filters.')
@@ -427,7 +489,7 @@ describe('ServersView - list filter (story 120 D2)', () => {
 })
 
 describe('ServersView - detail pane (story 122 D3)', () => {
-  it("selecting a row opens its detail and the close button closes it", async () => {
+  it('selecting a row opens its detail and the close button closes it', async () => {
     readServerDetailMock.mockResolvedValue({
       ok: true,
       value: {
@@ -465,14 +527,18 @@ describe('ServersView - list status panel (story 121 D1)', () => {
   it('a source failure is shown beside the rows from the other sources', async () => {
     listMasterSourcesMock.mockResolvedValueOnce({
       ok: true,
-      value: [{ id: 'bad-source', type: 'udp-master', address: 'dead.example.com:27900', enabled: true }],
+      value: [
+        { id: 'bad-source', type: 'udp-master', address: 'dead.example.com:27900', enabled: true },
+      ],
     })
 
     await renderView(
       snapshot({
         state: {
           finishedAt: 'x',
-          sourceFailures: [{ sourceId: 'bad-source', reasonKey: 'servers.scan.error.already-running' }],
+          sourceFailures: [
+            { sourceId: 'bad-source', reasonKey: 'servers.scan.error.already-running' },
+          ],
         },
         entries: [
           { address: 'a:1', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
@@ -522,5 +588,190 @@ describe('ServersView - list status panel (story 121 D1)', () => {
     // implementation that calls readScan() on each push but never calls setEntries(...) would
     // still pass the assertions above.
     await screen.findByTestId('servers-row-pushed:1')
+  })
+})
+
+describe('ServersView - Online/LAN toggle (story 196 D4)', () => {
+  it('the mode toggle opens on Online', async () => {
+    await renderView(snapshot({}))
+    expect(screen.getByTestId('servers-mode-online').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('servers-mode-lan').getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByTestId('servers-refresh-favourites').hasAttribute('disabled')).toBe(false)
+  })
+
+  it('resets main to Online before announcing the view active', async () => {
+    setModeMock.mockClear()
+    setScanViewActiveMock.mockClear()
+    const lanSnapshot = snapshot({})
+    lanSnapshot.mode = 'lan'
+    await renderView(lanSnapshot)
+    expect(setModeMock).toHaveBeenCalledWith('online')
+    expect(setScanViewActiveMock).toHaveBeenCalledWith(true)
+    expect(setModeMock.mock.invocationCallOrder[0]).toBeLessThan(
+      setScanViewActiveMock.mock.invocationCallOrder[0],
+    )
+    expect(screen.getByTestId('servers-mode-online').getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('switching to LAN tells main, clears the selection and disables favourites with a visible reason', async () => {
+    await renderView(snapshot({ entries: [SELECTED_ENTRY] }))
+    fireEvent.click(screen.getByTestId('servers-mode-lan'))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(setModeMock).toHaveBeenCalledWith('lan')
+    expect(screen.getByTestId('servers-mode-lan').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('servers-refresh-favourites').hasAttribute('disabled')).toBe(true)
+    expect(screen.getByTestId('servers-lan-favourites-reason').textContent).toContain(
+      'Not available on the LAN',
+    )
+  })
+
+  it('shows a LAN discovery failure as text and keeps the LAN button enabled', async () => {
+    const withFailure = snapshot({})
+    withFailure.lan = { lastFinishedAt: 'x', failureKey: 'servers.lan.error.noInterface' }
+    await renderView(withFailure)
+    fireEvent.click(screen.getByTestId('servers-mode-lan'))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByTestId('servers-lan-failure').textContent).toContain(
+      'No local network connection found.',
+    )
+    expect(screen.getByTestId('servers-mode-lan').hasAttribute('disabled')).toBe(false)
+  })
+})
+
+describe('ServersView - render cost', () => {
+  it('an unrelated re-render does not re-sort the rows', async () => {
+    await renderView(snapshot({ entries: [SELECTED_ENTRY] }))
+    // Saving a quick filter needs a criterion; a filter change alone never re-sorts.
+    fireEvent.click(screen.getByTestId('servers-filter-hide-bots'))
+    const sorts = vi.mocked(sortServerRows).mock.calls.length
+    expect(sorts).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByTestId('servers-quickfilter-save'))
+    await screen.findByTestId('servers-quickfilter-dialog')
+
+    expect(vi.mocked(sortServerRows).mock.calls.length).toBe(sorts)
+  })
+})
+
+describe('ServersView - refresh the shown servers (story 250)', () => {
+  const CTF: ServerListEntry = {
+    address: 'a:1',
+    name: 'Alpha',
+    origins: ['manual'],
+    status: 'online',
+    lastSeenAt: 'x',
+    mod: 'ctf',
+  }
+  const BASEQ2: ServerListEntry = { ...CTF, address: 'b:1', name: 'Bravo', mod: 'baseq2' }
+
+  it('with a filter active the button reads Refresh N shown and starts the addresses scope with the visible rows', async () => {
+    await renderView(snapshot({ entries: [CTF, BASEQ2] }))
+
+    toggleMod('ctf')
+    await screen.findByTestId('servers-row-a:1')
+
+    const button = screen.getByTestId('servers-refresh')
+    expect(button.textContent).toBe('Refresh 1 shown')
+    fireEvent.click(button)
+
+    expect(startScanMock).toHaveBeenCalledWith({ kind: 'addresses', addresses: ['a:1'] }, undefined)
+    expect(startScanMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('checking two mods shows the servers of either, unchecking all shows every row', async () => {
+    const third: ServerListEntry = { ...CTF, address: 'c:1', name: 'Charlie', mod: 'opentdm' }
+    await renderView(snapshot({ entries: [CTF, BASEQ2, third] }))
+
+    toggleMod('ctf')
+    toggleMod('opentdm')
+    await screen.findByTestId('servers-row-c:1')
+    expect(screen.getByTestId('servers-row-a:1')).toBeTruthy()
+    expect(screen.queryByTestId('servers-row-b:1')).toBeNull()
+
+    toggleMod('ctf')
+    toggleMod('opentdm')
+    await screen.findByTestId('servers-row-b:1')
+    expect(screen.getByTestId('servers-row-a:1')).toBeTruthy()
+    expect(screen.getByTestId('servers-row-c:1')).toBeTruthy()
+    expect(screen.getByTestId('servers-filter-mod').textContent).toBe('Any')
+  })
+
+  it('with no filter the button reads Scan now, has no options menu and starts the all scope', async () => {
+    await renderView(snapshot({ entries: [CTF, BASEQ2] }))
+
+    const button = screen.getByTestId('servers-refresh')
+    expect(button.textContent).toBe('Scan now')
+    expect(screen.queryByTestId('servers-refresh-options')).toBeNull()
+    fireEvent.click(button)
+
+    expect(startScanMock).toHaveBeenCalledWith({ kind: 'all' }, undefined)
+  })
+
+  it('Scan all in the options menu starts the all scope while a filter is active', async () => {
+    await renderView(snapshot({ entries: [CTF, BASEQ2] }))
+    toggleMod('ctf')
+    await screen.findByTestId('servers-row-a:1')
+
+    const options = screen.getByTestId('servers-refresh-options')
+    expect(options.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(options)
+    expect(options.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Scan all' }))
+
+    expect(startScanMock).toHaveBeenCalledWith({ kind: 'all' }, undefined)
+    expect(startScanMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('a row that stops matching the filter after a scan.server push leaves the list', async () => {
+    await renderView(snapshot({ entries: [CTF, BASEQ2] }))
+    toggleMod('ctf')
+    await screen.findByTestId('servers-row-a:1')
+
+    readScanMock.mockResolvedValue({
+      ok: true,
+      value: snapshot({ entries: [{ ...CTF, mod: 'baseq2' }, BASEQ2] }),
+    })
+    const pushed = onScanServerMock.mock.calls[0]?.[0] as () => void
+    await act(async () => {
+      pushed()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
+    expect(screen.getByTestId('servers-refresh').textContent).toBe('Refresh 0 shown')
+  })
+
+  it('shows why the button is disabled when the filter leaves no servers', async () => {
+    await renderView(snapshot({ entries: [CTF] }))
+    fireEvent.change(screen.getByTestId('servers-filter-search'), { target: { value: 'nope' } })
+
+    expect((await screen.findByTestId('servers-refresh-none')).textContent).toBe(
+      'No servers shown — use Scan all or clear the filter.',
+    )
+    expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('servers-refresh-options') as HTMLButtonElement).disabled).toBe(
+      false,
+    )
+  })
+
+  it('the refresh-shown button and the options menu are disabled while a scan runs or the game blocks it', async () => {
+    for (const state of [{ running: true }, { blockedReason: 'game-running' as const }]) {
+      await renderView(snapshot({ state, entries: [CTF, BASEQ2] }))
+      toggleMod('ctf')
+      await screen.findByTestId('servers-row-a:1')
+
+      expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
+      expect((screen.getByTestId('servers-refresh-options') as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+      cleanup()
+    }
   })
 })

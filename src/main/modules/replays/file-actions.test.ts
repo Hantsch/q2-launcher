@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { en as enBundle } from '../../../renderer/src/i18n/bundle'
 import { createDemoFileActions, type DemoFileActionsDeps } from './file-actions'
 
 function makeDeps(overrides: Partial<DemoFileActionsDeps> = {}): {
@@ -45,7 +46,10 @@ describe('createDemoFileActions', () => {
     const { deps, reveal, writeClipboard } = makeDeps({
       resolveFile: (id) =>
         id === 'archived'
-          ? { absolutePath: 'C:\\demos\\archive.zip', archiveEntry: { archivePath: 'C:\\demos\\archive.zip', entryPath: 'inner.dm2' } }
+          ? {
+              absolutePath: 'C:\\demos\\archive.zip',
+              archiveEntry: { archivePath: 'C:\\demos\\archive.zip', entryPath: 'inner.dm2' },
+            }
           : undefined,
     })
     const actions = createDemoFileActions(deps)
@@ -64,8 +68,8 @@ describe('createDemoFileActions', () => {
     const revealResult = await actions.reveal('missing')
     const copyResult = await actions.copyPath('missing')
 
-    expect(revealResult).toEqual({ ok: false, reason: 'unknownDemo' })
-    expect(copyResult).toEqual({ ok: false, reason: 'unknownDemo' })
+    expect(revealResult).toEqual({ ok: false, reasonKey: 'replays.play.error.notFound' })
+    expect(copyResult).toEqual({ ok: false, reasonKey: 'replays.play.error.notFound' })
     expect(reveal).not.toHaveBeenCalled()
     expect(writeClipboard).not.toHaveBeenCalled()
   })
@@ -81,8 +85,8 @@ describe('createDemoFileActions', () => {
     const revealResult = await actions.reveal('known')
     const copyResult = await actions.copyPath('known')
 
-    expect(revealResult).toEqual({ ok: false, reason: 'fileMissing' })
-    expect(copyResult).toEqual({ ok: false, reason: 'fileMissing' })
+    expect(revealResult).toEqual({ ok: false, reasonKey: 'replays.play.error.fileMissing' })
+    expect(copyResult).toEqual({ ok: false, reasonKey: 'replays.play.error.fileMissing' })
     expect(reveal).not.toHaveBeenCalled()
     expect(writeClipboard).not.toHaveBeenCalled()
   })
@@ -99,5 +103,39 @@ describe('createDemoFileActions', () => {
 
     expect(result).toEqual({ ok: true })
     expect(reveal).toHaveBeenCalledWith('C:\\demos\\one.dm2')
+  })
+})
+
+function resolvesInEn(key: string): boolean {
+  const en = enBundle as Record<string, unknown>
+  const value = key
+    .split('.')
+    .reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], en)
+  return typeof value === 'string'
+}
+
+describe('refusal keys', () => {
+  it('a refused file action carries the full replays.fileActions key', async () => {
+    const unknown = createDemoFileActions(makeDeps().deps)
+    const missing = createDemoFileActions(
+      makeDeps({
+        stat: async () => {
+          throw Object.assign(new Error('not found'), { code: 'ENOENT' })
+        },
+      }).deps,
+    )
+    const keys = [
+      await unknown.reveal('missing'),
+      await unknown.copyPath('missing'),
+      await missing.reveal('known'),
+      await missing.copyPath('known'),
+    ].map((result) => (result.ok ? null : result.reasonKey))
+    expect(keys).toEqual([
+      'replays.play.error.notFound',
+      'replays.play.error.notFound',
+      'replays.play.error.fileMissing',
+      'replays.play.error.fileMissing',
+    ])
+    for (const key of keys) expect(resolvesInEn(key as string)).toBe(true)
   })
 })

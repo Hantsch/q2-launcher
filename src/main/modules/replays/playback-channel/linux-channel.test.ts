@@ -33,7 +33,7 @@ function makeIo() {
   return { io, stdout, written }
 }
 
-const log = { debug: vi.fn(), warn: vi.fn() }
+const log = { debug: vi.fn(), warn: vi.fn(), error: vi.fn() }
 let gameDirPath = ''
 
 describe('linux playback channel', () => {
@@ -67,7 +67,9 @@ describe('linux playback channel', () => {
     const ch = createLinuxChannel({ io, log, gameDirPath })
     await ch.start()
     vi.advanceTimersByTime(350)
-    expect(written.filter((w) => w === 'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\n')).toHaveLength(3)
+    expect(
+      written.filter((w) => w === 'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\n'),
+    ).toHaveLength(3)
     await ch.close()
   })
 
@@ -106,8 +108,14 @@ describe('linux playback channel', () => {
     expect(ch.display()).toBe('fullscreen')
     expect(seen).toEqual(['fullscreen'])
     written.length = 0
-    expect(ch.send('pause')).toEqual({ ok: false, error: { key: 'replays.playback.error.fullscreen' } })
-    expect(ch.enterFullscreen()).toEqual({ ok: false, error: { key: 'replays.playback.error.fullscreen' } })
+    expect(ch.send('pause')).toEqual({
+      ok: false,
+      error: { key: 'replays.playback.error.fullscreen' },
+    })
+    expect(ch.enterFullscreen()).toEqual({
+      ok: false,
+      error: { key: 'replays.playback.error.fullscreen' },
+    })
     expect(written.filter((w) => !w.startsWith('echo POS'))).toEqual([])
     stdout.write('POS 0:07.0 FS 0\n')
     expect(ch.display()).toBe('stage')

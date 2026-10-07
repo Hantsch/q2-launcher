@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import { WATCHLIST_NAME_MAX, type WatchlistEntry, type WatchlistMatchMode } from '@shared/modules/servers'
+import {
+  WATCHLIST_NAME_MAX,
+  type WatchlistEntry,
+  type WatchlistMatchMode,
+} from '@shared/modules/servers'
+import { refuse, type DomainResult } from '@shared/types'
 
 /**
- * Story 131 D2: the watchlist entry collection's three operations, as pure functions over
+ * Story 131: the watchlist entry collection's three operations, as pure functions over
  * `ServersState['watchlist']` - no I/O, no `AppContext`, mirroring `manual-servers.ts` (story 113
- * D2)'s shape: an injectable `mintId` (defaulting to `randomUUID`) for new ids, and a returned
+ * story 113)'s shape: an injectable `mintId` (defaulting to `randomUUID`) for new ids, and a returned
  * `{ ok: true; list }` / `{ ok: false; reasonKey }` result rather than a thrown error, so a caller
  * never has to distinguish "domain refusal" from "IPC failure".
  *
@@ -14,13 +19,19 @@ import { WATCHLIST_NAME_MAX, type WatchlistEntry, type WatchlistMatchMode } from
  * later deliverable's worker, not this file.
  */
 
-export type WatchlistEntryMutationResult =
-  | { ok: true; list: WatchlistEntry[] }
-  | { ok: false; reasonKey: string }
+export type WatchlistEntryMutationResult = DomainResult<{ list: WatchlistEntry[] }>
+
+type WatchlistNameRefusalKey =
+  | 'servers.watchlist.error.empty'
+  | 'servers.watchlist.error.tooLong'
+  | 'servers.watchlist.error.invalidRegex'
 
 /** Validates `name`/`mode` in the fixed order the story specifies: empty, too long, then (for
  * `'regex'` only) whether the pattern compiles at all. Returns `null` when the input is valid. */
-function validateNameAndMode(name: string, mode: WatchlistMatchMode): string | null {
+function validateNameAndMode(
+  name: string,
+  mode: WatchlistMatchMode,
+): WatchlistNameRefusalKey | null {
   const trimmed = name.trim()
   if (trimmed.length === 0) {
     return 'servers.watchlist.error.empty'
@@ -30,7 +41,6 @@ function validateNameAndMode(name: string, mode: WatchlistMatchMode): string | n
   }
   if (mode === 'regex') {
     try {
-      // eslint-disable-next-line no-new -- compiling only, never run against any string here.
       new RegExp(trimmed, 'i')
     } catch {
       return 'servers.watchlist.error.invalidRegex'
@@ -51,7 +61,7 @@ export function addWatchlistEntry(
 ): WatchlistEntryMutationResult {
   const reasonKey = validateNameAndMode(input.name, input.mode)
   if (reasonKey !== null) {
-    return { ok: false, reasonKey }
+    return refuse(reasonKey)
   }
 
   const entry: WatchlistEntry = {
@@ -74,12 +84,12 @@ export function updateWatchlistEntry(
 ): WatchlistEntryMutationResult {
   const reasonKey = validateNameAndMode(input.name, input.mode)
   if (reasonKey !== null) {
-    return { ok: false, reasonKey }
+    return refuse(reasonKey)
   }
 
   const index = list.findIndex((entry) => entry.id === input.id)
   if (index === -1) {
-    return { ok: false, reasonKey: 'servers.watchlist.error.notFound' }
+    return refuse('servers.watchlist.error.notFound')
   }
 
   const next = [...list]

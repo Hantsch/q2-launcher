@@ -1,6 +1,6 @@
 /**
- * Story 021 D1: the row model behind the Settings tab's dense-rows redesign, regrouped by story
- * 059 D7.
+ * Story 021: the row model behind the Settings tab's dense-rows redesign, regrouped by story
+ * 059.
  *
  * Pure, like every other `lib/*.ts` file in this module (see
  * `engine-scope.ts`) - no DOM, no hooks, no IPC - so grouping, filtering and
@@ -8,7 +8,7 @@
  * (`SettingsTab.tsx`/`CvarRow.tsx`) reads counts and rows off this module
  * instead of recomputing them inline.
  *
- * Story 059 D7 replaces what a group *is*: the fixed Player/Network/Graphics/Sound split by
+ * Story 059 replaces what a group *is*: the fixed Player/Network/Graphics/Sound split by
  * `CvarDef.group` is gone, and rows are grouped by the profile's own `cvarSections`
  * (`@shared/modules/config`'s `ConfigCvarSection`) - ungrouped run first, then one group per
  * sub-section, exactly the shape `controls-row-groups.ts` already gives the Controls grid one level
@@ -18,7 +18,7 @@
  * the same reason: the story's premise is that what Settings shows and what the file gets are the
  * same list, so a cvar the writer would emit must have a row and one it would omit must not.
  *
- * A row is therefore one of two kinds (AC3):
+ * A row is therefore one of two kinds:
  * - `'catalog'` - the name resolves through `findCvar`, so the row keeps today's rich rendering
  *   (label, control, engine facts, caveats).
  * - `'plain'` - a name the catalogue does not know, carried only by `profile.cvars`. Name, text
@@ -35,16 +35,16 @@
  * The effective default follows the same honesty rule story 009 already
  * established for `CvarRow`: an engine only contributes a default when it is
  * in scope *and* the catalog has source-cited facts for it
- * (`hasEngineFacts`/`resolveCvar` from `@shared/config/cvar-facts`). No
+ * (`hasEngineFacts`/`resolveCvar` from `@shared/config/catalog/cvar-facts`). No
  * fallback engine is substituted here - `effectiveDefaultFor` reuses those
  * two primitives instead of re-deriving the "which engine, if any" question.
  */
 
-import type { CvarDef } from '@shared/config/cvar-facts'
-import { hasEngineFacts, resolveCvar } from '@shared/config/cvar-facts'
-import { ALL_CVARS, findCvar } from '@shared/config/cvar-catalog'
-import { cvarChangeKey } from '@shared/config/profile-diff'
-import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render'
+import type { CvarDef } from '@shared/config/catalog/cvar-facts'
+import { hasEngineFacts, resolveCvar } from '@shared/config/catalog/cvar-facts'
+import { ALL_CVARS, findCvar } from '@shared/config/catalog/cvar-catalog'
+import { cvarChangeKey } from '@shared/config/profile/profile-diff'
+import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render/render'
 import type { ConfigCvarSection, ConfigCvarSubsection } from '@shared/modules/config'
 import type { EngineKind } from '@shared/types/engine'
 
@@ -125,7 +125,7 @@ export interface CatalogCvarRow {
   edited: boolean
 }
 
-/** A row for a cvar only `profile.cvars` knows (story 059 D7 / AC3): name, text value, unsaved
+/** A row for a cvar only `profile.cvars` knows (story 059): name, text value, unsaved
  * marker - no def, therefore no facts and nothing to validate against. */
 export interface PlainCvarRow {
   kind: 'plain'
@@ -135,14 +135,14 @@ export interface PlainCvarRow {
 }
 
 /** One renderable row plus whether its current value is unsaved (present in the profile's change
- * set against `profile.baseline`, story 049 D7), so callers never recompute the change-set lookup a
+ * set against `profile.baseline`, story 049), so callers never recompute the change-set lookup a
  * second time for the same row. */
 export type CvarRowEntry = CatalogCvarRow | PlainCvarRow
 
 /** Which of the three kinds of group a `CvarSectionResult` is: one the profile owns, or one of the
  * two reserved buckets the writer appends and the reader never mints as a real section
  * (`render.ts#buildCvarSections`). The reserved two are display-only here - creating, renaming,
- * reordering and deleting (D8) only ever applies to `'section'`. */
+ * reordering and deleting only ever applies to `'section'`. */
 export type CvarGroupKind = 'section' | 'defaults' | 'other'
 
 /** Reserved id for the trailing `Other` bucket. The writer's own label constant
@@ -180,14 +180,14 @@ export interface CvarSectionResult {
   /** Every cvar in this group (its own run *and* its sub-sections), regardless of
    * filter/editedOnly/showAdvanced. */
   total: number
-  /** How many of `total` are unsaved (present in the change set, story 049 D7), regardless of
+  /** How many of `total` are unsaved (present in the change set, story 049), regardless of
    * filter/editedOnly/showAdvanced. */
   edited: number
   /** The section's own (ungrouped) rows to render, after filter, editedOnly and the Advanced
    * collapse - rendered before any sub-section, same order the file is written in. */
   rows: CvarRowEntry[]
   /** One entry per sub-section the section has, in the profile's own order - including an empty
-   * one, which still has to be visible so D8 can rename/reorder/delete it (053 D5's rule). */
+   * one, which still has to be visible so the user can rename/reorder/delete it (053's rule). */
   subgroups: CvarSubgroupResult[]
   /** Rows hidden by the Advanced collapse specifically (not by the filter or editedOnly), across
    * this group's own run and its sub-sections - the count a "N more" affordance would show. May be
@@ -200,7 +200,7 @@ export interface CvarSectionResult {
    * (which can legitimately read 0 while expanded, or while a filter already reveals everything),
    * this is what the "Show/Hide advanced" toggle button's own visibility should gate on - otherwise
    * expanding a group makes its own collapse button disappear, and an active filter can make the
-   * button vanish while rows are still really collapsed underneath it (review finding). A plain row
+   * button vanish while rows are still really collapsed underneath it. A plain row
    * never counts: a non-catalogue cvar is always common (the story's decision). */
   hasAdvanced: boolean
 }
@@ -216,12 +216,12 @@ export interface BuildCvarSectionGroupsOptions {
    * produces no line in the file and no row here. */
   values: Record<string, string>
   /**
-   * Story 049 D7: the current profile's pending change set, scoped to cvars
-   * (`useProfileChanges().changeSet.keys.cvars`, `@shared/config/profile-diff`'s
+   * Story 049: the current profile's pending change set, scoped to cvars
+   * (`useProfileChanges().changeSet.keys.cvars`, `@shared/config/profile/profile-diff`'s
    * `ProfileChangeSet.keys.cvars`) - a set of `cvarChangeKey`-shaped keys. A row is "edited"
-   * (unsaved) exactly when its key is in this set, replacing story 048 D6's renderer-local
+   * (unsaved) exactly when its key is in this set, replacing story 048's renderer-local
    * `baseline`/`isEdited` comparison: the change set is computed main-side from `profile.baseline`
-   * (D1/D2), so it is reseeded at exactly the moments an adopt/conflict-resolution/save happens,
+   *, so it is reseeded at exactly the moments an adopt/conflict-resolution/save happens,
    * never lagging behind a renderer-local snapshot. Defaults to an empty set (nothing pending) so
    * existing callers that only care about grouping/filtering keep working without threading a
    * change set through.
@@ -242,7 +242,7 @@ export interface BuildCvarSectionGroupsOptions {
    */
   labelText?: (def: CvarDef) => string
   descriptionText?: (def: CvarDef) => string
-  /** Restrict rendered rows to edited/unsaved ones (story 049 D7 - present in `unsavedKeys`, not
+  /** Restrict rendered rows to edited/unsaved ones (story 049 - present in `unsavedKeys`, not
    * differing from the catalogue default). Does not affect `total`/`edited` counts. */
   editedOnly?: boolean
   /** Group keys (`cvarGroupKey`) whose Advanced collapse is expanded. A group not listed hides its
@@ -250,7 +250,7 @@ export interface BuildCvarSectionGroupsOptions {
    * is revealed: a filter hit inside a collapsed Advanced section must never look like "no
    * results". */
   expandedSections?: ReadonlySet<string>
-  /** `profile.writeCatalogDefaults` (story 059 D1/D9). `false` means the writer emits no line for a
+  /** `profile.writeCatalogDefaults` (story 059). `false` means the writer emits no line for a
    * catalogue cvar no section placed, so Settings shows no `Defaults` group either - "what Settings
    * shows is what the file gets" (the story's decision) cuts both ways. Any other value, including
    * `undefined` for a profile predating the field, behaves as `true`, the same `!== false`
@@ -467,14 +467,13 @@ function finishGroup(
       rows,
     })),
     advancedHidden:
-      ownSelection.advancedHidden +
-      subSelections.reduce((sum, sub) => sum + sub.advancedHidden, 0),
+      ownSelection.advancedHidden + subSelections.reduce((sum, sub) => sum + sub.advancedHidden, 0),
     hasAdvanced: all.some((row) => !isCommonRow(row)),
   }
 }
 
 /**
- * Groups every cvar the profile has into the profile's own sections (story 059 D7), in profile
+ * Groups every cvar the profile has into the profile's own sections (story 059), in profile
  * order, each with the rows to render and the counts its header needs.
  *
  * Order is the file's order, and for the same reason - `render.ts#buildCvarSections` and this
@@ -482,7 +481,7 @@ function finishGroup(
  *
  * 1. one group per `sections` entry, its own `cvars` first (the ungrouped run), then one subgroup
  *    per `subsections` entry - including an empty one, which still renders so a freshly created
- *    sub-section does not look like it vanished (053 D5's rule);
+ *    sub-section does not look like it vanished (053's rule);
  * 2. the reserved `Defaults` group - every catalogue cvar no section placed - but only when
  *    `writeCatalogDefaults !== false`, and only when it has anything to hold (the writer drops an
  *    empty block, so a template profile, which places all of `ALL_CVARS`, never shows one);
@@ -490,7 +489,7 @@ function finishGroup(
  *    alphabetically exactly as the writer sorts its own trailing bucket, and never gated by the
  *    toggle: an unrecognised cvar has no catalogue default to omit in the first place.
  *
- * Together (2) and (3) are what makes AC3's "every cvar in the profile has a row, never hidden"
+ * Together (2) and (3) are what makes the "every cvar in the profile has a row, never hidden"
  * true for a profile whose sections do not mention everything it stores - an imported or migrated
  * one, or one that predates `cvarSections` entirely.
  */

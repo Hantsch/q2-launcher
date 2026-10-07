@@ -10,7 +10,7 @@ import { stack } from './layout'
 import { DashboardTile, type TileKeyboardHandlers } from './DashboardTile'
 
 /**
- * Story 086 D3: renders a `HomeLayout` one of two ways, decided purely by the dashboard container's
+ * Story 086: renders a `HomeLayout` one of two ways, decided purely by the dashboard container's
  * own measured `width` (never `window.innerWidth` - Decisions (Sprint), so the threshold is
  * reachable at the window's own 940px minimum):
  *
@@ -19,7 +19,7 @@ import { DashboardTile, type TileKeyboardHandlers } from './DashboardTile'
  *   React's `style` prop - a CSSOM write, never a parsed style attribute string (the production CSP
  *   rule, ARCHITECTURE.md). This is a direct rendering of `layout.tiles`, nothing more: a gap
  *   between tiles renders as empty grid cells, never compacted.
- * - `width < NARROW_THRESHOLD_PX`: `stack()` (the D2 pure engine)'s row-major reading order,
+ * - `width < NARROW_THRESHOLD_PX`: `stack()` (the pure layout engine)'s row-major reading order,
  *   rendered as a plain single column, full width, ignoring each tile's stored `w`/`h` - visual
  *   order only. The stored geometry is untouched underneath; nothing here ever calls
  *   `setHomeLayout`, so widening back out restores the grid exactly.
@@ -28,18 +28,18 @@ import { DashboardTile, type TileKeyboardHandlers } from './DashboardTile'
  * through to grid mode rather than narrow mode, so a not-yet-measured container never
  * flash-renders as a single column.
  *
- * Story 086 D4: `arrangeMode`/`onRemoveTile` are threaded straight down to every `DashboardTile` -
+ * Story 086: `arrangeMode`/`onRemoveTile` are threaded straight down to every `DashboardTile` -
  * this component decides nothing about arrange mode itself beyond passing it on. `Dashboard.tsx`
  * already folds its own `isNarrow` guard into `arrangeMode` before it reaches here, so the stack
  * branch below never actually receives `true` in practice, but it still passes the prop through
  * uniformly rather than special-casing narrow mode a second time.
  *
- * Story 086 D5: `gridRef` is attached to whichever root actually renders. `Dashboard.tsx` reads its
+ * Story 086: `gridRef` is attached to whichever root actually renders. `Dashboard.tsx` reads its
  * `getBoundingClientRect()` to turn a pointer position into a grid cell for a drag out of the
  * catalog - its own outer container also spans the arrange-bar slot, so measuring that would offset
  * every dropped tile by the header's height.
  *
- * Story 086 D6: `TileKeyboardHandlers` (`onKeyboardChange`/`onKeyboardCancel`/`onAnnounce`) is
+ * Story 086: `TileKeyboardHandlers` (`onKeyboardChange`/`onKeyboardCancel`/`onAnnounce`) is
  * threaded straight down to every tile exactly like `onRemoveTile` - the keyboard lift state machine
  * lives on the tile's grip (`useTileLift`), its reducer and its `setHomeLayout` call live in
  * `Dashboard.tsx`, and this component adds no logic to either end. Spread as one group rather than

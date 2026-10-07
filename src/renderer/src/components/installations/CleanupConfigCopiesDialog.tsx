@@ -5,7 +5,7 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 
 /**
- * Story 058 D6: the redundant-config-copies cleanup as an action on the installation.
+ * Story 058: the redundant-config-copies cleanup as an action on the installation.
  *
  * Modal chrome only - the scan/apply/undo flow and its backup-once contract stay entirely in
  * `CleanupPanel` (config module) and its main-process half. Library contributes the trigger and
@@ -31,10 +31,10 @@ export function CleanupConfigCopiesDialog({ installationId }: { installationId: 
       title={t('dialog.cleanup.title')}
       description={t('dialog.cleanup.description', { name: installation.name })}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <Button variant="ghost" onClick={closeDialog}>
-          {t('common.close')}
+          {t('common.action.close')}
         </Button>
       }
     >

@@ -104,7 +104,7 @@ New tab in the existing config module; no new module, no new IPC. Two shared-lay
 1. **Shared — name space index.** `src/shared/config/alias-references.ts`: add
    `buildAliasIndex(sources)` returning one row per defined name:
    `{ name, origin: 'user' | 'generated' | 'layer', ownerActionId? , ownerLayerName?, editable,
-   referrers: AliasReferrer[], duplicateOf: string[] }`. Sources = actions + binds + layers
+referrers: AliasReferrer[], duplicateOf: string[] }`. Sources = actions + binds + layers
    (`generateLayerAliases` from `alt-layers.ts` for the layer names, `aliasNameFor` from
    `alias-render.ts` for user/generated). Generalise the existing `findAliasReferrers(action, …)`
    into a by-name core so it also works for names that have no owning action; keep the old
@@ -203,7 +203,7 @@ with no axe violations.
 
 ## Model Hints
 
-- `D1 → deliverable-hard` — it rewrites the alias reference graph *and* re-points
+- `D1 → deliverable-hard` — it rewrites the alias reference graph _and_ re-points
   `validate-actions.ts` at it; a missed reference source (layer overrides, secondary binds,
   self-mirroring aliases) silently turns a referenced alias into "unreferenced" and lets Care
   offer a destructive tidy-up. This is the `alias-references.ts` area where 039 needed four review
@@ -258,6 +258,7 @@ registration. All seven landed; see `docs/sprints/S09/progress.md` for the times
 `044: Aliases tab — one surface for the alias name space, backed by one reference graph`
 
 **Verification:**
+
 - `npm run typecheck` — clean.
 - `npm run build` — clean.
 - `npm test` — 1764/1765 passing; the one failure
@@ -274,7 +275,8 @@ registration. All seven landed; see `docs/sprints/S09/progress.md` for the times
   (see Decisions); 2 were deliberately left as documented, non-blocking gaps.
 
 **Decisions (implementation):**
-- Rows in the shared index are one per *definition*, not per name — a name collision (e.g. a user
+
+- Rows in the shared index are one per _definition_, not per name — a name collision (e.g. a user
   alias vs. a layer alias) produces two rows that list each other in `duplicateOf`, which is what
   lets both AC 8 (duplicate flagged on both rows) and `validate-actions.ts`'s existing
   entry-vs-entry duplicate finding coexist without merging distinct kinds of collisions.

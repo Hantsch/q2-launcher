@@ -12,8 +12,18 @@ log.errorHandler.startCatching({ showDialog: false })
 
 export type Logger = ReturnType<typeof log.scope>
 
-export function scopedLogger(scope: string): Logger {
-  return log.scope(scope)
+export type ScopedLogger = Logger & {
+  /** A swallowed failure: logs `message` at `warn` with the error as the last argument. */
+  caught(message: string, error: unknown): void
+}
+
+export function scopedLogger(scope: string): ScopedLogger {
+  const scoped = log.scope(scope)
+  return Object.assign(scoped, {
+    caught(message: string, error: unknown): void {
+      scoped.warn(message, error)
+    },
+  })
 }
 
 export const logger = scopedLogger('main')

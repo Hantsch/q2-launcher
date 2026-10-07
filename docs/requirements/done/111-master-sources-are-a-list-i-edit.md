@@ -60,7 +60,7 @@ renderer-facing IPC payload in this repo already carries.
   address and enabled; an opaque `id` is added because remove/toggle/reorder need a stable handle
   that survives an address edit.
 - **Ids are minted in main, never taken from the renderer.** A renderer-supplied id is only ever
-  *looked up* against the stored list; an unknown id is a refusal — CLAUDE.md's "renderer input is
+  _looked up_ against the stored list; an unknown id is a refusal — CLAUDE.md's "renderer input is
   never trusted" applied to identifiers, not just paths.
 - **The three shipped defaults carry fixed, documented ids** (e.g. `default-q2servers-udp`), so the
   seeded list is deterministic and a test can assert it without depending on a random uuid.
@@ -80,7 +80,7 @@ renderer-facing IPC payload in this repo already carries.
   form `resolveHttpListSource(url, …)` takes.
 - **`raw=1` vs `raw=2` is not a stored field.** It rides in the URL the user edits; the scan derives
   the decoder from the query at scan time ([[114]]). Keeps the entry at the concept's three fields.
-- **Rejections are reason *codes* mapped to i18n keys** (`servers.sources.reject.<reason>`),
+- **Rejections are reason _codes_ mapped to i18n keys** (`servers.sources.reject.<reason>`),
   mirroring `serverAddressRejectionKey()` — main never sends prose across IPC.
 - **Handlers report a domain refusal as a returned result union**, not a thrown error: the module
   registry turns a throw into the generic `modules.error.handlerFailed`, which would lose AC4's
@@ -124,46 +124,46 @@ renderer-facing IPC payload in this repo already carries.
 ## Deliverables
 
 - [x] **D1 — the source shape, its defaults and its address rules (shared, pure).**
-  `src/shared/modules/servers.ts` (types, `masterSourceSchema`, `DEFAULT_MASTER_SOURCES`, the five
-  handler names + payload schemas + `SERVERS_HANDLER_SCHEMAS` entries, result union) and new
-  `src/shared/servers/master-source-address.ts`. Mirror: `src/shared/servers/address.ts` (reason
-  codes → i18n key). Tests: new `src/shared/servers/master-source-address.test.ts` (valid/invalid per
-  type, port defaulting, normalization) and extend `src/shared/modules/servers.test.ts` (every
-  handler has a schema; the three defaults are exactly the concept's, correctly typed).
-  *Accepted when:* the constant and the validator exist, are pure, and their tests pass.
+      `src/shared/modules/servers.ts` (types, `masterSourceSchema`, `DEFAULT_MASTER_SOURCES`, the five
+      handler names + payload schemas + `SERVERS_HANDLER_SCHEMAS` entries, result union) and new
+      `src/shared/servers/master-source-address.ts`. Mirror: `src/shared/servers/address.ts` (reason
+      codes → i18n key). Tests: new `src/shared/servers/master-source-address.test.ts` (valid/invalid per
+      type, port defaulting, normalization) and extend `src/shared/modules/servers.test.ts` (every
+      handler has a schema; the three defaults are exactly the concept's, correctly typed).
+      _Accepted when:_ the constant and the validator exist, are pure, and their tests pass.
 
 - [x] **D2 — the shipped defaults live in [[110]]'s state key.** Verify 110's landed shape, then give
-  the `sources` field `.default(DEFAULT_MASTER_SOURCES)`; touch `src/main/lib/schemas.ts`
-  (parse/default), `src/main/services/state.ts` only if its default object names the field
-  literally. Mirror: `parseHomeLayout`/`DEFAULT_HOME_LAYOUT`. Test in `src/main/lib/schemas.test.ts`:
-  a `state.json` without the key, and one with the key but no `sources`, both yield the three
-  defaults; a stored `[]` stays empty; one malformed source row is dropped, siblings survive.
-  *Accepted when:* a fresh profile has the three defaults and no existing 110 test regresses.
+      the `sources` field `.default(DEFAULT_MASTER_SOURCES)`; touch `src/main/lib/schemas.ts`
+      (parse/default), `src/main/services/state.ts` only if its default object names the field
+      literally. Mirror: `parseHomeLayout`/`DEFAULT_HOME_LAYOUT`. Test in `src/main/lib/schemas.test.ts`:
+      a `state.json` without the key, and one with the key but no `sources`, both yield the three
+      defaults; a stored `[]` stays empty; one malformed source row is dropped, siblings survive.
+      _Accepted when:_ a fresh profile has the three defaults and no existing 110 test regresses.
 
 - [x] **D3 — main-side CRUD and its handlers.** New `src/main/modules/servers/master-sources.ts` (pure
-  `addSource`/`removeSource`/`updateSource`/`reorderSources` returning new-list-or-reason) and
-  `src/main/modules/servers/index.ts` registering the five handlers against `app.state`, persisting
-  on every mutation. Mirror: `src/main/modules/servers/index.ts`'s existing `handle(...)` call.
-  Tests: new `src/main/modules/servers/master-sources.test.ts` (each op, unknown id, malformed
-  address, non-permutation reorder, disable keeps type+address) and `index.test.ts` (a handler
-  round-trips through a fake `StateStore`).
-  *Accepted when:* every op persists, and every refusal carries a reason code.
+      `addSource`/`removeSource`/`updateSource`/`reorderSources` returning new-list-or-reason) and
+      `src/main/modules/servers/index.ts` registering the five handlers against `app.state`, persisting
+      on every mutation. Mirror: `src/main/modules/servers/index.ts`'s existing `handle(...)` call.
+      Tests: new `src/main/modules/servers/master-sources.test.ts` (each op, unknown id, malformed
+      address, non-permutation reorder, disable keeps type+address) and `index.test.ts` (a handler
+      round-trips through a fake `StateStore`).
+      _Accepted when:_ every op persists, and every refusal carries a reason code.
 
 - [x] **D4 — the settings section a user actually edits.**
-  `src/renderer/src/modules/servers/client.ts`, `ServersSettingsSection.tsx` (+ a row component if
-  it grows past ~150 lines), `src/renderer/src/i18n/locales/en.json`. Mirror:
-  `modules/downloads/DownloadsSettingsSection.tsx` for the section shape and
-  `components/dnd/SortableList.tsx` (as used in `modules/home/dashboard/Dashboard.tsx`) for reorder.
-  Stable testids: `servers-sources-list`, `servers-source-row-<id>`, `servers-source-add-type`,
-  `servers-source-add-address`, `servers-source-add-submit`, `servers-source-toggle`,
-  `servers-source-remove`, `servers-source-error`.
-  *Accepted when:* all four actions work against the real handlers and a refusal shows its reason.
+      `src/renderer/src/modules/servers/client.ts`, `ServersSettingsSection.tsx` (+ a row component if
+      it grows past ~150 lines), `src/renderer/src/i18n/locales/en.json`. Mirror:
+      `modules/downloads/DownloadsSettingsSection.tsx` for the section shape and
+      `components/dnd/SortableList.tsx` (as used in `modules/home/dashboard/Dashboard.tsx`) for reorder.
+      Stable testids: `servers-sources-list`, `servers-source-row-<id>`, `servers-source-add-type`,
+      `servers-source-add-address`, `servers-source-add-submit`, `servers-source-toggle`,
+      `servers-source-remove`, `servers-source-error`.
+      _Accepted when:_ all four actions work against the real handlers and a refusal shows its reason.
 
 - [x] **D5 — the flow that proves it end to end.** New `scripts/flows/servers-master-sources.mjs`
-  (mirror: `scripts/flows/settings-downloads-section.mjs` for navigation, `news-feed.mjs` for the
-  restart phase) plus a `CHANGELOG.md` entry under the current version's `### Added`.
-  *Accepted when:* `npm run ui:flow -- servers-master-sources` passes and the flow's steps are named
-  after the ACs they prove.
+      (mirror: `scripts/flows/settings-downloads-section.mjs` for navigation, `news-feed.mjs` for the
+      restart phase) plus a `CHANGELOG.md` entry under the current version's `### Added`.
+      _Accepted when:_ `npm run ui:flow -- servers-master-sources` passes and the flow's steps are named
+      after the ACs they prove.
 
 ## Model Hints
 
@@ -210,17 +210,19 @@ option labels were hardcoded English literals instead of the already-defined
 `MasterSourceRow.tsx`.
 
 **Commit message:**
+
 ```
 111: master sources are a list i edit
 ```
 
 **Verification — narrow gate:**
+
 - `npm run build` — clean.
 - `npm run typecheck` (node + web) — clean, re-checked after the post-review i18n fix.
 - `test-story` (`npx vitest run --changed HEAD`) — 1384/1386 passed. Two failures
   (`AppShell.test.tsx` › "falls back to PlannedModuleView…", `ServersSettingsSection.test.tsx` ›
   "the servers renderer module contributes a settings section and no view") are `Test timed out in
-  5000ms` on a dynamic `import()`, reproduced identically when the same two files are run in
+5000ms` on a dynamic `import()`, reproduced identically when the same two files are run in
   isolation against the story's own unmodified HEAD state and pass individually with a higher
   timeout — pre-existing test-runner flake under load (import contention when ~80 files run at
   once), not a regression from this story. Re-run after the post-review i18n fix:
@@ -237,8 +239,9 @@ option labels were hardcoded English literals instead of the already-defined
   a style nit, not a correctness or guardrail issue.
 
 **AC → test mapping, as verified:**
+
 - AC1 — `src/main/lib/schemas.test.ts` (fresh/missing-key state yields the three shipped sources)
-  + e2e step "a fresh profile shows the three shipped sources, correctly typed (AC1)" — both pass.
+  - e2e step "a fresh profile shows the three shipped sources, correctly typed (AC1)" — both pass.
 - AC2 — e2e steps "add, remove, reorder and toggle each persist immediately (AC2)" +
   `src/main/modules/servers/master-sources.test.ts` "every operation returns the new persisted
   list" — both pass.
@@ -255,6 +258,7 @@ option labels were hardcoded English literals instead of the already-defined
 - No `manual residue` entries — every criterion is automated.
 
 **Decisions (implementation-time, beyond what `## Decisions (Sprint)` already recorded):**
+
 - Fixed a fresh-install gap during D2: `DEFAULT_SERVERS_STATE.sources` (in
   `src/shared/modules/servers.ts`) still had `sources: []` after D1 landed the `DEFAULT_MASTER_SOURCES`
   constant — `src/main/services/state.ts`'s `defaults()` clones that constant directly for a

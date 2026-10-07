@@ -1,3 +1,5 @@
+import fixtureConstants from '../fixture-constants.json'
+
 /** Locale ids the launcher ships. `system` follows the OS language. */
 export type LocaleSetting = 'system' | 'en'
 
@@ -19,16 +21,13 @@ export interface LauncherSettings {
   deepScanDrives: string[]
 }
 
+// Data lives in JSON so the plain-Node fixture writer reads the same values. The JSON types widen
+// `locale`/`motion` to `string`, hence the narrowing cast.
 export const DEFAULT_SETTINGS: LauncherSettings = {
-  locale: 'system',
-  motion: 'system',
-  activeInstallationId: null,
-  lastRoute: '/home',
-  minimizeOnLaunch: true,
-  closeAfterLaunch: false,
-  confirmBeforeRemoving: true,
-  scanOnFirstRun: true,
-  deepScanDrives: [],
+  ...fixtureConstants.defaultSettings,
+  locale: fixtureConstants.defaultSettings.locale as LocaleSetting,
+  motion: fixtureConstants.defaultSettings.motion as MotionSetting,
+  deepScanDrives: fixtureConstants.defaultSettings.deepScanDrives as string[],
 }
 
 export interface WindowState {

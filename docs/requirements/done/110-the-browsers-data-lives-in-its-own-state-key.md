@@ -77,8 +77,8 @@ guardrails — see `## Decisions (Sprint)`. -->
   milestone feature and AC1's enumeration is the binding list; the key is additive, so it costs
   nothing to add then.
 - **Entry shapes are minimal and address-keyed**: source `{ id, type: 'udp-master' | 'http-list',
-  address, enabled }`, favourite/manual `{ address, addedAt }`, history `{ address,
-  lastConnectedAt }` — the smallest shape the concept (§11, §17) and 111–113's own criteria name,
+address, enabled }`, favourite/manual `{ address, addedAt }`, history `{ address,
+lastConnectedAt }` — the smallest shape the concept (§11, §17) and 111–113's own criteria name,
   nothing invented beyond it.
 - **`DEFAULT_SERVERS_STATE` ships empty collections, not the three shipped master sources** — AC3/AC5
   ask for a "safe empty default"; seeding the defaults is [[111]] AC1's own job and it changes this
@@ -98,7 +98,7 @@ guardrails — see `## Decisions (Sprint)`. -->
   read like "the server list"; the pair still follows the `homeLayout()`/`setHomeLayout()` wiring
   through `JsonStore` that AC4 names.
 - **No e2e flow for this story** — the profile's `ui-acceptance-required` binds criteria describing
-  something the *user does*; this story has no surface at all, so every criterion is core-level and
+  something the _user does_; this story has no surface at all, so every criterion is core-level and
   covered by `test`.
 - **No CHANGELOG entry** — nothing about this story is visible to a user; the repo's changelog rule
   is for user-facing changes only.
@@ -206,11 +206,13 @@ getter/setter pair, with no `STATE_SCHEMA_VERSION` bump, no migration entry and 
 `LauncherSettings` change.
 
 **Commit message:**
+
 ```
 110: give the servers module its own state.json key
 ```
 
 **Verification — narrow gate:**
+
 - `npm run build` — clean.
 - `npm run typecheck` (`typecheck:node` + `typecheck:web`) — clean.
 - `npx vitest run --changed HEAD` (test-story) — 15 files, 834 tests, all passed; this includes
@@ -226,6 +228,7 @@ getter/setter pair, with no `STATE_SCHEMA_VERSION` bump, no migration entry and 
   installation id anywhere).
 
 **AC → test mapping, as verified:**
+
 - AC1 → `state.test.ts` › "the servers key is its own top-level state key and LauncherSettings is
   untouched" — passed.
 - AC2 → `servers.test.ts` › "the persisted servers state has a zod schema in the module's shared
@@ -242,8 +245,9 @@ getter/setter pair, with no `STATE_SCHEMA_VERSION` bump, no migration entry and 
 - No manual residue.
 
 **Decisions (build-time, within plan/AC bounds):**
+
 - Provisional `scan` defaults picked as `concurrency: 8, timeoutMs: 2000, retries: 1,
-  minSpacingMs: 50` — the story explicitly defers the real numbers to story 115; these are
+minSpacingMs: 50` — the story explicitly defers the real numbers to story 115; these are
   placeholders only, consistent with `DEFAULT_SERVERS_STATE` otherwise shipping empty
   collections.
 - D2 re-validates addresses via `parseServerAddress` for all four address-bearing collections

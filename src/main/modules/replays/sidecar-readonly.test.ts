@@ -135,6 +135,9 @@ describe('sidecar read path never writes', () => {
         // deliberate second writer, given the store by index.ts (it never constructs one itself).
         'src/main/modules/replays/demo-rename.ts',
         'src/main/modules/replays/demo-rename.test.ts',
+        // Bulk tagging writes each demo's sidecar through the store index.ts hands it (story 244)
+        'src/main/modules/replays/demo-bulk-tags.ts',
+        'src/main/modules/replays/demo-bulk-tags.test.ts',
       ])
 
       const importSpecifierRe = /from\s+['"]([^'"]*sidecar-store)['"]/g
@@ -146,7 +149,11 @@ describe('sidecar read path never writes', () => {
           const full = join(dirPath, entry.name)
           if (entry.isDirectory()) {
             files.push(...(await collectTsFiles(full)))
-          } else if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) {
+          } else if (
+            entry.isFile() &&
+            entry.name.endsWith('.ts') &&
+            !entry.name.endsWith('.test.ts')
+          ) {
             files.push(full)
           } else if (entry.isFile() && entry.name.endsWith('.test.ts')) {
             // Test files are scanned too (they're allowed importers, but an unexpected non-listed
@@ -173,9 +180,10 @@ describe('sidecar read path never writes', () => {
         }
       }
 
-      expect(unexpectedImporters, `unexpected importers of sidecar-store: ${unexpectedImporters.join(', ')}`).toEqual(
-        [],
-      )
+      expect(
+        unexpectedImporters,
+        `unexpected importers of sidecar-store: ${unexpectedImporters.join(', ')}`,
+      ).toEqual([])
     })
   })
 })

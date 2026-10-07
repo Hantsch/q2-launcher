@@ -9,9 +9,8 @@
 // ## Wire protocol - mirrored, not imported
 //
 // `scripts/*.mjs` never imports `src/` TypeScript (see `scripts/lib/fixture.mjs`'s own header
-// comment) - `encodeLatin1`/`buildInfoReplyBytes`/`buildStatusReplyBytes`/`decodeQueryKind` below are
-// copied verbatim from `scripts/flows/servers-no-scan-while-playing.mjs` (116 D6), which itself
-// mirrors `src/main/modules/servers/scan-integration.test.ts`'s `bindResponder`/`decodeQueryKind`.
+// comment) - the reply builders and responder helpers come from
+// `scripts/lib/servers-stub.mjs`, which mirrors `src/main/modules/servers/scan-integration.test.ts`.
 //
 // ## Three responders instead of one - the reusable helper this D asks for
 //
@@ -49,8 +48,9 @@
 // attribute 116's flow reads). `module:invoke` direct calls (`scan.read`) prove the "rest of the
 // list is untouched" half of AC2/AC3 - a screenshot alone cannot prove a field-by-field data
 // survival, only that a row still exists on screen.
-import { createSocket } from 'node:dgram'
 import { SERVERS_DISABLED_SOURCES, writePopulatedFixture } from '../lib/fixture.mjs'
+import { makeResponderBinder, closeResponder } from '../lib/servers-stub.mjs'
+import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
 
 export const variant = 'servers-scoped-refresh'
 
@@ -60,39 +60,6 @@ const TIMEOUT_MS = 8_000
  * `SCAN_SETTLE_TIMEOUT_MS`. */
 const SCAN_SETTLE_TIMEOUT_MS = 15_000
 
-const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
-
-function encodeLatin1(text) {
-  const bytes = Buffer.alloc(text.length)
-  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff
-  return bytes
-}
-
-function buildInfoReplyBytes(serverinfoLine) {
-  // A real `info` reply is not an infostring but Quake II's `"%16s %8s %2i/%2i\n"` summary line
-  // (`src/shared/servers/reply-fixtures.ts`'s `formatInfoLine`) - only these four keys survive.
-  const parts = serverinfoLine.split('\\').slice(1)
-  const kv = {}
-  for (let i = 0; i + 1 < parts.length; i += 2) kv[parts[i]] = parts[i + 1]
-  const count = (value) => (/^\d+$/.test(value ?? '') ? value : '0') // `%2i` always prints a number
-  const line =
-    `${(kv.hostname ?? '').padStart(16)} ${(kv.mapname ?? '').padStart(8)} ` +
-    `${count(kv.clients).padStart(2)}/${count(kv.maxclients).padStart(2)}\n`
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
-}
-
-function buildStatusReplyBytes(serverinfoLine, playerLines) {
-  const players = playerLines.map((line) => `\n${line}`).join('')
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}${players}`)])
-}
-
-function decodeQueryKind(message) {
-  const text = message.subarray(4).toString('latin1')
-  if (text.startsWith('info')) return 'info'
-  if (text.startsWith('status')) return 'status'
-  return 'unknown'
-}
-
 /**
  * Binds one loopback responder answering both `info` and `status` queries with its own
  * hostname/player roster, and tracks how many of each kind it has received since the last
@@ -100,29 +67,16 @@ function decodeQueryKind(message) {
  * zero), so a round that reaches this address exercises stage 2's `status` query too, not only
  * stage 1's `info`.
  */
-async function bindResponder(hostname, playerLines) {
-  const socket = createSocket('udp4')
-  await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
-  const port = socket.address().port
-  const address = `127.0.0.1:${port}`
-  const infoLine =
-    `\\gamename\\baseq2\\hostname\\${hostname}\\mapname\\q2dm1\\clients\\${playerLines.length}` +
-    `\\maxclients\\8\\version\\3.20`
-  const responder = { socket, port, address, hostname, log: { info: 0, status: 0 }, closed: false }
-
-  socket.on('message', (message, rinfo) => {
-    const kind = decodeQueryKind(message)
-    if (kind === 'info') {
-      responder.log.info += 1
-      socket.send(buildInfoReplyBytes(infoLine), rinfo.port, rinfo.address)
-    } else if (kind === 'status') {
-      responder.log.status += 1
-      socket.send(buildStatusReplyBytes(infoLine, playerLines), rinfo.port, rinfo.address)
-    }
-  })
-
-  return responder
-}
+const bindResponder = makeResponderBinder(
+  (hostname, playerLines) => ({
+    infoLine:
+      `\\gamename\\baseq2\\hostname\\${hostname}\\mapname\\q2dm1\\clients\\${playerLines.length}` +
+      `\\maxclients\\8\\version\\3.20`,
+    playerLines,
+    extra: { hostname },
+  }),
+  { counted: true },
+)
 
 /** A snapshot of one responder's received-packet counts since the last reset - a plain copy, so a
  * caller can hold onto "what this round saw" across the very next `resetPacketLogs()` call. */
@@ -137,12 +91,6 @@ function resetPacketLogs(responders) {
     responder.log.info = 0
     responder.log.status = 0
   }
-}
-
-async function closeResponder(responder) {
-  if (responder.closed) return
-  responder.closed = true
-  await new Promise((resolve) => responder.socket.close(() => resolve()))
 }
 
 /** A fixed ISO instant, mirroring every fixture writer's "never `Date.now()`" discipline
@@ -204,29 +152,6 @@ export async function teardown() {
 async function invokeScanRead(page) {
   return page.evaluate(() =>
     window.q2.invoke('module:invoke', { moduleId: 'servers', type: 'scan.read' }),
-  )
-}
-
-function scanStatusLocator(page) {
-  return page.getByTestId('servers-scan-status')
-}
-
-async function readFinishedAt(page) {
-  return (await scanStatusLocator(page).getAttribute('data-finished-at')) ?? ''
-}
-
-async function waitForFinishedAtChange(page, previous, timeout) {
-  await page.waitForFunction(
-    (before) => {
-      const el = document.querySelector('[data-testid="servers-scan-status"]')
-      return (
-        el?.getAttribute('data-running') === 'false' &&
-        (el?.getAttribute('data-finished-at') ?? '') !== before &&
-        (el?.getAttribute('data-finished-at') ?? '') !== ''
-      )
-    },
-    previous,
-    { timeout },
   )
 }
 
@@ -389,6 +314,6 @@ export default async function serversScopedRefresh({ page, step, shot }) {
     'servers-scoped-refresh: "Refresh servers" swept all three addresses through both stages ' +
       '(AC1), "Refresh favourites" queried only the favourite and left the other two rows byte-' +
       'for-byte untouched (AC2), and "Refresh this server" queried exactly the selected address ' +
-      "with a single status query and left every other row untouched (AC3)",
+      'with a single status query and left every other row untouched (AC3)',
   )
 }

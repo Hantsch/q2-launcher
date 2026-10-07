@@ -10,6 +10,7 @@ import { Field, Input, PathPicker, Select } from '../ui/controls'
 import { Badge, Spinner } from '../ui/primitives'
 import { EngineBadge } from '../ui/EngineBadge'
 import { Modal } from '../ui/Modal'
+import { useSubmitting } from '../ui/useSubmitting'
 
 /**
  * Add an installation that already exists on disk.
@@ -28,12 +29,12 @@ export function AddExistingDialog() {
   const [executablePath, setExecutablePath] = useState('')
   const [inspection, setInspection] = useState<ValidationResult | null>(null)
   const [inspecting, setInspecting] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   const pickFolder = async (): Promise<void> => {
     const picked = await invoke('installations:pickFolder', {
       title: t('dialog.addExisting.pickTitle'),
-      buttonLabel: t('dialog.addExisting.pickButton'),
+      buttonLabel: t('common.action.useThisFolder'),
     })
     if (!picked) return
 
@@ -69,16 +70,15 @@ export function AddExistingDialog() {
   const canSubmit =
     rootPath.length > 0 && inspection !== null && !notQuake2 && !inspecting && !submitting
 
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    const result = await addExisting({
-      rootPath,
-      ...(name.trim() ? { name: name.trim() } : {}),
-      ...(executablePath ? { executablePath } : {}),
+  const submit = (): Promise<void | undefined> =>
+    run(async () => {
+      const result = await addExisting({
+        rootPath,
+        ...(name.trim() ? { name: name.trim() } : {}),
+        ...(executablePath ? { executablePath } : {}),
+      })
+      if (result.ok) closeDialog()
     })
-    setSubmitting(false)
-    if (result.ok) closeDialog()
-  }
 
   return (
     <Modal
@@ -86,11 +86,11 @@ export function AddExistingDialog() {
       title={t('dialog.addExisting.title')}
       description={t('dialog.addExisting.body')}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={closeDialog}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
             {t('dialog.addExisting.submit')}
@@ -99,12 +99,12 @@ export function AddExistingDialog() {
       }
     >
       <div className="space-y-4">
-        <Field label={t('dialog.addExisting.folderLabel')}>
+        <Field label={t('common.label.installationFolder')}>
           <PathPicker
             value={rootPath}
             placeholder={t('dialog.addExisting.folderPlaceholder')}
             onBrowse={() => void pickFolder()}
-            browseLabel={t('common.browse')}
+            browseLabel={t('common.label.browse')}
             disabled={inspecting || submitting}
           />
         </Field>
@@ -112,7 +112,7 @@ export function AddExistingDialog() {
         {inspecting && (
           <div className="flex items-center gap-2 text-xs text-ink-dim">
             <Spinner />
-            {t('dialog.addExisting.inspecting')}
+            {t('common.label.checkingFolder')}
           </div>
         )}
 
@@ -161,7 +161,7 @@ export function AddExistingDialog() {
 
             {inspection.executables.length > 1 && (
               <Field
-                label={t('dialog.addExisting.executableLabel')}
+                label={t('common.label.engineExecutable')}
                 hint={t('dialog.addExisting.executableHint')}
               >
                 <Select

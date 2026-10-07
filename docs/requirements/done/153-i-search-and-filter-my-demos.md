@@ -137,7 +137,7 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
     names" and › "a cached fact without header players is re-parsed". Only if the sidecar field was
     added here: `index.test.ts` › "a row carries its sidecar's description and tags".
   - Files (at most): `src/shared/modules/replays.ts`, `src/main/modules/replays/{scan-service,
-    index-cache,zip-demos,discovery,index}.ts` and their tests.
+index-cache,zip-demos,discovery,index}.ts` and their tests.
   - Mirror: how `map`/`unparsableReason` flow from header parse to row today.
   - Acceptance: `npx vitest run src/main/modules/replays src/shared/modules` passes;
     `npm run typecheck` is clean.
@@ -147,14 +147,14 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
     shape and doc style of `src/shared/servers/list-filter.ts`, and do not edit that file.
   - Input type:
     `DemoFilterSubject { fileName: string; name: string | null; map: string | null; mod: string |
-    null; gamemode: EffectiveGamemode; sidecar: { description?: string; tags?: string[];
-    favourite?: boolean; rating?: number; sides?: { players: string[] }[] } | null; headerPlayers:
-    readonly string[]; namePlayers: readonly string[] }`
+null; gamemode: EffectiveGamemode; sidecar: { description?: string; tags?: string[];
+favourite?: boolean; rating?: number; sides?: { players: string[] }[] } | null; headerPlayers:
+readonly string[]; namePlayers: readonly string[] }`
     - `name`, `map` and `mod` are the **effective** values (`src/shared/demos/effective-values.ts`).
     - `EffectiveGamemode` comes from `src/shared/demos/gamemode.ts`.
   - Filter shape:
     `DemoListFilter { search: string; mod: string | null; gamemode: string | null; map: string |
-    null; favouritesOnly: boolean; minRating: number | null; tags: string[] }`
+null; favouritesOnly: boolean; minRating: number | null; tags: string[] }`
     - `EMPTY_DEMO_LIST_FILTER` is the all-inactive filter.
     - `isDemoFilterActive(f)` does not count a whitespace-only search.
     - `demoListFilterSchema` (zod) caps: search ≤ 200 chars; mod/map/gamemode ≤ 64; minRating an
@@ -169,7 +169,7 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
     - search
     - mod and map: case-insensitive equality; an unknown value never matches a set filter
     - gamemode: via `gamemodeFilterMatches(s.gamemode, { gamemode: f.gamemode, excludeGuessed:
-      false })`
+false })`
     - `favouritesOnly`: `sidecar?.favourite === true`
     - `minRating`: `sidecar?.rating !== undefined && rating >= minRating`, so unrated demos are
       excluded
@@ -290,7 +290,7 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
         player of the real file (take the name from the rendered row or the header tests)
       - one demo whose name-template facts give a player
     - Seed the variant with that folder as an extra folder via `writePopulatedFixture({ variant,
-      stateOverrides })`. Check how `stateOverrides` merges `replays`.
+stateOverrides })`. Check how `stateOverrides` merges `replays`.
   - Flow `scripts/flows/replays-filter-search.mjs` (flow name `replays-filter-search`), mirroring
     `scripts/flows/replays-zip-entries.mjs` (setup/teardown hooks, scan wait) — copy, do not import.
     Each step asserts the visible row set:

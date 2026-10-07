@@ -41,7 +41,7 @@ _None — all detail decisions taken in refine, see "Decisions (Sprint)"._
 ## Decisions (Sprint)
 
 - **The mechanism for dynamic styles stays React's `style={{ ... }}` prop; no refactor is planned
-  up front.** `style-src` governs stylesheets and *parsed* `style` attributes, not CSSOM writes —
+  up front.** `style-src` governs stylesheets and _parsed_ `style` attributes, not CSSOM writes —
   React DOM applies the `style` prop through `node.style.setProperty(...)`, and the renderer has no
   `setAttribute('style', …)`, no `<style>` literal and no `dangerouslySetInnerHTML` anywhere
   (survey: 20 `style={{}}` sites plus `OverviewKeyboardPanel.tsx:318,322` `target.style.zoom`), so
@@ -142,7 +142,7 @@ Order matters: D1 before D2 (baseline), D3 before D4 (the run must be able to fa
   short "Dynamic styles under the production CSP" paragraph: the production policy is
   `style-src 'self'`; dynamic values are set through React's `style` prop or a CSS custom property
   (CSSOM writes, which `style-src` does not cover); `setAttribute('style', …)`, `<style>` literals
-  and CSS via `dangerouslySetInnerHTML` are the forms that *are* blocked and must not be
+  and CSS via `dangerouslySetInnerHTML` are the forms that _are_ blocked and must not be
   introduced.
 - **Acceptance:** `ui:verify` exits 0 with no console error, no CSP violation and no screenshot
   regression; the ARCHITECTURE.md paragraph exists and names the permitted and forbidden forms.
@@ -191,6 +191,7 @@ permitted (React `style` prop / `style.setProperty` CSS custom properties) and f
 forms. `docs/UI-VERIFICATION.md` documents the added directive and violation gate.
 
 **Decisions:**
+
 - The `cspViolations`-to-exit-code wiring was not fully closed by the original D3 deliverable —
   violations were collected but never actually failed `npm run ui:verify` (session.mjs/verify.mjs
   never consulted the field). Caught by the first clean-agent review; fixed in a review-fix cycle
@@ -207,6 +208,7 @@ forms. `docs/UI-VERIFICATION.md` documents the added directive and violation gat
   it; left as-is rather than reformatting the whole document into an unrelated diff.
 
 **Verification:**
+
 - `npm run build`: green. `npm run typecheck`: green (node + web). `npm test`: 64 files / 1323
   tests green.
 - Live smoke (`npm run ui:verify`, production mode, per `live-smoke-how`): exit 0. 36/36

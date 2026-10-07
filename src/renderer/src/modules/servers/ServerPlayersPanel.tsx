@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Users } from 'lucide-react'
+import { nextSort } from '@shared/list/sort'
+import type { SortDirection } from '@shared/list/sort'
 import type { ServerListRow } from '@shared/modules/servers'
 import {
   DEFAULT_PLAYER_SORT,
-  naturalDir,
+  PLAYER_NATURAL_DIRECTION,
   sortPlayers,
   type PlayerSortKey,
 } from '@shared/servers/player-sort'
@@ -17,7 +19,7 @@ export interface ServerPlayersPanelProps {
 
 const COLUMNS: PlayerSortKey[] = ['name', 'score', 'ping']
 
-function ariaSort(active: boolean, dir: 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
+function ariaSort(active: boolean, dir: SortDirection): 'ascending' | 'descending' | 'none' {
   if (!active) return 'none'
   return dir === 'asc' ? 'ascending' : 'descending'
 }
@@ -27,24 +29,24 @@ function PanelTitle({ count }: { count?: number }) {
   return (
     <h3 className="stencil mb-2 flex items-center gap-1.5">
       <Users className="size-3.5" aria-hidden="true" />
-      {t('servers.detail.players.title')}
+      {t('common.label.players')}
       {count !== undefined && <span className="numeric text-ink-dim">{count}</span>}
     </h3>
   )
 }
 
 /**
- * Story 122 D4: the detail pane's players section. `row.players` carries four distinct shapes -
+ * Story 122: the detail pane's players section. `row.players` carries four distinct shapes -
  * a real roster (sortable table), a known-empty server (`0` or `[]`), a bare count with no roster
  * yet (a number > 0), or `undefined` (nothing fetched at all) - and each renders its own state.
  *
- * The roster table makes no spectator claim (AC4): every `<tr>` gets identical markup regardless
+ * The roster table makes no spectator claim: every `<tr>` gets identical markup regardless
  * of a player's score/ping value, so a score-0 or ping-0 row can never be told apart from any other
  * by its markup, only by its text - and `orDash` keeps one malformed cell from breaking the row.
  */
 export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
   const { t } = useTranslation()
-  const [sort, setSort] = useState<{ key: PlayerSortKey; dir: 'asc' | 'desc' }>(DEFAULT_PLAYER_SORT)
+  const [sort, setSort] = useState<{ key: PlayerSortKey; dir: SortDirection }>(DEFAULT_PLAYER_SORT)
 
   const { players } = row
 
@@ -52,11 +54,14 @@ export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
     const sorted = sortPlayers(players, sort.key, sort.dir)
 
     const handleSort = (key: PlayerSortKey) => {
-      setSort((current) =>
-        current.key === key
-          ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
-          : { key, dir: naturalDir(key) },
-      )
+      setSort((current) => {
+        const next = nextSort(
+          { column: current.key, direction: current.dir },
+          key,
+          PLAYER_NATURAL_DIRECTION,
+        )
+        return next === null ? DEFAULT_PLAYER_SORT : { key: next.column, dir: next.direction }
+      })
     }
 
     return (

@@ -11,7 +11,7 @@
  * ## Byte/string codec
  *
  * Quake II's wire text is not UTF-8: every byte 0x00-0xFF is a valid, meaningful payload byte
- * (server names, colours via the high-bit charset — see `src/shared/config/q2-charset.ts`).
+ * (server names, colours via the high-bit charset — see `src/shared/config/syntax/q2-charset.ts`).
  * `TextDecoder('utf-8')` would mangle any byte above 0x7F, and Node's `Buffer` `'latin1'`
  * encoding is off-limits because `src/shared` may never import `node:*` or `Buffer` (this file
  * type-checks under `tsconfig.web.json`, which carries no Node types at all). `decodeLatin1` /

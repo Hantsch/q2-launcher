@@ -10,13 +10,13 @@ import an existing config as the starting point instead of building one from scr
 All 5 planned stories were built. All are code-complete, tested and code-reviewed; none has
 had a live UI smoke test (see [Blocked / open](#blocked--open)).
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 001 — Config module scaffold and central profile store | built, reviewed, live acceptance pending | `84bf320` history (pre-sprint-01 session) |
-| 002 — Profile-installation assignment and default profile | built, reviewed, live acceptance pending | `400e38d` |
-| 003 — Settings/cvar editor with per-engine defaults and clamps | built, reviewed, live acceptance pending | `366e2ce` |
-| 004 — Write profile to assigned installations on save | built, reviewed, live acceptance pending | `1ea6cc4` (resumed after session-limit interruption, `afe3966`) |
-| 005 — Import an existing config into a new profile | built, reviewed, live acceptance pending | `1671554` |
+| Story                                                          | Status                                   | Commit                                                          |
+| -------------------------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------- |
+| 001 — Config module scaffold and central profile store         | built, reviewed, live acceptance pending | `84bf320` history (pre-sprint-01 session)                       |
+| 002 — Profile-installation assignment and default profile      | built, reviewed, live acceptance pending | `400e38d`                                                       |
+| 003 — Settings/cvar editor with per-engine defaults and clamps | built, reviewed, live acceptance pending | `366e2ce`                                                       |
+| 004 — Write profile to assigned installations on save          | built, reviewed, live acceptance pending | `1ea6cc4` (resumed after session-limit interruption, `afe3966`) |
+| 005 — Import an existing config into a new profile             | built, reviewed, live acceptance pending | `1671554`                                                       |
 
 Branch: `sprint/01`, cut from `dev`. `npm run build` and `npm test` green after every story
 (148 tests at sprint end across all 5 stories' suites, no regressions introduced by later
@@ -52,7 +52,7 @@ loader, copied into played-mod folders), with a preview modal showing the exact 
 would be written. A running installation is skipped and the write goes into a retried
 `pending` state instead. Two review findings were fixed post-implementation: the loader could
 point at a default-profile file that was never itself written, and the write briefly fired on
-mere profile *selection* rather than only on save.
+mere profile _selection_ rather than only on save.
 
 **005 — Import an existing config into a new profile.** A pure Quake II config tokenizer plus
 a filesystem reader that resolves `exec` inline against the gamedir → `baseq2` search path
@@ -72,7 +72,7 @@ the next sprint:
 
 - **File layout decision (004):** one generated file per profile
   (`baseq2/q2l-profile-<id>.cfg`) plus a thin per-installation `autoexec.cfg` loader that only
-  `exec`s the *default* profile's file. This is what makes the later profile-switch bind
+  `exec`s the _default_ profile's file. This is what makes the later profile-switch bind
   (CFG-6, next sprint) a one-file edit instead of N per-mod config rewrites — keep this shape
   in mind when planning that story.
 - **`config.cfg` is never written by the launcher**, only read (import). It is engine-owned
@@ -85,7 +85,7 @@ the next sprint:
   shared `Installation` type — deliberate, to avoid colliding with story 002's concurrent
   `Installation` changes. Two accepted, narrow gaps from 004's review are worth a follow-up if
   they surface in practice: the played-mods checkbox state doesn't persist across app restarts
-  (no getter was added to the contract), and a second save to the same *running* installation
+  (no getter was added to the contract), and a second save to the same _running_ installation
   before the first pending write resolves can only track the more recent pending profile.
 - **Import recognizes a deliberately narrow set this sprint** (`set*`/`bind*` family only).
   `alias`/`+cmd` handling and the alternate-binding-layer concept are explicitly deferred to a

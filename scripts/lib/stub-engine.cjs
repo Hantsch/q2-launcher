@@ -52,6 +52,8 @@ const path = require('node:path')
 const FRAME_MS = 16
 const MAX_LINES_PER_FRAME = 1000
 const PARENT_CHECK_MS = 250
+// Fixed at start: off Windows an orphan is re-parented to init, whose pid always answers.
+const PARENT_PID = process.ppid
 
 function readConfig() {
   try {
@@ -86,7 +88,10 @@ function readLevers() {
   }
 }
 const { commandDelayMs: COMMAND_DELAY_MS, outputBurstMs: OUTPUT_BURST_MS } = readLevers()
-const LOG_FLUSH_MS = Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS) > 0 ? Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS) : 0
+const LOG_FLUSH_MS =
+  Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS) > 0
+    ? Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS)
+    : 0
 /** Logfile appends held back by LOG_FLUSH_MS until the next flush. */
 const heldLog = []
 /** Commands held back by COMMAND_DELAY_MS: `{ dueAt, text, front }`, in arrival order. */
@@ -107,6 +112,7 @@ const cvars = new Map([
   ['game', ''],
   ['timescale', '1'],
   ['vid_fullscreen', '0'],
+  ['s_volume', '0.7'],
 ])
 const aliases = new Map()
 const demo = { playing: false, paused: false, posMs: 0 }
@@ -258,7 +264,14 @@ function expandMacros(line) {
     }
     const name = m[2] ?? m[3]
     // `$cl_paused` mirrors Q2PRO: 2 while a demo is paused, 0 otherwise.
-    out += name === 'cl_demopos' ? demoPos() : name === 'cl_paused' ? (demo.playing && demo.paused ? '2' : '0') : cvar(name)
+    out +=
+      name === 'cl_demopos'
+        ? demoPos()
+        : name === 'cl_paused'
+          ? demo.playing && demo.paused
+            ? '2'
+            : '0'
+          : cvar(name)
     i += m[0].length - 1
   }
   return out
@@ -313,7 +326,9 @@ function execFile(name) {
 
 function startDemo(file) {
   if (!file) return
-  const candidates = path.isAbsolute(file) ? [file] : searchDirs().map((dir) => path.join(dir, 'demos', file))
+  const candidates = path.isAbsolute(file)
+    ? [file]
+    : searchDirs().map((dir) => path.join(dir, 'demos', file))
   if (!candidates.some((p) => fs.existsSync(p))) {
     print(`Couldn't open demos/${file}`)
     return
@@ -382,7 +397,28 @@ function runIf(args) {
 }
 const pendingGuards = new Set()
 
+/** Like Q2PRO on exit: each cvar in `Q2L_UI_ENGINE_ARCHIVE_CVARS` is written into the config file
+ * named by `Q2L_UI_ENGINE_CONFIG_FILE`. Both unset: nothing happens. */
+function archiveCvars() {
+  const file = process.env.Q2L_UI_ENGINE_CONFIG_FILE || ''
+  const names = (process.env.Q2L_UI_ENGINE_ARCHIVE_CVARS || '').split(',').filter(Boolean)
+  if (!file || names.length === 0) return
+  try {
+    let lines = fs.existsSync(file) ? fs.readFileSync(file, 'latin1').split('\n') : []
+    for (const name of names) {
+      const line = `seta ${name} "${cvar(name)}"`
+      const at = lines.findIndex((l) => l.trim().toLowerCase().startsWith(`seta ${name} `))
+      if (at >= 0) lines[at] = line
+      else lines = [...lines.filter((l, i) => i < lines.length - 1 || l !== ''), line, '']
+    }
+    fs.writeFileSync(file, lines.join('\n'), 'latin1')
+  } catch {
+    // a lost archive only fails the flow that asked for it
+  }
+}
+
 function quit() {
+  archiveCvars()
   process.exit(0)
 }
 
@@ -444,7 +480,7 @@ function execLine(raw) {
       print(`"${cmd}" is "${cvar(cmd)}"`)
       return
     }
-    if (cmd === 'timescale' || cmd === 'vid_fullscreen') logCommand(tokens)
+    if (cmd === 'timescale' || cmd === 'vid_fullscreen' || cmd === 's_volume') logCommand(tokens)
     cvars.set(cmd, args[0])
     return
   }
@@ -530,7 +566,7 @@ if (OUTPUT_BURST_MS > 0) setInterval(flushHeld, OUTPUT_BURST_MS)
 if (LOG_FLUSH_MS > 0) setInterval(flushLog, LOG_FLUSH_MS)
 setInterval(() => {
   try {
-    process.kill(process.ppid, 0)
+    process.kill(PARENT_PID, 0)
   } catch (err) {
     // EPERM means the parent exists but is not ours to signal - only a vanished parent ends the run.
     if (err && err.code !== 'EPERM') quit()

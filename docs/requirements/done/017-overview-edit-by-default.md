@@ -146,7 +146,7 @@ Live pass through the running app (`npm run dev`, `live-smoke-required: true`).
 2. Click key `1`. `KeyBindDialog` opens immediately. Assign a command, save — the keycap shows it.
 3. With at least one alt layer (create it in the Layers panel, give it trigger key `-` via 011's
    flow) select that layer in the **LayerSwitcher**. Click a key → the dialog edits that layer's
-   *override*, not the base bind.
+   _override_, not the base bind.
 4. Click the trigger keycap `-` while the layer is selected: the bind dialog opens for `-` and the
    board does **not** switch layer. Repeat on Base — same result.
 5. Hover across a free key, a bound key, an override key and the trigger key: all show a pointer
@@ -170,6 +170,7 @@ border (strogg for trigger, flame otherwise), and a static hint ("Click a key to
 replaces the removed toggle's discoverability, shown outside test mode only.
 
 **Decisions:**
+
 - Fixed two UI-verification harness files (`scripts/lib/screens.mjs`,
   `scripts/flows/open-keycap-dialog.mjs`) that clicked the now-removed "Start editing" button —
   a direct, necessary consequence of this story's change, not a separate deliverable. Verified via
@@ -178,6 +179,7 @@ replaces the removed toggle's discoverability, shown outside test mode only.
   story's sprint decision — reserved for story 018.
 
 **Verification:**
+
 - `npm run build` — pass. `npm test` — 568/568 pass. `npm run typecheck` — pass (node + web).
 - Live smoke: ran `npm run ui:flow -- open-keycap-dialog` (confirms header has only "Start test
   mode", hint line visible, keycap click opens `KeyBindDialog` with no edit-mode step) and

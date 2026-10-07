@@ -6,22 +6,22 @@ import type { ScanService } from './scan-service'
 import type { TimerHandle } from './udp-master-source'
 
 /**
- * Story 115 D3: when the Servers view scans *on its own* - auto-scan-on-open and the auto-refresh
+ * Story 115: when the Servers view scans *on its own* - auto-scan-on-open and the auto-refresh
  * interval. The manual trigger (`scan.start` in index.ts) never passes through this file: a manual
- * scan ignores both auto settings and the minimum spacing (story 115's Decisions, AC3), so this
+ * scan ignores both auto settings and the minimum spacing (story 115's Decisions), so this
  * module deliberately exports nothing a manual caller could route through.
  *
  * Two layers:
  *
  * - **Pure decisions** (`decideAutoTrigger`, `autoRefreshDelayMs`). No timers, no `Date.now()`,
- *   no state - `now` and every setting are parameters, so AC4 ("skipped, not queued") and the
+ *   no state - `now` and every setting are parameters, so "skipped, not queued" and the
  *   minimum-spacing gate are provable without fake timers. Every threshold comes from the passed
  *   `ServersScanSettings`; there is no literal standing in for a setting anywhere in this file.
  * - **`createScanCadence`**, a thin stateful wrapper that owns the one timer handle. It is a
  *   `setTimeout` chain rather than a `setInterval`: each tick re-reads the settings before arming
  *   the next one, so a period is never cached past the tick that used it.
  *
- * Story 116 D3: the wrapper also reads the live launch state (`launch: LaunchHost`). Every decision
+ * Story 116: the wrapper also reads the live launch state (`launch: LaunchHost`). Every decision
  * passes `gameRunning: isScanBlocked(launch.getState())`, so a due tick during a session is skipped
  * like any other (not queued; the timer chain simply keeps ticking). On the edge *out of* a blocked
  * phase it resumes promptly instead of waiting up to a full period: if the view is active and an
@@ -52,7 +52,7 @@ export interface AutoTriggerInput {
   /** `ScanService.overview().lastScanAt` - when the last scan of *any* kind finished, or `null`. */
   lastScanAt: string | null
   /**
-   * Story 116 D2: `isScanBlocked(launch.getState())`, computed by the caller. A plain `boolean`
+   * Story 116: `isScanBlocked(launch.getState())`, computed by the caller. A plain `boolean`
    * rather than a live `LaunchState` or the guard function itself, so this file's "no timers, no
    * `Date.now()`, no state" purity discipline extends to it exactly as it already does to
    * `scanning`/`lastScanAt` - a snapshot value passed in, never a reference this module could
@@ -63,7 +63,8 @@ export interface AutoTriggerInput {
 
 export type AutoTriggerSkipReason = 'game-running' | 'disabled' | 'scanning' | 'spacing'
 
-export type AutoTriggerDecision = { trigger: true } | { trigger: false; reason: AutoTriggerSkipReason }
+export type AutoTriggerDecision =
+  { trigger: true } | { trigger: false; reason: AutoTriggerSkipReason }
 
 /**
  * The automatic-trigger gate. Order of the checks only affects which `reason` is reported; any
@@ -73,7 +74,7 @@ export type AutoTriggerDecision = { trigger: true } | { trigger: false; reason: 
  *   of every other reason, since the point of story 116 is to make its skip visible and
  *   unambiguous, not conditional on which other rule might also have fired.
  * - `disabled`: the trigger kind's own setting is off (`autoScanOnOpen` / `autoRefreshEnabled`).
- * - `scanning`: a scan is already running - AC4, skipped, not queued.
+ * - `scanning`: a scan is already running - skipped, not queued.
  * - `spacing`: less than `minSpacingMs` has passed since `lastScanAt`. `null` (no scan yet) always
  *   passes. An unparseable timestamp or a negative elapsed time (the wall clock moved backwards)
  *   also passes: the real elapsed time is unknowable then, and holding automatic scans off until
@@ -91,7 +92,8 @@ export function decideAutoTrigger(input: AutoTriggerInput): AutoTriggerDecision 
 
   if (lastScanAt !== null) {
     const elapsed = now - Date.parse(lastScanAt)
-    if (elapsed >= 0 && elapsed < settings.minSpacingMs) return { trigger: false, reason: 'spacing' }
+    if (elapsed >= 0 && elapsed < settings.minSpacingMs)
+      return { trigger: false, reason: 'spacing' }
   }
 
   return { trigger: true }
@@ -102,7 +104,10 @@ export function decideAutoTrigger(input: AutoTriggerInput): AutoTriggerDecision 
  * `autoRefreshIntervalMs` while the view is active and auto-refresh is on, otherwise `null` (no
  * timer).
  */
-export function autoRefreshDelayMs(settings: ServersScanSettings, viewActive: boolean): number | null {
+export function autoRefreshDelayMs(
+  settings: ServersScanSettings,
+  viewActive: boolean,
+): number | null {
   if (!viewActive || !settings.autoRefreshEnabled) return null
   return settings.autoRefreshIntervalMs
 }
@@ -126,7 +131,7 @@ export interface CreateScanCadenceOptions {
   /** Read fresh at every decision and every (re)arm - never a snapshot. */
   getServersState: () => ServersState
   scanService: Pick<ScanService, 'start' | 'overview'>
-  /** Story 116 D3 (D-E): read live at every decision, and observed to resume promptly on unblock. */
+  /** Story 116 (D-E): read live at every decision, and observed to resume promptly on unblock. */
   launch: LaunchHost
   clock?: CadenceClock
   /** Called if an automatic trigger throws, so a timer callback never becomes an uncaught error. */
@@ -138,17 +143,23 @@ export interface ScanCadence {
   onViewActive: (active: boolean) => void
   /** Call after `scan.patchSettings` persisted - reschedules if the effective period changed. */
   onSettingsChanged: () => void
+  /** Story 196: call after `scan.setMode` switched the active list. */
+  onModeChanged: () => void
   /** Clears the timer and the launch subscription for good; every later call is a no-op. */
   dispose: () => void
 }
 
 /**
- * Story 116 D3's resume check: has a full auto-refresh period elapsed since the last completed scan?
+ * Story 116's resume check: has a full auto-refresh period elapsed since the last completed scan?
  * `null` (never scanned), an unparseable timestamp and a negative elapsed time all count as overdue,
  * for the same reason `decideAutoTrigger`'s spacing gate lets them through. Only the *extra* resume
  * path asks this; whether the scan may actually start is still `decideAutoTrigger`'s call (D-P).
  */
-function isRefreshOverdue(settings: ServersScanSettings, now: number, lastScanAt: string | null): boolean {
+function isRefreshOverdue(
+  settings: ServersScanSettings,
+  now: number,
+  lastScanAt: string | null,
+): boolean {
   if (lastScanAt === null) return true
   const elapsed = now - Date.parse(lastScanAt)
   return !(elapsed >= 0 && elapsed < settings.autoRefreshIntervalMs)
@@ -183,7 +194,7 @@ export function createScanCadence(options: CreateScanCadenceOptions): ScanCadenc
   }
 
   /** One automatic trigger: ask the pure gate, and call `start()` only on a yes. A no - and a
-   * refusal from `start()` itself - is dropped on the floor on purpose (AC4). Returns whether a scan
+   * refusal from `start()` itself - is dropped on the floor on purpose. Returns whether a scan
    * actually started. */
   function tryAutoTrigger(kind: AutoTriggerKind): boolean {
     try {
@@ -204,7 +215,7 @@ export function createScanCadence(options: CreateScanCadenceOptions): ScanCadenc
     }
   }
 
-  /** Story 116 D3: on the edge out of a blocked phase, re-evaluate due-ness once (D-G). */
+  /** Story 116: on the edge out of a blocked phase, re-evaluate due-ness once (D-G). */
   function onLaunchState(state: LaunchState): void {
     const wasBlocked = blocked
     blocked = isScanBlocked(state)
@@ -249,6 +260,19 @@ export function createScanCadence(options: CreateScanCadenceOptions): ScanCadenc
     armTimer()
   }
 
+  /** Story 196: switching into a mode that has never been scanned counts as opening the
+   * view for it - the same `'open'` gate applies (game-running skip, `autoScanOnOpen`, spacing). */
+  function onModeChanged(): void {
+    if (disposed || !viewActive) return
+    try {
+      if (scanService.overview().lastScanAt !== null) return
+    } catch (error) {
+      onError?.(error)
+      return
+    }
+    tryAutoTrigger('open')
+  }
+
   function onSettingsChanged(): void {
     if (disposed) return
     let desired: number | null
@@ -272,5 +296,5 @@ export function createScanCadence(options: CreateScanCadenceOptions): ScanCadenc
     unsubscribeLaunch()
   }
 
-  return { onViewActive, onSettingsChanged, dispose }
+  return { onViewActive, onSettingsChanged, onModeChanged, dispose }
 }

@@ -21,17 +21,17 @@ that residue coming due.
 Measured on 2026-09-08 against the three archives the shipped manifest actually pins, extracted
 with the vendored `resources/bin/7za.exe`:
 
-| Package | Allowlist expects | Real layout | Result |
-| --- | --- | --- | --- |
-| `q2-314-demo-x86.exe` | `baseq2/pak0.pak` | `Install/Data/baseq2/pak0.pak` (49.9 MB) | not copied |
-| `q2pro-client_win64_x64.zip` | `q2pro.exe` | `q2pro64.exe` at the zip root | not copied |
-| `q2pro-client_win64_x64.zip` | `baseq2/gamex86_64.dll` | `baseq2/gamex86_64.dll` | correct |
-| `q2-3.20-x86-full-ctf.exe` | `baseq2/pak2.pak` | `baseq2/pak2.pak` | correct |
-| `q2-3.20-x86-full-ctf.exe` | *(not in the allowlist)* | `baseq2/pak1.pak` also ships | never copied |
-| either package | `players/` at the source root | `baseq2/players/` in both | not copied |
-| either package | `video/` at the source root | present in neither | nothing to copy |
+| Package                      | Allowlist expects             | Real layout                              | Result          |
+| ---------------------------- | ----------------------------- | ---------------------------------------- | --------------- |
+| `q2-314-demo-x86.exe`        | `baseq2/pak0.pak`             | `Install/Data/baseq2/pak0.pak` (49.9 MB) | not copied      |
+| `q2pro-client_win64_x64.zip` | `q2pro.exe`                   | `q2pro64.exe` at the zip root            | not copied      |
+| `q2pro-client_win64_x64.zip` | `baseq2/gamex86_64.dll`       | `baseq2/gamex86_64.dll`                  | correct         |
+| `q2-3.20-x86-full-ctf.exe`   | `baseq2/pak2.pak`             | `baseq2/pak2.pak`                        | correct         |
+| `q2-3.20-x86-full-ctf.exe`   | _(not in the allowlist)_      | `baseq2/pak1.pak` also ships             | never copied    |
+| either package               | `players/` at the source root | `baseq2/players/` in both                | not copied      |
+| either package               | `video/` at the source root   | present in neither                       | nothing to copy |
 
-The demo *is* fully extractable — the earlier suspicion that its InstallShield `data1.cab` blocks
+The demo _is_ fully extractable — the earlier suspicion that its InstallShield `data1.cab` blocks
 7za is wrong; that CAB is a 2.5 KB stub and the payload sits uncompressed under `Install/Data/`.
 So no new extraction tooling is needed. What is needed is an allowlist that matches reality, and
 a failure that says which package came up empty instead of only reporting the verdict at the very
@@ -53,7 +53,7 @@ search — `ctf/`, `xatrix/` and `rogue/` must still be impossible to pull in.
 - [x] **AC4** — `players/` is sourced from `baseq2/players/` and lands at `baseq2/players/`; the
       absence of `video/` in every real archive is a normal outcome, not a failure.
 - [x] **AC5** — When an allowlisted file required for playability is missing from every source
-      dir, the job fails naming *that package*, not the generic end-of-run verdict — and the
+      dir, the job fails naming _that package_, not the generic end-of-run verdict — and the
       reason survives into [[075]]'s diagnostics.
 - [x] **AC6** — [[074]] D8's fixture archives are re-laid-out to mirror the real ones, so
       `scripts/flows/bootstrap-wizard.mjs` stops passing against a layout that does not exist.
@@ -77,14 +77,14 @@ search — `ctf/`, `xatrix/` and `rogue/` must still be impossible to pull in.
 - **(User)** AC7 CI data source: checked-in tiny listings — record the relevant layout facts (the
   paths from the table) as small checked-in fixtures/snapshots, no large binaries in the repo, so
   the test always runs (no offline skip needed).
-- **Candidate lists, not a search:** an allowlist entry gets an ordered list of *literal* `from`
+- **Candidate lists, not a search:** an allowlist entry gets an ordered list of _literal_ `from`
   candidates (`q2pro.exe`, then `q2pro64.exe`; `baseq2/pak0.pak`, then `Install/Data/baseq2/pak0.pak`)
   and the first that exists wins — more literal entries is exactly what AC2/AC8 permit, while a
   single hard-coded path would break the moment a release renames or re-nests one file.
 - **The target name comes from `ENGINE_DEFINITIONS`:** the engine entry's `to` is q2pro's
   `executables[0]` (`q2pro.exe`, `src/shared/types/engine.ts:99`), so "the name the target expects"
   (AC3) is read from the one table `inspectInstallation` already detects with, not written twice.
-- **Detection is not widened:** `q2pro64.exe` is *not* added to `ENGINE_DEFINITIONS.markers` — this
+- **Detection is not widened:** `q2pro64.exe` is _not_ added to `ENGINE_DEFINITIONS.markers` — this
   story assembles an installation, and changing how the launcher classifies folders a user added
   by hand is a different story with a different blast radius.
 - **`sourceDirs` stays `string[]`:** the package a missing file belongs to is expressed as a
@@ -144,65 +144,65 @@ the listing that keeps them honest.
 ## Deliverables
 
 - [x] **D1 — the allowlist matches the real archives.**
-  Files: `src/main/modules/downloads/bootstrap/assemble.ts`,
-  `src/main/modules/downloads/bootstrap/assemble.test.ts`.
-  Candidate-list `from`, `role`, `required`; all entries from the Requirement's table incl.
-  `baseq2/pak1.pak` and `baseq2/q2pro.menu`; engine `to` from `ENGINE_DEFINITIONS`; `players`
-  sourced from `baseq2/players`, `video` from `baseq2/video`, absent `video/` is not an error.
-  Tests in the same file (extend the existing suite, keeping its AC8 negative assertions):
-  › "the allowlist covers the real source layouts and copies nothing else", › "the engine binary
-  lands as q2pro.exe whatever the zip calls it", › "players comes from baseq2/players and a
-  missing video/ is a normal outcome".
-  Acceptance: AC2, AC3, AC4 green; every existing assemble test still green.
+      Files: `src/main/modules/downloads/bootstrap/assemble.ts`,
+      `src/main/modules/downloads/bootstrap/assemble.test.ts`.
+      Candidate-list `from`, `role`, `required`; all entries from the Requirement's table incl.
+      `baseq2/pak1.pak` and `baseq2/q2pro.menu`; engine `to` from `ENGINE_DEFINITIONS`; `players`
+      sourced from `baseq2/players`, `video` from `baseq2/video`, absent `video/` is not an error.
+      Tests in the same file (extend the existing suite, keeping its AC8 negative assertions):
+      › "the allowlist covers the real source layouts and copies nothing else", › "the engine binary
+      lands as q2pro.exe whatever the zip calls it", › "players comes from baseq2/players and a
+      missing video/ is a normal outcome".
+      Acceptance: AC2, AC3, AC4 green; every existing assemble test still green.
 
 - [x] **D2 — assemble says what is missing.**
-  Files: `src/main/modules/downloads/bootstrap/assemble.ts`,
-  `src/main/modules/downloads/bootstrap/assemble.test.ts`.
-  `AssembleInstallationResult.missingRequired: { role, from: string[] }[]`; optional entries never
-  appear in it. Test › "a source set without pak0 reports the demo role as missing required".
-  Acceptance: the copy behaviour is byte-identical to D1's; only the return value grows.
+      Files: `src/main/modules/downloads/bootstrap/assemble.ts`,
+      `src/main/modules/downloads/bootstrap/assemble.test.ts`.
+      `AssembleInstallationResult.missingRequired: { role, from: string[] }[]`; optional entries never
+      appear in it. Test › "a source set without pak0 reports the demo role as missing required".
+      Acceptance: the copy behaviour is byte-identical to D1's; only the return value grows.
 
 - [x] **D3 — the job fails naming the package.**
-  Files: `src/shared/modules/downloads.ts`, `src/main/modules/downloads/bootstrap/errors.ts`,
-  `src/main/modules/downloads/bootstrap/job.ts`,
-  `src/renderer/src/i18n/locales/en.json`,
-  `src/main/modules/downloads/bootstrap/job.test.ts`.
-  Mirror `PACKAGE_UNAVAILABLE` in `errors.ts` and the `packageUnavailable` entry in
-  `DOWNLOADS_ERROR_KEYS`/`en.json`. `failed(key, reason, params?)`; the new check sits between the
-  core assemble pass and the first revalidation. Test in `job.test.ts` › "a package that
-  contributes no required file fails the job naming that package" (asserts `error.key`,
-  `error.params.packageId`, and that the failure's log tail names the missing paths).
-  Acceptance: AC5's main-side half; cleanup/cancel behaviour unchanged.
+      Files: `src/shared/modules/downloads.ts`, `src/main/modules/downloads/bootstrap/errors.ts`,
+      `src/main/modules/downloads/bootstrap/job.ts`,
+      `src/renderer/src/i18n/locales/en.json`,
+      `src/main/modules/downloads/bootstrap/job.test.ts`.
+      Mirror `PACKAGE_UNAVAILABLE` in `errors.ts` and the `packageUnavailable` entry in
+      `DOWNLOADS_ERROR_KEYS`/`en.json`. `failed(key, reason, params?)`; the new check sits between the
+      core assemble pass and the first revalidation. Test in `job.test.ts` › "a package that
+      contributes no required file fails the job naming that package" (asserts `error.key`,
+      `error.params.packageId`, and that the failure's log tail names the missing paths).
+      Acceptance: AC5's main-side half; cleanup/cancel behaviour unchanged.
 
 - [x] **D4 — the fixtures mirror the real archives.**
-  Files: `scripts/lib/fixture.mjs`, `scripts/flows/bootstrap-wizard.mjs`.
-  Re-lay-out the three fixture archives (`q2pro64.exe` + `baseq2/{gamex86_64.dll,q2pro.menu}`;
-  `Install/Data/baseq2/pak0.pak` + `Install/Data/baseq2/players/…`; `baseq2/pak1.pak` +
-  `baseq2/pak2.pak` + `baseq2/players/…` + the `ctf`/`xatrix`/`rogue` payloads); export the layout
-  as `BOOTSTRAP_FIXTURE_LAYOUT`. Flow: assert `q2pro.exe`, `baseq2/pak0.pak`, `baseq2/pak1.pak`,
-  `baseq2/pak2.pak` on disk and keep the AC8 negative assertions.
-  Run: `npm run ui:flow -- bootstrap-wizard`.
-  Acceptance: AC1's offline half and AC6.
+      Files: `scripts/lib/fixture.mjs`, `scripts/flows/bootstrap-wizard.mjs`.
+      Re-lay-out the three fixture archives (`q2pro64.exe` + `baseq2/{gamex86_64.dll,q2pro.menu}`;
+      `Install/Data/baseq2/pak0.pak` + `Install/Data/baseq2/players/…`; `baseq2/pak1.pak` +
+      `baseq2/pak2.pak` + `baseq2/players/…` + the `ctf`/`xatrix`/`rogue` payloads); export the layout
+      as `BOOTSTRAP_FIXTURE_LAYOUT`. Flow: assert `q2pro.exe`, `baseq2/pak0.pak`, `baseq2/pak1.pak`,
+      `baseq2/pak2.pak` on disk and keep the AC8 negative assertions.
+      Run: `npm run ui:flow -- bootstrap-wizard`.
+      Acceptance: AC1's offline half and AC6.
 
 - [x] **D5 — the checked-in listing keeps fixture and reality in step.**
-  Files: `docs/fixtures/archive-layouts.json` (new),
-  `src/main/modules/downloads/bootstrap/archive-layouts.test.ts` (new).
-  Mirror `src/main/modules/downloads/shipped-manifest.test.ts` for the repo-root file reading.
-  The JSON records, per pinned package: `id`, `sha256`, `measuredOn`, `paths[]` (the Requirement's
-  table). Tests: › "the recorded listings match the shipped manifests' pinned ids and digests",
-  › "every allowlist candidate resolves in a recorded listing", › "every bootstrap fixture path is
-  a recorded real path".
-  Acceptance: AC7, plus AC6's machine-checked half.
+      Files: `docs/fixtures/archive-layouts.json` (new),
+      `src/main/modules/downloads/bootstrap/archive-layouts.test.ts` (new).
+      Mirror `src/main/modules/downloads/shipped-manifest.test.ts` for the repo-root file reading.
+      The JSON records, per pinned package: `id`, `sha256`, `measuredOn`, `paths[]` (the Requirement's
+      table). Tests: › "the recorded listings match the shipped manifests' pinned ids and digests",
+      › "every allowlist candidate resolves in a recorded listing", › "every bootstrap fixture path is
+      a recorded real path".
+      Acceptance: AC7, plus AC6's machine-checked half.
 
 - [x] **D6 — the named failure on the real surface.**
-  Files: `scripts/flows/bootstrap-incomplete-package.mjs` (new), `scripts/lib/fixture.mjs`
-  (an option that builds the demo archive without its pak), mirroring
-  `scripts/flows/bootstrap-wizard.mjs` for the loopback server, `setup()`/`teardown()` and the
-  wizard walk.
-  Asserts the running step shows the reason naming the demo package and that the Downloads tab's
-  failure card carries the same key.
-  Run: `npm run ui:flow -- bootstrap-incomplete-package`.
-  Acceptance: AC5's user-facing half.
+      Files: `scripts/flows/bootstrap-incomplete-package.mjs` (new), `scripts/lib/fixture.mjs`
+      (an option that builds the demo archive without its pak), mirroring
+      `scripts/flows/bootstrap-wizard.mjs` for the loopback server, `setup()`/`teardown()` and the
+      wizard walk.
+      Asserts the running step shows the reason naming the demo package and that the Downloads tab's
+      failure card carries the same key.
+      Run: `npm run ui:flow -- bootstrap-incomplete-package`.
+      Acceptance: AC5's user-facing half.
 
 ## Model Hints
 
@@ -273,6 +273,7 @@ confirmed it fails against the pre-fix code and passes against the fix.
 **Fresh clean-agent review (`story-review-hard`):** verdict **PASS**, 7/7 acceptance criteria
 met, 5 non-blocking findings (F1–F5, review's own numbering, unrelated to the F1 above except by
 coincidence of name):
+
 - **F1 (fixed)** — `GLOB_DIRS` (`baseq2/players`/`baseq2/video`) sat outside `buildAssemblePlan()`
   and so was never cross-checked against `archive-layouts.json` at all, unlike the fixed
   allowlist entries. Fixed: exported `GLOB_DIRS` from `assemble.ts` and added
@@ -310,6 +311,7 @@ coincidence of name):
   `src/shared/constants.ts` is an unrelated hand-added-install exclusion list).
 
 **Verification (re-run after the F1/F3 fixes):**
+
 - `npm run build` — clean.
 - `npm test` — 152 files / 3110 tests passed (2 new tests added to `archive-layouts.test.ts`; the
   F1 regression test in `job.test.ts` included).
@@ -322,6 +324,7 @@ coincidence of name):
   changed, so the e2e results above remain valid and were not re-run a second time.
 
 **AC → test mapping, as verified:**
+
 - AC1 → e2e `bootstrap-wizard.mjs` (passed) against fixtures pinned by
   `archive-layouts.test.ts` › "every bootstrap fixture path is a recorded real path" (passed).
   Manual residue unchanged: the live 190 MB run against the public mirrors is not automated.

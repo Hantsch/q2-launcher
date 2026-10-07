@@ -12,7 +12,7 @@ import { NEWS_IMAGE_PATH_PREFIX, RENDERER_ORIGIN } from '../../../lib/renderer-s
 import { MAX_BUTTONS_PER_SLIDE } from './feed-pipeline'
 
 /**
- * Story 082 D5, second half: the feed's own file under `userData`.
+ * Story 082, second half: the feed's own file under `userData`.
  *
  * `news-feed.json`, its own file via `JsonStore` and deliberately **not** part of `state.json`
  * (Decisions (Sprint)): a regenerable cache of foreign content has no business next to the
@@ -35,7 +35,7 @@ import { MAX_BUTTONS_PER_SLIDE } from './feed-pipeline'
  * `read()` answers `undefined` when the file is missing, empty, unparseable JSON, from another
  * cache version, or does not satisfy the schema below. This is a file on disk: it can be
  * hand-edited, truncated by a full disk, or left over from an older launcher. "No cache" costs one
- * fetch; a throw on a cache read would break app start, which is precisely the path AC8 says must
+ * fetch; a throw on a cache read would break app start, which is precisely the path that must
  * stay quiet. `JsonStore` already sets an unparseable file aside as `<file>.corrupt-<n>` and falls
  * back to `<file>.bak`, so the degradation is not silent to a developer reading the log either.
  *
@@ -73,7 +73,7 @@ export interface NewsFeedCacheData {
   /** ISO timestamp of the retrieval these slides came from. */
   retrievedAt: string
   /**
-   * Story 083 D6: optional, defaults to `false` when absent. A normal `write()` (see below) never
+   * Story 083: optional, defaults to `false` when absent. A normal `write()` (see below) never
    * sets this - a real failed refresh only ever flips the in-memory flag (`news-service.ts`'s
    * `refreshNews()`), never rewrites the file - so every cache a running app produces on its own
    * stays without this field. It exists purely so `scripts/lib/fixture.mjs`'s `news-stale` variant
@@ -106,17 +106,13 @@ const cachedSlideSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   image: z.string().min(1).optional(),
-  // Story 084 D4: the resolved `q2launcher://` URL a cached slide carries once image resolution
+  // Story 084: the resolved `q2launcher://` URL a cached slide carries once image resolution
   // has run. Listed explicitly, or `z.object()`'s default field-stripping would silently drop it
   // on every read back, undoing image resolution on every restart. Constrained to exactly the
   // shape `resolve-feed-images.ts` ever writes - defence in depth at the read boundary, since
   // this is the one field a hand-edited or otherwise-tampered cache file could use to make the
   // renderer request an arbitrary origin if it were accepted unchecked.
-  imageUrl: z
-    .string()
-    .startsWith(`${RENDERER_ORIGIN}${NEWS_IMAGE_PATH_PREFIX}`)
-    .min(1)
-    .optional(),
+  imageUrl: z.string().startsWith(`${RENDERER_ORIGIN}${NEWS_IMAGE_PATH_PREFIX}`).min(1).optional(),
   buttons: z.array(newsButtonSchema),
   visibleFrom: z.string().optional(),
   visibleUntil: z.string().optional(),
@@ -129,7 +125,7 @@ const cacheDocumentSchema = z.object({
   }),
   slides: z.array(cachedSlideSchema),
   etags: z.record(z.string(), z.string()),
-  // Story 083 D6 - see `NewsFeedCacheData.lastRefreshFailed`'s own doc comment.
+  // Story 083 - see `NewsFeedCacheData.lastRefreshFailed`'s own doc comment.
   lastRefreshFailed: z.boolean().optional(),
 })
 
@@ -146,7 +142,7 @@ function parseCacheDocument(raw: unknown, log?: NewsCacheLog): NewsCacheDocument
 
   const slides = parsed.data.slides.map((slide) => ({
     ...slide,
-    // Filter then cap, exactly as the pipeline does (AC6): a slide carrying one off-allowlist URL
+    // Filter then cap, exactly as the pipeline does: a slide carrying one off-allowlist URL
     // still delivers its remaining buttons.
     buttons: slide.buttons
       .filter((button) => isAllowedButtonHost(button.url))
@@ -169,7 +165,7 @@ export interface NewsFeedCacheOptions {
 }
 
 /**
- * The feed cache. One instance per process (D6 owns it): `JsonStore` serialises its own writes, so
+ * The feed cache. One instance per process (the news service owns it): `JsonStore` serialises its own writes, so
  * two refreshes cannot interleave on the file.
  */
 export class NewsFeedCache {
@@ -196,5 +192,10 @@ export class NewsFeedCache {
   async write(data: NewsFeedCacheData): Promise<void> {
     this.store.set({ cacheVersion: NEWS_CACHE_VERSION, ...data })
     await this.store.settle()
+  }
+
+  /** Resolves once pending writes have reached the disk; `ok: false` if one failed. */
+  settle(): Promise<{ ok: boolean }> {
+    return this.store.settle()
   }
 }

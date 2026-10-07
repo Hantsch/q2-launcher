@@ -1,5 +1,5 @@
 /**
- * Story 172 D1: the guard every bindable demo action runs behind, and the "Back to window" action.
+ * Story 172: the guard every bindable demo action runs behind, and the "Back to window" action.
  *
  * While the launcher's control loop drives a demo, key presses can pile up in the engine's command
  * buffer. When the loop stops for fullscreen those queued presses would still run. Each demo action

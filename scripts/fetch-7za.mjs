@@ -1,5 +1,5 @@
 // Story 071 D3: vendors the standalone `7za.exe` (+ its licence) into `resources/bin/`, the
-// binary `src/main/modules/downloads/extractor.ts` spawns via `7za-path.ts` and
+// binary `src/main/lib/archive/extractor.ts` spawns via `7za-path.ts` and
 // `electron-builder.yml`'s `extraResources` ships alongside the packaged app.
 // Story 100 D9: added a non-Windows branch that vendors the official 7-Zip Linux console build
 // (`7zz`) the same way, so the extractor works on the Linux target `docs/ROADMAP.md` describes.
@@ -43,7 +43,15 @@
 // `downloads.error.extractorMissing` and gate their real-archive test on `existsSync`, rather than
 // assuming this script has run.
 import { execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -52,7 +60,7 @@ const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const BIN_DIR = join(REPO_ROOT, 'resources', 'bin')
 
 const IS_WINDOWS = process.platform === 'win32'
-// Story 100 D9: matches `BINARY_NAME` in `src/main/modules/downloads/7za-path.ts` - the two must
+// Story 100 D9: matches `BINARY_NAME` in `src/main/lib/archive/7za-path.ts` - the two must
 // stay in lockstep, since that module is what resolves this file's output at runtime.
 const BINARY_NAME = IS_WINDOWS ? '7za.exe' : '7zz'
 const TARGET_BINARY = join(BIN_DIR, BINARY_NAME)
@@ -135,10 +143,14 @@ async function fetchWindows() {
   )
 
   renameSync(join(TMP_DIR, '7za.exe'), TARGET_BINARY)
-  if (existsSync(join(TMP_DIR, 'License.txt'))) {
-    renameSync(join(TMP_DIR, 'License.txt'), TARGET_LICENSE)
-  }
+  vendorLicense(join(TMP_DIR, 'License.txt'))
   rmSync(TMP_DIR, { recursive: true, force: true })
+}
+
+/** The tracked licence is LF (`.gitattributes`); 7-Zip ships it CRLF, which would dirty the worktree. */
+function vendorLicense(extracted) {
+  if (!existsSync(extracted)) return
+  writeFileSync(TARGET_LICENSE, readFileSync(extracted, 'utf8').replace(/\r\n/g, '\n'))
 }
 
 async function fetchLinux() {
@@ -169,9 +181,7 @@ async function fetchLinux() {
 
   renameSync(join(TMP_DIR, '7zz'), TARGET_BINARY)
   chmodSync(TARGET_BINARY, 0o755)
-  if (existsSync(join(TMP_DIR, 'License.txt'))) {
-    renameSync(join(TMP_DIR, 'License.txt'), TARGET_LICENSE)
-  }
+  vendorLicense(join(TMP_DIR, 'License.txt'))
   rmSync(TMP_DIR, { recursive: true, force: true })
 }
 

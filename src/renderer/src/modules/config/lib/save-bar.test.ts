@@ -82,8 +82,7 @@ describe('resolveSaveOutcome', () => {
 
     expect(action).toEqual({
       type: 'toast',
-      messageKey: 'config.save.unreadableUnparseable',
-      params: { message: 'unexpected token' },
+      error: { key: 'config.save.unreadableUnparseable', params: { message: 'unexpected token' } },
     })
   })
 
@@ -100,15 +99,14 @@ describe('resolveSaveOutcome', () => {
 
     expect(action).toEqual({
       type: 'toast',
-      messageKey: 'config.save.unreadableReadError',
-      params: { message: 'EACCES' },
+      error: { key: 'config.save.unreadableReadError', params: { message: 'EACCES' } },
     })
   })
 
   it('resolves a transport-level failure to a toast carrying the error key and params', () => {
     const action = resolveSaveOutcome(fail('config.error.profileNotFound'))
 
-    expect(action).toEqual({ type: 'toast', messageKey: 'config.error.profileNotFound' })
+    expect(action).toEqual({ type: 'toast', error: { key: 'config.error.profileNotFound' } })
   })
 
   it('carries transport-level error params through when present', () => {
@@ -116,8 +114,7 @@ describe('resolveSaveOutcome', () => {
 
     expect(action).toEqual({
       type: 'toast',
-      messageKey: 'config.error.installationRunning',
-      params: { name: 'baseq2' },
+      error: { key: 'config.error.installationRunning', params: { name: 'baseq2' } },
     })
   })
 })

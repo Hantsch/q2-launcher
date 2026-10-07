@@ -22,7 +22,7 @@ export interface EngineScopeSelectProps {
 
 /**
  * Picks which engine's defaults, clamps and value warnings the settings rows
- * show (AC 4).
+ * show.
  *
  * The candidates are derived here, in the renderer, from the profile's
  * assignments crossed with the mirrored installation list - there is no second

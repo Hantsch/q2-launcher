@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import { Q2_GLYPHS } from '@shared/config/q2-charset'
+import { Q2_GLYPHS } from '@shared/config/syntax/q2-charset'
 import { Button } from '../../../components/ui/Button'
 
 /**
- * Story 008 D8: the symbol/colour picker for `MessageEditor`. No image
+ * Story 008: the symbol/colour picker for `MessageEditor`. No image
  * assets (CLAUDE.md) - each glyph renders as its ASCII stand-in plus its byte
  * value, never a rendered conchars preview (upstream's doc comment promised
  * one; no such code ever existed there, per decision 21).

@@ -47,7 +47,7 @@ export function OccupancyPips({ row }: { row: ServerListRow }) {
 }
 
 /**
- * Story 118 D3: one row of the real servers list - name/address, mod, map, players and ping on the
+ * Story 118: one row of the real servers list - name/address, mod, map, players and ping on the
  * shared `SERVER_LIST_GRID` template (so every cell lines up under `ServerListHeader`'s labels),
  * plus a set of status markers (password/gamemode/favourite/stale/waiting/pending) rendered on the
  * name cell's second line, each a visible `Badge` with an icon and i18n text (status is never
@@ -129,13 +129,13 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
             {row.needpass === true && (
               <Badge tone="warning" testId={`servers-row-password-${row.address}`}>
                 <Lock className="size-3" aria-hidden="true" />
-                {t('servers.row.password')}
+                {t('common.label.password')}
               </Badge>
             )}
             {row.favourite && (
               <Badge tone="flame" testId={`servers-row-favourite-${row.address}`}>
                 <Star className="size-3" aria-hidden="true" />
-                {t('servers.row.favourite')}
+                {t('common.label.favourite')}
               </Badge>
             )}
             {waiting && (

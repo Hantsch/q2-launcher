@@ -16,7 +16,7 @@ The panel should read at a glance: the demo's name is the prominent header, and 
 I care about, in the order I care about them — first the file, then the match:
 
 1. File name, Length, Recorded
-2. *(visual gap)*
+2. _(visual gap)_
 3. Map, Mod, Gamemode, Players, Point of view
 
 This changes concept DEMO-13 ("the detail view shows each value's source"): the effective-value
@@ -36,7 +36,7 @@ precedence stays, only its display in the detail panel goes.
       file name", "file time", "guessed").
 - [x] **AC6** — The MVD2 note and the sidecar-issue list are still shown when they apply.
 - [x] **AC7** — The demo list row's gamemode carries no "(guessed)" marker; a guessed gamemode reads
-      like a reported one (e.g. "Duel"). *(Added in refine from the (User) decision below.)*
+      like a reported one (e.g. "Duel"). _(Added in refine from the (User) decision below.)_
 
 ## Open Questions
 
@@ -80,7 +80,7 @@ precedence stays, only its display in the detail panel goes.
   `GAMEMODE_I18N_KEYS`, because the list row was its only consumer; the gamemode filter's
   `excludeGuessed` logic stays, since it is filtering, not a per-value label.
 - Locale keys orphaned by this story (`replays.detail.knownSection`, `replays.detail.field.name/
-  host/format/source/levelName`) are removed; `replays.source.*` stays because `DemoNotesEditor`
+host/format/source/levelName`) are removed; `replays.source.*` stays because `DemoNotesEditor`
   still uses it, and `field.description/tags/favourite/rating` stay for [[178]]/[[179]].
 - `replays-rename.mjs`'s "set by you" assertions are replaced by checks on the value and on the
   renamed sidecar's JSON, because the flow's intent (the value moves into the sidecar) is unchanged
@@ -109,31 +109,31 @@ Build order matters for [[178]]/[[179]], which reshape the same panel afterwards
 ## Deliverables
 
 - [x] **D1 — the detail model carries the seven facts in two ordered groups.**
-  Files: `src/shared/replays/demo-detail.ts`, `src/shared/replays/demo-detail.test.ts`.
-  `buildDemoDetail(row, sidecar)` returns `fields` in exactly this order, each with a new
-  `group: 'file' | 'match'` property next to `id`/`value`/`source`: `fileName` (file, `row.fileName`,
-  source `null`), `duration` (file, `row.durationMs` when finite, source `null`), `date` (file,
-  `row.effective.date`), `map`, `mod`, `gamemode`, `sides`, `pov` (all match, from `row.effective.*`
-  with their effective source). A fact with no value is omitted (existing `hasValue` guard). Remove
-  `name`, `host`, `format`, `source`, `levelName`, `description`, `tags`, `favourite`, `rating` from
-  `DetailFieldId` and from the output, and delete the now-unused `sourceValue()` helper and
-  `demoSourceKey` import. Keep `knownPlayers` and `sidecarIssues` exactly as they are. The
-  `sidecar` parameter becomes unused — keep the signature (callers pass it; [[178]] will read
-  description/tags from it) and prefix it `_sidecar` or leave a one-line comment, whichever the
-  lint/typecheck accepts. `DemoNotesEditor.tsx` consumes `fields.find(f => f.id === 'map')` and
-  must keep compiling unchanged. Update the unit tests: replace "the detail lists every effective
-  value with its source" with **"the detail lists the file facts, then the match facts, in order"**
-  (asserts the id sequence and groups for a fully populated row, and that no removed id appears)
-  and add **"a fact with no value anywhere is omitted"** (e.g. a row with `pov` and `durationMs`
-  unset lacks those ids, no blank entries). Keep the known-players and sidecar-state tests.
-  Acceptance: `npx vitest run src/shared/replays/demo-detail.test.ts` green, `npm run typecheck`
-  green.
+      Files: `src/shared/replays/demo-detail.ts`, `src/shared/replays/demo-detail.test.ts`.
+      `buildDemoDetail(row, sidecar)` returns `fields` in exactly this order, each with a new
+      `group: 'file' | 'match'` property next to `id`/`value`/`source`: `fileName` (file, `row.fileName`,
+      source `null`), `duration` (file, `row.durationMs` when finite, source `null`), `date` (file,
+      `row.effective.date`), `map`, `mod`, `gamemode`, `sides`, `pov` (all match, from `row.effective.*`
+      with their effective source). A fact with no value is omitted (existing `hasValue` guard). Remove
+      `name`, `host`, `format`, `source`, `levelName`, `description`, `tags`, `favourite`, `rating` from
+      `DetailFieldId` and from the output, and delete the now-unused `sourceValue()` helper and
+      `demoSourceKey` import. Keep `knownPlayers` and `sidecarIssues` exactly as they are. The
+      `sidecar` parameter becomes unused — keep the signature (callers pass it; [[178]] will read
+      description/tags from it) and prefix it `_sidecar` or leave a one-line comment, whichever the
+      lint/typecheck accepts. `DemoNotesEditor.tsx` consumes `fields.find(f => f.id === 'map')` and
+      must keep compiling unchanged. Update the unit tests: replace "the detail lists every effective
+      value with its source" with **"the detail lists the file facts, then the match facts, in order"**
+      (asserts the id sequence and groups for a fully populated row, and that no removed id appears)
+      and add **"a fact with no value anywhere is omitted"** (e.g. a row with `pov` and `durationMs`
+      unset lacks those ids, no blank entries). Keep the known-players and sidecar-state tests.
+      Acceptance: `npx vitest run src/shared/replays/demo-detail.test.ts` green, `npm run typecheck`
+      green.
 
 - [x] **D2 — the panel reads at a glance.** Depends on D1.
-  Files: `src/renderer/src/modules/replays/components/DemoDetailPanel.tsx`,
-  `DemoDetailPanel.test.tsx` (same folder), delete `ValueSourceLabel.tsx` and
-  `ValueSourceLabel.test.tsx` (same folder), `src/renderer/src/i18n/locales/en.json`,
-  `scripts/flows/replays-demo-detail.mjs`, `scripts/flows/replays-rename.mjs`.
+      Files: `src/renderer/src/modules/replays/components/DemoDetailPanel.tsx`,
+      `DemoDetailPanel.test.tsx` (same folder), delete `ValueSourceLabel.tsx` and
+      `ValueSourceLabel.test.tsx` (same folder), `src/renderer/src/i18n/locales/en.json`,
+      `scripts/flows/replays-demo-detail.mjs`, `scripts/flows/replays-rename.mjs`.
   - Header: keep the sticky bar and close button; grow it from `h-9` to `min-h-12 py-2`; the
     `<h2 data-testid="replays-detail-title">` becomes `text-lg font-semibold text-ink`, still
     `min-w-0 truncate`, text = `row.effective.name.value ?? row.fileName` (unchanged fallback).
@@ -173,30 +173,30 @@ Build order matters for [[178]]/[[179]], which reshape the same panel afterwards
   - Flow `scripts/flows/replays-rename.mjs`: replace the two "set by you" assertions (map, date)
     with: the map field still contains `q2dm1`, the renamed sidecar JSON carries `map: "q2dm1"`,
     and the date field shows a non-empty value; rewrite the comment above it accordingly.
-  Acceptance: `npx vitest run src/renderer/src/modules/replays/components/DemoDetailPanel.test.tsx`,
-  `npm run ui:flow -- replays-demo-detail`, `npm run ui:flow -- replays-rename` green;
-  `npm run typecheck` green.
+    Acceptance: `npx vitest run src/renderer/src/modules/replays/components/DemoDetailPanel.test.tsx`,
+    `npm run ui:flow -- replays-demo-detail`, `npm run ui:flow -- replays-rename` green;
+    `npm run typecheck` green.
 
 - [x] **D3 — the list row drops "(guessed)".** Independent of D2's files except `en.json`.
-  Files: `src/shared/demos/gamemode.ts`, `src/shared/demos/gamemode.test.ts`,
-  `src/renderer/src/modules/replays/components/DemoRow.tsx`, `DemoRow.test.tsx` (same folder),
-  `src/renderer/src/i18n/locales/en.json`, `scripts/flows/replays-demo-rows.mjs`,
-  `scripts/lib/fixture.mjs` (doc comments near `writeReplaysRowsFixture`, ~l.2257/2272 only),
-  `scripts/lib/screens.mjs` (~l.1403 comment only).
-  Remove `guessedKey` from `GamemodeDescription` and `describeGamemode` (it returns only
-  `labelKey` or `text`), remove `'replays.gamemode.guessed'` from `GAMEMODE_I18N_KEYS` and from
-  `en.json` (`replays.gamemode.guessed` only — `replays.source.guessed` stays). Keep
-  `resolveGamemode`'s `'guessed'` source and the filter's `excludeGuessed` logic untouched. In
-  `DemoRow.tsx` delete the `({t(gamemodeDescription.guessedKey)})` span. Tests: in
-  `gamemode.test.ts` replace "a guessed value carries the guessed marker" / "sidecar and name
-  values carry no guessed marker" with **"a guessed value is described like a reported one"**; in
-  `DemoRow.test.tsx` replace "a guessed gamemode is marked guessed" with **"a guessed gamemode
-  carries no guessed marker"** (text is "Duel", no "guessed"). In `replays-demo-rows.mjs` rename
-  the step to `'the two-single-player-sides row resolves gamemode "duel", with no guessed marker'`
-  and invert the check at ~l.135 (must NOT include "guess"); update the header comment at l.13.
-  Acceptance: `npx vitest run src/shared/demos/gamemode.test.ts
-  src/renderer/src/modules/replays/components/DemoRow.test.tsx`, `npm run ui:flow --
-  replays-demo-rows`, `npm run typecheck` green.
+      Files: `src/shared/demos/gamemode.ts`, `src/shared/demos/gamemode.test.ts`,
+      `src/renderer/src/modules/replays/components/DemoRow.tsx`, `DemoRow.test.tsx` (same folder),
+      `src/renderer/src/i18n/locales/en.json`, `scripts/flows/replays-demo-rows.mjs`,
+      `scripts/lib/fixture.mjs` (doc comments near `writeReplaysRowsFixture`, ~l.2257/2272 only),
+      `scripts/lib/screens.mjs` (~l.1403 comment only).
+      Remove `guessedKey` from `GamemodeDescription` and `describeGamemode` (it returns only
+      `labelKey` or `text`), remove `'replays.gamemode.guessed'` from `GAMEMODE_I18N_KEYS` and from
+      `en.json` (`replays.gamemode.guessed` only — `replays.source.guessed` stays). Keep
+      `resolveGamemode`'s `'guessed'` source and the filter's `excludeGuessed` logic untouched. In
+      `DemoRow.tsx` delete the `({t(gamemodeDescription.guessedKey)})` span. Tests: in
+      `gamemode.test.ts` replace "a guessed value carries the guessed marker" / "sidecar and name
+      values carry no guessed marker" with **"a guessed value is described like a reported one"**; in
+      `DemoRow.test.tsx` replace "a guessed gamemode is marked guessed" with **"a guessed gamemode
+      carries no guessed marker"** (text is "Duel", no "guessed"). In `replays-demo-rows.mjs` rename
+      the step to `'the two-single-player-sides row resolves gamemode "duel", with no guessed marker'`
+      and invert the check at ~l.135 (must NOT include "guess"); update the header comment at l.13.
+      Acceptance: `npx vitest run src/shared/demos/gamemode.test.ts
+src/renderer/src/modules/replays/components/DemoRow.test.tsx`, `npm run ui:flow --
+replays-demo-rows`, `npm run typecheck` green.
 
 ## Model Hints
 
@@ -247,6 +247,7 @@ Commit message: `177: demo detail reads at a glance — name title, file/match f
 Verification: narrow gate — `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (140 files / 1978 tests) and `npm run ui:flow -- replays-demo-detail|replays-demo-rows|replays-rename` (each run once) all green; review (default tier, 1 cycle) PASS. AC -> test as verified: AC1-AC5 -> `replays-demo-detail` flow steps + `DemoDetailPanel.test.tsx`/`demo-detail.test.ts` named tests passed; AC6 -> mvd2 flow step + kept unit tests passed; AC7 -> `replays-demo-rows` duel step + `DemoRow.test.tsx`/`gamemode.test.ts` named tests passed. No manual residue. Full gate pending (sprint's).
 
 Decisions:
+
 - The notes editor below the facts keeps its `replays.source.*` "(from the demo)" labels (kept per story decision); AC5 concerns the facts list, so the flow's provenance check covers title + both fact groups, while the unit test checks the whole panel.
 - `DemoNotesEditor.test.tsx` got `group: 'match'` on its field literals (typecheck only).
 - Unfixed minor review notes: the `as` cast around `describeGamemode` args in `DemoDetailPanel.tsx`, `truncate` on `<dd>` without tooltip, stale "Story 155 D1" header comment, thin "omitted" unit test (covers duration/pov only).

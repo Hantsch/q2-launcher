@@ -8,7 +8,7 @@ import {
   type ConfigActionCategory,
   type ConfigProfile,
 } from '@shared/modules/config'
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import { fail, type Installation } from '@shared/types'
 import { scopedLogger } from '../../lib/logger'
 import type { AppContext } from '../../context'
@@ -22,7 +22,8 @@ import {
   previewImportFiles,
 } from './import'
 import { PickedFilesRegistry } from './picked-files'
-import { renderLoaderFile, renderProfileFile } from './render'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render/render'
+import { configState } from './persisted'
 
 /**
  * Story 005 D3 / story 066 D5: the handler logic in `import.ts`, tested directly against a
@@ -178,7 +179,7 @@ async function bootModule(
   const { configModule } = await import('./index')
   const insts = options.installations ?? []
   const picker = fakePicker(options.pickedPaths ?? [])
-  const state = new StateStore(join(root, 'state.json'))
+  const state = new StateStore(join(root, 'state.json'), { migrations: 'none' })
   await state.load()
 
   const handlers = new Map<string, ModuleHandler>()
@@ -193,6 +194,7 @@ async function bootModule(
   await configModule.setup({
     handle,
     emit: () => {},
+    onDispose: () => {},
     app: {
       installations: { find: (id: string) => insts.find((i) => i.id === id), list: () => insts },
       launch: { getState: () => ({ phase: 'idle', installationId: null }) },
@@ -223,7 +225,9 @@ describe('pickImportFiles', () => {
     const picker = fakePicker([join(root, 'picked', 'dm.cfg')])
     const registry = new PickedFilesRegistry()
 
-    const result = await pickImportFiles(picker, registry, log, { defaultPath: join(root, 'baseq2') })
+    const result = await pickImportFiles(picker, registry, log, {
+      defaultPath: join(root, 'baseq2'),
+    })
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -359,7 +363,12 @@ describe('commitImportFiles', () => {
     const { calls, stubProfiles, createProfile } = fakeCreateProfile()
     const { picked, fileIds } = pickedFiles(['baseq2/config.cfg'])
 
-    const result = await commitImportFiles(picked, log, { fileIds, name: 'Imported' }, createProfile)
+    const result = await commitImportFiles(
+      picked,
+      log,
+      { fileIds, name: 'Imported' },
+      createProfile,
+    )
 
     expect(result).toEqual({ ok: true, value: stubProfiles })
     expect(calls).toHaveLength(1)
@@ -379,7 +388,7 @@ describe('commitImportFiles', () => {
 
   // Story 041 (D6): the answers to "attempt as layer" flow through to
   // `buildImportedActions`, validated against this import's own ambiguous list.
-  describe('layerAliases (story 041 D6)', () => {
+  describe('layerAliases', () => {
     async function writeAmbiguousFixture(): Promise<void> {
       await write(
         'baseq2/config.cfg',
@@ -448,7 +457,7 @@ describe('commitImportFiles', () => {
  * installation") and AC10 ("nothing is written until Create is pressed, and the commit re-reads
  * the picked files from disk").
  */
-describe('story 066 D5: import from picked files', () => {
+describe('import from picked files', () => {
   /** The whole flow, exactly as the module wires it: pick -> preview -> commit. */
   it('import from files needs no installation', async () => {
     await write('picked/dm.cfg', lines('set sensitivity "3"', 'bind x "+attack"'))
@@ -516,7 +525,7 @@ describe('story 066 D5: import from picked files', () => {
     })) as { ok: boolean; value: ConfigProfile[] }
     expect(commit.ok).toBe(true)
     expect(commit.value.map((profile) => profile.name)).toEqual(['No selection'])
-    expect(state.configProfiles()[0]!.cvars).toEqual({ sensitivity: '3' })
+    expect(configState(state).profiles.get()[0]!.cvars).toEqual({ sensitivity: '3' })
   })
 
   it('preview and commit work on an empty installation list', async () => {
@@ -536,7 +545,9 @@ describe('story 066 D5: import from picked files', () => {
     expect(picker.calls).toEqual([{}])
     const fileIds = picked.value.map((file) => file.id)
 
-    const preview = (await handlers.get(CONFIG_HANDLERS.importPreviewFiles)!({ fileIds })) as { ok: boolean }
+    const preview = (await handlers.get(CONFIG_HANDLERS.importPreviewFiles)!({ fileIds })) as {
+      ok: boolean
+    }
     expect(preview.ok).toBe(true)
 
     const commit = (await handlers.get(CONFIG_HANDLERS.importCommitFiles)!({
@@ -546,7 +557,7 @@ describe('story 066 D5: import from picked files', () => {
     expect(commit.ok).toBe(true)
     expect(commit.value).toHaveLength(1)
     expect(commit.value[0]!.assignments).toEqual([])
-    expect(state.configProfiles()).toHaveLength(1)
+    expect(configState(state).profiles.get()).toHaveLength(1)
   })
 
   /**
@@ -568,12 +579,7 @@ describe('story 066 D5: import from picked files', () => {
     await write('picked/dm.cfg', lines('set sensitivity "9"', 'bind x "+attack"', 'bind y "+jump"'))
 
     const { calls, createProfile } = fakeCreateProfile()
-    const commit = await commitImportFiles(
-      picked,
-      log,
-      { fileIds, name: 'Re-read' },
-      createProfile,
-    )
+    const commit = await commitImportFiles(picked, log, { fileIds, name: 'Re-read' }, createProfile)
 
     expect(commit.ok).toBe(true)
     // The commit reflects the NEW bytes, not the previewed ones.
@@ -595,20 +601,25 @@ describe('story 066 D5: import from picked files', () => {
     }
     const fileIds = picked.value.map((file) => file.id)
 
-    const preview = (await handlers.get(CONFIG_HANDLERS.importPreviewFiles)!({ fileIds })) as { ok: boolean }
+    const preview = (await handlers.get(CONFIG_HANDLERS.importPreviewFiles)!({ fileIds })) as {
+      ok: boolean
+    }
 
     expect(preview.ok).toBe(true)
-    expect(state.configProfiles()).toEqual([])
+    expect(configState(state).profiles.get()).toEqual([])
     // The picked file itself is byte-identical, and no sibling was created next to it.
     expect(await readFile(join(root, 'picked', 'dm.cfg'), 'latin1')).toBe(sourceBefore)
     expect(await readdir(join(root, 'picked'))).toEqual(['dm.cfg'])
 
     // And the commit that follows is what creates the profile - the preview left nothing half-done.
-    const commit = (await handlers.get(CONFIG_HANDLERS.importCommitFiles)!({ fileIds, name: 'Created' })) as {
+    const commit = (await handlers.get(CONFIG_HANDLERS.importCommitFiles)!({
+      fileIds,
+      name: 'Created',
+    })) as {
       ok: boolean
     }
     expect(commit.ok).toBe(true)
-    expect(state.configProfiles()).toHaveLength(1)
+    expect(configState(state).profiles.get()).toHaveLength(1)
   })
 
   /**
@@ -679,7 +690,7 @@ describe('story 066 D5: import from picked files', () => {
  * case the acceptance line calls out explicitly: the sentinel is only reached through the loader's
  * `exec` chain, never in the file the user actually picked.
  */
-describe('story 042 D5: ownWrittenFile / metadata restore', () => {
+describe('ownWrittenFile / metadata restore', () => {
   const sourceProfile: ConfigProfile = {
     id: 'source-profile-id',
     name: 'Source',

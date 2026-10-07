@@ -47,7 +47,15 @@ describe('findSteamRoot on Linux', () => {
 
   it('finds the Steam root under the Flatpak path', async () => {
     restorePlatform = stubPlatform('linux')
-    const steamRoot = join(home, '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam')
+    const steamRoot = join(
+      home,
+      '.var',
+      'app',
+      'com.valvesoftware.Steam',
+      '.local',
+      'share',
+      'Steam',
+    )
     await mkdir(steamRoot, { recursive: true })
 
     await expect(findSteamRoot(home)).resolves.toBe(steamRoot)

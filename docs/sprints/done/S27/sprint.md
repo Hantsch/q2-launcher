@@ -45,6 +45,7 @@ Ran after the last story (158), on the finished branch, commit `f872db8`.
   `replays-list-scale`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`.
 
 **Attribution and fixes:**
+
 - `replays-date-filter-invalid@940x620` → **story 154, fixed** (commit `139cb8a`): the date-range
   picker's custom "From" field applied live on each keystroke (correctly, per AC2); typing "To"
   next into a value that made the pair invalid correctly rejected that edit, but the earlier
@@ -59,7 +60,7 @@ Ran after the last story (158), on the finished branch, commit `f872db8`.
   was the flow's own scale fixture (built for story 150 before sorting existed) clustering 3 000
   files' mtimes into the same fast-write-loop timestamp bucket and targeting the highest-numbered
   file as "last", which 152's new default order ("favourites first, then newest") now sorted to the
-  *top* instead of the bottom the flow expected. Fixed in the fixture (deterministic, one-second-
+  _top_ instead of the bottom the flow expected. Fixed in the fixture (deterministic, one-second-
   spaced mtimes; retargeted at the now-actually-oldest file), no product code changed. The other
   three (`servers-filter-search`, `servers-master-sources`, `servers-sort-order`) and
   `replays-extra-folders` reproduce identically at the sprint's merge-base with `dev` and are
@@ -81,6 +82,6 @@ Ran after the last story (158), on the finished branch, commit `f872db8`.
 **Not fixed, named as a finding, not a regression:** the story-155 fix agent found that
 `demo-editor-store.ts`'s `quickEdit` (fire-and-forget read-merge-write, no per-row queuing) can
 race when a favourite toggle and a rating pick fire back-to-back — whichever write's stale-base
-read resolves last silently drops the other field. Reproduced against the *original, unmodified*
+read resolves last silently drops the other field. Reproduced against the _original, unmodified_
 row component too (so it predates story 155's own regression and is unrelated to it) — a
 pre-existing flake worth its own story if `replays-row-quick-rating` starts flaking in CI.

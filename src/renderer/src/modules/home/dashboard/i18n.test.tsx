@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { ConfigProfile, ProfileSyncState, SyncProfileStateInput } from '@shared/modules/config'
 import type { LibraryStats } from '@shared/modules/library'
 import type { Outcome } from '@shared/types'
@@ -40,9 +41,11 @@ const EMPTY_STATS: LibraryStats = {
 
 const getLibraryStats = vi.fn<() => Promise<Outcome<LibraryStats>>>()
 
-vi.mock('../../library/client', () => ({
-  getLibraryStats: () => getLibraryStats(),
-}))
+vi.mock('../../library/client', (importOriginal) =>
+  mockClient<typeof import('../../library/client')>(importOriginal, {
+    getLibraryStats: () => getLibraryStats(),
+  }),
+)
 
 function profile(id: string, name: string): ConfigProfile {
   return {
@@ -69,10 +72,12 @@ const listConfigProfiles = vi.fn<() => Promise<Outcome<ConfigProfile[]>>>()
 const getProfileSyncState =
   vi.fn<(input: SyncProfileStateInput) => Promise<Outcome<ProfileSyncState>>>()
 
-vi.mock('../../config/client', () => ({
-  listConfigProfiles: () => listConfigProfiles(),
-  getProfileSyncState: (input: SyncProfileStateInput) => getProfileSyncState(input),
-}))
+vi.mock('../../config/client', (importOriginal) =>
+  mockClient<typeof import('../../config/client')>(importOriginal, {
+    listConfigProfiles: () => listConfigProfiles(),
+    getProfileSyncState: (input: SyncProfileStateInput) => getProfileSyncState(input),
+  }),
+)
 
 vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: vi.fn(), on: vi.fn(() => () => {}) }
@@ -80,9 +85,15 @@ vi.hoisted(() => {
 
 const { PlaytimeTile } = await import('./PlaytimeTile')
 const { ConfigProfilesTile } = await import('./ConfigProfilesTile')
+const { useConfigProfiles } = await import('../../config/config-profiles-store')
 
 beforeAll(async () => {
   await initI18n('en')
+})
+
+beforeEach(() => {
+  // The store outlives a mount, so each test starts from the empty list of a first visit.
+  useConfigProfiles.setState({ profiles: [] })
 })
 
 afterEach(() => {
@@ -97,7 +108,7 @@ type TileState = (typeof STATES)[number]
 
 /** No raw dotted i18n key survives into rendered text - that shape only appears when `t()` falls
  * back to echoing a missing/misspelled key back. Deliberately not scoped to `home.dashboard.*`:
- * these tiles also render keys from other namespaces (e.g. `common.retry` via
+ * these tiles also render keys from other namespaces (e.g. `common.action.retry` via
  * `DashboardTileFrame.tsx`'s error state), and a leak there would look exactly as wrong to a user
  * as one under this tile's own namespace, so the regex recognises any lowercase-led, dotted token
  * of two or more segments (every real key in this codebase is `lowerCamel(.lowerCamel)+`) rather

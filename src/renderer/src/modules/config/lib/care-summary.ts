@@ -1,5 +1,5 @@
 /**
- * Care tab summary — story 025 D8.
+ * Care tab summary — story 025.
  *
  * Two independent jobs live here, both pure aggregation over data every
  * other Care section already computes:
@@ -15,7 +15,7 @@
  *    `tidyUpFindings.length` counts those rows twice. The dedup key is the
  *    finding id itself, EXCEPT for alias-wiring ids
  *    (`${engine}:actions:${rule}:${sequence}`, minted by `validateActions` in
- *    `@shared/config/validate-actions.ts`): that rule family "carries no
+ *    `@shared/config/validation/validate-actions.ts`): that rule family "carries no
  *    engine-specific facts" (that module's own doc comment), so the same
  *    underlying problem mints an id tagged with whichever engine happened to
  *    validate it - `q2pro:actions:aliasUnreferenced:0` in the report for a
@@ -30,7 +30,7 @@
  *    engine-agnostic in shape, so normalizing them could wrongly collide two
  *    different findings.
  *
- *    Story 079 D7 (AC6) adds a third source into the same count: every Files
+ *    Story 079 adds a third source into the same count: every Files
  *    row (`care-sync.ts`'s `CareSyncRow`) that is not `inSync` - drifted,
  *    missing or a failed write are each "something to do" exactly like an
  *    unresolved finding, so the badge counts them alongside validation and
@@ -38,7 +38,7 @@
  *    `files:${row.target}` so it de-duplicates per row (one row per
  *    canonical/installation target) and can never collide with a finding id.
  *
- *    Story 079 review (finding 4): the canonical row reads `outOfSync` for two different reasons
+ *    Story 079: the canonical row reads `outOfSync` for two different reasons
  *    (`care-sync.ts`'s `canonicalOutOfSyncReason`) - the file was changed outside the launcher
  *    (`externalEdit`, genuine drift), or the profile simply has edits the user has not saved yet
  *    (`unsavedChanges`, true of every dirty profile the moment it is typed into). Only the first is
@@ -48,18 +48,18 @@
  *    non-`inSync` row (installation `outOfSync`/`missing`/`failed`, canonical `externalEdit`/
  *    `missing`/`failed`) still counts exactly as before.
  * 2. `careSummary` — the Care-level "all clear vs. something to do" rollup
- *    (story 025 AC 7, rewritten by story 058 D1 around `care-items.ts`). Each
+ *    (story 025, rewritten by story 058 around `care-items.ts`). Each
  *    group answers `clean`, `{ items: n }`, or `notChecked`, and the whole tab
  *    is `allClear` only when there are zero items AND every source actually
  *    answered.
  *
  *    Two sources can fail to answer, and neither may ever read as clean:
  *    - the report, when `validation.status !== 'ok'` — nothing was validated
- *      against at all (story 025 review finding F2, story 058 decision 3). The
+ *      against at all (story 025, story 058 decision 3). The
  *      tab renders that as its own explicit "nothing to validate against"
  *      state, so the summary must not call it clean.
  *    - the files check, while its fetch is still loading or has errored (story
- *      025 review finding F3) — neither is evidence of cleanliness, and the
+ *      025) — neither is evidence of cleanliness, and the
  *      summary must still answer for every other group rather than vanishing.
  *
  *    Story 058 decision 4 removed the third one: Care no longer tracks the
@@ -75,7 +75,7 @@
  * IPC itself, same discipline as `validation-scope.ts`.
  */
 
-import type { Finding } from '@shared/config/validation'
+import type { Finding } from '@shared/config/validation/validation'
 import { engineLabel } from '@shared/types/engine'
 import type { CareItem, CareItemGroup } from './care-items'
 import { canonicalOutOfSyncReason, type CareSyncRow } from './care-sync'
@@ -102,7 +102,7 @@ function worseLevel(a: 'error' | 'warning', b: 'error' | 'warning'): 'error' | '
 }
 
 /** Matches only alias-wiring finding ids (`${engine}:actions:${rule}:${sequence}`,
- * `@shared/config/validate-actions.ts`) — never the tidy-up-only minted ids
+ * `@shared/config/validation/validate-actions.ts`) — never the tidy-up-only minted ids
  * (`bindConflict:...`, `layerEmpty:...`, `preserved:...`), which do not start
  * with an engine kind followed by `:actions:`. */
 const ACTIONS_FINDING_ID = /^[^:]+:actions:/
@@ -114,7 +114,7 @@ const ACTIONS_FINDING_ID = /^[^:]+:actions:/
  * Every other id is returned unchanged.
  *
  * Exported for `care-items.ts`, which drops the health row for a finding the
- * tidy-up list also reports (story 058 AC 3): the badge and the item list must
+ * tidy-up list also reports (story 058): the badge and the item list must
  * mean the same thing by "one finding", so they share this one rule rather
  * than growing a second copy of it.
  */
@@ -125,7 +125,7 @@ export function dedupKey(id: string): string {
 /**
  * The tab badge's own counts (`ConfigView.tsx`): every distinct finding id
  * across the validation report and the tidy-up list, counted once each, plus
- * (story 079 D7, AC6) every Files row that is not `inSync` - a drifted,
+ * (story 079) every Files row that is not `inSync` - a drifted,
  * missing or failed-write copy is exactly as much "something to do" as an
  * unresolved finding, so the badge counts it the same way.
  *
@@ -193,7 +193,7 @@ function statusFor(count: number): SectionStatus {
 }
 
 /**
- * What the sync fetch reports out (story 025 review finding F3) - distinguishes
+ * What the sync fetch reports out (story 025 - distinguishes
  * "still loading" and "the fetch failed" from "loaded, here are the rows", so
  * the Care summary can answer something for the files group instead of never
  * rendering while the fetch is in flight or silently omitting it when it fails.
@@ -232,7 +232,7 @@ export interface CareSummary {
    * false "nothing to report". */
   allClear: boolean
   /** One line per checked thing, in group order, for the All clear block
-   * (AC 1). Always present - a line says what it knows, including that it does
+   *. Always present - a line says what it knows, including that it does
    * not know yet. */
   lines: CareSummaryLine[]
 }
@@ -261,9 +261,7 @@ export function careSummary(input: CareSummaryInput): CareSummary {
     ? statusFor(countIn(input.items, 'health'))
     : { kind: 'notChecked' }
   const files: SectionStatus =
-    input.sync.kind === 'loaded'
-      ? statusFor(countIn(input.items, 'files'))
-      : { kind: 'notChecked' }
+    input.sync.kind === 'loaded' ? statusFor(countIn(input.items, 'files')) : { kind: 'notChecked' }
   // The tidy-up analyzer is synchronous and always answers, so this group has
   // no `notChecked` state at all.
   const tidy = statusFor(countIn(input.items, 'tidy'))

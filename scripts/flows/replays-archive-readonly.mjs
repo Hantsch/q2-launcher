@@ -7,9 +7,9 @@
 // and `DemoFileActions.tsx` before changing any of these:
 //   nav-replays                     TitleBar.tsx - primary nav entry
 //   replays-demo-row / -name        ReplaysView.tsx - one row per demo / its file name text
-//   replays-detail-edit             DemoDetailPanel.tsx - the header Edit button, disabled for an
-//                                    archive entry
-//   replays-archive-readonly-edit   DemoDetailPanel.tsx - visible reason Edit is disabled
+//   replays-detail-input-name       DemoDetailPanel.tsx - the in-place name field (a plain text span
+//                                    for an archive entry)
+//   replays-archive-readonly-edit   DemoDetailPanel.tsx - visible reason the entry is read-only
 //   demo-rename                     DemoFileActions.tsx - the rename button, disabled for an
 //                                    archive entry
 //   replays-archive-readonly-rename DemoDetailPanel.tsx - visible reason rename is disabled
@@ -21,6 +21,8 @@ import {
   vendoredExtractorExists,
   writeReplaysZipPackArchive,
 } from '../lib/fixture.mjs'
+
+import { openAllDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -45,24 +47,32 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
   }
 
   step('navigating to the Demos view renders the discovered list')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
+  await openAllDemos(page)
+  await openFolder(page, 'Fixture Favorite Install', 'pack.zip')
 
-  const list = page.getByTestId('replays-demo-list')
-  await list.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  step('opening the pack.zip archive entry disables notes and rename, with visible reasons')
+  step('a zip entry shows the same view read-only with its reason')
   const dm2Row = page
     .getByTestId('replays-demo-row')
     .filter({ has: page.getByTestId('replays-demo-name').filter({ hasText: 'test.dm2' }) })
   await dm2Row.click({ timeout: TIMEOUT_MS })
 
-  const editButton = page.getByTestId('replays-detail-edit')
-  await editButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (!(await editButton.isDisabled())) {
-    throw new Error('replays-archive-readonly: the Edit button must be disabled for an archive entry')
+  const name = page.getByTestId('replays-detail-input-name')
+  await name.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  for (const field of ['name', 'date', 'map', 'mod', 'gamemode']) {
+    const tag = await page
+      .getByTestId(`replays-detail-input-${field}`)
+      .evaluate((element) => element.tagName)
+    if (tag === 'INPUT' || tag === 'TEXTAREA') {
+      throw new Error(
+        `replays-archive-readonly: ${field} must not be editable for an archive entry`,
+      )
+    }
   }
 
-  for (const id of ['replays-detail-favourite', ...Array.from({ length: 10 }, (_, i) => `replays-detail-rating-star-${i + 1}`)]) {
+  for (const id of [
+    'replays-detail-favourite',
+    ...Array.from({ length: 10 }, (_, i) => `replays-detail-rating-star-${i + 1}`),
+  ]) {
     if (!(await page.getByTestId(id).isDisabled())) {
       throw new Error(`replays-archive-readonly: ${id} must be disabled for an archive entry`)
     }
@@ -78,7 +88,9 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
   const renameButton = page.getByTestId('demo-rename')
   const renameDisabled = await renameButton.getAttribute('disabled')
   if (renameDisabled === null) {
-    throw new Error('replays-archive-readonly: the rename button must be disabled for an archive entry')
+    throw new Error(
+      'replays-archive-readonly: the rename button must be disabled for an archive entry',
+    )
   }
 
   const renameNotice = page.getByTestId('replays-archive-readonly-rename')
@@ -117,34 +129,52 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
     }
   }
 
+  step(
+    'the zip row disables its quick favourite control with a visible reason, the loose row does not',
+  )
+  const dm2FavouriteDisabled = await dm2Row
+    .getByTestId('replays-row-favourite')
+    .getAttribute('disabled')
+  if (dm2FavouriteDisabled === null) {
+    throw new Error('replays-archive-readonly: the zip row favourite control must be disabled')
+  }
+  await dm2Row
+    .getByTestId('replays-archive-readonly-row')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+
   step('a loose demo shows neither read-only notice')
   const looseName = REPLAYS_FIXTURE_DEMOS.find((demo) => demo.fileName === 'FINAL.DM2').fileName
+  await page
+    .getByTestId('replays-crumb')
+    .filter({ hasText: 'Fixture Favorite Install' })
+    .click({ timeout: TIMEOUT_MS })
   const looseRow = page.getByTestId('replays-demo-row').filter({ hasText: looseName })
   await looseRow.click({ timeout: TIMEOUT_MS })
 
   const looseEditNoticeCount = await page.getByTestId('replays-archive-readonly-edit').count()
   if (looseEditNoticeCount !== 0) {
-    throw new Error('replays-archive-readonly: a loose demo must not show the read-only edit notice')
+    throw new Error(
+      'replays-archive-readonly: a loose demo must not show the read-only edit notice',
+    )
   }
   const looseRenameNoticeCount = await page.getByTestId('replays-archive-readonly-rename').count()
   if (looseRenameNoticeCount !== 0) {
-    throw new Error('replays-archive-readonly: a loose demo must not show the read-only rename notice')
+    throw new Error(
+      'replays-archive-readonly: a loose demo must not show the read-only rename notice',
+    )
   }
 
-  step('the zip row disables its quick favourite control with a visible reason, the loose row does not')
-  const dm2FavouriteDisabled = await dm2Row.getByTestId('replays-row-favourite').getAttribute('disabled')
-  if (dm2FavouriteDisabled === null) {
-    throw new Error('replays-archive-readonly: the zip row favourite control must be disabled')
-  }
-  await dm2Row.getByTestId('replays-archive-readonly-row').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  const looseFavouriteDisabled = await looseRow.getByTestId('replays-row-favourite').getAttribute('disabled')
+  const looseFavouriteDisabled = await looseRow
+    .getByTestId('replays-row-favourite')
+    .getAttribute('disabled')
   if (looseFavouriteDisabled !== null) {
     throw new Error('replays-archive-readonly: the loose row favourite control must stay enabled')
   }
   const looseRowNoticeCount = await looseRow.getByTestId('replays-archive-readonly-row').count()
   if (looseRowNoticeCount !== 0) {
-    throw new Error('replays-archive-readonly: the loose row must not show the read-only row notice')
+    throw new Error(
+      'replays-archive-readonly: the loose row must not show the read-only row notice',
+    )
   }
 
   await shot('replays-archive-readonly')

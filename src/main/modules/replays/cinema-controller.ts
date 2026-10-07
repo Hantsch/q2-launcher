@@ -6,7 +6,7 @@ import { FULLSCREEN_REASON_KEY, NO_STAGE_REASON_KEY } from './cinema'
 import { NO_SESSION } from './playback-control'
 
 /**
- * Story 187 D5: the single owner of "cinema is open" for the running demo.
+ * Story 187: the single owner of "cinema is open" for the running demo.
  *
  * The follower must never send `win_alwaysontop` while the overlay is up - opening the overlay takes
  * focus from the main window, and a follower that reacted to that blur would drop (or, on the way
@@ -34,6 +34,8 @@ export interface CinemaControllerDeps {
   hasSession: () => boolean
   /** The playback channel's own `enterFullscreen`. */
   enterFullscreen: () => Outcome<void>
+  /** Called once the overlay is open with cinema still active, so it can be stacked above the game. */
+  raiseOverlay?: () => void
   /** Pushes `playback.display`. */
   emitDisplay: () => void
 }
@@ -47,6 +49,8 @@ export interface CinemaController {
   /** The channel reported fullscreen (`true`) or back on the stage (`false`). */
   onDisplayChange(fullscreen: boolean): void
   onPlaybackState(state: ReplaysPlaybackState['state']): void
+  /** Module shutdown: closes the overlay, unpins, and stops listening for the overlay closing. */
+  dispose(): void
 }
 
 export function createCinemaController(deps: CinemaControllerDeps): CinemaController {
@@ -54,6 +58,7 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
   let pinned = false
   // The channel reported fullscreen: cinema cannot be entered until it is back on the stage.
   let fullscreen = false
+  let disposed = false
 
   const unpin = (): void => {
     if (!pinned) return
@@ -77,11 +82,10 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
 
   // The overlay closed by itself (Escape in the overlay, Alt+F4, its page gone): leave cinema.
   // Subscribed on first enter, so a module that never enters cinema never touches the overlay service.
-  let subscribed = false
+  let offClosed: (() => void) | null = null
   const subscribe = (): void => {
-    if (subscribed) return
-    subscribed = true
-    deps.window.onClosed(() => {
+    if (offClosed) return
+    offClosed = deps.window.onClosed(() => {
       if (!active) return
       active = false
       unpin()
@@ -90,7 +94,8 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
   }
 
   const enter = async (): Promise<Outcome<void>> => {
-    if (active) return ok(undefined)
+    // A late enter after shutdown must not re-subscribe, pin or open an overlay nothing will close.
+    if (disposed || active) return ok(undefined)
     if (!deps.hasSession()) return fail(NO_SESSION)
     const availability = deps.availability()
     if (!availability.available) return fail(availability.reason.key)
@@ -116,6 +121,7 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
       if (deps.window.isOpen()) deps.window.close()
       return ok(undefined)
     }
+    deps.raiseOverlay?.()
     deps.emitDisplay()
     return ok(undefined)
   }
@@ -156,6 +162,15 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
         pinned = false
         if (was) deps.emitDisplay()
       }
+    },
+
+    dispose() {
+      disposed = true
+      offClosed?.()
+      offClosed = null
+      // Close before unpin, as on every other way out of cinema.
+      closeOverlay()
+      unpin()
     },
   }
 }

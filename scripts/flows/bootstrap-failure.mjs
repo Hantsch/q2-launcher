@@ -68,12 +68,15 @@
 // any of these. This flow additionally reads:
 //   (FailureCauseDetail has no data-testid - its `<summary>` is located by its own translated text,
 //   `downloads.failures.detail.summary` = "What went wrong", scoped under `bootstrap-running-step`)
+import { existsSync } from 'node:fs'
 import {
+  bootstrapTargetDir,
   startBootstrapFixtureServer,
   vendoredExtractorExists,
   writeBootstrapTargetDir,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** Three small downloads/extracts, failing at the assemble step - well short of a healthy run's
@@ -121,6 +124,7 @@ export async function teardown() {
 }
 
 export default async function bootstrapFailure({ page, shot, step }) {
+  const targetPath = bootstrapTargetDir()
   const engineId = server.packages.find((pkg) => pkg.role === 'engine')?.id
   const demoId = server.packages.find((pkg) => pkg.role === 'demo')?.id
   const pointReleaseId = server.packages.find((pkg) => pkg.role === 'point-release')?.id
@@ -128,9 +132,8 @@ export default async function bootstrapFailure({ page, shot, step }) {
     throw new Error('the fixture server did not report all three package ids (D9)')
   }
 
-  step('open the Library and click "Download & install"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…"')
+  await openLibraryAddEntry(page, 'New installation…')
 
   step('assert the engine step offers Q2PRO and click Next')
   const engineOption = page.getByTestId('bootstrap-engine-q2pro')
@@ -143,21 +146,29 @@ export default async function bootstrapFailure({ page, shot, step }) {
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
-  step('pick the fixture target and acknowledge the non-empty warning')
+  step('pick the non-empty fixture folder; the wizard proposes a subfolder of it')
   const browse = page
     .getByTestId('bootstrap-target-path-input')
     .getByRole('button', { name: 'Browse…' })
   const next = page.getByRole('button', { name: 'Next' })
   await browse.click({ timeout: TIMEOUT_MS })
 
-  const nonEmptyWarning = page.getByTestId('bootstrap-target-nonempty-warning')
-  await nonEmptyWarning.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  // `Checkbox` (`components/ui/controls.tsx`) hides its real `<input type="checkbox">` with
-  // `sr-only` and paints a visible `<span>` - the click has to land on the wrapping `<label>`.
-  await page
-    .getByTestId('bootstrap-target-nonempty-acknowledge')
-    .locator('label')
-    .click({ timeout: TIMEOUT_MS })
+  const finalPathField = page.getByTestId('bootstrap-target-final-path')
+  await finalPathField.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    (picked) => {
+      const text = document
+        .querySelector('[data-testid="bootstrap-target-final-path"]')
+        ?.textContent?.trim()
+      return Boolean(text) && text !== picked && text.startsWith(picked)
+    },
+    targetPath,
+    { timeout: TIMEOUT_MS },
+  )
+  const subfolderPath = (await finalPathField.innerText()).trim()
+  if (await page.getByTestId('bootstrap-target-nonempty-warning').count()) {
+    throw new Error('the proposed subfolder was reported as non-empty')
+  }
   await next.click({ timeout: TIMEOUT_MS })
 
   step('start the job')
@@ -201,7 +212,7 @@ export default async function bootstrapFailure({ page, shot, step }) {
   }
 
   step(
-    'assert the target verdict/checks section is absent - see this file\'s header comment for ' +
+    "assert the target verdict/checks section is absent - see this file's header comment for " +
       'exactly why a real packageIncomplete run can never reach it',
   )
   if (causeText.includes('Installation check')) {
@@ -214,10 +225,22 @@ export default async function bootstrapFailure({ page, shot, step }) {
 
   await shot('bootstrap-failure-cause')
 
+  step(
+    'assert the created target folder is gone and the installation still shows its failure badge',
+  )
+  if (existsSync(subfolderPath)) {
+    throw new Error(`${subfolderPath} still exists after the failed run; the job created it empty`)
+  }
+  await page.getByTestId('bootstrap-running-dismiss').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('failure-badge').first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
   console.log(`fixture server served: ${JSON.stringify([...new Set(server.requested)])}`)
 

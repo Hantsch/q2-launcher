@@ -12,14 +12,14 @@
 // the wizard names the gap and its action reaches the add-installation dialog.
 //
 // Mirrors `bootstrap-wizard.mjs`'s `setup()`/`teardown()` shape and its `Q2L_UI_CONTENT_REPO_BASE`
-// harness override (`src/main/modules/downloads/harness.ts`, gated the same way - read that file's
+// harness override (`src/main/services/content/source.ts`, gated the same way - read that file's
 // own top comment for how the loopback override is proven unreachable in a packaged build). Unlike
 // that flow, nothing is ever downloaded or installed here, so there is no `Q2L_UI_PICK_FOLDER` and
 // no vendored-extractor precondition - the flow never gets past the engine step.
 //
 // ## Selectors, not guesses
 //
-//   library-download-install         views/LibraryView.tsx - opens this wizard (same as
+//   library-add                      views/LibraryView.tsx - menu opening this wizard (same as
 //                                     `bootstrap-wizard.mjs`)
 //   bootstrap-engine-empty           modules/downloads/bootstrap/EngineStep.tsx (D8) - the empty
 //                                     state's own `Panel`, wraps the platform-specific sentence
@@ -27,6 +27,7 @@
 //                                     `add-existing` via `BootstrapWizard.tsx`'s `onAddExisting`
 //   dialog role="dialog" aria-label  components/ui/Modal.tsx - `AddExistingDialog`'s own title
 import { startNoEngineForPlatformFixtureServer } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -65,9 +66,8 @@ export async function teardown() {
 }
 
 export default async function bootstrapNoEngineForPlatform({ page, shot, step }) {
-  step('open the Library and click "Download & install"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…"')
+  await openLibraryAddEntry(page, 'New installation…')
 
   step('assert the engine step shows the empty state and no engine option rows (AC7)')
   const emptyState = page.getByTestId('bootstrap-engine-empty')

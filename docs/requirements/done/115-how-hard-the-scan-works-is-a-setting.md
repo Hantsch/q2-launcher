@@ -85,7 +85,7 @@ playing" guard observes and enforces the rule, so it has to be settled here, not
   the next scan rather than mutating a pass in flight; a changed interval reschedules immediately, so
   the setting the user just moved is visibly the one in force.
 - **Manual scan ignores both auto settings and the minimum spacing.** Minimum spacing bounds
-  *automatic* scans (GB-N4's wording); a trigger the user pressed is an explicit instruction and is
+  _automatic_ scans (GB-N4's wording); a trigger the user pressed is an explicit instruction and is
   never rate-limited away — which is exactly what AC3 protects.
 - **At most one scan, ever.** The scheduler keeps a single in-flight handle and a due automatic scan
   is skipped and counted, not queued; the decision itself is a pure function (`scan-cadence.ts`) so
@@ -133,56 +133,56 @@ seam under the `servers` namespace.
 ## Deliverables
 
 - [x] **D1 — the scan settings exist in the contract.**
-  `src/shared/modules/servers.ts`, `src/shared/modules/servers.test.ts`.
-  Mirror: `src/shared/modules/downloads.ts` (`MIN/MAX_CONCURRENT_DOWNLOAD_JOBS`,
-  `patchDownloadsSettingsInputSchema`). Adds the three new fields, the bound/choice constants and the
-  three `SERVERS_HANDLERS` entries with strict payload schemas.
-  *Accepted when:* `servers.test.ts`'s existing "every handler has a schema" sweep covers the new
-  channels and the patch schema rejects an out-of-range value.
+      `src/shared/modules/servers.ts`, `src/shared/modules/servers.test.ts`.
+      Mirror: `src/shared/modules/downloads.ts` (`MIN/MAX_CONCURRENT_DOWNLOAD_JOBS`,
+      `patchDownloadsSettingsInputSchema`). Adds the three new fields, the bound/choice constants and the
+      three `SERVERS_HANDLERS` entries with strict payload schemas.
+      _Accepted when:_ `servers.test.ts`'s existing "every handler has a schema" sweep covers the new
+      channels and the patch schema rejects an out-of-range value.
 
 - [x] **D2 — the settings persist and survive a hostile `state.json`.**
-  `src/main/lib/schemas.ts` (`parseServersScanSettings`), `src/main/lib/schemas.test.ts`,
-  `src/main/modules/servers/index.ts`, `src/main/modules/servers/index.test.ts`.
-  Mirror: `src/main/modules/downloads/index.ts:487` (`patchDownloadsSettings`) and the `mutate` helper
-  already in `servers/index.ts`.
-  *Accepted when:* a patch round-trips through `state.json`, an out-of-range or garbage field falls
-  back to that field's default only, and the other `ServersState` keys stay untouched.
+      `src/main/lib/schemas.ts` (`parseServersScanSettings`), `src/main/lib/schemas.test.ts`,
+      `src/main/modules/servers/index.ts`, `src/main/modules/servers/index.test.ts`.
+      Mirror: `src/main/modules/downloads/index.ts:487` (`patchDownloadsSettings`) and the `mutate` helper
+      already in `servers/index.ts`.
+      _Accepted when:_ a patch round-trips through `state.json`, an out-of-range or garbage field falls
+      back to that field's default only, and the other `ServersState` keys stay untouched.
 
 - [x] **D3 — the scheduler's cadence comes from the settings, and only one scan runs.**
-  `src/main/modules/servers/scan-cadence.ts` (+ `.test.ts`), [[114]]'s scheduler entry under
-  `src/main/modules/servers/`, `src/main/modules/servers/index.ts` (the `scan.setViewActive` handler).
-  *Accepted when:* `scan-cadence.test.ts` proves (a) every cadence/budget decision is taken from the
-  passed settings with no literal left in the module, (b) a due automatic scan while one is in flight
-  is skipped and not queued, (c) minimum spacing gates automatic scans and not manual ones.
+      `src/main/modules/servers/scan-cadence.ts` (+ `.test.ts`), [[114]]'s scheduler entry under
+      `src/main/modules/servers/`, `src/main/modules/servers/index.ts` (the `scan.setViewActive` handler).
+      _Accepted when:_ `scan-cadence.test.ts` proves (a) every cadence/budget decision is taken from the
+      passed settings with no literal left in the module, (b) a due automatic scan while one is in flight
+      is skipped and not queued, (c) minimum spacing gates automatic scans and not manual ones.
 
 - [x] **D4 — the user changes all seven knobs in Settings.**
-  `src/renderer/src/modules/servers/ServersSettingsSection.tsx` (+ `.test.tsx`),
-  `src/renderer/src/modules/servers/client.ts`, `src/renderer/src/i18n/locales/en.json`.
-  Mirror: `src/renderer/src/modules/downloads/DownloadsSettingsSection.tsx`.
-  *Accepted when:* the section renders from main's returned settings (no optimistic local copy), every
-  control is a `Switch`/`Select` carrying a `servers-scan-settings-*` testid, and the interval control
-  is disabled while auto-refresh is off.
+      `src/renderer/src/modules/servers/ServersSettingsSection.tsx` (+ `.test.tsx`),
+      `src/renderer/src/modules/servers/client.ts`, `src/renderer/src/i18n/locales/en.json`.
+      Mirror: `src/renderer/src/modules/downloads/DownloadsSettingsSection.tsx`.
+      _Accepted when:_ the section renders from main's returned settings (no optimistic local copy), every
+      control is a `Switch`/`Select` carrying a `servers-scan-settings-*` testid, and the interval control
+      is disabled while auto-refresh is off.
 
 - [x] **D5 — the manual scan survives both auto settings being off.**
-  the Servers view's manual refresh control (`src/renderer/src/modules/servers/` — added here if
-  [[114]]'s view did not land one), `scripts/flows/servers-scan-settings.mjs`.
-  Mirror: `scripts/flows/settings-downloads-section.mjs`.
-  *Accepted when:* the flow turns both auto settings off in Settings, returns to the Servers view, and
-  the manual refresh control is present, enabled and starts a scan.
+      the Servers view's manual refresh control (`src/renderer/src/modules/servers/` — added here if
+      [[114]]'s view did not land one), `scripts/flows/servers-scan-settings.mjs`.
+      Mirror: `scripts/flows/settings-downloads-section.mjs`.
+      _Accepted when:_ the flow turns both auto settings off in Settings, returns to the Servers view, and
+      the manual refresh control is present, enabled and starts a scan.
 
 - [x] **D6 — the shipped defaults are measured, not invented.**
-  `scripts/measure/scan-pass.mjs`, `package.json` (`measure:scan`),
-  `src/main/modules/servers/scan-measurement.test.ts`, `src/shared/modules/servers.ts`
-  (`DEFAULT_SERVERS_STATE.scan`), this story's `## Measurement (AC2)`.
-  Method: spin up 100/200/300 loopback UDP responders replying with `src/shared/servers/reply-fixtures.ts`
-  bytes after a seeded per-server delay (a fixed latency distribution plus a dead share that never
-  answers), run [[114]]'s real two-stage scheduler over them, and record median/p95 wall clock for
-  stage 1, stage 2 and the full pass, plus the zero-delay run (the scheduler's own overhead), across a
-  concurrency × timeout × retries matrix.
-  *Accepted when:* `## Measurement (AC2)` carries method, environment (OS, CPU, Node/Electron version),
-  the modelled distribution, the result table and its stated limits; `DEFAULT_SERVERS_STATE.scan`
-  matches a row of that table; and `scan-measurement.test.ts` re-runs a scaled-down population and
-  asserts a full pass under the shipped defaults finishes inside the recorded budget.
+      `scripts/measure/scan-pass.mjs`, `package.json` (`measure:scan`),
+      `src/main/modules/servers/scan-measurement.test.ts`, `src/shared/modules/servers.ts`
+      (`DEFAULT_SERVERS_STATE.scan`), this story's `## Measurement (AC2)`.
+      Method: spin up 100/200/300 loopback UDP responders replying with `src/shared/servers/reply-fixtures.ts`
+      bytes after a seeded per-server delay (a fixed latency distribution plus a dead share that never
+      answers), run [[114]]'s real two-stage scheduler over them, and record median/p95 wall clock for
+      stage 1, stage 2 and the full pass, plus the zero-delay run (the scheduler's own overhead), across a
+      concurrency × timeout × retries matrix.
+      _Accepted when:_ `## Measurement (AC2)` carries method, environment (OS, CPU, Node/Electron version),
+      the modelled distribution, the result table and its stated limits; `DEFAULT_SERVERS_STATE.scan`
+      matches a row of that table; and `scan-measurement.test.ts` re-runs a scaled-down population and
+      asserts a full pass under the shipped defaults finishes inside the recorded budget.
 
 ## Model Hints
 
@@ -249,6 +249,7 @@ hand.
   Realised: N=100 — 15 dead, 85 live (4 lossy, 36 non-empty); N=200 — 36 dead, 164 live (9 lossy,
   66 non-empty); N=300 — 44 dead, 256 live (14 lossy, 99 non-empty). Live delay median 24-25 ms,
   p95 137 ms, max 268/355/359 ms.
+
 - **Zero-delay runs** switch every responder to answer immediately (nobody dead or lossy): what is
   left is the scheduler's own pooling, bookkeeping, socket and parse cost.
 - **Timing.** `performance.now()` around the `runScan` call; the stage-1/stage-2 split is the
@@ -281,34 +282,34 @@ hand.
 
 ### Results
 
-| N | delays | concurrency | timeoutMs | retries | stage 1 median / p95 (ms) | stage 2 median / p95 (ms) | full pass median / p95 (ms) | online | stage-2 targets | reps |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 100 | zero | 8 | - | - | 22.7 / 24.4 | 9.3 / 11.3 | 31.9 / 35.4 | 100/100 | 42 | 10 |
-| 100 | zero | 32 | - | - | 20.7 / 23.0 | 7.5 / 8.8 | 28.0 / 30.1 | 100/100 | 42 | 10 |
-| 100 | modelled | 8 | 1000 | 0 | 3450 / 3456 | 280 / 282 | 3725 / 3732 | 81/100 | 33 | 3 |
-| 100 | modelled | 16 | 1000 | 0 | 2191 / 2272 | 179 / 184 | 2375 / 2452 | 81/100 | 33 | 3 |
-| 100 | modelled | 24 | 1000 | 0 | 1392 / 1405 | 155 / 156 | 1547 / 1561 | 81/100 | 33 | 3 |
-| 100 | modelled | 8 | 1000 | 1 | 6210 / 6257 | 1354 / 1383 | 7564 / 7640 | 85/100 | 36 | 3 |
-| 100 | modelled | 16 | 1000 | 1 | 3871 / 4033 | 1309 / 1321 | 5181 / 5354 | 85/100 | 36 | 3 |
-| 100 | modelled | 24 | 1000 | 1 | 2375 / 2375 | 1288 / 1293 | 3662 / 3664 | 85/100 | 36 | 3 |
-| 200 | zero | 8 | - | - | 70.8 / 79.5 | 27.3 / 33.9 | 99.8 / 110 | 200/200 | 81 | 10 |
-| 200 | zero | 32 | - | - | 65.8 / 70.1 | 23.4 / 33.5 | 90.0 / 100 | 200/200 | 81 | 10 |
-| 200 | modelled | 16 | 1000 | 0 | 3658 / 3661 | 296 / 311 | 3955 / 3972 | 155/200 | 62 | 3 |
-| 200 | modelled | 24 | 1000 | 0 | 2663 / 2668 | 266 / 279 | 2929 / 2947 | 155/200 | 62 | 3 |
-| 200 | modelled | 16 | 1000 | 1 | 6550 / 6592 | 1283 / 1294 | 7832 / 7886 | 164/200 | 66 | 3 |
-| 200 | modelled | 24 | 1000 | 1 | 4646 / 4696 | 1287 / 1293 | 5934 / 5989 | 164/200 | 66 | 3 |
-| 300 | zero | 8 | - | - | 138 / 170 | 45.6 / 63.2 | 184 / 230 | 300/300 | 116 | 10 |
-| 300 | zero | 32 | - | - | 89.9 / 127 | 32.6 / 49.6 | 130 / 156 | 300/300 | 116 | 10 |
-| 300 | modelled | 8 | 1000 | 0 | 9383 / 9837 | 746 / 911 | 10127 / 10748 | 242/300 | 94 | 3 |
-| 300 | modelled | 16 | 1000 | 0 | 4903 / 4905 | 512 / 514 | 5415 / 5419 | 242/300 | 94 | 3 |
-| 300 | modelled | 24 | 1000 | 0 | 3581 / 3582 | 440 / 506 | 4016 / 4086 | 242/300 | 94 | 3 |
-| 300 | modelled | 32 | 1000 | 0 | 2772 / 2804 | 406 / 447 | 3179 / 3251 | 242/300 | 94 | 3 |
-| 300 | modelled | 8 | 1000 | 1 | 15841 / 16536 | 1753 / 2180 | 17579 / 18716 | 256/300 | 99 | 3 |
-| 300 | modelled | 16 | 1000 | 1 | 8546 / 8550 | 1288 / 1290 | 9834 / 9840 | 256/300 | 99 | 3 |
-| **300** | **modelled** | **24** | **1000** | **1** | **6240 / 6240** | **1287 / 1288** | **7527 / 7528** | **256/300** | **99** | **3** |
-| 300 | modelled | 32 | 1000 | 1 | 4673 / 4678 | 1288 / 1289 | 5961 / 5966 | 256/300 | 99 | 3 |
-| 300 | modelled | 24 | 2000 | 0 | 6536 / 6540 | 435 / 437 | 6968 / 6978 | 242/300 | 94 | 3 |
-| 300 | modelled | 24 | 2000 | 1 | 11863 / 11870 | 2284 / 2295 | 14152 / 14154 | 256/300 | 99 | 3 |
+| N       | delays       | concurrency | timeoutMs | retries | stage 1 median / p95 (ms) | stage 2 median / p95 (ms) | full pass median / p95 (ms) | online      | stage-2 targets | reps  |
+| ------- | ------------ | ----------- | --------- | ------- | ------------------------- | ------------------------- | --------------------------- | ----------- | --------------- | ----- |
+| 100     | zero         | 8           | -         | -       | 22.7 / 24.4               | 9.3 / 11.3                | 31.9 / 35.4                 | 100/100     | 42              | 10    |
+| 100     | zero         | 32          | -         | -       | 20.7 / 23.0               | 7.5 / 8.8                 | 28.0 / 30.1                 | 100/100     | 42              | 10    |
+| 100     | modelled     | 8           | 1000      | 0       | 3450 / 3456               | 280 / 282                 | 3725 / 3732                 | 81/100      | 33              | 3     |
+| 100     | modelled     | 16          | 1000      | 0       | 2191 / 2272               | 179 / 184                 | 2375 / 2452                 | 81/100      | 33              | 3     |
+| 100     | modelled     | 24          | 1000      | 0       | 1392 / 1405               | 155 / 156                 | 1547 / 1561                 | 81/100      | 33              | 3     |
+| 100     | modelled     | 8           | 1000      | 1       | 6210 / 6257               | 1354 / 1383               | 7564 / 7640                 | 85/100      | 36              | 3     |
+| 100     | modelled     | 16          | 1000      | 1       | 3871 / 4033               | 1309 / 1321               | 5181 / 5354                 | 85/100      | 36              | 3     |
+| 100     | modelled     | 24          | 1000      | 1       | 2375 / 2375               | 1288 / 1293               | 3662 / 3664                 | 85/100      | 36              | 3     |
+| 200     | zero         | 8           | -         | -       | 70.8 / 79.5               | 27.3 / 33.9               | 99.8 / 110                  | 200/200     | 81              | 10    |
+| 200     | zero         | 32          | -         | -       | 65.8 / 70.1               | 23.4 / 33.5               | 90.0 / 100                  | 200/200     | 81              | 10    |
+| 200     | modelled     | 16          | 1000      | 0       | 3658 / 3661               | 296 / 311                 | 3955 / 3972                 | 155/200     | 62              | 3     |
+| 200     | modelled     | 24          | 1000      | 0       | 2663 / 2668               | 266 / 279                 | 2929 / 2947                 | 155/200     | 62              | 3     |
+| 200     | modelled     | 16          | 1000      | 1       | 6550 / 6592               | 1283 / 1294               | 7832 / 7886                 | 164/200     | 66              | 3     |
+| 200     | modelled     | 24          | 1000      | 1       | 4646 / 4696               | 1287 / 1293               | 5934 / 5989                 | 164/200     | 66              | 3     |
+| 300     | zero         | 8           | -         | -       | 138 / 170                 | 45.6 / 63.2               | 184 / 230                   | 300/300     | 116             | 10    |
+| 300     | zero         | 32          | -         | -       | 89.9 / 127                | 32.6 / 49.6               | 130 / 156                   | 300/300     | 116             | 10    |
+| 300     | modelled     | 8           | 1000      | 0       | 9383 / 9837               | 746 / 911                 | 10127 / 10748               | 242/300     | 94              | 3     |
+| 300     | modelled     | 16          | 1000      | 0       | 4903 / 4905               | 512 / 514                 | 5415 / 5419                 | 242/300     | 94              | 3     |
+| 300     | modelled     | 24          | 1000      | 0       | 3581 / 3582               | 440 / 506                 | 4016 / 4086                 | 242/300     | 94              | 3     |
+| 300     | modelled     | 32          | 1000      | 0       | 2772 / 2804               | 406 / 447                 | 3179 / 3251                 | 242/300     | 94              | 3     |
+| 300     | modelled     | 8           | 1000      | 1       | 15841 / 16536             | 1753 / 2180               | 17579 / 18716               | 256/300     | 99              | 3     |
+| 300     | modelled     | 16          | 1000      | 1       | 8546 / 8550               | 1288 / 1290               | 9834 / 9840                 | 256/300     | 99              | 3     |
+| **300** | **modelled** | **24**      | **1000**  | **1**   | **6240 / 6240**           | **1287 / 1288**           | **7527 / 7528**             | **256/300** | **99**          | **3** |
+| 300     | modelled     | 32          | 1000      | 1       | 4673 / 4678               | 1288 / 1289               | 5961 / 5966                 | 256/300     | 99              | 3     |
+| 300     | modelled     | 24          | 2000      | 0       | 6536 / 6540               | 435 / 437                 | 6968 / 6978                 | 242/300     | 94              | 3     |
+| 300     | modelled     | 24          | 2000      | 1       | 11863 / 11870             | 2284 / 2295               | 14152 / 14154               | 256/300     | 99              | 3     |
 
 "online" is stage-1 successes; the 14 servers missing at `retries 0` for N=300 are exactly the lossy
 ones, reported offline because one packet was lost. Responder socket errors across the run: 0.
@@ -389,11 +390,13 @@ All 6 deliverables landed in order, each with a fresh agent; D3 and D6 ran on `d
 per `## Model Hints`.
 
 **Commit message:**
+
 ```
 115: how hard the scan works is a setting
 ```
 
 **Verification — narrow gate (no `--full`):**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `test-story` (`npx vitest run --changed HEAD`) — green. Three different, unrelated test-timeout
@@ -408,6 +411,7 @@ per `## Model Hints`.
   against its own dedicated `servers-scan` fixture variant, see Decisions below) — PASS.
 
 **AC → test mapping, as verified:**
+
 - AC1 (seven user-changeable settings, none a scheduler constant) — e2e flow
   `servers-scan-settings` (all seven `servers-scan-settings-*` controls change and land in
   `state.json`) PASS + `scan-cadence.test.ts` › "every cadence decision comes from the passed
@@ -423,10 +427,11 @@ per `## Model Hints`.
 - No manual residue — every criterion has a real automated test.
 
 **Review outcome (clean agent, `story-review-hard` tier per `## Model Hints`):** first-pass verdict
-FAIL. Two of the seven findings were confirmed regressions of *other* stories' e2e flows and one was
+FAIL. Two of the seven findings were confirmed regressions of _other_ stories' e2e flows and one was
 a confirmed gap against this story's own Decision; all three were fixed in one review-fix cycle (of
 the 3 allowed), then the narrow gate above was re-run clean by this session itself, plus the three
 affected flows individually:
+
 - **Fixed — regression, story 111's flow.** D5's fixture seed had added a `servers` key straight
   onto the shared `populated` variant (all three shipped sources disabled, to keep AC3's manual-scan
   flow off the real internet per GB-A5). That variant is shared by
@@ -446,7 +451,7 @@ affected flows individually:
   content of the route) instead, with its header comment updated to document why, mirroring how the
   same file already documents an earlier such change from story 111. Re-verified: PASS.
 - **Fixed — gap against this story's own Decision.** "Two settings handlers, mirroring downloads"
-  meant mirroring the *real* `patchDownloadsSettingsInputSchema`
+  meant mirroring the _real_ `patchDownloadsSettingsInputSchema`
   (`src/main/modules/downloads/schemas.ts`) — per-field `.refine()` against each field's own shipped
   choice list plus `.strict()` on the whole payload — not the bare `.min()/.max()` + `.partial()`
   D1 had shipped. Consequence the reviewer demonstrated concretely: a `retries: 0.5` patch was
@@ -459,21 +464,22 @@ affected flows individually:
   green (see flakes noted above, unrelated).
 
 **Decisions (review findings deliberately left unfixed, with reasons):**
+
 - **AC2's loopback-vs-"real master list" wording.** The reviewer flagged AC2's literal text ("a real
   master list") against the Decision actually built against ("a loopback server population, not a
   real master") as something "a human has to accept or reject." This was not a decision made or
   reinterpreted during this build: "The measurement uses a loopback server population, not a real
-  master" was already a locked-in `## Decisions (Sprint)` entry in this story file *before* `/build`
+  master" was already a locked-in `## Decisions (Sprint)` entry in this story file _before_ `/build`
   started (refine-time, GB-A5-driven — no test or `ui:verify`/`ui:flow` run may touch a real master
   or game server, and no production population exists in dev to point at instead). Per this sprint's
   own deviation rule ("no questions to the user, make decisions yourself... verify them against plan
-  + acceptance criteria"), a Decision already on record when build began is not re-litigated
-  mid-build; it was carried through as written, with its own stated limits section spelling out
-  exactly what it can and cannot claim.
+  - acceptance criteria"), a Decision already on record when build began is not re-litigated
+    mid-build; it was carried through as written, with its own stated limits section spelling out
+    exactly what it can and cannot claim.
 - **A renderer full-reload can leave main's `viewActive` stuck true (PLAUSIBLE, not CONFIRMED).**
   `ServersView.tsx` reports `scan.setViewActive(false)` from its unmount cleanup; a hard reload
   (Electron's default menu still carries the reload accelerator, per `src/main/window.ts`'s
-  `autoHideMenuBar: true` only hiding the menu *bar*, not removing the menu itself — no
+  `autoHideMenuBar: true` only hiding the menu _bar_, not removing the menu itself — no
   `Menu.setApplicationMenu` call exists in this repo) tears down the renderer without ever running
   that cleanup, so main could keep thinking the view is open. Consequence is narrow and
   self-healing: the auto-refresh timer keeps ticking against a closed view until the user navigates
@@ -485,10 +491,10 @@ affected flows individually:
 - **`scan-measurement.test.ts`'s budget has limited discriminating power (PLAUSIBLE).** The
   reviewer noted a distinctly worse `concurrency`/`timeoutMs`/`retries` combination would likely
   still finish inside the same budget on the scaled-down population, so the test doesn't by itself
-  prove the *specific* shipped row matters, only that the shipped defaults produce a pass inside a
+  prove the _specific_ shipped row matters, only that the shipped defaults produce a pass inside a
   recorded number — which is exactly what D6's own acceptance line asks for ("asserts a full pass
   under the shipped defaults finishes inside the recorded budget"). Tightening it into a
-  differential proof (asserting a worse config would *not* fit) is real extra rigor but a second
+  differential proof (asserting a worse config would _not_ fit) is real extra rigor but a second
   real-socket harness run per test, which risks making an already loopback-timing-sensitive test
   flakier for a property the AC text doesn't itself require. Left as a named gap rather than
   invented under time pressure.

@@ -8,7 +8,7 @@ describe('buildRuleTable', () => {
       maxclients: '8',
       Hostname: 'not the known hostname key',
       customkey: 'foo',
-      _password: 'bar'
+      _password: 'bar',
     }
 
     const table = buildRuleTable(serverinfo)
@@ -29,19 +29,24 @@ describe('buildRuleTable', () => {
       port: '27910',
       hostname: 'Test Server',
       maxclients: '8',
-      protocol: '34'
+      protocol: '34',
     }
 
     const table = buildRuleTable(serverinfo)
-    expect(table.known.map((row) => row.key)).toEqual(['hostname', 'maxclients', 'protocol', 'port'])
+    expect(table.known.map((row) => row.key)).toEqual([
+      'hostname',
+      'maxclients',
+      'protocol',
+      'port',
+    ])
     expect(table.known.find((row) => row.key === 'hostname')?.value).toEqual({
       kind: 'text',
-      value: 'Test Server'
+      value: 'Test Server',
     })
     expect(table.known.find((row) => row.key === 'protocol')?.value).toEqual({
       kind: 'protocol',
       value: 34,
-      engine: 'vanilla'
+      engine: 'vanilla',
     })
   })
 
@@ -51,7 +56,7 @@ describe('buildRuleTable', () => {
     expect(table.raw).toEqual([
       { key: 'apple', value: '2' },
       { key: 'banana', value: '3' },
-      { key: 'Zeta', value: '1' }
+      { key: 'Zeta', value: '1' },
     ])
   })
 

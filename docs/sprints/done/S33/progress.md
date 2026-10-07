@@ -1,0 +1,367 @@
+- 2026-10-03 07:48 · refine · 16 stories · started
+- 2026-10-03 07:56 · refine · 16 stories · done
+- 2026-10-03 07:56 · 224 · build · started
+- 2026-10-03 07:56 · 224 · D1 shared literals · started
+- 2026-10-03 07:59 · 224 · D1 shared literals · done
+- 2026-10-03 07:59 · 224 · D2 fixture facade split · started
+- 2026-10-03 08:06 · 224 · D2 fixture facade split · done
+- 2026-10-03 08:06 · 224 · D3 parity test · started
+- 2026-10-03 08:11 · 224 · D3 parity test · done
+- 2026-10-03 08:11 · 224 · D4 servers helpers · started
+- 2026-10-03 08:22 · 224 · D4 servers helpers · done
+- 2026-10-03 08:22 · 224 · D5 replays helpers · started
+- 2026-10-03 08:42 · 224 · D5 replays helpers · done
+- 2026-10-03 08:42 · 224 · D6 remaining helpers and guard · started
+- 2026-10-03 08:52 · 224 · D6 remaining helpers and guard · done
+- 2026-10-03 08:52 · 224 · verify · started
+- 2026-10-03 09:18 · 224 · verify · done
+- 2026-10-03 09:18 · 224 · review 1 · started
+- 2026-10-03 09:24 · 224 · review 1 · done
+- 2026-10-03 09:24 · 224 · story · done
+- 2026-10-03 09:24 · 211 · build · started
+- 2026-10-03 09:24 · 211 · D1 characterization gate · started
+- 2026-10-03 09:25 · 211 · D1 characterization gate · done
+- 2026-10-03 09:25 · 211 · D2 shared sub-shapes · started
+- 2026-10-03 09:31 · 211 · D2 shared sub-shapes · done
+- 2026-10-03 09:31 · 211 · D3 IPC tree derives from shared · started
+- 2026-10-03 09:33 · 211 · D3 IPC tree derives from shared · done
+- 2026-10-03 09:33 · 211 · D4 one restore adapter · started
+- 2026-10-03 09:34 · 211 · D4 one restore adapter · done
+- 2026-10-03 09:34 · 211 · D5 restored-fields type · started
+- 2026-10-03 09:37 · 211 · D5 restored-fields type · done
+- 2026-10-03 09:37 · 211 · D6 render tests move · started
+- 2026-10-03 09:38 · 211 · D6 render tests move · done
+- 2026-10-03 09:38 · 211 · D7 delete re-export shims · started
+- 2026-10-03 09:39 · 211 · D7 delete re-export shims · done
+- 2026-10-03 09:39 · 211 · D8 fixtures out of production graph · started
+- 2026-10-03 09:40 · 211 · D8 fixtures out of production graph · done
+- 2026-10-03 09:40 · 211 · verify · started
+- 2026-10-03 09:41 · 211 · verify · done
+- 2026-10-03 09:41 · 211 · review 1 · started
+- 2026-10-03 09:42 · 211 · review 1 · done
+- 2026-10-03 09:42 · 211 · review-fix 1 subcategoryId · started
+- 2026-10-03 09:43 · 211 · review-fix 1 subcategoryId · done
+- 2026-10-03 09:43 · 211 · review 2 (hard) · started
+- 2026-10-03 09:46 · 211 · review 2 (hard) · done
+- 2026-10-03 09:46 · 211 · review-fix 2 two-way type tests · started
+- 2026-10-03 09:48 · 211 · story · done
+- 2026-10-03 09:48 · 210 · build · started
+- 2026-10-03 09:49 · 210 · D1 profile-writes service + save · started
+- 2026-10-03 09:55 · 210 · D1 profile-writes service + save · done
+- 2026-10-03 09:55 · 210 · D2 saveRawText + refreshFromFiles · started
+- 2026-10-03 09:58 · 210 · D2 saveRawText + refreshFromFiles · done
+- 2026-10-03 09:58 · 210 · D3 remaining write-path handlers · started
+- 2026-10-03 10:04 · 210 · D3 remaining write-path handlers · done
+- 2026-10-03 10:04 · 210 · D4 startup.ts · started
+- 2026-10-03 10:05 · 210 · D4 startup.ts · done
+- 2026-10-03 10:05 · 210 · D5 pure helpers out of index.ts · started
+- 2026-10-03 10:07 · 210 · D5 pure helpers out of index.ts · done
+- 2026-10-03 10:07 · 210 · D6 handler tests, line cap, doc · started
+- 2026-10-03 10:12 · 210 · D6 handler tests, line cap, doc · done
+- 2026-10-03 10:12 · 210 · verify · started
+- 2026-10-03 10:19 · 210 · verify · done (unsaved-diff red: fixture action ids are UUIDs in the UI, untouched by this diff; A/B on HEAD not possible)
+- 2026-10-03 10:19 · 210 · review 1 · started
+- 2026-10-03 10:21 · 210 · review 1 · done
+- 2026-10-03 10:21 · 210 · story · done
+- 2026-10-03 10:22 · 214 · build · started
+- 2026-10-03 10:22 · 214 · D1 lower stages into profile-restore/ · started
+- 2026-10-03 10:26 · 214 · D1 lower stages into profile-restore/ · done
+- 2026-10-03 10:26 · 214 · D2 upper stages, index, facade · started
+- 2026-10-03 10:31 · 214 · D2 upper stages, index, facade · done
+- 2026-10-03 10:31 · 214 · D3 groupEntryLines named functions (hard) · started
+- 2026-10-03 10:36 · 214 · D3 groupEntryLines named functions (hard) · done
+- 2026-10-03 10:36 · 214 · D4 group src/shared/config (codemod) · started
+- 2026-10-03 10:43 · 214 · D4 group src/shared/config (codemod) · done
+- 2026-10-03 10:43 · 214 · D5 systems doc direction note · started
+- 2026-10-03 10:44 · 214 · D5 systems doc direction note · done
+- 2026-10-03 10:44 · 214 · verify · started
+- 2026-10-03 10:45 · 214 · verify · done
+- 2026-10-03 10:45 · 214 · review 1 · started
+- 2026-10-03 10:46 · 214 · review 1 · done (PASS, comment-history findings to fix)
+- 2026-10-03 10:46 · 214 · fix comment history · started
+- 2026-10-03 10:49 · 214 · fix comment history · done
+- 2026-10-03 10:49 · 214 · story · done
+- 2026-10-03 10:50 · 212 · build · started
+- 2026-10-03 10:50 · 212 · D1 useProfileSave hook · started
+- 2026-10-03 10:50 · 212 · D6 main refuses new orphan category · started
+- 2026-10-03 10:53 · 212 · D1 useProfileSave hook · done
+- 2026-10-03 10:53 · 212 · D6 main refuses new orphan category · done
+- 2026-10-03 10:53 · 212 · D2 SettingsTab through hook · started
+- 2026-10-03 10:54 · 212 · D2 SettingsTab through hook · done
+- 2026-10-03 10:54 · 212 · D3 ControlsTab through hook · started
+- 2026-10-03 10:56 · 212 · D3 ControlsTab through hook · done
+- 2026-10-03 10:56 · 212 · D4 AliasesTab hook + real category · started
+- 2026-10-03 11:00 · 212 · D4 AliasesTab hook + real category · done
+- 2026-10-03 11:00 · 212 · D5 Layers/Assignments panels through hook · started
+- 2026-10-03 11:00 · 212 · D5 Layers/Assignments panels through hook · done
+- 2026-10-03 11:00 · 212 · verify · started
+- 2026-10-03 11:09 · 212 · verify · done
+- 2026-10-03 11:09 · 212 · review 1 · started
+- 2026-10-03 11:13 · 212 · review 1 · done
+- 2026-10-03 11:13 · 212 · story · done
+- 2026-10-03 11:13 · 215 · build · started
+- 2026-10-03 11:13 · 215 · D1 useModuleQuery + useModuleMutation · started
+- 2026-10-03 11:15 · 215 · D1 useModuleQuery + useModuleMutation · done
+- 2026-10-03 11:15 · 215 · D2 servers first wave · started
+- 2026-10-03 11:18 · 215 · D2 servers first wave · done
+- 2026-10-03 11:18 · 215 · D3 replays + home first wave · started
+- 2026-10-03 11:21 · 215 · D3 replays + home first wave · done
+- 2026-10-03 11:21 · 215 · D4 useListSort · started
+- 2026-10-03 11:23 · 215 · D4 useListSort · done
+- 2026-10-03 11:23 · 215 · D5 useServerScan + slim ServersView · started
+- 2026-10-03 11:34 · 215 · D5 useServerScan + slim ServersView · done
+- 2026-10-03 11:34 · 215 · D6 mods + downloads second wave · started
+- 2026-10-03 11:39 · 215 · D6 mods + downloads second wave · done
+- 2026-10-03 11:39 · 215 · D7 third wave shell/home/downloads settings · started
+- 2026-10-03 11:43 · 215 · D7 third wave shell/home/downloads settings · done
+- 2026-10-03 11:43 · 215 · D8 dialogs + flag budget · started
+- 2026-10-03 11:47 · 215 · D8 dialogs + flag budget · done
+- 2026-10-03 11:47 · 215 · D9 docs · started
+- 2026-10-03 11:48 · 215 · D9 docs · done
+- 2026-10-03 11:48 · 215 · verify · started
+- 2026-10-03 12:03 · 215 · verify · done
+- 2026-10-03 12:03 · 215 · review 1 · started
+- 2026-10-03 12:06 · 215 · review 1 · done
+- 2026-10-03 12:06 · 215 · review-fix 1 · started
+- 2026-10-03 12:11 · 215 · review-fix 1 · done
+- 2026-10-03 12:11 · 215 · story · done
+- 2026-10-03 12:12 · 216 · build · started
+- 2026-10-03 12:12 · 216 · D1 useSubmitting + NameDialog · started
+- 2026-10-03 12:15 · 216 · D1 useSubmitting + NameDialog · done
+- 2026-10-03 12:15 · 216 · D2 ConfirmDialog · started
+- 2026-10-03 12:15 · 216 · D3 Tabs RadioGroup TextArea token guard · started
+- 2026-10-03 12:15 · 216 · D4 one ErrorBoundary · started
+- 2026-10-03 12:19 · 216 · D2 ConfirmDialog · done
+- 2026-10-03 12:19 · 216 · D3 Tabs RadioGroup TextArea token guard · done
+- 2026-10-03 12:19 · 216 · D4 one ErrorBoundary · done
+- 2026-10-03 12:19 · 216 · D5 useStartJob + JobActionDialog · started
+- 2026-10-03 12:20 · 216 · D5 useStartJob + JobActionDialog · done
+- 2026-10-03 12:20 · 216 · D6 mods dialogs on useStartJob · started
+- 2026-10-03 12:20 · 216 · D7 tab strips on Tabs · started
+- 2026-10-03 12:20 · 216 · D8 installations dialogs · started
+- 2026-10-03 12:20 · 216 · D9 config profile dialogs · started
+- 2026-10-03 12:20 · 216 · D10 config settings dialogs · started
+- 2026-10-03 12:22 · 216 · D6 mods dialogs on useStartJob · done
+- 2026-10-03 12:22 · 216 · D7 tab strips on Tabs · done
+- 2026-10-03 12:22 · 216 · D8 installations dialogs · done
+- 2026-10-03 12:22 · 216 · D9 config profile dialogs · done
+- 2026-10-03 12:22 · 216 · D10 config settings dialogs · done
+- 2026-10-03 12:22 · 216 · D11 Controls dialogs (hard) · started
+- 2026-10-03 12:22 · 216 · D12 aliases layers replays servers · started
+- 2026-10-03 12:22 · 216 · D13 remaining confirms · started
+- 2026-10-03 12:27 · 216 · D11 Controls dialogs (hard) · done
+- 2026-10-03 12:27 · 216 · D12 aliases layers replays servers · done
+- 2026-10-03 12:27 · 216 · D13 remaining confirms · done
+- 2026-10-03 12:27 · 216 · D14 adoption guard + docs · started
+- 2026-10-03 12:28 · 216 · D14 adoption guard + docs · done
+- 2026-10-03 12:28 · 216 · verify · started
+- 2026-10-03 12:48 · 216 · verify · done
+- 2026-10-03 12:48 · 216 · review 1 · started
+- 2026-10-03 12:51 · 216 · review 1 · done
+- 2026-10-03 12:51 · 216 · review-fix 1 · started
+- 2026-10-03 12:53 · 216 · review-fix 1 · done
+- 2026-10-03 12:53 · 216 · verify 2 · started
+- 2026-10-03 12:59 · 216 · verify 2 · done
+- 2026-10-03 12:59 · 216 · story · done
+- 2026-10-03 12:59 · 217 · build · started
+- 2026-10-03 13:00 · 217 · D1 shared sort and search primitives · started
+- 2026-10-03 13:02 · 217 · D1 shared sort and search primitives · done
+- 2026-10-03 13:02 · 217 · D2 servers sort on shared sorter · started
+- 2026-10-03 13:03 · 217 · D2 servers sort on shared sorter · done
+- 2026-10-03 13:03 · 217 · D3 servers main slice null · started
+- 2026-10-03 13:05 · 217 · D4 replays main slice null, helper deleted · started
+- 2026-10-03 13:07 · 217 · D3 servers main slice null · done
+- 2026-10-03 13:07 · 217 · D4 replays main slice null, helper deleted · done
+- 2026-10-03 13:07 · 217 · D5 replays/player/alias sort on shared + rule · started
+- 2026-10-03 13:08 · 217 · D5 replays/player/alias sort on shared + rule · done
+- 2026-10-03 13:08 · 217 · D6 shared search, quoted demo search, flow · started
+- 2026-10-03 13:11 · 217 · D6 shared search, quoted demo search, flow · done
+- 2026-10-03 13:11 · 217 · verify · started
+- 2026-10-03 13:14 · 217 · verify · blocked: golden persisted-state test, flows servers-sort-order + replays-sort-order expect dropped key (null now persisted) — fixing
+- 2026-10-03 13:14 · 217 · fix 1 null-persistence expectations · started
+- 2026-10-03 13:16 · 217 · fix 1 null-persistence expectations · done
+- 2026-10-03 13:16 · 217 · verify · done
+- 2026-10-03 13:16 · 217 · review 1 · started
+- 2026-10-03 13:22 · 217 · review 1 · done
+- 2026-10-03 13:22 · 217 · fix 2 review findings · started
+- 2026-10-03 13:26 · 217 · fix 2 review findings · done
+- 2026-10-03 13:26 · 217 · story · done
+- 2026-10-03 13:26 · 217 · story · done
+- 2026-10-03 13:26 · 218 · build · started
+- 2026-10-03 13:26 · 218 · D1 useConfigProfiles store · started
+- 2026-10-03 13:30 · 218 · D1 useConfigProfiles store · done
+- 2026-10-03 13:30 · 218 · D2 tile and dialog subscribe · started
+- 2026-10-03 13:32 · 218 · D2 tile and dialog subscribe · done
+- 2026-10-03 13:32 · 218 · D3 ProfileDraftProvider · started
+- 2026-10-03 13:34 · 218 · D3 ProfileDraftProvider · done
+- 2026-10-03 13:34 · 218 · D4 ControlsTab reads provider · started
+- 2026-10-03 13:36 · 218 · D4 ControlsTab reads provider · done
+- 2026-10-03 13:36 · 218 · D5 eight panels read provider · started
+- 2026-10-03 13:38 · 218 · D5 eight panels read provider · done
+- 2026-10-03 13:38 · 218 · D6 ConfigView is layout · started
+- 2026-10-03 13:41 · 218 · D6 ConfigView is layout · done
+- 2026-10-03 13:41 · 218 · verify · started
+- 2026-10-03 13:52 · 218 · verify · done
+- 2026-10-03 13:52 · 218 · review 1 · started
+- 2026-10-03 13:54 · 218 · review 1 · done
+- 2026-10-03 13:54 · 218 · story · done
+- 2026-10-03 13:54 · 213 · build · started
+- 2026-10-03 13:55 · 213 · D1 shared config test harness · started
+- 2026-10-03 13:57 · 213 · D1 shared config test harness · done
+- 2026-10-03 13:57 · 213 · D2 remaining suites on harness + guard · started
+- 2026-10-03 13:59 · 213 · D2 remaining suites on harness + guard · done
+- 2026-10-03 13:59 · 213 · D3 useControlsRows · started
+- 2026-10-03 14:01 · 213 · D3 useControlsRows · done
+- 2026-10-03 14:01 · 213 · D4 ControlsEntryRow one path (hard) · started
+- 2026-10-03 14:09 · 213 · D4 ControlsEntryRow one path (hard) · done
+- 2026-10-03 14:09 · 213 · D5 useControlsDrag · started
+- 2026-10-03 14:10 · 213 · D5 useControlsDrag · done
+- 2026-10-03 14:10 · 213 · D6 appended dialogs to components · started
+- 2026-10-03 14:11 · 213 · D6 appended dialogs to components · done
+- 2026-10-03 14:11 · 213 · D7 ControlsCategoryRail · started
+- 2026-10-03 14:13 · 213 · D7 ControlsCategoryRail · done
+- 2026-10-03 14:13 · 213 · D8 remount on profile switch, caps, doc · started
+- 2026-10-03 14:18 · 213 · D8 remount on profile switch, caps, doc · done
+- 2026-10-03 14:18 · 213 · D9 anchor tests · started
+- 2026-10-03 14:19 · 213 · D9 anchor tests · done
+- 2026-10-03 14:19 · 213 · verify · started
+- 2026-10-03 14:24 · 213 · verify · done
+- 2026-10-03 14:24 · 213 · review 1 · started
+- 2026-10-03 14:26 · 213 · review 1 · done
+- 2026-10-03 14:26 · 213 · review-fix 1 · started
+- 2026-10-03 14:30 · 213 · review-fix 1 · done
+- 2026-10-03 14:30 · 213 · verify · started (after review fix)
+- 2026-10-03 14:34 · 213 · verify · done
+- 2026-10-03 14:34 · 213 · story · done
+- 2026-10-03 14:34 · 231 · build · started
+- 2026-10-03 14:34 · 231 · D1 keys test + dead keys · started
+- 2026-10-03 14:42 · 231 · D1 keys test + dead keys · done
+- 2026-10-03 14:42 · 231 · D2 common.action consolidation · started
+- 2026-10-03 14:45 · 231 · D2 common.action consolidation · done
+- 2026-10-03 14:45 · 231 · D3 common.label consolidation · started
+- 2026-10-03 14:51 · 231 · D3 common.label consolidation · done
+- 2026-10-03 14:51 · 231 · D4 bundle.ts import point · started
+- 2026-10-03 14:53 · 231 · D4 bundle.ts import point · done
+- 2026-10-03 14:53 · 231 · D5 split locales · started
+- 2026-10-03 14:58 · 231 · D5 split locales · done
+- 2026-10-03 14:58 · 231 · verify · started
+- 2026-10-03 15:00 · 231 · verify · done
+- 2026-10-03 15:00 · 231 · review 1 · started
+- 2026-10-03 15:05 · 231 · review 1 · done
+- 2026-10-03 15:07 · 231 · story · done
+- 2026-10-03 15:07 · 198 · build · started
+- 2026-10-03 15:07 · 198 · D1 X11 wire codec + xauth · started
+- 2026-10-03 15:13 · 198 · D1 X11 wire codec + xauth · done
+- 2026-10-03 15:13 · 198 · D2 X11 connection · started
+- 2026-10-03 15:15 · 198 · D2 X11 connection · done
+- 2026-10-03 15:15 · 198 · D3 stage window keeper · started
+- 2026-10-03 15:17 · 198 · D3 stage window keeper · done
+- 2026-10-03 15:17 · 198 · D4 stage/follower/cinema seams · started
+- 2026-10-03 15:19 · 198 · D4 stage/follower/cinema seams · done
+- 2026-10-03 15:19 · 198 · D5 main wiring + contract · started
+- 2026-10-03 15:21 · 198 · D5 main wiring + contract · done
+- 2026-10-03 15:21 · 198 · D6 renderer notice, i18n, flow, changelog · started
+- 2026-10-03 15:23 · 198 · D6 renderer notice, i18n, flow, changelog · done
+- 2026-10-03 15:23 · 198 · verify · started
+- 2026-10-03 15:25 · 198 · verify · done
+- 2026-10-03 15:25 · 198 · review 1 · started
+- 2026-10-03 15:27 · 198 · review 1 · done
+- 2026-10-03 15:27 · 198 · R1 fixes · started
+- 2026-10-03 15:28 · 198 · R1 fixes · done
+- 2026-10-03 15:28 · 198 · verify · started
+- 2026-10-03 15:30 · 198 · verify · done
+- 2026-10-03 15:30 · 198 · review 2 (hard) · started
+- 2026-10-03 15:35 · 198 · review 2 (hard) · done
+- 2026-10-03 15:35 · 198 · R2 fix geometry parser · started
+- 2026-10-03 15:36 · 198 · R2 fix geometry parser · done
+- 2026-10-03 15:39 · 198 · story · done
+- 2026-10-03 15:39 · 227 · build · started
+- 2026-10-03 15:39 · 227 · D1 docs checker · started
+- 2026-10-03 15:40 · 227 · D1 docs checker · done
+- 2026-10-03 15:40 · 227 · D2 link-clean docs · started
+- 2026-10-03 15:41 · 227 · D2 link-clean docs · done
+- 2026-10-03 15:41 · 227 · D3 modules as built (hard) · started
+- 2026-10-03 15:46 · 227 · D3 modules as built (hard) · done
+- 2026-10-03 15:46 · 227 · D4 errors/state/placement · started
+- 2026-10-03 15:47 · 227 · D4 errors/state/placement · done
+- 2026-10-03 15:47 · 227 · D5 CLAUDE.md and small docs · started
+- 2026-10-03 15:48 · 227 · D5 CLAUDE.md and small docs · done
+- 2026-10-03 15:48 · 227 · verify · started
+- 2026-10-03 15:50 · 227 · verify · done
+- 2026-10-03 15:50 · 227 · review 1 · started
+- 2026-10-03 15:54 · 227 · review 1 · done
+- 2026-10-03 15:55 · 227 · story · done
+- 2026-10-03 15:55 · 228 · build · started
+- 2026-10-03 15:56 · 228 · D1 config-module.md as-built · started
+- 2026-10-03 16:00 · 228 · D1 config-module.md as-built · done
+- 2026-10-03 16:00 · 228 · D2 servers+replays docs · started
+- 2026-10-03 16:02 · 228 · D2 servers+replays docs · done
+- 2026-10-03 16:02 · 228 · D3 home+mods docs · started
+- 2026-10-03 16:04 · 228 · D3 home+mods docs · done
+- 2026-10-03 16:04 · 228 · D4 placement + links · started
+- 2026-10-03 16:08 · 228 · D4 placement + links · done
+- 2026-10-03 16:08 · 228 · D5 process rule · started
+- 2026-10-03 16:08 · 228 · D5 process rule · done
+- 2026-10-03 16:08 · 228 · verify · started
+- 2026-10-03 16:09 · 228 · verify · done
+- 2026-10-03 16:09 · 228 · review 1 · started
+- 2026-10-03 16:11 · 228 · review 1 · done
+- 2026-10-03 16:11 · 228 · story · done
+- 2026-10-03 16:11 · 230 · build · started
+- 2026-10-03 16:12 · 230 · D1 scanner+guard+diag · started
+- 2026-10-03 16:13 · 230 · D1 scanner+guard+diag · done
+- 2026-10-03 16:13 · 230 · D2 six headers · started
+- 2026-10-03 16:15 · 230 · D2 six headers · done
+- 2026-10-03 16:15 · 230 · D3 id codemod · started
+- 2026-10-03 16:17 · 230 · D3 id codemod · done
+- 2026-10-03 16:18 · 230 · D4 shared contracts sweep · started
+- 2026-10-03 16:24 · 230 · D4 shared contracts sweep · done
+- 2026-10-03 16:24 · 230 · D5 shared/config sweep · started
+- 2026-10-03 16:44 · 230 · D5 shared/config sweep · done
+- 2026-10-03 16:44 · 230 · D6 main sweep · started
+- 2026-10-03 16:46 · 230 · D6 main sweep · done
+- 2026-10-03 16:46 · 230 · D7 renderer sweep · started
+- 2026-10-03 16:52 · 230 · D7 renderer sweep · done
+- 2026-10-03 16:52 · 230 · D8 residual ids · started
+- 2026-10-03 16:52 · 230 · D9 residual ids · started
+- 2026-10-03 16:52 · 230 · D10 residual ids · started
+- 2026-10-03 16:52 · 230 · D11 residual ids · started
+- 2026-10-03 16:56 · 230 · D8 residual ids · done
+- 2026-10-03 16:56 · 230 · D9 residual ids · done
+- 2026-10-03 16:56 · 230 · D10 residual ids · done
+- 2026-10-03 16:56 · 230 · D11 residual ids · done
+- 2026-10-03 16:57 · 230 · verify · started
+- 2026-10-03 16:58 · 230 · verify · done
+- 2026-10-03 16:58 · 230 · review 1 · started
+- 2026-10-03 17:01 · 230 · review 1 · done
+- 2026-10-03 17:01 · 230 · fix A guards+variants · started
+- 2026-10-03 17:01 · 230 · fix B restore invariants · started
+- 2026-10-03 17:04 · 230 · fix A guards+variants · done
+- 2026-10-03 17:04 · 230 · fix B restore invariants · done
+- 2026-10-03 17:04 · 230 · verify 2 · started
+- 2026-10-03 17:05 · 230 · verify 2 · done
+- 2026-10-03 17:05 · 230 · review 2 · started
+- 2026-10-03 17:08 · 230 · review 2 · done
+- 2026-10-03 17:08 · 230 · fix C config.ts invariants+diag regex · started
+- 2026-10-03 17:09 · 230 · fix C config.ts invariants+diag regex · done
+- 2026-10-03 17:09 · 230 · verify 3 · started
+- 2026-10-03 17:10 · 230 · verify 3 · done
+- 2026-10-03 17:12 · 230 · story · done
+- 2026-10-03 17:12 · 229 · build · started
+- 2026-10-03 17:13 · 229 · D1 TECH-DEBT.md + check-docs validator · started
+- 2026-10-03 17:14 · 229 · D1 TECH-DEBT.md + check-docs validator · done
+- 2026-10-03 17:14 · 229 · D2 rule in README + ai-scrum Notes · started
+- 2026-10-03 17:17 · 229 · D2 rule in README + ai-scrum Notes · done
+- 2026-10-03 17:17 · 229 · D3 triage + roadmap + ledger · started
+- 2026-10-03 17:19 · 229 · D3 triage + roadmap + ledger · done
+- 2026-10-03 17:19 · 229 · verify · started
+- 2026-10-03 17:20 · 229 · verify · done
+- 2026-10-03 17:20 · 229 · review 1 · started
+- 2026-10-03 17:21 · 229 · review 1 · done
+- 2026-10-03 17:21 · 229 · story · done
+- 2026-10-03 17:22 · gate · short suites · started
+- 2026-10-03 17:25 · gate · e2e-all · started
+- 2026-10-03 18:16 · gate · e2e-all · done
+- 2026-10-03 18:18 · gate · attribution+fix · started
+- 2026-10-03 18:54 · gate · e2e-all (confirmation) · started
+- 2026-10-03 19:45 · gate · e2e-all (confirmation) · done

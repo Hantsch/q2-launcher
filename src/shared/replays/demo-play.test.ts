@@ -5,7 +5,12 @@ import { demoGameDir, demoPlayEligibility, type DemoPlayInput } from './demo-pla
 
 type Inst = DemoPlayInput['installations'][number]
 
-function inst(id: string, engineKind: Inst['engineKind'], gameDirs: string[] = [], runner?: string): Inst {
+function inst(
+  id: string,
+  engineKind: Inst['engineKind'],
+  gameDirs: string[] = [],
+  runner?: string,
+): Inst {
   return { id, engineKind, gameDirs, ...(runner === undefined ? {} : { runner }) }
 }
 
@@ -43,7 +48,7 @@ function run(over: Partial<DemoPlayInput> = {}) {
 }
 
 function keyOf(r: ReturnType<typeof run>): string | null {
-  return r.ok ? null : r.reason.key
+  return r.ok ? null : r.reasonKey
 }
 
 const P = 'replays.play.unavailable.'
@@ -59,7 +64,12 @@ describe('demoGameDir', () => {
     const d = demo({
       readable: false,
       gameDir: null,
-      source: { kind: 'installation', installationId: 'a', installationName: 'A', gameDir: 'xatrix' },
+      source: {
+        kind: 'installation',
+        installationId: 'a',
+        installationName: 'A',
+        gameDir: 'xatrix',
+      },
     })
     expect(demoGameDir(d)).toBe('xatrix')
   })
@@ -70,7 +80,12 @@ describe('demoPlayEligibility', () => {
     const r = run({
       demo: demo({
         gameDir: 'rogue',
-        source: { kind: 'installation', installationId: 'a', installationName: 'A', gameDir: 'rogue' },
+        source: {
+          kind: 'installation',
+          installationId: 'a',
+          installationName: 'A',
+          gameDir: 'rogue',
+        },
       }),
     })
     expect(r).toEqual({
@@ -87,11 +102,33 @@ describe('demoPlayEligibility', () => {
     expect(keyOf(r)).toBe(P + 'notQ2pro')
   })
 
+  it('an r1q2 installation with a detected Q2PRO plays with Q2PRO', () => {
+    const r = run({
+      installations: [
+        {
+          ...inst('a', 'r1q2'),
+          detectedEngines: [{ kind: 'q2pro', executablePath: 'q2pro.exe', supported: true }],
+        },
+      ],
+    })
+    expect(r).toMatchObject({ ok: true, installationId: 'a', engine: 'q2pro' })
+    expect(run().ok && 'engine' in run()).toBe(false)
+  })
+
+  it('an r1q2 installation without Q2PRO is refused', () => {
+    const unsupported = [{ kind: 'q2pro' as const, executablePath: 'q2pro.exe', supported: false }]
+    expect(keyOf(run({ installations: [inst('a', 'r1q2')] }))).toBe(P + 'notQ2pro')
+    expect(
+      keyOf(run({ installations: [{ ...inst('a', 'r1q2'), detectedEngines: unsupported }] })),
+    ).toBe(P + 'notQ2pro')
+  })
+
   it('no installation with the game dir gives an acknowledgeable modMissing warning with the dir', () => {
     const r = run({ demo: demo({ gameDir: 'zaero' }) })
     expect(r).toEqual({
       ok: false,
-      reason: { key: P + 'modMissing', params: { gameDir: 'zaero' } },
+      reasonKey: P + 'modMissing',
+      params: { gameDir: 'zaero' },
       acknowledgeable: true,
     })
   })
@@ -103,7 +140,8 @@ describe('demoPlayEligibility', () => {
     })
     expect(r).toEqual({
       ok: false,
-      reason: { key: P + 'modMissing', params: { gameDir: 'rogue' } },
+      reasonKey: P + 'modMissing',
+      params: { gameDir: 'rogue' },
       acknowledgeable: true,
     })
   })
@@ -115,13 +153,20 @@ describe('demoPlayEligibility', () => {
 
   it('the acknowledgement never lifts any other refusal', () => {
     expect(keyOf(run({ gameRunning: true, acknowledgeModMissing: true }))).toBe(P + 'gameRunning')
-    expect(keyOf(run({ installations: [inst('a', 'r1q2')], acknowledgeModMissing: true }))).toBe(P + 'notQ2pro')
+    expect(keyOf(run({ installations: [inst('a', 'r1q2')], acknowledgeModMissing: true }))).toBe(
+      P + 'notQ2pro',
+    )
   })
 
   it('the game dir is matched case-insensitively and baseq2 always counts as present', () => {
     const rogue = demo({
       gameDir: 'ROGUE',
-      source: { kind: 'installation', installationId: 'a', installationName: 'A', gameDir: 'rogue' },
+      source: {
+        kind: 'installation',
+        installationId: 'a',
+        installationName: 'A',
+        gameDir: 'rogue',
+      },
     })
     expect(run({ demo: rogue }).ok).toBe(true)
     expect(run({ installations: [inst('a', 'q2pro', [])] }).ok).toBe(true)
@@ -175,12 +220,22 @@ describe('demoPlayEligibility', () => {
 
   it('a demo of another installation / extra folder / archive entry is playable, but not in place', () => {
     const other = demo({
-      source: { kind: 'installation', installationId: 'b', installationName: 'B', gameDir: 'baseq2' },
+      source: {
+        kind: 'installation',
+        installationId: 'b',
+        installationName: 'B',
+        gameDir: 'baseq2',
+      },
     })
     const folder = demo({ source: { kind: 'extraFolder', path: 'D:/demos' } })
     const archived = demo({ archiveEntry: { archivePath: 'x.zip', entryPath: 'match.dm2' } })
     const wrongDir = demo({
-      source: { kind: 'installation', installationId: 'a', installationName: 'A', gameDir: 'rogue' },
+      source: {
+        kind: 'installation',
+        installationId: 'a',
+        installationName: 'A',
+        gameDir: 'rogue',
+      },
       gameDir: 'baseq2',
     })
     const insts = [inst('a', 'q2pro', ['rogue']), inst('b', 'q2pro')]
@@ -197,12 +252,17 @@ describe('demoPlayEligibility', () => {
 
   it('a demo of another installation still obeys the engine, mod, runner and running rules', () => {
     const other = demo({
-      source: { kind: 'installation', installationId: 'b', installationName: 'B', gameDir: 'baseq2' },
+      source: {
+        kind: 'installation',
+        installationId: 'b',
+        installationName: 'B',
+        gameDir: 'baseq2',
+      },
     })
     expect(keyOf(run({ demo: other, installations: [inst('a', 'r1q2')] }))).toBe(P + 'notQ2pro')
-    expect(keyOf(run({ demo: { ...other, gameDir: 'zaero' }, installations: [inst('a', 'q2pro')] }))).toBe(
-      P + 'modMissing',
-    )
+    expect(
+      keyOf(run({ demo: { ...other, gameDir: 'zaero' }, installations: [inst('a', 'q2pro')] })),
+    ).toBe(P + 'modMissing')
     expect(keyOf(run({ demo: other, installations: [inst('a', 'q2pro', [], 'steam')] }))).toBe(
       P + 'needsDirectLaunch',
     )
@@ -212,7 +272,12 @@ describe('demoPlayEligibility', () => {
   it('a demo found under a different game dir than its own or baseq2 is playable, but not in place', () => {
     const d = demo({
       gameDir: 'rogue',
-      source: { kind: 'installation', installationId: 'a', installationName: 'A', gameDir: 'xatrix' },
+      source: {
+        kind: 'installation',
+        installationId: 'a',
+        installationName: 'A',
+        gameDir: 'xatrix',
+      },
     })
     const r = run({ demo: d, installations: [inst('a', 'q2pro', ['rogue', 'xatrix'])] })
     expect(r.ok && r.inPlace).toBe(false)
@@ -254,9 +319,11 @@ describe('demoPlayEligibility', () => {
       P + 'linuxNoQ2pro',
     )
     expect(keyOf(run({ demo: bad, installations: [inst('a', 'r1q2')] }))).toBe(P + 'notQ2pro')
-    expect(keyOf(run({ demo: bad, gameRunning: true, installations: [inst('a', 'q2pro', [], 'steam')] }))).toBe(
-      P + 'needsDirectLaunch',
-    )
+    expect(
+      keyOf(
+        run({ demo: bad, gameRunning: true, installations: [inst('a', 'q2pro', [], 'steam')] }),
+      ),
+    ).toBe(P + 'needsDirectLaunch')
     expect(keyOf(run({ demo: bad, gameRunning: true }))).toBe(P + 'gameRunning')
     expect(keyOf(run({ demo: bad }))).toBe(P + 'modMissing')
   })

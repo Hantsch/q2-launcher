@@ -1,8 +1,8 @@
 import type { ConfigProfile, SaveProfileConflict, SaveProfileResult } from '@shared/modules/config'
-import type { Outcome } from '@shared/types'
+import type { LocalizedMessage, Outcome } from '@shared/types'
 
 /**
- * The pure decision logic behind `ProfileSaveActions` (story 043 D6), split out the same way
+ * The pure decision logic behind `ProfileSaveActions` (story 043), split out the same way
  * `auto-write.ts` split the write-trigger rule out of `useProfileAutoWrite.ts`: no React, no
  * `./client` - so it is unit-testable under this repo's plain `.test.ts` convention (`vitest.config.ts`
  * runs `environment: 'node'` with no jsdom/`@testing-library` in this project), without rendering
@@ -11,7 +11,7 @@ import type { Outcome } from '@shared/types'
 
 /**
  * `profile.dirty` straight off the server profile, never a second renderer-local tracker - `dirty`
- * is additive-optional (story 043 D2), so a profile predating this story has no field at all and
+ * is additive-optional (story 043), so a profile predating this story has no field at all and
  * reads as "nothing to save", same as an explicit `false`.
  */
 export function isProfileDirty(profile: Pick<ConfigProfile, 'dirty'>): boolean {
@@ -21,11 +21,11 @@ export function isProfileDirty(profile: Pick<ConfigProfile, 'dirty'>): boolean {
 /** What `ProfileSaveActions` should do once a `saveConfigProfile` call settles. */
 export type SaveBarAction =
   | { type: 'saved'; profile: ConfigProfile }
-  | { type: 'toast'; messageKey: string; params?: Record<string, string | number> }
+  | { type: 'toast'; error: LocalizedMessage }
   /**
-   * Story 043 D8: the file changed underneath the launcher, so nothing was written. Carries the
+   * Story 043: the file changed underneath the launcher, so nothing was written. Carries the
    * whole-file conflict payload so `ProfileSaveActions` can open `ConfigConflictDialog` with it -
-   * replaces the plain-toast stub D6 left here (`config.save.conflict` is no longer reached).
+   * replaces the plain-toast stub that stood here (`config.save.conflict` is no longer reached).
    */
   | { type: 'conflict'; conflict: SaveProfileConflict }
 
@@ -36,7 +36,7 @@ export type SaveBarAction =
  *   `SaveProfileResult`'s `'unreadable'` status resolve to a plain toast, never a crash and never a
  *   silent edit loss - `dirty` is left exactly as it was on every one of these, since nothing here
  *   calls `onSaved`.
- * - `'conflict'` (story 043 D8) resolves to its own action carrying the conflict payload, so the
+ * - `'conflict'` (story 043) resolves to its own action carrying the conflict payload, so the
  *   caller can open `ConfigConflictDialog` with both whole-file versions instead of only being told
  *   something happened.
  * - `'unreadable'` picks between the two reason-specific i18n keys and always carries `message` as
@@ -44,11 +44,7 @@ export type SaveBarAction =
  */
 export function resolveSaveOutcome(outcome: Outcome<SaveProfileResult>): SaveBarAction {
   if (!outcome.ok) {
-    return {
-      type: 'toast',
-      messageKey: outcome.error.key,
-      ...(outcome.error.params ? { params: outcome.error.params } : {}),
-    }
+    return { type: 'toast', error: outcome.error }
   }
 
   const result = outcome.value
@@ -63,10 +59,12 @@ export function resolveSaveOutcome(outcome: Outcome<SaveProfileResult>): SaveBar
   // result.status === 'unreadable'
   return {
     type: 'toast',
-    messageKey:
-      result.reason === 'unparseable'
-        ? 'config.save.unreadableUnparseable'
-        : 'config.save.unreadableReadError',
-    params: { message: result.message },
+    error: {
+      key:
+        result.reason === 'unparseable'
+          ? 'config.save.unreadableUnparseable'
+          : 'config.save.unreadableReadError',
+      params: { message: result.message },
+    },
   }
 }

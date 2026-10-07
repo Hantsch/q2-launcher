@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import en from './locales/en.json'
+import { en } from './bundle'
 
 /**
  * Story 068 D2: the launcher must call the concept "engine", never "client", anywhere a user can
@@ -11,7 +11,11 @@ import en from './locales/en.json'
 
 const CLIENT_PATTERN = /client/i
 
-function collectStringValues(node: unknown, path: string, out: Array<{ path: string; value: string }>): void {
+function collectStringValues(
+  node: unknown,
+  path: string,
+  out: Array<{ path: string; value: string }>,
+): void {
   if (typeof node === 'string') {
     out.push({ path, value: node })
     return
@@ -26,7 +30,13 @@ function collectStringValues(node: unknown, path: string, out: Array<{ path: str
 function stringAt(path: string): unknown {
   return path
     .split('.')
-    .reduce<unknown>((acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined), en)
+    .reduce<unknown>(
+      (acc, key) =>
+        acc && typeof acc === 'object' && key in acc
+          ? (acc as Record<string, unknown>)[key]
+          : undefined,
+      en,
+    )
 }
 
 describe('en.json vocabulary', () => {
@@ -39,9 +49,19 @@ describe('en.json vocabulary', () => {
     expect(offenders).toEqual([])
   })
 
+  it('no user-visible string claims downloading is not built', () => {
+    const values: Array<{ path: string; value: string }> = []
+    collectStringValues(en, '', values)
+
+    const offenders = values.filter(
+      ({ value }) => /not built/i.test(value) || /until the downloads module/i.test(value),
+    )
+
+    expect(offenders).toEqual([])
+  })
+
   it('the executable labels name the engine executable', () => {
-    expect(stringAt('installation.engineExecutable')).toBe('Engine executable')
-    expect(stringAt('library.column.engine')).toBe('Engine')
+    expect(stringAt('common.label.engineExecutable')).toBe('Engine executable')
     expect(stringAt('installation.engine')).toBeUndefined()
     expect(stringAt('library.column.client')).toBeUndefined()
   })

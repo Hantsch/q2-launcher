@@ -1,17 +1,19 @@
 import {
   createContext,
+  forwardRef,
   useContext,
   useId,
   type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from 'react'
 import { Check, ChevronDown, FolderOpen } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { Button } from './Button'
 
-const FIELD_BASE =
+export const FIELD_BASE =
   'h-9 w-full rounded-sm border border-line-strong bg-void/60 px-2.5 text-sm text-ink ' +
   'placeholder:text-ink-faint focus:border-flame-600 focus:outline-none ' +
   'transition-colors duration-[--dur-fast] disabled:opacity-50'
@@ -21,7 +23,7 @@ const FIELD_BASE =
  *
  * `Field`'s `<label>` is a *sibling* of the control, not a wrapper, so without a
  * matching id the control has no accessible name at all - axe's `label` and
- * `select-name` both fire (story 037 D6). Passing `htmlFor` per call site was
+ * `select-name` both fire (story 037). Passing `htmlFor` per call site was
  * the existing escape hatch, but only 2 of 30+ `Field` uses did it, so the id
  * is generated here instead and adopted by whichever control renders inside.
  * Every `Field` in the app holds exactly one control, so one id per `Field` is
@@ -70,6 +72,20 @@ export function Field({
 export function Input({ className, id, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input id={useControlId(id)} className={cn(FIELD_BASE, className)} {...rest} />
 }
+
+export const TextArea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function TextArea({ className, id, ...rest }, ref) {
+  return (
+    <textarea
+      ref={ref}
+      id={useControlId(id)}
+      className={cn(FIELD_BASE, 'h-auto min-h-20 py-2', className)}
+      {...rest}
+    />
+  )
+})
 
 /** Read-only path display with a Browse button - the shape every file picker uses. */
 export function PathPicker({
@@ -147,6 +163,7 @@ export function Switch({
   hint,
   disabled,
   testId,
+  describedBy,
 }: {
   checked: boolean
   onChange: (next: boolean) => void
@@ -154,6 +171,8 @@ export function Switch({
   hint?: string
   disabled?: boolean
   testId?: string
+  /** Id of an element that explains the control, e.g. why it is disabled. */
+  describedBy?: string
 }) {
   const id = useId()
   return (
@@ -170,6 +189,7 @@ export function Switch({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-describedby={describedBy}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(

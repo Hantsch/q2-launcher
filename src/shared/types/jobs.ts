@@ -10,13 +10,7 @@ import type { ModuleId } from './module'
  * driven entirely by this type, so the download module only has to emit jobs.
  */
 export type JobStatus =
-  | 'queued'
-  | 'running'
-  | 'paused'
-  | 'waiting'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
+  'queued' | 'running' | 'paused' | 'waiting' | 'succeeded' | 'failed' | 'cancelled'
 
 export interface JobProgress {
   /** 0..1, or null when the total is not known yet (indeterminate bar). */
@@ -48,14 +42,14 @@ export interface Job {
   cancellable: boolean
   error?: { key: string; params?: Record<string, string | number> }
   /**
-   * Story 091 D1: set while the job is deferred behind the write guard, waiting
+   * Story 091: set while the job is deferred behind the write guard, waiting
    * for the target installation's game process to exit. Same shape as `error` -
    * an i18n key plus optional params, never prose, so later waits (repair,
    * removal) can name their own reason without inventing renderer strings.
    */
   waitingReason?: { key: string; params?: Record<string, string | number> }
   /**
-   * Story 091 D1: true while this job holds the installation write lock. The
+   * Story 091: true while this job holds the installation write lock. The
    * inverse direction of `waitingReason` - set on acquire, cleared on release -
    * so the renderer can disable Play without asking main process state.
    */

@@ -1,11 +1,15 @@
 import { readdir, stat, unlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import type { ArchiveCacheStatus, ClearArchiveCacheResult } from '@shared/modules/downloads'
-import { getDownloadsCacheDir, isSafeDownloadFileName, PART_SUFFIX } from './paths'
-import { MANIFEST_CACHE_FILE_NAME } from './manifest-service'
+import {
+  getDownloadsCacheDir,
+  isSafeDownloadFileName,
+  PART_SUFFIX,
+} from '../../lib/net/download-cache-paths'
+import { MANIFEST_CACHE_FILE_NAME } from '../../services/content/manifest-service'
 
 /**
- * The archive cache - story 072 D3 (AC3, AC4, AC5, AC6).
+ * The archive cache - story 072.
  *
  * This is the only code in the launcher that deletes files inside the user's data directory, so
  * the file is built around one rule and one code path:
@@ -16,10 +20,10 @@ import { MANIFEST_CACHE_FILE_NAME } from './manifest-service'
  *  - **one code path** - `planEviction()` is pure and decides *what* goes; `enforceBudget()` is the
  *    only thing that unlinks; `clear()` is `enforceBudget()` with a budget of zero. There is no
  *    second place that could learn a slightly different idea of "evictable" (Decisions (Sprint):
- *    "`clearCache` deletes only evictable entries ... so AC4's stated size/count and the actual
+ *    "`clearCache` deletes only evictable entries ... so the stated size/count and the actual
  *    deletion cannot disagree").
  *
- * Layout and path safety are not re-implemented here: `./paths.ts` (story 071 D2) already owns
+ * Layout and path safety are not re-implemented here: `download-cache-paths.ts` (story 071) already owns
  * `userData/cache/downloads`, the `.part` suffix and the refuse-unless-boring file-name check.
  * `src/main/lib/paths.ts` is deliberately left untouched - its `userDataDir()` is what the module
  * already passes in as `userDataPath` (`./index.ts:90`), and a second `downloadsCacheDir()` there
@@ -35,7 +39,7 @@ export interface CacheEntry {
   /** Bare file name inside the cache directory; never a path. */
   fileName: string
   sizeBytes: number
-  /** Last-modified time in epoch ms. Oldest goes first (AC5). */
+  /** Last-modified time in epoch ms. Oldest goes first. */
   mtimeMs: number
 }
 
@@ -73,14 +77,14 @@ export interface EnforceBudgetInput extends CacheFsInput {
  *
  *  - **`*.part`** - an in-flight, unverified download. Deleting one eats the archive of a running
  *    job, which is the exact failure this whole file is careful about. Note that the suffix comes
- *    from `./paths.ts` rather than a literal, so the two halves cannot drift apart.
+ *    from `download-cache-paths.ts` rather than a literal, so the two halves cannot drift apart.
  *  - **the manifest cache file** - `./manifest-service.ts` stores its offline-fallback manifest at
  *    the same `userData/cache/downloads/` directory (`MANIFEST_CACHE_FILE_NAME`), and its name
  *    passes `isSafeDownloadFileName()` like any other boring name. It is not an archive the download
  *    pipeline wrote, so it must never be counted or deleted here - doing so would destroy the exact
  *    offline fallback `ManifestUnavailableError` exists to prevent losing.
  *  - **anything the download pipeline could not have written** - `isSafeDownloadFileName()` is the
- *    gate every path builder in `./paths.ts` passes before a byte is written, so a name it rejects
+ *    gate every path builder in `download-cache-paths.ts` passes before a byte is written, so a name it rejects
  *    was put there by something else (a stray `.tmp`, a user's own copy). We do not know what it
  *    is, therefore we do not delete it.
  *
@@ -103,11 +107,11 @@ function sumBytes(entries: CacheEntry[]): number {
 }
 
 /**
- * Picks the entries to evict so that what remains fits inside `budgetBytes` (AC5): oldest `mtimeMs`
+ * Picks the entries to evict so that what remains fits inside `budgetBytes`: oldest `mtimeMs`
  * first, stopping the moment the remainder is at or under the budget - so a cache one byte over its
  * budget loses one archive, not two.
  *
- * Pure by design, which is what makes AC5's guarantee testable exhaustively: no `fs`, no clock, no
+ * Pure by design, which is what makes the guarantee testable exhaustively: no `fs`, no clock, no
  * randomness. Everything it knows arrives in `entries`.
  *
  * Protected entries (see `isEvictableCacheFileName`, plus anything `isInUse` claims) are excluded
@@ -182,7 +186,7 @@ async function readCacheEntries(dir: string, log?: CacheLog): Promise<CacheEntry
 }
 
 /**
- * The archive cache's current size and item count (AC3), over exactly the entries an eviction or a
+ * The archive cache's current size and item count, over exactly the entries an eviction or a
  * clear could remove - `ArchiveCacheStatus`'s contract ("every evictable archive currently on
  * disk", `@shared/modules/downloads.ts`). Zero and empty for a cache directory that does not exist
  * yet.
@@ -201,7 +205,7 @@ export async function status({
 }
 
 /**
- * Brings the cache down to `budgetBytes` by deleting the oldest evictable archives (AC5). Called
+ * Brings the cache down to `budgetBytes` by deleting the oldest evictable archives. Called
  * when the budget is lowered and after a clear (Decisions (Sprint)); there is no periodic sweeper.
  *
  * The only place in the launcher that unlinks a file under `userData`. Returns what it *actually*
@@ -253,7 +257,7 @@ export async function enforceBudget({
 }
 
 /**
- * Empties the archive cache of everything that may be deleted and reports exactly what went (AC4).
+ * Empties the archive cache of everything that may be deleted and reports exactly what went.
  * A `*.part` file and anything a running job claims stay - deliberately the same exclusion the
  * budget path uses, because this *is* the budget path: a budget of zero plans every unprotected
  * entry for eviction and nothing else.

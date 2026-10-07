@@ -12,7 +12,7 @@ import {
 } from './feed-fetcher'
 
 /**
- * Story 082 D5 - integration, on purpose, exactly like `src/main/modules/downloads/fetcher.test.ts`.
+ * Story 082 D5 - integration, on purpose, exactly like `src/main/lib/net/fetcher.test.ts`.
  *
  * A real `node:http` server on `127.0.0.1` answers real conditional GETs with real `ETag` /
  * `304` / `500` / `404` semantics, and the fetcher uses the **real global `fetch`** against it via

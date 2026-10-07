@@ -39,9 +39,10 @@ invisible until a code names `watchlist`.
 
 Merges the previously planned S25–S28 (milestones 9.4–9.7) into one sprint, the last of the
 game-browser milestone. It depends on S22–S24 (stories 106–117), which are done. Concept:
-[docs/concepts/game-browser.md](../../concepts/game-browser.md).
+[docs/systems/game-browser.md](../../../systems/game-browser.md).
 
 **Build order is a dependency chain.**
+
 - 118 → 119 → 120 → 121: the list. 121's states wrap what the other three produce.
 - 122 → 123 → 124: the detail view, opened from 118's row. 123 and 124 render into 122's container.
 - 125 → 126 → 127: actions. 126 is 125's join flow with a different composition, and reuses 125's
@@ -72,6 +73,7 @@ predate S23 (see the roadmap's follow-ups). The gate's attribution step should c
 ## Regression gate
 
 Commands (all on `sprint/S25` HEAD before the fixes below):
+
 - `npm run build` — green (0.06 min)
 - `npm test` (full) — **red**, 1 failing test, first run
 - `npm run ui:verify` — green (1.75 min, 94/94 shots, 0 axe violations)
@@ -85,6 +87,7 @@ regression, not flaky, not pre-existing (file introduced this sprint). Root caus
 `7e999cf`. Full `npm test` re-verified green (4882 passed, 0 failed).
 
 **`e2e-all` failures:**
+
 - `home-dashboard-arrange` — **pre-existing**. Fails identically on a clean HEAD re-run (a grid
   rounding/layout drift unrelated to any S25 code path); no S25 commit touched the dashboard.
 - `news-cover-template` — **pre-existing / environmental**. Fails identically: the harness's own

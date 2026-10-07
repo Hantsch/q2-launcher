@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
 import { initI18n } from '../../../i18n'
 
@@ -10,10 +11,18 @@ import { initI18n } from '../../../i18n'
 const sidecarRead = vi.fn()
 const sidecarWrite = vi.fn()
 
-vi.mock('../client', () => ({
-  sidecarRead: (...args: unknown[]) => sidecarRead(...args),
-  sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
+// The editor store toasts a failed write through `useLauncher`, whose module graph needs the
+// preload bridge; this suite never reaches a toast.
+vi.mock('../../../store/useLauncher', () => ({
+  useLauncher: { getState: () => ({ pushToast: vi.fn() }) },
 }))
+
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    sidecarRead: (...args: unknown[]) => sidecarRead(...args),
+    sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
+  }),
+)
 
 let DemoRow: typeof import('./DemoRow').DemoRow
 
@@ -45,7 +54,9 @@ const BASE_ROW: DemoRowData = {
   pov: null,
   players: [],
   durationMs: null,
+  roster: null,
   fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+  folder: [],
   nameFacts: null,
   sidecar: { state: 'none', values: {} },
   effective: {
@@ -60,8 +71,14 @@ const BASE_ROW: DemoRowData = {
   },
 }
 
-function renderRow(row: DemoRowData, selected = false, onSelect: (id: string) => void = () => {}) {
-  render(createElement(DemoRow, { row, selected, onSelect }))
+function renderRow(
+  row: DemoRowData,
+  selected = false,
+  onSelect: (id: string) => void = () => {},
+  onToggle: (id: string) => void = () => {},
+  onRange: (id: string) => void = () => {},
+) {
+  render(createElement(DemoRow, { row, selected, onSelect, onToggle, onRange }))
 }
 
 describe('DemoRow', () => {
@@ -70,7 +87,12 @@ describe('DemoRow', () => {
       ...BASE_ROW,
       format: 'mvd2',
       gzip: true,
-      source: { kind: 'installation', installationId: 'i1', installationName: 'Main', gameDir: 'baseq2' },
+      source: {
+        kind: 'installation',
+        installationId: 'i1',
+        installationName: 'Main',
+        gameDir: 'baseq2',
+      },
       durationMs: 65_000,
       effective: {
         ...BASE_ROW.effective,
@@ -78,7 +100,13 @@ describe('DemoRow', () => {
         map: { value: 'q2dm1', source: 'demo' },
         mod: { value: 'baseq2', source: 'demo' },
         gamemode: { value: 'ctf', source: 'sidecar' },
-        sides: { value: [{ team: 'Red', players: ['Alice'] }, { team: 'Blue', players: ['Bob'] }], source: 'sidecar' },
+        sides: {
+          value: [
+            { team: 'Red', players: ['Alice'] },
+            { team: 'Blue', players: ['Bob'] },
+          ],
+          source: 'sidecar',
+        },
         date: { value: Date.UTC(2024, 0, 1, 12, 0, 0), source: 'sidecar' },
       },
     }
@@ -216,5 +244,61 @@ describe('DemoRow', () => {
     expect(innerButton).toBeTruthy()
     expect(innerButton.getAttribute('aria-pressed')).toBe('false')
     expect(rowEl.contains(innerButton)).toBe(true)
+  })
+
+  it('Ctrl-click toggles, Shift-click ranges and a plain click selects just the row', () => {
+    const calls: string[] = []
+    renderRow(
+      BASE_ROW,
+      false,
+      (id) => calls.push(`select:${id}`),
+      (id) => calls.push(`toggle:${id}`),
+      (id) => calls.push(`range:${id}`),
+    )
+    const row = screen.getByTestId('replays-demo-row')
+    fireEvent.click(row, { ctrlKey: true })
+    fireEvent.click(row, { shiftKey: true })
+    fireEvent.click(row)
+    expect(calls).toEqual([
+      `toggle:${BASE_ROW.id}`,
+      `range:${BASE_ROW.id}`,
+      `select:${BASE_ROW.id}`,
+    ])
+  })
+
+  it('Ctrl+Enter and Meta+Enter toggle a focused row while Shift+Enter ranges', () => {
+    const calls: string[] = []
+    renderRow(
+      BASE_ROW,
+      false,
+      (id) => calls.push(`select:${id}`),
+      (id) => calls.push(`toggle:${id}`),
+      (id) => calls.push(`range:${id}`),
+    )
+    const selectableRow = screen
+      .getByTestId('replays-demo-row')
+      .querySelector('[role="button"]') as HTMLElement
+    fireEvent.keyDown(selectableRow, { key: 'Enter', ctrlKey: true })
+    fireEvent.keyDown(selectableRow, { key: ' ', metaKey: true })
+    fireEvent.keyDown(selectableRow, { key: 'Enter', shiftKey: true })
+    expect(calls).toEqual([
+      `toggle:${BASE_ROW.id}`,
+      `toggle:${BASE_ROW.id}`,
+      `range:${BASE_ROW.id}`,
+    ])
+  })
+
+  it('the row checkbox toggles without selecting just the row', () => {
+    const calls: string[] = []
+    renderRow(
+      BASE_ROW,
+      true,
+      (id) => calls.push(`select:${id}`),
+      (id) => calls.push(`toggle:${id}`),
+    )
+    const box = screen.getByTestId('replays-row-select') as HTMLInputElement
+    expect(box.checked).toBe(true)
+    fireEvent.click(box)
+    expect(calls).toEqual([`toggle:${BASE_ROW.id}`])
   })
 })

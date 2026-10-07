@@ -37,9 +37,9 @@ action unconditionally.
 ## Acceptance Criteria
 
 - [x] An action whose mirrored bind value is its own command (`bindValueFor(action) !==
-      aliasNameFor(action)`) and whose alias name is referenced by nothing in the profile emits no
+aliasNameFor(action)`) and whose alias name is referenced by nothing in the profile emits no
       alias line.
-- [x] An action whose alias name *is* referenced — from a base bind, a layer override, another
+- [x] An action whose alias name _is_ referenced — from a base bind, a layer override, another
       action's command, or a layer's generated alias body — keeps its alias line. `q2l_a_ssg_sg_9a2f`
       (`bind q`) and `q2l_a_drop_shotgun_b623` (layer "Alt") in my profile must survive.
 - [x] Reference detection is one function shared with whatever else asks "does anything call this
@@ -57,7 +57,7 @@ action unconditionally.
 
 ## Open Questions
 
-- ~~Should the writer also drop the alias of a *keyless, unreferenced* `kind: 'bind'` action (an
+- ~~Should the writer also drop the alias of a _keyless, unreferenced_ `kind: 'bind'` action (an
   action the user made but never bound and never called)? It is equally dead in the file, but
   unlike the catalogue case it is content the user authored and may be about to bind.~~ answered →
   Decisions (Sprint)
@@ -86,7 +86,7 @@ action unconditionally.
   self-exclusion): a recursive body is the user's business, and keeping the line is the safe side.
 - AC4's blanket invariant is read as: it holds for every alias line the writer generates for an
   action **whose mirror does not go through the alias**. `kind: 'alias'` entries (AC6) and
-  user-authored actions whose mirrored value *is* the alias name (the User decision above) are the
+  user-authored actions whose mirrored value _is_ the alias name (the User decision above) are the
   two documented exemptions — read any other way, AC4 contradicts both of them.
 - **No property-testing dependency.** The invariant is asserted as a loop over a committed fixture
   corpus, because `fast-check` would be a new dev dependency plus a generator design this repo has
@@ -111,7 +111,7 @@ text — so its alias is defined and called by nobody.
 
 1. **Reference graph, once** (`src/shared/config/alias-references.ts`, new). Move
    `validate-actions.ts`' lenient reference scan here as `collectAliasReferences({ actions, binds,
-   layers })` → lower-cased token set, widened by the `bind <key> <token>` target shape. Add
+layers })` → lower-cased token set, widened by the `bind <key> <token>` target shape. Add
    `actionsWithAliasLine(actions, sources)`: drops an action exactly when
    `action.kind !== 'alias'` **and** `bindValueFor(action) !== aliasNameFor(action)` **and** its
    alias name is not in the reference set. The three guards map 1:1 to AC1 / AC6 / the User
@@ -119,7 +119,7 @@ text — so its alias is defined and called by nobody.
 2. **Rewire Care** (`validate-actions.ts`): its `referencedKeys` set comes from the new collector;
    `bareTokens`/`undefinedAlias` stay untouched.
 3. **Writer** (`render.ts:107`): render `actionsWithAliasLine(profile.actions ?? [], { actions,
-   binds: profile.binds, layers: profile.layers })` instead of `profile.actions`. `alias-render.ts`
+binds: profile.binds, layers: profile.layers })` instead of `profile.actions`. `alias-render.ts`
    itself does not change.
 4. **Invariant** (`profile-fixtures.ts` + `render-invariants.test.ts`, new): a corpus of profiles
    (plain, catalogue mirror rows, alias entry, keyless action, chunk-split action, modifier layer,
@@ -141,6 +141,7 @@ New `src/shared/config/alias-references.ts` + `alias-references.test.ts`; rewire
 Mirror for style and doc-comment depth: `src/shared/config/action-mirror.ts`.
 
 Acceptance:
+
 - `collectAliasReferences({ actions, binds?, layers? })` returns the lower-cased token set; covers
   action raw commands, `binds` values, every layer's `overrides` values, plus the target token of a
   `bind <key> <token>` segment.
@@ -157,12 +158,13 @@ and `src/main/modules/config/render.test.ts` (`describe('renderProfileFile with 
 is the block to extend).
 
 Acceptance (AC1, AC2, AC6):
+
 - A catalogue row whose single command is `+forward`/`+attack`/… and whose alias nobody calls emits
   **no** alias line; its `bind` line is unchanged.
 - An alias referenced from a base bind, a layer override, another action's command, or a hold
   layer's generated body keeps its line — one test per source.
 - `kind: 'alias'` entries and keyless user-authored actions keep their line.
-- A chunk-split action that *is* dropped emits neither parent nor `_p<n>` lines.
+- A chunk-split action that _is_ dropped emits neither parent nor `_p<n>` lines.
 - Existing determinism assertions (`render.test.ts:246/258/269`) still hold.
 
 ### D3 — fixture corpus + the file-level invariant [x]
@@ -171,6 +173,7 @@ New `src/shared/config/profile-fixtures.ts` (exported `ConfigProfile` corpus, on
 shape named in plan step 4) and new `src/shared/config/render-invariants.test.ts`.
 
 Acceptance (AC4):
+
 - The invariant runs over **every** corpus profile, not one hand-built case, and fails loudly with
   the offending alias name.
 - The two exemptions are expressed via `bindValueFor`/`aliasNameFor` and `kind`, not via the
@@ -186,6 +189,7 @@ one keyless row (alias kept) — plus the matching `binds` mirror entries and wh
 the Controls tab needs. Mirror: the shape comments at `fixture.mjs:120-125`.
 
 Acceptance (AC5's UI path, P2):
+
 - `npm run ui:verify` passes; `config-raw` / `config-write-preview` show a file with the weapons
   and keyless alias lines and **no** `+attack` alias line.
 - `scripts/flows/custom-action-row.mjs` still passes (no fixture action name contains `test`).
@@ -198,7 +202,7 @@ AC1 → D2 · AC2 → D2 · AC3 → D1 · AC4 → D3 · AC5 → D4 + Test Plan �
 ## Model Hints
 
 - D1 → default
-- D2 → **deliverable-hard** — dropping an alias line that something *does* reference silently
+- D2 → **deliverable-hard** — dropping an alias line that something _does_ reference silently
   unbinds a key in every saved profile; the guard has to combine `bindValueFor`/`aliasNameFor` with
   the reference set and still be right for chunked actions, modifier-layer mirrors and hold-layer
   bodies.
@@ -237,6 +241,7 @@ every rendered profile for orphaned alias lines. The `ui:verify` fixture (`scrip
 was extended so the fix is visible on the real `config-raw`/`config-write-preview` screens.
 
 **Decisions made while building (no user reachable):**
+
 - Mid-D2, found and fixed a related reference-detection gap not called out in the original Plan:
   `binds`/layer-`overrides` values are schema-legal with a literal `"` character (unlike action
   command text, which the schema forbids outright), and `render.ts`/`alt-layers.ts` strip that
@@ -254,10 +259,11 @@ was extended so the fix is visible on the real `config-raw`/`config-write-previe
 - AC5 is only fully satisfied by a manual run against the user's own `Hantsch - Test` profile
   (personal data, not reproducible headlessly). The mechanism was proven end-to-end via the
   `ui:verify` synthetic fixture per the story's own Decisions (D4), and the `## Test Plan (manual
-  acceptance)` section above gives the exact steps for the user to confirm on their real file. The
+acceptance)` section above gives the exact steps for the user to confirm on their real file. The
   corresponding AC checkbox is left unticked pending that run.
 
 **Verification.**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `npm test` — 56 files / 996 tests passing, 0 failing.
@@ -279,6 +285,7 @@ was extended so the fix is visible on the real `config-raw`/`config-write-previe
 **Commit message:** `038: writer stops emitting alias lines nothing references`
 
 **Changed files:**
+
 - `src/shared/config/alias-references.ts` (new), `src/shared/config/alias-references.test.ts` (new)
 - `src/shared/config/profile-fixtures.ts` (new), `src/shared/config/render-invariants.test.ts` (new)
 - `src/shared/config/render.ts`

@@ -6,15 +6,15 @@
 
 ## Overview
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 169 spike: a demo plays on the launcher's stage | done before the sprint (go) | — |
-| 170 a demo plays on the launcher's stage | done | ccaa984 (+ fix 8765ff7) |
-| 171 the stage follows the launcher | done | 9dcff58 |
-| 172 I choose fullscreen and come back | done | d88c0cc |
-| 173 I end the demo from the launcher | done | effb5ce (+ fix 0acf61a) |
-| 174 the game console is not flooded | done | 5db56b0 |
-| 175 an address I add is saved right away | done | ea6136a |
+| Story                                           | Status                      | Commit                  |
+| ----------------------------------------------- | --------------------------- | ----------------------- |
+| 169 spike: a demo plays on the launcher's stage | done before the sprint (go) | —                       |
+| 170 a demo plays on the launcher's stage        | done                        | ccaa984 (+ fix 8765ff7) |
+| 171 the stage follows the launcher              | done                        | 9dcff58                 |
+| 172 I choose fullscreen and come back           | done                        | d88c0cc                 |
+| 173 I end the demo from the launcher            | done                        | effb5ce (+ fix 0acf61a) |
+| 174 the game console is not flooded             | done                        | 5db56b0                 |
+| 175 an address I add is saved right away        | done                        | ea6136a                 |
 
 ## Implemented stories
 
@@ -28,6 +28,7 @@
 ## Findings & decisions
 
 **User decisions**
+
 - 4:3 stage using the space available; demo list/detail hidden while a demo plays (170).
 - Stage cvars go non-archived where possible; **restore after the session only where no non-archived path exists** — `vid_fullscreen`/`vid_geometry` are archived engine-side and must be set live, so the restore is line-exact (only those lines of `q2config.cfg`; the one recorded exception to story 004) (170).
 - Linux Wayland: detected, visible "Not available on Wayland: …" reason, normal window (170).
@@ -38,6 +39,7 @@
 - A dirty profile: only the address is written, every other pending edit stays pending (175).
 
 **Technical decisions (main ones)**
+
 - Restore survives a launcher crash (pending snapshot applied at next start); the restore helper takes a cvar-name list, which 174 reused (`SESSION_RESTORE_CVARS`).
 - One timing rule for the follower: park immediately, place after 250 ms quiet, one command in flight per kind, dedupe, retry on busy. Main sees the window through a read-only observer seam, never `BrowserWindow`.
 - Overlays occlude by intersection (Modal always; Menu/Popover/HoverCard/toasts only over the stage rect; the native speed select from mousedown to change/blur).
@@ -47,6 +49,7 @@
 - The Windows stage hint (173) lives in the console field's reserved reason line so the stage box does not change size.
 
 **Unfixed review notes and limitations**
+
 - 170: launcher quit while the game keeps running — next start's `applyPending` restores before the engine's write-on-exit, so the stage values can persist. Negative display origins are emitted as `+-X` in `vid_geometry`; Q2PRO's parsing is unverified. `toGeometry` in `index.ts` has no unit test of its own.
 - 171: the speed select stays parked/`always` after Escape or re-pick until blur; overlay-registry unit tests cover only the store (Menu/Popover/HoverCard/Toasts registration untested); Alt+Down/F4 untested; a narrow stale-desired-geometry edge after a busy failure.
 - 172: a user Alt+Enter racing a queued button switch can drop the switch; stale-FS0 detection covers one read batch; a switch back made inside fullscreen (Alt+Enter) is not observable on Windows (the keys text names the bind); `pause` stays ungated on r1q2 (playback is Q2PRO-only); index.ts wiring of the follower suspension has no unit test.
@@ -76,6 +79,7 @@ Every criterion maps to named tests in its story's `## Done`:
 - **175** AC1–AC3 `servers-address-book` flow + `config/index.test`; AC4 `AddToAddressBookDialog.test` + `config/index.test`; AC5 `AddToAddressBookDialog.test`.
 
 **Manual residue** (see `testplan.md`):
+
 - 170 AC2 — the real Q2PRO window's client area on the stage, borderless and topmost, at 150 % scaling, on X11 and with a negative display origin (the stub engine opens no window; CI has no scaled display).
 - 171 AC2 — real Q2PRO honours a fully off-desktop `vid_geometry` (no clamp back onto a monitor); the stub engine has no window.
 - 171 AC3 — the OS topmost flag and z-order against another real program (the harness window is non-focusable and off-screen by design).
@@ -87,15 +91,15 @@ Every criterion maps to named tests in its story's `## Done`:
 
 ## Tier record
 
-| Story | Ds | hard Ds | review stages | review cycles | agents | build min |
-| --- | --- | --- | --- | --- | --- | --- |
-| 170 | 5 | 1 | default + hard | 2 | 11 | 37 |
-| 171 | 5 | 1 | default | 0 | 8 | 31 |
-| 172 | 7 | 1 | default | 1 | 12 | 58 |
-| 173 | 4 | 1 | default | 1 | 8 | 20 |
-| 174 | 3 | 0 | default | 1 | 5 | 11 |
-| 175 | 3 | 1 | default | 1 | 7 | 17 |
-| **Total** | **27** | **5** | 5× default, 1× default + hard | 6 | 51 | 174 |
+| Story     | Ds     | hard Ds | review stages                 | review cycles | agents | build min |
+| --------- | ------ | ------- | ----------------------------- | ------------- | ------ | --------- |
+| 170       | 5      | 1       | default + hard                | 2             | 11     | 37        |
+| 171       | 5      | 1       | default                       | 0             | 8      | 31        |
+| 172       | 7      | 1       | default                       | 1             | 12     | 58        |
+| 173       | 4      | 1       | default                       | 1             | 8      | 20        |
+| 174       | 3      | 0       | default                       | 1             | 5      | 11        |
+| 175       | 3      | 1       | default                       | 1             | 7      | 17        |
+| **Total** | **27** | **5**   | 5× default, 1× default + hard | 6             | 51     | 174       |
 
 Build minutes are `build · started` to `story · done` in `progress.md`; refine (~30 min for all six stories) and the gate (~100 min) are not included.
 

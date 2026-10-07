@@ -11,7 +11,7 @@ As a user, when I save a profile, I want it written to every installation it's a
 (except installations currently running), so the settings I configured actually take effect
 in the game — not just inside the launcher's own state.
 
-Per [docs/concepts/config-module.md](../concepts/config-module.md#4-core-terms--model): writes
+Per [docs/concepts/config-module.md](../../systems/config-module.md#4-core-terms--model): writes
 target `<installation>/baseq2`, and `autoexec.cfg` is additionally copied into every mod folder
 marked "played" for that installation (`FS_ExecAutoexec` never consults the search path, unlike
 everything else). Depends on stories 001–003 (profile content and assignment must exist).
@@ -34,7 +34,7 @@ folders of an already-registered installation, never an arbitrary path.
 ## Open Questions
 
 - ~~Detecting "currently running" needs the `game-lifecycle` guard called out for the `mods`
-  module in [ROADMAP.md](../ROADMAP.md#mods--game-directories).~~ **Resolved during refine** —
+  module in [ROADMAP.md](../../ROADMAP.md#mods--game-directories).~~ **Resolved during refine** —
   see Decision 1 below. No open questions remain.
 
 ## Decisions (Sprint)
@@ -54,13 +54,13 @@ folders of an already-registered installation, never an arbitrary path.
 3. **File layout on disk** (the concept's open point 1, explicitly deferred to this refine):
    per profile one generated file `<install>/baseq2/q2l-profile-<profileId>.cfg`, plus a thin
    `autoexec.cfg` that only `exec`s the installation's default profile file — reason: `exec`
-   *does* use the search path, so the per-mod `autoexec.cfg` copies stay one-liners pointing at
+   _does_ use the search path, so the per-mod `autoexec.cfg` copies stay one-liners pointing at
    the single baseq2 profile file, and the later profile-switch bind (CFG-6) becomes an edit to
    one loader file instead of N config copies.
 4. **`config.cfg` is never overwritten.** It is engine-written (ROADMAP: archived cvars are
    flushed by the game itself), so anything we put there is lost on the next quit; profile
    content lands in the `autoexec.cfg` chain, which the engine execs after `config.cfg` and
-   which therefore wins. `config.cfg` is only ever *read* (story 005 import).
+   which therefore wins. `config.cfg` is only ever _read_ (story 005 import).
 5. **Ownership marker:** every generated file starts with a sentinel comment line
    (`// q2-launcher profile <id> — generated, do not edit`) — reason: it distinguishes our file
    from a user's hand-written `autoexec.cfg`, so a backup is taken exactly once, for the user's
@@ -102,7 +102,7 @@ Deliver the write pipeline as a module-local core (render → write) behind the 
 1. **Render** — `src/main/modules/config/render.ts`: profile (cvars from story 003, name/id from
    story 001) → deterministic `.cfg` text for the profile file, plus the one-line loader text
    for `autoexec.cfg`. Pure, latin-1, sentinel header. Unit-tested.
-2. **Write** — `src/main/modules/config/writer.ts`: resolve targets from the *registered*
+2. **Write** — `src/main/modules/config/writer.ts`: resolve targets from the _registered_
    installation, backup-once, diff-skip, atomic write, copy the loader `autoexec.cfg` into each
    `playedMods` folder. Adds `writeFileAtomic` to `src/main/lib/fs-utils.ts`. Unit-tested
    against a temp dir.
@@ -122,14 +122,14 @@ being finished (they take the profile shape as a parameter); steps 4–5 attach 
 
 - **D1 — Renderer for profile → cfg text.** `src/main/modules/config/render.ts` +
   `render.test.ts`. Deterministic ordering, sentinel header, latin-1-safe output, loader
-  (`exec q2l-profile-<id>.cfg`) text. *Accepted when:* tests cover a profile with cvars, an
+  (`exec q2l-profile-<id>.cfg`) text. _Accepted when:_ tests cover a profile with cvars, an
   empty profile and a high-ASCII value round-tripping byte-for-byte. Mirror: none (new pure
   module), test style per `src/main/services/launch-plan.test.ts`.
 - **D2 — Backup/diff/atomic write of one installation.** `src/main/modules/config/writer.ts` +
   `writer.test.ts`, `writeFileAtomic` in `src/main/lib/fs-utils.ts` (mirror the tmp+rename in
   `src/main/lib/json-store.ts`). Writes `baseq2/q2l-profile-<id>.cfg` + `baseq2/autoexec.cfg`,
   copies the loader into each validated `playedMods` folder, backs a pre-existing non-owned file
-  up to `<file>.q2l-backup` once, skips identical content. *Accepted when:* tests in a temp dir
+  up to `<file>.q2l-backup` once, skips identical content. _Accepted when:_ tests in a temp dir
   prove backup-once, no-op skip, mod copies, and rejection of a mod name not in `gameDirs`.
   **Covers AC 1 (disk side), AC 2, AC 3.**
 - **D3 — Contract + module handlers with the running guard.** `src/shared/modules/config.ts`
@@ -137,7 +137,7 @@ being finished (they take the profile shape as a parameter); steps 4–5 attach 
   `src/main/modules/config/index.ts`. Fans out over assigned installations, skips a running one
   via `app.launch.getState()`, persists pending ids in the config store slice, returns
   `{ installationId, status: 'written'|'unchanged'|'pending'|'error', messageKey? }[]`.
-  Mirror: `src/main/modules/library/index.ts`. *Accepted when:* a save writes all non-running
+  Mirror: `src/main/modules/library/index.ts`. _Accepted when:_ a save writes all non-running
   targets and a faked running state yields `pending` that a later `write` picks up.
   **Covers AC 1 (fan-out), AC 4 (main side).**
 - **D4 — Write-targets panel in the config view.** `src/renderer/src/modules/config/client.ts`,
@@ -147,7 +147,7 @@ being finished (they take the profile shape as a parameter); steps 4–5 attach 
   Design-system primitives only (`Panel`, `SectionLabel`, `Badge`, `Button`, `Checkbox`).
   Mirror: `src/renderer/src/modules/library/client.ts`. **Covers AC 4 (UI side), AC 1 trigger.**
 - **D5 — Preview modal.** `preview` handler use in the renderer + a `Modal` showing the rendered
-  text per target file for the selected installation. *Accepted when:* the previewed text is
+  text per target file for the selected installation. _Accepted when:_ the previewed text is
   identical to what D2 wrote for the same profile. **Covers AC 5.**
 
 ## Model Hints
@@ -166,14 +166,14 @@ being finished (they take the profile shape as a parameter); steps 4–5 attach 
    an installation (story 002).
 2. Mark one mod folder of that installation as "played" in the write-targets panel.
 3. Put a hand-written `autoexec.cfg` with a recognisable line into `<install>/baseq2/` first.
-4. Save the profile. Expect: the panel shows the installation as *written*; on disk
+4. Save the profile. Expect: the panel shows the installation as _written_; on disk
    `baseq2/q2l-profile-<id>.cfg` and `baseq2/autoexec.cfg` exist, `baseq2/autoexec.cfg.q2l-backup`
    holds the original line, and the mod folder has a copy of the loader `autoexec.cfg`.
 5. Open Preview — the shown text matches the file on disk.
 6. Save again without changes: no backup file is added or overwritten (the `.q2l-backup` still
-   holds the *original* hand-written line).
+   holds the _original_ hand-written line).
 7. Launch that installation, and while the game runs save the profile again: the panel shows
-   *pending*. Quit the game, press Retry — it flips to *written*.
+   _pending_. Quit the game, press Retry — it flips to _written_.
 
 ## Done
 
@@ -188,8 +188,9 @@ in full — this run's own work was verification, a hard-tier clean-agent review
 medium-severity findings that review raised.
 
 **Decisions (this session):**
+
 - **F1 fixed — default profile's own file is now guaranteed to exist.** The loader always execs
-  the installation's *default* profile's file (Decision 3), which can differ from the profile
+  the installation's _default_ profile's file (Decision 3), which can differ from the profile
   being saved (an installation can have several assigned profiles). The original implementation
   only wrote the saved profile's own file, so saving a non-default profile whose installation's
   default was never itself saved left the loader exec-ing a file that did not exist — the engine
@@ -207,7 +208,7 @@ medium-severity findings that review raised.
   is mounted — i.e. simply selecting an existing profile in the sidebar wrote to every assigned
   installation's real game folder, contradicting Decision 11 ("no auto-retry listener... a listener
   would write into a game folder without the user asking") and the manual test plan's ordering
-  (assign → mark played mods → *then* save). Fixed with a `lastSeenUpdatedAt` ref
+  (assign → mark played mods → _then_ save). Fixed with a `lastSeenUpdatedAt` ref
   (`Map<profileId, updatedAt>`): the write now only fires when a profile id already seen in this
   component's lifetime gets a new `updatedAt`. Verified (by a second clean-agent review, since this
   is a `.tsx` file the project's node-only vitest setup cannot unit-test) against switching between
@@ -227,7 +228,7 @@ medium-severity findings that review raised.
     `Record<installationId, profileId[]>`), which is a contract change beyond this review-fix
     cycle's scope.
   - **F5** (preview omits the per-mod loader copies, showing only the two `baseq2` files) — the
-    omitted content is byte-identical to the `baseq2` loader that *is* shown, so nothing is
+    omitted content is byte-identical to the `baseq2` loader that _is_ shown, so nothing is
     misrepresented, only not enumerated per-folder.
   - **F6** (`LICENSE` CRLF→LF and story 005's refine text landed in the same prior commit) — both
     predate this session (already on the branch from before this run) and are unrelated to story
@@ -241,12 +242,13 @@ medium-severity findings that review raised.
     are both `none` per `.claude/ai-scrum.md`, and 26 files already failed `format:check` before
     this story; not a new gate this build introduced.
   - The second review's own two minor findings (a hand-wrapped ternary Prettier would reflow; the
-    residual UX point that a freshly-*assigned* installation has no explicit "write now" affordance
+    residual UX point that a freshly-_assigned_ installation has no explicit "write now" affordance
     until the next cvar edit, which is spec-conformant per Decision 11) are both non-blocking and
     left as-is; the third (an `unchanged`-repeat-save test was missing) was cheap and added.
 
 **Files changed (this session; D1–D5's original implementation was already on the branch from the
 interrupted prior session, commit `afe3966`):**
+
 - `src/main/modules/config/index.ts` — F1 fix (default-profile-file guarantee in both
   `writeProfileToAssignedInstallations` and `previewProfileFiles`).
 - `src/main/modules/config/index.test.ts` — three new tests covering F1's scenario, its
@@ -257,6 +259,7 @@ interrupted prior session, commit `afe3966`):**
 - `docs/requirements/004-profile-write-pipeline.md` — this Done section, Acceptance Criteria ticked.
 
 **Verification:**
+
 - `npm run build` — green (main/preload/renderer all build).
 - `npm test` — green, 89/89 tests across 8 files (86 pre-existing from the interrupted session +
   3 new from the F1 fix).

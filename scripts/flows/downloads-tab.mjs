@@ -83,8 +83,14 @@ export default async function downloadsTab({ page, app, shot, step }) {
   }
 
   step('assert the archive cache size is shown (AC3)')
-  const cacheSizeText = await page.getByText(/^Cache:/, { exact: false }).first().innerText()
-  if (!cacheSizeText.includes(EXPECTED_CACHE_SIZE_TEXT) || !cacheSizeText.includes(String(DOWNLOADS_CACHE_ITEM_COUNT))) {
+  const cacheSizeText = await page
+    .getByText(/^Cache:/, { exact: false })
+    .first()
+    .innerText()
+  if (
+    !cacheSizeText.includes(EXPECTED_CACHE_SIZE_TEXT) ||
+    !cacheSizeText.includes(String(DOWNLOADS_CACHE_ITEM_COUNT))
+  ) {
     throw new Error(
       `expected the cache KeyValue to mention ${EXPECTED_CACHE_SIZE_TEXT} and ` +
         `${DOWNLOADS_CACHE_ITEM_COUNT} archives, got: ${JSON.stringify(cacheSizeText)}`,
@@ -96,9 +102,7 @@ export default async function downloadsTab({ page, app, shot, step }) {
   // --- AC1: a running (stalled) job shows bytes, speed and ETA ------------------------------------
   step('trigger a stalled job via the dev panel')
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByRole('button', { name: 'Simulate a stalled job' })
-    .click({ timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Simulate a stalled job' }).click({ timeout: TIMEOUT_MS })
 
   step('return to Downloads and wait for the running job to render')
   await page.getByTestId('nav-downloads').click({ timeout: TIMEOUT_MS })
@@ -108,13 +112,19 @@ export default async function downloadsTab({ page, app, shot, step }) {
   step('assert the running job shows bytes, speed and ETA (AC1)')
   const runningText = await runningJob.innerText()
   if (!/\d[\d.,]*\s*(B|KB|MB|GB)\s*\/\s*\d[\d.,]*\s*(B|KB|MB|GB)/.test(runningText)) {
-    throw new Error(`expected a "bytesDone / bytesTotal" figure in the running job row, got: ${JSON.stringify(runningText)}`)
+    throw new Error(
+      `expected a "bytesDone / bytesTotal" figure in the running job row, got: ${JSON.stringify(runningText)}`,
+    )
   }
   if (!/\d[\d.,]*\s*(KB|MB)\/s/.test(runningText)) {
-    throw new Error(`expected a speed figure (KB/s or MB/s) in the running job row, got: ${JSON.stringify(runningText)}`)
+    throw new Error(
+      `expected a speed figure (KB/s or MB/s) in the running job row, got: ${JSON.stringify(runningText)}`,
+    )
   }
   if (!/left/.test(runningText)) {
-    throw new Error(`expected an ETA ("... left") in the running job row, got: ${JSON.stringify(runningText)}`)
+    throw new Error(
+      `expected an ETA ("... left") in the running job row, got: ${JSON.stringify(runningText)}`,
+    )
   }
   console.log(`running job row: ${JSON.stringify(runningText)}`)
 
@@ -123,9 +133,7 @@ export default async function downloadsTab({ page, app, shot, step }) {
   // --- AC2: a failed reason persists, dismisses and restores --------------------------------------
   step('trigger a failed job via the dev panel')
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByRole('button', { name: 'Simulate a failed job' })
-    .click({ timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Simulate a failed job' }).click({ timeout: TIMEOUT_MS })
 
   step('return to Downloads and wait for the failure-log entry to appear, translated (AC2)')
   await page.getByTestId('nav-downloads').click({ timeout: TIMEOUT_MS })
@@ -138,7 +146,9 @@ export default async function downloadsTab({ page, app, shot, step }) {
     )
   }
   if (!/failed/i.test(failureText)) {
-    throw new Error(`expected the failure entry to carry a "Failed" status badge, got: ${JSON.stringify(failureText)}`)
+    throw new Error(
+      `expected the failure entry to carry a "Failed" status badge, got: ${JSON.stringify(failureText)}`,
+    )
   }
   console.log(`failure entry: ${JSON.stringify(failureText)}`)
 
@@ -192,8 +202,12 @@ export default async function downloadsTab({ page, app, shot, step }) {
   // fixture (`scripts/lib/fixture.mjs`'s `populatedDownloadFailures()`) - reachable offline, no
   // job round trip needed.
   step('assert both static fixture failure entries render (AC8)')
-  const diagnosticsEntry = page.getByTestId(`downloads-failure-${DOWNLOAD_FAILURE_WITH_DIAGNOSTICS_ID}`)
-  const plainEntry = page.getByTestId(`downloads-failure-${DOWNLOAD_FAILURE_WITHOUT_DIAGNOSTICS_ID}`)
+  const diagnosticsEntry = page.getByTestId(
+    `downloads-failure-${DOWNLOAD_FAILURE_WITH_DIAGNOSTICS_ID}`,
+  )
+  const plainEntry = page.getByTestId(
+    `downloads-failure-${DOWNLOAD_FAILURE_WITHOUT_DIAGNOSTICS_ID}`,
+  )
   await diagnosticsEntry.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await plainEntry.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
@@ -201,7 +215,9 @@ export default async function downloadsTab({ page, app, shot, step }) {
   await shot('failure-without-diagnostics')
 
   step('assert only the diagnostics entry offers the copy action (AC6)')
-  const copyButton = page.getByTestId(`downloads-failure-copy-${DOWNLOAD_FAILURE_WITH_DIAGNOSTICS_ID}`)
+  const copyButton = page.getByTestId(
+    `downloads-failure-copy-${DOWNLOAD_FAILURE_WITH_DIAGNOSTICS_ID}`,
+  )
   await copyButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const plainCopyButtonCount = await page
     .getByTestId(`downloads-failure-copy-${DOWNLOAD_FAILURE_WITHOUT_DIAGNOSTICS_ID}`)
@@ -214,7 +230,7 @@ export default async function downloadsTab({ page, app, shot, step }) {
   }
 
   step(
-    'assert reveal-log is reachable only inside the diagnostics entry\'s cause detail, not the ' +
+    "assert reveal-log is reachable only inside the diagnostics entry's cause detail, not the " +
       'header cluster, and not at all on the no-diagnostics entry (078 D6/D8, AC5/AC6)',
   )
   // 078 D6 moved reveal-log out of the always-visible header cluster into `FailureCauseDetail`'s
@@ -222,7 +238,9 @@ export default async function downloadsTab({ page, app, shot, step }) {
   // reveal button exists (inside the closed native `<details>`) but is not visible, and the
   // no-diagnostics entry renders `FailureCauseDetail` as `null` (AC6), so it has no reveal button
   // at all, not even a disabled stub.
-  const diagnosticsReveal = page.getByTestId(`downloads-failure-reveal-${DOWNLOAD_FAILURE_WITH_DIAGNOSTICS_ID}`)
+  const diagnosticsReveal = page.getByTestId(
+    `downloads-failure-reveal-${DOWNLOAD_FAILURE_WITH_DIAGNOSTICS_ID}`,
+  )
   const plainRevealCount = await page
     .getByTestId(`downloads-failure-reveal-${DOWNLOAD_FAILURE_WITHOUT_DIAGNOSTICS_ID}`)
     .count()
@@ -234,7 +252,7 @@ export default async function downloadsTab({ page, app, shot, step }) {
   }
   if (await diagnosticsReveal.isVisible()) {
     throw new Error(
-      'expected the diagnostics entry\'s reveal-log action to be hidden until its cause detail is ' +
+      "expected the diagnostics entry's reveal-log action to be hidden until its cause detail is " +
         'expanded (AC5 - it is no longer offered as the first explanation)',
     )
   }
@@ -322,7 +340,9 @@ export default async function downloadsTab({ page, app, shot, step }) {
   const detailText = await causeDetail.innerText()
   for (const packageId of ['q2pro-engine', 'demo-gamedata', 'point-release']) {
     if (!detailText.includes(packageId)) {
-      throw new Error(`expected the expanded cause detail to name package "${packageId}" (AC1), got: ${JSON.stringify(detailText)}`)
+      throw new Error(
+        `expected the expanded cause detail to name package "${packageId}" (AC1), got: ${JSON.stringify(detailText)}`,
+      )
     }
   }
   if (
@@ -337,7 +357,9 @@ export default async function downloadsTab({ page, app, shot, step }) {
 
   step('assert the target verdict and its failing check render through their messageKey (AC2)')
   if (!detailText.includes('Installation check')) {
-    throw new Error(`expected the verdict heading in the expanded detail (AC2), got: ${JSON.stringify(detailText)}`)
+    throw new Error(
+      `expected the verdict heading in the expanded detail (AC2), got: ${JSON.stringify(detailText)}`,
+    )
   }
   if (!detailText.includes('pak0.pak is missing')) {
     throw new Error(
@@ -370,7 +392,9 @@ export default async function downloadsTab({ page, app, shot, step }) {
   step('assert reveal-log becomes reachable once the detail is expanded (AC5)')
   await diagnosticsReveal.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await diagnosticsReveal.isDisabled()) {
-    throw new Error('expected the diagnostics entry\'s reveal-log action to be enabled once expanded (AC5)')
+    throw new Error(
+      "expected the diagnostics entry's reveal-log action to be enabled once expanded (AC5)",
+    )
   }
 
   await shot('failure-cause-expanded')
@@ -386,22 +410,28 @@ export default async function downloadsTab({ page, app, shot, step }) {
     throw new Error('expected the copied report to contain the assembly table heading (AC7)')
   }
   if (!/\|.*Looked for.*\|/.test(clipboardText) || !clipboardText.includes('baseq2/pak0.pak')) {
-    throw new Error('expected the copied report to contain an assembly table row naming baseq2/pak0.pak (AC7)')
+    throw new Error(
+      'expected the copied report to contain an assembly table row naming baseq2/pak0.pak (AC7)',
+    )
   }
   if (!clipboardText.includes('## Extraction contents')) {
     throw new Error('expected the copied report to contain the extraction-listing heading (AC8)')
   }
   if (!clipboardText.includes('### q2pro-engine') || !clipboardText.includes('### point-release')) {
-    throw new Error('expected the copied report to list each extracted package\'s own contents block (AC8)')
+    throw new Error(
+      "expected the copied report to list each extracted package's own contents block (AC8)",
+    )
   }
   if (!clipboardText.includes('q2-3.20-x86-full-ctf')) {
     throw new Error(
-      'expected the copied report to show point-release\'s wrapper-directory entry in its ' +
+      "expected the copied report to show point-release's wrapper-directory entry in its " +
         'extraction listing (AC8)',
     )
   }
   if (!clipboardText.includes('(truncated - more entries were not listed)')) {
-    throw new Error('expected point-release\'s truncated extraction listing to carry the truncation marker (AC8)')
+    throw new Error(
+      "expected point-release's truncated extraction listing to carry the truncation marker (AC8)",
+    )
   }
   if (clipboardText.includes('### demo-gamedata')) {
     throw new Error(

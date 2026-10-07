@@ -1,6 +1,6 @@
 import type { Outcome } from '@shared/types'
 
-/** Story 164 D1: how the launcher talks to a running demo game. One implementation per platform. */
+/** Story 164: how the launcher talks to a running demo game. One implementation per platform. */
 export interface PlaybackChannel {
   /** Launch args that must come before the demo argument (e.g. logfile setup). Never contains `+demo`. */
   argsBeforeDemo: string[]

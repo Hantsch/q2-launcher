@@ -119,30 +119,23 @@ must stay green (D5 changes the display event every session emits, and moves spe
 ## Deliverables
 
 - [x] **D1 — shared cinema rules.** New `src/shared/replays/cinema.ts` + `cinema.test.ts`, mirroring
-      `src/shared/replays/timeline.ts`. No node/DOM/electron imports.
-      - `CINEMA_IDLE_MS = 3000`.
-      - `cinemaKeyAction(event: {key, code, shiftKey})` returns a `TimelineAction`
-        (`timelineActionSchema` from `timeline.ts`), `{kind:'leave'}` or `null`: Space/K →
-        `togglePause`, ←/→ → `jump ∓/±10`, Shift+←/→ → `jump ∓/±60`, `,`/`.` → `speed` at the
-        next slower/faster `SPEED_STEPS` value given the current speed (clamped at the ends), F →
-        `fullscreen`, Esc → leave.
-      - `CinemaAvailability = {available:true} | {available:false, reason:{key:string}}`.
+      `src/shared/replays/timeline.ts`. No node/DOM/electron imports. - `CINEMA_IDLE_MS = 3000`. - `cinemaKeyAction(event: {key, code, shiftKey})` returns a `TimelineAction`
+      (`timelineActionSchema` from `timeline.ts`), `{kind:'leave'}` or `null`: Space/K →
+      `togglePause`, ←/→ → `jump ∓/±10`, Shift+←/→ → `jump ∓/±60`, `,`/`.` → `speed` at the
+      next slower/faster `SPEED_STEPS` value given the current speed (clamped at the ends), F →
+      `fullscreen`, Esc → leave. - `CinemaAvailability = {available:true} | {available:false, reason:{key:string}}`.
       Tests: `cinema.test.ts` › "every overlay key maps to its timeline action", "speed steps clamp
       at 0.25 and 4", "unmapped keys map to nothing".
 - [x] **D2 — main pure pieces + follower pin.** New `src/main/modules/replays/cinema.ts` +
       `cinema.test.ts`, mirroring `stage.ts` (its `stageAvailability` and the `Q2L_UI_SESSION_TYPE`
-      harness knob at `stage.ts:29`).
-      - `cinemaAvailability({stageReason, onPrimary})` returns `CinemaAvailability` (D1's
-        `src/shared/replays/cinema.ts`): a stage reason → that key (Wayland reuses
-        `replays.stage.unavailable.wayland`); off primary → `replays.cinema.unavailable.notPrimaryDisplay`.
-      - `displayGeometry(physicalRect)` returns a `WxH+X+Y` string, like `stageGeometry`.
-      - `Q2L_UI_CINEMA_DISPLAY=primary|secondary`, honoured only with `Q2L_UI_HARNESS`, overrides
-        `onPrimary`. The harness parks the launcher window off every display.
-      - In `stage-follow.ts` (l.77-96) add `pin(geometry|null)` and pass it through
-        `stage-follow-session.ts` (l.44). While pinned the follower sends only
-        `set vid_geometry <pin>`, freezes `desiredTop` (never `set win_alwaysontop`, l.81) and
-        ignores main-window focus and blur. `pin(null)` re-sends the current stage geometry,
-        because `sentGeo` is now the cinema rect.
+      harness knob at `stage.ts:29`). - `cinemaAvailability({stageReason, onPrimary})` returns `CinemaAvailability` (D1's
+      `src/shared/replays/cinema.ts`): a stage reason → that key (Wayland reuses
+      `replays.stage.unavailable.wayland`); off primary → `replays.cinema.unavailable.notPrimaryDisplay`. - `displayGeometry(physicalRect)` returns a `WxH+X+Y` string, like `stageGeometry`. - `Q2L_UI_CINEMA_DISPLAY=primary|secondary`, honoured only with `Q2L_UI_HARNESS`, overrides
+      `onPrimary`. The harness parks the launcher window off every display. - In `stage-follow.ts` (l.77-96) add `pin(geometry|null)` and pass it through
+      `stage-follow-session.ts` (l.44). While pinned the follower sends only
+      `set vid_geometry <pin>`, freezes `desiredTop` (never `set win_alwaysontop`, l.81) and
+      ignores main-window focus and blur. `pin(null)` re-sends the current stage geometry,
+      because `sentGeo` is now the cinema rect.
       Tests: `cinema.test.ts` › "availability prefers the stage reason, then the display",
       "the harness knob only applies under Q2L_UI_HARNESS"; `stage-follow.test.ts` › "a pinned
       follower sends the pin geometry and never win_alwaysontop", "unpinning re-sends the stage
@@ -153,90 +146,61 @@ must stay green (D5 changes the display event every session emits, and moves spe
       does and renders an empty root. `html` and `body` are **transparent**, and the app background
       `#0b0b0d` is not imported. Acceptance: `npm run build` emits `out/renderer/cinema.html` and
       `npm run typecheck` is green. The e2e flows in D6 load it.
-- [x] **D4 — cinema window shell service.**
-      - New `src/main/cinema-window.ts` + `cinema-window.test.ts`, mirroring `src/main/window.ts:139-262`
-        and the spike recipe (`spikes/186-cinema-overlay/harness.mjs:122-134,180`).
-      - The window is frameless, `transparent`, `skipTaskbar`, `setAlwaysOnTop(true,'screen-saver')`,
-        and sized to the primary display's DIP `bounds`. It uses the **same preload and
-        webPreferences** as the main window (contextIsolation, sandbox, no nodeIntegration).
-      - Under `Q2L_UI_HARNESS` it is `focusable:false`, shown inactive and placed off-screen, like the
-        main window at `window.ts:153/252`.
-      - Extract the window-open handler and the will-navigate guard (`window.ts:223-241`) into a
-        shared `hardenWebContents(win)` that both windows call.
-      - Add `RENDERER_CINEMA_URL` next to `src/main/lib/renderer-source.ts:18` (dev:
-        `${url}/cinema.html`), plus its test.
-      - Expose `app.cinemaWindow = { open(), close(), isOpen(), onClosed(cb) }` in
-        `src/main/context.ts`, wired in `src/main/index.ts`.
-      - Document the service in `docs/ARCHITECTURE.md` (the "Decisions: shell service" rationale).
+- [x] **D4 — cinema window shell service.** - New `src/main/cinema-window.ts` + `cinema-window.test.ts`, mirroring `src/main/window.ts:139-262`
+      and the spike recipe (`spikes/186-cinema-overlay/harness.mjs:122-134,180`). - The window is frameless, `transparent`, `skipTaskbar`, `setAlwaysOnTop(true,'screen-saver')`,
+      and sized to the primary display's DIP `bounds`. It uses the **same preload and
+      webPreferences** as the main window (contextIsolation, sandbox, no nodeIntegration). - Under `Q2L_UI_HARNESS` it is `focusable:false`, shown inactive and placed off-screen, like the
+      main window at `window.ts:153/252`. - Extract the window-open handler and the will-navigate guard (`window.ts:223-241`) into a
+      shared `hardenWebContents(win)` that both windows call. - Add `RENDERER_CINEMA_URL` next to `src/main/lib/renderer-source.ts:18` (dev:
+      `${url}/cinema.html`), plus its test. - Expose `app.cinemaWindow = { open(), close(), isOpen(), onClosed(cb) }` in
+      `src/main/context.ts`, wired in `src/main/index.ts`. - Document the service in `docs/ARCHITECTURE.md` (the "Decisions: shell service" rationale).
       Tests: `cinema-window.test.ts` › "the overlay window uses the main window's preload and
       webPreferences", "under the harness the overlay is not focusable";
       `renderer-source.test.ts` › "the cinema URL resolves in dev and production".
-- [x] **D5 — main wiring: enter, leave, fullscreen, session end.**
-      - `src/shared/modules/replays.ts`: handler `playbackCinema: 'playback.cinema'` with schema
-        `{enter:boolean}.strict()`; handler `playbackDisplayRead`. `ReplaysPlaybackDisplay` (l.126)
-        grows additively to `{fullscreen, cinema:boolean, speed, cinemaAvailability}`. Add both to
-        `REPLAYS_HANDLER_SCHEMAS` (l.541).
-      - New `src/main/modules/replays/cinema-controller.ts` + test, mirroring `playback-timeline.ts`.
-        It is the single owner of "cinema open". **Enter:** check availability (refuse with its
-        key), then `pin(displayGeometry(primary physical rect))`, then `app.cinemaWindow.open()`,
-        in that order, so no focus change reaches the follower unpinned. **Leave** (handler,
-        `onClosed`): close the overlay, then `pin(null)`.
-      - `src/main/modules/replays/playback-control.ts` + test: `onStateChange` next to
-        `onDisplayChange` (l.59). Speed is held in main (it is renderer-only today,
-        `playback-store.ts:205`) and updated by `speed` timeline actions. The display event is
-        emitted at l.189 and on cinema enter/leave.
-      - `src/main/modules/replays/index.ts`:
-        - Register the handlers (l.333-351).
-        - Compute `onPrimary` and the physical rect next to `geometryAt` (l.253-263):
-          `getDisplayMatching(win.getBounds()).id === getPrimaryDisplay().id`, and
-          `dipToScreenRect(null, primary.bounds)` with the scaleFactor fallback.
-        - Push availability when the main window moves (deduplicated).
-        - Wrap `enterFullscreen` (l.342): when it succeeds from cinema, close the overlay and keep
-          the pin; the follower is already suspended (l.281). Back to window gives display
-          `'stage'`: unpin and resume, so the stage geometry is sent again.
-        - `finished`: close and unpin. `ended`: close.
+- [x] **D5 — main wiring: enter, leave, fullscreen, session end.** - `src/shared/modules/replays.ts`: handler `playbackCinema: 'playback.cinema'` with schema
+      `{enter:boolean}.strict()`; handler `playbackDisplayRead`. `ReplaysPlaybackDisplay` (l.126)
+      grows additively to `{fullscreen, cinema:boolean, speed, cinemaAvailability}`. Add both to
+      `REPLAYS_HANDLER_SCHEMAS` (l.541). - New `src/main/modules/replays/cinema-controller.ts` + test, mirroring `playback-timeline.ts`.
+      It is the single owner of "cinema open". **Enter:** check availability (refuse with its
+      key), then `pin(displayGeometry(primary physical rect))`, then `app.cinemaWindow.open()`,
+      in that order, so no focus change reaches the follower unpinned. **Leave** (handler,
+      `onClosed`): close the overlay, then `pin(null)`. - `src/main/modules/replays/playback-control.ts` + test: `onStateChange` next to
+      `onDisplayChange` (l.59). Speed is held in main (it is renderer-only today,
+      `playback-store.ts:205`) and updated by `speed` timeline actions. The display event is
+      emitted at l.189 and on cinema enter/leave. - `src/main/modules/replays/index.ts`: - Register the handlers (l.333-351). - Compute `onPrimary` and the physical rect next to `geometryAt` (l.253-263):
+      `getDisplayMatching(win.getBounds()).id === getPrimaryDisplay().id`, and
+      `dipToScreenRect(null, primary.bounds)` with the scaleFactor fallback. - Push availability when the main window moves (deduplicated). - Wrap `enterFullscreen` (l.342): when it succeeds from cinema, close the overlay and keep
+      the pin; the follower is already suspended (l.281). Back to window gives display
+      `'stage'`: unpin and resume, so the stage geometry is sent again. - `finished`: close and unpin. `ended`: close.
       Tests: `cinema-controller.test.ts` › "enter pins before opening the overlay", "enter
       refuses when unavailable", "the overlay closing leaves cinema and unpins", "fullscreen from
       cinema closes the overlay and back-to-window returns to the stage", "finished and ended close
       the overlay"; `playback-control.test.ts` › "the display event carries cinema, speed and
       availability".
-- [x] **D6 — launcher mode switch + enter/unavailable flows.**
-      - `src/renderer/src/modules/replays/components/DemoTimeline.tsx` (mirror its fullscreen button
-        l.281-307 and the disabled-with-reason pattern l.45-52): replace the lone fullscreen button
-        with a three-option radio group, Preview / Cinema / Fullscreen. Each option has a visible
-        label and `aria-checked`; the current mode also carries a non-colour marker (check glyph /
-        underline). Cinema uses `aria-disabled` and shows the visible reason text when
-        unavailable. Choosing Cinema calls `playback.cinema {enter:true}`, and choosing Fullscreen
-        keeps today's `fullscreen` timeline action.
-      - `playback-store.ts` + test: mode, speed and cinemaAvailability from the display event.
-      - `client.ts`: `playbackCinema`, `playbackDisplayRead`.
-      - `src/renderer/src/i18n/locales/en.json`: the mode labels and
-        `replays.cinema.unavailable.notPrimaryDisplay`.
-      - `scripts/lib/harness.mjs`: `waitForWindow(app, 'cinema.html')`, which attaches the
-        console/pageerror/CSP listeners of l.396-413. Pick windows by URL, not
-        `getAllWindows()[0]`, in any helper this flow uses (`resize()` l.651).
-      - New flows `scripts/flows/replays-cinema-enter.mjs` and `replays-cinema-unavailable.mjs`,
-        mirroring `replays-stage-view-leave.mjs` (the `launchCount` check at l.180) and
-        `replays-stage-unavailable.mjs`.
+- [x] **D6 — launcher mode switch + enter/unavailable flows.** - `src/renderer/src/modules/replays/components/DemoTimeline.tsx` (mirror its fullscreen button
+      l.281-307 and the disabled-with-reason pattern l.45-52): replace the lone fullscreen button
+      with a three-option radio group, Preview / Cinema / Fullscreen. Each option has a visible
+      label and `aria-checked`; the current mode also carries a non-colour marker (check glyph /
+      underline). Cinema uses `aria-disabled` and shows the visible reason text when
+      unavailable. Choosing Cinema calls `playback.cinema {enter:true}`, and choosing Fullscreen
+      keeps today's `fullscreen` timeline action. - `playback-store.ts` + test: mode, speed and cinemaAvailability from the display event. - `client.ts`: `playbackCinema`, `playbackDisplayRead`. - `src/renderer/src/i18n/locales/en.json`: the mode labels and
+      `replays.cinema.unavailable.notPrimaryDisplay`. - `scripts/lib/harness.mjs`: `waitForWindow(app, 'cinema.html')`, which attaches the
+      console/pageerror/CSP listeners of l.396-413. Pick windows by URL, not
+      `getAllWindows()[0]`, in any helper this flow uses (`resize()` l.651). - New flows `scripts/flows/replays-cinema-enter.mjs` and `replays-cinema-unavailable.mjs`,
+      mirroring `replays-stage-view-leave.mjs` (the `launchCount` check at l.180) and
+      `replays-stage-unavailable.mjs`.
       Tests: `DemoTimeline.test.tsx` › "the timeline offers preview, cinema and fullscreen with
       the current mode marked", "cinema is disabled with its reason as visible text";
       `playback-store.test.ts` › "the display event sets mode, speed and cinema availability";
       the flows below.
-- [x] **D7 — the overlay: controls, idle fade, keys + flows.**
-      - Fill `src/renderer/src/cinema/main.tsx` with a new
-        `src/renderer/src/modules/replays/cinema/CinemaOverlay.tsx` and `useIdleFade.ts` (+ tests),
-        mirroring `DemoTimeline.tsx`'s controls.
-      - The control bar shows position/duration, a click-to-seek bar, play/pause, ±10/±60, speed,
-        fullscreen and "Leave cinema mode", all calling `playback.timeline`. Leave calls
-        `playback.cinema {enter:false}`.
-      - It boots from `playbackDisplayRead` and follows the position/display events.
-      - `data-controls="visible|hidden"` sits on the overlay root. The controls hide after
-        `CINEMA_IDLE_MS`, and stay while the bar is hovered or the demo is paused.
-      - Keys go through D1's `cinemaKeyAction` and any key shows the controls. A click on the
-        picture only shows the controls.
-      - `en.json`: the overlay labels.
-      - New flows `scripts/flows/replays-cinema.mjs` and `replays-cinema-fullscreen.mjs`, mirroring
-        `replays-fullscreen.mjs`.
+- [x] **D7 — the overlay: controls, idle fade, keys + flows.** - Fill `src/renderer/src/cinema/main.tsx` with a new
+      `src/renderer/src/modules/replays/cinema/CinemaOverlay.tsx` and `useIdleFade.ts` (+ tests),
+      mirroring `DemoTimeline.tsx`'s controls. - The control bar shows position/duration, a click-to-seek bar, play/pause, ±10/±60, speed,
+      fullscreen and "Leave cinema mode", all calling `playback.timeline`. Leave calls
+      `playback.cinema {enter:false}`. - It boots from `playbackDisplayRead` and follows the position/display events. - `data-controls="visible|hidden"` sits on the overlay root. The controls hide after
+      `CINEMA_IDLE_MS`, and stay while the bar is hovered or the demo is paused. - Keys go through D1's `cinemaKeyAction` and any key shows the controls. A click on the
+      picture only shows the controls. - `en.json`: the overlay labels. - New flows `scripts/flows/replays-cinema.mjs` and `replays-cinema-fullscreen.mjs`, mirroring
+      `replays-fullscreen.mjs`.
       Tests: `useIdleFade.test.ts` › "controls hide after 3 s idle and stay while hovered or
       paused"; `CinemaOverlay.test.tsx` › "each control sends its timeline action", "a click on the
       picture only shows the controls"; the flows below.

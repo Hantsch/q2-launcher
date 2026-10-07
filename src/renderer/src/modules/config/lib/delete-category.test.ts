@@ -12,11 +12,7 @@ function action(id: string, categoryId: string): ConfigAction {
 
 describe('applyCategoryDeletion', () => {
   const categories = [category('movement'), category('weapons'), category('drops')]
-  const actions = [
-    action('a1', 'movement'),
-    action('a2', 'movement'),
-    action('a3', 'weapons'),
-  ]
+  const actions = [action('a1', 'movement'), action('a2', 'movement'), action('a3', 'weapons')]
 
   it("removes the category and its entries for choice 'delete'", () => {
     const result = applyCategoryDeletion(categories, actions, 'movement', 'delete')

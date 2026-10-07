@@ -4,7 +4,13 @@ import { collides, firstFreeSpot, move, place, resize, stack } from './layout'
 
 /** Story 086 D2 acceptance tests (AC1, AC5, AC6, AC13). */
 
-function tile(moduleId: TilePlacement['moduleId'], x: number, y: number, w: number, h: number): TilePlacement {
+function tile(
+  moduleId: TilePlacement['moduleId'],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): TilePlacement {
   return { moduleId, x, y, w, h }
 }
 

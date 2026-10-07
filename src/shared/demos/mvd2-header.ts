@@ -90,7 +90,7 @@ function readInt32LE(cursor: Cursor, limit: number): number | null {
   if (cursor.offset + 4 > limit) return null
   const b = cursor.bytes
   const o = cursor.offset
-  const value = (b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16) | (b[o + 3]! << 24)) | 0
+  const value = b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16) | (b[o + 3]! << 24) | 0
   cursor.offset += 4
   return value
 }
@@ -133,7 +133,13 @@ const MVD_VERSIONS: ReadonlySet<number> = new Set([2009, 2010, 2011, 2012, 2013]
 export function parseMvd2Header(bytes: Uint8Array): Mvd2HeaderResult {
   if (bytes.length === 0) return { ok: false, reason: 'empty' }
 
-  if (bytes.length < 4 || bytes[0] !== 0x4d || bytes[1] !== 0x56 || bytes[2] !== 0x44 || bytes[3] !== 0x32) {
+  if (
+    bytes.length < 4 ||
+    bytes[0] !== 0x4d ||
+    bytes[1] !== 0x56 ||
+    bytes[2] !== 0x44 ||
+    bytes[3] !== 0x32
+  ) {
     return { ok: false, reason: 'not-a-demo' }
   }
 
@@ -157,7 +163,8 @@ export function parseMvd2Header(bytes: Uint8Array): Mvd2HeaderResult {
 
   const versionRead = readUint16LE(cursor, blockEnd)
   if (versionRead === null) return { ok: false, reason: 'not-a-demo' }
-  if (!MVD_VERSIONS.has(versionRead)) return { ok: false, reason: 'unknown-version', version: versionRead }
+  if (!MVD_VERSIONS.has(versionRead))
+    return { ok: false, reason: 'unknown-version', version: versionRead }
   const version = versionRead as Mvd2Version
 
   let flags: number

@@ -57,10 +57,10 @@ export function TitleBar() {
       </div>
 
       {/* Primary nav */}
-      <nav className="flex items-stretch" aria-label={t('nav.home')}>
+      <nav className="flex items-stretch" aria-label={t('common.label.home')}>
         <NavItem
           icon={<Home className="size-4.5" />}
-          label={t('nav.home')}
+          label={t('common.label.home')}
           active={route === ROUTE_HOME}
           onClick={() => setRoute(ROUTE_HOME)}
           testId="nav-home"
@@ -120,6 +120,7 @@ export function TitleBar() {
         </WindowButton>
         <WindowButton
           label={t('titlebar.close')}
+          testId="titlebar-close"
           danger
           onClick={() => void invoke('window:close')}
         >
@@ -173,7 +174,7 @@ function NavItem({
 /**
  * A utility-nav button for a module (e.g. Downloads): resolves its own active
  * job count and swaps in the count-aware, pluralised label when jobs are
- * active - story 032 D3. Kept generic over `moduleId`, never hardcoded to a
+ * active - story 032. Kept generic over `moduleId`, never hardcoded to a
  * specific module, so any current or future secondary module gets the badge
  * for free.
  */
@@ -213,15 +214,18 @@ function WindowButton({
   children,
   onClick,
   danger,
+  testId,
 }: {
   label: string
   children: React.ReactNode
   onClick: () => void
   danger?: boolean
+  testId?: string
 }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       aria-label={label}
       title={label}
       onClick={onClick}

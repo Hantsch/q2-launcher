@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type Mock = ReturnType<typeof vi.fn>
 let failLoad = false
-const created:Array<{ options: Record<string, unknown>; win: Record<string, Mock> }> = []
+const created: Array<{ options: Record<string, unknown>; win: Record<string, Mock> }> = []
 
 vi.mock('electron', () => {
   class BrowserWindow {
     handlers: Record<string, () => void> = {}
     webContents = { setWindowOpenHandler: vi.fn(), on: vi.fn() }
     setAlwaysOnTop = vi.fn()
+    moveTop = vi.fn()
+    focus = vi.fn()
     show = vi.fn()
     showInactive = vi.fn()
     isDestroyed = vi.fn(() => false)
@@ -42,7 +44,13 @@ async function load(harness: boolean) {
   else delete process.env['Q2L_UI_HARNESS']
   const { createCinemaWindow } = await import('./cinema-window')
   const { rendererWebPreferences } = await import('./window-shared')
-  return { service: createCinemaWindow(), rendererWebPreferences }
+  const { resolveUiHarness } = await import('./lib/ui-harness')
+  const harnessGate = resolveUiHarness(process.env)
+  return {
+    service: createCinemaWindow(harnessGate, { kind: 'scheme' }),
+    rendererWebPreferences,
+    harnessGate,
+  }
 }
 
 describe('cinema window', () => {
@@ -51,11 +59,11 @@ describe('cinema window', () => {
   })
 
   it("the overlay window uses the main window's preload and webPreferences", async () => {
-    const { service, rendererWebPreferences } = await load(false)
+    const { service, rendererWebPreferences, harnessGate } = await load(false)
     await service.open()
 
     const { options, win } = created[0]!
-    expect(options['webPreferences']).toEqual(rendererWebPreferences())
+    expect(options['webPreferences']).toEqual(rendererWebPreferences(harnessGate))
     expect(options['webPreferences']).toMatchObject({
       contextIsolation: true,
       sandbox: true,
@@ -115,5 +123,18 @@ describe('cinema window', () => {
     service.close()
     expect(service.isOpen()).toBe(false)
     expect(closed).toHaveBeenCalledTimes(1)
+  })
+
+  it('raise puts an open overlay on top and focuses it, and does nothing when closed', async () => {
+    const { service } = await load(false)
+    service.raise()
+    expect(created).toHaveLength(0)
+    await service.open()
+    service.raise()
+    expect(created[0]!.win['moveTop']).toHaveBeenCalledTimes(1)
+    expect(created[0]!.win['focus']).toHaveBeenCalledTimes(1)
+    service.close()
+    service.raise()
+    expect(created[0]!.win['moveTop']).toHaveBeenCalledTimes(1)
   })
 })

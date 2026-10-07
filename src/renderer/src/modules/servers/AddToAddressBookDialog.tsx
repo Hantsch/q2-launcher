@@ -2,11 +2,16 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
 import { parseServerAddress, serverAddressRejectionKey } from '@shared/servers/address'
+import { ok } from '@shared/types'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { Button } from '../../components/ui/Button'
 import { Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
+import { Radio, RadioGroup } from '../../components/ui/RadioGroup'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 import { useLauncher } from '../../store/useLauncher'
-import { commitProfileCvars, listConfigProfiles } from '../config/client'
+import { commitProfileCvars } from '../config/client'
+import { useConfigProfiles } from '../config/config-profiles-store'
 import {
   ADDRESS_BOOK_SLOTS,
   pickPreselectedProfileId,
@@ -17,7 +22,7 @@ import {
 } from './lib/address-book'
 
 /**
- * Story 127 D1: lets the user write a server's address into one of Quake II's nine `adr0`-`adr8`
+ * Story 127: lets the user write a server's address into one of Quake II's nine `adr0`-`adr8`
  * cvars on a config profile of their choosing - the launcher-side counterpart of the engine's own
  * in-game address book.
  *
@@ -40,48 +45,53 @@ export function AddToAddressBookDialog({
   const pushToast = useLauncher((state) => state.pushToast)
   const activeInstallationId = useLauncher((state) => state.settings.activeInstallationId)
 
-  const [profiles, setProfiles] = useState<ConfigProfile[] | null>(null)
+  // `null` until this open's read answered; a failed read shows no profiles rather than a stale list.
+  const storedProfiles = useConfigProfiles((state) => state.profiles)
+  const [listState, setListState] = useState<'pending' | 'ready' | 'failed'>('pending')
+  const profiles: ConfigProfile[] | null =
+    listState === 'pending' ? null : listState === 'failed' ? [] : storedProfiles
   const [profileId, setProfileId] = useState<string | undefined>(undefined)
   const [slots, setSlots] = useState<AddressBookSlotValue[] | null>(null)
   const [slot, setSlot] = useState<AddressBookSlot | undefined>(undefined)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   // Initial load, on every open: fetch the profile list fresh and preselect profile + slot.
+  const listQuery = useModuleQuery<ConfigProfile[] | null>(
+    async () => (open ? useConfigProfiles.getState().load() : ok(null)),
+    { deps: [open] },
+  )
   useEffect(() => {
     if (!open) return
-    setProfiles(null)
+    setListState('pending')
     setSlots(null)
     setProfileId(undefined)
     setSlot(undefined)
     setError(null)
-
-    let cancelled = false
-    void (async () => {
-      const result = await listConfigProfiles()
-      if (cancelled) return
-      if (!result.ok) {
-        setError(result.error.key)
-        setProfiles([])
-        return
-      }
-      setProfiles(result.value)
-      const preselectedProfileId = pickPreselectedProfileId(result.value, activeInstallationId)
-      setProfileId(preselectedProfileId)
-      const preselectedProfile = result.value.find((p) => p.id === preselectedProfileId)
-      const preselectedSlots = readAddressBookSlots(preselectedProfile?.cvars ?? {})
-      setSlots(preselectedSlots)
-      setSlot(pickPreselectedSlot(preselectedSlots, address))
-    })()
-
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  // Story AC5: switching profiles re-reads fresh rather than trusting the list already in state -
+  // Keyed on the query's value identity, so a stale value from the previous open is never applied.
+  useEffect(() => {
+    if (!open) return
+    if (listQuery.state === 'error') {
+      setError(listQuery.error?.key ?? null)
+      setListState('failed')
+      return
+    }
+    const list = listQuery.state === 'success' ? listQuery.data : null
+    if (!list) return
+    setListState('ready')
+    const preselectedProfileId = pickPreselectedProfileId(list, activeInstallationId)
+    setProfileId(preselectedProfileId)
+    const preselectedProfile = list.find((p) => p.id === preselectedProfileId)
+    const preselectedSlots = readAddressBookSlots(preselectedProfile?.cvars ?? {})
+    setSlots(preselectedSlots)
+    setSlot(pickPreselectedSlot(preselectedSlots, address))
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- preselection runs per delivered list only
+  }, [listQuery.state, listQuery.data])
+
+  // Switching profiles re-reads fresh rather than trusting the list already in state -
   // guards against another surface (or another window) having changed the profile's cvars in the
   // meantime. While the read is in flight, `slots` is cleared so no stale value from the previous
   // profile is shown.
@@ -91,13 +101,13 @@ export function AddToAddressBookDialog({
     setSlot(undefined)
     setLoadingSlots(true)
     void (async () => {
-      const result = await listConfigProfiles()
+      const result = await useConfigProfiles.getState().load()
       if (!result.ok) {
         setError(result.error.key)
         setLoadingSlots(false)
         return
       }
-      setProfiles(result.value)
+      setListState('ready')
       const freshProfile = result.value.find((p) => p.id === nextProfileId)
       const freshSlots = readAddressBookSlots(freshProfile?.cvars ?? {})
       setSlots(freshSlots)
@@ -115,29 +125,31 @@ export function AddToAddressBookDialog({
     addressResult.ok &&
     (profiles?.length ?? 0) > 0
 
-  const handleConfirm = async (): Promise<void> => {
-    if (!canConfirm || !addressResult.ok || profileId === undefined || slot === undefined) return
-    setSubmitting(true)
-    setError(null)
-
-    const result = await commitProfileCvars({
-      profileId,
-      cvars: { [slot]: addressResult.normalized },
-    })
-    setSubmitting(false)
-
-    if (!result.ok) {
-      setError(result.error.key)
-      return
+  const handleConfirm = (): Promise<void | undefined> => {
+    if (!canConfirm || !addressResult.ok || profileId === undefined || slot === undefined) {
+      return Promise.resolve(undefined)
     }
+    return run(async () => {
+      setError(null)
+      const result = await commitProfileCvars({
+        profileId,
+        cvars: { [slot]: addressResult.normalized },
+      })
 
-    pushToast({
-      level: 'success',
-      messageKey: 'servers.addressBook.saved',
-      timeoutMs: 4000,
-      params: { profile: result.value.name, slot },
+      if (!result.ok) {
+        setError(result.error.key)
+        return
+      }
+
+      useConfigProfiles.getState().upsert(result.value)
+      pushToast({
+        level: 'success',
+        messageKey: 'servers.addressBook.saved',
+        timeoutMs: 4000,
+        params: { profile: result.value.name, slot },
+      })
+      onClose()
     })
-    onClose()
   }
 
   const noProfiles = profiles !== null && profiles.length === 0
@@ -149,11 +161,11 @@ export function AddToAddressBookDialog({
       title={t('servers.addressBook.title')}
       description={t('servers.addressBook.description')}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('servers.addressBook.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             variant="primary"
@@ -161,7 +173,7 @@ export function AddToAddressBookDialog({
             disabled={!canConfirm}
             onClick={() => void handleConfirm()}
           >
-            {t('servers.addressBook.confirm')}
+            {t('common.action.add')}
           </Button>
         </>
       }
@@ -180,7 +192,9 @@ export function AddToAddressBookDialog({
         )}
 
         {noProfiles ? (
-          <p className="text-xs leading-relaxed text-ink-dim">{t('servers.addressBook.noProfiles')}</p>
+          <p className="text-xs leading-relaxed text-ink-dim">
+            {t('servers.addressBook.noProfiles')}
+          </p>
         ) : (
           <>
             <label className="block space-y-1.5" data-testid="servers-address-book-profile">
@@ -203,34 +217,35 @@ export function AddToAddressBookDialog({
                   {t('servers.addressBook.loading')}
                 </p>
               ) : (
-                <div className="space-y-1.5 text-sm text-ink">
+                <RadioGroup
+                  name="address-book-slot"
+                  value={slot ?? ''}
+                  onChange={(value) => setSlot(value as AddressBookSlot)}
+                  label={t('servers.addressBook.slotLabel')}
+                >
                   {ADDRESS_BOOK_SLOTS.map((slotName, index) => {
                     const entry = slots.find((s) => s.slot === slotName)
                     return (
-                      <label
-                        key={slotName}
-                        className="flex cursor-pointer items-center gap-2"
-                        data-testid={`servers-address-book-slot-${index}`}
-                      >
-                        <input
-                          type="radio"
-                          name="address-book-slot"
-                          className="accent-flame-500"
-                          checked={slot === slotName}
-                          onChange={() => setSlot(slotName)}
+                      <div key={slotName} data-testid={`servers-address-book-slot-${index}`}>
+                        <Radio
+                          value={slotName}
+                          label={
+                            <>
+                              <span className="text-ink">{slotName}</span>
+                              <span>
+                                {entry?.value
+                                  ? slot === slotName
+                                    ? t('servers.addressBook.replaces', { value: entry.value })
+                                    : entry.value
+                                  : t('common.label.empty')}
+                              </span>
+                            </>
+                          }
                         />
-                        <span>{slotName}</span>
-                        <span className="text-ink-dim">
-                          {entry?.value
-                            ? slot === slotName
-                              ? t('servers.addressBook.replaces', { value: entry.value })
-                              : entry.value
-                            : t('servers.addressBook.slotEmpty')}
-                        </span>
-                      </label>
+                      </div>
                     )
                   })}
-                </div>
+                </RadioGroup>
               )}
             </div>
           </>

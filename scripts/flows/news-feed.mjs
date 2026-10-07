@@ -109,7 +109,9 @@ async function startNewsFixtureServer() {
     }
 
     const bytes = readFileSync(filePath)
-    const contentType = filePath.endsWith('.json') ? 'application/json' : 'text/markdown; charset=utf-8'
+    const contentType = filePath.endsWith('.json')
+      ? 'application/json'
+      : 'text/markdown; charset=utf-8'
     response.writeHead(200, { 'content-type': contentType, 'content-length': bytes.byteLength })
     response.end(bytes)
   })
@@ -258,7 +260,9 @@ export default async function newsFeed({ page, shot, step, variant }) {
   }
   console.log(`phase 1 fixture server served: ${JSON.stringify([...new Set(server.requested)])}`)
 
-  step('assert the index was requested exactly once (AC1: only the startup fetch, no polling refetch)')
+  step(
+    'assert the index was requested exactly once (AC1: only the startup fetch, no polling refetch)',
+  )
   const indexRequestsPhase1 = server.requested.filter((path) => path === '/news/index.json')
   if (indexRequestsPhase1.length !== 1) {
     throw new Error(
@@ -272,13 +276,16 @@ export default async function newsFeed({ page, shot, step, variant }) {
   server.requested.length = 0
   server.setFailing(true)
 
-  step('seed a fresh userData directory with a copy of phase 1\'s cache file')
+  step("seed a fresh userData directory with a copy of phase 1's cache file")
   const restartVariant = `${variant}-newsfeed-restart`
   const restartUserDataDir = variantUserDataDir(restartVariant)
   mkdirSync(restartUserDataDir, { recursive: true })
-  copyFileSync(join(userDataDir, NEWS_FEED_CACHE_FILE), join(restartUserDataDir, NEWS_FEED_CACHE_FILE))
+  copyFileSync(
+    join(userDataDir, NEWS_FEED_CACHE_FILE),
+    join(restartUserDataDir, NEWS_FEED_CACHE_FILE),
+  )
 
-  step('restart the app, fresh process, seeded only with phase 1\'s cache file (AC7, AC8)')
+  step("restart the app, fresh process, seeded only with phase 1's cache file (AC7, AC8)")
   await withApp(
     {
       variant: restartVariant,
@@ -288,7 +295,9 @@ export default async function newsFeed({ page, shot, step, variant }) {
     async ({ page: secondPage }) => {
       const secondOutcome = await waitForSlideCount(secondPage, EXPECTED_SLIDES_IN_ORDER.length)
       if (!secondOutcome.ok) {
-        throw new Error(`news.get failed after the simulated 500: ${JSON.stringify(secondOutcome.error)}`)
+        throw new Error(
+          `news.get failed after the simulated 500: ${JSON.stringify(secondOutcome.error)}`,
+        )
       }
       const secondFeed = secondOutcome.value
 
@@ -306,11 +315,19 @@ export default async function newsFeed({ page, shot, step, variant }) {
       }
       const dialogCount = await secondPage.getByRole('dialog').count()
       if (dialogCount > 0) {
-        throw new Error(`expected no dialog after a failed news refresh, found ${dialogCount} (AC8)`)
+        throw new Error(
+          `expected no dialog after a failed news refresh, found ${dialogCount} (AC8)`,
+        )
       }
 
       await secondPage.screenshot({
-        path: join(REPO_ROOT, '.ui-verify', 'screenshots', 'flows', 'news-feed-phase2-no-error-ui.png'),
+        path: join(
+          REPO_ROOT,
+          '.ui-verify',
+          'screenshots',
+          'flows',
+          'news-feed-phase2-no-error-ui.png',
+        ),
       })
     },
   )
@@ -320,9 +337,13 @@ export default async function newsFeed({ page, shot, step, variant }) {
   if (unexpectedPhase2.length > 0) {
     throw new Error(`unexpected request path(s) in phase 2: ${JSON.stringify(unexpectedPhase2)}`)
   }
-  console.log(`phase 2 fixture server served (all 500): ${JSON.stringify([...new Set(server.requested)])}`)
+  console.log(
+    `phase 2 fixture server served (all 500): ${JSON.stringify([...new Set(server.requested)])}`,
+  )
 
-  step('assert the cache file on disk still holds phase 1\'s retrievedAt (a failed refresh never rewrites it)')
+  step(
+    "assert the cache file on disk still holds phase 1's retrievedAt (a failed refresh never rewrites it)",
+  )
   const secondCache = readCacheFile(restartUserDataDir)
   if (secondCache.retrievedAt !== firstFeed.retrievedAt) {
     throw new Error(
@@ -332,8 +353,8 @@ export default async function newsFeed({ page, shot, step, variant }) {
   }
 
   console.log(
-    'news feed: phase 1 fetched, cached and delivered the fixture\'s three slides in their ' +
-      "frontmatter order; phase 2 restarted against a failing server and the SAME cached feed " +
+    "news feed: phase 1 fetched, cached and delivered the fixture's three slides in their " +
+      'frontmatter order; phase 2 restarted against a failing server and the SAME cached feed ' +
       'and retrievedAt survived, with no toast and no dialog anywhere in the DOM',
   )
 }

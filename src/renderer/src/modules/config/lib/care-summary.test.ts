@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Finding } from '@shared/config/validation'
+import type { Finding } from '@shared/config/validation/validation'
 import { buildCareItems, type CareItem } from './care-items'
 import type { CareSyncRow } from './care-sync'
 import { careSummary, dedupedFindingCounts, type CareSyncStatus } from './care-summary'
@@ -67,7 +67,12 @@ describe('dedupedFindingCounts', () => {
     const shared = finding({ id: 'r1q2:actions:aliasUnreferenced:0', level: 'warning' })
     const sharedTidyUp = tidyUpFinding({ sourceFindingId: shared.id, level: 'warning' })
 
-    const counts = dedupedFindingCounts(validation([{ engine: 'r1q2', findings: [shared], summary: { errors: 0, warnings: 1, infos: 0 } }]), [sharedTidyUp])
+    const counts = dedupedFindingCounts(
+      validation([
+        { engine: 'r1q2', findings: [shared], summary: { errors: 0, warnings: 1, infos: 0 } },
+      ]),
+      [sharedTidyUp],
+    )
 
     expect(counts).toEqual({ errors: 0, warnings: 1 })
   })
@@ -82,7 +87,13 @@ describe('dedupedFindingCounts', () => {
     })
 
     const counts = dedupedFindingCounts(
-      validation([{ engine: 'r1q2', findings: [reportFinding], summary: { errors: 1, warnings: 0, infos: 0 } }]),
+      validation([
+        {
+          engine: 'r1q2',
+          findings: [reportFinding],
+          summary: { errors: 1, warnings: 0, infos: 0 },
+        },
+      ]),
       [shadowedBind],
     )
 
@@ -93,14 +104,20 @@ describe('dedupedFindingCounts', () => {
     // The report validated a q2pro-assigned profile; the tidy-up analyzer always runs
     // `validateActions` at its own fixed engine (r1q2, `TIDY_UP_ENGINE`), so the exact same
     // underlying alias problem mints two differently-engine-tagged ids.
-    const reportSide = finding({ id: 'q2pro:actions:aliasUnreferenced:0', engine: 'q2pro', level: 'warning' })
+    const reportSide = finding({
+      id: 'q2pro:actions:aliasUnreferenced:0',
+      engine: 'q2pro',
+      level: 'warning',
+    })
     const tidyUpSide = tidyUpFinding({
       sourceFindingId: 'r1q2:actions:aliasUnreferenced:0',
       level: 'warning',
     })
 
     const counts = dedupedFindingCounts(
-      validation([{ engine: 'q2pro', findings: [reportSide], summary: { errors: 0, warnings: 1, infos: 0 } }]),
+      validation([
+        { engine: 'q2pro', findings: [reportSide], summary: { errors: 0, warnings: 1, infos: 0 } },
+      ]),
       [tidyUpSide],
     )
 
@@ -119,7 +136,13 @@ describe('dedupedFindingCounts', () => {
     })
 
     const counts = dedupedFindingCounts(
-      validation([{ engine: 'r1q2', findings: [reportFinding], summary: { errors: 1, warnings: 0, infos: 0 } }]),
+      validation([
+        {
+          engine: 'r1q2',
+          findings: [reportFinding],
+          summary: { errors: 1, warnings: 0, infos: 0 },
+        },
+      ]),
       [shadowedBind],
     )
 
@@ -130,7 +153,9 @@ describe('dedupedFindingCounts', () => {
     const info = finding({ id: 'r1q2:structure:note:0', level: 'info' })
 
     const counts = dedupedFindingCounts(
-      validation([{ engine: 'r1q2', findings: [info], summary: { errors: 0, warnings: 0, infos: 1 } }]),
+      validation([
+        { engine: 'r1q2', findings: [info], summary: { errors: 0, warnings: 0, infos: 1 } },
+      ]),
       [],
     )
 
@@ -148,10 +173,14 @@ describe('dedupedFindingCounts', () => {
 
     // An outOfSync row and a missing row each add one warning.
     expect(
-      dedupedFindingCounts(emptyValidation, [], [
-        syncRow({ target: 'inst-1', state: 'outOfSync' }),
-        syncRow({ target: 'inst-2', state: 'missing' }),
-      ]),
+      dedupedFindingCounts(
+        emptyValidation,
+        [],
+        [
+          syncRow({ target: 'inst-1', state: 'outOfSync' }),
+          syncRow({ target: 'inst-2', state: 'missing' }),
+        ],
+      ),
     ).toEqual({ errors: 0, warnings: 2 })
 
     // inSync adds nothing.
@@ -188,7 +217,13 @@ describe('dedupedFindingCounts', () => {
     })
     expect(
       dedupedFindingCounts(
-        validation([{ engine: 'r1q2', findings: [reportFinding], summary: { errors: 1, warnings: 0, infos: 0 } }]),
+        validation([
+          {
+            engine: 'r1q2',
+            findings: [reportFinding],
+            summary: { errors: 1, warnings: 0, infos: 0 },
+          },
+        ]),
         [shadowedBind],
         [syncRow({ target: 'inst-1', state: 'outOfSync' })],
       ),
@@ -289,7 +324,10 @@ describe('careSummary', () => {
 
   it('an out-of-sync row keeps the rollup not-all-clear and counts in the files group', () => {
     const result = summaryFor({
-      sync: loadedSync([syncRow(), syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'outOfSync' })]),
+      sync: loadedSync([
+        syncRow(),
+        syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'outOfSync' }),
+      ]),
     })
 
     expect(result.files).toEqual({ kind: 'items', count: 1 })

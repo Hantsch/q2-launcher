@@ -25,6 +25,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { delimiter, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { sleep } from './flow-common.mjs'
 import { importFilesFixturePaths, writeImportFilesFixture } from './fixture.mjs'
 import { assertInside, HarnessError, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 
@@ -51,7 +52,6 @@ const REQUIRED_CSP_DIRECTIVES = ["script-src 'self'", "style-src 'self';"]
 const LAUNCH_TIMEOUT_MS = 60_000
 /** How long `withApp()`'s teardown waits for Playwright's own `close()` — see its `finally`. */
 const CLOSE_TIMEOUT_MS = 15_000
-const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
 /** Enough of the main process's stderr to explain a launch that died early. */
 const STDERR_LINE_LIMIT = 40
 
@@ -100,7 +100,7 @@ export function ensureBuild() {
     (entry) => !existsSync(join(REPO_ROOT, entry)),
   )
   if (missing.length > 0) {
-    throw new HarnessError(`build missing (${missing.join(', ')}) — build first: npm run build`)
+    throw new HarnessError(`build missing (${missing.join(', ')}) — build first: npm run build:dev`)
   }
 
   const builtAt = Math.min(
@@ -114,7 +114,7 @@ export function ensureBuild() {
   )
   if (sourcesAt > builtAt) {
     throw new HarnessError(
-      `build is older than the sources (${new Date(builtAt).toISOString()} < ${new Date(sourcesAt).toISOString()}) — rebuild first: npm run build`,
+      `build is older than the sources (${new Date(builtAt).toISOString()} < ${new Date(sourcesAt).toISOString()}) — rebuild first: npm run build:dev`,
     )
   }
 }
@@ -525,7 +525,11 @@ function killProcessTree(child) {
  * `timeoutMs`/`kill` are overridable so a test can prove both branches without waiting out the real
  * timeout or spawning a real process — see harness.test.mjs.
  */
-export async function closeAppOrKill(app, child, { timeoutMs = CLOSE_TIMEOUT_MS, kill = killProcessTree } = {}) {
+export async function closeAppOrKill(
+  app,
+  child,
+  { timeoutMs = CLOSE_TIMEOUT_MS, kill = killProcessTree } = {},
+) {
   const CLOSE_SETTLED = Symbol('close-settled')
   const winner = await Promise.race([
     app
@@ -560,7 +564,7 @@ export async function closeAppOrKill(app, child, { timeoutMs = CLOSE_TIMEOUT_MS,
  * `launchApp()`'s collaborators; only a test passes it.
  */
 export async function withApp(
-  { variant, viewport, env, executablePath, extraArgs, deps } = {},
+  { variant, viewport, env, executablePath, extraArgs, expectExit, deps } = {},
   fn,
 ) {
   if (!variant) throw new HarnessError('withApp() needs a fixture variant')
@@ -573,9 +577,17 @@ export async function withApp(
     deps,
   })
 
+  // `expectExit`: the flow quits the app itself (the real Close path) and asserts on what the
+  // exit left behind, so a clean exit is the expected end state instead of a "stopped" failure.
+  if (expectExit) state.expectedExit = true
+
   try {
     if (viewport) await resize(app, viewport)
     const result = await fn({ app, page, log, userDataDir })
+    if (expectExit) {
+      await settleExit(child, log, state)
+      if (log.mainExit && !log.mainCrashed) return result
+    }
     // Whatever `fn` triggered (navigation, interaction) may have fired more
     // violations since the initial drain in `launchApp()` — collect those too
     // before the run's pass/fail is evaluated.
@@ -670,7 +682,8 @@ export async function waitForWindow(app, urlPart, log, { timeoutMs = 10_000 } = 
       await page.waitForLoadState('domcontentloaded')
       return page
     }
-    if (Date.now() >= deadline) throw new HarnessError(`no window with "${urlPart}" in its URL appeared`)
+    if (Date.now() >= deadline)
+      throw new HarnessError(`no window with "${urlPart}" in its URL appeared`)
     await new Promise((done) => setTimeout(done, 100))
   }
 }
@@ -683,7 +696,9 @@ export async function resize(app, { width, height }) {
   await app.evaluate(
     async ({ BrowserWindow, screen }, size) => {
       // Pick by URL: a cinema overlay (story 187) may be open and is not the launcher window.
-      const window = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('cinema.html'))
+      const window = BrowserWindow.getAllWindows().find(
+        (w) => !w.webContents.getURL().includes('cinema.html'),
+      )
       if (!window) throw new Error('no BrowserWindow to resize')
       // A restored-maximized window would ignore setSize.
       if (window.isMaximized()) window.unmaximize()

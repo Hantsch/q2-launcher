@@ -13,6 +13,7 @@ verified against the real, live-published upstream assets (`node scripts/manifes
 --check` exits 0); only the act of publishing is left.
 
 **Preparation:**
+
 - Push access to `Hantsch/q2_community_content` on `main`.
 - The reviewed, byte-identical files already in this repo at
   `content/q2_community_content/{engines,gamedata}/manifest.json`.
@@ -20,6 +21,7 @@ verified against the real, live-published upstream assets (`node scripts/manifes
   `r3834~601a8df8`) downloaded from upstream for re-upload.
 
 **Steps:**
+
 1. Commit `content/q2_community_content/engines/manifest.json` and
    `content/q2_community_content/gamedata/manifest.json` to `Hantsch/q2_community_content`'s
    `main` branch, under the same `engines/`/`gamedata/` paths.

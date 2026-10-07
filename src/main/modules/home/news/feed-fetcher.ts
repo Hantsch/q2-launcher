@@ -1,11 +1,12 @@
 import { contentRepoUrl } from '../../../lib/content-repo'
+import { fetchWithPolicy, type FetchImpl } from '../../../lib/http'
 import type { NewsSource } from './harness'
 
 /**
- * Story 082 D5, first half: retrieve `news/index.json` and the `.md` documents it references -
+ * Story 082, first half: retrieve `news/index.json` and the `.md` documents it references -
  * conditionally, with a 5s budget and one retry per request - and hand the raw material to the
- * caller. Validation is `feed-pipeline.ts`'s job (D3), persistence is `feed-cache.ts`'s, deciding
- * when to fetch and what to emit is the news service's (D6). Nothing here parses frontmatter,
+ * caller. Validation is `feed-pipeline.ts`'s job, persistence is `feed-cache.ts`'s, deciding
+ * when to fetch and what to emit is the news service's. Nothing here parses frontmatter,
  * touches the disk or reads the clock.
  *
  * ## The 304 path is the risky part, so it is spelled out
@@ -30,7 +31,7 @@ import type { NewsSource } from './harness'
  *  - **the index could not be retrieved, or nothing changed but something failed** -
  *    `{ kind: 'failed' }`. The caller keeps its cached feed *and its old `retrievedAt`*: a feed
  *    whose documents 500ed was not successfully retrieved, and dressing it up as fresh would hide
- *    exactly the staleness AC7/AC8 want visible.
+ *    exactly the staleness that must stay visible.
  *
  * The second trap is the ETag map that comes back. `etags` on a `changed` result contains an entry
  * **only** for documents whose text is in `documents` - a document that failed has its previous
@@ -44,7 +45,7 @@ import type { NewsSource } from './harness'
  *
  * The global `fetch` (Node/Electron built-in), like `src/main/lib/content-repo.ts` uses for
  * manifests - not `net.fetch`, which would need an Electron runtime for a JSON GET. `fetchImpl` is
- * an injection seam for D6's service tests; this module's own tests use the real `fetch` pointed at
+ * an injection seam for the news service's tests; this module's own tests use the real `fetch` pointed at
  * a `node:http` server on `127.0.0.1`, so no test mocks the global.
  *
  * The retry budget is exactly one extra request, immediately, and only for a timeout, a network
@@ -65,11 +66,14 @@ export const NEWS_FETCH_TIMEOUT_MS = 5_000
 /** Extra requests after a retryable failure. Decisions (Sprint): 1. */
 export const NEWS_FETCH_RETRIES = 1
 
+/** Cap per news document (index or `.md`); the feed is foreign content read fully into memory. */
+export const NEWS_DOCUMENT_MAX_BYTES = 1024 * 1024
+
 /**
  * An index entry's `file` is foreign content used to build a URL, so it is refused unless it is one
  * boring path segment: ASCII letters/digits/`_`/`.`/`-`, starting with a letter or digit. That rules
  * out traversal (`..`), an absolute path, a scheme (`https://evil/x.md` - the `:` and `/` fail) and
- * a query in one check. Same shape as `isSafeDownloadFileName()` (`downloads/paths.ts`) and the mod
+ * a query in one check. Same shape as `isSafeDownloadFileName()` (`lib/net/download-cache-paths.ts`) and the mod
  * directory token in `docs/ARCHITECTURE.md`'s "Paths are never trusted"; the device-name rule is
  * absent because nothing here becomes a file name on disk.
  */
@@ -82,10 +86,7 @@ export function isSafeNewsDocumentName(name: string): boolean {
 }
 
 /** Satisfied by both the global `fetch` and Electron's `net.fetch`; see the module comment. */
-export type NewsFetchImpl = (
-  url: string,
-  init: { signal: AbortSignal; headers: Record<string, string> },
-) => Promise<Response>
+export type NewsFetchImpl = FetchImpl
 
 /** Structurally satisfied by `Logger` (`src/main/lib/logger.ts`); kept minimal for the tests. */
 export interface NewsFetchLog {
@@ -119,7 +120,7 @@ export interface ChangedNewsFetch {
   /** `refreshed` when the index answered `304` and was re-requested for its body. */
   indexStatus: 'fetched' | 'refreshed'
   /** Documents the index references that could not be retrieved. Not fatal: the rest of the feed
-   * still arrives (AC2), and the pipeline drops the entries whose text is missing. */
+   * still arrives, and the pipeline drops the entries whose text is missing. */
   failures: NewsDocumentFailure[]
 }
 
@@ -147,7 +148,7 @@ export type FetchNewsResult =
   ChangedNewsFetch | UnchangedNewsFetch | FailedNewsFetch | SkippedNewsFetch
 
 export interface FetchNewsDocumentsOptions {
-  /** From `resolveNewsSource()` (D4). `skip` answers `{ kind: 'skipped' }` without a request. */
+  /** From `resolveNewsSource()`. `skip` answers `{ kind: 'skipped' }` without a request. */
   source: NewsSource
   /** The cache's ETag map: `NEWS_INDEX_DOCUMENT` plus one key per known document. */
   etags?: Readonly<Record<string, string>>
@@ -164,76 +165,13 @@ interface ResolvedOptions {
   log?: NewsFetchLog
 }
 
-/** One request's outcome. `retry` is internal - it never leaves `attemptRequest()`. */
+/** One request's outcome. */
 type RequestOutcome =
   | { kind: 'ok'; text: string; etag: string }
   | { kind: 'not-modified' }
   | { kind: 'failed'; reason: string }
 
-type AttemptOutcome = RequestOutcome | { kind: 'retry'; reason: string }
-
 const defaultFetchImpl: NewsFetchImpl = (url, init) => fetch(url, init)
-
-/** `AbortSignal.timeout` rejects with a `TimeoutError`; anything else is a genuine network error. */
-function describeError(error: unknown, timeoutMs: number): string {
-  if (error instanceof Error && error.name === 'TimeoutError') {
-    return `no response within ${timeoutMs}ms`
-  }
-  const cause =
-    error instanceof Error && error.cause !== undefined ? ` (${String(error.cause)})` : ''
-  return `${String(error)}${cause}`
-}
-
-async function discard(response: Response): Promise<void> {
-  await response.body?.cancel().catch(() => undefined)
-}
-
-async function attemptRequest(
-  url: string,
-  etag: string | undefined,
-  options: ResolvedOptions,
-): Promise<AttemptOutcome> {
-  // An empty stored value means "known document, no validator" - the request then goes out
-  // unconditionally rather than with a meaningless `If-None-Match: `.
-  const headers: Record<string, string> =
-    etag !== undefined && etag !== '' ? { 'if-none-match': etag } : {}
-
-  let response: Response
-  try {
-    response = await options.fetchImpl(url, {
-      signal: AbortSignal.timeout(options.timeoutMs),
-      headers,
-    })
-  } catch (error) {
-    // A timeout and a dropped connection are the same kind of "ask again" (Decisions (Sprint)).
-    return { kind: 'retry', reason: describeError(error, options.timeoutMs) }
-  }
-
-  if (response.status === 304) {
-    await discard(response)
-    return { kind: 'not-modified' }
-  }
-  if (response.status >= 500) {
-    await discard(response)
-    return { kind: 'retry', reason: `HTTP ${response.status}` }
-  }
-  if (!response.ok) {
-    // 4xx (and any leftover redirect `fetch` did not follow): a second identical request cannot fix
-    // a document that is not there.
-    await discard(response)
-    return { kind: 'failed', reason: `HTTP ${response.status}` }
-  }
-
-  try {
-    const text = await response.text()
-    return { kind: 'ok', text, etag: response.headers.get('etag') ?? '' }
-  } catch (error) {
-    return {
-      kind: 'retry',
-      reason: `body could not be read: ${describeError(error, options.timeoutMs)}`,
-    }
-  }
-}
 
 /** One request plus, for a timeout/network/5xx failure, exactly `options.retries` more. */
 async function request(
@@ -241,15 +179,28 @@ async function request(
   etag: string | undefined,
   options: ResolvedOptions,
 ): Promise<RequestOutcome> {
-  let reason = 'not attempted'
-  for (let attempt = 0; ; attempt++) {
-    const outcome = await attemptRequest(url, etag, options)
-    if (outcome.kind !== 'retry') return outcome
-    reason = outcome.reason
-    if (attempt >= options.retries) break
-    options.log?.warn(`news: ${url} failed (${reason}); retrying once`)
+  // An empty stored value means "known document, no validator" - the request then goes out
+  // unconditionally rather than with a meaningless `If-None-Match: `.
+  const headers: Record<string, string> =
+    etag !== undefined && etag !== '' ? { 'if-none-match': etag } : {}
+
+  const outcome = await fetchWithPolicy(url, {
+    fetchImpl: options.fetchImpl,
+    timeoutMs: options.timeoutMs,
+    retries: options.retries,
+    maxBytes: NEWS_DOCUMENT_MAX_BYTES,
+    headers,
+    onRetry: (reason) => options.log?.warn(`news: ${url} failed (${reason}); retrying once`),
+  })
+  if (outcome.ok) {
+    return {
+      kind: 'ok',
+      text: new TextDecoder().decode(outcome.body),
+      etag: outcome.headers.get('etag') ?? '',
+    }
   }
-  return { kind: 'failed', reason }
+  if (outcome.kind === 'http-status' && outcome.status === 304) return { kind: 'not-modified' }
+  return { kind: 'failed', reason: outcome.reason }
 }
 
 /** The base every news URL is built on: the production content repo, or the harness's loopback. */
@@ -320,8 +271,8 @@ export async function fetchNewsDocuments(
 ): Promise<FetchNewsResult> {
   const previous: Record<string, string> = { ...(options.etags ?? {}) }
 
-  // Defensive: D6 is expected not to call this at all under a `skip` source, but "the news fetch
-  // makes no outbound request in a harness run" (AC10) is a promise worth keeping in the one place
+  // Defensive: the news service is expected not to call this at all under a `skip` source, but "the news fetch
+  // makes no outbound request in a harness run" is a promise worth keeping in the one place
   // that would make the request, not only in the one place that decides to.
   if (options.source.kind === 'skip') {
     options.log?.info('news: fetch skipped (ui-harness gate open, no loopback base named)')

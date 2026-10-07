@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
+import { makeJob } from '../../../../test-support/fixtures'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ArchiveCacheStatus, DownloadDiagnostics, DownloadFailure } from '@shared/modules/downloads'
-import type { Job } from '@shared/types'
+import { mockClient } from '../../test-support/mock-client'
+import type {
+  ArchiveCacheStatus,
+  DownloadDiagnostics,
+  DownloadFailure,
+} from '@shared/modules/downloads'
 import type { AppInfo } from '@shared/types/common'
 import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
@@ -17,19 +22,19 @@ import { DownloadsView } from './DownloadsView'
 
 vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = {
-    invoke: vi.fn(async () => ({ ok: true })),
+    invoke: vi.fn(async () => ({ ok: true as const })),
     on: vi.fn(() => () => {}),
   }
 })
 
 const stubCacheStatus: ArchiveCacheStatus = { totalBytes: 0, itemCount: 0 }
-const getArchiveCacheStatus = vi.fn(async () => ({ ok: true, value: stubCacheStatus }))
+const getArchiveCacheStatus = vi.fn(async () => ({ ok: true as const, value: stubCacheStatus }))
 
 function makeFailure(overrides: Partial<DownloadFailure> = {}): DownloadFailure {
   return {
     id: 'failure-1',
     jobId: 'job-1',
-    labelKey: 'downloads.job.download',
+    labelKey: 'downloads.job.bootstrap',
     labelParams: { name: 'Base game' },
     error: { key: 'downloads.error.network' },
     createdAt: Date.now(),
@@ -62,41 +67,28 @@ const stubDiagnostics: DownloadDiagnostics = {
 
 let currentFailures: DownloadFailure[] = []
 
-const getDownloadFailures = vi.fn(async () => ({ ok: true, value: currentFailures }))
+const getDownloadFailures = vi.fn(async () => ({ ok: true as const, value: currentFailures }))
 const dismissDownloadFailure = vi.fn(async (id: string) => {
   currentFailures = currentFailures.map((failure) =>
     failure.id === id ? { ...failure, dismissedAt: Date.now() } : failure,
   )
-  return { ok: true, value: currentFailures }
+  return { ok: true as const, value: currentFailures }
 })
 const restoreDownloadFailure = vi.fn(async (id: string) => {
   currentFailures = currentFailures.map((failure) =>
     failure.id === id ? { ...failure, dismissedAt: undefined } : failure,
   )
-  return { ok: true, value: currentFailures }
+  return { ok: true as const, value: currentFailures }
 })
 
-vi.mock('./client', () => ({
-  getArchiveCacheStatus: (...args: unknown[]) => getArchiveCacheStatus(...(args as [])),
-  getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
-  dismissDownloadFailure: (...args: unknown[]) => dismissDownloadFailure(...(args as [string])),
-  restoreDownloadFailure: (...args: unknown[]) => restoreDownloadFailure(...(args as [string])),
-}))
-
-function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
-    id: 'job-1',
-    moduleId: 'downloads',
-    kind: 'download-game',
-    labelKey: 'downloads.job.download',
-    labelParams: { name: 'Base game' },
-    status: 'running',
-    progress: { ratio: 0.42, bytesDone: 420_000, bytesTotal: 1_000_000, bytesPerSecond: 50_000 },
-    cancellable: true,
-    startedAt: new Date().toISOString(),
-    ...overrides,
-  }
-}
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    getArchiveCacheStatus: (...args: unknown[]) => getArchiveCacheStatus(...(args as [])),
+    getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
+    dismissDownloadFailure: (...args: unknown[]) => dismissDownloadFailure(...(args as [string])),
+    restoreDownloadFailure: (...args: unknown[]) => restoreDownloadFailure(...(args as [string])),
+  }),
+)
 
 beforeAll(async () => {
   await initI18n('en')
@@ -185,7 +177,7 @@ describe('DownloadsView failure log', () => {
     await waitFor(() => expect(getDownloadFailures.mock.calls.length).toBeGreaterThanOrEqual(2))
   })
 
-  it('passes the store\'s appInfo down so a diagnostics entry offers the reveal-log action in its expanded detail', async () => {
+  it("passes the store's appInfo down so a diagnostics entry offers the reveal-log action in its expanded detail", async () => {
     // Story 078 D6: reveal-log moved out of the always-visible header cluster into the
     // `FailureCauseDetail` footer, reachable only after expanding.
     useLauncher.setState({ appInfo: stubAppInfo })

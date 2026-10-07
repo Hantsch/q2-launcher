@@ -30,8 +30,8 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
 
 /**
- * Story 054 D1: the one place a vertical drag-and-drop list configures dnd-kit, so no consuming
- * surface (Controls rows, sub-category headers, category chips, Settings sections/cvars - D3-D10)
+ * Story 054: the one place a vertical drag-and-drop list configures dnd-kit, so no consuming
+ * surface (Controls rows, sub-category headers, category chips, Settings sections/cvars)
  * has to set up sensors, a collision strategy or screen-reader announcements itself.
  *
  * Chosen modifier package: `@dnd-kit/modifiers`'s `restrictToVerticalAxis` (a peer of the
@@ -39,16 +39,16 @@ import { CSS } from '@dnd-kit/utilities'
  * rather than a hand-rolled equivalent - it is the library's own, already exercised implementation.
  *
  * `renderItem`/the overlay content receive `setNodeRef`/`style`/`attributes`/`listeners` instead of
- * SortableList rendering its own wrapper element per item: a later consumer (D3) needs the sortable
+ * SortableList rendering its own wrapper element per item: a later consumer needs the sortable
  * ref on its *own* single root element (a `role="rowgroup"`, a header, a chip), not on an extra
  * `<div>` this primitive would otherwise have to insert around it.
  *
- * Story 054 D4 split the one component into two layers without changing its configuration:
+ * Story 054 split the one component into two layers without changing its configuration:
  * `SortableZone` (the configured `DndContext`/`SortableContext`/`DragOverlay`, rendering *no* DOM
  * of its own) plus `SortableItem` (one `useSortable` call), and `SortableList` on top of them for
  * the plain "a list of items in one container" case. The Controls grid needs that split because its
  * sortable rows are not one contiguous run of siblings: sub-category dividers (`role="row"`, story
- * 053 D5) sit *between* groups of rows inside the same `role="table"` element, so the consumer has
+ * 053) sit *between* groups of rows inside the same `role="table"` element, so the consumer has
  * to own the container and the interleaving, while the sensors, collision strategy, auto-scroll and
  * announcements stay configured exactly once, here.
  */
@@ -102,7 +102,7 @@ const SortableZoneContext = createContext<SortableZoneContextValue>({
 
 /**
  * The enclosing zone's live drag state, for a component that is not the zone's own `children`
- * render callback and would otherwise have to have it threaded down as a prop (story 054 D5:
+ * render callback and would otherwise have to have it threaded down as a prop (story 054:
  * `ControlsGrid` renders the rows, but the zone moved up to `ControlsTab` so the category rail can
  * be a drop target inside the *same* `DndContext`). Outside a zone this reports "no drag", so a
  * component that renders standalone in a test stays inert rather than crashing.
@@ -126,13 +126,13 @@ export interface SortableZoneProps<T> {
   children: (state: SortableZoneState) => ReactNode
   /** The floating copy that follows the pointer. Omitted = no `DragOverlay` at all; the item
    * itself moves instead. The copy is rendered at the dragged element's measured height, so the
-   * list never jumps (AC 4). */
+   * list never jumps. */
   renderOverlay?: (item: T, state: SortableZoneState) => ReactNode
   /** Disables dragging for every item (e.g. story 054's decision: off while the Controls filter is
    * active) while leaving the list itself rendered normally. */
   disabled?: boolean
   /**
-   * Story 054 D5: a drag ended over a droppable that is *not* one of `items` - a category chip in
+   * Story 054: a drag ended over a droppable that is *not* one of `items` - a category chip in
    * the Controls rail, registered with `useDroppable` inside this same zone. There is nothing to
    * reorder in that case, so `onReorder` is not called; the consumer decides what dropping onto
    * that target means.
@@ -144,15 +144,15 @@ export interface SortableZoneProps<T> {
    * Always called exactly once when a drag is over, whatever ended it - a reorder, a drop on an
    * outside target, a release over nothing, or an Escape cancel - and always *after* the callback
    * for that outcome. Where a consumer drops whatever transient state it kept for the duration of
-   * the drag (story 054 D5's provisional spring-loaded category), so cancelling can never leave a
+   * the drag (story 054's provisional spring-loaded category), so cancelling can never leave a
    * side effect behind.
    */
   onDragFinished?: () => void
   /** Defaults to `closestCenter`. Overridden where a zone mixes sortable rows with droppables of a
-   * different kind (story 054 D5) and one strategy cannot serve both. */
+   * different kind (story 054) and one strategy cannot serve both. */
   collisionDetection?: CollisionDetection
   /** Modifiers for the floating copy. Defaults to vertical-only, which is right for a plain
-   * vertical list; a zone whose drop targets are not all in one column (story 054 D5's category
+   * vertical list; a zone whose drop targets are not all in one column (story 054's category
    * rail sits *above* the grid) passes `[]` so the copy can follow the pointer sideways too. */
   overlayModifiers?: Modifier[]
 }
@@ -162,8 +162,8 @@ export interface SortableItemProps {
   /** Defaults to the enclosing zone's `disabled`. */
   disabled?: boolean
   /** Forwarded to dnd-kit's `useSortable` - a friendly name for the screen-reader announcement of
-   * a drop that lands outside the zone's own sorted `items` (`outsideTargetLabel`, story 054 D5's
-   * category chip, D6's sub-category header dropped on another header). Omitted for a plain list
+   * a drop that lands outside the zone's own sorted `items` (`outsideTargetLabel`, story 054's
+   * category chip, a sub-category header dropped on another header). Omitted for a plain list
    * item, which is never such a target. */
   data?: Record<string, unknown>
   children: (state: SortableItemRenderState) => ReactNode
@@ -291,7 +291,7 @@ export function SortableZone<T>({
   }
 
   /** One exit for every way a drag can end, so `onDragFinished` cannot be skipped by an early
-   * return - a consumer's provisional drag state (story 054 D5's spring-loaded category) has to be
+   * return - a consumer's provisional drag state (story 054's spring-loaded category) has to be
    * dropped on *every* path, including the ones where nothing moved. */
   function handleDragEnd(event: DragEndEvent): void {
     const { active, over } = event
@@ -304,7 +304,7 @@ export function SortableZone<T>({
     if (overId === null || activeId === overId) return
     const oldIndex = ids.indexOf(activeId)
     const newIndex = ids.indexOf(overId)
-    // A drop on something this zone does not sort - a category chip (story 054 D5). There is no
+    // A drop on something this zone does not sort - a category chip (story 054). There is no
     // index to move to, so the consumer is told what was dropped on what and decides.
     if (newIndex === -1) {
       onDropOutside?.(activeId, overId)
@@ -314,7 +314,7 @@ export function SortableZone<T>({
     onReorder(arrayMove(items, oldIndex, newIndex), { activeId, overId, oldIndex, newIndex })
   }
 
-  /** Story 054 D5: a zone can now also be dragged over a droppable that is not one of its sorted
+  /** Story 054: a zone can now also be dragged over a droppable that is not one of its sorted
    * items (a category chip). "Position 0 of 12" would be a lie there, so such a target announces
    * its own name instead - `useDroppable`'s `data.label`, or its raw id if it carries none. */
   function outsideTargetLabel(over: { id: UniqueIdentifier; data: { current?: unknown } }): string {
@@ -322,7 +322,7 @@ export function SortableZone<T>({
     return typeof label === 'string' ? label : String(over.id)
   }
 
-  /** Story 054 review-fix (finding 2): an item's own `data.label` (Controls rows/headers, category
+  /** An item's own `data.label` (Controls rows/headers, category
    * chips already pass this) reads far better in an announcement than its raw id, which is a UUID
    * for a Controls row. Falls back to the raw id for callers that carry no label. */
   function activeLabel(active: { id: UniqueIdentifier; data: { current?: unknown } }): string {

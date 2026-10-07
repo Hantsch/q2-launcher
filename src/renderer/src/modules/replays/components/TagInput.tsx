@@ -13,6 +13,8 @@ export interface TagInputProps {
   onAddTag: (tag: string) => void
   onRemoveTag: (tag: string) => void
   onInputChange: (text: string) => void
+  /** A refused tag stays in the input with the returned reason shown beneath it. */
+  validate?: (tag: string) => { key: string; params?: Record<string, string | number> } | null
 }
 
 /**
@@ -21,15 +23,34 @@ export interface TagInputProps {
  * picks the highlighted one (or commits the typed text if none is highlighted), comma also commits
  * the typed text, Escape closes the list.
  */
-export function TagInput({ tags, suggestions, disabled, onAddTag, onRemoveTag, onInputChange }: TagInputProps) {
+export function TagInput({
+  tags,
+  suggestions,
+  disabled,
+  onAddTag,
+  onRemoveTag,
+  onInputChange,
+  validate,
+}: TagInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(-1)
+  const [reason, setReason] = useState<{ key: string; params?: Record<string, string | number> }>()
+  const reasonId = useId()
   const listboxId = useId()
 
   const commit = (value: string): void => {
     const trimmed = value.trim()
+    const refused = trimmed === '' ? null : validate?.(trimmed)
+    if (refused) {
+      setText(value)
+      setReason(refused)
+      setOpen(false)
+      setHighlighted(-1)
+      return
+    }
+    setReason(undefined)
     setText('')
     onInputChange('')
     setOpen(false)
@@ -76,7 +97,11 @@ export function TagInput({ tags, suggestions, disabled, onAddTag, onRemoveTag, o
           aria-expanded={open && suggestions.length > 0}
           aria-controls={listboxId}
           aria-autocomplete="list"
-          aria-activedescendant={open && highlighted >= 0 ? `${listboxId}-option-${highlighted}` : undefined}
+          aria-invalid={reason !== undefined}
+          aria-describedby={reason !== undefined ? reasonId : undefined}
+          aria-activedescendant={
+            open && highlighted >= 0 ? `${listboxId}-option-${highlighted}` : undefined
+          }
           value={text}
           disabled={disabled}
           placeholder={t('replays.editor.tags.placeholder')}
@@ -93,6 +118,7 @@ export function TagInput({ tags, suggestions, disabled, onAddTag, onRemoveTag, o
               return
             }
             setText(value)
+            setReason(undefined)
             setOpen(true)
             setHighlighted(-1)
             onInputChange(value)
@@ -145,6 +171,11 @@ export function TagInput({ tags, suggestions, disabled, onAddTag, onRemoveTag, o
           </ul>
         )}
       </div>
+      {reason !== undefined && (
+        <p id={reasonId} className="text-xs text-danger" data-testid="replays-tag-error">
+          {t(reason.key, reason.params)}
+        </p>
+      )}
     </div>
   )
 }

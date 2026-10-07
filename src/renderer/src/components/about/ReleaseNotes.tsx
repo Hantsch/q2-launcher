@@ -1,11 +1,11 @@
 import type { ReleaseNoteSection } from '@shared/release-notes'
 
 /**
- * Story 099 D3: presentational rendering of a version's already-parsed release notes
+ * Story 099: presentational rendering of a version's already-parsed release notes
  * (`ReleaseNoteSection[]`, produced by `parseReleaseNotes`/`extractVersionSection` in
- * `@shared/release-notes`, D1/D2).
+ * `@shared/release-notes`).
  *
- * AC6: structurally impossible to inject markup. Every heading and item is a plain string
+ * structurally impossible to inject markup. Every heading and item is a plain string
  * rendered as a React text child - never `dangerouslySetInnerHTML`, never an HTML string. A
  * raw-HTML-looking item (e.g. `<img src=x onerror="alert(1)">`) renders as inert visible text,
  * because React escapes text children by construction; there is no code path here that could turn

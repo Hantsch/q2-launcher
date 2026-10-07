@@ -32,7 +32,8 @@ describe('parseEngineLine', () => {
       const parsed = parseEngineLine(line)
       counts[parsed.kind]++
       if (text.startsWith('POS')) expect(parsed.kind).toBe('pos')
-      else if (text.startsWith('ACK ')) expect(parsed).toEqual({ kind: 'ack', seq: Number(text.slice(4)) })
+      else if (text.startsWith('ACK '))
+        expect(parsed).toEqual({ kind: 'ack', seq: Number(text.slice(4)) })
       else if (text === 'Demo finished') expect(parsed.kind).toBe('finished')
       else expect(parsed.kind).toBe('other')
     }
@@ -42,27 +43,72 @@ describe('parseEngineLine', () => {
   })
 
   it('reads an empty POS as null and a full one as milliseconds', () => {
-    expect(parseEngineLine('[2026-09-27 18:16] POS')).toEqual({ kind: 'pos', positionMs: null, fullscreen: null, paused: null })
-    expect(parseEngineLine('[2026-09-27 18:36] POS 1:11.4')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: null, paused: null })
-    expect(parseEngineLine('POS 1')).toEqual({ kind: 'pos', positionMs: null, fullscreen: null, paused: null })
-    expect(parseEngineLine('POS 1:11.4 FS 1')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: true, paused: null })
+    expect(parseEngineLine('[2026-09-27 18:16] POS')).toEqual({
+      kind: 'pos',
+      positionMs: null,
+      fullscreen: null,
+      paused: null,
+    })
+    expect(parseEngineLine('[2026-09-27 18:36] POS 1:11.4')).toEqual({
+      kind: 'pos',
+      positionMs: 71400,
+      fullscreen: null,
+      paused: null,
+    })
+    expect(parseEngineLine('POS 1')).toEqual({
+      kind: 'pos',
+      positionMs: null,
+      fullscreen: null,
+      paused: null,
+    })
+    expect(parseEngineLine('POS 1:11.4 FS 1')).toEqual({
+      kind: 'pos',
+      positionMs: 71400,
+      fullscreen: true,
+      paused: null,
+    })
     expect(parseEngineLine('[2026-09-27 18:36] POS 0:05.0 FS 0')).toEqual({
       kind: 'pos',
       positionMs: 5000,
       fullscreen: false,
       paused: null,
     })
-    expect(parseEngineLine('POS FS 0')).toEqual({ kind: 'pos', positionMs: null, fullscreen: false, paused: null })
-    expect(parseEngineLine('POS  FS 1')).toEqual({ kind: 'pos', positionMs: null, fullscreen: true, paused: null })
-    expect(parseEngineLine('POS 1:11.4 FS')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: null, paused: null })
-    expect(parseEngineLine('POS 0:08.8 FS 0 P 0')).toEqual({ kind: 'pos', positionMs: 8800, fullscreen: false, paused: false })
+    expect(parseEngineLine('POS FS 0')).toEqual({
+      kind: 'pos',
+      positionMs: null,
+      fullscreen: false,
+      paused: null,
+    })
+    expect(parseEngineLine('POS  FS 1')).toEqual({
+      kind: 'pos',
+      positionMs: null,
+      fullscreen: true,
+      paused: null,
+    })
+    expect(parseEngineLine('POS 1:11.4 FS')).toEqual({
+      kind: 'pos',
+      positionMs: 71400,
+      fullscreen: null,
+      paused: null,
+    })
+    expect(parseEngineLine('POS 0:08.8 FS 0 P 0')).toEqual({
+      kind: 'pos',
+      positionMs: 8800,
+      fullscreen: false,
+      paused: false,
+    })
     expect(parseEngineLine('[2026-09-30 06:10] POS 0:08.8 FS 0 P 2')).toEqual({
       kind: 'pos',
       positionMs: 8800,
       fullscreen: false,
       paused: true,
     })
-    expect(parseEngineLine('POS 0:08.8 FS 1 P')).toEqual({ kind: 'pos', positionMs: 8800, fullscreen: true, paused: null })
+    expect(parseEngineLine('POS 0:08.8 FS 1 P')).toEqual({
+      kind: 'pos',
+      positionMs: 8800,
+      fullscreen: true,
+      paused: null,
+    })
     expect(parseEngineLine('[2026-09-27 18:22] ACK 3')).toEqual({ kind: 'ack', seq: 3 })
   })
 })
@@ -74,13 +120,15 @@ describe('parseDemoPos', () => {
     expect(parseDemoPos('1:02:03.4')).toBe(3723400)
   })
   it('rejects garbage', () => {
-    for (const bad of ['', 'abc', '1', '1:2.4', '1:02', '1:02.', '::']) expect(parseDemoPos(bad)).toBeNull()
+    for (const bad of ['', 'abc', '1', '1:2.4', '1:02', '1:02.', '::'])
+      expect(parseDemoPos(bad)).toBeNull()
   })
 })
 
 describe('checkLine', () => {
   it('accepts console commands', () => {
-    for (const l of ['seek +10', 'seek 50%', 'cmd chase 3', 'pause; timescale 2']) expect(checkLine(l).ok).toBe(true)
+    for (const l of ['seek +10', 'seek 50%', 'cmd chase 3', 'pause; timescale 2'])
+      expect(checkLine(l).ok).toBe(true)
   })
   it('accepts quotes, semicolons and dollar signs as legal console syntax', () => {
     for (const l of ['say "x"', 'bind x "+attack"', 'echo a; echo b', 'echo $cl_demopos // c']) {
@@ -90,7 +138,10 @@ describe('checkLine', () => {
 
   it('rejects empty, newlines and control characters', () => {
     for (const l of ['', 'a\nb', 'a\rb', '\u0007', 'a\u007fb']) {
-      expect(checkLine(l)).toEqual({ ok: false, error: { key: 'replays.playback.error.invalidCommand' } })
+      expect(checkLine(l)).toEqual({
+        ok: false,
+        error: { key: 'replays.playback.error.invalidCommand' },
+      })
     }
   })
 })
@@ -137,14 +188,20 @@ describe('files and launch args', () => {
   })
   it('Windows launch args carry the approved log flush settings', () => {
     const args = windowsLaunchArgs().argsBeforeDemo
-    const at = (name: string): string[] => args.slice(args.indexOf(name) - 1, args.indexOf(name) + 2)
+    const at = (name: string): string[] =>
+      args.slice(args.indexOf(name) - 1, args.indexOf(name) + 2)
     expect(at('logfile_flush')).toEqual(['+set', 'logfile_flush', '3'])
     expect(at('logfile')).toEqual(['+set', 'logfile', '2'])
   })
   it('never puts +demo in the args and keeps the loop exec after the demo', () => {
     const w = windowsLaunchArgs()
     const l = linuxLaunchArgs()
-    for (const a of [...w.argsBeforeDemo, ...w.argsAfterDemo, ...l.argsBeforeDemo, ...l.argsAfterDemo]) {
+    for (const a of [
+      ...w.argsBeforeDemo,
+      ...w.argsAfterDemo,
+      ...l.argsBeforeDemo,
+      ...l.argsAfterDemo,
+    ]) {
       expect(a).not.toBe('+demo')
     }
     expect(w.argsAfterDemo).toEqual(['+exec', 'q2l_loop.cfg'])
@@ -163,13 +220,18 @@ describe('notify session', () => {
   })
   it("the launcher's console lines stay within story 174's 10 per second", () => {
     // Lines the launcher makes the game print per tick: the POS echo plus one ACK echo per command it runs.
-    const printed = buildControlFile([1]).filter((l) => l.startsWith('echo ') || l.includes('echo ACK')).length
+    const printed = buildControlFile([1]).filter(
+      (l) => l.startsWith('echo ') || l.includes('echo ACK'),
+    ).length
     expect(printed).toBe(2)
     expect((printed * 65) / LOOP_WAIT_FRAMES).toBeLessThanOrEqual(10)
   })
   it('both platforms hide notify lines and enable the chat HUD for the session', () => {
     for (const args of [windowsLaunchArgs(), linuxLaunchArgs()]) {
-      for (const pair of [['con_notifylines', '0'], ['scr_chathud', '1']]) {
+      for (const pair of [
+        ['con_notifylines', '0'],
+        ['scr_chathud', '1'],
+      ]) {
         const at = args.argsBeforeDemo.indexOf(pair[0])
         expect(at).toBeGreaterThan(0)
         expect(args.argsBeforeDemo.slice(at - 1, at + 2)).toEqual(['+set', ...pair])
@@ -221,7 +283,10 @@ describe('fullscreen switch and back to window (cbuf model)', () => {
   /** The launcher queues the enter-fullscreen command as its own command cfg, behind the control file. */
   function enterFullscreen(sim: ReturnType<typeof createCbufSim>): void {
     const encoded = encodeControlCommand(1, 'unused')
-    sim.files.set(encoded.commandFileName, toCfgText(buildEnterFullscreenLines({ switchMode: true })))
+    sim.files.set(
+      encoded.commandFileName,
+      toCfgText(buildEnterFullscreenLines({ switchMode: true })),
+    )
     sim.files.set('q2l_ctl.cfg', encoded.controlText)
   }
 
@@ -266,8 +331,11 @@ describe('fullscreen switch and back to window (cbuf model)', () => {
     const sim = playback()
     sim.setDemoPos('1:30.0')
     const loopText = sim.files.get('q2l_loop.cfg')!
-    sim.files.set('q2l_loop.cfg', `echo LOOP-EXEC
-${loopText}`)
+    sim.files.set(
+      'q2l_loop.cfg',
+      `echo LOOP-EXEC
+${loopText}`,
+    )
     sim.press(BACK_TO_WINDOW_COMMAND)
     for (let i = 0; i < 3; i++) sim.frame()
     expect(sim.cvars.get('vid_fullscreen')).toBe('0')
@@ -289,7 +357,10 @@ ${loopText}`)
 
     const plain = createCbufSim({
       cvars: { vid_fullscreen: '1' },
-      files: { 'q2l_back.cfg': toCfgText(buildBackToWindowCfg('win32')), 'q2l_loop.cfg': toCfgText(buildLoopCfg()) },
+      files: {
+        'q2l_back.cfg': toCfgText(buildBackToWindowCfg('win32')),
+        'q2l_loop.cfg': toCfgText(buildLoopCfg()),
+      },
       demoPos: POS_A,
     })
     plain.press(BACK_TO_WINDOW_COMMAND)
@@ -322,6 +393,8 @@ ${loopText}`)
   })
 
   it('omits the mode switch when the game is already fullscreen', () => {
-    expect(buildEnterFullscreenLines({ switchMode: false })).toEqual([expect.stringContaining('q2l_loop')])
+    expect(buildEnterFullscreenLines({ switchMode: false })).toEqual([
+      expect.stringContaining('q2l_loop'),
+    ])
   })
 })

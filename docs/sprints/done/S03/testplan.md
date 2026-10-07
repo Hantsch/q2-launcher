@@ -36,7 +36,7 @@ fully exercised this way, it is called out explicitly as a **Gap** instead of be
    from earlier testing).
 3. Go to the **Config** module and prepare one test profile:
    - Create a new profile from the **standard template** (`New profile` → `Start from: Standard
-     template`) so it already carries a handful of base key binds — you'll need at least one
+template`) so it already carries a handful of base key binds — you'll need at least one
      already-bound key (e.g. whatever the template binds to movement) for the trigger-conflict and
      collision steps below.
    - **Assign it to an installation** (`Assignments` menu on the profile's detail screen) — needed
@@ -59,50 +59,50 @@ through them together in this order.
 1. Open the test profile → **Overview** tab.
    **Expected:** the keyboard board renders first, full width; below it the "Alt layers" panel
    with a "New layer" button. If the profile has no layers yet, the panel shows one short line —
-   *"No alt layers yet — create one to bind keys independently while a trigger key is held or
-   toggled on."* — not a large empty-state block, and there is no layer switcher next to the
+   _"No alt layers yet — create one to bind keys independently while a trigger key is held or
+   toggled on."_ — not a large empty-state block, and there is no layer switcher next to the
    board's header yet.
 
 2. Click **New layer**. **Expected:** the dialog asks only for **Name** and **Mode** (Hold /
    Toggle) — there is no trigger picker. Enter `Test`, leave Mode on `Hold`, click **Create
    layer**.
    **Expected:** dialog closes; the new layer's row appears with a **"No trigger"** badge (not a
-   key), and the keyboard overview's header now shows a switcher labelled *"Editing on the
-   board:"* with two buttons, `Base` (active) and `Test`.
+   key), and the keyboard overview's header now shows a switcher labelled _"Editing on the
+   board:"_ with two buttons, `Base` (active) and `Test`.
 
 3. On the layer's row, click **Show generated aliases**.
-   **Expected:** the preview reads *"Not reachable from the keyboard yet — assign a trigger key
-   from the keyboard overview."* — no `bind` line for this layer.
+   **Expected:** the preview reads _"Not reachable from the keyboard yet — assign a trigger key
+   from the keyboard overview."_ — no `bind` line for this layer.
 
 4. In the switcher, click `Test`. **Expected:** the board switches to the layer view (its button
    is now highlighted/active). Click **Start editing**, then click key `1`. The bind dialog opens
-   with *"Editing layer: Test"*. Pick **use blaster** from the command list (or type `use blaster`
+   with _"Editing layer: Test"_. Pick **use blaster** from the command list (or type `use blaster`
    in the Command field), click **Assign**. Click **Stop editing**.
    **Expected:** key `1` on the `Test` layer view now shows amber "bound in an alt layer" styling
    with `use blaster`.
 
 5. Switch back to `Base` in the switcher. Click **Start editing**, then click a currently
    **unbound** key (e.g. `-`). In the dialog, scroll to the **Layer trigger** section at the
-   bottom: it reads *"This key does not trigger a layer."*, with a layer picker (only `Test`/`Prep`
+   bottom: it reads _"This key does not trigger a layer."_, with a layer picker (only `Test`/`Prep`
    to choose from) and an **Assign trigger** button.
    Pick `Test`, click **Assign trigger**.
-   **Expected:** dialog stays open with `Test` now showing *"Currently triggers: Test"*; close it.
+   **Expected:** dialog stays open with `Test` now showing _"Currently triggers: Test"_; close it.
    The `Test` layer's row now shows **"Trigger: -"** instead of "No trigger". Expand its preview —
-   it now shows a line like *"Trigger bind: bind - +test..."* (aliased command) above the alias
+   it now shows a line like _"Trigger bind: bind - +test..."_ (aliased command) above the alias
    block.
 
 6. Still in edit mode, on `Base`, click the key that already carries a base bind (from the
    template used in Preparation, e.g. whichever movement key). In the **Layer trigger** section,
-   pick `Test` again, and note the warning line: *"`<key>` already has a base bind
-   (`<command>`); the layer's trigger binding will take priority."* Click **Assign trigger** anyway.
+   pick `Test` again, and note the warning line: _"`<key>` already has a base bind
+   (`<command>`); the layer's trigger binding will take priority."_ Click **Assign trigger** anyway.
    **Expected:** the assignment goes through; the `Test` layer's row now shows **"Trigger:
    `<that key>`"**, and `-` is free again (011 decision: one key triggers at most one layer, so
-   assigning a new one *moves* it). The layer's override on `1` (`use blaster`) is still present —
+   assigning a new one _moves_ it). The layer's override on `1` (`use blaster`) is still present —
    expand the preview to confirm.
 
 7. Still in edit mode, click key `1` (the key `Test` already overrides) and try to make `Test`
-   trigger *that* key. **Expected:** the dialog shows a blocking message — *"This layer remaps its
-   own trigger key (1) — you would have no way to switch it off."* — and **Assign trigger** is
+   trigger _that_ key. **Expected:** the dialog shows a blocking message — _"This layer remaps its
+   own trigger key (1) — you would have no way to switch it off."_ — and **Assign trigger** is
    disabled; the assignment is refused.
 
 8. Click **Stop editing**. On the `Base` view, locate the key that is `Test`'s current trigger
@@ -149,8 +149,8 @@ through them together in this order.
 3. Back on the **Raw file** tab, if the badge reads "On disk", click the folder icon (**Reveal in
    folder**) next to the file path.
    **Expected:** the OS file explorer opens with that `.cfg` file selected. If the badge instead
-   reads "Not on disk", the reveal button is disabled and a line under the path reads *"Not
-   written to this installation yet"* — clicking does nothing and no error appears.
+   reads "Not on disk", the reveal button is disabled and a line under the path reads _"Not
+   written to this installation yet"_ — clicking does nothing and no error appears.
 
 4. Create a second, fresh profile, assign it to an installation, but do **not** write it yet (no
    "Write" action performed). Open its **Raw file** tab.
@@ -159,9 +159,9 @@ through them together in this order.
 
 5. Unassign that profile from every installation (Assignments menu → remove all assignments), then
    reopen the **Raw file** tab.
-   **Expected:** instead of content, it shows an empty-state message — *"Not assigned to an
-   installation"* / *"Assign this profile to an installation to see the rendered config file it
-   would write."* — no broken request, no blank flash.
+   **Expected:** instead of content, it shows an empty-state message — _"Not assigned to an
+   installation"_ / _"Assign this profile to an installation to see the rendered config file it
+   would write."_ — no broken request, no blank flash.
 
 6. If you have (or create) a profile assigned to **two or more** installations, open its Raw file
    tab: an **Installation** selector appears above the content. Switch it.
@@ -189,10 +189,10 @@ through them together in this order.
    **Secondary**'s capture button, press `UPARROW`. **Expected:** both slots now show their keys.
    Click **Clear** on the Secondary slot. **Expected:** it reverts to **"Not bound"**.
 
-3. Collision check: on a *different* movement row (e.g. "Back"), click its Primary slot's capture
+3. Collision check: on a _different_ movement row (e.g. "Back"), click its Primary slot's capture
    button and press `W` again (the key Forward's Primary already holds).
    **Expected:** the key is **not** applied immediately — an inline red banner appears reading
-   *"W is already used by "+forward". Take the key from it?"* with **Cancel** and **Replace**
+   _"W is already used by "+forward". Take the key from it?"_ with **Cancel** and **Replace**
    buttons.
    Click **Cancel**. **Expected:** both rows are unchanged — Forward still has `W`, Back is still
    unbound.
@@ -224,7 +224,7 @@ through them together in this order.
 
 8. Open the **Raw file** tab (story 012) for this profile's assigned installation. **Expected:**
    the rocket-launcher alias's rendered body reads `drop rocket launcher; drop rockets; say_team
-   firing rockets` (or your own message text), and each key assigned to it (if you gave it a
+firing rockets` (or your own message text), and each key assigned to it (if you gave it a
    Secondary too) has its own `bind` line pointing at that alias.
 
 9. Restart the app and reopen the profile. **Expected:** every key assignment, the ammo choice,
@@ -246,7 +246,7 @@ All 5 stories in this sprint — **011, 013, 014, 012, 015** — are **built, li
 pending**. Each already passed its own code-level verification (`npm run build`, `npm test`,
 clean-agent `story-review-hard`/default review) during the build session, but no session had a way
 to drive the actual Electron window (no Playwright/`_electron` harness is scaffolded in this repo
-yet). This document *is* that live acceptance pass — once you have run sections 1–3 above and
+yet). This document _is_ that live acceptance pass — once you have run sections 1–3 above and
 confirmed the expected results, these 5 stories can be marked `done` in
 `docs/sprints/S03/sprint.md` and their individual story files. Story **016** stays blocked and
 untouched by this plan; see `docs/sprints/S03/review.md` for its open question.

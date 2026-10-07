@@ -6,12 +6,12 @@ import { useLauncher } from '../../store/useLauncher'
 import { Button } from '../ui/Button'
 
 /**
- * Story 099 D5: "last checked <relative>" plus a "check now" action. Rendered by
+ * Story 099: "last checked <relative>" plus a "check now" action. Rendered by
  * `AppVersionCard.tsx` directly under the running version at the top of Settings, so the version
  * and its update state are the first thing the view shows.
  *
  * Reads `update` from the store the same way `UpdateAction.tsx` does, and calls the new
- * `checkForUpdates` store action (097's `update:check` channel, wired in D5) on click. In-flight
+ * `checkForUpdates` store action (097's `update:check` channel) on click. In-flight
  * tracking mirrors `UpdateAction.tsx`'s `restarting` local state rather than the store's
  * `update.status === 'checking'` - the button must disable the instant it is clicked, not once a
  * round trip through main has updated the mirrored state. A check main started on its own

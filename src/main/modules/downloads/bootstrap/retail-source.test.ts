@@ -129,7 +129,12 @@ describe('inspectRetailSource', () => {
  * above rather than trusting the detector's own verdict.
  */
 describe('listDetectedRetailSources', () => {
-  function candidate(overrides: Partial<DetectedInstallation> & { source: DetectedInstallation['source']; rootPath: string }): DetectedInstallation {
+  function candidate(
+    overrides: Partial<DetectedInstallation> & {
+      source: DetectedInstallation['source']
+      rootPath: string
+    },
+  ): DetectedInstallation {
     return {
       suggestedName: 'Quake II',
       engineKind: 'unknown',

@@ -1,5 +1,9 @@
 import { create } from 'zustand'
-import { reducePlaybackView, type PlaybackView, type TimelineAction } from '@shared/replays/timeline'
+import {
+  reducePlaybackView,
+  type PlaybackView,
+  type TimelineAction,
+} from '@shared/replays/timeline'
 import type { LocalizedMessage } from '@shared/types'
 import type { CinemaAvailability } from '@shared/replays/cinema'
 import type { ReplaysPlaybackDisplay } from '@shared/modules/replays'
@@ -10,6 +14,7 @@ import {
   playbackCinema,
   playbackDisplayRead,
   playbackStop,
+  playbackVolume,
   playbackTimeline,
 } from './client'
 import {
@@ -27,7 +32,7 @@ import {
 } from './optimistic-timeline'
 
 /**
- * Story 165 D3: the renderer's view of the one running demo session.
+ * Story 165: the renderer's view of the one running demo session.
  *
  * When a session begins: on `demo.play` success (`useDemoPlay` calls `beginSession`), not on the
  * first position event. Only the play action knows the demo's name and its 138 `durationMs`, and
@@ -35,28 +40,44 @@ import {
  * Position events that arrive without a session are ignored; the session ends on a `state: ended`
  * event (or an explicit `endSession`). Event subscriptions live exactly as long as the session.
  */
-/** Story 187 D6: how the running demo is shown. */
+/** Story 187: how the running demo is shown. */
 export type PlaybackMode = 'preview' | 'cinema' | 'fullscreen'
+
+export interface PlaybackVolume {
+  percent: number
+  muted: boolean
+}
 
 export interface PlaybackSession {
   demoName: string
+  /** The playing demo's row id, or null when the session was not started from a demo row (cinema). */
+  demoId: string | null
+  /** The playing demo sits inside a zip - it cannot carry comments. */
+  archived: boolean
+  /**
+   * Where to seek once the engine reports its first position; null when none is due. Sent at most
+   * once per session: before the first position the engine may not take commands yet. (story 241)
+   */
+  pendingSeekS: number | null
   /** The playing demo's 138 `durationMs`; wins over the engine's own figure in the reducer. */
   knownDurationMs: number | null
   /** Null until the first position sample arrives. */
   view: PlaybackView | null
   /** Last speed the user set; 1x at session start. Local only - the engine has no read-back. */
   speed: number
+  /** Game volume as main holds it; the level survives muting so unmute can restore it. (story 237) */
+  volume: PlaybackVolume
   /** Story 172: the game window is fullscreen; the strip shows the keys text instead of stale position. */
   fullscreen: boolean
-  /** Story 187 D6: preview (the stage), cinema (the overlay) or fullscreen, from the display event. */
+  /** Story 187: preview (the stage), cinema (the overlay) or fullscreen, from the display event. */
   mode: PlaybackMode
-  /** Story 187 D6: whether cinema can run now, and the reason key when it cannot. */
+  /** Story 187: whether cinema can run now, and the reason key when it cannot. */
   cinemaAvailability: CinemaAvailability
   /** Story 173: a stop was requested; the session still ends only on `state: ended`. */
   stopping: boolean
-  /** Story 184 D2: the expected timeline - last readback plus commands still in flight. */
+  /** Story 184: the expected timeline - last readback plus commands still in flight. */
   optimistic: OptimisticTimeline
-  /** Story 184 D2: chains whose oldest pending command has waited over 1 s for its readback. */
+  /** Story 184: chains whose oldest pending command has waited over 1 s for its readback. */
   waiting: ReadonlySet<TimelineChain>
 }
 
@@ -69,28 +90,43 @@ export interface StageRect {
 
 interface PlaybackStoreState {
   session: PlaybackSession | null
-  /** Story 170 D4: stage mode is on from the play click until the session ends. */
+  /** Story 170: stage mode is on from the play click until the session ends. */
   stageArmed: boolean
   /** The stage picture's last measured rect in viewport CSS px, or null. */
   stageRect: StageRect | null
   /** Why the stage could not place the game window (an i18n key), or null. */
   stageReason: { key: string } | null
+  /** Invariant: true only while `stageReason` came from a display-event notice; a null notice clears just those. */
+  stageReasonIsNotice: boolean
   armStage: () => void
   disarmStage: () => void
   setStageRect: (rect: StageRect | null) => void
   setStageReason: (reason: { key: string } | null) => void
-  beginSession: (demoName: string, knownDurationMs: number | null) => void
+  beginSession: (demoName: string, knownDurationMs: number | null, demo?: SessionDemo) => void
   endSession: () => void
   /** Asks main to end the demo; resolves to the refusal to show, or null when the request was accepted. */
   requestStop: () => Promise<LocalizedMessage | null>
-  /** Story 184 D2: sends a timeline action optimistically; resolves to the refusal to show, or null. */
+  /** Story 184: sends a timeline action optimistically; resolves to the refusal to show, or null. */
   sendTimeline: (action: TimelineAction) => Promise<LocalizedMessage | null>
   setSpeed: (speed: number) => void
-  applyPosition: (positionMs: number | null, engineDurationMs: number | null, enginePaused?: boolean | null) => void
+  /** Sets the game volume optimistically; resolves to the refusal to show, or null. (story 237) */
+  setVolume: (volume: PlaybackVolume) => Promise<LocalizedMessage | null>
+  applyPosition: (
+    positionMs: number | null,
+    engineDurationMs: number | null,
+    enginePaused?: boolean | null,
+  ) => void
   applyState: (state: 'playing' | 'finished' | 'ended') => void
-  /** Story 187 D6: asks main to enter or leave cinema; resolves to the refusal to show, or null. */
+  /** Story 187: asks main to enter or leave cinema; resolves to the refusal to show, or null. */
   setCinema: (enter: boolean) => Promise<LocalizedMessage | null>
   applyDisplay: (p: DisplayUpdate) => void
+}
+
+/** The demo row a session plays, and an optional start position in whole seconds. */
+export interface SessionDemo {
+  id: string
+  archived: boolean
+  startAtS?: number
 }
 
 /** The display event; `cinema`, `speed` and `cinemaAvailability` are optional for older callers. */
@@ -113,7 +149,11 @@ function unsubscribeAll(): void {
 type SetState = (fn: (s: PlaybackStoreState) => Partial<PlaybackStoreState>) => void
 
 /** Applies `fn` to the session's optimistic state and recomputes `waiting`. */
-function update(set: SetState, fn: (o: OptimisticTimeline) => OptimisticTimeline, dropStale = false): void {
+function update(
+  set: SetState,
+  fn: (o: OptimisticTimeline) => OptimisticTimeline,
+  dropStale = false,
+): void {
   set((s) => {
     if (s.session === null) return s
     const now = Date.now()
@@ -141,26 +181,40 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   stageArmed: false,
   stageRect: null,
   stageReason: null,
+  stageReasonIsNotice: false,
   armStage: () => set({ stageArmed: true }),
-  disarmStage: () => set({ stageArmed: false, stageRect: null, stageReason: null }),
+  disarmStage: () =>
+    set({ stageArmed: false, stageRect: null, stageReason: null, stageReasonIsNotice: false }),
   setStageRect: (rect) =>
     set((s) => {
       const p = s.stageRect
       if (p === rect) return s
-      if (p && rect && p.x === rect.x && p.y === rect.y && p.width === rect.width && p.height === rect.height) return s
+      if (
+        p &&
+        rect &&
+        p.x === rect.x &&
+        p.y === rect.y &&
+        p.width === rect.width &&
+        p.height === rect.height
+      )
+        return s
       return { stageRect: rect }
     }),
-  setStageReason: (reason) => set({ stageReason: reason }),
-  beginSession: (demoName, knownDurationMs) => {
+  setStageReason: (reason) => set({ stageReason: reason, stageReasonIsNotice: false }),
+  beginSession: (demoName, knownDurationMs, demo) => {
     unsubscribeAll()
     clearTimers()
     const optimistic = createTimeline({ view: null, durationMs: knownDurationMs }, Date.now())
     set({
       session: {
         demoName,
+        demoId: demo?.id ?? null,
+        archived: demo?.archived ?? false,
+        pendingSeekS: demo?.startAtS ?? null,
         knownDurationMs,
         view: null,
         speed: 1,
+        volume: { percent: 100, muted: false },
         fullscreen: false,
         mode: 'preview',
         cinemaAvailability: { available: true },
@@ -184,7 +238,13 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   endSession: () => {
     unsubscribeAll()
     clearTimers()
-    set({ session: null, stageArmed: false, stageRect: null, stageReason: null })
+    set({
+      session: null,
+      stageArmed: false,
+      stageRect: null,
+      stageReason: null,
+      stageReasonIsNotice: false,
+    })
   },
   requestStop: async () => {
     const setStopping = (stopping: boolean): void =>
@@ -205,8 +265,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     if (action.kind === 'fullscreen') {
       try {
         const result = await playbackTimeline(action)
-        if (!result.ok) return result.error
-        return result.value.ok ? null : result.value.error
+        return result.ok ? null : result.error
       } catch {
         return { key: 'replays.timeline.error' }
       }
@@ -223,7 +282,6 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     try {
       const result = await playbackTimeline(action)
       if (!result.ok) return fail(result.error)
-      if (!result.value.ok) return fail(result.value.error)
     } catch {
       return fail({ key: 'replays.timeline.error' })
     }
@@ -233,11 +291,22 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     }
     return null
   },
-  setSpeed: (speed) =>
-    set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),
-  applyPosition: (positionMs, engineDurationMs, enginePaused = null) =>
+  setSpeed: (speed) => set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),
+  setVolume: async (volume) => {
+    set((s) => (s.session === null ? s : { session: { ...s.session, volume } }))
+    try {
+      const result = await playbackVolume(volume)
+      return result.ok ? null : result.error
+    } catch {
+      return { key: 'replays.timeline.error' }
+    }
+  },
+  applyPosition: (positionMs, engineDurationMs, enginePaused = null) => {
+    // Read inside `set`, so a position racing another one cannot send the seek twice.
+    let seekS = null as number | null
     set((s) => {
       if (s.session === null || positionMs === null) return s
+      seekS = s.session.pendingSeekS
       const view = reducePlaybackView(s.session.view, {
         positionMs,
         engineDurationMs,
@@ -247,8 +316,18 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       })
       const now = Date.now()
       const optimistic = applyReadback(s.session.optimistic, view, now)
-      return { session: { ...s.session, view, optimistic, waiting: waiting(optimistic, now) } }
-    }),
+      return {
+        session: {
+          ...s.session,
+          view,
+          optimistic,
+          waiting: waiting(optimistic, now),
+          pendingSeekS: null,
+        },
+      }
+    })
+    if (seekS !== null) void get().sendTimeline({ kind: 'seekTo', seconds: seekS })
+  },
   setCinema: async (enter) => {
     try {
       const result = await playbackCinema(enter)
@@ -264,18 +343,48 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       const speed = p.speed ?? s.session.speed
       const cinemaAvailability = p.cinemaAvailability ?? s.session.cinemaAvailability
       const c = s.session
+      const volume = p.volume ?? c.volume
       // The display event's speed is authoritative: the optimistic timeline (what the speed select shows)
       // follows it unless a speed change of this window's own is still pending.
       const followSpeed = c.optimistic.speed === null && c.optimistic.confirmed.speed !== speed
+      const notice = p.stageNotice
+      const noticeChange =
+        notice === undefined
+          ? null
+          : notice !== null
+            ? { stageReason: notice, stageReasonIsNotice: true }
+            : s.stageReasonIsNotice
+              ? { stageReason: null, stageReasonIsNotice: false }
+              : null
+      const noticeSame =
+        noticeChange === null ||
+        (s.stageReasonIsNotice === noticeChange.stageReasonIsNotice &&
+          JSON.stringify(s.stageReason) === JSON.stringify(noticeChange.stageReason))
       const same =
+        noticeSame &&
         c.fullscreen === p.fullscreen &&
         c.mode === mode &&
         c.speed === speed &&
+        c.volume.percent === volume.percent &&
+        c.volume.muted === volume.muted &&
         !followSpeed &&
         JSON.stringify(c.cinemaAvailability) === JSON.stringify(cinemaAvailability)
       if (same) return s
-      const optimistic = followSpeed ? { ...c.optimistic, confirmed: { ...c.optimistic.confirmed, speed } } : c.optimistic
-      return { session: { ...c, fullscreen: p.fullscreen, mode, speed, cinemaAvailability, optimistic } }
+      const optimistic = followSpeed
+        ? { ...c.optimistic, confirmed: { ...c.optimistic.confirmed, speed } }
+        : c.optimistic
+      return {
+        ...(noticeChange ?? {}),
+        session: {
+          ...c,
+          fullscreen: p.fullscreen,
+          mode,
+          speed,
+          volume,
+          cinemaAvailability,
+          optimistic,
+        },
+      }
     }),
   applyState: (state) => {
     if (state === 'ended') {
@@ -288,7 +397,13 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         const prev = s.session.view
         const view: PlaybackView = prev
           ? { ...prev, ended: true }
-          : { positionMs: 0, durationMs: s.session.knownDurationMs, paused: false, ended: true, stillCount: 0 }
+          : {
+              positionMs: 0,
+              durationMs: s.session.knownDurationMs,
+              paused: false,
+              ended: true,
+              stillCount: 0,
+            }
         return { session: { ...s.session, view } }
       })
     }

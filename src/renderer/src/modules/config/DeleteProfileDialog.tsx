@@ -1,8 +1,7 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
-import { Button } from '../../components/ui/Button'
-import { Modal } from '../../components/ui/Modal'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 import { removeConfigProfile } from './client'
 
 /**
@@ -12,7 +11,7 @@ import { removeConfigProfile } from './client'
  * Unlike an installation, a config profile has no on-disk counterpart - it
  * lives only in the launcher's own state - so there is no "your files are
  * safe" reassurance to give. The wording stays honest that this removes the
- * profile for good: there is no undo in this story.
+ * profile for good: there is no undo.
  */
 export function DeleteProfileDialog({
   profile,
@@ -25,34 +24,22 @@ export function DeleteProfileDialog({
   onDeleted: (profiles: ConfigProfile[]) => void
 }) {
   const { t } = useTranslation()
-  const [submitting, setSubmitting] = useState(false)
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    const result = await removeConfigProfile({ id: profile.id })
-    setSubmitting(false)
-    if (result.ok) onDeleted(result.value)
-  }
+  const { submitting, run } = useSubmitting()
 
   return (
-    <Modal
-      open
-      size="sm"
+    <ConfirmDialog
       title={t('config.deleteDialog.title', { name: profile.name })}
+      body={t('config.deleteDialog.body')}
+      confirmLabel={t('config.deleteDialog.confirm')}
+      tone="danger"
+      busy={submitting}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="danger" disabled={submitting} onClick={() => void submit()}>
-            {t('config.deleteDialog.confirm')}
-          </Button>
-        </>
+      onConfirm={() =>
+        void run(async () => {
+          const result = await removeConfigProfile({ id: profile.id })
+          if (result.ok) onDeleted(result.value)
+        })
       }
-    >
-      <p className="text-sm leading-relaxed text-ink-dim">{t('config.deleteDialog.body')}</p>
-    </Modal>
+    />
   )
 }

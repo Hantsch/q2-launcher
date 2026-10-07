@@ -39,7 +39,8 @@
 // `env` (the public-key override) `setup()` already computed, since the restarted process still has
 // to verify the same throwaway-signed codes.
 import { generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync } from 'node:fs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import { join } from 'node:path'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
@@ -94,7 +95,9 @@ function nowSeconds() {
 
 async function openSettings(page) {
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('unlock-installation-id').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('unlock-installation-id')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }
 
 async function readInstallationId(page) {
@@ -125,7 +128,9 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
   await openSettings(page)
   const installationId = await readInstallationId(page)
   if (!/^[A-Z2-7]{4}-[A-Z2-7]{4}-[A-Z2-7]{4}$/.test(installationId)) {
-    throw new Error(`expected a formatted 12-char base32 installation id, got: ${JSON.stringify(installationId)}`)
+    throw new Error(
+      `expected a formatted 12-char base32 installation id, got: ${JSON.stringify(installationId)}`,
+    )
   }
   const normalizedInstallId = installationId.replace(/-/g, '')
 
@@ -133,7 +138,9 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
   await page.getByTestId('unlock-copy-id').click({ timeout: TIMEOUT_MS })
   const clipboardText = await app.evaluate(({ clipboard }) => clipboard.readText())
   if (clipboardText !== installationId) {
-    throw new Error(`expected the clipboard to hold ${JSON.stringify(installationId)}, got ${JSON.stringify(clipboardText)}`)
+    throw new Error(
+      `expected the clipboard to hold ${JSON.stringify(installationId)}, got ${JSON.stringify(clipboardText)}`,
+    )
   }
   await shot('installation-id')
 
@@ -195,8 +202,10 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
   // discipline `bootstrap-no-engine-for-platform.mjs` applies to its own empty-state copy.
   const EXPECTED_REJECTION_TEXT = {
     'not-a-code': "That doesn't look like an unlock code.",
-    'bad-signature': "This code isn't valid — it doesn't match what an unlock code should look like.",
-    'wrong-installation': "This code was issued for a different installation and can't be redeemed here.",
+    'bad-signature':
+      "This code isn't valid — it doesn't match what an unlock code should look like.",
+    'wrong-installation':
+      "This code was issued for a different installation and can't be redeemed here.",
     'redeem-window-elapsed': "This code's redemption window has passed.",
     'feature-expired': "This code's features have already expired.",
   }
@@ -207,12 +216,16 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
       )
     }
     if (text.includes('settings.unlock')) {
-      throw new Error(`expected rendered prose for ${reason}, not a raw i18n key: ${JSON.stringify(text)}`)
+      throw new Error(
+        `expected rendered prose for ${reason}, not a raw i18n key: ${JSON.stringify(text)}`,
+      )
     }
   }
   const distinctTexts = new Set(Object.values(rejectionTexts))
   if (distinctTexts.size !== Object.keys(rejectionTexts).length) {
-    throw new Error(`expected five pairwise-different rejection texts, got: ${JSON.stringify(rejectionTexts)}`)
+    throw new Error(
+      `expected five pairwise-different rejection texts, got: ${JSON.stringify(rejectionTexts)}`,
+    )
   }
 
   step('accept: a validly-signed code unlocking "watchlist" with a short feature expiry (AC3)')
@@ -233,10 +246,14 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
   await accepted.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const acceptedText = await accepted.innerText()
   if (!acceptedText.includes('watchlist')) {
-    throw new Error(`expected the accepted result to name the unlocked feature "watchlist", got: ${JSON.stringify(acceptedText)}`)
+    throw new Error(
+      `expected the accepted result to name the unlocked feature "watchlist", got: ${JSON.stringify(acceptedText)}`,
+    )
   }
   if (acceptedText.includes('Does not expire')) {
-    throw new Error(`expected a real expiry, not the "no expiry" text: ${JSON.stringify(acceptedText)}`)
+    throw new Error(
+      `expected a real expiry, not the "no expiry" text: ${JSON.stringify(acceptedText)}`,
+    )
   }
   await shot('accepted')
 
@@ -246,10 +263,18 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
 
   // Read back what phase 2 must see from disk, the same way `servers-master-sources.mjs` proves its
   // own restart phase against the persisted bytes rather than re-derived in-memory state.
-  const onDiskAfterAccept = JSON.parse(readFileSync(join(userDataDir, 'state.json'), 'utf8'))
+  const onDiskAfterAccept = await waitForStateJson(
+    userDataDir,
+    (doc) =>
+      Array.isArray(doc.unlock?.codes) &&
+      doc.unlock.codes.some((entry) => entry.code === acceptedCode),
+    'the accepted code in unlock.codes',
+  )
   const storedCodes = onDiskAfterAccept.unlock?.codes
   if (!Array.isArray(storedCodes) || !storedCodes.some((entry) => entry.code === acceptedCode)) {
-    throw new Error(`expected state.json's unlock.codes to contain the accepted code, got: ${JSON.stringify(storedCodes)}`)
+    throw new Error(
+      `expected state.json's unlock.codes to contain the accepted code, got: ${JSON.stringify(storedCodes)}`,
+    )
   }
 
   step('wait for the 10s feature expiry to pass, then restart the app (AC5)')
@@ -270,7 +295,9 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
       const restartedRow = codeRowByLabel(secondPage, uniqueLabel)
       await restartedRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
       const rowText = await restartedRow.innerText()
-      const expectedDate = new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(acceptExpiresAtMs)
+      const expectedDate = new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
+        acceptExpiresAtMs,
+      )
       const expectedExpiredText = `This code expired on ${expectedDate} — its features are no longer available.`
       if (!rowText.includes(expectedExpiredText)) {
         throw new Error(
@@ -278,7 +305,13 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
         )
       }
       await secondPage.screenshot({
-        path: join(REPO_ROOT, '.ui-verify', 'screenshots', 'flows', 'unlock-code-restarted-expired.png'),
+        path: join(
+          REPO_ROOT,
+          '.ui-verify',
+          'screenshots',
+          'flows',
+          'unlock-code-restarted-expired.png',
+        ),
       })
     },
   )

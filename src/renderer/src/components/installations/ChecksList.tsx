@@ -93,7 +93,7 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
       case 'locate-root': {
         const picked = await invoke('installations:pickFolder', {
           title: t('dialog.addExisting.pickTitle'),
-          buttonLabel: t('dialog.addExisting.pickButton'),
+          buttonLabel: t('common.action.useThisFolder'),
         })
         if (picked) await updateInstallation({ id: installation.id, rootPath: picked })
         return
@@ -127,11 +127,18 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
         return
 
       case 'choose-runner': {
-        // The runner section itself is story 103 D7 - it just needs to expose this id so the fix
+        // The runner section itself is story 103 - it just needs to expose this id so the fix
         // action here has something to focus. The id is installation-scoped (RunnerSection renders
         // once per row in the library list) so this always targets the row the fix button was
         // pressed on, not whichever row happens to render first.
         const target = document.getElementById(`installation-runner-${installation.id}`)
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        target?.focus()
+        return
+      }
+
+      case 'choose-engine': {
+        const target = document.getElementById(`installation-engine-${installation.id}`)
         target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         target?.focus()
         return

@@ -133,7 +133,7 @@ Order: D1 → D2 → D3 → D4. CHANGELOG `### Changed` entry lands with D3.
   `components/DemoDetailPanel.tsx` (+ `DemoDetailPanel.test.tsx`),
   `src/renderer/src/i18n/locales/en.json`, `CLAUDE.md` (Deviations table),
   `scripts/flows/replays-archive-readonly.mjs`. `DemoFileActions` renders three `IconButton
-  size="sm"` (from `components/ui/Button`) — Reveal (`FolderOpen`), Copy path (`Copy`), Rename
+size="sm"` (from `components/ui/Button`) — Reveal (`FolderOpen`), Copy path (`Copy`), Rename
   (`FilePen`), lucide icons with `aria-hidden`, labels = the existing
   `replays.fileActions.reveal`/`.copyPath`/`replays.rename.title` keys; testids unchanged
   (`replays-demo-reveal`, `replays-demo-copy-path`, `demo-rename`); the error alert, the toast and the
@@ -155,7 +155,7 @@ Order: D1 → D2 → D3 → D4. CHANGELOG `### Changed` entry lands with D3.
   `replays-archive-readonly-edit` text visible (replace its old notes-form assertions).
 
 - **D3 — the facts become the form: in-place edit mode.** Files: `git mv
-  components/DemoNotesEditor.tsx → components/DemoDetailEditor.tsx` and its test likewise,
+components/DemoNotesEditor.tsx → components/DemoDetailEditor.tsx` and its test likewise,
   `components/DemoDetailPanel.tsx` (+ test), `src/renderer/src/modules/replays/ReplaysView.tsx`,
   `en.json`, `scripts/flows/replays-edit-sidecar.mjs`, `scripts/flows/replays-edit-sides-tags.mjs`,
   `CHANGELOG.md`. `DemoDetailPanel` renders reading mode (the facts list as [[177]] left it) when
@@ -257,6 +257,7 @@ AC → test, all passed: AC1-AC6, AC8 via the mapped flows + units (two componen
 Open: pre-existing `replays-timeline@940x620` unreachable in ui:verify on bare HEAD, flaky here (reached once).
 
 Decisions:
+
 - axe heading-order: edit mode has no h2 (name input), so SidesEditor h4 became h3 and an `sr-only` h2 carries the name in edit mode.
 - `screens.mjs` edit screens skip the Edit click when already in edit mode (the store outlives a screen/viewport).
 - ReplaysView filter-deselect waits for the list to load, else a module-switch remount dropped the selection/edit (AC6). `findRowReplaceId` extracted for testing.

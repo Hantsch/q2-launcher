@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { initI18n } from '../../../i18n'
+import { en } from '../../../i18n/bundle'
 import { FailureCauseDetail } from './FailureCauseDetail'
 
 /**
@@ -64,10 +65,14 @@ describe('FailureCauseDetail', () => {
     details.open = true
 
     expect(
-      screen.getByText('engine-q2pro: downloaded, verified and extracted, but did not contribute to the installation'),
+      screen.getByText(
+        'engine-q2pro: downloaded, verified and extracted, but did not contribute to the installation',
+      ),
     ).toBeTruthy()
     expect(
-      screen.getByText('demo-data: downloaded, verified and extracted, but did not contribute to the installation'),
+      screen.getByText(
+        'demo-data: downloaded, verified and extracted, but did not contribute to the installation',
+      ),
     ).toBeTruthy()
   })
 
@@ -129,6 +134,40 @@ describe('FailureCauseDetail', () => {
     ).toBeTruthy()
   })
 
+  it('every validation key renders with its params and no placeholder', () => {
+    const leaves: [string, string][] = []
+    const walk = (node: unknown, path: string): void => {
+      if (typeof node === 'string') leaves.push([path, node])
+      else if (node && typeof node === 'object') {
+        for (const [k, v] of Object.entries(node)) walk(v, `${path}.${k}`)
+      }
+    }
+    for (const [k, v] of Object.entries(en.validation)) {
+      if (k !== 'fix') walk(v, `validation.${k}`)
+    }
+    expect(leaves.length).toBeGreaterThan(0)
+
+    for (const [key, text] of leaves) {
+      const params = Object.fromEntries(
+        [...text.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => [m[1], 'value']),
+      )
+      const diagnostics = makeDiagnostics({
+        target: {
+          targetPath: 'D:/Games/Quake II',
+          verdict: 'invalid',
+          missingChecks: [{ id: 'base-paks', messageKey: key, params }],
+        },
+      })
+
+      render(createElement(FailureCauseDetail, { diagnostics }))
+      const item = document.querySelector('details li')
+
+      expect(item?.textContent, key).toBeTruthy()
+      expect(item?.textContent, key).not.toContain('{{')
+      cleanup()
+    }
+  })
+
   it('the detail is closed on first render', () => {
     // Real browsers keep a closed <details>' non-summary content out of the accessible tree
     // natively (no application code makes that happen); jsdom does not model that rendering
@@ -156,9 +195,7 @@ describe('FailureCauseDetail', () => {
   })
 
   it('a failure without diagnostics renders nothing', () => {
-    const { container } = render(
-      createElement(FailureCauseDetail, { diagnostics: undefined }),
-    )
+    const { container } = render(createElement(FailureCauseDetail, { diagnostics: undefined }))
 
     expect(container.innerHTML).toBe('')
     expect(document.querySelector('details')).toBeNull()

@@ -12,23 +12,23 @@ fully built but invisible until unlocked.
 All 15 stories are `done`. This closes phase 9 (game browser) of the roadmap: milestones
 9.4–9.7, merged from the previously separate S25–S28 plan into this one sprint.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 118 — a server row says what's going on | done | `2787cd4` |
-| 119 — busy servers rise to the top | done | `0bb870a` |
-| 120 — i filter and search the list | done | `501d2c6` |
-| 121 — the list says what it's doing | done | `50ae417` |
-| 122 — a server's detail opens | done | `f3eb9c8` |
-| 123 — the rules a server plays by, in full | done | `ba8113a` |
-| 124 — how this server has answered | done | `72d2586` |
-| 125 — i join a server from the browser | done | `b9b8aab` |
-| 126 — i spectate without picking a side | done | `a0be1a2` (+ gate fix `c6e1e96`) |
-| 127 — a server goes into my address book | done | `443ea19` |
-| 128 — an unlock code proves what it unlocks | done | `244cb3a` |
-| 130 — a locked feature does not exist | done | `a9b39d3` |
-| 129 — i ask for a code and see what it unlocked | done | `17f13c5` |
-| 131 — the watchlist finds a name for free | done | `5a2351e` (+ gate fix `7e999cf`) |
-| 132 — the watchlist tells me where someone is | done | `2623164` |
+| Story                                           | Status | Commit                           |
+| ----------------------------------------------- | ------ | -------------------------------- |
+| 118 — a server row says what's going on         | done   | `2787cd4`                        |
+| 119 — busy servers rise to the top              | done   | `0bb870a`                        |
+| 120 — i filter and search the list              | done   | `501d2c6`                        |
+| 121 — the list says what it's doing             | done   | `50ae417`                        |
+| 122 — a server's detail opens                   | done   | `f3eb9c8`                        |
+| 123 — the rules a server plays by, in full      | done   | `ba8113a`                        |
+| 124 — how this server has answered              | done   | `72d2586`                        |
+| 125 — i join a server from the browser          | done   | `b9b8aab`                        |
+| 126 — i spectate without picking a side         | done   | `a0be1a2` (+ gate fix `c6e1e96`) |
+| 127 — a server goes into my address book        | done   | `443ea19`                        |
+| 128 — an unlock code proves what it unlocks     | done   | `244cb3a`                        |
+| 130 — a locked feature does not exist           | done   | `a9b39d3`                        |
+| 129 — i ask for a code and see what it unlocked | done   | `17f13c5`                        |
+| 131 — the watchlist finds a name for free       | done   | `5a2351e` (+ gate fix `7e999cf`) |
+| 132 — the watchlist tells me where someone is   | done   | `2623164`                        |
 
 ## Implemented stories
 
@@ -147,12 +147,12 @@ None. All 15 stories completed without a user-facing blocker.
 
 Commands run on the finished branch (`sprint/S25`, before the two fixes below):
 
-| Command | Result | Time |
-| --- | --- | --- |
-| `npm run build` | green | 0.06 min |
-| `npm test` (full) | **red** — 1 failing test | 0.27 min |
-| `npm run ui:verify` | green — 94/94 shots, 0 axe violations | 1.75 min |
-| `npm run ui:flows` (`e2e-all`, 71 flows) | **red** — 3 failing | ~24 min |
+| Command                                  | Result                                | Time     |
+| ---------------------------------------- | ------------------------------------- | -------- |
+| `npm run build`                          | green                                 | 0.06 min |
+| `npm test` (full)                        | **red** — 1 failing test              | 0.27 min |
+| `npm run ui:verify`                      | green — 94/94 shots, 0 axe violations | 1.75 min |
+| `npm run ui:flows` (`e2e-all`, 71 flows) | **red** — 3 failing                   | ~24 min  |
 
 - `npm test`: `layering.test.ts`'s main-process spawn/network allowlist flagged
   `watchlist-regex-host.ts` (story 131) — a false positive from a local function named `spawn`.
@@ -177,47 +177,47 @@ part of its story (unit/component test, or the named `ui:flow`/`ui:verify` scrip
 criterion describes a user action). Full AC→test mappings are in each story's own
 `## Acceptance Tests` section under `docs/requirements/done/`.
 
-| Story | Criteria proven by |
-| --- | --- |
-| 118 | Unit tests on `row-markers.ts`/`scan-service.ts`/`scan-merge.ts` + e2e `servers-row-markers` |
-| 119 | Unit tests on `list-sort.ts` + e2e `servers-sort-order` (default order, direction cycling, persistence) |
-| 120 | Unit/component tests on `list-filter.ts`/`ServerListFilterBar` + e2e `servers-filter-search` |
-| 121 | Unit/component tests on `list-state.ts`/`ServersListStatus` + e2e `servers-list-states` + `ui:verify` screens |
-| 122 | Unit tests (`server-engine.ts`, `player-sort.ts`) + component tests + e2e `servers-detail` |
-| 123 | Unit tests (`dmflags.ts`, `rule-table.ts`) + component tests + e2e `servers-detail-rules` |
-| 124 | Unit tests (`scan-merge.ts`, `scan-service.ts`) + component test + e2e `servers-detail-reachability` |
-| 125 | Unit tests across `userinfo.ts`/`launch-plan.ts`/`launch.ts`/`join-flow.ts` + e2e `servers-join` (asserts the password nowhere in argv/log) |
-| 126 | Unit tests (`scan-service.ts`, `launch-plan.ts`) + e2e `servers-spectate` |
-| 127 | Unit/component tests (`address-book.ts`, `AddToAddressBookDialog`) + e2e `servers-address-book` |
-| 128 | Unit tests across `unlock.ts`/`verify.ts`/`service.ts`/`launcher-install-id.ts`/issuing script — no e2e (no user-facing surface; that's 129's) |
-| 130 | Unit tests on `gate.ts`/`registry.ts`/`features.ts` — no e2e (no user action criterion; first real surface is 132's) |
-| 129 | Unit/component tests (`UnlockCodePanel`, IPC) + e2e `unlock-code` |
-| 131 | Unit tests across `watchlist-entries.ts`/`watchlist-matcher.ts`/`watchlist-regex-host.ts`/`watchlist-service.ts` — no e2e (132 renders the results and owns that flow) |
-| 132 | Unit/component tests (`useWatchlist`, `WatchlistPanel`) + e2e `servers-watchlist` (locked→redeem→restart→unlocked, add/found/offline/left/re-check/edit/remove/join/spectate) |
+| Story | Criteria proven by                                                                                                                                                            |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 118   | Unit tests on `row-markers.ts`/`scan-service.ts`/`scan-merge.ts` + e2e `servers-row-markers`                                                                                  |
+| 119   | Unit tests on `list-sort.ts` + e2e `servers-sort-order` (default order, direction cycling, persistence)                                                                       |
+| 120   | Unit/component tests on `list-filter.ts`/`ServerListFilterBar` + e2e `servers-filter-search`                                                                                  |
+| 121   | Unit/component tests on `list-state.ts`/`ServersListStatus` + e2e `servers-list-states` + `ui:verify` screens                                                                 |
+| 122   | Unit tests (`server-engine.ts`, `player-sort.ts`) + component tests + e2e `servers-detail`                                                                                    |
+| 123   | Unit tests (`dmflags.ts`, `rule-table.ts`) + component tests + e2e `servers-detail-rules`                                                                                     |
+| 124   | Unit tests (`scan-merge.ts`, `scan-service.ts`) + component test + e2e `servers-detail-reachability`                                                                          |
+| 125   | Unit tests across `userinfo.ts`/`launch-plan.ts`/`launch.ts`/`join-flow.ts` + e2e `servers-join` (asserts the password nowhere in argv/log)                                   |
+| 126   | Unit tests (`scan-service.ts`, `launch-plan.ts`) + e2e `servers-spectate`                                                                                                     |
+| 127   | Unit/component tests (`address-book.ts`, `AddToAddressBookDialog`) + e2e `servers-address-book`                                                                               |
+| 128   | Unit tests across `unlock.ts`/`verify.ts`/`service.ts`/`launcher-install-id.ts`/issuing script — no e2e (no user-facing surface; that's 129's)                                |
+| 130   | Unit tests on `gate.ts`/`registry.ts`/`features.ts` — no e2e (no user action criterion; first real surface is 132's)                                                          |
+| 129   | Unit/component tests (`UnlockCodePanel`, IPC) + e2e `unlock-code`                                                                                                             |
+| 131   | Unit tests across `watchlist-entries.ts`/`watchlist-matcher.ts`/`watchlist-regex-host.ts`/`watchlist-service.ts` — no e2e (132 renders the results and owns that flow)        |
+| 132   | Unit/component tests (`useWatchlist`, `WatchlistPanel`) + e2e `servers-watchlist` (locked→redeem→restart→unlocked, add/found/offline/left/re-check/edit/remove/join/spectate) |
 
 **Manual residue: none.** Every story explicitly confirmed no criterion required a human step;
 `testplan.md` is not written for this sprint (per `testplan: optional`, nothing to collect).
 
 ## Tier record
 
-| Story | D | hard D | Review | Cycles | Agents |
-| --- | --- | --- | --- | --- | --- |
-| 118 | 3 | 0 | default | 0 | 5 |
-| 119 | 3 | 0 | default | 0 | 5 |
-| 120 | 2 | 0 | default | 1 | 4 |
-| 121 | 3 | 0 | default | 1 | 8 |
-| 122 | 4 | 0 | default | 0 | 6 |
-| 123 | 3 | 0 | default | 1 | 8 |
-| 124 | 2 | 0 | default | 1 | 6 |
-| 125 | 5 | 1 | default+hard | 1 | 10 |
-| 126 | 3 | 0 | default | 0 | 5 |
-| 127 | 2 | 0 | default | 1 | 5 |
-| 128 | 4 | 1 | default+hard | 2 | 10 |
-| 130 | 3 | 1 | default+hard | 1 | 7 |
-| 129 | 4 | 1 | default | 0 | 6 |
-| 131 | 5 | 1 | default+hard | 1 | 10 |
-| 132 | 4 | 0 | default | 1 | 7 |
-| **Totals** | **50** | **5** | **4 hard reviews of 5 hard D's** | **11** | **102** |
+| Story      | D      | hard D | Review                           | Cycles | Agents  |
+| ---------- | ------ | ------ | -------------------------------- | ------ | ------- |
+| 118        | 3      | 0      | default                          | 0      | 5       |
+| 119        | 3      | 0      | default                          | 0      | 5       |
+| 120        | 2      | 0      | default                          | 1      | 4       |
+| 121        | 3      | 0      | default                          | 1      | 8       |
+| 122        | 4      | 0      | default                          | 0      | 6       |
+| 123        | 3      | 0      | default                          | 1      | 8       |
+| 124        | 2      | 0      | default                          | 1      | 6       |
+| 125        | 5      | 1      | default+hard                     | 1      | 10      |
+| 126        | 3      | 0      | default                          | 0      | 5       |
+| 127        | 2      | 0      | default                          | 1      | 5       |
+| 128        | 4      | 1      | default+hard                     | 2      | 10      |
+| 130        | 3      | 1      | default+hard                     | 1      | 7       |
+| 129        | 4      | 1      | default                          | 0      | 6       |
+| 131        | 5      | 1      | default+hard                     | 1      | 10      |
+| 132        | 4      | 0      | default                          | 1      | 7       |
+| **Totals** | **50** | **5**  | **4 hard reviews of 5 hard D's** | **11** | **102** |
 
 Plus 15 refine agents (one per story) and 5 gate-phase agents (1 short-suite runner, 2
 attribution, 2 fix) — **122 agents dispatched this sprint in total**.

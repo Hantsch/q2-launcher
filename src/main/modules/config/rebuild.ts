@@ -1,53 +1,48 @@
 /**
- * Story 043 D3: `state.json` stops being the profile's home and becomes a rebuildable cache.
+ * Startup recovery for the config module: `state.json` is a rebuildable cache of the profile files.
  *
- * Two behaviours live here, and they are deliberately *not* the same mechanism:
+ * Exports `runFileSourceStartup` (the hook `index.ts` calls), `buildRebuiltProfile` and the header
+ * readers `recoverProfileName`, `detectWriteUnbindall`, `detectSectionHeaderStyle`. Two steps run,
+ * deliberately as different mechanisms:
  *
- * 1. **Rebuild-on-missing-record** (`rebuildMissingProfileRecords`, every start, cheap): every
- *    launcher-owned `.cfg` in the canonical directory whose sentinel id has no matching record in
- *    `state.json` gets a record rebuilt from that file's own content, **keeping the sentinel's id**
- *    (AC2). This is the exact opposite of story 042 AC4's import rule - an import of a foreign file
- *    always mints a new id - and the two therefore stay separate functions with separate
- *    `ProfilesStore` entry points (`addRebuilt` vs. `createFromImport`), because reusing the import
- *    path here would silently mint a new id and orphan every installation assignment pointing at
- *    the old one. A `.cfg` that carries neither recognised ownership shape - the legacy sentinel
- *    line nor story 051's banner-tag `id` field, both read via `readOwnershipStamp`/
- *    `isLauncherOwnedFile` (`@shared/config/file-ownership`) - is never adopted:
- *    `readCanonicalOwnership` reports no owner for it, so it is not even a candidate.
+ * 1. Format migration (`migrateCanonicalFiles`, gated by `configFileSourceMigratedAt`): every record
+ *    already in `state.json` has its canonical file rewritten from the cached profile through
+ *    `writeCanonicalProfileFile`, and its `fileHash` seeded from what was written, so the first
+ *    `readFileState` reports `unchanged`. The guard is set only when the whole set succeeded; a
+ *    failure leaves it unset and the next start retries.
+ * 2. Rebuild (`rebuildMissingProfileRecords`, every start): every launcher-owned `.cfg` in the
+ *    canonical directory whose ownership id has no record gets one rebuilt from the file's own
+ *    content, keeping that id. An import mints a new id instead, so the two use separate
+ *    `ProfilesStore` entry points (`addRebuilt` vs. `createFromImport`); reusing the import path
+ *    would orphan every installation assignment pointing at the old id. A file with no recognised
+ *    ownership stamp (`readCanonicalOwnership`) is never a candidate.
  *
- * 2. **The one-time format migration** (`migrateCanonicalFiles`, AC8, gated by
- *    `configFileSourceMigratedAt`): every profile record that already exists in `state.json` gets
- *    its canonical file rewritten from the cached profile data into the current 040/042 format
- *    through the normal write path (`writeCanonicalProfileFile`, which renders internally), and its
- *    `fileHash` seeded from what was just written - so the very first `readFileState` on that file
- *    reports `unchanged` rather than a false `changedOnDisk`. The guard is only set once the whole
- *    set succeeded; a second start is a no-op for this step.
+ * Invariants a caller relies on:
+ * - The migration runs over the records that exist before the rebuild adds any. A rebuilt record is
+ *   reconstructed from a file, and re-rendering it over that file would drop what the
+ *   reconstruction could not represent, so a rebuilt profile is never in the migration's write set.
+ * - The rebuild writes nothing: it reads, and seeds the hash of the bytes it read. Assignments and
+ *   played mods are launcher bookkeeping a file cannot carry, so a rebuilt record starts without them.
+ * - Nothing here deletes a file or adds backup logic; `writeCanonicalProfileFile` owns the
+ *   diff-skip, backup-once and atomic-write contract.
+ * - A per-profile or per-file problem is logged and reported, never thrown; only a failure of the
+ *   directory scan itself propagates.
  *
- * **Order matters and is fixed**: the migration runs over the records that exist *before* the
- * rebuild adds any. A rebuilt record is reconstructed from a file, and re-rendering it back over
- * that same file would drop whatever the reconstruction could not represent (an unrecognised
- * comment the user hand-added, for instance) - so a freshly rebuilt profile must never be part of
- * the migration's write set. The rebuild itself writes **nothing**: it reads, and seeds the hash of
- * the bytes it read.
- *
- * Nothing here deletes anything, and nothing here adds backup logic: `writeCanonicalProfileFile` ->
- * `writeTargetFile` already owns the diff-skip/backup-once/atomic-write contract
- * (`docs/ARCHITECTURE.md`, "State and persistence"), and `state.json.bak` stays exactly the
- * `JsonStore` artefact it is today.
- *
- * Takes plain data and callbacks rather than `AppContext`/`StateStore`, the same style as
- * `import.ts` and `writeProfileToAssignedInstallations` (`./index.ts`), so all of it is testable
- * against a real temp directory without booting `configModule.setup()`.
+ * Takes plain data and callbacks rather than `AppContext`/`StateStore`, so it is testable against a
+ * real temp directory without booting `configModule.setup()`.
  */
 
 import { readFile, stat } from 'node:fs/promises'
 import type { Stats } from 'node:fs'
 import { join } from 'node:path'
-import { resolveProfileFileNames, sanitizeProfileFileBase } from '@shared/config/profile-files'
-import { HAND_EDIT_SENTENCE, renderProfileFile } from '@shared/config/render'
-import { HEADER_SCAN_LINES } from '@shared/config/file-ownership'
-import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
-import { captureBaseline } from '@shared/config/profile-baseline'
+import {
+  resolveProfileFileNames,
+  sanitizeProfileFileBase,
+} from '@shared/config/profile/profile-files'
+import { HAND_EDIT_SENTENCE, renderProfileFile } from '@shared/config/render/render'
+import { HEADER_SCAN_LINES } from '@shared/config/render/file-ownership'
+import { stripCatalogDefaults } from '@shared/config/catalog/cvar-defaults'
+import { captureBaseline } from '@shared/config/profile/profile-baseline'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Logger } from '../../lib/logger'
 import { readCanonicalOwnership, writeCanonicalProfileFile } from './canonical'
@@ -58,7 +53,7 @@ const FILE_ENCODING: BufferEncoding = 'latin1'
 
 /**
  * Cap on a name recovered from a file header, matching the 120-character cap the *IPC* payload
- * schemas put on a profile name (`main/modules/config/schemas.ts`). The persisted schema caps
+ * schemas put on a profile name (`shared/modules/config-schemas.ts`). The persisted schema caps
  * nothing, and the header banner itself allows up to `BANNER_TEXT_CAP` (256) characters, so a
  * hand-edited header could otherwise seed a name no path through the UI could ever have produced.
  */
@@ -80,7 +75,7 @@ const MAX_RECOVERED_NAME_LENGTH = 120
  * ```
  *
  * ```
- * // =============================================================  <- new (D2): the `=` rule
+ * // =============================================================  <- new: the `=` rule
  * //  <profile name>                                                <- the line this reads
  * // =============================================================
  * //                              [q2l v=1 id=<uuid>]
@@ -94,13 +89,13 @@ const MAX_RECOVERED_NAME_LENGTH = 120
  */
 const HEADER_RULE = /^\/\/\s*={3,}\s*\r?$/
 
-/** A trailing `[q2l ...]` tag - the header line's own `v` marker (story 042 D2). Stripped by
+/** A trailing `[q2l ...]` tag - the header line's own `v` marker (story 042). Stripped by
  * position (it is always last on the line, appended by `fitProseAndTag`) rather than searched for,
  * so a name that merely *contains* something bracket-shaped is left alone. */
 const TRAILING_META_TAG = /\s*\[q2l[^\]]*\]\s*$/
 
 // How far into the file the header block can possibly reach is `HEADER_SCAN_LINES`, imported above
-// from `@shared/config/file-ownership` - the same bound that module uses to scan for an ownership
+// from `@shared/config/render/file-ownership` - the same bound that module uses to scan for an ownership
 // stamp, so the two never diverge over how much of a hand-edited file's head counts as "header".
 
 /**
@@ -113,7 +108,7 @@ const TRAILING_META_TAG = /\s*\[q2l[^\]]*\]\s*$/
  * as the user typed it, modulo `sanitizeComment`/`neutralizeProse`, and - now that the file is the
  * source of truth - a user who renames the profile *in the header* means it.
  *
- * Story 051 D4: this reads both header shapes with the *same* logic, because the new (banner) shape
+ * Story 051: this reads both header shapes with the *same* logic, because the new (banner) shape
  * is a strict subset of what this already handled. Legacy shape is `sentinel / rule / name+tag /
  * HAND_EDIT_SENTENCE / rule` - the first `=` rule is on line 2, and the line after it carries an
  * inline `[q2l ...]` tag that `TRAILING_META_TAG` strips. New shape is `rule / name / rule / tag` -
@@ -139,7 +134,7 @@ export function recoverProfileName(content: string): string | null {
 }
 
 /**
- * A bare `unbindall` command line (story 040 D4's opening line), never one inside a comment
+ * A bare `unbindall` command line (story 040's opening line), never one inside a comment
  * (`// unbindall` starts with `/`) or an alias body (`alias x "unbindall"` starts with `alias`).
  * `\r` is tolerated so a CRLF file reads the same as an LF one.
  */
@@ -150,7 +145,7 @@ const UNBINDALL_LINE = /^[ \t]*unbindall[ \t]*(\/\/.*)?\r?$/m
  * render of this profile to reproduce the file it was rebuilt from.
  *
  * Read from the file rather than defaulted, because the persisted default is `true`
- * (`main/lib/schemas.ts`) and defaulting would silently flip the setting *on* for a user who turned
+ * (`main/modules/config/persisted.ts`) and defaulting would silently flip the setting *on* for a user who turned
  * it off - the next save would then add a line to their file that they had deliberately removed.
  */
 export function detectWriteUnbindall(content: string): boolean {
@@ -237,7 +232,7 @@ export interface RebuiltProfileInput {
  * fields, same "no assignments" starting point) so a rebuilt profile is indistinguishable from an
  * ordinary one downstream - only the id and the timestamps come from a different place.
  *
- * What is knowingly **not** recovered, because the file has nowhere to carry it, and what AC2 means
+ * What is knowingly **not** recovered, because the file has nowhere to carry it, and what the rebuild promise means
  * by "its assignments/played-mods absence is the only loss":
  *
  * - `assignments` - a profile's link to installations is launcher bookkeeping, never file content.
@@ -246,11 +241,11 @@ export interface RebuiltProfileInput {
  *   the file (nothing deleted them), and the file is now the source of truth, so an empty list here
  *   costs a Care tidy-up suggestion, not data.
  *
- * Story 048 D3: `cvars` goes through `stripCatalogDefaults` for the same reason
+ * Story 048: `cvars` goes through `stripCatalogDefaults` for the same reason
  * `profiles.ts#adoptFromFile` does - see that method's own doc comment. A rebuild reads a file the
  * launcher itself wrote (nothing failing both `readOwnershipStamp`/`isLauncherOwnedFile` ownership
  * shapes - legacy sentinel or story 051's banner tag - is ever a candidate, see
- * `rebuildMissingProfileRecords`), and since D2 such a file states every catalogue cvar
+ * `rebuildMissingProfileRecords`), and now such a file states every catalogue cvar
  * explicitly; adopting all ~30 verbatim would record "the user chose this" for every default the
  * writer merely restated. A cvar the catalogue does not know is kept exactly as the file had it, so
  * nothing the file carries beyond the catalogue is lost. The foreign-import path
@@ -274,7 +269,7 @@ export function buildRebuiltProfile(input: RebuiltProfileInput): ConfigProfile {
     unrecognized: [],
     actions: parsed.actions,
     categories: parsed.categories,
-    // Story 059 D3: carried through exactly like `categories` above - the file's own `cvs=`/`cvsub=`
+    // Story 059: carried through exactly like `categories` above - the file's own `cvs=`/`cvsub=`
     // banners are the record of the profile's Settings-tab grouping, and a rebuild has no other
     // source for it. Empty for a file that states none (a pre-059 file with no group banners at
     // all), which is the same "no sections yet" state a `from: 'empty'` profile starts in.
@@ -287,7 +282,7 @@ export function buildRebuiltProfile(input: RebuiltProfileInput): ConfigProfile {
     ...(style === undefined ? {} : { sectionHeaderStyle: style }),
     fileHash: input.fileHash,
     fileSeenAt: input.now,
-    // Story 049 D1 seeds the `baseline` that belongs next to this hash one step later, in
+    // Story 049 seeds the `baseline` that belongs next to this hash one step later, in
     // `ProfilesStore.addRebuilt` - see `ProfilesStore.seedBaseline` for why it has to be taken after
     // the adoption pass, which this pure builder does not (and must not) run.
     dirty: false,
@@ -306,7 +301,9 @@ export function buildRebuiltProfile(input: RebuiltProfileInput): ConfigProfile {
  */
 function fallbackProfileName(fileName: string, id: string): string {
   const base = fileName.replace(/\.cfg$/i, '').trim()
-  return base.length > 0 ? base.slice(0, MAX_RECOVERED_NAME_LENGTH) : sanitizeProfileFileBase('', id)
+  return base.length > 0
+    ? base.slice(0, MAX_RECOVERED_NAME_LENGTH)
+    : sanitizeProfileFileBase('', id)
 }
 
 // ---------------------------------------------------------------------------
@@ -322,7 +319,7 @@ export interface FileSourceStartupDeps {
   replaceProfile: (profile: ConfigProfile) => void
   /** `ProfilesStore.addRebuilt` - the commit path for a record being restored from its file. */
   addProfile: (profile: ConfigProfile) => void
-  /** `StateStore.configFileSourceMigratedAt` - AC8's one-time guard. */
+  /** `StateStore.configFileSourceMigratedAt` - the one-time migration guard. */
   migratedAt: () => string | null
   /** `StateStore.setConfigFileSourceMigratedAt` - write-once by contract. */
   setMigratedAt: (at: string) => void
@@ -346,7 +343,7 @@ export interface FileSourceStartupReport {
 }
 
 /**
- * AC8's one-time migration: bring every *existing* profile's canonical file up to the current
+ * The one-time migration: bring every *existing* profile's canonical file up to the current
  * 040/042 format from the cached profile data, and seed that profile's `fileHash` from what was
  * written.
  *
@@ -388,7 +385,7 @@ async function migrateCanonicalFiles(
         dirty: false,
         fileState: 'unchanged',
       }
-      // Story 049 D1: the file now holds this record's render, so this record IS the baseline
+      // Story 049: the file now holds this record's render, so this record IS the baseline
       // "unsaved" is measured against from here on - seeded wherever `fileHash` is. Captured from
       // `migrated` rather than routed through `ProfilesStore.seedBaseline`, because the commit path
       // this step uses (`replaceProfile`) is shared with `tidyUp.apply`, which is an *edit* and must
@@ -414,13 +411,13 @@ async function migrateCanonicalFiles(
 }
 
 /**
- * AC2's rebuild: a record for every launcher-owned canonical file `state.json` has no record for,
+ * The rebuild: a record for every launcher-owned canonical file `state.json` has no record for,
  * **keeping the id the file's sentinel carries**.
  *
  * Ownership is `readCanonicalOwnership`'s answer and nothing else, which is what keeps a foreign
  * file out: a `.cfg` recognised by neither ownership shape - the legacy sentinel line nor story
  * 051's banner-tag `id` field, both read via `readOwnershipStamp`/`isLauncherOwnedFile`
- * (`@shared/config/file-ownership`) - a hand-written config, or another tool's file with its own
+ * (`@shared/config/render/file-ownership`) - a hand-written config, or another tool's file with its own
  * marker, has no owner in that map and is therefore never a candidate here. That map is keyed by
  * profile id, so two files claiming the same id yield
  * at most one rebuild, and a record that already exists is skipped before anything is read, so this
@@ -431,7 +428,7 @@ async function migrateCanonicalFiles(
  * table.
  *
  * "Corrupt record" needs no separate detection here. `parseConfigProfile`
- * (`main/lib/schemas.ts`) already drops an unparseable profile row on its own during load, so a
+ * (`main/modules/config/persisted.ts`) already drops an unparseable profile row on its own during load, so a
  * corrupt record *is* a missing record by the time this runs - which is exactly the case this
  * handles.
  */
@@ -460,7 +457,7 @@ async function rebuildMissingProfileRecords(
       continue
     }
 
-    // Story-050 review, finding 3 (third round): the same `entry-alias-duplicate` reports that
+    // The same `entry-alias-duplicate` reports that
     // become `RefreshedProfileResult.droppedAliases` on the reload path (its own warning toast)
     // reach this startup path too, and the rebuilt record cannot carry them - there is no renderer
     // yet, and `ConfigProfile` has no field for a read warning. So they go to the log, which is
@@ -480,7 +477,7 @@ async function rebuildMissingProfileRecords(
     }
 
     const path = join(deps.baseDir, fileName)
-    // A second, best-effort read: the D2 seam (`readFileState`) hands back parsed profile *parts*,
+    // A second, best-effort read: the `readFileState` seam hands back parsed profile *parts*,
     // not the raw text the header/format recovery above needs, and widening that seam for this one
     // caller is not worth it. A failure here degrades to the documented per-field fallbacks rather
     // than costing the rebuild.
@@ -514,7 +511,7 @@ async function rebuildMissingProfileRecords(
 }
 
 /**
- * The config module's startup hook for story 043: AC8's one-time migration first, then the rebuild
+ * The config module's startup hook for story 043: the one-time migration first, then the rebuild
  * (see this file's own doc comment for why that order is fixed and not an implementation detail).
  *
  * Never throws for a per-profile or per-file problem - each is logged and reported - so a single bad

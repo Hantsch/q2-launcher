@@ -5,7 +5,7 @@ model: opus
 effort: high
 ---
 
-<!-- ai-scrum:managed 4.4.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.5.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Refine the story with ID **$1**.
@@ -62,8 +62,12 @@ into memory. Everything has to be reviewable in the repository.
      The user should grasp it in one or two minutes. No essay.
    - **`## Deliverables`** — cut into small, individually acceptable pieces (scrum-like,
      not everything specified from A to Z). Each `D1/D2/...` is the smallest useful result
-     with its own acceptance, and **names the files it touches** — plus the file to mirror,
-     where it follows an existing pattern. `/build` hands that list to the
+     with its own acceptance, and **names the files it touches** — plus the file to mirror or
+     the helper to reuse. **Count before you name a mirror:** if the shape already exists
+     twice, the D first extracts the shared helper (name its target path) and then uses it; a
+     third copy is a refine error, not an implementation choice. Measured where "mirror X" was
+     the only instruction: one hook copied 36 times, and three copies of a path-containment
+     check that disagreed on the trailing separator. `/build` hands that list to the
      implementing agent, which starts there instead of surveying the repo — and hands it
      **only this D's text plus its test lines**, with the instruction not to open the story
      file. So a D is complete on its own: everything the implementer needs stands in the D,
@@ -74,7 +78,13 @@ into memory. Everything has to be reviewable in the repository.
      **Size cap (cost lever #2):** a D that touches more than ~8 files, or spans more than
      one layer (core + IPC + renderer), is cut too coarsely — split it. Agent cost grows with
      turn count and turn count grows with the size of the D: two agents at 30 turns cost less
-     than one at 65, and each returns a separately reviewable result.
+     than one at 65, and each returns a separately reviewable result. A D that says "mirror X"
+     for a shape X itself mirrors is cut wrong too.
+
+     **Systems docs:** a story that changes a system with a doc under `systems-path` has a D
+     that updates that doc — its own, or the D that changes the behaviour. `/build`'s review
+     checks it. Only the story updates the doc: `/roadmap check` merely reports one gone
+     stale, it never edits it.
    - **`## Model Hints`** — here you fix the **agent tier** per deliverable that
      `/build` will use. There are exactly two tiers:
      - **Default (leave unmarked):** the session/Sonnet tier with `/build`'s effort (`medium`).

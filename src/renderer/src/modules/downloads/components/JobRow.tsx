@@ -7,7 +7,7 @@ import { ProgressBar } from '../../../components/ui/ProgressBar'
 import { Badge, Panel } from '../../../components/ui/primitives'
 
 /**
- * Story 073 D3 (AC1): one row in the Downloads tab's live job list.
+ * Story 073: one row in the Downloads tab's live job list.
  *
  * A `queued` job has no meaningful progress figures yet (nothing has started moving), so it
  * renders only its label and status badge - the bytes/speed/ETA line and the progress bar are
@@ -57,7 +57,7 @@ export function JobRow({ job, fading = false, onCancel }: JobRowProps) {
         )}
       </div>
 
-      {/* Story 091 D3 (AC2): the reason travels as an i18n key on the job (mirrors
+      {/* Story 091: the reason travels as an i18n key on the job (mirrors
           `RunningStep.tsx`'s `job.error` rendering) so the row names *why* the job is waiting
           rather than leaving the generic `jobs.status.waiting` badge as the only signal. */}
       {waiting && job.waitingReason && (

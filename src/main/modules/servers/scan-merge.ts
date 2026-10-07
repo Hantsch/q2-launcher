@@ -1,7 +1,12 @@
-import { RTT_HISTORY_LIMIT, type RttSample, type ScanTarget, type ServerListEntry } from '@shared/modules/servers'
+import {
+  RTT_HISTORY_LIMIT,
+  type RttSample,
+  type ScanTarget,
+  type ServerListEntry,
+} from '@shared/modules/servers'
 
 /**
- * Story 124 D1: appends one `RttSample` to a server's session history, capped at
+ * Story 124: appends one `RttSample` to a server's session history, capped at
  * `RTT_HISTORY_LIMIT` (oldest dropped first). Pure - returns a new array, never mutates `history`.
  */
 export function appendRttSample(history: RttSample[] | undefined, sample: RttSample): RttSample[] {
@@ -10,7 +15,7 @@ export function appendRttSample(history: RttSample[] | undefined, sample: RttSam
 }
 
 /**
- * Story 116 D4: the end-of-round stale-flip, extracted from `scan-service.ts`'s `runSweep` (story
+ * Story 116: the end-of-round stale-flip, extracted from `scan-service.ts`'s `runSweep` (story
  * 114 D-K) into its own pure, unit-testable function. Every target this round's address set named
  * but that never produced a successful reply keeps its previous entry (if it has one at all) with
  * `status` flipped to `'stale'` - never replaced by a fresh/zeroed entry, never removed. A target
@@ -26,7 +31,7 @@ export function appendRttSample(history: RttSample[] | undefined, sample: RttSam
  * the result back into its own closure-held `entries` Map, since that Map is also mutated directly
  * elsewhere (the `onServer` callback) during the same sweep.
  *
- * Story S25 D2: a target with no previous entry and no reply this round used to always get no row -
+ * Story S25: a target with no previous entry and no reply this round used to always get no row -
  * that is still true for a source-only target, but a favourite/manual target now gets a field-less
  * stale placeholder instead (`{ address, origins, status: 'stale', lastSeenAt: null }`). Both a
  * favourite and a manual server can go silent from their very first scan (e.g. added while the
@@ -47,7 +52,7 @@ export function mergeStaleRound(
     if (answeredOnline.has(target.address)) continue
     const existing = next.get(target.address)
     if (existing !== undefined) {
-      // Story 124 D1: a stale flip is itself a "round with no answer" - recorded in the history the
+      // Story 124: a stale flip is itself a "round with no answer" - recorded in the history the
       // same way a successful reply records its measured value, just with `rttMs: null`. Only for a
       // target that already has an entry - a fabricated field-less placeholder (below) never gets one.
       next.set(target.address, {

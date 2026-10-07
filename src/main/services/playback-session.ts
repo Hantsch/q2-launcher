@@ -1,10 +1,11 @@
 import type { Readable, Writable } from 'node:stream'
+import { createListenerSet } from '../lib/listeners'
 import { scopedLogger } from '../lib/logger'
 
 const log = scopedLogger('playback')
 
 /**
- * Story 163 D1: the launcher's line to a game it started for demo playback - the child's stdin to
+ * Story 163: the launcher's line to a game it started for demo playback - the child's stdin to
  * send console commands down, and its stdout to hear what the engine prints. Main-only; it never
  * crosses IPC as an object.
  */
@@ -46,21 +47,14 @@ export function openPlaybackSession(
   stdin: Writable | null,
   stdout: Readable | null,
 ): PlaybackSessionHandle {
-  const stdoutListeners = new Set<(chunk: Buffer) => void>()
-  const endListeners = new Set<() => void>()
+  const stdoutListeners = createListenerSet<Buffer>(log, `a playback stdout for ${installationId}`)
+  const endListeners = createListenerSet(log, `a playback onEnd for ${installationId}`)
   let ended = false
   let stdinBroken = false
 
   const onData = (chunk: Buffer | string): void => {
     if (stdoutListeners.size === 0) return
-    const buffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk
-    for (const listener of [...stdoutListeners]) {
-      try {
-        listener(buffer)
-      } catch (error) {
-        log.error(`a playback stdout listener for ${installationId} threw`, error)
-      }
-    }
+    stdoutListeners.emit(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
   }
 
   stdout?.on('data', onData)
@@ -93,20 +87,14 @@ export function openPlaybackSession(
     },
     onStdout(listener) {
       if (ended) return () => {}
-      stdoutListeners.add(listener)
-      return () => {
-        stdoutListeners.delete(listener)
-      }
+      return stdoutListeners.add(listener)
     },
     onEnd(listener) {
       if (ended) {
         listener()
         return () => {}
       }
-      endListeners.add(listener)
-      return () => {
-        endListeners.delete(listener)
-      }
+      return endListeners.add(listener)
     },
   }
 
@@ -117,15 +105,8 @@ export function openPlaybackSession(
     stdout?.destroy()
     if (stdin && !stdinBroken && !stdin.destroyed && !stdin.writableEnded) stdin.end()
     stdoutListeners.clear()
-    const listeners = [...endListeners]
+    endListeners.emit()
     endListeners.clear()
-    for (const listener of listeners) {
-      try {
-        listener()
-      } catch (error) {
-        log.error(`a playback onEnd listener for ${installationId} threw`, error)
-      }
-    }
   }
 
   return { session, end }

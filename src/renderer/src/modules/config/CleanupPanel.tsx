@@ -9,7 +9,7 @@ import type {
 import type { Outcome } from '@shared/types'
 import { Button } from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Badge, EmptyState, Spinner } from '../../components/ui/primitives'
 import { formatBytes } from '../../lib/format'
 import { applyCleanup, restoreCleanup, scanCleanupFindings } from './client'
@@ -20,23 +20,23 @@ function findingKey(entry: { gameDir: string; fileName: string }): string {
 }
 
 /**
- * Story 010 D4: scans an installation for mod-folder `.cfg` files that
+ * Story 010: scans an installation for mod-folder `.cfg` files that
  * duplicate a same-named `baseq2` file, and lets the user review, remove and
  * (per decision 6) undo that removal.
  *
- * Story 025 D7 moved it off the config module's list screen into the Care tab
+ * Story 025 moved it off the config module's list screen into the Care tab
  * with an installation picker and a "scan any installation" scope control;
- * story 058 D6 takes both away again. The panel is now mounted by
+ * story 058 takes both away again. The panel is now mounted by
  * `CleanupConfigCopiesDialog` from an installation row in Library, and the row
  * *is* the scope - there is one `installationId`, handed in as a prop, and
  * every scan, apply and restore call below uses it. Its `onStatusChange`
  * callback is gone with it: a manual scan is not a status, so Care no longer
- * reports on one (AC 2).
+ * reports on one.
  *
  * Nothing here is persisted (story 010 decision 14): the scan, the selection
  * and the last apply/restore result all live in this component's own state and
  * are lost on a re-scan or on closing the dialog - the on-disk backup that
- * makes undo possible is D2's job, already done in main.
+ * makes undo possible is the job, already done in main.
  *
  * Read-only until "Remove selected" is confirmed, mirroring
  * `ImportProfileDialog`'s discipline: `cleanup.scan` never writes anything, so
@@ -161,7 +161,7 @@ export function CleanupPanel({ installationId }: { installationId: string }) {
           disabled={!installationId || scanning}
           onClick={() => void handleScan()}
         >
-          {scanning ? t('config.cleanup.scanning') : t('config.cleanup.scan')}
+          {scanning ? t('common.action.scanning') : t('config.cleanup.scan')}
         </Button>
 
         {scanning && (
@@ -263,42 +263,28 @@ export function CleanupPanel({ installationId }: { installationId: string }) {
       </div>
 
       {confirmOpen && (
-        <Modal
-          open
-          size="sm"
+        <ConfirmDialog
           title={t('config.cleanup.confirmDialog.title')}
+          confirmLabel={t('common.action.remove')}
+          tone="danger"
+          // While the apply is in flight this dialog is the only place holding the removed-entries
+          // list `handleUndo` needs, so `busy` also blocks dismissing it.
+          busy={applying}
           onClose={() => setConfirmOpen(false)}
-          closeLabel={t('common.close')}
-          // Story 058 review fix: while the apply is in flight, this dialog is the only place
-          // holding the removed-entries list `handleUndo` needs - an Escape/backdrop/close here
-          // must not unmount it and silently lose the "Undo removal" entry point.
-          preventClose={applying}
-          footer={
-            <>
-              <Button variant="ghost" disabled={applying} onClick={() => setConfirmOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="danger"
-                disabled={applying}
-                onClick={() => void handleConfirmRemove()}
-              >
-                {t('config.cleanup.confirmDialog.confirm')}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-2">
-            <p className="text-sm leading-relaxed text-ink-dim">
-              {t('config.cleanup.confirmDialog.body', { count: selectedFindings.length })}
-            </p>
-            {applyResult && !applyResult.ok && (
-              <p className="text-xs text-danger">
-                {t(applyResult.error.key, applyResult.error.params)}
+          onConfirm={() => void handleConfirmRemove()}
+          body={
+            <div className="space-y-2">
+              <p className="text-sm leading-relaxed text-ink-dim">
+                {t('config.cleanup.confirmDialog.body', { count: selectedFindings.length })}
               </p>
-            )}
-          </div>
-        </Modal>
+              {applyResult && !applyResult.ok && (
+                <p className="text-xs text-danger">
+                  {t(applyResult.error.key, applyResult.error.params)}
+                </p>
+              )}
+            </div>
+          }
+        />
       )}
     </>
   )

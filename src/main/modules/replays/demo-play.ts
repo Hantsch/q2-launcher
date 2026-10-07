@@ -1,10 +1,17 @@
 import { realpath } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { DemoFormat, DiscoveredDemo, ReplaysDemoPlayResult, ReplaysStageRect, ReplaysStageResult } from '@shared/modules/replays'
+import type {
+  DemoFormat,
+  DiscoveredDemo,
+  ReplaysDemoPlayResult,
+  ReplaysStageRect,
+  ReplaysStageResult,
+} from '@shared/modules/replays'
 import { DEMO_BASE_GAME_DIR, demoPlayEligibility } from '@shared/replays/demo-play'
 import {
   fail,
   ok,
+  refuse,
   type Installation,
   type LaunchInput,
   type LaunchPhase,
@@ -13,20 +20,38 @@ import {
 } from '@shared/types'
 import { isFile, listDir, pathKey } from '../../lib/fs-utils'
 import { removeStagedCopy, stageDemo, stagedFileName } from './demo-staging'
-import { effectiveWriteDirs, type DiscoverableInstallation, type DiscoverContext } from './discovery'
+import {
+  effectiveWriteDirs,
+  type DiscoverableInstallation,
+  type DiscoverContext,
+} from './discovery'
 import type { PlaybackSession } from '../../services/playback-session'
-import type { PlaybackControl } from './playback-control'
+import { DEFAULT_VOLUME_PERCENT, type PlaybackControl } from './playback-control'
 import { MOUSE_SESSION_CVARS, NOTIFY_SESSION_CVARS } from './playback-channel/protocol'
-import { STAGE_CVAR_NAMES, sessionConfigPath, type CvarRestore } from './session-cvar-restore'
+import {
+  STAGE_CVAR_NAMES,
+  readArchivedCvar,
+  sessionConfigPath,
+  type CvarRestore,
+} from './session-cvar-restore'
 import { normalWindowArgs, stageLaunchArgs, type StageAvailability } from './stage'
 import type { EngineIo } from './playback-channel/types'
 import type { PlaybackSessions } from './playback-sessions'
 
-/** Every cvar a launch may override with `+set` and whose archived line is put back after the session. */
-export const SESSION_RESTORE_CVARS = [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVARS, ...MOUSE_SESSION_CVARS] as const
+/**
+ * Every cvar a launch may override with `+set` and whose archived line is put back after the session.
+ * `s_volume` is set on every channel play, so a level changed live can never be archived into the
+ * installation's own config (story 237).
+ */
+export const SESSION_RESTORE_CVARS = [
+  ...STAGE_CVAR_NAMES,
+  ...NOTIFY_SESSION_CVARS,
+  ...MOUSE_SESSION_CVARS,
+  's_volume',
+] as const
 
 /**
- * Story 159 D2: `demo.play` - the one path where a renderer-sent demo id becomes a spawned process.
+ * Story 159: `demo.play` - the one path where a renderer-sent demo id becomes a spawned process.
  * Same resolve-then-act shape as `file-actions.ts`, with every decision re-made on main's own data:
  *
  * 1. the id is looked up in main's index (row + resolved file) - never a renderer-supplied path;
@@ -37,7 +62,7 @@ export const SESSION_RESTORE_CVARS = [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVA
  *    check, never a string prefix, so a sibling root such as `Quake2-other` is refused;
  * 4. only then is the launch started, and a playback session tracked until the game exits.
  *
- * Story 160 D2: a demo that is NOT in place (another installation's, an extra folder's, a zip entry,
+ * Story 160: a demo that is NOT in place (another installation's, an extra folder's, a zip entry,
  * or a file whose realpath is outside the demos folder) is no longer refused. It gets a temporary
  * copy in `<gamedir>/demos/_launcher/` (`demo-staging.ts`), the game plays that copy, and the copy
  * is removed when exactly that installation's game exits or fails, or when the launch never starts.
@@ -47,7 +72,7 @@ export const SESSION_RESTORE_CVARS = [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVA
 const NOT_FOUND = 'replays.play.error.notFound'
 const FILE_MISSING = 'replays.play.error.fileMissing'
 /** The payload named an installation other than the active Q2PRO one: the same "not the Q2PRO to play in" reason. */
-const WRONG_INSTALLATION = 'replays.play.unavailable.notQ2pro'
+export const WRONG_INSTALLATION = 'replays.play.unavailable.notQ2pro'
 const UNSAFE_NAME = 'replays.play.unavailable.unsafeName'
 
 /** Same rule as the eligibility check's file-name guard: what the game console can take. */
@@ -72,7 +97,8 @@ export function launcherSweepDirs(
   const dirs = new Map<string, string>()
   for (const installation of installations) {
     for (const gameDir of new Set([DEMO_BASE_GAME_DIR, ...installation.gameDirs])) {
-      for (const dir of stagingDemosDirs(installation, gameDir, context)) dirs.set(pathKey(dir), dir)
+      for (const dir of stagingDemosDirs(installation, gameDir, context))
+        dirs.set(pathKey(dir), dir)
     }
   }
   return [...dirs.values()]
@@ -81,8 +107,11 @@ export function launcherSweepDirs(
 /** The slice of `LaunchService` this handler needs - a fake stands in for it in tests. */
 export interface DemoPlayLaunch {
   isRunning(): boolean
-  start(input: LaunchInput, options?: { playback?: true; demo?: true }): Promise<Outcome<LaunchState>>
-  /** Story 164 D4: the piped session of a `{ playback: true }` launch (Linux). */
+  start(
+    input: LaunchInput,
+    options?: { playback?: true; demo?: true },
+  ): Promise<Outcome<LaunchState>>
+  /** Story 164: the piped session of a `{ playback: true }` launch (Linux). */
   getPlaybackSession?(): PlaybackSession | undefined
   onStateChange(listener: (state: LaunchState) => void): () => void
 }
@@ -91,7 +120,9 @@ export interface DemoPlayDeps {
   /** Main's current index rows (`ReplaysScanService.read`). */
   readDemos: () => Promise<readonly DiscoveredDemo[]>
   /** Mirrors `ReplaysScanService.resolveFile`. */
-  resolveFile: (id: string) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
+  resolveFile: (
+    id: string,
+  ) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
   installations: () => readonly Installation[]
   activeInstallationId: () => string | null
   platform: string
@@ -104,21 +135,23 @@ export interface DemoPlayDeps {
    * play right after start can never have its fresh copy swept away under it.
    */
   stagingReady?: () => Promise<void>
-  /** Story 164 D4: the running demo's control channel; absent, a demo plays without one. */
+  /** Story 164: the running demo's control channel; absent, a demo plays without one. */
   playback?: PlaybackControl
-  /** Story 170 D2: whether this platform/session can place the game window over the launcher's stage. */
+  /** Story 170: whether this platform/session can place the game window over the launcher's stage. */
   stageAvailability: () => StageAvailability
-  /** Story 170 D2: the stage rect (CSS px) as the engine's physical `vid_geometry`; null without a window. */
+  /** Story 170: the stage rect (CSS px) as the engine's physical `vid_geometry`; null without a window. */
   toGeometry: (rect: ReplaysStageRect) => string | null
-  /** Story 170 D3: puts the stage's archived cvars back into the user's config after the session. */
+  /** Story 170: puts the stage's archived cvars back into the user's config after the session. */
   cvarRestore?: Pick<CvarRestore, 'snapshot' | 'restore'>
-  /** Story 171 D2: a session launched placed over the stage began (at `geometry`, for `rect`); the
+  /** Story 171: a session launched placed over the stage began (at `geometry`, for `rect`); the
    * returned function runs once when that session ends. Never called for an unplaced play. */
   onStageSession?: (start: { geometry: string; rect: ReplaysStageRect }) => () => void
+  /** The level (percent) the last demo session ended at; null until one changed it (story 237). */
+  demoVolume: () => number | null
 }
 
 /**
- * Story 164 D4: the Linux `EngineIo` over a playback session's pipes - lines out with a newline, stdout
+ * Story 164: the Linux `EngineIo` over a playback session's pipes - lines out with a newline, stdout
  * chunks split into lines (an unterminated tail is held until its newline arrives).
  */
 export function engineIoFromSession(session: PlaybackSession): EngineIo {
@@ -204,7 +237,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
 
   /**
    * Story 160: runs `onEnd` exactly once, when the game of `installationId` - and no other
-   * installation's - reaches `exited` or `failed` (the staged copy's removal; story 170 D3: the stage
+   * installation's - reaches `exited` or `failed` (the staged copy's removal; story 170: the stage
    * cvars' restore). A hand-off leaves no process to follow (and never happens for a demo play:
    * eligibility refuses a Steam runner); the startup sweep / pending snapshot covers it.
    */
@@ -239,6 +272,20 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     if (!deps.launch.isRunning()) stop(true)
   }
 
+  /**
+   * The level a channel session starts at: the last demo session's, else the game's own (the last
+   * archived `s_volume` of the config it runs with), else the engine default (story 237).
+   */
+  async function startVolumePercent(configPath: string | null): Promise<number> {
+    const remembered = deps.demoVolume()
+    if (remembered !== null) return remembered
+    const archived = configPath === null ? null : await readArchivedCvar(configPath, 's_volume')
+    // `parseFloat` reads a value the way the engine's `atof` does; an unreadable one is no level.
+    const value = archived === null ? Number.NaN : Number.parseFloat(archived)
+    if (!Number.isFinite(value)) return DEFAULT_VOLUME_PERCENT
+    return Math.round(Math.min(1, Math.max(0, value)) * 100)
+  }
+
   /** Starts the launch; `copyPath` (a staged copy, or null for an in-place play) is cleaned up on every end path. */
   async function launch(
     demoId: string,
@@ -250,7 +297,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
   ): Promise<Outcome<ReplaysDemoPlayResult>> {
     const pipes = deps.platform !== 'win32'
     let input = launchInput
-    // Story 170 D2: stage args sit right before `+demo`, after the channel's args; only when a rect came.
+    // Story 170: stage args sit right before `+demo`, after the channel's args; only when a rect came.
     let stageArgs: string[] = []
     let stageResult: ReplaysStageResult | null = null
     let stageGeometry: string | null = null
@@ -258,26 +305,30 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       const availability = deps.stageAvailability()
       if (!availability.available) {
         stageArgs = normalWindowArgs()
-        stageResult = { placed: false, reason: availability.reason }
+        stageResult = refuse(availability.reason.key)
       } else {
         const geometry = deps.toGeometry(stage)
         if (geometry !== null) {
           stageArgs = stageLaunchArgs(geometry)
-          stageResult = { placed: true }
+          stageResult = { ok: true }
           stageGeometry = geometry
         }
       }
     }
-    const withStage = (args: readonly string[]): string[] => {
-      if (stageArgs.length === 0) return [...args]
+    const beforeDemo = (args: readonly string[], extra: readonly string[]): string[] => {
+      if (extra.length === 0) return [...args]
       const at = args.indexOf('+demo')
-      return at < 0 ? [...stageArgs, ...args] : [...args.slice(0, at), ...stageArgs, ...args.slice(at)]
+      return at < 0 ? [...extra, ...args] : [...args.slice(0, at), ...extra, ...args.slice(at)]
     }
-    if (stageArgs.length > 0 && !deps.playback) input = { ...launchInput, extraArgs: withStage(launchInput.extraArgs ?? []) }
+    if (stageArgs.length > 0 && !deps.playback)
+      input = { ...launchInput, extraArgs: beforeDemo(launchInput.extraArgs ?? [], stageArgs) }
     if (deps.playback) {
       let prepared: Awaited<ReturnType<PlaybackControl['prepare']>>
+      let volumeArgs: string[]
       try {
-        prepared = await deps.playback.prepare(playbackInfo)
+        const volumePercent = await startVolumePercent(configPath)
+        volumeArgs = ['+set', 's_volume', String(volumePercent / 100)]
+        prepared = await deps.playback.prepare({ ...playbackInfo, volumePercent })
       } catch (error) {
         await deps.playback.cancel()
         if (copyPath !== null) await removeStagedCopy(copyPath)
@@ -285,14 +336,24 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       }
       const { argsBeforeDemo, argsAfterDemo } = prepared
       // `+demo` must precede the channel's `+exec` polling loop.
-      input = { ...launchInput, extraArgs: [...argsBeforeDemo, ...withStage(launchInput.extraArgs ?? []), ...argsAfterDemo] }
+      input = {
+        ...launchInput,
+        extraArgs: [
+          ...argsBeforeDemo,
+          ...beforeDemo(launchInput.extraArgs ?? [], [...volumeArgs, ...stageArgs]),
+          ...argsAfterDemo,
+        ],
+      }
     }
-    // Story 170 D3 / 174 D3: only a play whose final args `+set` a restore cvar has its archived cvars put
+    // Story 170 / 174: only a play whose final args `+set` a restore cvar has its archived cvars put
     // back once the game has exited (the engine writes its config on the way out). The snapshot is
     // taken - and persisted - before the process is spawned. A failed restore keeps the pending
     // snapshot on disk, so the next launcher start tries again.
     const overridesRestoreCvar = (input.extraArgs ?? []).some(
-      (arg, i, all) => i > 0 && all[i - 1] === '+set' && (SESSION_RESTORE_CVARS as readonly string[]).includes(arg),
+      (arg, i, all) =>
+        i > 0 &&
+        all[i - 1] === '+set' &&
+        (SESSION_RESTORE_CVARS as readonly string[]).includes(arg),
     )
     const cvarRestore = overridesRestoreCvar && configPath !== null ? deps.cvarRestore : undefined
     const restoring = cvarRestore !== undefined
@@ -321,9 +382,10 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       const session = pipes ? deps.launch.getPlaybackSession?.() : undefined
       void deps.playback.attach(session ? engineIoFromSession(session) : undefined)
     }
-    if (copyPath !== null) onGameEnd(input.installationId, started.value.phase, () => void removeStagedCopy(copyPath))
+    if (copyPath !== null)
+      onGameEnd(input.installationId, started.value.phase, () => void removeStagedCopy(copyPath))
     if (restoring) onGameEnd(input.installationId, started.value.phase, restoreCvars)
-    // Story 171 D2: only a placed session with a control channel is followed; ended with the session.
+    // Story 171: only a placed session with a control channel is followed; ended with the session.
     const endStage =
       stage && stageGeometry !== null && deps.playback && deps.onStageSession
         ? deps.onStageSession({ geometry: stageGeometry, rect: stage })
@@ -346,7 +408,12 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       if (inFlight) return fail('replays.play.unavailable.gameRunning')
       inFlight = true
       try {
-        return await playOnce(demoId, installationId, options?.acknowledgeModMissing === true, options?.stage)
+        return await playOnce(
+          demoId,
+          installationId,
+          options?.acknowledgeModMissing === true,
+          options?.stage,
+        )
       } finally {
         inFlight = false
       }
@@ -377,7 +444,8 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
 
       // Eligibility no longer cares where the demo is; whether it is a candidate for in-place play is
       // `inPlace`, and main still verifies containment below. Everything else is played from a copy.
-      if (!eligibility.ok) return fail(eligibility.reason.key, eligibility.reason.params)
+      if (!eligibility.ok) return fail(eligibility.reasonKey, eligibility.params)
+      const engineOverride = eligibility.engine ? { engine: eligibility.engine } : {}
       const target = {
         installationId: eligibility.installationId,
         gameDir: eligibility.gameDir,
@@ -393,16 +461,33 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         durationMs: demo.durationMs,
         format: demo.format,
       }
-      // Story 170 D3: where the engine writes its config for this game (Linux: Q2PRO's write dir).
-      const configPath = sessionConfigPath(installation, target.gameDir, playbackInfo.gameDirPath, deps.discoveryContext())
+      // Story 170: where the engine writes its config for this game (Linux: Q2PRO's write dir).
+      const configPath = sessionConfigPath(
+        installation,
+        target.gameDir,
+        playbackInfo.gameDirPath,
+        deps.discoveryContext(),
+      )
 
-      if (target.inPlaceArgs !== null && demo.source.kind === 'installation' && file.archiveEntry === null) {
-        const contained = await containment(file.absolutePath, join(installation.rootPath, demo.source.gameDir))
+      if (
+        target.inPlaceArgs !== null &&
+        demo.source.kind === 'installation' &&
+        file.archiveEntry === null
+      ) {
+        const contained = await containment(
+          file.absolutePath,
+          join(installation.rootPath, demo.source.gameDir),
+        )
         if (contained === 'missing') return fail(FILE_MISSING)
         if (contained === 'contained') {
           return launch(
             demoId,
-            { installationId: target.installationId, gameDir: target.gameDir, extraArgs: target.inPlaceArgs },
+            {
+              installationId: target.installationId,
+              gameDir: target.gameDir,
+              extraArgs: target.inPlaceArgs,
+              ...engineOverride,
+            },
             null,
             playbackInfo,
             stage,
@@ -431,6 +516,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
           installationId: target.installationId,
           gameDir: target.gameDir,
           extraArgs: ['+demo', staged.value.relativePath],
+          ...engineOverride,
         },
         staged.value.copyPath,
         playbackInfo,

@@ -1,12 +1,12 @@
 /**
- * The UDP master reply codec (story 109, D1): unpacking a master server's `query` reply — packed
+ * The UDP master reply codec (story 109): unpacking a master server's `query` reply — packed
  * 4-byte-IPv4 + 2-byte-big-endian-port records behind a fixed header — into an address set, and
  * assembling several such replies (the master answers over multiple datagrams, per concept §6.5)
  * into one deduplicated set.
  *
  * This module only decodes bytes already in hand; it does no networking itself — no `node:dgram`,
  * nothing socket-shaped. The transport seam that collects those datagrams off a live master is a
- * separate deliverable (`src/main/modules/servers/udp-master-source.ts`, D3).
+ * separate deliverable (`src/main/modules/servers/udp-master-source.ts`).
  *
  * ## Byte-level header check
  *
@@ -54,9 +54,9 @@ const RECORD_LENGTH = 6
  * Why a master or HTTP-list source's payload was rejected outright (as opposed to a single record
  * being dropped into `skipped`). This union is declared here because it is the shared type every
  * source codec in this story imports:
- * - `too-short`, `bad-header`, `truncated`, `empty-body` are produced by this module (D1) and by
- *   the HTTP list codecs (D2), which reuse the same packed-record reader.
- * - `no-reply`, `transport-error`, `http-status` are produced by the transport seams (D3/D4), not
+ * - `too-short`, `bad-header`, `truncated`, `empty-body` are produced by this module and by
+ *   the HTTP list codecs, which reuse the same packed-record reader.
+ * - `no-reply`, `transport-error`, `http-status` are produced by the transport seams, not
  *   by any pure codec in this file — they describe how the *source*, not the payload, failed.
  */
 export type MasterSourceFailure =
@@ -68,11 +68,21 @@ export type MasterSourceFailure =
   | 'transport-error'
   | 'http-status'
 
-/** Maps a source failure reason to its i18n key, `servers.source.error.<reason>`, mirroring
- * `serverAddressRejectionKey` (story 107, D3) — the matching `en.json` entries live under
- * `servers.source.error.*`. */
-export function masterSourceFailureKey(reason: MasterSourceFailure): string {
-  return `servers.source.error.${reason}`
+/** Every failure's i18n key as a visible literal; a new `MasterSourceFailure` without an entry fails the build. */
+export const MASTER_SOURCE_FAILURE_KEYS = {
+  'too-short': 'servers.source.error.too-short',
+  'bad-header': 'servers.source.error.bad-header',
+  truncated: 'servers.source.error.truncated',
+  'empty-body': 'servers.source.error.empty-body',
+  'no-reply': 'servers.source.error.no-reply',
+  'transport-error': 'servers.source.error.transport-error',
+  'http-status': 'servers.source.error.http-status',
+} as const satisfies Record<MasterSourceFailure, `servers.source.error.${string}`>
+
+export function masterSourceFailureKey(
+  reason: MasterSourceFailure,
+): (typeof MASTER_SOURCE_FAILURE_KEYS)[MasterSourceFailure] {
+  return MASTER_SOURCE_FAILURE_KEYS[reason]
 }
 
 /** A record dropped from `addresses` without failing the whole payload — currently only a `0` port

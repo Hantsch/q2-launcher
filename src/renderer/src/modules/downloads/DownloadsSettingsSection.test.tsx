@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { ArchiveCacheStatus, DownloadsSettings } from '@shared/modules/downloads'
 import { initI18n } from '../../i18n'
 import { formatBytes } from '../../lib/format'
@@ -24,24 +25,26 @@ const stubCacheStatus: ArchiveCacheStatus = {
   itemCount: 7,
 }
 
-const getDownloadsSettings = vi.fn(async () => ({ ok: true, value: stubSettings }))
-const getArchiveCacheStatus = vi.fn(async () => ({ ok: true, value: stubCacheStatus }))
+const getDownloadsSettings = vi.fn(async () => ({ ok: true as const, value: stubSettings }))
+const getArchiveCacheStatus = vi.fn(async () => ({ ok: true as const, value: stubCacheStatus }))
 const patchDownloadsSettings = vi.fn(async (patch: Partial<DownloadsSettings>) => ({
-  ok: true,
+  ok: true as const,
   value: { ...stubSettings, ...patch },
 }))
 const clearArchiveCache = vi.fn(async () => ({
-  ok: true,
+  ok: true as const,
   value: { removedBytes: 0, removedCount: 0 },
 }))
 
-vi.mock('./client', () => ({
-  getDownloadsSettings: (...args: unknown[]) => getDownloadsSettings(...(args as [])),
-  getArchiveCacheStatus: (...args: unknown[]) => getArchiveCacheStatus(...(args as [])),
-  patchDownloadsSettings: (...args: unknown[]) =>
-    patchDownloadsSettings(...(args as [Partial<DownloadsSettings>])),
-  clearArchiveCache: (...args: unknown[]) => clearArchiveCache(...(args as [])),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    getDownloadsSettings: (...args: unknown[]) => getDownloadsSettings(...(args as [])),
+    getArchiveCacheStatus: (...args: unknown[]) => getArchiveCacheStatus(...(args as [])),
+    patchDownloadsSettings: (...args: unknown[]) =>
+      patchDownloadsSettings(...(args as [Partial<DownloadsSettings>])),
+    clearArchiveCache: (...args: unknown[]) => clearArchiveCache(...(args as [])),
+  }),
+)
 
 beforeAll(async () => {
   await initI18n('en')
@@ -124,15 +127,37 @@ describe('DownloadsSettingsSection', () => {
     await waitFor(() => expect(getArchiveCacheStatus).toHaveBeenCalledTimes(2))
   })
 
-  it('refetches cache status after a settings patch (a lowered budget evicts server-side)', async () => {
+  it('concurrency and download-while-playing are disabled and show the reason', async () => {
     render(createElement(DownloadsSettingsSection))
 
     const concurrency = (await screen.findByTestId('downloads-settings-concurrency')).querySelector(
       'select',
     ) as HTMLSelectElement
+    const whilePlaying = (
+      await screen.findByTestId('downloads-settings-while-playing')
+    ).querySelector('[role="switch"]') as HTMLButtonElement
     await waitFor(() => expect(concurrency.value).toBe('3'))
 
-    fireEvent.change(concurrency, { target: { value: '2' } })
+    const reason = 'Not available yet: downloads run one at a time'
+    const concurrencyReason = screen.getByTestId('downloads-settings-concurrency-reason')
+    const whilePlayingReason = screen.getByTestId('downloads-settings-while-playing-reason')
+    expect(concurrency.disabled).toBe(true)
+    expect(whilePlaying.disabled).toBe(true)
+    expect(concurrencyReason.textContent).toBe(reason)
+    expect(whilePlayingReason.textContent).toBe(reason)
+    expect(concurrency.getAttribute('aria-describedby')).toBe(concurrencyReason.id)
+    expect(whilePlaying.getAttribute('aria-describedby')).toBe(whilePlayingReason.id)
+  })
+
+  it('refetches cache status after a settings patch (a lowered budget evicts server-side)', async () => {
+    render(createElement(DownloadsSettingsSection))
+
+    const budget = (await screen.findByTestId('downloads-settings-cache-budget')).querySelector(
+      'select',
+    ) as HTMLSelectElement
+    await waitFor(() => expect(budget.value).toBe('10'))
+
+    fireEvent.change(budget, { target: { value: '5' } })
 
     await waitFor(() => expect(patchDownloadsSettings).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(getArchiveCacheStatus).toHaveBeenCalledTimes(2))

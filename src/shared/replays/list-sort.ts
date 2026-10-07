@@ -7,15 +7,14 @@
  * electron import.
  */
 
+import { compareFavouriteFirst, compareStrings, createColumnSorter } from '../list/sort'
+import type { ColumnSpec, ListSort, SortDirection } from '../list/sort'
+
 export const DEMO_SORT_COLUMNS = ['map', 'mod', 'players', 'date', 'duration', 'rating'] as const
 
 export type DemoSortColumn = (typeof DEMO_SORT_COLUMNS)[number]
-export type DemoSortDirection = 'asc' | 'desc'
-
-export interface DemoListSort {
-  column: DemoSortColumn
-  direction: DemoSortDirection
-}
+export type DemoSortDirection = SortDirection
+export type DemoListSort = ListSort<DemoSortColumn>
 
 /** Each column's "natural" direction — the one `nextSort` picks the first time a column is
  * clicked, and reverses from on the second click. */
@@ -51,10 +50,6 @@ function isUnknownNumber(value: number | null | undefined): boolean {
   return value === null || value === undefined || !Number.isFinite(value)
 }
 
-function compareStrings(a: string, b: string): number {
-  return a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true })
-}
-
 function compareId(a: DemoSortFields, b: DemoSortFields): number {
   return compareStrings(a.id, b.id)
 }
@@ -74,11 +69,6 @@ function tieBreak(a: DemoSortFields, b: DemoSortFields): number {
   const date = compareDateDesc(a, b)
   if (date !== 0) return date
   return compareId(a, b)
-}
-
-function compareFavouriteFirst(a: DemoSortFields, b: DemoSortFields): number {
-  if (a.favourite === b.favourite) return 0
-  return a.favourite ? -1 : 1
 }
 
 /**
@@ -106,13 +96,7 @@ function isRatingUnknown(fields: DemoSortFields): boolean {
   return !fields.favourite && isUnknownNumber(fields.rating)
 }
 
-interface ColumnSpec {
-  isUnknown: (fields: DemoSortFields) => boolean
-  /** Ascending comparison among known values only (unknowns are handled separately). */
-  compareKnownAscending: (a: DemoSortFields, b: DemoSortFields) => number
-}
-
-const COLUMN_SPECS: Record<DemoSortColumn, ColumnSpec> = {
+const COLUMN_SPECS: Record<DemoSortColumn, ColumnSpec<DemoSortFields>> = {
   map: {
     isUnknown: (f) => isBlank(f.map),
     compareKnownAscending: (a, b) => compareStrings(a.map as string, b.map as string),
@@ -140,36 +124,36 @@ const COLUMN_SPECS: Record<DemoSortColumn, ColumnSpec> = {
   },
 }
 
-/**
- * A column sort never pins favourites: rows are ordered by the column value in `direction`. An
- * unknown value always sorts after every known value, in both directions — ties (including two
- * unknowns) fall back to date descending (unknown last), then id ascending.
- */
-function compareColumn(
-  a: DemoSortFields,
-  b: DemoSortFields,
-  column: DemoSortColumn,
-  direction: DemoSortDirection,
-): number {
-  const spec = COLUMN_SPECS[column]
-  const aUnknown = spec.isUnknown(a)
-  const bUnknown = spec.isUnknown(b)
+interface Entry {
+  row: unknown
+  fields: DemoSortFields
+}
 
-  if (aUnknown && bUnknown) return tieBreak(a, b)
-  if (aUnknown) return 1
-  if (bUnknown) return -1
+const SORTER = createColumnSorter<Entry, DemoSortColumn>({
+  columns: {
+    map: lift(COLUMN_SPECS.map),
+    mod: lift(COLUMN_SPECS.mod),
+    players: lift(COLUMN_SPECS.players),
+    date: lift(COLUMN_SPECS.date),
+    duration: lift(COLUMN_SPECS.duration),
+    rating: lift(COLUMN_SPECS.rating),
+  },
+  natural: NATURAL_DIRECTION,
+  defaultCompare: (a, b) => compareDefault(a.fields, b.fields),
+  tieBreak: (a, b) => tieBreak(a.fields, b.fields),
+  pinFavourites: false,
+})
 
-  const ascending = spec.compareKnownAscending(a, b)
-  const directed = direction === 'asc' ? ascending : -ascending
-  if (directed !== 0) return directed
-
-  return tieBreak(a, b)
+function lift(spec: ColumnSpec<DemoSortFields>): ColumnSpec<Entry> {
+  return {
+    isUnknown: (e) => spec.isUnknown(e.fields),
+    compareKnownAscending: (a, b) => spec.compareKnownAscending(a.fields, b.fields),
+  }
 }
 
 /**
  * Sorts a copy of `rows` — never mutates the input. `sort === null` means the default order
- * (favourites first, then date descending, then id); otherwise sorts by that column/direction
- * with no favourite pinning.
+ * (favourites first, then date descending, then id); a column sort never pins favourites.
  */
 export function sortDemoRows<T>(
   rows: readonly T[],
@@ -177,26 +161,8 @@ export function sortDemoRows<T>(
   fields: (row: T) => DemoSortFields,
 ): T[] {
   const entries = rows.map((row) => ({ row, fields: fields(row) }))
-  if (sort === null) {
-    entries.sort((a, b) => compareDefault(a.fields, b.fields))
-  } else {
-    const { column, direction } = sort
-    entries.sort((a, b) => compareColumn(a.fields, b.fields, column, direction))
-  }
-  return entries.map((entry) => entry.row)
+  return SORTER.sortRows(entries, sort).map((entry) => entry.row as T)
 }
 
-/**
- * Cycles a column header's sort state: clicking a different column (or from no sort at all) picks
- * that column at its natural direction; clicking the same column again reverses it; clicking it a
- * third time returns to the default order (`null`).
- */
-export function nextSort(current: DemoListSort | null, column: DemoSortColumn): DemoListSort | null {
-  if (current === null || current.column !== column) {
-    return { column, direction: NATURAL_DIRECTION[column] }
-  }
-  if (current.direction === NATURAL_DIRECTION[column]) {
-    return { column, direction: current.direction === 'asc' ? 'desc' : 'asc' }
-  }
-  return null
-}
+/** Cycles a header's sort state; the third click returns to the default order (`null`). */
+export const nextSort = SORTER.nextSort

@@ -1,13 +1,16 @@
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { resolveEffectiveValues, type ResolveEffectiveValuesInputs } from '@shared/demos/effective-values'
+import { resolveEffectiveValues } from '@shared/demos/effective-values'
 import type { DiscoveredDemo } from '@shared/modules/replays'
 import { validateDemoRename } from '@shared/replays/demo-rename'
 import type { NameFacts } from '@shared/replays/name-template'
+import { headerFromRow } from '@shared/replays/row-header'
 import { sidecarFileName, type SidecarFields } from '@shared/replays/sidecar'
 import { fail, ok, type Outcome } from '@shared/types/common'
 import { pathKey } from '../../lib/fs-utils'
 import { demoIdForPath } from './discovery'
+import { relocateDemo } from './demo-relocate'
+import { errnoCode, exists } from './fs-steps'
 import type { PlaybackSessions } from './playback-sessions'
 import type { ReplaysNameMatcher, ReplaysScanService } from './scan-service'
 import type { SidecarStore } from './sidecar-store'
@@ -39,7 +42,7 @@ export interface DemoRenameFs {
 }
 
 export interface CreateDemoRenameOptions {
-  scan: Pick<ReplaysScanService, 'resolveFile' | 'read' | 'applyRename' | 'isScanning'>
+  scan: Pick<ReplaysScanService, 'resolveFile' | 'read' | 'applyRelocate' | 'isScanning'>
   sidecars: SidecarStore
   sessions: PlaybackSessions
   nameMatcher: () => ReplaysNameMatcher
@@ -56,33 +59,6 @@ const defaultFs: DemoRenameFs = {
   readFile: (path) => readFile(path),
   writeFile: (path, data) => writeFile(path, data),
   rm: (path, opts) => rm(path, opts),
-}
-
-/** Same header shape `demo-rows.ts`'s `headerFromRow` builds for `index.read` - kept in step with
- * it so "what the row shows" and "what a rename would lose" are resolved identically. */
-function headerFromRow(row: DiscoveredDemo): ResolveEffectiveValuesInputs['header'] {
-  if (!row.readable || row.gameDir === null) return null
-  return {
-    ok: true,
-    gameDir: row.gameDir,
-    map: row.map,
-    pov: row.pov,
-    players: row.players,
-  } as ResolveEffectiveValuesInputs['header']
-}
-
-async function exists(fs: DemoRenameFs, path: string): Promise<boolean> {
-  try {
-    await fs.stat(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function errnoCode(err: unknown): string | undefined {
-  const code = (err as NodeJS.ErrnoException | null)?.code
-  return typeof code === 'string' ? code : undefined
 }
 
 export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameService {
@@ -103,7 +79,7 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     if (row === undefined) return fail('replays.rename.error.unknownDemo')
 
     const validated = validateDemoRename(name, row.fileName)
-    if (!validated.ok) return fail(`replays.rename.error.${validated.reason}`, validated.params)
+    if (!validated.ok) return fail(validated.reasonKey, validated.params)
     const newFileName = validated.fileName
     if (newFileName === row.fileName) return ok({ demo: row })
 
@@ -112,13 +88,13 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     // Built from the resolved path exactly the way the sidecar store builds it, so step 1's write
     // and step 3's rename can never address two different files.
     const oldSidecarPath = `${oldPath}.json`
-    const newSidecarPath = `${newPath}.json`
 
-    // A case-only rename on a case-insensitive filesystem names the very same file and sidecar -
-    // not a collision.
+    // Before step 1, so a refused rename has written nothing; a case-only rename on a
+    // case-insensitive filesystem names the very same files and is no clash.
     if (pathKey(newPath) !== pathKey(oldPath)) {
-      if (await exists(fs, newPath)) return fail('replays.rename.error.exists', { name: newFileName })
-      if (await exists(fs, newSidecarPath)) {
+      if (await exists(fs, newPath))
+        return fail('replays.rename.error.exists', { name: newFileName })
+      if (await exists(fs, `${newPath}.json`)) {
         return fail('replays.rename.error.sidecarExists', { name: sidecarFileName(newFileName) })
       }
     }
@@ -126,7 +102,9 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     // Facts the old name supplied that the new one no longer would: carried into the sidecar so a
     // rename never silently changes what the row shows.
     const sidecarRead = await sidecars.read(id)
-    const { state, values } = sidecarRead.ok ? sidecarRead.value : { state: { state: 'none' as const }, values: {} }
+    const { state, values } = sidecarRead.ok
+      ? sidecarRead.value
+      : { state: { state: 'none' as const }, values: {} }
     const header = headerFromRow(row)
     const oldEffective = resolveEffectiveValues({
       fileName: row.fileName,
@@ -145,7 +123,10 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     })
 
     const preserved: Partial<SidecarFields> = {}
-    if (oldEffective.date.source === 'name' && oldEffective.date.value !== newEffective.date.value) {
+    if (
+      oldEffective.date.source === 'name' &&
+      oldEffective.date.value !== newEffective.date.value
+    ) {
       preserved.date = new Date(oldEffective.date.value).toISOString()
     }
     if (
@@ -157,7 +138,10 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     if (oldEffective.map.source === 'name' && oldEffective.map.value !== newEffective.map.value) {
       preserved.map = oldEffective.map.value
     }
-    if (oldEffective.gamemode.source === 'name' && oldEffective.gamemode.value !== newEffective.gamemode.value) {
+    if (
+      oldEffective.gamemode.source === 'name' &&
+      oldEffective.gamemode.value !== newEffective.gamemode.value
+    ) {
       preserved.gamemode = oldEffective.gamemode.value
     }
     const mustPreserve = Object.keys(preserved).length > 0
@@ -206,13 +190,17 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
       sidecarWritten = true
     }
 
-    // Whether a sidecar sits at the old path now - there before, or just created by step 1.
-    const hasSidecar = sidecarWritten || (await exists(fs, oldSidecarPath))
-
-    // Step 2: the demo itself.
-    try {
-      await fs.rename(oldPath, newPath)
-    } catch (err) {
+    // Steps 2 and 3: the demo, then the sidecar alongside it (one exists at the old path now if
+    // there was one before or step 1 just created it).
+    const moved = await relocateDemo(fs, oldPath, newPath)
+    if (!moved.ok) {
+      if (moved.kind === 'stuck') {
+        // The demo is stuck at its new name, the sidecar still at its old one.
+        return fail('replays.rename.error.rollbackFailed', {
+          demo: newFileName,
+          sidecar: sidecarFileName(row.fileName),
+        })
+      }
       try {
         await undoSidecarWrite()
       } catch {
@@ -221,36 +209,14 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
           sidecar: sidecarFileName(row.fileName),
         })
       }
-      return classify(err)
-    }
-
-    // Step 3: the sidecar alongside it.
-    if (hasSidecar) {
-      try {
-        await fs.rename(oldSidecarPath, newSidecarPath)
-      } catch (err) {
-        try {
-          await fs.rename(newPath, oldPath)
-        } catch {
-          // The demo is stuck at its new name, the sidecar still at its old one.
-          return fail('replays.rename.error.rollbackFailed', {
-            demo: newFileName,
-            sidecar: sidecarFileName(row.fileName),
-          })
-        }
-        try {
-          await undoSidecarWrite()
-        } catch {
-          return fail('replays.rename.error.rollbackFailed', {
-            demo: row.fileName,
-            sidecar: sidecarFileName(row.fileName),
-          })
-        }
-        return classify(err)
+      if (moved.kind === 'exists') return fail('replays.rename.error.exists', { name: newFileName })
+      if (moved.kind === 'sidecarExists') {
+        return fail('replays.rename.error.sidecarExists', { name: sidecarFileName(newFileName) })
       }
+      return classify(moved.error)
     }
 
-    const demo = await scan.applyRename(id, newPath, newFileName)
+    const demo = await scan.applyRelocate(id, newPath, row.folder)
     if (demo !== undefined) return ok({ demo })
     // A scan swapped the snapshot after the `isScanning` guard, so the index no longer has the old
     // row. The files ARE renamed on disk - nothing to undo, and "failed" would be a lie - so answer

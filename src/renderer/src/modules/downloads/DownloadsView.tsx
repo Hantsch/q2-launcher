@@ -4,9 +4,15 @@ import { Download } from 'lucide-react'
 import type { Job } from '@shared/types'
 import type { DownloadFailure } from '@shared/modules/downloads'
 import { useLauncher } from '../../store/useLauncher'
+import { useModuleMutation, useModuleQuery } from '../../lib/useModuleQuery'
 import { formatBytes } from '../../lib/format'
 import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
-import { dismissDownloadFailure, getArchiveCacheStatus, getDownloadFailures, restoreDownloadFailure } from './client'
+import {
+  dismissDownloadFailure,
+  getArchiveCacheStatus,
+  getDownloadFailures,
+  restoreDownloadFailure,
+} from './client'
 import { JobRow } from './components/JobRow'
 import { FailureLogEntry } from './components/FailureLogEntry'
 
@@ -14,19 +20,19 @@ import { FailureLogEntry } from './components/FailureLogEntry'
  * (Decisions (Sprint): "a `succeeded` job stays visible ~2 s with a token-based fade"). */
 const SUCCESS_FADE_MS = 2000
 
-// Story 091 D3: `waiting` is an active status (deferred behind the write guard, resumes on its
+// Story 091: `waiting` is an active status (deferred behind the write guard, resumes on its
 // own) - it belongs in the live list alongside `queued`/`running`/`paused`, not the failure log.
 const LIVE_STATUSES = new Set<Job['status']>(['queued', 'running', 'paused', 'waiting'])
 
 /**
- * Story 073 D3: the Downloads tab - the real view that replaces `PlannedModuleView` for the
- * `downloads` module (AC4).
+ * Story 073: the Downloads tab - the real view that replaces `PlannedModuleView` for the
+ * `downloads` module.
  *
  * Renders the store's `jobs` slice (no dedicated IPC call - main already broadcasts the full
  * list over `jobs:changed`, Decisions (Sprint)) as a live job list, plus the archive cache's
  * current size fetched once through the module client.
  *
- * Story 073 D4 adds the failure log below the live list: undismissed entries are always
+ * Story 073 adds the failure log below the live list: undismissed entries are always
  * visible, dismissed ones collapse into a `<details>` disclosure with a restore action
  * (Decisions (Sprint)). There is no push channel for the log - it is refetched on mount and on
  * every `jobs:changed` (the `jobs` dependency below), and the dismiss/restore calls apply the
@@ -36,48 +42,32 @@ export function DownloadsView() {
   const { t } = useTranslation()
   const jobs = useLauncher((state) => state.jobs)
   const cancelJob = useLauncher((state) => state.cancelJob)
-  // D6 (AC5): `appInfo` is fetched once at store bootstrap - reused here rather than a second
+  // `appInfo` is fetched once at store bootstrap - reused here rather than a second
   // fetch, mirroring `SettingsView.tsx`'s reveal-log-path pattern (`null` until it resolves).
   const appInfo = useLauncher((state) => state.appInfo)
-  const [cacheStatus, setCacheStatus] = useState<{ totalBytes: number; itemCount: number } | null>(
-    null,
-  )
+  const cacheQuery = useModuleQuery(getArchiveCacheStatus)
+  const cacheStatus = cacheQuery.data ?? null
   const [fadingIds, setFadingIds] = useState<ReadonlySet<string>>(new Set())
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set())
-  const [failures, setFailures] = useState<DownloadFailure[]>([])
 
-  useEffect(() => {
-    let cancelled = false
-    void getArchiveCacheStatus().then((result) => {
-      if (!cancelled && result.ok) setCacheStatus(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // D4: the failure log has no push channel - it is refetched on mount and whenever the `jobs`
+  // the failure log has no push channel - it is refetched on mount and whenever the `jobs`
   // store slice changes, since a failure always coincides with a `jobs:changed` broadcast
   // (Decisions (Sprint)).
-  useEffect(() => {
-    let cancelled = false
-    void getDownloadFailures().then((result) => {
-      if (!cancelled && result.ok) setFailures(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [jobs])
+  const failuresQuery = useModuleQuery(getDownloadFailures, { deps: [jobs] })
+  const failures: DownloadFailure[] = failuresQuery.data ?? []
+  const { setData: setFailures } = failuresQuery
+  const dismissMutation = useModuleMutation(dismissDownloadFailure)
+  const restoreMutation = useModuleMutation(restoreDownloadFailure)
 
   function handleDismissFailure(id: string) {
-    void dismissDownloadFailure(id).then((result) => {
-      if (result.ok) setFailures(result.value)
+    void dismissMutation.run(id).then((list) => {
+      if (list) setFailures(list)
     })
   }
 
   function handleRestoreFailure(id: string) {
-    void restoreDownloadFailure(id).then((result) => {
-      if (result.ok) setFailures(result.value)
+    void restoreMutation.run(id).then((list) => {
+      if (list) setFailures(list)
     })
   }
 
@@ -88,7 +78,7 @@ export function DownloadsView() {
   // `startedFadeIdsRef` remembers which job ids have already had their fade-out timer started,
   // independent of React state, so this effect only ever schedules ONE timer per job for the
   // job's entire fade lifecycle. Without this, the effect re-running on every `jobs` store
-  // change (e.g. another job's progress tick, `concurrentJobs` default of 2 makes this common)
+  // change (e.g. another job's progress tick)
   // would see the job's id already present in `fadingIds` and just skip it - fine - but the
   // previous implementation instead returned a cleanup that cleared the in-flight timeout on
   // every re-run and never rescheduled it, leaving the row stuck at opacity:0 forever. Tracking
@@ -141,14 +131,14 @@ export function DownloadsView() {
       <div className="mx-auto max-w-3xl space-y-4 p-6">
         <header className="space-y-1">
           <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-            {t('module.downloads.title')}
+            {t('common.label.downloads')}
           </h1>
           <p className="text-xs text-ink-muted">{t('module.downloads.description')}</p>
         </header>
 
         <Panel className="space-y-2 p-4">
           <SectionLabel>{t('downloads.cache.title')}</SectionLabel>
-          <KeyValue label={t('downloads.cache.size')}>
+          <KeyValue label={t('common.label.size')}>
             {cacheStatus
               ? t('module.downloads.settings.cacheSize.value', {
                   size: formatBytes(cacheStatus.totalBytes),

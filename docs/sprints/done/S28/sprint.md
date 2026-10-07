@@ -15,7 +15,7 @@ A demo plays in Q2PRO (copied in and cleaned up when it lives elsewhere; r1q2 fa
 
 - [x] 159 — I play a demo in Q2PRO
 - [x] 160 — a demo from elsewhere is copied in and cleaned up
-- [x] 161 — without Q2PRO a demo still plays in r1q2  (scope cut by user: no r1q2 playback for now — refine decides what remains)
+- [x] 161 — without Q2PRO a demo still plays in r1q2 (scope cut by user: no r1q2 playback for now — refine decides what remains)
 - [x] 162 — an mvd2 plays and seeks
 - [x] 163 — a playback session keeps a line to the game
 - [x] 164 — the launcher speaks to a running demo
@@ -42,13 +42,13 @@ A demo plays in Q2PRO (copied in and cleaned up when it lives elsewhere; r1q2 fa
 
 Ran on `sprint/S28` HEAD 9f0a558, then confirmed after fixes on 5647b5a.
 
-| Command | Result | Minutes |
-| --- | --- | --- |
-| `npm run build` | green | 0.1 |
-| `npm test` | green (5709 tests) | 0.4 |
-| `npm run ui:verify` | red: `config-care-clear` (both viewports) | 2.4 |
-| `npm run ui:flows` (9f0a558) | 94/100 | 35 |
-| `npm run ui:flows` (5647b5a, confirmation) | 95/100 | 35 |
+| Command                                    | Result                                    | Minutes |
+| ------------------------------------------ | ----------------------------------------- | ------- |
+| `npm run build`                            | green                                     | 0.1     |
+| `npm test`                                 | green (5709 tests)                        | 0.4     |
+| `npm run ui:verify`                        | red: `config-care-clear` (both viewports) | 2.4     |
+| `npm run ui:flows` (9f0a558)               | 94/100                                    | 35      |
+| `npm run ui:flows` (5647b5a, confirmation) | 95/100                                    | 35      |
 
 Failures and verdicts:
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLauncher } from '../../store/useLauncher'
 
 /**
- * Whether this user is currently asking for less motion (story 083 D3).
+ * Whether this user is currently asking for less motion (story 083).
  *
  * Deliberately *not* a second reduced-motion concept. `settings.motion` is the launcher's own
  * three-way setting (`system` | `reduced` | `full`) and already the single source of truth: the

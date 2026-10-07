@@ -1,5 +1,5 @@
 /**
- * Pure decision helpers for the join flow (story 125 D4): whether a server's mod differs from the
+ * Pure decision helpers for the join flow (story 125): whether a server's mod differs from the
  * active installation's, and whether the server needs a password before it can be joined. No React,
  * no IPC - `JoinServerButton.tsx` is the only caller, kept separate so the decisions are unit
  * testable without mounting anything.

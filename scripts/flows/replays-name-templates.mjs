@@ -23,9 +23,8 @@
 // list resolves to just the four shipped patterns, in `SHIPPED_NAME_PATTERNS`' own order) and undoes
 // every edit it makes before it returns, so a second run without `npm run ui:seed` still finds the
 // same starting point AC1's own assertion checks.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -56,8 +55,11 @@ async function waitForRowCount(page, count) {
   await page.waitForFunction(
     (expected) =>
       Array.from(
-        document.querySelectorAll('[data-testid="replays-name-templates"] [data-testid^="replays-name-template-"]'),
-      ).filter((el) => /^replays-name-template-\d+$/.test(el.getAttribute('data-testid'))).length === expected,
+        document.querySelectorAll(
+          '[data-testid="replays-name-templates"] [data-testid^="replays-name-template-"]',
+        ),
+      ).filter((el) => /^replays-name-template-\d+$/.test(el.getAttribute('data-testid')))
+        .length === expected,
     count,
     { timeout: TIMEOUT_MS },
   )
@@ -83,10 +85,6 @@ async function keyboardReorder(page, grip, arrowKey, steps) {
   }
   await grip.press('Space')
   await page.waitForTimeout(300)
-}
-
-function readStateJson(userDataDir) {
-  return JSON.parse(readFileSync(join(userDataDir, 'state.json'), 'utf8'))
 }
 
 async function openReplaysSettings(page) {
@@ -135,7 +133,10 @@ export default async function replaysNameTemplates({ page, shot, step, variant }
   await keyboardReorder(page, gripFor(page, newIndex), 'ArrowUp', newIndex)
   const firstRow = rowLocator(page, 0)
   await page.waitForFunction(
-    (expected) => document.querySelector('[data-testid="replays-name-template-0"]')?.innerText.includes(expected),
+    (expected) =>
+      document
+        .querySelector('[data-testid="replays-name-template-0"]')
+        ?.innerText.includes(expected),
     NEW_TEMPLATE,
     { timeout: TIMEOUT_MS },
   )
@@ -145,15 +146,16 @@ export default async function replaysNameTemplates({ page, shot, step, variant }
 
   step('editing it changes its text')
   const editedTemplate = '{date}_{map}_{p1}'
-  await rowLocator(page, 0)
-    .getByRole('button', { name: 'Edit' })
-    .click({ timeout: TIMEOUT_MS })
+  await rowLocator(page, 0).getByRole('button', { name: 'Edit' }).click({ timeout: TIMEOUT_MS })
   const editInput = page.getByTestId('replays-name-template-edit-input-0')
   await editInput.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await editInput.fill(editedTemplate, { timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Save' }).click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
-    (expected) => document.querySelector('[data-testid="replays-name-template-0"]')?.innerText.includes(expected),
+    (expected) =>
+      document
+        .querySelector('[data-testid="replays-name-template-0"]')
+        ?.innerText.includes(expected),
     editedTemplate,
     { timeout: TIMEOUT_MS },
   )
@@ -171,22 +173,35 @@ export default async function replaysNameTemplates({ page, shot, step, variant }
   await shot('replays-name-templates-edited')
 
   step('the persisted state matches the edited order, the override and the tombstone')
-  const onDisk = readStateJson(userDataDir)
+  const onDisk = await waitForStateJson(
+    userDataDir,
+    (doc) => (doc.replays?.nameTemplates?.removedShippedIds?.length ?? 0) === 1,
+    'the edit and the tombstone in state.json',
+  )
   const nameTemplates = onDisk.replays?.nameTemplates
   if (!nameTemplates || !Array.isArray(nameTemplates.entries)) {
-    throw new Error(`expected state.json's replays.nameTemplates.entries, got ${JSON.stringify(nameTemplates)}`)
+    throw new Error(
+      `expected state.json's replays.nameTemplates.entries, got ${JSON.stringify(nameTemplates)}`,
+    )
   }
   const first = nameTemplates.entries[0]
   if (first?.kind !== 'user' || first.template !== editedTemplate) {
-    throw new Error(`expected the first stored entry to be the edited user entry, got ${JSON.stringify(first)}`)
+    throw new Error(
+      `expected the first stored entry to be the edited user entry, got ${JSON.stringify(first)}`,
+    )
   }
   if (nameTemplates.entries.length !== SHIPPED_IDS.length) {
     throw new Error(
       `expected ${SHIPPED_IDS.length} stored entries (the edited one plus the 3 remaining shipped patterns), got ${nameTemplates.entries.length}`,
     )
   }
-  if (!Array.isArray(nameTemplates.removedShippedIds) || nameTemplates.removedShippedIds.length !== 1) {
-    throw new Error(`expected exactly one tombstoned shipped id, got ${JSON.stringify(nameTemplates.removedShippedIds)}`)
+  if (
+    !Array.isArray(nameTemplates.removedShippedIds) ||
+    nameTemplates.removedShippedIds.length !== 1
+  ) {
+    throw new Error(
+      `expected exactly one tombstoned shipped id, got ${JSON.stringify(nameTemplates.removedShippedIds)}`,
+    )
   }
 
   step('restore the removed shipped pattern and revert the edit so a second run starts unchanged')
@@ -198,17 +213,32 @@ export default async function replaysNameTemplates({ page, shot, step, variant }
   await waitForRowCount(page, SHIPPED_IDS.length)
   const finalIds = await rowIds(page)
   if (finalIds.length !== SHIPPED_IDS.length) {
-    throw new Error(`expected the revert to leave exactly the ${SHIPPED_IDS.length} shipped patterns, got ${finalIds.length}`)
+    throw new Error(
+      `expected the revert to leave exactly the ${SHIPPED_IDS.length} shipped patterns, got ${finalIds.length}`,
+    )
   }
 
   // Every mutation persists the *full* merged state (shipped patterns included, explicitly, as
   // unedited entries) - not the fresh-profile's empty `entries: []` - so "reverted" here means the
   // 4 shipped patterns, each unedited, and no tombstone, not a literally empty array.
-  const finalOnDisk = readStateJson(userDataDir)
+  const finalOnDisk = await waitForStateJson(
+    userDataDir,
+    (doc) => {
+      const nt = doc.replays?.nameTemplates
+      return (
+        nt?.entries?.length === SHIPPED_IDS.length &&
+        (nt.removedShippedIds ?? []).length === 0 &&
+        nt.entries.every((entry) => entry.kind === 'shipped' && entry.template === null)
+      )
+    },
+    'the reverted shipped patterns in state.json',
+  )
   const finalNameTemplates = finalOnDisk.replays?.nameTemplates
   const stillTombstoned = finalNameTemplates?.removedShippedIds ?? []
   const remainingEntries = finalNameTemplates?.entries ?? []
-  const anyEdited = remainingEntries.some((entry) => entry.kind !== 'shipped' || entry.template !== null)
+  const anyEdited = remainingEntries.some(
+    (entry) => entry.kind !== 'shipped' || entry.template !== null,
+  )
   if (
     !finalNameTemplates ||
     remainingEntries.length !== SHIPPED_IDS.length ||

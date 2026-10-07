@@ -1,11 +1,16 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
-import { fail, ok, type DetectedRunner, type Installation } from '@shared/types'
+import {
+  fail,
+  ok,
+  RUNNER_UNAVAILABLE_KEYS,
+  type DetectedRunner,
+  type Installation,
+} from '@shared/types'
 import type { RunnerOption } from '@shared/ipc'
 import { canonicalizePath } from '../lib/fs-utils'
 import { uiHarnessPickedFolders } from '../lib/ui-harness'
 import {
   addExistingInputSchema,
-  createInstallationInputSchema,
   iconDataUrlInputSchema,
   idListSchema,
   idSchema,
@@ -23,6 +28,7 @@ import {
 import { inspectInstallation } from '../services/inspector'
 import { detectRunners, steamUnavailableReason } from '../services/runners'
 import type { AppContext } from '../context'
+import { isWindows } from '../lib/platform'
 import { handle, handleOutcome } from './index'
 
 export function registerInstallationsIpc(app: AppContext): void {
@@ -30,10 +36,6 @@ export function registerInstallationsIpc(app: AppContext): void {
 
   handleOutcome('installations:addExisting', addExistingInputSchema, async (input) => {
     return app.installations.addExisting(input)
-  })
-
-  handleOutcome('installations:create', createInstallationInputSchema, async (input) => {
-    return app.installations.create(input)
   })
 
   handleOutcome('installations:update', updateInstallationInputSchema, async (input) => {
@@ -59,9 +61,9 @@ export function registerInstallationsIpc(app: AppContext): void {
   handleOutcome('installations:validate', idSchema, (id) => app.installations.validate(id))
 
   /**
-   * Story 103 D6: the runner options offered for one installation - the not-found handling mirrors
+   * Story 103: the runner options offered for one installation - the not-found handling mirrors
    * `installations:validate` above. `detectRunners()` inventories the host once per call; it does
-   * not need the installation itself. Story 104 D3: the Steam option is the one that does - whether
+   * not need the installation itself. Story 104: the Steam option is the one that does - whether
    * it can be chosen depends on this installation's `steamAppId` (`toRunnerOption`).
    */
   handleOutcome('installations:listRunners', installationsListRunnersSchema, async (id) => {
@@ -87,9 +89,9 @@ export function registerInstallationsIpc(app: AppContext): void {
   })
 
   /**
-   * Story 074 D8 adds a **harness stub** to this channel, mirroring
+   * Story 074 adds a **harness stub** to this channel, mirroring
    * `DialogService.pickConfigFiles()` (`src/main/services/dialog.ts`) exactly: when
-   * `Q2L_UI_HARNESS === '1'` (`isUiHarnessEnabled`, `src/main/lib/ui-harness.ts`) - and only that,
+   * `Q2L_UI_HARNESS === '1'` (`UiHarness.enabled`, `src/main/lib/ui-harness.ts`) - and only that,
    * `app.isDev` is deliberately not part of the gate, see that file's module comment - no dialog
    * opens at all and `Q2L_UI_PICK_FOLDER` supplies the folder instead. A real user's packaged
    * build still cannot reach this without deliberately exporting the variable before starting the
@@ -98,13 +100,13 @@ export function registerInstallationsIpc(app: AppContext): void {
    * It exists because Playwright cannot drive a native OS dialog (`docs/UI-VERIFICATION.md`,
    * "Known blind spots") and the bootstrap wizard's target step has no typeable field
    * (`PathPicker`'s input is `readOnly`), so `scripts/flows/bootstrap-wizard.mjs` could not reach
-   * AC2-AC8 at all otherwise. The stubbed path gets no special trust: it comes back through the
+   * the later steps at all otherwise. The stubbed path gets no special trust: it comes back through the
    * same return value the real dialog uses, and every consumer re-judges it in main
    * (`computeTargetVerdict`, `canonicalizePath`) exactly as before.
    *
    * `Q2L_UI_PICK_FOLDER` is a list and successive calls walk it, because one flow legitimately
-   * picks more than one folder (that flow needs a `Program Files` path for AC2's warning and its
-   * real fixture target for AC3's). The counter lives here, per registration, rather than in
+   * picks more than one folder (that flow needs a `Program Files` path for the first warning and its
+   * real fixture target for the second). The counter lives here, per registration, rather than in
    * `ui-harness.ts` - that file stays a pure predicate, and a module-level counter would be shared
    * by two `AppContext`s in the same process the way `downloadsModule`'s own subscription set
    * would have been. The last entry repeats forever, so an extra pick (the wizard's write-dir
@@ -112,7 +114,7 @@ export function registerInstallationsIpc(app: AppContext): void {
    */
   let harnessFolderPicks = 0
   handle('installations:pickFolder', pickPathInputSchema, async (options, event) => {
-    const stubbed = uiHarnessPickedFolders({ isDev: app.isDev })
+    const stubbed = uiHarnessPickedFolders(app.harness)
     if (stubbed !== undefined) {
       if (stubbed.length === 0) return null
       const picked = stubbed[Math.min(harnessFolderPicks, stubbed.length - 1)]
@@ -133,10 +135,9 @@ export function registerInstallationsIpc(app: AppContext): void {
     return showOpenDialog(event, {
       title: options.title,
       properties: ['openFile'],
-      filters:
-        process.platform === 'win32'
-          ? [{ name: 'Executables', extensions: ['exe'] }]
-          : [{ name: 'All files', extensions: ['*'] }],
+      filters: isWindows()
+        ? [{ name: 'Executables', extensions: ['exe'] }]
+        : [{ name: 'All files', extensions: ['*'] }],
       ...(options.buttonLabel ? { buttonLabel: options.buttonLabel } : {}),
       ...(options.defaultPath ? { defaultPath: options.defaultPath } : {}),
     })
@@ -156,10 +157,7 @@ export function registerInstallationsIpc(app: AppContext): void {
   })
 
   handleOutcome('installations:pickIconFile', pickIconFileInputSchema, async (input, event) => {
-    return app.icons.pickAndStore(
-      input.installationId,
-      BrowserWindow.fromWebContents(event.sender),
-    )
+    return app.icons.pickAndStore(input.installationId, BrowserWindow.fromWebContents(event.sender))
   })
 
   handle('installations:iconDataUrl', iconDataUrlInputSchema, (installationId) => {
@@ -168,8 +166,8 @@ export function registerInstallationsIpc(app: AppContext): void {
 }
 
 /**
- * Story 103 D6: `DetectedRunner` -> `RunnerOption`. `labelKey`/`reasonKey` follow the `runner.`
- * i18n namespace (`src/renderer/src/i18n/locales/en.json`) - `runner.kind.<kind>` for every
+ * Story 103: `DetectedRunner` -> `RunnerOption`. `labelKey`/`reasonKey` follow the `runner.`
+ * i18n namespace (`src/renderer/src/i18n/locales/en.shell.json`) - `runner.kind.<kind>` for every
  * option's label, `runner.unavailable.<kind>` for the reason an unavailable one carries.
  *
  * `proton` is the one kind this mapping overrides regardless of what `detectRunners()` reported:
@@ -179,7 +177,7 @@ export function registerInstallationsIpc(app: AppContext): void {
  * that then does nothing - offered but unusable, with no visible explanation. Marking it
  * unavailable here keeps the UI and `resolveRunner()`'s actual behaviour in agreement.
  *
- * Story 104 D3: `steam` is judged per installation by `steamUnavailableReason` - the same function
+ * Story 104: `steam` is judged per installation by `steamUnavailableReason` - the same function
  * `resolveRunner()` consults - so an option offered as available is exactly one that would launch.
  */
 function toRunnerOption(runner: DetectedRunner, installation: Installation): RunnerOption {
@@ -209,12 +207,12 @@ function toRunnerOption(runner: DetectedRunner, installation: Installation): Run
     id: runner.id,
     labelKey: `runner.kind.${runner.kind}`,
     available: runner.available,
-    ...(runner.available ? {} : { reasonKey: `runner.unavailable.${runner.kind}` }),
+    ...(runner.available ? {} : { reasonKey: RUNNER_UNAVAILABLE_KEYS[runner.kind] }),
   }
 }
 
 /**
- * Story 105 D1: `toRunnerOption` maps every detected Proton build to its own unavailable option
+ * Story 105: `toRunnerOption` maps every detected Proton build to its own unavailable option
  * (one per build, all carrying the same `runner.unavailable.protonNotDriven` reason key) - fine
  * for `resolveRunner()`, which never picks Proton anyway, but a list UI showing four identical
  * "not driven" rows is noise, and duplicate `reasonKey`s across the list would also defeat any

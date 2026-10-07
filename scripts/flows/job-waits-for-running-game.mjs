@@ -51,6 +51,7 @@
 // weaker, proof of AC5b.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { libraryCard, simulateLaunch } from '../lib/flow-common.mjs'
 import {
   INSTALL_DEMO_UPGRADE_ID,
   INSTALL_DEMO_UPGRADE_NAME,
@@ -86,24 +87,8 @@ export async function setup() {
   }
 }
 
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
-
 function importRetailButton(scope) {
   return scope.getByRole('button', { name: IMPORT_RETAIL_LABEL })
-}
-
-async function simulateLaunch(page, installationId, phase) {
-  const outcome = await page.evaluate(
-    ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
-    { id: installationId, ph: phase },
-  )
-  if (!outcome?.ok) {
-    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
-  }
 }
 
 /** Reads back the one job the harness cares about - installation id plus status - rather than
@@ -147,7 +132,9 @@ export default async function jobWaitsForRunningGame({ page, step, shot }) {
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
   const card = libraryCard(page, INSTALL_DEMO_UPGRADE_NAME)
   await card.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await card.getByRole('button', { name: INSTALL_DEMO_UPGRADE_NAME, exact: true }).click({ timeout: TIMEOUT_MS })
+  await card
+    .getByRole('button', { name: INSTALL_DEMO_UPGRADE_NAME, exact: true })
+    .click({ timeout: TIMEOUT_MS })
   await page
     .locator('footer')
     .filter({ hasText: INSTALL_DEMO_UPGRADE_NAME })
@@ -200,7 +187,9 @@ export default async function jobWaitsForRunningGame({ page, step, shot }) {
     )
   }
   if (filesAfterCancel.some((name) => STAGING_DIR_PATTERN.test(name))) {
-    throw new Error(`a staging directory survived the cancel: ${JSON.stringify(filesAfterCancel)} (AC6)`)
+    throw new Error(
+      `a staging directory survived the cancel: ${JSON.stringify(filesAfterCancel)} (AC6)`,
+    )
   }
   await shot('cancelled-no-partial-files')
 
@@ -211,7 +200,9 @@ export default async function jobWaitsForRunningGame({ page, step, shot }) {
   await startUpgradeFromCard(page, card)
   await waitingStep.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (statSync(pak0Path).size !== pak0SizeBefore) {
-    throw new Error('the second waiting job wrote to pak0.pak before the game exited (AC1, re-check)')
+    throw new Error(
+      'the second waiting job wrote to pak0.pak before the game exited (AC1, re-check)',
+    )
   }
 
   step('AC3: no further UI action - simulate idle and let the job finish on its own')
@@ -224,14 +215,20 @@ export default async function jobWaitsForRunningGame({ page, step, shot }) {
   const pak0SizeAfter = statSync(pak0Path).size
   const pak1SizeAfter = statSync(pak1Path).size
   if (pak0SizeAfter !== RETAIL_PAK_SIZES['pak0.pak']) {
-    throw new Error(`expected pak0.pak to be ${RETAIL_PAK_SIZES['pak0.pak']} bytes, got ${pak0SizeAfter} (AC3)`)
+    throw new Error(
+      `expected pak0.pak to be ${RETAIL_PAK_SIZES['pak0.pak']} bytes, got ${pak0SizeAfter} (AC3)`,
+    )
   }
   if (pak1SizeAfter !== RETAIL_PAK_SIZES['pak1.pak']) {
-    throw new Error(`expected pak1.pak to be ${RETAIL_PAK_SIZES['pak1.pak']} bytes, got ${pak1SizeAfter} (AC3)`)
+    throw new Error(
+      `expected pak1.pak to be ${RETAIL_PAK_SIZES['pak1.pak']} bytes, got ${pak1SizeAfter} (AC3)`,
+    )
   }
   const filesAfterUpgrade = readdirSync(baseDir).sort()
   if (filesAfterUpgrade.some((name) => STAGING_DIR_PATTERN.test(name))) {
-    throw new Error(`a staging directory survived the successful upgrade: ${JSON.stringify(filesAfterUpgrade)}`)
+    throw new Error(
+      `a staging directory survived the successful upgrade: ${JSON.stringify(filesAfterUpgrade)}`,
+    )
   }
   if (existsSync(pak2Path)) {
     throw new Error('pak2.pak was copied - out of scope for this job (see retail-upgrade.mjs AC4)')
@@ -290,6 +287,6 @@ export default async function jobWaitsForRunningGame({ page, step, shot }) {
     'job-waits-for-running-game: starting the upgrade while the game ran wrote nothing and named ' +
       'the reason on both the Downloads tab and the action bar, cancelling it left no partial files, ' +
       'simulating the game exit resumed and finished the job with no user action, and a job holding ' +
-      "the write lock disabled Play and made launch:start refuse with launch.error.installationBusy",
+      'the write lock disabled Play and made launch:start refuse with launch.error.installationBusy',
   )
 }

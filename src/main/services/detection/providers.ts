@@ -5,6 +5,7 @@ import type { InstallationSource } from '@shared/types'
 import { isDirectory, listDir } from '../../lib/fs-utils'
 import { regQuery, regReadValue } from '../../lib/win-registry'
 import { scopedLogger } from '../../lib/logger'
+import { isWindows } from '../../lib/platform'
 
 const log = scopedLogger('detect')
 
@@ -29,7 +30,7 @@ function looksLikeQuake2Folder(name: string): boolean {
  * directory instead of stubbing `node:os`.
  */
 export async function findSteamRoot(home: string = homedir()): Promise<string | null> {
-  if (process.platform !== 'win32') {
+  if (!isWindows()) {
     // Native Linux install, native Linux install (older layout), and Flatpak's sandboxed data dir.
     const candidates = [
       join(home, '.steam', 'steam'),
@@ -134,7 +135,7 @@ interface EpicManifest {
 }
 
 async function epicCandidates(): Promise<CandidatePath[]> {
-  if (process.platform !== 'win32') return []
+  if (!isWindows()) return []
   const manifestDir = join(
     process.env['PROGRAMDATA'] ?? 'C:\\ProgramData',
     'Epic',
@@ -173,7 +174,7 @@ async function epicCandidates(): Promise<CandidatePath[]> {
  * follow, so hand-made folders directly on the system drive are the norm.
  */
 function commonPathCandidates(): CandidatePath[] {
-  if (process.platform !== 'win32') {
+  if (!isWindows()) {
     const home = process.env['HOME'] ?? ''
     return [
       { path: '/usr/share/games/quake2', source: 'retail' },

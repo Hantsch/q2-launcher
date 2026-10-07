@@ -15,9 +15,9 @@ does not understand it.
 
 ## Acceptance Criteria
 
-*(Rescoped to the data layer for S26 — see Decisions (Sprint) "Scope vs. sprint cut". The
+_(Rescoped to the data layer for S26 — see Decisions (Sprint) "Scope vs. sprint cut". The
 user-visible list marker, detail rendering, sidecar/reveal/rename and Play live in [[150]],
-[[155]], [[146]]/[[156]]/[[157]] and [[159]] respectively.)*
+[[155]], [[146]]/[[156]]/[[157]] and [[159]] respectively.)_
 
 - [x] **AC1** — A file the parser (`[[136]]`/`[[137]]`) reports as unparsable still becomes an
       index entry, flagged `readable: false`, never dropped from the index.
@@ -31,7 +31,7 @@ user-visible list marker, detail rendering, sidecar/reveal/rename and Play live 
       on the data side — nothing about sidecar, reveal, copy path or rename is disabled here at
       the data layer; each of those stories ([[146]], [[156]], [[157]]) adds its own AC proving it
       works for an unreadable demo on the real surface.
-- [x] **AC5** — *(moved to [[159]], S28)* — Play's disabled-with-reason behaviour for an
+- [x] **AC5** — _(moved to [[159]], S28)_ — Play's disabled-with-reason behaviour for an
       unreadable demo is implemented and tested there; this story ships only the reason's i18n
       key (`replays.unreadable.playDisabled`).
 
@@ -86,7 +86,7 @@ user-visible list marker, detail rendering, sidecar/reveal/rename and Play live 
   holds only the parser's `ok: false` value. Reason: that is the real "partial result" risk — a
   cut or oversized header can still yield a frame count, which AC3 forbids.
 - **The entry keeps 144's parse result shape and gains `readable` + `unreadable`** (`{ reason,
-  protocol?, version? } | null`); no flat copy of the parsed facts is added. Reason: [[148]]'s
+protocol?, version? } | null`); no flat copy of the parsed facts is added. Reason: [[148]]'s
   resolver takes the raw header result and treats `ok: false` as "no demo rung" — one shape, no
   parallel copy to drift.
 - **AC3's "effective date with source file-time" is [[148]]'s `'file'` rung, reached when the name
@@ -124,15 +124,15 @@ Order: D1 → D2; D3 needs only D1.
   the pure style of `src/shared/demos/dm2-header.ts` (no `node:*`, no DOM, no electron; zod allowed,
   as in `src/shared/schemas.ts`).
   Exports: `DEMO_UNREADABLE_REASONS = ['empty', 'truncated', 'not-a-demo', 'unknown-protocol',
-  'header-too-large', 'unreadable', 'unknown-version', 'entry-too-large', 'encrypted'] as const`;
+'header-too-large', 'unreadable', 'unknown-version', 'entry-too-large', 'encrypted'] as const`;
   `type DemoUnreadableReason`; a compile-time two-way equality check between that type and the
   reason union of every unparsable result an index row can carry (`Extract<DemoHeaderResult,
-  { ok: false }>['reason']` from `src/shared/demos/demo-header.ts` — story 143 widened it with
+{ ok: false }>['reason']` from `src/shared/demos/demo-header.ts` — story 143 widened it with
   `entry-too-large`/`encrypted`; locate where) so a new parser code fails typecheck until listed;
   `demoUnreadableSchema = z.object({ reason: z.enum(DEMO_UNREADABLE_REASONS), protocol:
-  z.number().int().optional(), version: z.number().int().optional() })` + `type DemoUnreadable`;
+z.number().int().optional(), version: z.number().int().optional() })` + `type DemoUnreadable`;
   `demoReadability(result: DemoHeaderResult): { readable: true; unreadable: null } | { readable:
-  false; unreadable: DemoUnreadable }` — copies `reason`, and `protocol`/`version` only when present.
+false; unreadable: DemoUnreadable }` — copies `reason`, and `protocol`/`version` only when present.
   Tests: › "every unparsable reason becomes readable false with its code" (`it.each` over
   `DEMO_UNREADABLE_REASONS`, plus `protocol` 36 and `version` 2008 passed through, absent keys stay
   absent); › "a parsed header is readable with no reason" (a `buildDm2` and a `buildMvd2` demo from
@@ -152,7 +152,7 @@ Order: D1 → D2; D3 needs only D1.
   do not change the cached row shape, do not bump `REPLAYS_INDEX_CACHE_VERSION`. Every entry carries
   `fileTime: { birthtimeMs: number; mtimeMs: number }` from the file's stat (reuse the field if 144
   already has one); a zip-entry row uses `{ birthtimeMs: 0, mtimeMs: entry modified ?? archive
-  mtime }` unless 143 already set one. For `readable: false`: the header slot is exactly the
+mtime }` unless 143 already set one. For `readable: false`: the header slot is exactly the
   parser's `ok: false` value, the duration is not computed and is `null`, and name facts come from
   the same 139 matcher as for readable entries. Nothing drops or filters an entry for being
   unreadable; add no field that gates actions on readability.
@@ -164,7 +164,7 @@ Order: D1 → D2; D3 needs only D1.
   unreadable entry carries its name facts and file time and no parsed fact" (the garbage file's
   name facts give map `q2dm1` and date 2026-09-26 21:30; `broken.dm2`'s `fileTime` equals
   `fs.stat`'s `birthtimeMs`/`mtimeMs`; each unreadable header slot deep-equals `{ ok: false, reason
-  … }` with no map/players/gameDir key; duration `null`); › "an unreadable entry has the same id
+… }` with no map/players/gameDir key; duration `null`); › "an unreadable entry has the same id
   kind and fields as a readable one" (both ids match `/^[0-9a-f]{16}$/` and equal discovery's id for
   that file; `Object.keys` of an unreadable and the readable entry are identical; every entry parses
   with the index entry schema).
@@ -180,7 +180,7 @@ Order: D1 → D2; D3 needs only D1.
   Spec: `UNREADABLE_REASON_KEYS: Record<DemoUnreadableReason, string>` mapping each code to
   `replays.unreadable.reason.<code>` (literal code, hyphens kept — `en.json` already has hyphenated
   keys); `unreadableReasonMessage(u: DemoUnreadable): { key: string; params?: { protocol?: number;
-  version?: number } }` passing `protocol`/`version` when present. Strings (`replays.unreadable`):
+version?: number } }` passing `protocol`/`version` when present. Strings (`replays.unreadable`):
   `marker` "Unreadable"; `playDisabled` "Can't play: this demo's header could not be read, so its
   mod is unknown."; `reason`: `empty` "The file is empty.", `truncated` "The file ends before its
   header is complete.", `not-a-demo` "This is not a Quake II demo.", `unknown-protocol` "Unknown

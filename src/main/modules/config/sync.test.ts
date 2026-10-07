@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import type { Installation, LaunchState } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import { pathExists } from '../../lib/fs-utils'
@@ -223,12 +223,16 @@ describe('syncProfile', () => {
     const uncreatableBaseDir = join(blocker, 'sub', 'userData')
 
     const p = profile({ assignments: [] })
-    const run = syncProfile(deps({ profile: p, allProfiles: [p], canonicalBaseDir: uncreatableBaseDir }))
+    const run = syncProfile(
+      deps({ profile: p, allProfiles: [p], canonicalBaseDir: uncreatableBaseDir }),
+    )
 
     if (process.platform === 'win32') {
       const result = await run
       expect(result.state.own.status).toBe('missing')
-      expect(result.writeFailures['p1|own']).toMatchObject({ messageKey: 'config.error.writeFailed' })
+      expect(result.writeFailures['p1|own']).toMatchObject({
+        messageKey: 'config.error.writeFailed',
+      })
     } else {
       await expect(run).rejects.toMatchObject({ code: 'ENOTDIR' })
     }
@@ -360,7 +364,7 @@ describe('syncProfile', () => {
    * memory. Asserting only the first half would pass while unsaved edits leaked into the
    * installation, which is the copy the engine actually loads.
    */
-  describe('canonicalWriteAllowed (story 043 D4)', () => {
+  describe('canonicalWriteAllowed', () => {
     it('leaves the canonical file alone and writes the installation copy from its bytes', async () => {
       const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
       const inst = installation()
@@ -503,7 +507,7 @@ describe('syncProfile', () => {
     })
   })
 
-  describe('installation copies mirror the canonical file’s bytes (story 079 D2)', () => {
+  describe('installation copies mirror the canonical file’s bytes', () => {
     /**
      * `index.ts`'s own `canonicalWriteAllowed` rule (`syncAndPersist`), mirrored here so these
      * tests exercise the predicate production actually passes in. `overwriteProfileId` is the
@@ -643,7 +647,11 @@ describe('syncProfile', () => {
       // The save's run: the profile's baseline is the OLD file's hash (the caller reseeds it from
       // `canonicalHashes` afterwards), the canonical write goes first, and the copy must say what
       // the file says NOW - not the bytes the write decision was made from.
-      const saved = { ...p, cvars: { sensitivity: '42' }, fileHash: hashCanonicalFileContent(before) }
+      const saved = {
+        ...p,
+        cvars: { sensitivity: '42' },
+        fileHash: hashCanonicalFileContent(before),
+      }
 
       const result = await syncProfile(
         deps({
@@ -711,7 +719,11 @@ describe('syncProfile', () => {
       const cleanP2 = { ...p2, fileHash: hashCanonicalFileContent(handFormatted) }
       // p1 is renamed to "Two" and saved. Both profiles share `createdAt`, so `p1` wins the tie on
       // id and claims `Two.cfg`; p2 is displaced to `Two-2.cfg`.
-      const renamed = { ...p1, name: 'Two', fileHash: hashCanonicalFileContent(await read(userDataDir, 'One.cfg')) }
+      const renamed = {
+        ...p1,
+        name: 'Two',
+        fileHash: hashCanonicalFileContent(await read(userDataDir, 'One.cfg')),
+      }
 
       const result = await syncProfile(
         deps({
@@ -737,7 +749,7 @@ describe('syncProfile', () => {
    * `writeProfileToAssignedInstallations` (and, with it, these three tests) - `switchBindFor` is
    * still live, and `sync.ts`'s per-installation write is the path that consumes it now.
    */
-  describe('switchBindFor and the loader chain (story 007)', () => {
+  describe('switchBindFor and the loader chain', () => {
     it('a 2-profile installation with a switchBindFor key produces a loader containing the chain', async () => {
       const duel = profile({
         id: 'p-duel',

@@ -40,7 +40,7 @@ Build order is dependency-driven:
   up whatever TitleBar 031 leaves behind; the reverse order would mean doing the taller-bar layout
   twice.
 - **033 and 029** are self-contained and touch nothing the others need.
-- **037 last** — it is the story that has to see the *finished* UI: it records a full harness run,
+- **037 last** — it is the story that has to see the _finished_ UI: it records a full harness run,
   so every visible change from 029–031 and any CSP fallout from 035 is already in the app when its
   screenshots and axe report are taken.
 

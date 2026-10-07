@@ -35,7 +35,7 @@
 //   installation-failure-reason         views/LibraryView.tsx (story 077 D4) - the translated
 //                                        `t(installation.lastFailure.errorKey)` sentence
 //   installation-tile-failed-tag        components/installations/InstallationTile.tsx (story 077 D4)
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import {
   bootstrapFailureRetryTargetDir,
   resetBootstrapFailureRetryTargetDir,
@@ -43,6 +43,7 @@ import {
   vendoredExtractorExists,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** The first run's failure is near-instant - one 404'd primary and one 404'd mirror, no retry
@@ -172,6 +173,17 @@ async function pickFreshTarget(page, expectedTargetPath) {
     )
   }
 
+  await page.getByTestId('bootstrap-target-install-here').waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
+  const finalPathText = (await page.getByTestId('bootstrap-target-final-path').innerText()).trim()
+  if (finalPathText !== expectedTargetPath) {
+    throw new Error(
+      `expected the final path ${JSON.stringify(expectedTargetPath)} for a missing folder, got ${JSON.stringify(finalPathText)}`,
+    )
+  }
+
   const deadline = Date.now() + TIMEOUT_MS
   while (Date.now() < deadline && !(await next.isEnabled())) {
     await new Promise((resolve) => setTimeout(resolve, 50))
@@ -199,12 +211,13 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   const runningStep = page.getByTestId('bootstrap-running-step')
 
   // --- run 1: the wizard creates a fresh installation, and its download fails --------------------
-  step('open the Library and click "Download & install" (run 1)')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…" (run 1)')
+  await openLibraryAddEntry(page, 'New installation…')
 
   step('engine step: assert Q2PRO is offered and click Next')
-  await page.getByTestId('bootstrap-engine-q2pro').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('bootstrap-engine-q2pro')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
   step('game-data step: keep the default free download and click Next')
@@ -265,18 +278,19 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   }
   await shot('library-after-run1-failure')
 
-  step('assert the target folder on disk is empty after the failure (AC1)')
-  const entriesAfterFailure = readdirSync(targetPath)
-  if (entriesAfterFailure.length !== 0) {
+  step('assert the folder the job created is gone after the failure (AC1)')
+  if (existsSync(targetPath)) {
     throw new Error(
-      `expected ${targetPath} to be empty after the failed run, found: ${JSON.stringify(entriesAfterFailure)}`,
+      `expected ${targetPath} to be removed after the failed run, found: ${JSON.stringify(readdirSync(targetPath))}`,
     )
   }
 
   // --- run 2: the same folder, adopting the failed installation, this time succeeding ------------
   step('open the wizard again, pointed at the same folder (run 2)')
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('bootstrap-engine-q2pro').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, 'New installation…')
+  await page
+    .getByTestId('bootstrap-engine-q2pro')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
   step('game-data step: keep the default free download and click Next')
@@ -329,7 +343,9 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
     throw new Error('expected the FailureBadge to be gone once the retry succeeded (AC4)')
   }
   if (cardStateAfterSuccess.hasFailedTag) {
-    throw new Error('expected the tile\'s "FAILED" microtag to be gone once the retry succeeded (AC4)')
+    throw new Error(
+      'expected the tile\'s "FAILED" microtag to be gone once the retry succeeded (AC4)',
+    )
   }
   if (cardStateAfterSuccess.failureReasonText !== null) {
     throw new Error(
@@ -344,7 +360,9 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
 
   console.log(

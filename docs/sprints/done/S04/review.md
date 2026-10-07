@@ -7,14 +7,14 @@ Advanced) and Settings — behave and look like the prototypes, and a committed 
 it without a manual pass. Both landed: all six stories are done, and the harness (026) was used
 to live-smoke every subsequent story as it built.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 026 — UI verification harness | done | `aa7b5ee` |
-| 017 — Overview: editing is the default | done | `910b7ad` |
-| 018 — Test mode: layers + key feedback | done | `662a868` |
-| 019 — Controls: entry types + ordering | done | `b918001` |
-| 020 — Controls: column-grid redesign | done | `c431f2d` |
-| 021 — Settings: dense-rows redesign | done | `aea3c9b` |
+| Story                                  | Status | Commit    |
+| -------------------------------------- | ------ | --------- |
+| 026 — UI verification harness          | done   | `aa7b5ee` |
+| 017 — Overview: editing is the default | done   | `910b7ad` |
+| 018 — Test mode: layers + key feedback | done   | `662a868` |
+| 019 — Controls: entry types + ordering | done   | `b918001` |
+| 020 — Controls: column-grid redesign   | done   | `c431f2d` |
+| 021 — Settings: dense-rows redesign    | done   | `aea3c9b` |
 
 No story was blocked. `npm run build`, `npm run typecheck` and `npm test` are green after every
 story (697 tests at the end of the sprint); every story went through a clean-agent review

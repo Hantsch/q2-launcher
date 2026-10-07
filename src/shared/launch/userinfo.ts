@@ -1,6 +1,6 @@
 /**
  * Contract for handing a server-join password (and, later, spectator flag) to the game without
- * ever putting it in argv (story 125 D1).
+ * ever putting it in argv (story 125).
  *
  * The concept problem: a password typed into the launcher must reach the engine's `userinfo`
  * cvars, but `+set password "<value>"` on the command line would put the password in `argv`
@@ -55,9 +55,17 @@ export function parseUserinfoValue(value: string): UserinfoValueResult {
   return { ok: true }
 }
 
-/** Maps a rejection reason to its i18n key, `launch.userinfo.reject.<reason>`. */
-export function userinfoRejectionKey(reason: UserinfoRejection): string {
-  return `launch.userinfo.reject.${reason}`
+/** Every rejection's i18n key as a visible literal; a new `UserinfoRejection` without an entry fails the build. */
+export const USERINFO_REJECTION_KEYS = {
+  empty: 'launch.userinfo.reject.empty',
+  'too-long': 'launch.userinfo.reject.too-long',
+  'forbidden-character': 'launch.userinfo.reject.forbidden-character',
+} as const satisfies Record<UserinfoRejection, `launch.userinfo.reject.${string}`>
+
+export function userinfoRejectionKey(
+  reason: UserinfoRejection,
+): (typeof USERINFO_REJECTION_KEYS)[UserinfoRejection] {
+  return USERINFO_REJECTION_KEYS[reason]
 }
 
 /**

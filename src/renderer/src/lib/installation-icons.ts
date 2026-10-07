@@ -4,7 +4,7 @@
  * The manifest is discovered from disk with `import.meta.glob`, never listed
  * literally — adding, removing or renaming a file in
  * `src/renderer/src/assets/installations/` is the whole edit. No component
- * may hardcode an icon id or filename (see AC1 of story 067).
+ * may hardcode an icon id or filename (story 067).
  */
 const modules = import.meta.glob('../assets/installations/*.avif', {
   eager: true,

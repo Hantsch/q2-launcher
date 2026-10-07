@@ -1,15 +1,14 @@
 import type { ReplaysStageRect } from '@shared/modules/replays'
 
 /**
- * Story 170 D1: pure helpers for playing a demo on the launcher's stage - whether the platform can
+ * Story 170: pure helpers for playing a demo on the launcher's stage - whether the platform can
  * place another process's window at all, the physical geometry of the stage rect, and the engine
  * arguments that make the game window borderless at that spot. No electron import: the display
  * conversion (`screen.dipToScreenRect`) is injected.
  */
 
 export type StageAvailability =
-  | { available: true }
-  | { available: false; reason: { key: 'replays.stage.unavailable.wayland' } }
+  { available: true } | { available: false; reason: { key: 'replays.stage.unavailable.wayland' } }
 
 const WAYLAND_UNAVAILABLE = {
   available: false,
@@ -26,11 +25,30 @@ export function stageAvailability(
   env: Record<string, string | undefined>,
   harnessEnv: Record<string, string | undefined> = {},
 ): StageAvailability {
-  if (harnessEnv['Q2L_UI_HARNESS'] && harnessEnv['Q2L_UI_SESSION_TYPE'] === 'wayland') return WAYLAND_UNAVAILABLE
-  if (platform === 'linux' && (env['XDG_SESSION_TYPE'] === 'wayland' || (env['WAYLAND_DISPLAY'] ?? '') !== '')) {
+  if (harnessEnv['Q2L_UI_HARNESS'] && harnessEnv['Q2L_UI_SESSION_TYPE'] === 'wayland')
+    return WAYLAND_UNAVAILABLE
+  if (
+    platform === 'linux' &&
+    (env['XDG_SESSION_TYPE'] === 'wayland' || (env['WAYLAND_DISPLAY'] ?? '') !== '')
+  ) {
     return WAYLAND_UNAVAILABLE
   }
   return { available: true }
+}
+
+/**
+ * Who keeps the game window above the launcher: 'x11' (the launcher restacks it itself) on a Linux
+ * X11 session, or the harness's forced x11; 'none' elsewhere (win32 relies on `win_alwaysontop`).
+ */
+export function stageWindowKeeper(
+  platform: NodeJS.Platform,
+  env: Record<string, string | undefined>,
+  harnessEnv: Record<string, string | undefined> = {},
+): 'x11' | 'none' {
+  if (!stageAvailability(platform, env, harnessEnv).available) return 'none'
+  const harnessX11 =
+    Boolean(harnessEnv['Q2L_UI_HARNESS']) && harnessEnv['Q2L_UI_SESSION_TYPE'] === 'x11'
+  return platform === 'linux' || harnessX11 ? 'x11' : 'none'
 }
 
 export interface StageRect {
@@ -70,13 +88,27 @@ export function stageGeometry(
  */
 export function stageLaunchArgs(geometry: string): string[] {
   return [
-    '+set', 'vid_fullscreen', '0',
-    '+set', 'win_noborder', '1',
-    '+set', 'win_notitle', '1',
-    '+set', 'win_alwaysontop', '1',
-    '+set', 'win_noresize', '1',
-    '+set', 's_driver', 'wave',
-    '+set', 'vid_geometry', geometry,
+    '+set',
+    'vid_fullscreen',
+    '0',
+    '+set',
+    'win_noborder',
+    '1',
+    '+set',
+    'win_notitle',
+    '1',
+    '+set',
+    'win_alwaysontop',
+    '1',
+    '+set',
+    'win_noresize',
+    '1',
+    '+set',
+    's_driver',
+    'wave',
+    '+set',
+    'vid_geometry',
+    geometry,
   ]
 }
 

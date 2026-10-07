@@ -1,6 +1,7 @@
-// Story 070 D5: standalone, network-touching tool for the two shipped
-// manifest files (`content/q2_community_content/engines/manifest.json` and
-// `.../gamedata/manifest.json`). For each package it downloads `url` (falling
+// Story 070 D5: standalone, network-touching tool for the shipped manifest
+// files (`content/q2_community_content/engines/manifest.json`,
+// `.../gamedata/manifest.json` and, since story 189, `.../mods/manifest.json`).
+// For each package it downloads `url` (falling
 // back to `mirrors[0]` if `url` fails) and computes the real size + SHA256.
 //
 // Default mode is a report: print what was computed for every package.
@@ -20,10 +21,44 @@ const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const MANIFEST_PATHS = [
   join(REPO_ROOT, 'content', 'q2_community_content', 'engines', 'manifest.json'),
   join(REPO_ROOT, 'content', 'q2_community_content', 'gamedata', 'manifest.json'),
+  join(REPO_ROOT, 'content', 'q2_community_content', 'mods', 'manifest.json'),
 ]
+
+/**
+ * The mods manifest (story 189) nests its packages:
+ * `entries[].versions[].{variants[].packages, contentOnly.packages}`. The same archive
+ * appears in several rows (e.g. one content zip per platform variant), so rows are
+ * deduplicated by `url` - and rows sharing a url must agree on size and hash, so a typo
+ * in one copy cannot hide behind a correct one.
+ */
+function collectModPackages(manifestPath, entries) {
+  const byUrl = new Map()
+  for (const entry of entries) {
+    for (const version of entry.versions ?? []) {
+      const rows = [
+        ...(version.variants ?? []).flatMap((variant) => variant.packages ?? []),
+        ...(version.contentOnly?.packages ?? []),
+      ]
+      for (const pkg of rows) {
+        const seen = byUrl.get(pkg.url)
+        if (!seen) {
+          byUrl.set(pkg.url, pkg)
+        } else if (seen.sizeBytes !== pkg.sizeBytes || seen.sha256 !== pkg.sha256) {
+          throw new Error(
+            `${manifestPath}: rows "${seen.id}" and "${pkg.id}" share ${pkg.url} but disagree on sizeBytes/sha256`,
+          )
+        }
+      }
+    }
+  }
+  return [...byUrl.values()]
+}
 
 function loadPackages(manifestPath) {
   const raw = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+  if (Array.isArray(raw.entries)) {
+    return collectModPackages(manifestPath, raw.entries)
+  }
   if (!Array.isArray(raw.packages)) {
     throw new Error(`${manifestPath}: no "packages" array`)
   }
@@ -56,7 +91,9 @@ async function hashPackage(pkg) {
       lastError = error
     }
   }
-  throw new Error(`all candidate URLs failed for package "${pkg.id}": ${lastError?.message ?? 'no URL configured'}`)
+  throw new Error(
+    `all candidate URLs failed for package "${pkg.id}": ${lastError?.message ?? 'no URL configured'}`,
+  )
 }
 
 async function main() {

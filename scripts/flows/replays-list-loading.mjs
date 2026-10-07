@@ -14,11 +14,17 @@
 //   replays-demo-list      ReplaysView.tsx - the demo rows' list container
 //   replays-demo-row       DemoRow.tsx - one row per discovered demo
 
-import { REPLAYS_FIXTURE_DEMOS, writeReplaysListLoadingFixture } from '../lib/fixture.mjs'
+import {
+  REPLAYS_FIXTURE_DEMOS,
+  REPLAYS_FIXTURE_SCANNED_TOTAL,
+  writeReplaysListLoadingFixture,
+} from '../lib/fixture.mjs'
+import { openFolder, showAllInstallations } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-list-loading'
 
 const TIMEOUT_MS = 8_000
+const SCANNED_TOTAL = REPLAYS_FIXTURE_SCANNED_TOTAL
 /** Long enough for a fresh profile switch/re-render... - mirrors this file's own scan-hold value,
  * see `setup()` below. Left generous (hold + 8s) so the incremental scan itself has room to finish
  * on a slow machine too. */
@@ -50,15 +56,13 @@ export default async function replaysListLoading({ page, shot, step }) {
     (expected) =>
       document.querySelector('[data-testid="replays-list-loading"]')?.getAttribute('data-total') ===
       String(expected),
-    REPLAYS_FIXTURE_DEMOS.length,
+    SCANNED_TOTAL,
     { timeout: TIMEOUT_MS },
   )
 
   const total = await loading.getAttribute('data-total')
-  if (Number(total) !== REPLAYS_FIXTURE_DEMOS.length) {
-    throw new Error(
-      `replays-list-loading: expected data-total="${REPLAYS_FIXTURE_DEMOS.length}", got "${total}"`,
-    )
+  if (Number(total) !== SCANNED_TOTAL) {
+    throw new Error(`replays-list-loading: expected data-total="${SCANNED_TOTAL}", got "${total}"`)
   }
 
   const scanned = await loading.getAttribute('data-scanned')
@@ -74,10 +78,23 @@ export default async function replaysListLoading({ page, shot, step }) {
   const list = page.getByTestId('replays-demo-list')
   await list.waitFor({ state: 'visible', timeout: SETTLE_TIMEOUT_MS })
   await page
-    .getByTestId('replays-demo-row')
-    .nth(REPLAYS_FIXTURE_DEMOS.length - 1)
+    .getByTestId('replays-folder-row')
+    .first()
     .waitFor({ state: 'visible', timeout: SETTLE_TIMEOUT_MS })
-  const rowCount = await page.getByTestId('replays-demo-row').count()
+  await loading.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await showAllInstallations(page)
+  let rowCount = 0
+  const rootLabel = (demo) => `${demo.installationName} · ${demo.gameDir}`
+  for (const root of new Set(REPLAYS_FIXTURE_DEMOS.map(rootLabel))) {
+    await openFolder(page, root)
+    await page
+      .getByTestId('replays-demo-row')
+      .first()
+      .waitFor({ state: 'visible', timeout: SETTLE_TIMEOUT_MS })
+    rowCount += await page.getByTestId('replays-demo-row').count()
+    await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
+    await page.getByTestId('replays-breadcrumb').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  }
   if (rowCount !== REPLAYS_FIXTURE_DEMOS.length) {
     throw new Error(
       `replays-list-loading: expected exactly ${REPLAYS_FIXTURE_DEMOS.length} demo rows once settled, got ${rowCount}`,

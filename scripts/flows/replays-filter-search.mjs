@@ -12,23 +12,19 @@
 // (`{p1}_vs_{p2}_{map}.mvd2`), searchable through its name-fact player "Zephyr" - its own sidecar
 // pins its map to q2ctf5 too, so map+tag combos are deterministic regardless of the real demo
 // bytes' own embedded map.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
-  REPLAYS_FILTER_FAVOURITE_DEMO,
   REPLAYS_FILTER_FAVOURITE_TAG,
   REPLAYS_FILTER_FUN_TAG,
   REPLAYS_FILTER_GAMEMODE_OPTIONS,
   REPLAYS_FILTER_HEADERONLY_DEMO,
   REPLAYS_FILTER_HEADER_PLAYER,
-  REPLAYS_FILTER_LAN_TAG,
   REPLAYS_FILTER_MAP_OPTIONS,
   REPLAYS_FILTER_MOD_OPTIONS,
   REPLAYS_FILTER_NAMEFACT_DEMO,
   REPLAYS_FILTER_NAMEFACT_PLAYER,
   REPLAYS_FILTER_NONFAV_DEMO,
-  REPLAYS_FILTER_NONFAV_MAP,
   REPLAYS_FILTER_SHARED_MAP,
   REPLAYS_FILTER_SIDECAR_NAME,
   REPLAYS_FILTER_SIDECAR_PLAYER,
@@ -37,6 +33,11 @@ import {
   removeReplaysFilterFixture,
   writeReplaysFilterFixture,
 } from '../lib/fixture.mjs'
+import {
+  openDemosRoot,
+  showAllInstallations,
+  waitForDemosScanToFinish,
+} from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 const POLL_INTERVAL_MS = 100
@@ -55,14 +56,6 @@ export async function teardown() {
   removeReplaysFilterFixture()
 }
 
-function statePath() {
-  return join(variantUserDataDir(variant), 'state.json')
-}
-
-function readStateJson() {
-  return JSON.parse(readFileSync(statePath(), 'utf8'))
-}
-
 /** Polls a predicate until it is true or the timeout elapses - used both for `state.json` writes
  * (a debounced/async persist can lag a UI change) and for the visible row set (a filter change is
  * a synchronous React state update, but Playwright's own event loop still needs a tick to see the
@@ -74,25 +67,6 @@ async function waitForCondition(predicate, label, timeout = TIMEOUT_MS) {
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${label}`)
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
-}
-
-async function waitForStateJson(predicate, label) {
-  await waitForCondition(() => predicate(readStateJson()), label, 4_000)
-  return readStateJson()
-}
-
-/** Same reasoning as `replays-sort-order.mjs`'s own helper: the first `index.read` on mount can
- * render a stale/empty snapshot before the scan this same mount triggers finishes and swaps the
- * whole list in - waiting for `replays-refresh` to re-enable is the real "settled" signal. */
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
 /** The displayed name of every mounted `replays-demo-row` - a demo with a sidecar `name` shows
@@ -119,7 +93,10 @@ function assertVisibleSet(actual, expected, label) {
 async function waitForVisibleSet(page, expected, label) {
   await waitForCondition(async () => {
     const actual = await visibleNames(page)
-    return actual.length === expected.length && [...actual].sort().join('|') === [...expected].sort().join('|')
+    return (
+      actual.length === expected.length &&
+      [...actual].sort().join('|') === [...expected].sort().join('|')
+    )
   }, label)
   assertVisibleSet(await visibleNames(page), expected, label)
 }
@@ -142,7 +119,9 @@ async function selectValues(page, testid) {
 
 function assertEqual(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`expected ${label} to equal ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
+    throw new Error(
+      `expected ${label} to equal ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    )
   }
 }
 
@@ -155,14 +134,14 @@ const ALL_NAMES = [
 
 export default async function replaysFilterSearch({ page, step, shot }) {
   step('navigate to Demos and wait for the scan to settle')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await openDemosRoot(page)
   await waitForVisibleSet(page, ALL_NAMES, 'the unfiltered list')
   await shot('unfiltered')
 
-  step('AC1: searching by the sidecar name, description word, tag, sidecar player, header ' +
-    'player, name-fact player, map and a file-name fragment each narrows to the expected demo(s)')
+  step(
+    'AC1: searching by the sidecar name, description word, tag, sidecar player, header ' +
+      'player, name-fact player, map and a file-name fragment each narrows to the expected demo(s)',
+  )
   await fillSearch(page, REPLAYS_FILTER_SIDECAR_NAME)
   await waitForVisibleSet(page, [REPLAYS_FILTER_SIDECAR_NAME], 'search by sidecar name')
 
@@ -173,7 +152,11 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   await waitForVisibleSet(page, [REPLAYS_FILTER_SIDECAR_NAME], 'search by tag')
 
   await fillSearch(page, REPLAYS_FILTER_SIDECAR_PLAYER.toLowerCase())
-  await waitForVisibleSet(page, [REPLAYS_FILTER_SIDECAR_NAME], 'search by sidecar player (lower-case)')
+  await waitForVisibleSet(
+    page,
+    [REPLAYS_FILTER_SIDECAR_NAME],
+    'search by sidecar player (lower-case)',
+  )
 
   await fillSearch(page, REPLAYS_FILTER_HEADER_PLAYER)
   await waitForVisibleSet(page, [REPLAYS_FILTER_HEADERONLY_DEMO], 'search by header player')
@@ -196,13 +179,21 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   await waitForVisibleSet(page, ALL_NAMES, 'search cleared')
 
   step('AC2: the mod/gamemode/map dropdown options equal the values present in the fixture')
-  assertEqual(await selectValues(page, 'replays-filter-mod'), REPLAYS_FILTER_MOD_OPTIONS, 'mod options')
+  assertEqual(
+    await selectValues(page, 'replays-filter-mod'),
+    REPLAYS_FILTER_MOD_OPTIONS,
+    'mod options',
+  )
   assertEqual(
     await selectValues(page, 'replays-filter-gamemode'),
     REPLAYS_FILTER_GAMEMODE_OPTIONS,
     'gamemode options',
   )
-  assertEqual(await selectValues(page, 'replays-filter-map'), REPLAYS_FILTER_MAP_OPTIONS, 'map options')
+  assertEqual(
+    await selectValues(page, 'replays-filter-map'),
+    REPLAYS_FILTER_MAP_OPTIONS,
+    'map options',
+  )
 
   step('AC3: favourites-only narrows to the one favourite')
   await page.getByTestId('replays-filter-favourites').click({ timeout: TIMEOUT_MS })
@@ -266,17 +257,22 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   await page
     .locator(`[data-testid="replays-filter-tag"][data-tag="${REPLAYS_FILTER_FUN_TAG}"]`)
     .click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-filter-no-match').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-filter-no-match')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('no-match')
 
   await page.getByTestId('replays-filter-no-match-clear').click({ timeout: TIMEOUT_MS })
   await waitForVisibleSet(page, ALL_NAMES, 'cleared via the no-match clear button')
 
-  step('AC7: under an active filter, visible rows keep the current sort order, unaffected by filtering')
+  step(
+    'AC7: under an active filter, visible rows keep the current sort order, unaffected by filtering',
+  )
   // A deterministic non-default sort: click the map column once (ascending).
   await page.getByTestId('replays-sort-map').click({ timeout: TIMEOUT_MS })
   await waitForCondition(
-    async () => (await page.getByTestId('replays-sort-map').getAttribute('aria-pressed')) === 'true',
+    async () =>
+      (await page.getByTestId('replays-sort-map').getAttribute('aria-pressed')) === 'true',
     'the map sort to engage',
   )
   const sortedNames = await visibleNames(page)
@@ -289,7 +285,11 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   )
   const filteredNames = await visibleNames(page)
   const expectedSubsequence = sortedNames.filter((name) => filteredNames.includes(name))
-  assertEqual(filteredNames, expectedSubsequence, 'filtered rows keep the sorted order (a subsequence)')
+  assertEqual(
+    filteredNames,
+    expectedSubsequence,
+    'filtered rows keep the sorted order (a subsequence)',
+  )
   if ((await page.getByTestId('replays-sort-map').getAttribute('aria-pressed')) !== 'true') {
     throw new Error('expected the map sort to remain engaged while a filter is active')
   }
@@ -299,30 +299,44 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   await page.getByTestId('replays-sort-map').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-sort-map').click({ timeout: TIMEOUT_MS })
   await waitForCondition(
-    async () => (await page.getByTestId('replays-sort-map').getAttribute('aria-pressed')) === 'false',
+    async () =>
+      (await page.getByTestId('replays-sort-map').getAttribute('aria-pressed')) === 'false',
     'the sort to reset back to default',
   )
 
   step('persistence: a filter set here is restored after navigating away and back')
   await fillSearch(page, REPLAYS_FILTER_DESCRIPTION_WORD)
-  await waitForVisibleSet(page, [REPLAYS_FILTER_NONFAV_DEMO], 'the description search, before navigating away')
+  await waitForVisibleSet(
+    page,
+    [REPLAYS_FILTER_NONFAV_DEMO],
+    'the description search, before navigating away',
+  )
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) => state.replays?.listFilter?.search === REPLAYS_FILTER_DESCRIPTION_WORD,
     'state.json to persist the search term',
   )
 
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
+  await showAllInstallations(page)
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page)
+  // The restored search lists matches from every folder, so no folder needs opening here.
 
   const restoredSearch = await page.getByTestId('replays-filter-search').inputValue()
   if (restoredSearch !== REPLAYS_FILTER_DESCRIPTION_WORD) {
-    throw new Error(`expected the restored search box to read "${REPLAYS_FILTER_DESCRIPTION_WORD}", got "${restoredSearch}"`)
+    throw new Error(
+      `expected the restored search box to read "${REPLAYS_FILTER_DESCRIPTION_WORD}", got "${restoredSearch}"`,
+    )
   }
-  await waitForVisibleSet(page, [REPLAYS_FILTER_NONFAV_DEMO], 'the restored filter, after navigating back')
+  await waitForVisibleSet(
+    page,
+    [REPLAYS_FILTER_NONFAV_DEMO],
+    'the restored filter, after navigating back',
+  )
 
-  const persisted = readStateJson()
+  const persisted = readStateJson(variantUserDataDir(variant))
   if (persisted.replays?.listFilter?.search !== REPLAYS_FILTER_DESCRIPTION_WORD) {
     throw new Error(
       `expected state.json's replays.listFilter.search to be "${REPLAYS_FILTER_DESCRIPTION_WORD}", got ${JSON.stringify(persisted.replays?.listFilter)}`,
@@ -331,6 +345,8 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   await shot('persisted-after-navigation')
 
   await clearFilters(page)
+  // Leaving the search returns to the folder view, which opens at the roots after navigating away.
+  if ((await page.getByTestId('replays-breadcrumb').count()) === 0) await openDemosRoot(page)
   await waitForVisibleSet(page, ALL_NAMES, 'cleared at the end of the run')
 
   console.log(

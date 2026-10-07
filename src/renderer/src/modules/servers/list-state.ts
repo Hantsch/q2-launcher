@@ -1,7 +1,7 @@
-import type { ServersScanState } from '@shared/modules/servers'
+import type { ServersBrowseMode, ServersScanState } from '@shared/modules/servers'
 
 /**
- * Story 121 D1: pure derivation of the servers list's own display state from the scan's live
+ * Story 121: pure derivation of the servers list's own display state from the scan's live
  * state plus the current (unfiltered) row count - no React, no i18n, just the branching so
  * `list-state.test.ts` can cover it directly and `ServersListStatus.tsx` stays a thin renderer.
  *
@@ -11,12 +11,28 @@ import type { ServersScanState } from '@shared/modules/servers'
  * zero rows (`finishedAt !== null`) - a scan that has never run yet is `'idle'`, not `'empty'`,
  * so a fresh install doesn't say "no server found" before it has even looked.
  */
-export type ServersListState = 'loading' | 'empty' | 'idle' | 'populated'
+export type ServersListState = 'loading' | 'empty' | 'lanEmpty' | 'idle' | 'populated'
 
-export function deriveListState(state: ServersScanState, rowCount: number): ServersListState {
-  if (state.running) return 'loading'
+/**
+ * Story 196: `mode` is the mode the list *displays*; `state.mode` is the mode of the running/last
+ * scan. A scan of the other mode never drives this list's loading/empty states. In LAN mode the
+ * "finished with no rows" signal is `lanLastFinishedAt` (the last LAN round), not `finishedAt`.
+ */
+export function deriveListState(
+  state: ServersScanState,
+  rowCount: number,
+  mode: ServersBrowseMode = 'online',
+  lanLastFinishedAt: string | null = null,
+): ServersListState {
+  if (mode === 'lan') {
+    if (state.running && state.mode === 'lan') return 'loading'
+    if (rowCount > 0) return 'populated'
+    return lanLastFinishedAt !== null ? 'lanEmpty' : 'idle'
+  }
+  if (state.running && state.mode === 'online') return 'loading'
   if (rowCount > 0) return 'populated'
-  if (state.finishedAt !== null) return 'empty'
+  // The scan state is shared across modes: a finished LAN round is not an online result.
+  if (state.mode === 'online' && state.finishedAt !== null) return 'empty'
   return 'idle'
 }
 

@@ -4,30 +4,31 @@
     "src/renderer/src/**/*.tsx",
     "src/renderer/src/**/*.json",
     "src/shared/**/*.ts",
+    "src/shared/fixture-constants.json",
+    "src/test-support/fixtures.ts",
     "src/preload/index.d.ts"
   ],
-  // Story 081 D3: `shell-home-ownership.test.ts` walks the filesystem with `node:fs`/`node:path`/
-  // `node:url` to guard against a shell/views file re-importing a home component - a Node-only
-  // capability the renderer project has no `types: ["node"]` for by design (docs/ARCHITECTURE.md).
-  // It typechecks under `tsconfig.node.json` instead (mirrors that project's own explicit
-  // cross-reference to `i18n/locales/en.json`), so it is excluded here rather than pulling `node`
-  // types into every renderer file.
-  // Story 107 D1: `address.test.ts`'s purity check reads `address.ts`'s own source with
-  // `node:fs`/`node:path`/`node:url` to assert it stays free of node/electron/IPC imports - the
-  // same node-only-capability shape as `shell-home-ownership.test.ts` above, so it is excluded
-  // here and typechecks under `tsconfig.node.json` instead (`src/shared/**/*.ts` already covers it
-  // there).
-  // Story 108 D1: `protocol.test.ts`'s purity sweep does the same thing over every non-test file
-  // in `src/shared/servers/`, for the same reason - excluded here, typechecks under
-  // `tsconfig.node.json` instead.
   // Story 172 D1: `demo-guard.test.ts` drives the node-side command-buffer simulator
   // (`src/test-support/q2-cbuf-sim.ts`), which only the node project includes - so it is excluded
   // here and typechecks under `tsconfig.node.json` instead (`src/shared/**/*.ts` covers it there).
+  // `common.test.ts` reads docs/ARCHITECTURE.md with `node:fs` (node-only), so it typechecks under
+  // `tsconfig.node.json` only.
+  // `lib/toast.test.ts` scans the renderer sources with `node:fs` (node-only), so it is excluded here
+  // too. `modules/config/config-structure.test.ts` and `i18n/keys.test.ts` do the same through
+  // `src/test-support/source-tree.ts`. `demos/dm2-frames.test.ts` and `demos/dm2-roster.test.ts`
+  // read the real demo fixtures with `node:fs` (story 245).
   "exclude": [
-    "src/renderer/src/components/shell/shell-home-ownership.test.ts",
-    "src/shared/servers/address.test.ts",
-    "src/shared/servers/protocol.test.ts",
-    "src/shared/replays/demo-guard.test.ts"
+    "src/shared/demos/dm2-frames.test.ts",
+    "src/shared/demos/dm2-roster.test.ts",
+    "src/shared/replays/demo-guard.test.ts",
+    "src/shared/fixture-constants.test.ts",
+    "src/shared/types/common.test.ts",
+    "src/renderer/src/lib/toast.test.ts",
+    "src/renderer/src/modules/config/config-structure.test.ts",
+    "src/renderer/src/i18n/reason-templates.test.ts",
+    "src/renderer/src/i18n/keys.test.ts",
+    "src/renderer/src/i18n/bundle.test.ts",
+    "src/test-support/source-files.ts"
   ],
   "compilerOptions": {
     "composite": true,

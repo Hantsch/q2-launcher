@@ -98,12 +98,12 @@ Order D1 → D2 → D3 → D4. No shell edit beyond `ActionBar.tsx` (mandated by
   `src/renderer/src/modules/replays/client.ts`. Mirror `playback-console.ts` / `createPlaybackConsole`
   for the factory shape and `playbackConsoleSend` for the handler/client wiring.
   - `LaunchService`: keep the spawned `ChildProcess` of a **playback** launch (`start(..., { playback:
-    true })`) in a private field, cleared in that launch's own `'exit'`/`'error'` handlers (guard by
+true })`) in a private field, cleared in that launch's own `'exit'`/`'error'` handlers (guard by
     identity, like `endOwnSession`). `terminatePlayback(): boolean` calls `child.kill()` on it and
     returns true; returns false (and kills nothing) when no playback launch is running. A normal
     launch's child is never stored, so it can never be killed. Also `isPlaybackRunning(): boolean`.
   - `createPlaybackStop({ playback: Pick<PlaybackControl,'send'>, launch: { isPlaybackRunning,
-    terminatePlayback, onStateChange }, timeoutMs = STOP_EXIT_TIMEOUT_MS /* 5000, exported */ })`
+terminatePlayback, onStateChange }, timeoutMs = STOP_EXIT_TIMEOUT_MS /* 5000, exported */ })`
     → `stop(): Outcome<void>`:
     no playback running → `fail(NO_SESSION)` (from `playback-control.ts`); a stop already pending →
     `ok` no-op; else `playback.send('quit')` — ok → arm a `timeoutMs` timer that calls
@@ -200,15 +200,17 @@ Order D1 → D2 → D3 → D4. No shell edit beyond `ActionBar.tsx` (mandated by
   (no Linux e2e runner on the Windows gate machine; display condition, not a user action)
 
 ## Done
+
 Summary: `playback.stop` module handler (quit over the channel, terminate after 5 s or at once if quit is refused) with `LaunchService.terminatePlayback()`; stop buttons on the timeline and in the action bar ("Stopping..." state, no confirmation); Windows-only visible stage hint under the console field.
 Commit: `173: stop the demo from the launcher (playback.stop, timeline + action bar stop, Windows stage input hint)`
 Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (138 files, 1950 tests, re-run after the last edit); `npm run ui:flow -- replays-stop` OK after the last edit. Full gate is the sprint's.
 AC map (all ran and passed): AC1 flow steps "the stop button quits..." + "the action bar's Stop demo ends the demo" + playback-stop unit; AC2 flow "a game that ignores quit..." + unit timeout; AC3 same flow step (q2l_* files present while playing, gone after) + launch.test "a terminated playback launch ends in exited"; AC4 flow hint step + ConsoleCommandField "on Windows..."; AC5 ConsoleCommandField "on Linux...". No manual residue.
 Review: default stage, PASS; findings 1-3 fixed (launch-level tests for `demo: true`, flow step naming, files-present assertion), then re-verified.
 Decisions:
+
 - On Windows demo launches are not piped and never passed `playback: true`, so the child was never stored and stop answered NO_SESSION; added a main-only `{ demo: true }` launch option (set only by demo-play) that stores the child — a normal launch still stores nothing. demo-play.test call-arg assertions extended accordingly.
 - A refused-quit stop stays pending until the exit arrives; if terminate returns false, pending resets so a later stop can retry.
 - `useDemoStop` is imported into ActionBar by direct path (the renderer replays module has no index).
 - Deliberately unfixed: (4) if kill succeeds but no 'exit' ever arrives (e.g. a Linux wine wrapper), the UI stays on "Stopping..." — accepted `child.kill()` limitation per the plan; (5) an action-bar stop refusal is silent (the timeline shows the error); (6) hint-gone-in-fullscreen/after-finish is unit-tested only.
-tiers: D 4 / hard 1 · review default · cycles 1 · agents 8
-Regression (S29 gate): 173's Windows stage-hint paragraph grew the console field when the session went live, shrinking the stage picture box 401x301 -> 374x281 and re-placing the stage; fixed by rendering the hint in the console field's reserved min-h-4 reason line (ConsoleCommandField.tsx), so the box is identical before and after.
+  tiers: D 4 / hard 1 · review default · cycles 1 · agents 8
+  Regression (S29 gate): 173's Windows stage-hint paragraph grew the console field when the session went live, shrinking the stage picture box 401x301 -> 374x281 and re-placing the stage; fixed by rendering the hint in the console field's reserved min-h-4 reason line (ConsoleCommandField.tsx), so the box is identical before and after.

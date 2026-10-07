@@ -28,7 +28,7 @@
 //
 // One harness-only override, the same double-gated backdoor 088/089 already use
 // (`Q2L_UI_HARNESS === '1' && isDev`, `src/main/lib/ui-harness.ts`, unreachable in a packaged
-// build - see `src/main/modules/downloads/harness.test.ts`):
+// build - see `src/main/services/content/source.test.ts`):
 //
 //   Q2L_UI_HARNESS_STORE_SOURCES  story 088 D2's own override: the `DetectedRetailSource[]` this
 //                                 dialog's `getDetectedRetailSources()` reads instead of running a
@@ -88,6 +88,7 @@
 //   demo-badge                                components/ui/DemoBadge.tsx - must vanish (AC5)
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { libraryCard, railTile, simulateLaunch } from '../lib/flow-common.mjs'
 import {
   INSTALL_DEMO_UPGRADE_ID,
   INSTALL_DEMO_UPGRADE_NAME,
@@ -136,22 +137,6 @@ export async function setup() {
   }
 }
 
-/** Scopes the rail's tile/hover-card lookups to `<aside>` - the rail's own landmark - so they
- * cannot resolve the library card's OWN `aria-label={installation.name}` button once both are
- * mounted (`installation-icon-tile.mjs`'s own review-finding comment documents the same hazard). */
-function railTile(page, name) {
-  return page.locator('aside').getByRole('button', { name, exact: true })
-}
-
-/** The library row - no dedicated testid, so this locates the same `items-start` wrapper
- * `installation-icon-tile.mjs`'s own `libraryCard()` helper does, which is what makes the row's
- * action-button cluster (this story's trigger among them) resolvable inside it. */
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
-
 function importRetailButton(scope) {
   return scope.getByRole('button', { name: IMPORT_RETAIL_LABEL })
 }
@@ -198,16 +183,6 @@ async function setStoreSourcesOverride(app, value) {
   }, value)
 }
 
-async function simulateLaunch(page, installationId, phase) {
-  const outcome = await page.evaluate(
-    ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
-    { id: installationId, ph: phase },
-  )
-  if (!outcome?.ok) {
-    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
-  }
-}
-
 /** AC2's "identified by its store and its path" / AC6's rejection reason, asserted on one rendered
  * block of text - mirrors `bootstrap-retail-import.mjs`'s own `assertRowNames()`. */
 function assertRowNames(text, store, rootPath) {
@@ -240,7 +215,9 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   await card.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   // The row's own icon-tile button only calls `setActiveInstallation` - unlike its Play button,
   // which would also start a (fixture, non-launchable) game.
-  await card.getByRole('button', { name: INSTALL_DEMO_UPGRADE_NAME, exact: true }).click({ timeout: TIMEOUT_MS })
+  await card
+    .getByRole('button', { name: INSTALL_DEMO_UPGRADE_NAME, exact: true })
+    .click({ timeout: TIMEOUT_MS })
   await page
     .locator('footer')
     .filter({ hasText: INSTALL_DEMO_UPGRADE_NAME })
@@ -265,8 +242,14 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   //     renderer"). This supersedes 090's own AC7, which asserted the trigger was disabled.
   step('091: dev:simulateLaunch(running) leaves the action enabled on every surface')
   await simulateLaunch(page, INSTALL_DEMO_UPGRADE_ID, 'running')
-  await importRetailButtonWithDisabled(card, false).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await importRetailButtonWithDisabled(actionBar, false).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await importRetailButtonWithDisabled(card, false).waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
+  await importRetailButtonWithDisabled(actionBar, false).waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
   const railCardRunning = await openRailCard(page, INSTALL_DEMO_UPGRADE_NAME)
   await importRetailButtonWithDisabled(railCardRunning, false).waitFor({
     state: 'visible',
@@ -276,7 +259,9 @@ export default async function retailUpgrade({ page, app, shot, step }) {
 
   step('091: starting the upgrade while running creates a job that waits, and writes nothing yet')
   await importRetailButton(card).click({ timeout: TIMEOUT_MS })
-  const runningVerifiedRow = page.locator('[data-testid="retail-upgrade-source-item"][data-index="1"]')
+  const runningVerifiedRow = page.locator(
+    '[data-testid="retail-upgrade-source-item"][data-index="1"]',
+  )
   await runningVerifiedRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await runningVerifiedRow.click({ timeout: TIMEOUT_MS })
   await page.getByTestId('retail-upgrade-confirm').click({ timeout: TIMEOUT_MS })
@@ -296,7 +281,10 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   step('091: cancel the waiting job so the run below starts from a clean, un-upgraded fixture')
   await page.getByTestId('retail-upgrade-dismiss').click({ timeout: TIMEOUT_MS })
   await page.getByRole('dialog').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
-  await page.locator('footer').getByRole('button', { name: 'Cancel' }).click({ timeout: TIMEOUT_MS })
+  await page
+    .locator('footer')
+    .getByRole('button', { name: 'Cancel' })
+    .click({ timeout: TIMEOUT_MS })
   await page
     .locator('footer')
     .getByText(/waiting for the game to close/i)
@@ -307,13 +295,18 @@ export default async function retailUpgrade({ page, app, shot, step }) {
 
   step('restore idle so the rest of the run exercises the ordinary, not-running upgrade')
   await simulateLaunch(page, INSTALL_DEMO_UPGRADE_ID, 'idle')
-  await importRetailButtonWithDisabled(card, false).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await importRetailButtonWithDisabled(card, false).waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
 
   // --- AC3: no detected source --------------------------------------------------------------------
   step('AC3: tell main there are zero detected sources, then open the dialog')
   await setStoreSourcesOverride(app, '[]')
   await importRetailButton(card).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('retail-upgrade-no-sources').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('retail-upgrade-no-sources')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await page.getByTestId('retail-upgrade-source-list').count()) {
     throw new Error('the source picker rendered with zero detected sources (AC3)')
   }
@@ -325,14 +318,16 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   await setStoreSourcesOverride(app, JSON.stringify(storeSources))
 
   // --- AC2/AC6: the real picker --------------------------------------------------------------------
-  step('AC2/AC6: reopen the dialog and assert both sources are listed, one rejected with its reason')
+  step(
+    'AC2/AC6: reopen the dialog and assert both sources are listed, one rejected with its reason',
+  )
   const unverified = storeSources[0] // gog - wrong pak0 size
   const verified = storeSources[1] // steam - verifies
 
   await importRetailButton(card).click({ timeout: TIMEOUT_MS })
   const list = page.getByTestId('retail-upgrade-source-list')
   await list.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (await page.getByTestId('retail-upgrade-source-item').count() !== 2) {
+  if ((await page.getByTestId('retail-upgrade-source-item').count()) !== 2) {
     throw new Error('expected exactly the two fixture sources in the picker (AC2)')
   }
 
@@ -342,14 +337,18 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   assertRowNames(await verifiedRow.innerText(), 'Steam', verified.rootPath)
 
   if (!(await unverifiedRow.isDisabled())) {
-    throw new Error('the wrong-size (GOG) source was selectable - AC6 requires it listed but not choosable')
+    throw new Error(
+      'the wrong-size (GOG) source was selectable - AC6 requires it listed but not choosable',
+    )
   }
   if ((await unverifiedRow.getAttribute('aria-pressed')) !== 'false') {
     throw new Error('the unverified source row reported itself as selected (AC6)')
   }
   const reason = await page.getByTestId('retail-upgrade-source-item-unverified').innerText()
   if (!/pak0\.pak/i.test(reason) || !/retail/i.test(reason)) {
-    throw new Error(`expected the rejection reason to name pak0.pak and the retail size, got: ${JSON.stringify(reason)} (AC6)`)
+    throw new Error(
+      `expected the rejection reason to name pak0.pak and the retail size, got: ${JSON.stringify(reason)} (AC6)`,
+    )
   }
   await shot('picker-good-and-bad-sources')
 
@@ -365,7 +364,9 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   await confirm.click({ timeout: TIMEOUT_MS })
 
   step('wait for the job to succeed')
-  await page.getByTestId('bootstrap-running-step').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('bootstrap-running-step')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page
     .locator('[data-testid="bootstrap-running-step"][data-status="succeeded"]')
     .waitFor({ state: 'visible', timeout: JOB_TIMEOUT_MS })
@@ -387,7 +388,9 @@ export default async function retailUpgrade({ page, app, shot, step }) {
     throw new Error('the library card still showed a Demo badge after the upgrade (AC5)')
   }
   if (await importRetailButton(card).count()) {
-    throw new Error('the library card still offered the import-retail action after the upgrade (AC5)')
+    throw new Error(
+      'the library card still offered the import-retail action after the upgrade (AC5)',
+    )
   }
 
   step('AC5: the Demo marker and the trigger are gone from the rail hover card')
@@ -396,7 +399,9 @@ export default async function retailUpgrade({ page, app, shot, step }) {
     throw new Error('the rail hover card still showed a Demo badge after the upgrade (AC5)')
   }
   if (await importRetailButton(railCardAfter).count()) {
-    throw new Error('the rail hover card still offered the import-retail action after the upgrade (AC5)')
+    throw new Error(
+      'the rail hover card still offered the import-retail action after the upgrade (AC5)',
+    )
   }
   await shot('post-upgrade-no-demo-marker')
 
@@ -409,7 +414,10 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   const expectedFiles = ['pak0.pak', 'pak1.pak', RETAIL_UPGRADE_MARKER_FILE].sort()
   let filesAfter = readdirSync(baseDir).sort()
   const filesDeadline = Date.now() + TIMEOUT_MS
-  while (JSON.stringify(filesAfter) !== JSON.stringify(expectedFiles) && Date.now() < filesDeadline) {
+  while (
+    JSON.stringify(filesAfter) !== JSON.stringify(expectedFiles) &&
+    Date.now() < filesDeadline
+  ) {
     await new Promise((resolve) => setTimeout(resolve, 100))
     filesAfter = readdirSync(baseDir).sort()
   }
@@ -425,15 +433,21 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   const pak0SizeAfter = statSync(pak0Path).size
   const pak1SizeAfter = statSync(pak1Path).size
   if (pak0SizeAfter !== RETAIL_PAK_SIZES['pak0.pak']) {
-    throw new Error(`expected pak0.pak to be ${RETAIL_PAK_SIZES['pak0.pak']} bytes, got ${pak0SizeAfter} (AC4)`)
+    throw new Error(
+      `expected pak0.pak to be ${RETAIL_PAK_SIZES['pak0.pak']} bytes, got ${pak0SizeAfter} (AC4)`,
+    )
   }
   if (pak1SizeAfter !== RETAIL_PAK_SIZES['pak1.pak']) {
-    throw new Error(`expected pak1.pak to be ${RETAIL_PAK_SIZES['pak1.pak']} bytes, got ${pak1SizeAfter} (AC4)`)
+    throw new Error(
+      `expected pak1.pak to be ${RETAIL_PAK_SIZES['pak1.pak']} bytes, got ${pak1SizeAfter} (AC4)`,
+    )
   }
 
   const markerAfter = readFileSync(markerPath)
   if (!markerAfter.equals(markerBefore)) {
-    throw new Error(`the marker file elsewhere in baseq2 changed - the upgrade must touch only pak0.pak/pak1.pak (AC4)`)
+    throw new Error(
+      `the marker file elsewhere in baseq2 changed - the upgrade must touch only pak0.pak/pak1.pak (AC4)`,
+    )
   }
 
   console.log(

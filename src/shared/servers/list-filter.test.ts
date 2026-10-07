@@ -147,8 +147,40 @@ const allRows: ServerListRow[] = [
 
 describe('each filter applied alone keeps exactly the rows that satisfy it', () => {
   it('mod, case-insensitive, excludes rows with an unknown mod', () => {
-    const result = filterServers(allRows, filter({ mod: 'ctf' }))
+    const result = filterServers(allRows, filter({ mod: ['ctf'] }))
     expect(result).toEqual([rocket, stale])
+  })
+
+  it('a server passes when its mod is any of the selected mods', () => {
+    const result = filterServers(allRows, filter({ mod: ['CTF', 'baseq2'] }))
+    const expected = allRows.filter((r) => ['ctf', 'baseq2'].includes(r.mod?.toLowerCase() ?? ''))
+    expect(result).toEqual(expected)
+    expect(result.length).toBeGreaterThan(filterServers(allRows, filter({ mod: ['ctf'] })).length)
+  })
+
+  it('a server passes when its map is any of the selected maps', () => {
+    const result = filterServers(allRows, filter({ map: ['Q2DM1', 'q2dm4'] }))
+    const expected = allRows.filter((r) => ['q2dm1', 'q2dm4'].includes(r.map?.toLowerCase() ?? ''))
+    expect(result).toEqual(expected)
+    expect(result.length).toBeGreaterThan(filterServers(allRows, filter({ map: ['q2dm1'] })).length)
+  })
+
+  it('an empty mod or map set does not restrict the list', () => {
+    expect(filterServers(allRows, filter({ mod: [], map: [] }))).toEqual(allRows)
+  })
+
+  it('mod set, map set and another field all have to hold together', () => {
+    const f = filter({ mod: ['ctf', 'baseq2'], map: ['q2dm1', 'q2dm4'], gamemode: 'ctf' })
+    const result = filterServers(allRows, f)
+    expect(result.length).toBeGreaterThan(0)
+    for (const r of result) {
+      expect(['ctf', 'baseq2']).toContain(r.mod?.toLowerCase())
+      expect(['q2dm1', 'q2dm4']).toContain(r.map?.toLowerCase())
+      expect(r.gamemode).toBe('ctf')
+    }
+    expect(result.length).toBeLessThan(
+      filterServers(allRows, filter({ mod: ['ctf', 'baseq2'] })).length,
+    )
   })
 
   it('gamemode excludes rows with an unknown gamemode', () => {
@@ -187,21 +219,21 @@ describe('each filter applied alone keeps exactly the rows that satisfy it', () 
   })
 
   it('map, case-insensitive, matches the stale row on its last-known value', () => {
-    const result = filterServers(allRows, filter({ map: 'q2dm1' }))
+    const result = filterServers(allRows, filter({ map: ['q2dm1'] }))
     expect(result).toEqual([rocket, empty])
   })
 
   it('a stale row filters on its last-known field values like any other', () => {
-    const result = filterServers(allRows, filter({ mod: 'ctf', gamemode: 'ctf' }))
+    const result = filterServers(allRows, filter({ mod: ['ctf'], gamemode: 'ctf' }))
     expect(result).toContainEqual(stale)
   })
 })
 
 describe('active filters intersect', () => {
   it('two filters combined give the intersection of what each alone would give', () => {
-    const byMod = filterServers(allRows, filter({ mod: 'baseq2' }))
+    const byMod = filterServers(allRows, filter({ mod: ['baseq2'] }))
     const byGamemode = filterServers(allRows, filter({ gamemode: 'deathmatch' }))
-    const combined = filterServers(allRows, filter({ mod: 'baseq2', gamemode: 'deathmatch' }))
+    const combined = filterServers(allRows, filter({ mod: ['baseq2'], gamemode: 'deathmatch' }))
 
     const expected = allRows.filter((r) => byMod.includes(r) && byGamemode.includes(r))
     expect(combined).toEqual(expected)
@@ -209,7 +241,10 @@ describe('active filters intersect', () => {
   })
 
   it('an unsatisfiable combination yields an empty result', () => {
-    const combined = filterServers(allRows, filter({ gamemode: 'deathmatch', mod: 'does-not-exist' }))
+    const combined = filterServers(
+      allRows,
+      filter({ gamemode: 'deathmatch', mod: ['does-not-exist'] }),
+    )
     expect(combined).toEqual([])
   })
 })
@@ -270,6 +305,73 @@ describe('search matches player names only where a roster was fetched', () => {
   })
 })
 
+describe('a quoted search matches name, address or player name in full', () => {
+  const ffa = row({ name: 'FFA' })
+  const ffaClassic = row({ name: 'FFA Classic' })
+
+  it('"ffa" matches a row named "FFA" but not "FFA Classic"', () => {
+    expect(matchesSearch(ffa, '"ffa"')).toBe(true)
+    expect(matchesSearch(ffaClassic, '"ffa"')).toBe(false)
+  })
+
+  it('matches an address exactly', () => {
+    expect(matchesSearch(rocket, '"10.0.0.1:27910"')).toBe(true)
+    expect(matchesSearch(rocket, '"10.0.0.1"')).toBe(false)
+  })
+
+  it('matches a roster player exactly but not a longer name containing it', () => {
+    expect(matchesSearch(roster, '"alice"')).toBe(true)
+    expect(matchesSearch(roster, '"ali"')).toBe(false)
+    const longer = row({ name: 'Other', players: [{ name: 'Alice Cooper', score: 0, ping: 10 }] })
+    expect(matchesSearch(longer, '"alice"')).toBe(false)
+  })
+
+  it('is case-insensitive', () => {
+    expect(matchesSearch(ffa, '"FfA"')).toBe(true)
+    expect(matchesSearch(roster, '"ALICE"')).toBe(true)
+  })
+})
+
+describe('quotes with surrounding whitespace still count as quoted', () => {
+  it('a quoted term padded with spaces is exact', () => {
+    expect(matchesSearch(row({ name: 'FFA' }), ' "ffa" ')).toBe(true)
+    expect(matchesSearch(row({ name: 'FFA Classic' }), ' "ffa" ')).toBe(false)
+  })
+
+  it('whitespace inside the quotes is part of the term', () => {
+    expect(matchesSearch(row({ name: 'ffa' }), '" ffa"')).toBe(false)
+    expect(matchesSearch(row({ name: ' ffa' }), '" ffa"')).toBe(true)
+  })
+})
+
+describe('a malformed quote is plain substring text', () => {
+  it('an unclosed quote is a substring search', () => {
+    expect(matchesSearch(row({ name: 'The "FFA' }), '"ffa')).toBe(true)
+    expect(matchesSearch(row({ name: 'FFA' }), '"ffa')).toBe(false)
+  })
+
+  it('empty quotes do not match everything', () => {
+    expect(matchesSearch(rocket, '""')).toBe(false)
+  })
+
+  it('a lone quote does not match everything', () => {
+    expect(matchesSearch(rocket, '"')).toBe(false)
+  })
+
+  it('a single-quoted term is plain substring text', () => {
+    expect(matchesSearch(row({ name: "'ffa'" }), "'ffa'")).toBe(true)
+    expect(matchesSearch(row({ name: 'FFA' }), "'ffa'")).toBe(false)
+  })
+})
+
+describe('a quoted search matches player names only where a roster was fetched', () => {
+  it('a numeric count and undefined players never match on a player name', () => {
+    expect(matchesSearch(numericPlayers, '"alice"')).toBe(false)
+    expect(matchesSearch(undefinedPlayers, '"alice"')).toBe(false)
+    expect(matchesSearch(roster, '"alice"')).toBe(true)
+  })
+})
+
 describe('filtering preserves the input order', () => {
   it('the result is a subsequence of the input in the same relative order', () => {
     const shuffled = [
@@ -284,12 +386,12 @@ describe('filtering preserves the input order', () => {
       waiting,
       unknownFields,
     ]
-    const result = filterServers(shuffled, filter({ mod: 'baseq2' }))
+    const result = filterServers(shuffled, filter({ mod: ['baseq2'] }))
 
     const indices = result.map((r) => shuffled.indexOf(r))
     const sortedIndices = [...indices].sort((a, b) => a - b)
     expect(indices).toEqual(sortedIndices)
-    expect(result.every((r) => matchesFilter(r, filter({ mod: 'baseq2' })))).toBe(true)
+    expect(result.every((r) => matchesFilter(r, filter({ mod: ['baseq2'] })))).toBe(true)
   })
 })
 
@@ -316,5 +418,36 @@ describe('filter options are distinct, case-insensitive and sorted', () => {
     expect(options.maps.length).toBeGreaterThan(0)
     expect(new Set(options.maps.map((m) => m.toLowerCase())).size).toBe(options.maps.length)
     expect(options.maps).toEqual([...options.maps].sort((a, b) => a.localeCompare(b)))
+  })
+})
+
+describe('ping limit (story 247)', () => {
+  const online = (rttMs: number) => row({ address: `10.9.0.${rttMs}:27910`, rttMs })
+
+  it('a limit shows only online rows below it', () => {
+    const rows = [online(30), online(99), online(100), online(140)]
+    const result = filterServers(rows, filter({ maxPingMs: 100 }))
+    expect(result.map((r) => r.rttMs)).toEqual([30, 99])
+  })
+
+  it('stale and unmeasured rows are hidden while a limit is set', () => {
+    const staleFast = row({ status: 'stale', rttMs: 10 })
+    const pendingNoPing = row({ status: 'pending' })
+    const f = filter({ maxPingMs: 100 })
+    expect(matchesFilter(staleFast, f)).toBe(false)
+    expect(matchesFilter(pendingNoPing, f)).toBe(false)
+  })
+
+  it('no limit keeps every row', () => {
+    const staleFast = row({ status: 'stale', rttMs: 10 })
+    const pendingNoPing = row({ status: 'pending' })
+    const f = filter({ maxPingMs: null })
+    expect(matchesFilter(staleFast, f)).toBe(true)
+    expect(matchesFilter(pendingNoPing, f)).toBe(true)
+  })
+
+  it('a ping limit makes the filter active', () => {
+    expect(isFilterActive(filter({ maxPingMs: 50 }))).toBe(true)
+    expect(isFilterActive(filter({ maxPingMs: null }))).toBe(false)
   })
 })

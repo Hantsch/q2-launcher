@@ -1,7 +1,11 @@
 import { createSocket, type Socket } from 'node:dgram'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_SERVERS_STATE, type ScanTarget } from '@shared/modules/servers'
-import { buildInfoReplyBytes, buildStatusReplyBytes, formatInfoLine } from '@shared/servers/reply-fixtures'
+import {
+  buildInfoReplyBytes,
+  buildStatusReplyBytes,
+  formatInfoLine,
+} from '@shared/servers/reply-fixtures'
 import { runScan } from './scan-runner'
 
 /**
@@ -80,7 +84,8 @@ function buildProfiles(count: number): Profile[] {
     const delayU = rand()
     const dead = deadU < DEAD_SHARE
     const lossy = !dead && lossyU < LOSSY_SHARE
-    const clients = clientsU < NON_EMPTY_SHARE ? 1 + Math.floor((clientsU / NON_EMPTY_SHARE) * 7) : 0
+    const clients =
+      clientsU < NON_EMPTY_SHARE ? 1 + Math.floor((clientsU / NON_EMPTY_SHARE) * 7) : 0
     let acc = 0
     let bucket: (typeof DELAY_BUCKETS)[number] = DELAY_BUCKETS[DELAY_BUCKETS.length - 1]!
     for (const candidate of DELAY_BUCKETS) {
@@ -109,8 +114,13 @@ async function bindResponder(profile: Profile): Promise<Responder> {
   const line =
     `\\gamename\\baseq2\\hostname\\${profile.hostname}\\mapname\\q2dm${(profile.index % 8) + 1}` +
     `\\clients\\${profile.clients}\\maxclients\\16\\version\\3.20`
-  const playerLines = Array.from({ length: profile.clients }, (_, k) => `${k * 3} ${20 + k} "Player${k}"`)
-  const infoBytes = buildInfoReplyBytes(formatInfoLine(profile.hostname, `q2dm${(profile.index % 8) + 1}`, profile.clients, 16))
+  const playerLines = Array.from(
+    { length: profile.clients },
+    (_, k) => `${k * 3} ${20 + k} "Player${k}"`,
+  )
+  const infoBytes = buildInfoReplyBytes(
+    formatInfoLine(profile.hostname, `q2dm${(profile.index % 8) + 1}`, profile.clients, 16),
+  )
   const statusBytes = buildStatusReplyBytes(line, playerLines)
   const responder: Responder = {
     profile,
@@ -144,48 +154,49 @@ describe('scan measurement budget (story 115 D6)', () => {
 
   afterAll(async () => {
     await Promise.all(
-      responders.map((responder) => new Promise<void>((resolve) => responder.socket.close(() => resolve()))),
+      responders.map(
+        (responder) => new Promise<void>((resolve) => responder.socket.close(() => resolve())),
+      ),
     )
   })
 
-  it(
-    "a full two-stage pass over the loopback population finishes inside the shipped defaults' budget",
-    async () => {
-      const settings = DEFAULT_SERVERS_STATE.scan
-      const targets: ScanTarget[] = responders.map((responder) => ({ address: responder.address, origins: [] }))
-      let stage1Ok = 0
-      let stage2Ok = 0
+  it("a full two-stage pass over the loopback population finishes inside the shipped defaults' budget", async () => {
+    const settings = DEFAULT_SERVERS_STATE.scan
+    const targets: ScanTarget[] = responders.map((responder) => ({
+      address: responder.address,
+      origins: [],
+    }))
+    let stage1Ok = 0
+    let stage2Ok = 0
 
-      const startedAt = performance.now()
-      const result = await runScan({
-        targets,
-        settings,
-        onServer: (row) => {
-          if (!row.result.ok) return
-          if (row.stage === 'stage1') stage1Ok += 1
-          else stage2Ok += 1
-        },
-      })
-      const fullPassMs = performance.now() - startedAt
+    const startedAt = performance.now()
+    const result = await runScan({
+      targets,
+      settings,
+      onServer: (row) => {
+        if (!row.result.ok) return
+        if (row.stage === 'stage1') stage1Ok += 1
+        else stage2Ok += 1
+      },
+    })
+    const fullPassMs = performance.now() - startedAt
 
-      // It really was a two-stage pass over the wire, not something cheaper that happens to be fast.
-      const answering = responders.filter(
-        ({ profile }) => !profile.dead && (!profile.lossy || settings.retries >= 1),
-      )
-      const nonEmpty = answering.filter(({ profile }) => profile.clients > 0)
-      expect(result.aborted).toBe(false)
-      expect(result.stage1Done).toBe(POPULATION_SIZE)
-      expect(stage1Ok).toBe(answering.length)
-      expect(result.stage2Total).toBe(nonEmpty.length)
-      expect(stage2Ok).toBe(nonEmpty.length)
-      for (const responder of responders) {
-        expect(responder.received.info).toBeGreaterThanOrEqual(1)
-        expect(responder.received.status > 0).toBe(nonEmpty.includes(responder))
-      }
+    // It really was a two-stage pass over the wire, not something cheaper that happens to be fast.
+    const answering = responders.filter(
+      ({ profile }) => !profile.dead && (!profile.lossy || settings.retries >= 1),
+    )
+    const nonEmpty = answering.filter(({ profile }) => profile.clients > 0)
+    expect(result.aborted).toBe(false)
+    expect(result.stage1Done).toBe(POPULATION_SIZE)
+    expect(stage1Ok).toBe(answering.length)
+    expect(result.stage2Total).toBe(nonEmpty.length)
+    expect(stage2Ok).toBe(nonEmpty.length)
+    for (const responder of responders) {
+      expect(responder.received.info).toBeGreaterThanOrEqual(1)
+      expect(responder.received.status > 0).toBe(nonEmpty.includes(responder))
+    }
 
-      expect(RECORDED_FULL_PASS_BUDGET_MS).toBeGreaterThan(0)
-      expect(fullPassMs).toBeLessThan(RECORDED_FULL_PASS_BUDGET_MS)
-    },
-    30_000,
-  )
+    expect(RECORDED_FULL_PASS_BUDGET_MS).toBeGreaterThan(0)
+    expect(fullPassMs).toBeLessThan(RECORDED_FULL_PASS_BUDGET_MS)
+  }, 30_000)
 })

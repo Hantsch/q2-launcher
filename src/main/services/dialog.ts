@@ -2,6 +2,7 @@ import { delimiter } from 'node:path'
 import { dialog, type BrowserWindow } from 'electron'
 import { canonicalizePath } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
+import { resolveUiHarness, uiHarnessPickedFolders } from '../lib/ui-harness'
 
 const log = scopedLogger('dialog')
 
@@ -23,7 +24,7 @@ export interface DialogServiceOptions {
 }
 
 /**
- * Story 066 D4: the one place that owns `dialog.showOpenDialog` for picking config files.
+ * Story 066: the one place that owns `dialog.showOpenDialog` for picking config files.
  *
  * Modules cannot touch `dialog` or `BrowserWindow` directly and get no invoke event to resolve a
  * window from (`modules/types.ts:41-44`), so this exists as its own service on `AppContext` instead
@@ -34,6 +35,7 @@ export interface DialogServiceOptions {
  */
 export class DialogService {
   private readonly getMainWindow: () => BrowserWindow | null
+  private harnessFolderPicks = 0
 
   constructor(options: DialogServiceOptions) {
     this.getMainWindow = options.getMainWindow
@@ -55,10 +57,11 @@ export class DialogService {
    * `Q2L_UI_PICK_FILES` format: paths joined with `path.delimiter` (`;` on Windows, `:` elsewhere) -
    * the same separator Node uses for `PATH` itself, and safe here because a `.cfg` path is most
    * unlikely to contain it (a real OS path list already relies on the same assumption). Empty
-   * segments are dropped, so a trailing delimiter or an unset/empty variable both yield `[]`. D8's
+   * segments are dropped, so a trailing delimiter or an unset/empty variable both yield `[]`. the
    * e2e harness must produce values in this exact format.
    */
   async pickConfigFiles({ defaultPath }: { defaultPath?: string }): Promise<string[]> {
+    // exempt: shipped security gate, story 066
     if (process.env['Q2L_UI_HARNESS'] === '1') {
       const picked = parseHarnessPickedFiles(process.env['Q2L_UI_PICK_FILES'])
       log.info(`harness stub: returning ${picked.length} fixture path(s) instead of a real dialog`)
@@ -78,6 +81,29 @@ export class DialogService {
 
     if (result.canceled || result.filePaths.length === 0) return []
     return Promise.all(result.filePaths.map((path) => canonicalizePath(path)))
+  }
+
+  /**
+   * Opens a native folder picker; `null` on cancel. Under the UI harness no dialog opens:
+   * `Q2L_UI_PICK_FOLDER` is a list, one entry per call with the last repeating, and an empty list
+   * is a cancel.
+   */
+  async pickFolder(): Promise<string | null> {
+    const stubbed = uiHarnessPickedFolders(resolveUiHarness(process.env))
+    if (stubbed !== undefined) {
+      if (stubbed.length === 0) return null
+      const picked = stubbed[Math.min(this.harnessFolderPicks, stubbed.length - 1)]
+      this.harnessFolderPicks += 1
+      return canonicalizePath(picked)
+    }
+
+    const window = this.getMainWindow()
+    const options: Electron.OpenDialogOptions = { properties: ['openDirectory', 'createDirectory'] }
+    const result = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options)
+    if (result.canceled || result.filePaths.length === 0) return null
+    return canonicalizePath(result.filePaths[0])
   }
 }
 

@@ -111,14 +111,14 @@ Order: D1 → D2 (D2 imports `ValueSource`/`VALUE_SOURCES` from D1).
   - `type Effective<T> = { value: T; source: ValueSource } | { value: null; source: null }`.
   - `hasValue(v)`: false for `null`/`undefined`, a string blank after trim, an empty array; else true.
   - `firstValue<T>(rungs: ReadonlyArray<{ source: ValueSource; value: T | null | undefined }>):
-    Effective<T>` — first rung with `hasValue`, else `{ value: null, source: null }`. Exported for
+Effective<T>` — first rung with `hasValue`, else `{ value: null, source: null }`. Exported for
     [[149]] to extend the gamemode rungs.
   - `effectiveFileTime({ birthtimeMs, mtimeMs }): number` — `birthtimeMs` if finite, `> 0` and
     `≤ mtimeMs`, else `mtimeMs`.
   - `resolveEffectiveValues(inputs): EffectiveValues` where `inputs = { fileName: string; sidecar:
-    <146's sidecar field type, partial — 147 passes only its valid fields> | null; header: <136/137's
-    header result> | null; nameFacts: <139's name-facts result> | null; fileTime: { birthtimeMs:
-    number; mtimeMs: number } }`. Import those types from the modules 136/137/139/146/147 created
+<146's sidecar field type, partial — 147 passes only its valid fields> | null; header: <136/137's
+header result> | null; nameFacts: <139's name-facts result> | null; fileTime: { birthtimeMs:
+number; mtimeMs: number } }`. Import those types from the modules 136/137/139/146/147 created
     (all built before this story); a header with `ok: false` and a name result with no match count as
     absent. `EffectiveValues` has `name`, `map`, `mod`, `gamemode`, `sides`, `date`, `pov`, `host`,
     each `Effective<…>`. Rungs: `name` sidecar.name → fileName (source `'name'`, the base file name
@@ -129,13 +129,13 @@ Order: D1 → D2 (D2 imports `ValueSource`/`VALUE_SOURCES` from D1).
     (NaN = no value) → name-fact date as local wall-clock time (`'name'`) → `effectiveFileTime`
     (`'file'`, always a value); `pov` header.pov (`'demo'`, MVD2 has none) → nameFacts pov
     (`'name'`); `host` nameFacts host (`'name'`). Build each field with `firstValue`.
-  Tests (names under Acceptance Tests): an `it.each` table covering every field × every rung (each row
-  supplies only that rung and the ones below it, asserting value + source); the name and sides
-  specifics; the date chain incl. unparsable sidecar date; the three file-time cases (creation used;
-  creation `0` → modification; creation > modification → modification); clearing: the same inputs
-  with the sidecar field present, then removed, then `""`/`[]`, then `sidecar: null`, each time the
-  next lower source becomes effective.
-  Acceptance: those tests pass; `npm run typecheck` clean.
+    Tests (names under Acceptance Tests): an `it.each` table covering every field × every rung (each row
+    supplies only that rung and the ones below it, asserting value + source); the name and sides
+    specifics; the date chain incl. unparsable sidecar date; the three file-time cases (creation used;
+    creation `0` → modification; creation > modification → modification); clearing: the same inputs
+    with the sidecar field present, then removed, then `""`/`[]`, then `sidecar: null`, each time the
+    next lower source becomes effective.
+    Acceptance: those tests pass; `npm run typecheck` clean.
 
 - **D2 — visible source label + strings + its tests.**
   Files: new `src/renderer/src/modules/replays/components/ValueSourceLabel.tsx`, new
@@ -143,16 +143,14 @@ Order: D1 → D2 (D2 imports `ValueSource`/`VALUE_SOURCES` from D1).
   `initI18n('en')` setup of `src/renderer/src/modules/servers/ServersListStatus.test.tsx`), edit
   `src/renderer/src/i18n/locales/en.json` (inside the existing top-level `replays` block from [[135]]
   add `source: { sidecar: "set by you", demo: "from the demo", name: "from the file name", file:
-  "file time", guessed: "guessed" }`).
+"file time", guessed: "guessed" }`).
   Component: `ValueSourceLabel({ source }: { source: ValueSource | null })` renders
-  `t(\`replays.source.${source}\`)` as plain text in a `<span data-testid="value-source"
-  data-source={source}>` using a muted text token (no raw palette class, no icon-only rendering);
-  `source === null` renders nothing. Import `ValueSource`/`VALUE_SOURCES` from
-  `@shared/demos/effective-values`.
-  Tests: for every entry of `VALUE_SOURCES` the component's text content equals that en label (a
-  missing key would render the key itself and fail); every `VALUE_SOURCES` member has a non-empty
-  string at `replays.source.<member>` in `en.json`; `null` renders nothing.
-  Acceptance: those tests pass; `npm run typecheck` clean.
+  `t(\`replays.source.${source}\`)`as plain text in a`<span data-testid="value-source"
+  data-source={source}>`using a muted text token (no raw palette class, no icon-only rendering);`source === null`renders nothing. Import`ValueSource`/`VALUE_SOURCES`from`@shared/demos/effective-values`.
+Tests: for every entry of `VALUE_SOURCES`the component's text content equals that en label (a
+missing key would render the key itself and fail); every`VALUE_SOURCES`member has a non-empty
+string at`replays.source.<member>`in`en.json`; `null`renders nothing.
+Acceptance: those tests pass;`npm run typecheck` clean.
 
 ## Model Hints
 

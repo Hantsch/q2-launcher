@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import { CONFIG_HANDLERS } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import type { useLauncher as useLauncherType } from '../../store/useLauncher'
+import type { useConfigProfiles as useConfigProfilesType } from '../config/config-profiles-store'
 import type { AddToAddressBookDialog as AddToAddressBookDialogType } from './AddToAddressBookDialog'
 
 function makeProfile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
@@ -57,11 +58,18 @@ function invokeImpl(_channel: string, args: { moduleId: string; type: string; pa
 
 let AddToAddressBookDialog: typeof AddToAddressBookDialogType
 let useLauncher: typeof useLauncherType
+let useConfigProfiles: typeof useConfigProfilesType
 
 beforeAll(async () => {
   await initI18n('en')
   ;({ AddToAddressBookDialog } = await import('./AddToAddressBookDialog'))
   ;({ useLauncher } = await import('../../store/useLauncher'))
+  ;({ useConfigProfiles } = await import('../config/config-profiles-store'))
+})
+
+beforeEach(() => {
+  // The store outlives a mount, so each test starts from the empty list of a first visit.
+  useConfigProfiles.setState({ profiles: [] })
 })
 
 afterEach(() => {
@@ -76,9 +84,9 @@ afterEach(() => {
     }),
     makeProfile({ id: 'b', name: 'Profile B', cvars: { adr2: '8.8.8.8:27910' } }),
   ]
-  ;(globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke.mockImplementation(
-    invokeImpl,
-  )
+  ;(
+    globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }
+  ).q2.invoke.mockImplementation(invokeImpl)
 })
 
 function invokeMock() {
@@ -136,9 +144,11 @@ describe('AddToAddressBookDialog', () => {
     // While the fresh read is in flight (or right after), Profile A's adr0 value must not appear.
     expect(screen.queryByText('9.9.9.9:27910')).toBeNull()
 
-    await waitFor(() => expect(screen.getByTestId('servers-address-book-slot-2').textContent).toContain(
-      '8.8.8.8:27910',
-    ))
+    await waitFor(() =>
+      expect(screen.getByTestId('servers-address-book-slot-2').textContent).toContain(
+        '8.8.8.8:27910',
+      ),
+    )
     expect(screen.getByTestId('servers-address-book-slot-0').textContent).toContain('Empty')
     expect(screen.queryByText('9.9.9.9:27910')).toBeNull()
 
@@ -167,7 +177,10 @@ describe('AddToAddressBookDialog', () => {
       (c: unknown[]) => (c[1] as { type: string }).type === CONFIG_HANDLERS.commitCvars,
     )
     expect(commitCalls).toHaveLength(1)
-    const [, args] = commitCalls[0] as [string, { moduleId: string; type: string; payload: unknown }]
+    const [, args] = commitCalls[0] as [
+      string,
+      { moduleId: string; type: string; payload: unknown },
+    ]
     expect(args.moduleId).toBe('config')
     expect(args.type).toBe('commitCvars')
     // Only the chosen slot (adr1, lowest empty) - not the profile's other cvar adr0.
@@ -192,7 +205,9 @@ describe('AddToAddressBookDialog', () => {
     const toasts = useLauncher.getState().toasts
     expect(toasts.map((toast) => toast.messageKey)).toContain('servers.addressBook.saved')
     expect(toasts.map((toast) => toast.messageKey)).not.toContain('servers.addressBook.written')
-    expect(toasts.find((toast) => toast.messageKey === 'servers.addressBook.saved')?.params).toEqual({
+    expect(
+      toasts.find((toast) => toast.messageKey === 'servers.addressBook.saved')?.params,
+    ).toEqual({
       profile: 'Profile A',
       slot: 'adr1',
     })

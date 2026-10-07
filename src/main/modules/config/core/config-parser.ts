@@ -6,7 +6,7 @@
  * and splits it into the pieces q2-launcher understands (cvars, key
  * bindings, `exec` references) plus everything it doesn't, which is kept
  * byte-for-byte so nothing in a user's hand-written config is silently
- * dropped (story 005 AC 4). No `node:fs`, no Electron - this file only ever
+ * dropped (story 005). No `node:fs`, no Electron - this file only ever
  * sees a string and returns data.
  *
  * ## Tokenizer rules (Quake II's own, not reinvented)
@@ -27,7 +27,7 @@
  * `set` / `seta` / `setu` / `sets` (case-insensitive command name) assign a
  * cvar: `<cmd> <name> <value>`. `bind` assigns a key: `bind <key>
  * <command>`. `unbind <key>` and `unbindall` remove bindings - both run the
- * key token through `normalizeBindKey` (`@shared/config/key-names`), since
+ * key token through `normalizeBindKey` (`@shared/config/syntax/key-names`), since
  * hand-written configs mix casing (`ctrl`/`CTRL`) that would otherwise never
  * match the keyboard overview's canonical spelling. `exec <file>`
  * names another file to load - this parser only records the target string;
@@ -40,7 +40,7 @@
  * spaces, mirroring the real engine's `Cmd_Alias_f` - which is why a quoted
  * body with an embedded `;` (`alias n "a;b"`) comes out as the single string
  * `a;b` rather than being split here; that split is a later stage's job
- * (story 041 D3), not this parser's. `alias n ""` is a valid, recognized
+ * (story 041), not this parser's. `alias n ""` is a valid, recognized
  * alias with an empty body. A bare `alias` with no name at all (fewer than 2
  * tokens) is not recognized.
  *
@@ -78,7 +78,7 @@
  * so only the unrecognized segment's own (trimmed) text is preserved,
  * tagged with the same line number as its sibling segments.
  *
- * ## Trailing comments (story 042 D3)
+ * ## Trailing comments (story 042)
  *
  * Every classified cvar/bind/alias also carries `comment`: the raw text
  * after the line's `//` marker (marker stripped, nothing else touched),
@@ -86,23 +86,23 @@
  * comment for the whole line, so every sibling segment gets the same
  * `comment` string, never a per-segment fragment of it. A line that is
  * ONLY a comment (no command at all) keeps being folded into `preserved`
- * exactly as it always was (AC 8: nothing that used to survive there stops
+ * exactly as it always was (nothing that survives there stops
  * surviving there) - it is ADDITIONALLY collected in `comments`, in document
- * order, so a later stage (D4) can find section-header banners without
+ * order, so a later stage can find section-header banners without
  * re-scanning `preserved` for lines that merely look unrecognized.
  */
 
-import { normalizeBindKey } from '@shared/config/key-names'
+import { normalizeBindKey } from '@shared/config/syntax/key-names'
 import {
   splitTopLevelSemicolons,
   stripLineComment,
   tokenize,
-} from '@shared/config/command-tokenizer'
+} from '@shared/config/syntax/command-tokenizer'
 
 /**
  * `comment` is the raw text following the line's trailing `//` marker (the
  * marker itself stripped, nothing else touched) - `''` when the source line
- * carried no comment at all. Story 042 D3: the writer (D2) attaches a
+ * carried no comment at all. Story 042: the writer attaches a
  * display name and, later, a `[q2l ...]` tag there, so the parser must hand
  * it back rather than discard it as it did before this story.
  */
@@ -133,7 +133,7 @@ export interface ParsedExec {
  * `body` is the raw, unsplit argument text `alias` received, quotes
  * stripped - a quoted `"a;b"` and an unquoted multi-token body both collapse
  * to a single string here. Splitting that body into individual commands on
- * top-level `;` is a later stage's job (story 041 D3), not this parser's.
+ * top-level `;` is a later stage's job (story 041), not this parser's.
  * `comment` is the line's trailing comment - see `ParsedCvar`'s doc comment.
  */
 export interface ParsedAlias {
@@ -146,7 +146,7 @@ export interface ParsedAlias {
    * whatever the writer padded it with, the two spaces `attachTaggedComment` puts in front of the
    * marker included. Equal to the whole line's length when it carried no comment at all.
    *
-   * Story-045 review round 2 (findings 1 and 4): a launcher-written line's trailing comment holds
+   * A launcher-written line's trailing comment holds
    * the entry's display name, and `cfg-layout.ts#fitProseAndTag` **cuts that name** when the code
    * plus the comment plus the `[q2l …]` tag do not fit one line budget. A reader that has to tell a
    * cut spelling of one name apart from a genuinely different, shorter sibling name needs to know
@@ -168,8 +168,8 @@ export interface PreservedLine {
 
 /**
  * A line that is ONLY a `//` comment - no command at all, recognized or
- * not. Collected ADDITIONALLY to `preserved` (story 042 D3), which still
- * carries the same line unchanged (AC 8), because a later stage (D4) reads
+ * not. Collected ADDITIONALLY to `preserved` (story 042), which still
+ * carries the same line unchanged, because a later stage reads
  * this bucket specifically to find section-header banners without
  * re-scanning `preserved` for lines that merely look unrecognized; `text`
  * is the same "marker stripped" comment text as `ParsedCvar.comment`, never
@@ -306,8 +306,8 @@ export function parseConfigText(text: string): ParseConfigResult {
     if (segments.length === 0) {
       // Nothing left after stripping a comment. A line that WAS a comment
       // (marker found) is a comment-only line, ADDITIONALLY collected into
-      // its own bucket (story 042 D3) - it still lands in `preserved` too,
-      // unchanged from before this story (AC 8). A line with no marker at
+      // its own bucket (story 042) - it still lands in `preserved` too,
+      // unchanged from before this story. A line with no marker at
       // all that still lost everything to the semicolon split (e.g. `;;;`)
       // keeps today's behaviour: preserved if it had any content, dropped
       // if it was genuinely blank.

@@ -47,7 +47,7 @@ The `replays` module exists with its nav entry and a main-side index that finds 
   (every AC provable at the unit/integration level still passed with real tests). The regression
   gate (below) found the actual cause: four orphaned Electron processes left running from earlier
   in the session, holding a lock that made every later `_electron.launch()` hang or misbehave.
-  Once killed, `ui:verify`/`ui:flows` ran cleanly and surfaced two *real* bugs the build-phase gap
+  Once killed, `ui:verify`/`ui:flows` ran cleanly and surfaced two _real_ bugs the build-phase gap
   had been masking all along (see Regression gate) — the "environment gap" label in each story's
   own Done section undersells what actually happened; this Notes entry is the correction.
 

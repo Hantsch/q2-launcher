@@ -30,7 +30,10 @@ function escapeForRegExp(value) {
 }
 
 function homeDirPattern(home) {
-  return home.split(/[\\/]+/).map(escapeForRegExp).join('[\\\\/]+')
+  return home
+    .split(/[\\/]+/)
+    .map(escapeForRegExp)
+    .join('[\\\\/]+')
 }
 
 /**

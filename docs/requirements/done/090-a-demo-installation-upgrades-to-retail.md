@@ -43,14 +43,14 @@ into a normal, non-demo one without re-running the wizard or re-downloading the 
 - **Job, not a direct copy (the story's own open question, now closed).** The action runs as a
   `JobsService` job (`moduleId: 'downloads'`, `installationId`, `cancellable: true`), visible in the
   Downloads tab like every other download job. Reason: the copy moves ~197 MB (`pak0.pak` 183 997 730 B
-  + `pak1.pak` 12 992 754 B) out of a store folder that may sit on an HDD or an external drive — that
-  needs progress, and INST-J1 forbids introducing a second progress mechanism next to `Job`;
-  [[088]] runs the identical copy inside its bootstrap job, so reuse is cheapest with the same wrapper.
+  - `pak1.pak` 12 992 754 B) out of a store folder that may sit on an HDD or an external drive — that
+    needs progress, and INST-J1 forbids introducing a second progress mechanism next to `Job`;
+    [[088]] runs the identical copy inside its bootstrap job, so reuse is cheapest with the same wrapper.
 - **Expected reuse surface from [[088]]** (best guess, to be reconciled at build time — 088 is being
   refined in parallel): a main-side retail-source module under
   `src/main/modules/downloads/bootstrap/` (working names `retail-source.ts` / `retail-copy.ts`)
-  exporting (a) a *verify* function that judges a candidate store folder's `pak0.pak`/`pak1.pak`
-  against `RETAIL_PAK_SIZES` (`src/shared/constants.ts:54`) — 088's AC3 — and (b) a *copy* function
+  exporting (a) a _verify_ function that judges a candidate store folder's `pak0.pak`/`pak1.pak`
+  against `RETAIL_PAK_SIZES` (`src/shared/constants.ts:54`) — 088's AC3 — and (b) a _copy_ function
   that copies those two files into an installation — 088's AC4 — plus a `DOWNLOADS_HANDLERS` entry
   that lists detected store sources for the wizard's picker (088 AC1/AC2). **D1/D2 must call
   whatever 088 actually built and never add a second implementation**; if 088's routine is bound to
@@ -126,52 +126,52 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3/D4 may start once D1 exists.
 ## Deliverables
 
 - [x] **D1 — Contract, schemas and handlers.** `src/shared/modules/downloads.ts`,
-  `src/main/modules/downloads/schemas.ts`, `src/main/modules/downloads/index.ts`,
-  `src/renderer/src/modules/downloads/client.ts`. Mirror [[074]] D1's `bootstrap.start` /
-  `bootstrap.engineOptions` wiring. **First step: read what [[088]] landed and reuse its
-  store-source lister instead of declaring a second one.** *Acceptance:* `module:invoke` reaches a
-  `retail.upgradeStart` handler and a store-source lister; every handler carries a zod schema;
-  typecheck + build green. Test: `src/main/modules/downloads/retail/sources.test.ts` — "only
-  steam/gog/epic candidates are offered, each with store and path".
+      `src/main/modules/downloads/schemas.ts`, `src/main/modules/downloads/index.ts`,
+      `src/renderer/src/modules/downloads/client.ts`. Mirror [[074]] D1's `bootstrap.start` /
+      `bootstrap.engineOptions` wiring. **First step: read what [[088]] landed and reuse its
+      store-source lister instead of declaring a second one.** _Acceptance:_ `module:invoke` reaches a
+      `retail.upgradeStart` handler and a store-source lister; every handler carries a zod schema;
+      typecheck + build green. Test: `src/main/modules/downloads/retail/sources.test.ts` — "only
+      steam/gog/epic candidates are offered, each with store and path".
 - [x] **D2 — The upgrade job.** `src/main/modules/downloads/retail/upgrade-job.ts` (+
-  `upgrade-job.test.ts`), error keys in the module's `errors.ts`. Mirror
-  `src/main/modules/downloads/bootstrap/job.ts` (job creation, cancel callback, error mapping).
-  *Acceptance (with fakes for the launch service, the inspector and [[088]]'s copy routine):*
-  refuses while that installation is running; rejects an unverifiable source before writing a byte;
-  writes only `pak0.pak`/`pak1.pak` into the resolved base dir via temp + rename; leaves every other
-  file untouched; finishes by calling `InstallationsService.validate()` and never sets a status by
-  hand. Proves AC4, AC6, AC7 (main) and AC5's "re-derived, never hand-set" half.
+      `upgrade-job.test.ts`), error keys in the module's `errors.ts`. Mirror
+      `src/main/modules/downloads/bootstrap/job.ts` (job creation, cancel callback, error mapping).
+      _Acceptance (with fakes for the launch service, the inspector and [[088]]'s copy routine):_
+      refuses while that installation is running; rejects an unverifiable source before writing a byte;
+      writes only `pak0.pak`/`pak1.pak` into the resolved base dir via temp + rename; leaves every other
+      file untouched; finishes by calling `InstallationsService.validate()` and never sets a status by
+      hand. Proves AC4, AC6, AC7 (main) and AC5's "re-derived, never hand-set" half.
 - [x] **D3 — The retail-upgrade dialog.**
-  `src/renderer/src/modules/downloads/retail/RetailUpgradeDialog.tsx`,
-  `src/renderer/src/modules/downloads/bootstrap/Dialogs.tsx` (switch on `view`),
-  `src/renderer/src/i18n/locales/en.json`. Mirror the wizard's step components for dialog shape and
-  reuse [[088]]'s source-list rendering where it is a component. *Acceptance:* with sources present
-  the dialog lists each by store and path and starts the job on confirm; with none it renders the
-  plain "no store installation detected" message and no picker; a rejected source shows [[088]]'s
-  reason. `data-testid`s for the flow. Proves AC2, AC3.
+      `src/renderer/src/modules/downloads/retail/RetailUpgradeDialog.tsx`,
+      `src/renderer/src/modules/downloads/bootstrap/Dialogs.tsx` (switch on `view`),
+      `src/renderer/src/i18n/locales/en.json`. Mirror the wizard's step components for dialog shape and
+      reuse [[088]]'s source-list rendering where it is a component. _Acceptance:_ with sources present
+      the dialog lists each by store and path and starts the job on confirm; with none it renders the
+      plain "no store installation detected" message and no picker; a rejected source shows [[088]]'s
+      reason. `data-testid`s for the flow. Proves AC2, AC3.
 - [x] **D4 — The three triggers.** `src/renderer/src/views/LibraryView.tsx`,
-  `src/renderer/src/components/shell/ActionBar.tsx`,
-  `src/renderer/src/components/shell/InstallationRail.tsx` (hover card),
-  `src/renderer/src/i18n/locales/en.json`. Mirror `LibraryView.tsx:107`'s
-  `openDialog({ kind: 'module', … })` call and `ActionBar.tsx:257`'s launch-state gate.
-  *Acceptance:* the action appears exactly where `isDemoData` is true, on all three surfaces, opens
-  the D3 dialog, is disabled while that installation is running, and no shell file imports a
-  downloads component. Proves AC1 and AC7's renderer half.
+      `src/renderer/src/components/shell/ActionBar.tsx`,
+      `src/renderer/src/components/shell/InstallationRail.tsx` (hover card),
+      `src/renderer/src/i18n/locales/en.json`. Mirror `LibraryView.tsx:107`'s
+      `openDialog({ kind: 'module', … })` call and `ActionBar.tsx:257`'s launch-state gate.
+      _Acceptance:_ the action appears exactly where `isDemoData` is true, on all three surfaces, opens
+      the D3 dialog, is disabled while that installation is running, and no shell file imports a
+      downloads component. Proves AC1 and AC7's renderer half.
 - [x] **D5 — Dev-only launch-state simulation.** `src/shared/ipc.ts` (channel + `DEV_ONLY_CHANNELS`),
-  `src/main/ipc/dev.ts`, `src/preload` channel arrays. Mirror `dev:simulateJob` exactly, including
-  its dev-only registration. *Acceptance:* `dev:simulateLaunch` puts one installation into
-  `running`/`idle` and broadcasts `launch:state`; a test asserts the channel is in
-  `DEV_ONLY_CHANNELS` and is not registered outside dev.
+      `src/main/ipc/dev.ts`, `src/preload` channel arrays. Mirror `dev:simulateJob` exactly, including
+      its dev-only registration. _Acceptance:_ `dev:simulateLaunch` puts one installation into
+      `running`/`idle` and broadcasts `launch:state`; a test asserts the channel is in
+      `DEV_ONLY_CHANNELS` and is not registered outside dev.
 - [x] **D6 — Offline end-to-end proof.** `scripts/lib/fixture.mjs` (a demo installation with a
-  non-retail `pak0.pak`, plus a fixture "store" folder whose paks are `truncateSync`'d to the exact
-  `RETAIL_PAK_SIZES`, and a second one with wrong sizes), `scripts/flows/retail-upgrade.mjs`,
-  `docs/UI-VERIFICATION.md`. Mirror `scripts/flows/bootstrap-wizard.mjs` (on-disk assertions) and
-  `scripts/flows/downloads-badge-count.mjs` (dev-channel seeding). *Acceptance:*
-  `npm run ui:flow -- retail-upgrade` sees the action on tile hover card, card and action bar; picks
-  the good source; the job completes; the Demo marker is gone from all three surfaces afterwards; an
-  on-disk check shows exactly `pak0.pak`/`pak1.pak` changed and a marker file elsewhere in the
-  installation untouched; the bad source is rejected with its reason; and with `dev:simulateLaunch`
-  the action is disabled. No network access.
+      non-retail `pak0.pak`, plus a fixture "store" folder whose paks are `truncateSync`'d to the exact
+      `RETAIL_PAK_SIZES`, and a second one with wrong sizes), `scripts/flows/retail-upgrade.mjs`,
+      `docs/UI-VERIFICATION.md`. Mirror `scripts/flows/bootstrap-wizard.mjs` (on-disk assertions) and
+      `scripts/flows/downloads-badge-count.mjs` (dev-channel seeding). _Acceptance:_
+      `npm run ui:flow -- retail-upgrade` sees the action on tile hover card, card and action bar; picks
+      the good source; the job completes; the Demo marker is gone from all three surfaces afterwards; an
+      on-disk check shows exactly `pak0.pak`/`pak1.pak` changed and a marker file elsewhere in the
+      installation untouched; the bad source is rejected with its reason; and with `dev:simulateLaunch`
+      the action is disabled. No network access.
 
 ## Model Hints
 
@@ -227,11 +227,13 @@ second verify/copy implementation was written; both of [[088]]'s reusable functi
 verbatim, exactly as the refine's reconciliation note expected.
 
 **Commit message:**
+
 ```
 090: a demo installation upgrades to retail
 ```
 
 **Verification.**
+
 - `npm run typecheck` — clean (node + web).
 - `npm run build` — clean.
 - `npm test` — 202 files / 3684 passed, 1 skipped; one flaky, unrelated test
@@ -264,6 +266,7 @@ verbatim, exactly as the refine's reconciliation note expected.
   ("job refuses to start, verified before any source lookup"). No manual residue.
 
 **Decisions made during build (beyond the story's own "Decisions (Sprint)" section).**
+
 - **088's F6 double-copy is confirmed out of scope for 090.** It lives entirely inside
   `bootstrap/job.ts`'s two-pass extras logic, gated on `includeVideoAndPlayers === true`.
   `upgrade-job.ts` never calls `startBootstrap`/`runBootstrap`; it calls `copyRetailGameData`

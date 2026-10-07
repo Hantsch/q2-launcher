@@ -5,20 +5,20 @@ import { formatBytes } from '../../lib/format'
 import { statusTone } from '../../lib/status'
 
 /**
- * Story 075 D5: turns a failed download's diagnostics into a ready-to-paste Markdown report
- * (AC3) - app/Electron/OS versions, the error key, the per-package table (AC1), the AC2 verdict
+ * Story 075: turns a failed download's diagnostics into a ready-to-paste Markdown report
+ * - app/Electron/OS versions, the error key, the per-package table, the verdict
  * block and the job's own log tail. Pure: no IPC, no side effects, `t` passed in so this is
  * testable without a real i18n instance (Decisions (Refine), Plan step 5).
  *
- * Story 078 D4 adds two maintainer-only sections after the verdict block: the assembly table
- * (AC7 - what `assembleInstallation` looked for, whether it found it, which package served it)
- * and, per package, its capped extraction listing (AC8). Both are report-only per (User) Q1 -
+ * Story 078 adds two maintainer-only sections after the verdict block: the assembly table
+ * (what `assembleInstallation` looked for, whether it found it, which package served it)
+ * and, per package, its capped extraction listing. Both are report-only per (User) Q1 -
  * the user-facing card never renders them.
  *
- * Every heading/column label goes through `t()` (AC7) - never a literal English string in this
+ * Every heading/column label goes through `t()` - never a literal English string in this
  * file. The only content that is *not* translated is diagnostic data itself (package ids, URLs,
  * byte counts, the raw `errorKey`, log lines): the same category as a stack trace, already
- * redacted at capture time in main (`redactHome`, story 075 D2) - this builder must not undo
+ * redacted at capture time in main (`redactHome`, story 075) - this builder must not undo
  * that, so it never reformats or re-derives a path, it only prints what it was given.
  *
  * Total by construction: `diagnostics` itself is optional on `DownloadFailure`, `target` is
@@ -59,7 +59,7 @@ export function buildFailureReport({ failure, appInfo, t }: BuildFailureReportIn
 
 function buildVersionsSection(appInfo: AppInfo, t: TFunction): string {
   const lines = [
-    `## ${t('downloads.failures.report.versionsHeading')}`,
+    `## ${t('common.label.versions')}`,
     '',
     `- ${t('downloads.failures.report.appVersion')}: ${appInfo.appVersion}`,
     `- ${t('downloads.failures.report.electronVersion')}: ${appInfo.electronVersion}`,
@@ -82,7 +82,7 @@ function buildPackagesSection(
   const header = [
     t('downloads.failures.report.columnPackage'),
     t('downloads.failures.report.columnUrl'),
-    t('downloads.failures.report.columnSize'),
+    t('common.label.size'),
     t('downloads.failures.report.columnVerified'),
     t('downloads.failures.report.columnExtracted'),
   ]
@@ -113,13 +113,15 @@ function buildVerdictSection(
   const verdictLabel = t(statusTone(target.verdict).labelKey)
   const missingChecks =
     target.missingChecks.length > 0
-      ? target.missingChecks.map((check) => `- ${check.id}: ${t(check.messageKey)}`).join('\n')
-      : `- ${t('downloads.failures.report.noMissingChecks')}`
+      ? target.missingChecks
+          .map((check) => `- ${check.id}: ${t(check.messageKey, check.params ?? {})}`)
+          .join('\n')
+      : `- ${t('common.label.none')}`
 
   const lines = [
     `## ${t('downloads.failures.report.verdictHeading')}`,
     '',
-    `- ${t('downloads.failures.report.targetPath')}: ${target.targetPath}`,
+    `- ${t('common.label.targetPath')}: ${target.targetPath}`,
     `- ${t('downloads.failures.report.verdictLabel')}: ${verdictLabel}`,
     '',
     `### ${t('downloads.failures.report.missingChecksHeading')}`,
@@ -130,7 +132,7 @@ function buildVerdictSection(
 }
 
 /**
- * Story 078 D4 (AC7): what `assembleInstallation` looked for, whether it found it, and which
+ * Story 078: what `assembleInstallation` looked for, whether it found it, and which
  * package's extraction served it - the maintainer-only counterpart to the (User) Q1 decision that
  * keeps this table out of the user-facing card. Pushed only when `diagnostics.assembly` exists at
  * all (a pre-078 record has no field to check), mirroring `buildVerdictSection`'s
@@ -143,7 +145,7 @@ function buildAssemblySection(
 ): string {
   const header = [
     t('downloads.failures.report.columnFrom'),
-    t('downloads.failures.report.columnTo'),
+    t('common.label.targetPath'),
     t('downloads.failures.report.columnFound'),
     t('downloads.failures.report.columnSourcePackage'),
   ]
@@ -167,7 +169,7 @@ function buildAssemblySection(
 }
 
 /**
- * Story 078 D4 (AC8): per package, its capped top-level extraction listing (`contents`), with an
+ * Story 078: per package, its capped top-level extraction listing (`contents`), with an
  * explicit marker when `contentsTruncated` cut it off - "a self-extracting installer nested its
  * payload under a wrapper directory" made visible without a file tree in `state.json`. Returns
  * `undefined` (never pushed) when no package in this run carries a `contents` field at all, so a

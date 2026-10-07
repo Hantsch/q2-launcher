@@ -2,13 +2,13 @@ import { SlideButtons } from './SlideButtons'
 import type { SlideTemplateProps } from './SlideText'
 
 /**
- * `cover` template (story 095 D2, concept follow-on to 083/084's `split`/`banner`): a full-bleed
+ * `cover` template (story 095, concept follow-on to 083/084's `split`/`banner`): a full-bleed
  * image behind a scrim, with the title/body/buttons pane sitting on top of it instead of beside or
  * above it.
  *
  * Same `imageUrl`-only contract as `SlideSplit`/`SlideBanner`: only `title`, `body`, `imageUrl` and
  * `buttons` are read from the slide - never spread - so nothing else a slide object carries can
- * reach the DOM. Unlike those two templates, D1 already downgrades a `cover` slide with no
+ * reach the DOM. Unlike those two templates, feed resolution already downgrades a `cover` slide with no
  * `imageUrl` to `text` before it ever reaches `TEMPLATES`, so this component is never actually
  * mounted without an image in practice - but it stays defensive (content-only, no `<img>`, no
  * scrim) rather than assuming `slide.imageUrl` is always set.

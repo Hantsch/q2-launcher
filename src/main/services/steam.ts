@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { listDir } from '../lib/fs-utils'
+import { foldPathCase } from '../lib/platform'
 
 /**
  * Naively scrapes `"key" "value"` pairs out of a Steam VDF-ish manifest, the
@@ -17,7 +18,7 @@ function scrapeVdfPairs(text: string): Map<string, string> {
 }
 
 function sameName(a: string, b: string): boolean {
-  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
+  return foldPathCase(a) === foldPathCase(b)
 }
 
 /**
@@ -29,7 +30,7 @@ function sameName(a: string, b: string): boolean {
  *
  * Never throws: a folder outside `steamapps/common`, an unreadable/missing
  * `steamapps` folder, a malformed manifest, a non-digit appid, or no matching
- * installdir all yield `undefined`. Story 104 D1.
+ * installdir all yield `undefined`. Story 104.
  */
 export async function readSteamAppId(installRoot: string): Promise<string | undefined> {
   const commonDir = dirname(installRoot)

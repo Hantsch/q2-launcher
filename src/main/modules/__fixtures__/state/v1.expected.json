@@ -1,0 +1,802 @@
+{
+  "settings": {
+    "locale": "en",
+    "motion": "system",
+    "activeInstallationId": "inst-1",
+    "lastRoute": "/home",
+    "minimizeOnLaunch": true,
+    "closeAfterLaunch": false,
+    "confirmBeforeRemoving": true,
+    "scanOnFirstRun": false,
+    "deepScanDrives": []
+  },
+  "installations": [
+    {
+      "id": "inst-1",
+      "rootPath": "/games/inst-1",
+      "name": "Quake II inst-1",
+      "engineKind": "unknown",
+      "launchArgs": [
+        "+set",
+        "fov",
+        "100"
+      ],
+      "activeGameDir": "baseq2",
+      "source": "unknown",
+      "status": "unknown",
+      "checks": [],
+      "gameDirs": [
+        "baseq2"
+      ],
+      "favorite": true,
+      "sortOrder": 1,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-02T00:00:00.000Z",
+      "totalPlaytimeSeconds": 120
+    }
+  ],
+  "configProfiles": [
+    {
+      "id": "p1",
+      "name": "Pre-existing profile",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "cvars": {
+        "sensitivity": "5",
+        "rate": "25000",
+        "my_custom_cvar": "hello"
+      },
+      "binds": {
+        "SPACE": "+moveup",
+        "UPARROW": "+forward"
+      },
+      "assignments": [
+        {
+          "installationId": "inst-1",
+          "isDefault": true
+        }
+      ],
+      "unrecognized": [],
+      "layers": [],
+      "categories": [
+        {
+          "id": "movement",
+          "name": "Movement",
+          "nameKey": "config.controls.categories.movement",
+          "subcategories": []
+        },
+        {
+          "id": "weapons",
+          "name": "Weapons",
+          "nameKey": "config.controls.categories.weapons",
+          "subcategories": []
+        },
+        {
+          "id": "drops",
+          "name": "Weapon dropping",
+          "nameKey": "config.controls.categories.drops",
+          "subcategories": []
+        },
+        {
+          "id": "demo",
+          "name": "Demo playback",
+          "nameKey": "common.label.demoPlayback",
+          "subcategories": []
+        }
+      ],
+      "actions": [
+        {
+          "id": "a-fwd",
+          "categoryId": "movement",
+          "name": "Forward",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+forward"
+            }
+          ],
+          "catalogId": "movement:forward",
+          "kind": "bind",
+          "keys": [
+            {
+              "key": "UPARROW"
+            }
+          ]
+        },
+        {
+          "id": "a-free",
+          "categoryId": "custom",
+          "name": "Quicksave",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "save quick"
+            }
+          ],
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+back",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+back"
+            }
+          ],
+          "catalogId": "movement:back",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+moveleft",
+          "commands": [],
+          "catalogId": "movement:moveleft",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+moveright",
+          "commands": [],
+          "catalogId": "movement:moveright",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+moveup",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+moveup"
+            }
+          ],
+          "catalogId": "movement:moveup",
+          "kind": "bind",
+          "keys": [
+            {
+              "key": "SPACE"
+            }
+          ]
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+movedown",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+movedown"
+            }
+          ],
+          "catalogId": "movement:movedown",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+attack",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+attack"
+            }
+          ],
+          "catalogId": "movement:attack",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+speed",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+speed"
+            }
+          ],
+          "catalogId": "movement:speed",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+strafe",
+          "commands": [],
+          "catalogId": "movement:strafe",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+left",
+          "commands": [],
+          "catalogId": "movement:left",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+right",
+          "commands": [],
+          "catalogId": "movement:right",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+klook",
+          "commands": [],
+          "catalogId": "movement:klook",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "+mlook",
+          "commands": [],
+          "catalogId": "movement:mlook",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "movement",
+          "name": "centerview",
+          "commands": [],
+          "catalogId": "movement:centerview",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use blaster",
+          "commands": [],
+          "catalogId": "weaponUse:use_blaster",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use shotgun",
+          "commands": [],
+          "catalogId": "weaponUse:use_shotgun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use super shotgun",
+          "commands": [],
+          "catalogId": "weaponUse:use_sshotgun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use machinegun",
+          "commands": [],
+          "catalogId": "weaponUse:use_machinegun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use chaingun",
+          "commands": [],
+          "catalogId": "weaponUse:use_chaingun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use grenades",
+          "commands": [],
+          "catalogId": "weaponUse:use_grenades",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use grenade launcher",
+          "commands": [],
+          "catalogId": "weaponUse:use_glauncher",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use rocket launcher",
+          "commands": [],
+          "catalogId": "weaponUse:use_rlauncher",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use hyperblaster",
+          "commands": [],
+          "catalogId": "weaponUse:use_hyperblaster",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use railgun",
+          "commands": [],
+          "catalogId": "weaponUse:use_railgun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "use bfg10k",
+          "commands": [],
+          "catalogId": "weaponUse:use_bfg",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "weapnext",
+          "commands": [],
+          "catalogId": "weaponExtra:weapnext",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "weapprev",
+          "commands": [],
+          "catalogId": "weaponExtra:weapprev",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "weapons",
+          "name": "weaplast",
+          "commands": [],
+          "catalogId": "weaponExtra:weaplast",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop shotgun",
+          "commands": [],
+          "catalogId": "dropWeapon:shotgun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop super shotgun",
+          "commands": [],
+          "catalogId": "dropWeapon:sshotgun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop machinegun",
+          "commands": [],
+          "catalogId": "dropWeapon:machinegun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop chaingun",
+          "commands": [],
+          "catalogId": "dropWeapon:chaingun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop grenades",
+          "commands": [],
+          "catalogId": "dropWeapon:grenades",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop grenade launcher",
+          "commands": [],
+          "catalogId": "dropWeapon:glauncher",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop rocket launcher",
+          "commands": [],
+          "catalogId": "dropWeapon:rlauncher",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop hyperblaster",
+          "commands": [],
+          "catalogId": "dropWeapon:hyperblaster",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop railgun",
+          "commands": [],
+          "catalogId": "dropWeapon:railgun",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop bfg10k",
+          "commands": [],
+          "catalogId": "dropWeapon:bfg",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop shells",
+          "commands": [],
+          "catalogId": "dropAmmo:shells",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop bullets",
+          "commands": [],
+          "catalogId": "dropAmmo:bullets",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop rockets",
+          "commands": [],
+          "catalogId": "dropAmmo:rockets",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop cells",
+          "commands": [],
+          "catalogId": "dropAmmo:cells",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop slugs",
+          "commands": [],
+          "catalogId": "dropAmmo:slugs",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop grenades",
+          "commands": [],
+          "catalogId": "dropAmmo:hgrenades",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop power shield",
+          "commands": [],
+          "catalogId": "dropMisc:powershield",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop power screen",
+          "commands": [],
+          "catalogId": "dropMisc:powerscreen",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop quad damage",
+          "commands": [],
+          "catalogId": "dropMisc:quad",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop invulnerability",
+          "commands": [],
+          "catalogId": "dropMisc:invuln",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop silencer",
+          "commands": [],
+          "catalogId": "dropMisc:silencer",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop rebreather",
+          "commands": [],
+          "catalogId": "dropMisc:rebreather",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop environment suit",
+          "commands": [],
+          "catalogId": "dropMisc:envsuit",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop adrenaline",
+          "commands": [],
+          "catalogId": "dropMisc:adrenaline",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop bandolier",
+          "commands": [],
+          "catalogId": "dropMisc:bandolier",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop ammo pack",
+          "commands": [],
+          "catalogId": "dropMisc:ammopack",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "drops",
+          "name": "drop tech",
+          "commands": [],
+          "catalogId": "dropMisc:tech",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Pause demo",
+          "commands": [],
+          "catalogId": "demo:demoPause",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo jump back",
+          "commands": [],
+          "catalogId": "demo:demoJumpBack",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo jump forward",
+          "commands": [],
+          "catalogId": "demo:demoJumpForward",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo long jump back",
+          "commands": [],
+          "catalogId": "demo:demoJumpBackLong",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo long jump forward",
+          "commands": [],
+          "catalogId": "demo:demoJumpForwardLong",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo speed up",
+          "commands": [],
+          "catalogId": "demo:demoSpeedUp",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Demo speed down",
+          "commands": [],
+          "catalogId": "demo:demoSpeedDown",
+          "kind": "bind"
+        },
+        {
+          "id": "<generated-id>",
+          "categoryId": "demo",
+          "name": "Back to window",
+          "commands": [],
+          "catalogId": "demo:demoBackToWindow",
+          "kind": "bind"
+        }
+      ],
+      "cvarSections": [
+        {
+          "id": "player",
+          "name": "Player",
+          "nameKey": "config.settings.groups.player",
+          "cvars": [
+            "name",
+            "skin",
+            "fov",
+            "sensitivity",
+            "m_pitch",
+            "freelook",
+            "cl_run",
+            "hand",
+            "crosshair",
+            "ch_scale",
+            "msg"
+          ],
+          "subsections": []
+        },
+        {
+          "id": "network",
+          "name": "Network",
+          "nameKey": "config.settings.groups.network",
+          "cvars": [
+            "rate",
+            "cl_maxfps",
+            "cl_async"
+          ],
+          "subsections": []
+        },
+        {
+          "id": "graphics",
+          "name": "Graphics",
+          "nameKey": "config.settings.groups.graphics",
+          "cvars": [
+            "vid_fullscreen",
+            "vid_gamma",
+            "gl_modulate",
+            "gl_picmip",
+            "gl_texturemode",
+            "cl_gun",
+            "cl_blend",
+            "gl_polyblend",
+            "gl_shadows",
+            "gl_dynamic",
+            "gl_swapinterval",
+            "cl_noskins",
+            "r_maxfps",
+            "con_alpha"
+          ],
+          "subsections": []
+        },
+        {
+          "id": "sound",
+          "name": "Sound",
+          "nameKey": "config.settings.groups.sound",
+          "cvars": [
+            "s_volume",
+            "s_khz"
+          ],
+          "subsections": []
+        },
+        {
+          "id": "other",
+          "name": "Other",
+          "cvars": [
+            "my_custom_cvar"
+          ],
+          "subsections": []
+        }
+      ],
+      "writeUnbindall": true,
+      "writeCatalogDefaults": true,
+      "sectionHeaderStyle": "dashes",
+      "dirty": true
+    }
+  ],
+  "configPlayedMods": {},
+  "configSwitchBinds": {},
+  "configWriteFailures": {},
+  "configFileSourceMigratedAt": null,
+  "downloads": {
+    "concurrentJobs": 2,
+    "archiveCacheBudgetGB": 5,
+    "downloadWhilePlayingAllowed": true
+  },
+  "downloadFailures": [],
+  "homeLayout": {
+    "tiles": [
+      {
+        "moduleId": "playtime",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "moduleId": "configProfiles",
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      }
+    ]
+  },
+  "servers": {
+    "sources": [
+      {
+        "id": "default-q2servers-http",
+        "type": "http-list",
+        "address": "https://q2servers.com/?raw=1",
+        "enabled": true
+      }
+    ],
+    "favourites": [],
+    "manualServers": [],
+    "history": [],
+    "listSort": null,
+    "scan": {
+      "concurrency": 24,
+      "timeoutMs": 1000,
+      "retries": 1,
+      "minSpacingMs": 30000,
+      "autoScanOnOpen": true,
+      "autoRefreshEnabled": false,
+      "autoRefreshIntervalMs": 60000
+    },
+    "watchlist": [],
+    "quickFilters": []
+  },
+  "unlock": {
+    "codes": []
+  },
+  "replays": {
+    "nameTemplates": {
+      "entries": [],
+      "removedShippedIds": []
+    },
+    "extraFolders": [],
+    "listFilter": {
+      "search": "",
+      "mod": null,
+      "gamemode": null,
+      "map": null,
+      "favouritesOnly": false,
+      "minRating": null,
+      "tags": [],
+      "date": null
+    },
+    "modWarning": {
+      "enabled": true,
+      "trustedMods": []
+    },
+    "listSort": null,
+    "demoVolume": null
+  }
+}

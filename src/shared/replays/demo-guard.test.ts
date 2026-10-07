@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createCbufSim } from '../../test-support/q2-cbuf-sim'
-import { DEMO_ACTIONS } from '@shared/config/action-catalog'
+import { DEMO_ACTIONS } from '@shared/config/catalog/action-catalog'
 import { ARMPOS_CVAR, BACK_TO_WINDOW_COMMAND, guardDemoCommand } from './demo-guard'
 
 /** Define the action the way a cfg does (`alias <name> "<body>"`), then press its key. */
@@ -48,12 +48,18 @@ describe('demo guard (story 172 D1)', () => {
 
   it('every guarded catalogue command is skipped at the armed position and runs after a move', () => {
     for (const action of DEMO_ACTIONS.filter((a) => a.id !== 'demoBackToWindow')) {
-      const stuck = createCbufSim({ cvars: { [ARMPOS_CVAR]: '1:00', timescale: '1' }, demoPos: '1:00' })
+      const stuck = createCbufSim({
+        cvars: { [ARMPOS_CVAR]: '1:00', timescale: '1' },
+        demoPos: '1:00',
+      })
       pressAction(stuck, action.command)
       expect(stuck.log, `${action.id} at the armed position`).toEqual([])
       expect(stuck.cvars.get('timescale'), action.id).toBe('1')
 
-      const moved = createCbufSim({ cvars: { [ARMPOS_CVAR]: '1:00', timescale: '1' }, demoPos: '1:01' })
+      const moved = createCbufSim({
+        cvars: { [ARMPOS_CVAR]: '1:00', timescale: '1' },
+        demoPos: '1:01',
+      })
       pressAction(moved, action.command)
       expect(moved.log.length, `${action.id} after the position moved`).toBeGreaterThan(0)
     }

@@ -15,7 +15,11 @@ export interface JsonStoreOptions<T> {
   parse: (raw: unknown) => T
   /** Coalesce bursts of writes (window resizing) into one disk write. */
   debounceMs?: number
+  /** Called when a write failed even after its one retry. */
+  onPersistError?: (error: unknown) => void
 }
+
+const PERSIST_RETRY_DELAY_MS = 500
 
 /**
  * A small atomic JSON store.
@@ -30,6 +34,7 @@ export class JsonStore<T> {
   private cache: T | null = null
   private writeTimer: NodeJS.Timeout | null = null
   private pending: Promise<void> = Promise.resolve()
+  private lastFlushOk = true
   /** Set when the loaded file was damaged, so the UI can tell the user. */
   public recoveredFrom: 'backup' | 'defaults' | null = null
 
@@ -87,19 +92,34 @@ export class JsonStore<T> {
     return next
   }
 
+  /**
+   * Replaces the value without scheduling a write of its own: for a value that carries the same
+   * data in another form, such as a parsed value replacing the raw JSON it was parsed from. A write
+   * that is already waiting on the debounce picks the new value up.
+   */
+  adopt(next: T): T {
+    this.cache = next
+    if (this.writeTimer) this.schedule(next)
+    return next
+  }
+
   /** Applies a change to the current value and schedules a write. */
   update(mutate: (current: T) => T): T {
     return this.set(mutate(this.get()))
   }
 
-  /** Resolves once every scheduled write has hit the disk. */
-  async settle(): Promise<void> {
+  /**
+   * Resolves once every scheduled write has been attempted; `ok` is whether the last flush reached
+   * the disk. Never rejects.
+   */
+  async settle(): Promise<{ ok: boolean }> {
     if (this.writeTimer) {
       clearTimeout(this.writeTimer)
       this.writeTimer = null
       this.enqueue(this.get())
     }
     await this.pending
+    return { ok: this.lastFlushOk }
   }
 
   private schedule(value: T): void {
@@ -117,11 +137,29 @@ export class JsonStore<T> {
 
   /** Serialises writes so two updates can never interleave on the same file. */
   private enqueue(value: T): void {
-    this.pending = this.pending
-      .then(() => this.flush(value))
-      .catch((error: unknown) => {
-        log.error(`failed to persist ${this.options.filePath}`, error)
-      })
+    this.pending = this.pending.then(() => this.flushWithRetry(value))
+  }
+
+  /** Never rejects, so one failed write cannot poison the chain behind it. */
+  private async flushWithRetry(value: T): Promise<void> {
+    try {
+      try {
+        await this.flush(value)
+      } catch {
+        await new Promise<void>((resolve) => setTimeout(resolve, PERSIST_RETRY_DELAY_MS))
+        await this.flush(value)
+      }
+      // Every flush writes the whole document, so one success supersedes earlier failures.
+      this.lastFlushOk = true
+    } catch (error: unknown) {
+      this.lastFlushOk = false
+      log.error(`failed to persist ${this.options.filePath}`, error)
+      try {
+        this.options.onPersistError?.(error)
+      } catch (callbackError: unknown) {
+        log.error('onPersistError threw', callbackError)
+      }
+    }
   }
 
   private async flush(value: T): Promise<void> {

@@ -25,7 +25,7 @@
 //
 // Two harness-only overrides, both under the SAME double gate (`Q2L_UI_HARNESS === '1' && isDev`,
 // `src/main/lib/ui-harness.ts`), both provably unreachable in a packaged build where `isDev` is
-// always `false` - see `src/main/modules/downloads/harness.test.ts`. Same two
+// always `false` - see `src/main/services/content/source.test.ts`. Same two
 // `bootstrap-wizard.mjs` already uses:
 //
 //   Q2L_UI_CONTENT_REPO_BASE  the manifest/package base URL, refused unless it names a `127.0.0.1`
@@ -67,6 +67,7 @@ import {
   writeBootstrapExistingFolderTargetDir,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** The whole job: one throttled engine download, one 7za spawn, the assemble, the folder copy and
@@ -137,8 +138,7 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
 
   // --- AC1: the existing-folder choice is offered with zero detected store sources ----------------
   step('open the wizard and assert the existing-folder choice is offered (AC1)')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, 'New installation…')
   await page
     .getByTestId('bootstrap-engine-q2pro')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -163,11 +163,15 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
   await shot('gamedata-step-existing-folder-offered')
 
   // --- AC2: browsing resolves the verdict, and it gates Next -------------------------------------
-  step('select "point at an existing folder" and assert Next is blocked before a folder is picked (AC2)')
+  step(
+    'select "point at an existing folder" and assert Next is blocked before a folder is picked (AC2)',
+  )
   await existingFolderChoice.click({ timeout: TIMEOUT_MS })
   const next = page.getByRole('button', { name: 'Next' })
   if (await next.isEnabled()) {
-    throw new Error('Next was enabled for the existing-folder choice before any folder was picked (AC2)')
+    throw new Error(
+      'Next was enabled for the existing-folder choice before any folder was picked (AC2)',
+    )
   }
 
   step('browse for the fixture source folder (first stubbed folder pick)')
@@ -182,7 +186,9 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
   const verdictText = await retailVerdict.innerText()
   for (const pak of ['pak0.pak', 'pak1.pak']) {
     if (!verdictText.includes(pak)) {
-      throw new Error(`expected the retail verdict to name ${pak}, got: ${JSON.stringify(verdictText)} (AC2)`)
+      throw new Error(
+        `expected the retail verdict to name ${pak}, got: ${JSON.stringify(verdictText)} (AC2)`,
+      )
     }
   }
   const shownPath = await page
@@ -228,7 +234,9 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
     }
   }
   if (await page.getByTestId('bootstrap-target-blocked').count()) {
-    throw new Error('the existing-folder-import fixture target was reported as blocked, not a clean pick')
+    throw new Error(
+      'the existing-folder-import fixture target was reported as blocked, not a clean pick',
+    )
   }
   await next.click({ timeout: TIMEOUT_MS })
 
@@ -241,7 +249,9 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
   const gameDataPackages = server.packages.filter((pkg) => pkg.role !== 'engine')
   const confirmBody = await page.getByRole('dialog').innerText()
   if (!confirmBody.includes(enginePackage.id)) {
-    throw new Error(`expected the confirm step to name the engine package ${enginePackage.id} (AC6)`)
+    throw new Error(
+      `expected the confirm step to name the engine package ${enginePackage.id} (AC6)`,
+    )
   }
   for (const pkg of gameDataPackages) {
     if (confirmBody.includes(pkg.id)) {
@@ -272,7 +282,8 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
   if (!copySourceText.includes(sourcePath)) {
     throw new Error(
       `expected the confirm step's copy-source line to name ${JSON.stringify(sourcePath)}, got: ` +
-        JSON.stringify(copySourceText) + ' (AC6)',
+        JSON.stringify(copySourceText) +
+        ' (AC6)',
     )
   }
   console.log('AC6: the confirm step names the chosen folder as the source')
@@ -344,7 +355,9 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
   )
   const actionBarDemoBadges = await page.locator('footer [data-testid="demo-badge"]').count()
   if (actionBarDemoBadges !== 0) {
-    throw new Error('the action bar showed a Demo badge for a retail-copied existing-folder installation (AC4)')
+    throw new Error(
+      'the action bar showed a Demo badge for a retail-copied existing-folder installation (AC4)',
+    )
   }
   const cardDemoBadge = await page.evaluate((name) => {
     const heading = [...document.querySelectorAll('h2')].find(
@@ -407,13 +420,17 @@ export default async function bootstrapExistingFolder({ page, shot, step }) {
     if (sourceDigest !== targetDigest) {
       throw new Error(`baseq2/${pak} differs from its source: ${sourceDigest} vs ${targetDigest}`)
     }
-    console.log(`AC7: baseq2/${pak} copied byte-identically (${size} bytes, sha256 ${targetDigest})`)
+    console.log(
+      `AC7: baseq2/${pak} copied byte-identically (${size} bytes, sha256 ${targetDigest})`,
+    )
   }
 
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
   console.log(`fixture server served: ${JSON.stringify([...new Set(server.requested)])}`)
 

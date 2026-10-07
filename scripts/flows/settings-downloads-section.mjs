@@ -24,9 +24,8 @@
 // direct child, so this selector never matches a heading nested inside a section's own controls)
 // is what proves AC1's "between Library and About" ordering claim without a testid on either
 // shell-owned panel.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import {
   DOWNLOADS_CACHE_ITEM_COUNT,
   DOWNLOADS_CACHE_TOTAL_BYTES,
@@ -39,9 +38,8 @@ const TIMEOUT_MS = 8_000
  * (4 MB, chosen so the assertion never depends on rounding behaviour). */
 const EXPECTED_CACHE_SIZE_TEXT = '4 MB'
 
-function readPopulatedStateJson() {
-  const path = join(variantUserDataDir('populated'), 'state.json')
-  return JSON.parse(readFileSync(path, 'utf8'))
+function waitForPopulatedStateJson(predicate, label) {
+  return waitForStateJson(variantUserDataDir('populated'), predicate, label)
 }
 
 export default async function settingsDownloadsSection({ page, shot, step }) {
@@ -72,12 +70,16 @@ export default async function settingsDownloadsSection({ page, shot, step }) {
 
   const concurrencySelect = page.getByTestId('downloads-settings-concurrency').locator('select')
   const budgetSelect = page.getByTestId('downloads-settings-cache-budget').locator('select')
-  const whilePlayingSwitch = page.getByTestId('downloads-settings-while-playing').getByRole('switch')
+  const whilePlayingSwitch = page
+    .getByTestId('downloads-settings-while-playing')
+    .getByRole('switch')
 
   step(
     'boot-side: the section renders the fixture-seeded non-default values, not DEFAULT_DOWNLOADS_SETTINGS',
   )
-  await concurrencySelect.locator('option:checked').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
+  await concurrencySelect
+    .locator('option:checked')
+    .waitFor({ state: 'attached', timeout: TIMEOUT_MS })
   const seededConcurrency = await concurrencySelect.inputValue()
   const seededBudget = await budgetSelect.inputValue()
   const seededWhilePlaying = await whilePlayingSwitch.getAttribute('aria-checked')
@@ -107,124 +109,65 @@ export default async function settingsDownloadsSection({ page, shot, step }) {
 
   await shot('boot-state')
 
-  step('concurrency, cache budget and download-while-playing can each be changed')
-  const nextConcurrency = DOWNLOADS_SETTINGS_SEED.concurrentJobs === 2 ? 3 : 2
-  const nextBudget = DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB === 5 ? 2 : 5
-  const nextWhilePlaying = !DOWNLOADS_SETTINGS_SEED.downloadWhilePlayingAllowed
+  step('concurrency and download-while-playing are disabled and say why')
+  const reasonText = 'Not available yet: downloads run one at a time'
+  if (!(await concurrencySelect.isDisabled())) {
+    throw new Error('expected the concurrency select to be disabled')
+  }
+  if (!(await whilePlayingSwitch.isDisabled())) {
+    throw new Error('expected the download-while-playing switch to be disabled')
+  }
+  for (const testId of [
+    'downloads-settings-concurrency-reason',
+    'downloads-settings-while-playing-reason',
+  ]) {
+    const reason = page.getByTestId(testId)
+    await reason.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    const text = await reason.innerText()
+    if (!text.includes(reasonText)) {
+      throw new Error(
+        `expected ${testId} to say ${JSON.stringify(reasonText)}, got: ${JSON.stringify(text)}`,
+      )
+    }
+  }
 
-  await concurrencySelect.selectOption(String(nextConcurrency), { timeout: TIMEOUT_MS })
-  await page.waitForFunction(
-    (expected) =>
-      document.querySelector('[data-testid="downloads-settings-concurrency"] select')?.value ===
-      expected,
-    String(nextConcurrency),
-    { timeout: TIMEOUT_MS },
-  )
+  await shot('disabled-with-reason')
+
+  // `ui:flow` never reseeds between runs (see `raw-inline-edit.mjs`'s own doc comment), and the
+  // boot-side assertions above compare against the fixture's fixed seed - so the cache budget is
+  // changed and then reverted, leaving state.json exactly as it was whether this is the first run
+  // or the tenth.
+  step('the cache budget can be changed and is reverted to its seeded value')
+  const nextBudget = DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB === 5 ? 2 : 5
+  const budgetShows = (expected) =>
+    page.waitForFunction(
+      (value) =>
+        document.querySelector('[data-testid="downloads-settings-cache-budget"] select')?.value ===
+        value,
+      String(expected),
+      { timeout: TIMEOUT_MS },
+    )
 
   await budgetSelect.selectOption(String(nextBudget), { timeout: TIMEOUT_MS })
-  await page.waitForFunction(
-    (expected) =>
-      document.querySelector('[data-testid="downloads-settings-cache-budget"] select')?.value ===
-      expected,
-    String(nextBudget),
-    { timeout: TIMEOUT_MS },
+  await budgetShows(nextBudget)
+  const onDisk = await waitForPopulatedStateJson(
+    (doc) => doc.downloads?.archiveCacheBudgetGB === nextBudget,
+    'the changed cache budget',
   )
-
-  await whilePlayingSwitch.click({ timeout: TIMEOUT_MS })
-  await page.waitForFunction(
-    (expected) =>
-      document
-        .querySelector('[data-testid="downloads-settings-while-playing"] [role="switch"]')
-        ?.getAttribute('aria-checked') === expected,
-    String(nextWhilePlaying),
-    { timeout: TIMEOUT_MS },
-  )
-
-  await shot('values-changed')
-
-  step(
-    'the values persisted in state.json are the ones the app started with, and a change lands back on disk',
-  )
-  const onDisk = readPopulatedStateJson()
-  if (onDisk.downloads?.concurrentJobs !== nextConcurrency) {
+  if (onDisk.downloads?.concurrentJobs !== DOWNLOADS_SETTINGS_SEED.concurrentJobs) {
     throw new Error(
-      `expected state.json's downloads.concurrentJobs to be ${nextConcurrency}, got ${JSON.stringify(onDisk.downloads)}`,
+      `expected state.json's downloads.concurrentJobs to stay at the seeded ${DOWNLOADS_SETTINGS_SEED.concurrentJobs}, got ${JSON.stringify(onDisk.downloads)}`,
     )
   }
-  if (onDisk.downloads?.archiveCacheBudgetGB !== nextBudget) {
-    throw new Error(
-      `expected state.json's downloads.archiveCacheBudgetGB to be ${nextBudget}, got ${JSON.stringify(onDisk.downloads)}`,
-    )
-  }
-  if (onDisk.downloads?.downloadWhilePlayingAllowed !== nextWhilePlaying) {
-    throw new Error(
-      `expected state.json's downloads.downloadWhilePlayingAllowed to be ${nextWhilePlaying}, got ${JSON.stringify(onDisk.downloads)}`,
-    )
-  }
-
-  // `ui:flow` never reseeds between runs (see `raw-inline-edit.mjs`'s own doc comment), and unlike
-  // that flow's per-run-unique typed line, the boot-side assertions above compare against the
-  // fixture's fixed `DOWNLOADS_SETTINGS_SEED` constants, not against whatever was last written - so
-  // a second run without a reseed would find the *previous* run's changed values already on disk at
-  // boot and fail. Revert every control back to its seeded value here so the persisted state (and
-  // this flow) are exactly as they were before "values can be changed" ran, whether this is the
-  // first run or the tenth.
-  step('revert concurrency, cache budget and download-while-playing back to their seeded values')
-  await concurrencySelect.selectOption(String(DOWNLOADS_SETTINGS_SEED.concurrentJobs), {
-    timeout: TIMEOUT_MS,
-  })
-  await page.waitForFunction(
-    (expected) =>
-      document.querySelector('[data-testid="downloads-settings-concurrency"] select')?.value ===
-      expected,
-    String(DOWNLOADS_SETTINGS_SEED.concurrentJobs),
-    { timeout: TIMEOUT_MS },
-  )
 
   await budgetSelect.selectOption(String(DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB), {
     timeout: TIMEOUT_MS,
   })
-  await page.waitForFunction(
-    (expected) =>
-      document.querySelector('[data-testid="downloads-settings-cache-budget"] select')?.value ===
-      expected,
-    String(DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB),
-    { timeout: TIMEOUT_MS },
+  await budgetShows(DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB)
+  await waitForPopulatedStateJson(
+    (doc) => doc.downloads?.archiveCacheBudgetGB === DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB,
+    'the reverted cache budget',
   )
-
-  if (seededWhilePlaying !== (await whilePlayingSwitch.getAttribute('aria-checked'))) {
-    await whilePlayingSwitch.click({ timeout: TIMEOUT_MS })
-    await page.waitForFunction(
-      (expected) =>
-        document
-          .querySelector('[data-testid="downloads-settings-while-playing"] [role="switch"]')
-          ?.getAttribute('aria-checked') === expected,
-      seededWhilePlaying,
-      { timeout: TIMEOUT_MS },
-    )
-  }
-
-  const revertedOnDisk = readPopulatedStateJson()
-  if (revertedOnDisk.downloads?.concurrentJobs !== DOWNLOADS_SETTINGS_SEED.concurrentJobs) {
-    throw new Error(
-      `expected the revert to restore state.json's downloads.concurrentJobs to the seeded ${DOWNLOADS_SETTINGS_SEED.concurrentJobs}, got ${JSON.stringify(revertedOnDisk.downloads)}`,
-    )
-  }
-  if (
-    revertedOnDisk.downloads?.archiveCacheBudgetGB !== DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB
-  ) {
-    throw new Error(
-      `expected the revert to restore state.json's downloads.archiveCacheBudgetGB to the seeded ${DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB}, got ${JSON.stringify(revertedOnDisk.downloads)}`,
-    )
-  }
-  if (
-    revertedOnDisk.downloads?.downloadWhilePlayingAllowed !==
-    DOWNLOADS_SETTINGS_SEED.downloadWhilePlayingAllowed
-  ) {
-    throw new Error(
-      `expected the revert to restore state.json's downloads.downloadWhilePlayingAllowed to the seeded ${DOWNLOADS_SETTINGS_SEED.downloadWhilePlayingAllowed}, got ${JSON.stringify(revertedOnDisk.downloads)}`,
-    )
-  }
 
   step('clearing the cache names size and item count before it is confirmed')
   await page.getByTestId('downloads-settings-clear-cache').click({ timeout: TIMEOUT_MS })
@@ -254,14 +197,17 @@ export default async function settingsDownloadsSection({ page, shot, step }) {
   // the confirm dialog names size/count BEFORE anything is deleted (AC4), not to re-prove deletion
   // itself. Cancelling also means the fixture's two dummy archives are still there for the next run
   // of this flow, since `ui:flow` never reseeds (see `raw-inline-edit.mjs`'s own doc comment) - and,
-  // combined with the settings revert above, this flow leaves nothing changed on disk by the time it
+  // combined with the budget revert above, this flow leaves nothing changed on disk by the time it
   // ends, so a second run without a reseed sees the same seeded state the first run did.
   step('cancel the clear-cache confirm, leaving the cache untouched')
   await page.getByRole('button', { name: 'Cancel' }).click({ timeout: TIMEOUT_MS })
   await confirmBody.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   const cacheSizeAfterCancel = await page.getByTestId('downloads-settings-cache-size').innerText()
-  if (!cacheSizeAfterCancel.includes(EXPECTED_CACHE_SIZE_TEXT) || !cacheSizeAfterCancel.includes('2')) {
+  if (
+    !cacheSizeAfterCancel.includes(EXPECTED_CACHE_SIZE_TEXT) ||
+    !cacheSizeAfterCancel.includes('2')
+  ) {
     throw new Error(
       `expected cache-size line to still show ${EXPECTED_CACHE_SIZE_TEXT}/2 archives after cancelling, got: ${JSON.stringify(cacheSizeAfterCancel)}`,
     )

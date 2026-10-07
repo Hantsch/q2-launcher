@@ -72,7 +72,7 @@ function makeFailure(overrides: Partial<DownloadFailure> = {}): DownloadFailure 
   return {
     id: 'failure-1',
     jobId: 'job-1',
-    labelKey: 'downloads.job.download',
+    labelKey: 'downloads.job.bootstrap',
     labelParams: { name: 'Base game' },
     error: { key: 'downloads.error.network' },
     createdAt: Date.now(),
@@ -161,7 +161,7 @@ describe('FailureLogEntry diagnostic actions', () => {
     expect(invokeMock).not.toHaveBeenCalled()
   })
 
-  it('copy invokes app:copyText with exactly buildFailureReport\'s output and confirms visibly', async () => {
+  it("copy invokes app:copyText with exactly buildFailureReport's output and confirms visibly", async () => {
     renderEntry(makeFailure({ diagnostics }))
 
     fireEvent.click(screen.getByTestId('downloads-failure-copy-failure-1'))
@@ -204,7 +204,37 @@ describe('FailureLogEntry diagnostic actions', () => {
 
     const card = screen.getByTestId('downloads-failure-failure-1')
     expect(card.textContent).not.toContain('very-secret-log-line-marker')
-    expect(card.textContent).not.toContain('a raw developer log line that must never render as card text')
+    expect(card.textContent).not.toContain(
+      'a raw developer log line that must never render as card text',
+    )
     expect(card.textContent).not.toContain('D:\\Games\\Quake II')
+  })
+})
+
+describe('FailureLogEntry failure reasons', () => {
+  it.each(['mods.error.writeFailed', 'jobs.error.installationBusy'])(
+    'a failed mod job shows its own failure reason (%s)',
+    (key) => {
+      renderEntry(makeFailure({ labelKey: 'downloads.job.bootstrap', error: { key } }))
+
+      const expected = i18next.t(key)
+      expect(expected).not.toBe(key)
+      expect(screen.getByText(expected)).toBeTruthy()
+      expect(screen.queryByText(i18next.t('downloads.error.unknown'))).toBeNull()
+    },
+  )
+
+  it('a failed bleeding-edge update shows the all-sources-failed sentence', () => {
+    renderEntry(
+      makeFailure({
+        labelKey: 'downloads.job.engineUpdate',
+        error: { key: 'downloads.error.allMirrorsFailed' },
+      }),
+    )
+
+    const expected = i18next.t('downloads.error.allMirrorsFailed')
+    expect(expected).toBe('Every download source failed. Check your connection and try again.')
+    expect(screen.getByText(expected)).toBeTruthy()
+    expect(screen.queryByText(i18next.t('downloads.error.unknown'))).toBeNull()
   })
 })

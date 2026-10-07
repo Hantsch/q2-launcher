@@ -25,7 +25,7 @@ needs `mutates-installation` and `long-running-jobs` — refine confirms (Q1).
 ## Acceptance Criteria
 
 - [x] **AC1** — A `replays` module is registered per the 5-step checklist in
-      [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module): a shared contract file
+      [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module): a shared contract file
       under `src/shared/modules/`, the `ModuleId` entry **and** the hardcoded `moduleId` z.enum in
       `src/shared/ipc-schemas.ts`, a `MODULE_MANIFESTS` row, a main half under
       `src/main/modules/replays/` and a renderer half — with no edit to any shell file.
@@ -66,7 +66,7 @@ needs `mutates-installation` and `long-running-jobs` — refine confirms (Q1).
   the (User) placement "right after Servers" means in `MODULE_MANIFESTS`.
 - **Icon: lucide-react `Film`, one map entry in `src/renderer/src/components/shell/moduleIcons.tsx`**
   — every existing nav icon is a lucide inline-SVG component resolved through that map, so a lucide
-  icon *is* "the existing nav style"; the map entry is a data row, not shell logic (story 106's
+  icon _is_ "the existing nav style"; the map entry is a data row, not shell logic (story 106's
   `Globe` precedent), and is the only file outside the module's own paths this story touches besides
   the ones AC1 names.
 - **`status: 'planned'`, no `View` in `RENDERER_MODULES`; the route renders the shell's
@@ -98,12 +98,12 @@ needs `mutates-installation` and `long-running-jobs` — refine confirms (Q1).
 
 ## Plan
 
-Five-step module registration per [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module),
+Five-step module registration per [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module),
 bottom-up, one layer per deliverable — the story 106 (`servers`) shape. No shell logic, no new IPC
 channel, no platform branch.
 
 1. **Shared** (D1) — `src/shared/modules/replays.ts`: `REPLAYS_HANDLERS = { overviewRead:
-   'overview.read' }`, `replaysNoInputSchema`, `replaysOverviewSchema` + `ReplaysOverview`,
+'overview.read' }`, `replaysNoInputSchema`, `replaysOverviewSchema` + `ReplaysOverview`,
    `REPLAYS_HANDLER_SCHEMAS`, `REPLAYS_PATH_PAYLOAD_HANDLERS = []`. `src/shared/types/module.ts`:
    `'replays'` in `ModuleId` + manifest row. `src/shared/ipc-schemas.ts`: `'replays'` in the
    `moduleId` z.enum. Tests: manifest row, capabilities, schema-per-handler, no-path guard.
@@ -127,13 +127,13 @@ Order: D1 → D2 → D3 (D3's flow needs D2 registered, or the nav entry reports
   known to MODULE_MANIFESTS" fails until you do).
   Contract: `REPLAYS_HANDLERS = { overviewRead: 'overview.read' } as const`; `replaysNoInputSchema`
   (`z.void()`, as servers/home); `replaysOverviewSchema = z.object({ scanning: z.boolean(),
-  demoCount: z.number().int().nonnegative() })` + `ReplaysOverview`; `REPLAYS_HANDLER_SCHEMAS` keyed
+demoCount: z.number().int().nonnegative() })` + `ReplaysOverview`; `REPLAYS_HANDLER_SCHEMAS` keyed
   by handler name; `REPLAYS_PATH_PAYLOAD_HANDLERS: readonly string[] = []` with a doc comment: the
   renderer never sends a path to open/play/edit a demo, it names a demo by an id main resolved (concept
   §14); the only handler that may ever join this list is "add extra folder" (native folder dialog,
   canonicalised in main).
   Manifest row: `id: 'replays'`, `titleKey: 'replays.module.title'`, `descriptionKey:
-  'replays.module.description'`, `plannedIntroKey: 'replays.planned.intro'`,
+'replays.module.description'`, `plannedIntroKey: 'replays.planned.intro'`,
   `plannedHighlightKeys: ['replays.planned.highlight.1', '.2', '.3']` (full keys), `icon: 'Film'`,
   `route: '/replays'`, `nav: { section: 'primary', order: 25 }`, `status: 'planned'`,
   `capabilities: ['mutates-installation', 'game-lifecycle']`, `ipcNamespace: 'module:replays'`,
@@ -152,7 +152,7 @@ Order: D1 → D2 → D3 (D3's flow needs D2 registered, or the nav entry reports
   Acceptance: `npm run typecheck` clean; the tests above plus `ipc-schemas.test.ts` pass.
 - **D2 — main half.** Files: `src/main/modules/replays/index.ts` (new, mirror
   `src/main/modules/home/index.ts` — `export const replaysModule: MainModule = { id: 'replays',
-  setup({ handle }) { … } }`), `src/main/modules/index.ts` (one import + one `MODULES` entry),
+setup({ handle }) { … } }`), `src/main/modules/index.ts` (one import + one `MODULES` entry),
   `src/main/modules/replays/index.test.ts` (new, mirror `src/main/modules/servers/index.test.ts`).
   `setup()` registers `REPLAYS_HANDLERS.overviewRead` with `replaysNoInputSchema` (from
   `@shared/modules/replays`) and answers `{ scanning: false, demoCount: 0 }`. No `fs`, no state, no
@@ -164,8 +164,8 @@ Order: D1 → D2 → D3 (D3's flow needs D2 registered, or the nav entry reports
   Acceptance: those tests pass.
 - **D3 — renderer half, nav entry, settings slot, strings, flow.** Files:
   `src/renderer/src/modules/index.ts` (edit: `{ id: 'replays', settingsSection: { titleKey:
-  'replays.settings.title', descriptionKey: 'replays.settings.description', order: 25, Section:
-  ReplaysSettingsSection } }` — **no** `View`, so the route falls back to `PlannedModuleView`),
+'replays.settings.title', descriptionKey: 'replays.settings.description', order: 25, Section:
+ReplaysSettingsSection } }` — **no** `View`, so the route falls back to `PlannedModuleView`),
   `src/renderer/src/modules/replays/client.ts` (new, typed `callModule` client for `overview.read`,
   mirror `src/renderer/src/modules/servers/client.ts`),
   `src/renderer/src/modules/replays/ReplaysSettingsSection.tsx` (new, placeholder paragraph only,

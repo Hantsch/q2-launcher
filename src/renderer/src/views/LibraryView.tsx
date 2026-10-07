@@ -1,24 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   CopyX,
   FolderOpen,
-  FolderPlus,
   HardDriveDownload,
   ImagePlus,
   Import,
   Pencil,
   Play,
+  Plus,
   RefreshCw,
-  Search,
   Star,
   Trash2,
 } from 'lucide-react'
-import type { LibraryStats } from '@shared/modules/library'
 import type { Installation } from '@shared/types'
 import { isStoreManaged } from '@shared/types'
 import { cn } from '../lib/cn'
 import { invoke } from '../lib/bridge'
+import { useModuleQuery } from '../lib/useModuleQuery'
 import { isDemoData } from '../lib/demo-data'
 import { formatDuration, formatRelativeTime } from '../lib/format'
 import { isPlayable, statusTone } from '../lib/status'
@@ -30,8 +29,11 @@ import { FailureBadge } from '../components/ui/FailureBadge'
 import { EngineBadge } from '../components/ui/EngineBadge'
 import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components/ui/primitives'
 import { ChecksList } from '../components/installations/ChecksList'
+import { EngineSection } from '../components/installations/EngineSection'
 import { RunnerSection } from '../components/installations/RunnerSection'
 import { InstallationTile } from '../components/installations/InstallationTile'
+import { useAddInstallationEntries } from '../components/installations/useAddInstallationEntries'
+import { Menu } from '../components/ui/Menu'
 
 /**
  * The library module's view: every installation with its health and the actions
@@ -44,20 +46,10 @@ import { InstallationTile } from '../components/installations/InstallationTile'
 export function LibraryView() {
   const { t } = useTranslation()
   const installations = useLauncher((state) => state.installations)
-  const openDialog = useLauncher((state) => state.openDialog)
+  const addEntries = useAddInstallationEntries()
   const validateAll = useLauncher((state) => state.validateAll)
-  const [stats, setStats] = useState<LibraryStats | null>(null)
+  const stats = useModuleQuery(getLibraryStats, { deps: [installations] }).data ?? null
   const [checking, setChecking] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    void getLibraryStats().then((result) => {
-      if (!cancelled && result.ok) setStats(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [installations])
 
   return (
     <div className="h-full overflow-y-auto scrollbar-gutter-stable">
@@ -65,7 +57,7 @@ export function LibraryView() {
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1">
             <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-              {t('library.title')}
+              {t('common.label.library')}
             </h1>
             <p className="text-xs text-ink-muted">
               {t('library.subtitle', { count: installations.length })}
@@ -73,46 +65,21 @@ export function LibraryView() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<FolderOpen className="size-3.5" />}
-              onClick={() => openDialog({ kind: 'add-existing' })}
-            >
-              {t('library.addExisting')}
-            </Button>
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<Search className="size-3.5" />}
-              data-testid="library-auto-detect"
-              onClick={() => openDialog({ kind: 'detect' })}
-            >
-              {t('library.autoDetect')}
-            </Button>
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<FolderPlus className="size-3.5" />}
-              data-testid="library-create"
-              onClick={() => openDialog({ kind: 'create' })}
-            >
-              {t('library.create')}
-            </Button>
-            {/* Story 074 D5: the module-dialog seam's entry point - opens the downloads module's
-                own bootstrap-wizard modal via the generic 'module' dialog kind. The wizard itself
-                (D6) does not exist yet, so this is a no-op click until then. */}
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<HardDriveDownload className="size-3.5" />}
-              data-testid="library-download-install"
-              onClick={() =>
-                openDialog({ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' })
-              }
-            >
-              {t('library.downloadAndInstall')}
-            </Button>
+            <Menu items={addEntries} side="below" label={t('rail.add')}>
+              {({ open, toggle }) => (
+                <Button
+                  variant="neutral"
+                  size="sm"
+                  icon={<Plus className="size-3.5" />}
+                  data-testid="library-add"
+                  aria-expanded={open}
+                  aria-haspopup="menu"
+                  onClick={toggle}
+                >
+                  {t('rail.add')}
+                </Button>
+              )}
+            </Menu>
             {installations.length > 0 && (
               <Button
                 variant="ghost"
@@ -133,15 +100,19 @@ export function LibraryView() {
 
         {stats && installations.length > 0 && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            <StatTile label={t('library.stats.total')} value={String(stats.total)} />
-            <StatTile label={t('library.stats.ok')} value={String(stats.ok)} tone="text-success" />
+            <StatTile label={t('common.label.installations')} value={String(stats.total)} />
+            <StatTile
+              label={t('common.label.ready')}
+              value={String(stats.ok)}
+              tone="text-success"
+            />
             <StatTile
               label={t('library.stats.needsAttention')}
               value={String(stats.needsAttention)}
               tone={stats.needsAttention > 0 ? 'text-warning' : undefined}
             />
             <StatTile
-              label={t('library.stats.missing')}
+              label={t('common.label.missing')}
               value={String(stats.missing)}
               tone={stats.missing > 0 ? 'text-danger' : undefined}
             />
@@ -161,36 +132,16 @@ export function LibraryView() {
               hint={t('empty.hint')}
               actions={
                 <>
-                  <Button
-                    variant="primary"
-                    icon={<FolderOpen className="size-4" />}
-                    onClick={() => openDialog({ kind: 'add-existing' })}
-                  >
-                    {t('rail.addExisting')}
-                  </Button>
-                  <Button
-                    variant="neutral"
-                    icon={<Search className="size-4" />}
-                    onClick={() => openDialog({ kind: 'detect' })}
-                  >
-                    {t('rail.autoDetect')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    icon={<FolderPlus className="size-4" />}
-                    onClick={() => openDialog({ kind: 'create' })}
-                  >
-                    {t('rail.createNew')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    icon={<HardDriveDownload className="size-4" />}
-                    onClick={() =>
-                      openDialog({ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' })
-                    }
-                  >
-                    {t('rail.downloadAndInstall')}
-                  </Button>
+                  {addEntries.map((entry) => (
+                    <Button
+                      key={entry.id}
+                      variant={entry.id === 'new' ? 'primary' : 'neutral'}
+                      icon={entry.icon}
+                      onClick={entry.onSelect}
+                    >
+                      {entry.label}
+                    </Button>
+                  ))}
                 </>
               }
             />
@@ -246,8 +197,8 @@ function InstallationRow({ installation }: { installation: Installation }) {
           type="button"
           onClick={() => void setActive(installation.id)}
           title={t('rail.activeMarker')}
-          // Story 067 review finding F6: before an icon existed, this button's accessible name
-          // came from its content text (the code span, e.g. "R1") - AC8 requires that name to
+          // Before an icon existed, this button's accessible name
+          // came from its content text (the code span, e.g. "R1") - that name must
           // survive an icon being set, but an icon's content is `<img alt="">` (decorative,
           // contributes nothing), which would otherwise collapse every installation's card tile to
           // the same generic `title` fallback ("Active installation"), indistinguishable from one
@@ -328,13 +279,13 @@ function InstallationRow({ installation }: { installation: Installation }) {
               void play(installation.id)
             }}
           >
-            {t('installation.action.play')}
+            {t('common.action.play')}
           </Button>
 
           <IconButton
             label={
               installation.favorite
-                ? t('installation.action.unfavorite')
+                ? t('common.action.removeFromFavourites')
                 : t('installation.action.favorite')
             }
             size="sm"
@@ -363,23 +314,25 @@ function InstallationRow({ installation }: { installation: Installation }) {
           </IconButton>
 
           <IconButton
-            label={t('installation.action.rename')}
+            label={t('common.action.renameEllipsis')}
             size="sm"
             onClick={() => openDialog({ kind: 'rename', installationId: installation.id })}
           >
             <Pencil className="size-3.5" />
           </IconButton>
 
-          {/* Story 067 D6: the icon picker belongs to the installation, same scoping as rename. */}
+          {/* Story 067: the icon picker belongs to the installation, same scoping as rename. */}
           <IconButton
             label={t('installation.action.setIcon')}
             size="sm"
-            onClick={() => openDialog({ kind: 'installationIcon', installationId: installation.id })}
+            onClick={() =>
+              openDialog({ kind: 'installationIcon', installationId: installation.id })
+            }
           >
             <ImagePlus className="size-3.5" />
           </IconButton>
 
-          {/* Story 058 D6: the redundant-config-copies cleanup belongs to the installation, not to
+          {/* Story 058: the redundant-config-copies cleanup belongs to the installation, not to
               a config profile's Care tab - so it opens from the row that names its scope, the same
               way rename does. The dialog itself removes nothing without a confirm. */}
           <IconButton
@@ -390,9 +343,9 @@ function InstallationRow({ installation }: { installation: Installation }) {
             <CopyX className="size-3.5" />
           </IconButton>
 
-          {/* Story 090 D4: only offered on a demo installation - the empty-store-sources case is
+          {/* Story 090: only offered on a demo installation - the empty-store-sources case is
               explained inside the dialog itself, not by hiding the trigger.
-              Story 091 D5: no longer disabled while the installation is running - the job now
+              Story 091: no longer disabled while the installation is running - the job now
               waits instead of refusing (091 Decisions: "[[090]]'s refusal is replaced by a
               wait, including on the renderer"). */}
           {isDemoData(installation.checks) && (
@@ -416,12 +369,12 @@ function InstallationRow({ installation }: { installation: Installation }) {
           <div className="mx-1 h-5 w-px bg-line" />
 
           <IconButton
-            label={t('installation.action.remove')}
+            label={t('common.action.removeEllipsis')}
             size="sm"
             variant="danger"
             data-testid={`installation-remove-${installation.id}`}
             onClick={() => {
-              // Story 094 D3: a removable installation always opens the chooser now - there are
+              // Story 094: a removable installation always opens the chooser now - there are
               // two different, one-irreversible outcomes, so `confirmBeforeRemoving` can no longer
               // silently pick one. A store-managed installation still has only one possible
               // outcome (entry-only), so it keeps honouring the setting exactly like before 094.
@@ -458,6 +411,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
         </div>
       )}
 
+      <EngineSection installation={installation} />
       <RunnerSection installation={installation} />
     </Panel>
   )

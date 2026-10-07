@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { initI18n } from '../i18n'
 import type { RendererModule } from '../modules'
 import { SettingsView, type SettingsViewProps } from './SettingsView'
@@ -35,8 +35,15 @@ function StubSection() {
   return <p data-testid="stub-section-content">stub content</p>
 }
 
+/** `test.stub.settingsSection.title` is absent from en.json on purpose, so its missing-key warning is expected. */
+function silenceExpectedMissingKeyWarning(): void {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  onTestFinished(() => warn.mockRestore())
+}
+
 describe('SettingsView', () => {
   it("a module's contributed section renders in the shell's chrome, between Library and About", () => {
+    silenceExpectedMissingKeyWarning()
     const stubModule: RendererModule = {
       id: 'downloads',
       settingsSection: {
@@ -72,9 +79,7 @@ describe('SettingsView', () => {
     const position1 = libraryPanel.compareDocumentPosition(stubPanel)
     const position2 = stubPanel.compareDocumentPosition(aboutPanel)
 
-    // eslint-disable-next-line no-bitwise
     expect(position1 & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // eslint-disable-next-line no-bitwise
     expect(position2 & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
@@ -107,6 +112,7 @@ describe('SettingsView', () => {
   })
 
   it('sorts multiple contributed sections by order then module id', () => {
+    silenceExpectedMissingKeyWarning()
     const moduleB: RendererModule = {
       id: 'mods',
       settingsSection: {
@@ -125,7 +131,7 @@ describe('SettingsView', () => {
     }
     const moduleFirst: RendererModule = {
       id: 'downloads',
-      settingsSection: { titleKey: 'settings.section.library', order: 1, Section: StubSection },
+      settingsSection: { titleKey: 'common.label.library', order: 1, Section: StubSection },
     }
 
     render(

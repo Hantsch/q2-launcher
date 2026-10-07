@@ -11,17 +11,24 @@ import {
   refuse,
   waiting,
   type OptimisticTimeline,
-  type QueuedTimelineAction
+  type QueuedTimelineAction,
 } from './optimistic-timeline'
 
 const DURATION = 600_000
 
-function view(positionMs: number, paused = false, durationMs: number | null = DURATION): PlaybackView {
+function view(
+  positionMs: number,
+  paused = false,
+  durationMs: number | null = DURATION,
+): PlaybackView {
   return { positionMs, durationMs, paused, ended: false, stillCount: 0 }
 }
 
 /** Queues actions in order at the given times and returns the state plus their ids. */
-function send(s: OptimisticTimeline, ...steps: Array<[QueuedTimelineAction, number]>): {
+function send(
+  s: OptimisticTimeline,
+  ...steps: Array<[QueuedTimelineAction, number]>
+): {
   state: OptimisticTimeline
   ids: number[]
 } {
@@ -73,7 +80,9 @@ describe('enqueue', () => {
   it('clamps targets to the demo and builds later jumps on the clamped target', () => {
     const start = createTimeline({ view: view(5_000, true) }, 0)
     expect(expected(send(start, [jump(-JUMP_STEP_S), 10]).state, 20).positionMs).toBe(0)
-    expect(expected(send(start, [{ kind: 'seekTo', seconds: 900 }, 10]).state, 20).positionMs).toBe(DURATION)
+    expect(expected(send(start, [{ kind: 'seekTo', seconds: 900 }, 10]).state, 20).positionMs).toBe(
+      DURATION,
+    )
 
     const nearEnd = createTimeline({ view: view(580_000, true) }, 0)
     const { state } = send(nearEnd, [jump(PAGE_STEP_S), 10], [jump(-JUMP_STEP_S), 20])
@@ -81,10 +90,12 @@ describe('enqueue', () => {
   })
 
   it('returns a distinct id per entry', () => {
-    const { ids } = send(createTimeline({ view: view(0) }, 0), [toggle, 0], [jump(JUMP_STEP_S), 0], [
-      { kind: 'speed', value: 2 },
-      0
-    ])
+    const { ids } = send(
+      createTimeline({ view: view(0) }, 0),
+      [toggle, 0],
+      [jump(JUMP_STEP_S), 0],
+      [{ kind: 'speed', value: 2 }, 0],
+    )
     expect(new Set(ids).size).toBe(3)
   })
 })
@@ -94,7 +105,9 @@ describe('expected', () => {
     const playing = createTimeline({ view: view(10_000, false) }, 0)
     expect(expected(send(playing, [toggle, 10]).state, 20).paused).toBe(true)
     expect(expected(send(playing, [toggle, 10], [toggle, 20]).state, 30).paused).toBe(false)
-    expect(expected(send(playing, [toggle, 10], [toggle, 20], [toggle, 30]).state, 40).paused).toBe(true)
+    expect(expected(send(playing, [toggle, 10], [toggle, 20], [toggle, 30]).state, 40).paused).toBe(
+      true,
+    )
     const paused = createTimeline({ view: view(10_000, true) }, 0)
     expect(expected(send(paused, [toggle, 10]).state, 20).paused).toBe(false)
   })
@@ -182,7 +195,12 @@ describe('applyReadback: position chain', () => {
 
   it('a readback at an intermediate target confirms only up to it', () => {
     const start = createTimeline({ view: view(30_000, true) }, 0)
-    let s = send(start, [jump(JUMP_STEP_S), 100], [jump(JUMP_STEP_S), 150], [jump(JUMP_STEP_S), 200]).state
+    let s = send(
+      start,
+      [jump(JUMP_STEP_S), 100],
+      [jump(JUMP_STEP_S), 150],
+      [jump(JUMP_STEP_S), 200],
+    ).state
     s = applyReadback(s, view(50_000, true), 400)
     expect(s.position.map((e) => e.targetMs)).toEqual([60_000])
     expect(expected(s, 500).positionMs).toBe(60_000)
@@ -207,7 +225,12 @@ describe('applyReadback: position chain', () => {
   it('the match tolerance widens with speed', () => {
     const at = (speed: number): OptimisticTimeline => {
       const start = createTimeline({ view: view(30_000, true), speed }, 0)
-      const s = send(start, [jump(JUMP_STEP_S), 100], [jump(JUMP_STEP_S), 150], [jump(JUMP_STEP_S), 200]).state
+      const s = send(
+        start,
+        [jump(JUMP_STEP_S), 100],
+        [jump(JUMP_STEP_S), 150],
+        [jump(JUMP_STEP_S), 200],
+      ).state
       return applyReadback(s, view(44_000, true), 400)
     }
     // 4 s from the first target: within 1.5 s x 4 at 4x, outside 1.5 s at 1x.
@@ -235,7 +258,11 @@ describe('confirmSpeed and refuse', () => {
   })
 
   it('a refused speed reverts to the confirmed speed', () => {
-    const r = enqueue(createTimeline({ view: view(0), speed: 2 }, 0), { kind: 'speed', value: 4 }, 0)
+    const r = enqueue(
+      createTimeline({ view: view(0), speed: 2 }, 0),
+      { kind: 'speed', value: 4 },
+      0,
+    )
     expect(expected(refuse(r.state, r.id), 0).speed).toBe(2)
   })
 
@@ -246,7 +273,12 @@ describe('confirmSpeed and refuse', () => {
 
   it('refusing a jump recomputes the later targets from the remaining chain', () => {
     const start = createTimeline({ view: view(30_000, true) }, 0)
-    const { state, ids } = send(start, [jump(JUMP_STEP_S), 10], [jump(JUMP_STEP_S), 20], [jump(PAGE_STEP_S), 30])
+    const { state, ids } = send(
+      start,
+      [jump(JUMP_STEP_S), 10],
+      [jump(JUMP_STEP_S), 20],
+      [jump(PAGE_STEP_S), 30],
+    )
     const s = refuse(state, ids[0])
     expect(s.position.map((e) => e.targetMs)).toEqual([40_000, 100_000])
     expect(expected(s, 40).positionMs).toBe(100_000)
@@ -254,7 +286,11 @@ describe('confirmSpeed and refuse', () => {
 
   it('refusing a seekTo rebuilds a following jump from where the chain stood before it', () => {
     const start = createTimeline({ view: view(30_000, true) }, 0)
-    const { state, ids } = send(start, [{ kind: 'seekTo', seconds: 100 }, 10], [jump(JUMP_STEP_S), 20])
+    const { state, ids } = send(
+      start,
+      [{ kind: 'seekTo', seconds: 100 }, 10],
+      [jump(JUMP_STEP_S), 20],
+    )
     expect(expected(refuse(state, ids[0]), 30).positionMs).toBe(40_000)
   })
 })
@@ -262,10 +298,13 @@ describe('confirmSpeed and refuse', () => {
 describe('waiting and giveUp', () => {
   it('a chain is waiting once its oldest entry is 1 s old', () => {
     const start = createTimeline({ view: view(0) }, 0)
-    const { state } = send(start, [toggle, 0], [jump(JUMP_STEP_S), 500], [{ kind: 'speed', value: 2 }, 800], [
-      jump(JUMP_STEP_S),
-      1200
-    ])
+    const { state } = send(
+      start,
+      [toggle, 0],
+      [jump(JUMP_STEP_S), 500],
+      [{ kind: 'speed', value: 2 }, 800],
+      [jump(JUMP_STEP_S), 1200],
+    )
     expect([...waiting(state, 999)]).toEqual([])
     expect([...waiting(state, 1000)]).toEqual(['pause'])
     expect([...waiting(state, 1500)].sort()).toEqual(['pause', 'position'])

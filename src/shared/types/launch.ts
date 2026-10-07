@@ -1,9 +1,10 @@
 import type { LaunchUserinfo } from '../launch/userinfo'
+import type { EngineKind } from './engine'
 
 /**
  * State of the game process the launcher started.
  *
- * Story 104 D4: `'handed-off'` means the launch was passed to another program (Steam) that
+ * Story 104: `'handed-off'` means the launch was passed to another program (Steam) that
  * starts the game itself - there is no game process of ours to follow, so no exit, no playtime,
  * and it never counts as running.
  */
@@ -31,6 +32,10 @@ export interface LaunchInput {
   gameDir?: string
   /** `+connect <address>` - used later by a server browser. */
   connect?: string
+  /** `+map <name>` - starts that map directly; cannot be combined with `connect`. */
+  map?: string
+  /** With `map`: `deathmatch` 1 (default) or `single` for `deathmatch` 0. */
+  gameType?: 'deathmatch' | 'single'
   /** Extra arguments for this launch only, appended last. */
   extraArgs?: string[]
   /** set via a one-shot exec'd cfg, never argv; story 125, reused by 126 */
@@ -42,6 +47,11 @@ export interface LaunchInput {
    * anyway. Story 126.
    */
   spectate?: true
+  /**
+   * Starts this detected engine instead of the installation's chosen one. Main-internal, set by
+   * demo playback only: `launch:start`'s payload schema does not accept it (story 246).
+   */
+  engine?: EngineKind
 }
 
 /**
@@ -55,7 +65,7 @@ export interface LaunchPlan {
   /** Ready-to-read, shell-quoted preview of the command. Display only. */
   preview: string
   /**
-   * Story 104 D4: the command hands the launch to Steam (`steam steam://launch/<appid>/client/<n>`)
+   * Story 104: the command hands the launch to Steam (`steam steam://launch/<appid>/client/<n>`)
    * instead of running the game - `start()` spawns it detached and does not track it.
    */
   handoff?: true

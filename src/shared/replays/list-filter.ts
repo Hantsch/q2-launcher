@@ -11,6 +11,7 @@
 import { z } from 'zod'
 import { describeGamemode, gamemodeFilterMatches, gamemodeFilterOptions } from '../demos/gamemode'
 import type { EffectiveGamemode, GamemodeSource } from '../demos/gamemode'
+import { equalsIgnoreCase, matchesTerm } from '../list/search'
 import type { DemoRow } from '../modules/replays'
 import {
   dateRangeValueSchema,
@@ -42,6 +43,8 @@ export interface DemoFilterSubject {
   headerPlayers: readonly string[]
   /** Player names carried by the file-name-template facts (`DemoRow.nameFacts`); empty when none. */
   namePlayers: readonly string[]
+  /** Roster team names, team players and spectators (`DemoRow.roster`); empty when none. */
+  rosterTerms: readonly string[]
   /** Effective date, as epoch ms, or null when unresolved. */
   date: number | null
 }
@@ -117,42 +120,46 @@ export function normalizeDemoListFilter(f: DemoListFilter): DemoListFilter {
  * Whether `s` matches a free-text search term: an empty (or whitespace-only) term always matches.
  * Otherwise matches case-insensitively against the subject's name, file name, map, sidecar
  * description, every sidecar tag, every player of every sidecar side, every header player, and
- * every name-fact player. Never throws.
+ * every name-fact player, and every roster team name, team player and spectator. Never throws.
+ *
+ * Quoted mode (see `matchesTerm`): a term wrapped in double quotes (`"q2ctf5"`) must equal the
+ * whole value of any of those fields instead.
  */
 export function matchesDemoSearch(s: DemoFilterSubject, term: string): boolean {
-  const t = term.trim().toLowerCase()
-  if (t === '') return true
-
-  const includes = (value: string | undefined | null): boolean =>
-    value !== undefined && value !== null && value.toLowerCase().includes(t)
-
-  if (includes(s.name)) return true
-  if (includes(s.fileName)) return true
-  if (includes(s.map)) return true
-  if (includes(s.sidecar?.description)) return true
-
-  if (s.sidecar?.tags?.some((tag) => tag.toLowerCase().includes(t))) return true
-  if (s.sidecar?.sides?.some((side) => side.players.some((p) => p.toLowerCase().includes(t)))) return true
-  if (s.headerPlayers.some((p) => p.toLowerCase().includes(t))) return true
-  if (s.namePlayers.some((p) => p.toLowerCase().includes(t))) return true
-
-  return false
+  return matchesTerm(term, [
+    s.name,
+    s.fileName,
+    s.map,
+    s.sidecar?.description,
+    ...(s.sidecar?.tags ?? []),
+    ...(s.sidecar?.sides ?? []).flatMap((side) => side.players),
+    ...s.headerPlayers,
+    ...s.namePlayers,
+    ...s.rosterTerms,
+  ])
 }
 
 function matchesText(value: string | null, filterValue: string): boolean {
-  return value !== null && value.toLowerCase() === filterValue.toLowerCase()
+  return equalsIgnoreCase(value, filterValue)
 }
 
 /**
  * Whether `s` satisfies every active criterion in `f` (search plus each select/toggle/list that is
  * not at its "not applied" value). An inactive field is skipped entirely rather than evaluated.
  */
-export function matchesDemoFilter(s: DemoFilterSubject, f: DemoListFilter, nowMs: number = Date.now()): boolean {
+export function matchesDemoFilter(
+  s: DemoFilterSubject,
+  f: DemoListFilter,
+  nowMs: number = Date.now(),
+): boolean {
   if (!matchesDemoSearch(s, f.search)) return false
 
   if (f.mod !== null && !matchesText(s.mod, f.mod)) return false
   if (f.map !== null && !matchesText(s.map, f.map)) return false
-  if (f.gamemode !== null && !gamemodeFilterMatches(s.gamemode, { gamemode: f.gamemode, excludeGuessed: false })) {
+  if (
+    f.gamemode !== null &&
+    !gamemodeFilterMatches(s.gamemode, { gamemode: f.gamemode, excludeGuessed: false })
+  ) {
     return false
   }
 
@@ -250,6 +257,10 @@ export function demoFilterSubject(row: DemoRow): DemoFilterSubject {
     sidecar: row.sidecar.state === 'none' ? null : row.sidecar.values,
     headerPlayers: row.players,
     namePlayers: row.nameFacts?.players ?? [],
+    rosterTerms:
+      row.roster === null
+        ? []
+        : [...row.roster.teams.flatMap((t) => [t.name, ...t.players]), ...row.roster.spectators],
     date: row.effective.date.value,
   }
 }

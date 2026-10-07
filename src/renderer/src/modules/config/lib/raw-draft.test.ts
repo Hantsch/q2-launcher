@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type {
   SaveProfileConflict,
   SaveProfileUnreadable,
@@ -23,11 +24,8 @@ import {
  * nothing here uses either of them.
  */
 vi.mock('../../../store/useLauncher', () => ({ useLauncher: () => vi.fn() }))
-vi.mock('../client', () => ({
-  saveConfigProfileRawText: vi.fn(),
-  saveConfigProfile: vi.fn(),
-  refreshProfilesFromFiles: vi.fn(),
-}))
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('../client', (importOriginal) => mockClient<typeof import('../client')>(importOriginal))
 
 describe('rawEditingMode', () => {
   it('offers no editing while the canonical file is not on disk', () => {
@@ -121,27 +119,24 @@ describe('resolveRawSaveOutcome', () => {
   it('passes a rejected text through as its own error key', () => {
     expect(resolveRawSaveOutcome(fail('config.error.rawTextNotLatin1'))).toEqual({
       type: 'toast',
-      messageKey: 'config.error.rawTextNotLatin1',
+      error: { key: 'config.error.rawTextNotLatin1' },
     })
     expect(
       resolveRawSaveOutcome(fail('config.error.profileNotFound', { name: 'Profile One' })),
     ).toEqual({
       type: 'toast',
-      messageKey: 'config.error.profileNotFound',
-      params: { name: 'Profile One' },
+      error: { key: 'config.error.profileNotFound', params: { name: 'Profile One' } },
     })
   })
 
   it("reuses the save bar's unreadable keys, with the message interpolated", () => {
     expect(resolveRawSaveOutcome(ok(unreadable('unparseable', 'line 3')))).toEqual({
       type: 'toast',
-      messageKey: 'config.save.unreadableUnparseable',
-      params: { message: 'line 3' },
+      error: { key: 'config.save.unreadableUnparseable', params: { message: 'line 3' } },
     })
     expect(resolveRawSaveOutcome(ok(unreadable('readError', 'EACCES')))).toEqual({
       type: 'toast',
-      messageKey: 'config.save.unreadableReadError',
-      params: { message: 'EACCES' },
+      error: { key: 'config.save.unreadableReadError', params: { message: 'EACCES' } },
     })
   })
 })

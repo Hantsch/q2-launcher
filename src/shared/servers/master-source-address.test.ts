@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_UDP_MASTER_PORT,
   HTTP_LIST_MAX_LENGTH,
+  MASTER_SOURCE_ADDRESS_REJECTION_KEYS,
   masterSourceAddressRejectionKey,
   validateMasterSourceAddress,
   type MasterSourceAddressRejection,
@@ -127,7 +128,7 @@ describe('validateMasterSourceAddress - http-list', () => {
 })
 
 describe('masterSourceAddressRejectionKey', () => {
-  it('maps every reason to servers.sources.reject.<reason>', () => {
+  it('maps every reason to its literal key', () => {
     const reasons: MasterSourceAddressRejection[] = [
       'empty',
       'forbidden-character',
@@ -139,7 +140,9 @@ describe('masterSourceAddressRejectionKey', () => {
       'port-not-numeric',
     ]
     for (const reason of reasons) {
-      expect(masterSourceAddressRejectionKey(reason)).toBe(`servers.sources.reject.${reason}`)
+      expect(masterSourceAddressRejectionKey(reason)).toBe(
+        MASTER_SOURCE_ADDRESS_REJECTION_KEYS[reason],
+      )
     }
   })
 })

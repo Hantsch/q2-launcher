@@ -45,9 +45,11 @@ describe('ServerRulesPanel (story 123 D3)', () => {
       'matchmode',
       'actionversion',
     ]) {
-      expect(within(panel).getAllByTestId('rule-row').some((row) => row.dataset.key === key)).toBe(
-        true,
-      )
+      expect(
+        within(panel)
+          .getAllByTestId('rule-row')
+          .some((row) => row.dataset.key === key),
+      ).toBe(true)
     }
   })
 

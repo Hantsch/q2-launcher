@@ -1,60 +1,57 @@
+import type { ReplaysStageRect } from '@shared/modules/replays'
+import { fail, ok, type LaunchState } from '@shared/types'
 import { randomUUID } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
-import { app as electronApp, clipboard, screen, shell } from 'electron'
 import {
   REPLAYS_HANDLERS,
-  extraFoldersAddSchema,
-  extraFoldersRemoveSchema,
-  listGetFilterInputSchema,
-  listGetSortInputSchema,
-  listSetFilterInputSchema,
-  listSetSortInputSchema,
-  modWarningReadInputSchema,
-  modWarningResetTrustedInputSchema,
-  modWarningSetEnabledInputSchema,
-  modWarningTrustModInputSchema,
-  nameTemplatesAddSchema,
-  nameTemplatesRemoveSchema,
-  nameTemplatesReorderSchema,
-  nameTemplatesResetSchema,
-  nameTemplatesUpdateSchema,
-  replaysDemoFileActionSchema,
-  replaysDemoPlaySchema,
-  replaysDemoRenameSchema,
-  replaysPlaybackCinemaSchema,
-  replaysPlaybackDisplayReadSchema,
-  replaysPlaybackStageSchema,
-  replaysConsoleSendSchema,
-  replaysNoInputSchema,
-  replaysSidecarReadSchema,
-  replaysSidecarWriteSchema,
+  REPLAYS_HANDLER_SCHEMAS,
+  type ReplaysContract,
   type ExtraFoldersResult,
 } from '@shared/modules/replays'
-import { timelineActionSchema } from '@shared/replays/timeline'
 import { EMPTY_DEMO_LIST_FILTER, normalizeDemoListFilter } from '@shared/replays/list-filter'
-import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harness'
-import { userDataDir } from '../../lib/paths'
+import type { UiHarness } from '../../lib/ui-harness'
+import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
-import { resolveExtractorPath } from '../downloads/7za-path'
-import { SESSION_RESTORE_CVARS, createDemoPlay, launcherSweepDirs } from './demo-play'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
+import {
+  SESSION_RESTORE_CVARS,
+  WRONG_INSTALLATION,
+  createDemoPlay,
+  launcherSweepDirs,
+} from './demo-play'
+import { isDirectory } from '../../lib/fs-utils'
+import { createDemoBulkTags } from './demo-bulk-tags'
+import { createDemoFileOps } from './demo-file-ops'
+import { createDemoFolderDelete } from './demo-folder-delete'
+import { createDemoFolders, locateDemoFolder } from './demo-folders'
+import { createDemoMove } from './demo-move'
 import { createDemoRename } from './demo-rename'
 import { sweepLauncherDirs } from './demo-staging'
 import { composeDemoRows } from './demo-rows'
-import { discoverDemos, type DiscoverContext } from './discovery'
-import { addExtraFolder, removeExtraFolder } from './extra-folders'
+import { demoFolderPaths, discoverDemos, type DiscoverContext } from './discovery'
+import { appendExtraFolder, removeExtraFolder, resolveExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
-import { ReplaysIndexCache } from './index-cache'
+import { REPLAYS_INDEX_CACHE_FILE, ReplaysIndexCache } from './index-cache'
 import { createCinemaController } from './cinema-controller'
 import { cinemaAvailability, displayGeometry, resolveOnPrimary } from './cinema'
 import { createPlaybackControl } from './playback-control'
-import { stageAvailability, stageGeometry, type StageRect } from './stage'
-import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
+import { stageAvailability, stageGeometry, stageWindowKeeper, type StageRect } from './stage'
+import { connectX11 } from './x11/connection'
+import { createX11StageWindow } from './x11/stage-window'
+import {
+  createStageFollowSessions,
+  parkGeometryAt,
+  type StageFollowSessions,
+  virtualDesktopRightEdge,
+} from './stage-follow-session'
+import { createPlaybackVolume } from './playback-volume'
 import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackConsole } from './playback-console'
 import { createPlaybackStop } from './playback-stop'
 import { createPlaybackSessions } from './playback-sessions'
+import { rememberDemoVolume, replaysState } from './persisted'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { SESSION_CVARS_PENDING_FILE, createCvarRestore } from './session-cvar-restore'
 import { createSidecarStore } from './sidecar-store'
@@ -70,34 +67,30 @@ import {
 } from './name-templates'
 
 export interface DiscoveryHomeDirOptions {
-  /** Defaults to `process.env`; a parameter so a test never touches the real environment. */
-  env?: NodeJS.ProcessEnv
-  /** Defaults to `userDataDir()`; a parameter so a test never touches the real userData path. */
-  userData?: string
+  harness: UiHarness
+  userData: string
   /** Defaults to the real `homedir()`; a parameter so a test never reads the real home dir. */
   osHome?: string
 }
 
 /**
  * The home dir `discoverDemos` uses to find Q2PRO's Linux write dir (`~/.q2pro`). Under the UI
- * harness (`isUiHarnessEnabled`) this is redirected to `<userData>/harness-home` - a folder inside
+ * harness (`harness.enabled`) this is redirected to `<userData>/harness-home` - a folder inside
  * the harness's own sandboxed userData dir - so a scripted UI-verification run never scans, and
  * never depends on, whatever happens to exist under the real operator's home directory.
  */
 export function discoveryHomeDir({
-  env = process.env,
-  userData = userDataDir(),
+  harness,
+  userData,
   osHome = homedir(),
-}: DiscoveryHomeDirOptions = {}): string {
-  if (isUiHarnessEnabled({ env, isDev: false })) return join(userData, 'harness-home')
+}: DiscoveryHomeDirOptions): string {
+  if (harness.enabled) return join(userData, 'harness-home')
   return osHome
 }
 
 export interface ScanHoldMsOptions {
-  /** Defaults to `process.env`; a parameter so a test never touches the real environment. */
-  env?: NodeJS.ProcessEnv
-  /** Defaults to `userDataDir()`; a parameter so a test never touches the real userData path. */
-  userData?: string
+  harness: UiHarness
+  userData: string
 }
 
 /** Upper bound `scanHoldMs` clamps a harness-provided value to - twice the harness's own default
@@ -106,7 +99,7 @@ export interface ScanHoldMsOptions {
 const SCAN_HOLD_MS_MAX = 60_000
 
 /**
- * Story 151 D2: how long `runScan` pauses right after discovery (once the totals push has gone
+ * Story 151: how long `runScan` pauses right after discovery (once the totals push has gone
  * out) before the incremental scan proper starts - the UI-verification harness's seam for scripting
  * a flow against the "scan is running" state instead of racing a scan that finishes near-instantly
  * against fixture data. `0` (no hold) unless the UI harness gate is open and
@@ -114,8 +107,8 @@ const SCAN_HOLD_MS_MAX = 60_000
  * non-numeric content, zero/negative or non-integer values all read back as `0`. Mirrors
  * `discoveryHomeDir`'s own signature and harness gate exactly.
  */
-export async function scanHoldMs({ env = process.env, userData = userDataDir() }: ScanHoldMsOptions = {}): Promise<number> {
-  if (!isUiHarnessEnabled({ env, isDev: false })) return 0
+export async function scanHoldMs({ harness, userData }: ScanHoldMsOptions): Promise<number> {
+  if (!harness.enabled) return 0
   let raw: string
   try {
     raw = await readFile(join(userData, 'harness-replays-scan-hold-ms'), 'utf8')
@@ -130,62 +123,75 @@ export async function scanHoldMs({ env = process.env, userData = userDataDir() }
 }
 
 /**
- * The replays module - story 135 D2 registered its main half with a single handler,
- * `overview.read`, answering a hardcoded zeroed overview. There is no demo scan yet: no
- * filesystem access, no `process.platform` checks - that is a later deliverable of this story.
- * Mirrors `src/main/modules/servers/index.ts`'s D2 shape (`overview.read` answering a hardcoded
- * zeroed overview before any real service exists) and `src/main/modules/home/index.ts`'s shape -
- * `setup()` registers handlers and does nothing else.
+ * The replays module's main half: wires the demo library's and playback's handlers to the services
+ * behind them.
  *
- * Story 140 D2 adds the seven `nameTemplates.*` handlers on top - all the rules live in
- * `name-templates.ts` (read the persisted state, run the op, persist on success); this file just
- * wires each handler's payload schema to its handler body, same as `servers/index.ts` does for
- * `sources.*`.
+ * Registers `overview.read`, `scan.start`, `index.read`, `folders.read`, the sidecar read/write, `demos.*` file
+ * actions, rename and play, the `playback.*` control channel (stage, timeline, console, stop, cinema,
+ * display), `nameTemplates.*`, `extraFolders.*`, `list.*` sort and filter, and `modWarning.*`.
+ * `setup()` registers and subscribes; the rules live in the files it composes.
  *
- * Story 141 D3 adds `demos.list`, the first handler to actually touch the filesystem: it runs
- * `discoverDemos` (`discovery.ts`, D2) over every known installation and strips each result's
- * `absolutePath` via an explicit field pick before it crosses IPC - a demo is named by its id, never
- * its real path (CLAUDE.md: "Paths from the renderer are never trusted"). `discoveryHomeDir` is the
- * one seam that decides which home dir the scan uses for Q2PRO's Linux write dir, redirected under
- * the UI harness so a scripted run never depends on the real operator's home directory.
- *
- * Story 144 D3 adds the index scan service (`scan-service.ts`): `scan.start` / `index.read`, the
- * `scan.progress` push, and `overview.read` now answering the service's real `scanning` /
- * `demoCount` instead of hardcoded zeros.
+ * - Discovery (`discoverDemos`) runs over every known installation plus the extra folders. Demos
+ *   cross IPC by id with an explicit field pick that drops `absolutePath`; main resolves the id back
+ *   to a path itself, so a renderer-supplied path is never trusted. `discoveryHomeDir` is the one
+ *   seam choosing the home dir for Q2PRO's Linux write dir, redirected under the UI harness.
+ * - The index scan service reads installations, extra folders, name templates and the launch phase
+ *   at scan time, never from a snapshot; the sidecar store resolves ids through it and builds no
+ *   index of its own.
+ * - Every state write runs on the live slice, replaces only its own key and returns what was
+ *   persisted.
+ * - Platform differences are decided at call time from the running platform:
+ *   stage availability, the X11 window keeper (X11 only) and cinema availability.
+ * - Everything `setup()` creates (playback control, stage follower, cinema, playback stop, window
+ *   watcher) is released through `onDispose`, in reverse creation order.
  */
 export const replaysModule: MainModule = {
   id: 'replays',
 
-  setup({ handle, emit, app, log }) {
+  setup(setupContext) {
+    const { app, log, onDispose } = setupContext
+    const { handle, emit } = defineModule<ReplaysContract>('replays', REPLAYS_HANDLER_SCHEMAS).bind(
+      setupContext,
+    )
     const discoveryContext = (): DiscoverContext => {
       const extractor = resolveExtractorPath({
-        isPackaged: electronApp.isPackaged,
+        isPackaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
       })
       return {
+        // platform-read: injectable default, tests pass their own
         platform: process.platform,
-        homeDir: discoveryHomeDir(),
+        homeDir: discoveryHomeDir({ harness: app.harness, userData: app.userDataDir }),
         zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists },
       }
     }
 
-    // Story 144 D3: the index scan service. Everything it reads (installations, extra folders,
+    // Story 144: the index scan service. Everything it reads (installations, extra folders,
     // name templates, launch phase) is read at scan time, never captured here.
+    const replaysIndexCache = new ReplaysIndexCache({
+      log,
+      filePath: join(app.userDataDir, REPLAYS_INDEX_CACHE_FILE),
+    })
+    app.persistence.register('replays-index', replaysIndexCache)
     const scanService = createReplaysScanService({
       emit,
-      cache: new ReplaysIndexCache({ log }),
+      cache: replaysIndexCache,
       discover: () =>
-        discoverDemos(app.installations.list(), app.state.replaysState().extraFolders, discoveryContext()),
+        discoverDemos(
+          app.installations.list(),
+          replaysState(app.state).get().extraFolders,
+          discoveryContext(),
+        ),
       parse: readDemoFacts,
       nameMatcher: () => {
         const { templates, fingerprint } = currentNameTemplates(app)
         return nameMatcherFor(templates, fingerprint)
       },
       isGameRunning: () => app.launch.isRunning(),
-      // Story 151 D2: the UI-verification harness's scan-hold seam - a no-op outside the harness
+      // Story 151: the UI-verification harness's scan-hold seam - a no-op outside the harness
       // (`scanHoldMs` answers `0` there, and the sleep is skipped entirely).
       holdAfterDiscovery: async () => {
-        const ms = await scanHoldMs()
+        const ms = await scanHoldMs({ harness: app.harness, userData: app.userDataDir })
         if (ms > 0) await new Promise((resolve) => setTimeout(resolve, ms))
       },
       log,
@@ -197,36 +203,37 @@ export const replaysModule: MainModule = {
       resolveDemo: (id) => {
         const file = scanService.resolveFile(id)
         if (!file) return undefined
-        return file.archiveEntry ? { kind: 'archive-entry' } : { kind: 'file', absolutePath: file.absolutePath }
+        return file.archiveEntry
+          ? { kind: 'archive-entry' }
+          : { kind: 'file', absolutePath: file.absolutePath }
       },
     })
 
     // Story 156: the demos.reveal/demos.copyPath actions - reveal/clipboard share the same
-    // resolve-id-then-check-file logic (`file-actions.ts`), and the `reveal` dependency itself
-    // routes through the UI harness gate the same way `app:openExternal` does (`ipc/app.ts`).
+    // resolve-id-then-check-file logic (`file-actions.ts`); `app.os` records a reveal under the UI
+    // harness instead of opening a file manager.
     const demoFileActions = createDemoFileActions({
       resolveFile: (id) => scanService.resolveFile(id),
       stat,
-      writeClipboard: (p) => clipboard.writeText(p),
-      reveal: (p) => {
-        if (isUiHarnessEnabled({ isDev: app.isDev })) {
-          return recordHarnessRevealedPath(p)
-        }
-        shell.showItemInFolder(p)
-      },
+      writeClipboard: (p) => app.os.copyText(p),
+      reveal: (p) => app.os.showItemInFolder(p),
     })
 
     // Story 157: demo rename - id + stem in, main resolves the path and validates the stem itself.
     // `playbackSessions` is filled by `demo.play` below (story 159).
     const playbackSessions = createPlaybackSessions()
-    // Story 164 D4: the running demo's control channel (position/state pushes, console lines).
-    // Story 187 D5: the display event also carries cinema (read from the controller below, which only
+    // Story 164: the running demo's control channel (position/state pushes, console lines).
+    // Story 187: the display event also carries cinema (read from the controller below, which only
     // ever runs after setup) and whether cinema could run now.
+    let stageNotice: { key: string } | null = null
     const playbackControl = createPlaybackControl({
       emit,
       launch: app.launch,
       cinema: () => ({ open: cinema.isOpen(), availability: currentCinemaAvailability() }),
+      stageNotice: () => stageNotice,
     })
+    // Registered first, so it runs last: the follower and the overlay are let go before the channel.
+    onDispose(() => playbackControl.dispose())
     const demoRename = createDemoRename({
       scan: scanService,
       sidecars: sidecarStore,
@@ -236,52 +243,110 @@ export const replaysModule: MainModule = {
         return nameMatcherFor(templates, fingerprint)
       },
     })
+    const demoMove = createDemoMove({ scan: scanService, sessions: playbackSessions })
+    const demoFolders = createDemoFolders({ scan: scanService, sessions: playbackSessions })
+    // Bulk delete/move/tag and folder delete take ids and folder refs, never paths; main resolves them (story 244)
+    const demoFileOps = createDemoFileOps({
+      scan: scanService,
+      sessions: playbackSessions,
+      os: app.os,
+    })
+    const demoBulkTags = createDemoBulkTags({ scan: scanService, sidecars: sidecarStore })
+    const demoFolderDelete = createDemoFolderDelete({
+      scan: scanService,
+      sessions: playbackSessions,
+      os: app.os,
+    })
 
-    // Story 159 D2: demo playback - id + installation id in, main re-runs eligibility on its own
+    // Story 159: demo playback - id + installation id in, main re-runs eligibility on its own
     // data, contains the file in that installation's demos folder, then starts the launch and
     // registers the playback session the rename guard above checks.
-    // Story 160 D2: a play from elsewhere stages a copy in `<gamedir>/demos/_launcher/` and removes
+    // Story 160: a play from elsewhere stages a copy in `<gamedir>/demos/_launcher/` and removes
     // it when the game ends; a copy the launcher could not remove (a crash, a hand-off) is swept here,
     // fire-and-forget. Deferred to a microtask and fully caught, so nothing in it - not even a
     // synchronous throw while listing installations - can block or break this module's start.
     const startupSweep: Promise<void> = Promise.resolve()
-      .then(() => sweepLauncherDirs(launcherSweepDirs(app.installations.list(), discoveryContext()), log))
+      .then(() =>
+        sweepLauncherDirs(launcherSweepDirs(app.installations.list(), discoveryContext()), log),
+      )
       .catch((error: unknown) => log.warn(`demo staging sweep failed: ${String(error)}`))
-    // Story 170 D3: the stage's archived cvars are put back after each stage session; a snapshot a
+    // Story 170: the stage's archived cvars are put back after each stage session; a snapshot a
     // crashed launcher left behind is applied once here. Its operations are serialised, so a play
     // started meanwhile snapshots only after this has run.
     const cvarRestore = createCvarRestore({
       names: SESSION_RESTORE_CVARS,
-      pendingPath: join(userDataDir(), SESSION_CVARS_PENDING_FILE),
+      pendingPath: join(app.userDataDir, SESSION_CVARS_PENDING_FILE),
     })
     void cvarRestore
       .applyPending()
       .catch((error: unknown) => log.warn(`stage cvar restore at start failed: ${String(error)}`))
 
-    // Story 170 D2: the stage rect (CSS px) as the engine's physical `vid_geometry`. Story 171 D2: the
+    // Story 170: the stage rect (CSS px) as the engine's physical `vid_geometry`. Story 171: the
     // follower passes the observer's content bounds (the last un-minimized ones) instead of asking.
+    // The DIP rect is converted against the main window ('main'), not the primary display: on a
+    // mixed-DPI desktop the window's own display decides the scale.
     const geometryAt = (rect: StageRect, bounds?: { x: number; y: number }): string | null => {
-      const win = app.getMainWindow()
+      const win = app.mainWindow.snapshot()
       if (!win) return null
-      const contentBounds = bounds ?? win.getContentBounds()
-      const toScreen = (dip: StageRect): StageRect => {
-        if (typeof screen.dipToScreenRect === 'function') return screen.dipToScreenRect(win, dip)
-        const scale = screen.getDisplayMatching(win.getContentBounds()).scaleFactor
-        return { x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale }
-      }
-      return stageGeometry(rect, { contentBounds, zoomFactor: win.webContents.getZoomFactor() }, toScreen)
+      return stageGeometry(
+        rect,
+        { contentBounds: bounds ?? win.contentBounds, zoomFactor: win.zoomFactor },
+        (dip) => app.displays.dipToScreenRect(dip, 'main'),
+      )
     }
+    const harnessFlag = app.harness.enabled ? '1' : undefined
+    const stageHarnessEnv = () => ({
+      Q2L_UI_HARNESS: harnessFlag,
+      Q2L_UI_SESSION_TYPE: app.harness.read('Q2L_UI_SESSION_TYPE'),
+    })
     const currentStageAvailability = () =>
-      stageAvailability(process.platform, process.env, {
-        Q2L_UI_HARNESS: process.env['Q2L_UI_HARNESS'],
-        Q2L_UI_SESSION_TYPE: process.env['Q2L_UI_SESSION_TYPE'],
+      // platform-read: host platform, decided at call time
+      stageAvailability(process.platform, app.env, stageHarnessEnv())
+    // The launcher restacks the game window itself only on X11; elsewhere none of this exists.
+    // platform-read: host platform, decided once at setup
+    const x11Keeper = stageWindowKeeper(process.platform, app.env, stageHarnessEnv()) === 'x11'
+
+    // One keeper per placed session. The game's PID is the one main's own spawn reported after the
+    // session began (never a renderer value); a keeper that gives up leaves a notice for the UI.
+    const beginKeptSession = (
+      start: { geometry: string; rect: ReplaysStageRect },
+      begin: StageFollowSessions['begin'],
+    ): (() => void) => {
+      let pid: number | undefined
+      const adopt = (state: LaunchState): void => {
+        if (state.phase === 'running' && state.pid !== undefined) pid = state.pid
+      }
+      adopt(app.launch.getState())
+      const offLaunch = app.launch.onStateChange(adopt)
+      const keeper = createX11StageWindow({
+        connect: () =>
+          connectX11({ env: app.env, readFile: (path) => readFile(path), hostname: hostname() }),
+        pid: () => pid,
+        onFailure: (cause) => {
+          log.warn(`stage keeper gave up: ${cause}`)
+          stageNotice = { key: 'replays.stage.notOnTop.x11' }
+          playbackControl.emitDisplay()
+        },
       })
-    // Story 187 D5: cinema covers the primary display, so it is offered only while the launcher is on it
+      const endFollow = begin({ ...start, windowState: keeper })
+      return () => {
+        endFollow()
+        offLaunch()
+        keeper.dispose()
+        if (stageNotice === null) return
+        stageNotice = null
+        playbackControl.emitDisplay()
+      }
+    }
+    // Story 187: cinema covers the primary display, so it is offered only while the launcher is on it
     // (`Q2L_UI_CINEMA_DISPLAY` fakes that under the UI harness).
     const onPrimaryDisplay = (): boolean => {
-      const win = app.getMainWindow()
-      const actual = win ? screen.getDisplayMatching(win.getBounds()).id === screen.getPrimaryDisplay().id : true
-      return resolveOnPrimary(actual, process.env)
+      const win = app.mainWindow.snapshot()
+      const actual = win ? win.displayId === app.displays.primary().id : true
+      return resolveOnPrimary(actual, {
+        Q2L_UI_HARNESS: harnessFlag,
+        Q2L_UI_CINEMA_DISPLAY: app.harness.read('Q2L_UI_CINEMA_DISPLAY'),
+      })
     }
     const currentCinemaAvailability = () =>
       cinemaAvailability({
@@ -289,66 +354,56 @@ export const replaysModule: MainModule = {
         onPrimary: onPrimaryDisplay(),
         hasFollower: stageFollow.hasFollower(),
       })
-    const primaryDisplayGeometry = (): string => {
-      const primary = screen.getPrimaryDisplay()
-      if (typeof screen.dipToScreenRect === 'function') return displayGeometry(screen.dipToScreenRect(null, primary.bounds))
-      const s = primary.scaleFactor
-      const b = primary.bounds
-      return displayGeometry({ x: b.x * s, y: b.y * s, width: b.width * s, height: b.height * s })
-    }
+    const primaryDisplayGeometry = (): string =>
+      displayGeometry(app.displays.dipToScreenRect(app.displays.primary().bounds, null))
 
-    // Story 171 D2: a follower per placed stage session, fed by the main window's events and
+    // Story 171: a follower per placed stage session, fed by the main window's events and
     // `playback.stage`; it parks the game window beyond the virtual desktop's right edge.
     const stageFollow = createStageFollowSessions({
       window: app.mainWindow,
-      send: (line) => {
-        const result = playbackControl.send(line)
-        log.info(`[diag187] follower send "${line}" -> ${result.ok ? 'ok' : result.error.key}`)
-        return result
-      },
+      send: (line) => playbackControl.send(line),
       computeGeometry: (rect, window) => geometryAt(rect, window.contentBounds) ?? '0x0+0+0',
       parkGeometry: (geometry) =>
         parkGeometryAt(
           geometry,
-          virtualDesktopRightEdge(
-            screen.getAllDisplays(),
-            typeof screen.dipToScreenRect === 'function' ? (dip) => screen.dipToScreenRect(null, dip) : undefined,
+          virtualDesktopRightEdge(app.displays.all(), (dip) =>
+            app.displays.dipToScreenRect(dip, null),
           ),
         ),
     })
+    onDispose(() => stageFollow.dispose())
 
-    // Story 187 D5: the one owner of the cinema overlay. Pin before open, close before unpin.
+    // Story 187: the one owner of the cinema overlay. Pin before open, close before unpin.
     const cinema = createCinemaController({
       availability: currentCinemaAvailability,
       displayGeometry: primaryDisplayGeometry,
-      pin: (geometry) => {
-        const placed = stageFollow.pin(geometry)
-        log.info(`[diag187] cinema pin ${geometry ?? 'off'} -> ${placed}`)
-        return placed
-      },
-      settled: () => playbackControl.settled().then(() => log.info('[diag187] cinema pin settled, opening overlay')),
+      pin: (geometry) => stageFollow.pin(geometry),
+      settled: () => playbackControl.settled(),
       window: app.cinemaWindow,
       hasSession: () => playbackControl.currentFormat() !== null,
       enterFullscreen: () => playbackControl.enterFullscreen(),
       emitDisplay: () => playbackControl.emitDisplay(),
+      ...(x11Keeper ? { raiseOverlay: () => app.cinemaWindow.raise() } : {}),
     })
+    onDispose(() => cinema.dispose())
 
-    // Story 172 D5: a fullscreen demo is not steered - the follower rests until it is back on the stage.
-    // Story 187 D5: back from a fullscreen entered in cinema, the controller unpins first, then the
+    // Story 172: a fullscreen demo is not steered - the follower rests until it is back on the stage.
+    // Story 187: back from a fullscreen entered in cinema, the controller unpins first, then the
     // follower resumes, so the stage geometry and the focus-driven always-on-top are sent again.
     playbackControl.onDisplayChange((fullscreen) => {
       cinema.onDisplayChange(fullscreen)
       stageFollow.setSuspended(fullscreen)
     })
-    // Story 187 D5: availability follows the main window across displays - pushed only when it changes.
+    // Story 187: availability follows the main window across displays - pushed only when it changes.
     // Subscribed when the first demo plays, so a module that never plays never touches the window.
     let lastAvailability: string | null = null
     let watchingWindow = false
+    let offWindow: (() => void) | null = null
     const watchAvailability = (): void => {
       lastAvailability = JSON.stringify(currentCinemaAvailability())
       if (watchingWindow) return
       watchingWindow = true
-      app.mainWindow.on((event) => {
+      offWindow = app.mainWindow.on((event) => {
         if (event !== 'move' && event !== 'resize' && event !== 'restore') return
         const next = JSON.stringify(currentCinemaAvailability())
         if (next === lastAvailability) return
@@ -356,9 +411,19 @@ export const replaysModule: MainModule = {
         if (playbackControl.currentFormat() !== null) playbackControl.emitDisplay()
       })
     }
+    onDispose(() => {
+      // A 'playing' push after this point must not subscribe again.
+      watchingWindow = true
+      offWindow?.()
+      offWindow = null
+    })
     playbackControl.onStateChange((state) => {
       if (state === 'playing') watchAvailability()
       cinema.onPlaybackState(state)
+      if (state !== 'ended') return
+      // Written once per session, from the level the user last set - never the muted 0 (story 237).
+      const level = playbackControl.takeChangedVolume()
+      if (level !== null) rememberDemoVolume(app.state, level)
     })
 
     const demoPlay = createDemoPlay({
@@ -366,6 +431,7 @@ export const replaysModule: MainModule = {
       resolveFile: (id) => scanService.resolveFile(id),
       installations: () => app.installations.list(),
       activeInstallationId: () => app.state.settings().activeInstallationId,
+      // platform-read: injectable default, tests pass their own
       platform: process.platform,
       launch: app.launch,
       sessions: playbackSessions,
@@ -375,48 +441,84 @@ export const replaysModule: MainModule = {
       cvarRestore,
       stageAvailability: currentStageAvailability,
       toGeometry: (rect) => geometryAt(rect),
-      onStageSession: (start) => stageFollow.begin(start),
+      onStageSession: (start) =>
+        x11Keeper ? beginKeptSession(start, stageFollow.begin) : stageFollow.begin(start),
+      demoVolume: () => replaysState(app.state).get().demoVolume,
     })
 
-    handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
-    handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, () => scanService.start())
-    // Story 150 D2: `index.read` now answers composed rows - each demo plus its sidecar and
-    // resolved effective values - rather than the bare discovered-demo shape `demos.list` still
-    // answers. A failed sidecar read (the store's own `Outcome` came back `ok: false`) becomes a
+    handle(REPLAYS_HANDLERS.overviewRead, async () => ok(await scanService.overview()))
+    handle(REPLAYS_HANDLERS.scanStart, async () => ok(await scanService.start()))
+    // `index.read` answers composed rows - each demo plus its sidecar and resolved effective
+    // values. A failed sidecar read (the store's own `Outcome` came back `ok: false`) becomes a
     // `null` sidecar input, same as an archive entry or an id the index doesn't know about.
-    handle(REPLAYS_HANDLERS.indexRead, replaysNoInputSchema, async () =>
-      composeDemoRows(await scanService.read(), async (id) => {
-        const outcome = await sidecarStore.read(id)
-        return outcome.ok ? outcome.value : null
-      }),
+    handle(REPLAYS_HANDLERS.foldersRead, async () => ok(await scanService.readFolders()))
+    handle(REPLAYS_HANDLERS.indexRead, async () =>
+      ok(
+        await composeDemoRows(await scanService.read(), async (id) => {
+          const outcome = await sidecarStore.read(id)
+          return outcome.ok ? outcome.value : null
+        }),
+      ),
     )
 
-    handle(REPLAYS_HANDLERS.sidecarRead, replaysSidecarReadSchema, (payload) =>
-      sidecarStore.read(payload.demoId),
-    )
-    handle(REPLAYS_HANDLERS.sidecarWrite, replaysSidecarWriteSchema, (payload) =>
+    handle(REPLAYS_HANDLERS.sidecarRead, (payload) => sidecarStore.read(payload.demoId))
+    handle(REPLAYS_HANDLERS.sidecarWrite, (payload) =>
       sidecarStore.write(payload.demoId, payload.fields, payload.confirmReplace),
     )
 
-    handle(REPLAYS_HANDLERS.demosReveal, replaysDemoFileActionSchema, (payload) =>
-      demoFileActions.reveal(payload.demoId),
+    handle(REPLAYS_HANDLERS.demosReveal, async (payload) =>
+      ok(await demoFileActions.reveal(payload.demoId)),
     )
-    handle(REPLAYS_HANDLERS.demosCopyPath, replaysDemoFileActionSchema, (payload) =>
-      demoFileActions.copyPath(payload.demoId),
+    handle(REPLAYS_HANDLERS.demosCopyPath, async (payload) =>
+      ok(await demoFileActions.copyPath(payload.demoId)),
     )
-    handle(REPLAYS_HANDLERS.demoRename, replaysDemoRenameSchema, (payload) =>
-      demoRename.rename(payload.id, payload.name),
+    handle(REPLAYS_HANDLERS.demoRename, (payload) => demoRename.rename(payload.id, payload.name))
+    handle(REPLAYS_HANDLERS.demoMove, (payload) => demoMove.move(payload.id, payload.target))
+    handle(REPLAYS_HANDLERS.demosDelete, (payload) => demoFileOps.delete(payload.demoIds))
+    handle(REPLAYS_HANDLERS.demosMove, async (payload) => {
+      const { target } = payload
+      let targetDir: string
+      if (target.kind === 'folder') {
+        // A tree target must be a folder inside a scanned root.
+        const located = await locateDemoFolder(scanService, target.folderId)
+        if (!located.ok) return located
+        targetDir = located.value.absolutePath
+      } else {
+        const picked = await app.dialog.pickFolder()
+        if (picked === null) return ok({ cancelled: true as const })
+        // A picked folder is any directory; it may lie outside every root.
+        if (!(await isDirectory(picked))) return fail('replays.bulk.error.notAFolder')
+        targetDir = picked
+      }
+      return demoFileOps.move(payload.demoIds, targetDir)
+    })
+    handle(REPLAYS_HANDLERS.demosTag, (payload) =>
+      demoBulkTags.tag(payload.demoIds, payload.add, payload.remove),
     )
-    handle(REPLAYS_HANDLERS.demoPlay, replaysDemoPlaySchema, (payload) =>
+    handle(REPLAYS_HANDLERS.demoFolderDelete, (payload) =>
+      demoFolderDelete.deleteFolder(payload.folderId),
+    )
+    handle(REPLAYS_HANDLERS.folderCreate, (payload) =>
+      demoFolders.create(payload.parent, payload.name),
+    )
+    handle(REPLAYS_HANDLERS.folderRename, (payload) =>
+      demoFolders.rename(payload.folder, payload.name),
+    )
+    handle(REPLAYS_HANDLERS.demoFoldersRead, (payload) => {
+      const installation = app.installations.list().find((i) => i.id === payload.installationId)
+      if (!installation) return fail(WRONG_INSTALLATION)
+      return ok({ folders: demoFolderPaths(installation, discoveryContext()) })
+    })
+    handle(REPLAYS_HANDLERS.demoPlay, (payload) =>
       demoPlay.play(payload.demoId, payload.installationId, {
         acknowledgeModMissing: payload.acknowledgeModMissing === true,
         stage: payload.stage,
       }),
     )
 
-    handle(REPLAYS_HANDLERS.playbackStage, replaysPlaybackStageSchema, (payload) => stageFollow.report(payload.rect))
+    handle(REPLAYS_HANDLERS.playbackStage, (payload) => stageFollow.report(payload.rect))
 
-    // Story 187 D5: fullscreen goes through the cinema controller, so leaving cinema for it keeps the pin.
+    // Story 187: fullscreen goes through the cinema controller, so leaving cinema for it keeps the pin.
     const playbackTimeline = createPlaybackTimeline({
       playback: {
         send: (line) => playbackControl.send(line),
@@ -425,169 +527,117 @@ export const replaysModule: MainModule = {
         setSpeed: (speed) => playbackControl.setSpeed(speed),
       },
     })
-    handle(REPLAYS_HANDLERS.playbackTimeline, timelineActionSchema, (payload) =>
-      playbackTimeline.run(payload),
-    )
+    handle(REPLAYS_HANDLERS.playbackTimeline, (payload) => playbackTimeline.run(payload))
+    const playbackVolume = createPlaybackVolume({ playback: playbackControl })
+    handle(REPLAYS_HANDLERS.playbackVolume, (payload) => playbackVolume.set(payload))
     const playbackConsole = createPlaybackConsole({ playback: playbackControl })
-    handle(REPLAYS_HANDLERS.playbackConsoleSend, replaysConsoleSendSchema, (payload) =>
-      playbackConsole.send(payload.line),
-    )
+    handle(REPLAYS_HANDLERS.playbackConsoleSend, (payload) => playbackConsole.send(payload.line))
     const playbackStop = createPlaybackStop({ playback: playbackControl, launch: app.launch })
-    handle(REPLAYS_HANDLERS.playbackStop, replaysNoInputSchema, () => playbackStop.stop())
-    handle(REPLAYS_HANDLERS.playbackCinema, replaysPlaybackCinemaSchema, (payload) => cinema.set(payload.enter))
-    handle(REPLAYS_HANDLERS.playbackDisplayRead, replaysPlaybackDisplayReadSchema, () => playbackControl.display())
+    onDispose(() => playbackStop.dispose())
+    handle(REPLAYS_HANDLERS.playbackStop, () => playbackStop.stop())
+    handle(REPLAYS_HANDLERS.playbackCinema, (payload) => cinema.set(payload.enter))
+    handle(REPLAYS_HANDLERS.playbackDisplayRead, () => ok(playbackControl.display()))
 
-    handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))
-    handle(REPLAYS_HANDLERS.nameTemplatesAdd, nameTemplatesAddSchema, (payload) =>
-      nameTemplatesAdd(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesUpdate, nameTemplatesUpdateSchema, (payload) =>
-      nameTemplatesUpdate(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesRemove, nameTemplatesRemoveSchema, (payload) =>
-      nameTemplatesRemove(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesReorder, nameTemplatesReorderSchema, (payload) =>
-      nameTemplatesReorder(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesReset, nameTemplatesResetSchema, (payload) =>
-      nameTemplatesReset(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesRestore, replaysNoInputSchema, () =>
-      nameTemplatesRestore(app),
-    )
+    handle(REPLAYS_HANDLERS.nameTemplatesList, () => nameTemplatesList(app))
+    handle(REPLAYS_HANDLERS.nameTemplatesAdd, (payload) => nameTemplatesAdd(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesUpdate, (payload) => nameTemplatesUpdate(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesRemove, (payload) => nameTemplatesRemove(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesReorder, (payload) => nameTemplatesReorder(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesReset, (payload) => nameTemplatesReset(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesRestore, () => nameTemplatesRestore(app))
 
-    // Left on fresh discovery (no header parse, no cache) on purpose: `index.read` is the cached,
-    // parsed view; switching this handler's callers over is the renderer's deliverable.
-    handle(REPLAYS_HANDLERS.demosList, replaysNoInputSchema, async () => {
-      const { demos } = await discoverDemos(
-        app.installations.list(),
-        app.state.replaysState().extraFolders,
-        discoveryContext(),
-      )
-      return demos.map((d) => ({
-        id: d.id,
-        fileName: d.fileName,
-        format: d.format,
-        gzip: d.gzip,
-        source: d.source,
-        archiveEntry: d.archiveEntry,
-        map: d.map,
-        unparsableReason: d.unparsableReason,
-        // No header parse here (see comment above): readable/fileTime/nameFacts stay the neutral
-        // placeholders discovery itself sets, never a real answer.
-        readable: d.readable,
-        unreadable: d.unreadable,
-        // Discovery's own values: a zip entry's real header facts/duration, a loose file's
-        // null/[] placeholders (no header parse here, see above).
-        gameDir: d.gameDir,
-        pov: d.pov,
-        players: d.players,
-        durationMs: d.durationMs,
-        fileTime: d.fileTime,
-        nameFacts: d.nameFacts,
+    // Story 142: the `extraFolders.*` handlers. Every write runs on the live slice inside
+    // `updateSlice`; a refusal returns the live slice unchanged (nothing persisted), and what comes
+    // back is what `updateSlice` actually stored, not the local candidate.
+    handle(REPLAYS_HANDLERS.extraFoldersList, () => ok(replaysState(app.state).get().extraFolders))
+    handle(REPLAYS_HANDLERS.extraFoldersAdd, async (payload) => {
+      // The awaits come first: the dedupe below must see the list as it is when it writes.
+      const resolved = await resolveExtraFolder(payload.path)
+      if (!resolved.ok) return ok<ExtraFoldersResult>(resolved)
+      let result: ExtraFoldersResult | undefined
+      const persisted = replaysState(app.state).update((live) => {
+        result = appendExtraFolder(
+          live.extraFolders,
+          resolved.canonical,
+          new Date().toISOString(),
+          randomUUID(),
+        )
+        return result.ok ? { ...live, extraFolders: result.folders } : live
+      })
+      if (!result || !result.ok) return ok(result as ExtraFoldersResult)
+      return ok({ ok: true, folders: persisted.extraFolders } as ExtraFoldersResult)
+    })
+    handle(REPLAYS_HANDLERS.extraFoldersRemove, (payload) => {
+      const persisted = replaysState(app.state).update((live) => ({
+        ...live,
+        extraFolders: removeExtraFolder(live.extraFolders, payload.id),
       }))
-    })
-
-    // Story 142 D2: the `extraFolders.*` handlers. `add`/`remove` mirror `servers/index.ts`'s
-    // `mutate()` pattern - read `replaysState()` once, run the op, on refusal return early without
-    // persisting, on success persist and return what `setReplaysState` actually stored (not the
-    // local candidate).
-    handle(REPLAYS_HANDLERS.extraFoldersList, replaysNoInputSchema, () =>
-      app.state.replaysState().extraFolders,
-    )
-    handle(REPLAYS_HANDLERS.extraFoldersAdd, extraFoldersAddSchema, async (payload) => {
-      const current = app.state.replaysState()
-      const result: ExtraFoldersResult = await addExtraFolder(
-        current.extraFolders,
-        payload.path,
-        new Date().toISOString(),
-        randomUUID(),
-      )
-      if (!result.ok) return result
-      const persisted = app.state.setReplaysState({ ...current, extraFolders: result.folders })
-      return { ok: true, folders: persisted.extraFolders } as ExtraFoldersResult
-    })
-    handle(REPLAYS_HANDLERS.extraFoldersRemove, extraFoldersRemoveSchema, (payload) => {
-      const current = app.state.replaysState()
-      const extraFolders = removeExtraFolder(current.extraFolders, payload.id)
-      const persisted = app.state.setReplaysState({ ...current, extraFolders })
-      return { ok: true, folders: persisted.extraFolders } as ExtraFoldersResult
+      return ok({ ok: true, folders: persisted.extraFolders } as ExtraFoldersResult)
     })
 
     /**
-     * Story 152 D2: the `list.*` sort handlers - same read/replace/persist discipline as
+     * Story 152: the `list.*` sort handlers - same live-slice discipline as
      * `SERVERS_HANDLERS.listGetSort`/`listSetSort` (`src/main/modules/servers/index.ts`).
      * `listSetSort` replaces the top-level `listSort` field wholesale while carrying every other
-     * `ReplaysState` key over from the same snapshot untouched; `null` clears it by destructuring it
-     * out of the persisted candidate rather than setting it to `undefined`, so a cleared sort is an
-     * absent key on disk, not a present `null`/`undefined` one. What's returned is what
-     * `setReplaysState` actually persisted (`?? null`), not the local candidate.
+     * `ReplaysState` key over from the live slice untouched; `null` clears it and is stored as
+     * `null`. What's returned is what `updateSlice` actually stored.
      */
-    handle(REPLAYS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
-      app.state.replaysState().listSort ?? null,
+    handle(REPLAYS_HANDLERS.listGetSort, () => ok(replaysState(app.state).get().listSort))
+    handle(REPLAYS_HANDLERS.listSetSort, (payload) =>
+      ok(replaysState(app.state).update((live) => ({ ...live, listSort: payload.sort })).listSort),
     )
-    handle(REPLAYS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
-      const current = app.state.replaysState()
-      if (payload.sort === null) {
-        const { listSort: _listSort, ...withoutSort } = current
-        return app.state.setReplaysState(withoutSort).listSort ?? null
-      }
-      return app.state.setReplaysState({ ...current, listSort: payload.sort }).listSort ?? null
-    })
 
     /**
-     * Story 153 D3: the `listFilter.*` handlers - same read/replace/persist discipline as
+     * Story 153: the `listFilter.*` handlers - same live-slice discipline as
      * `listGetSort`/`listSetSort` right above. `listFilter` is never absent on `ReplaysState` (unlike
      * `listSort`), so there is no clear-to-null case to model here.
      */
-    handle(REPLAYS_HANDLERS.listGetFilter, listGetFilterInputSchema, () =>
-      app.state.replaysState().listFilter ?? EMPTY_DEMO_LIST_FILTER,
+    handle(REPLAYS_HANDLERS.listGetFilter, () =>
+      ok(replaysState(app.state).get().listFilter ?? EMPTY_DEMO_LIST_FILTER),
     )
-    handle(REPLAYS_HANDLERS.listSetFilter, listSetFilterInputSchema, (payload) => {
-      const current = app.state.replaysState()
+    handle(REPLAYS_HANDLERS.listSetFilter, (payload) => {
       // Normalizes the same way `parseReplaysState` does on read, so a structurally-valid but
       // semantically-invalid `date` (e.g. `from > to`, or both ends open) sent from the renderer
       // never round-trips through `state.json` un-normalized - paths/payloads from the renderer are
       // never trusted, and this is the write-side half of that same discipline.
-      return (
-        app.state.setReplaysState({
-          ...current,
+      return ok(
+        replaysState(app.state).update((live) => ({
+          ...live,
           listFilter: normalizeDemoListFilter(payload.filter),
-        }).listFilter ?? EMPTY_DEMO_LIST_FILTER
+        })).listFilter ?? EMPTY_DEMO_LIST_FILTER,
       )
     })
 
-    // Story 182 D1: the `modWarning.*` handlers - same read/spread/persist discipline as `listFilter`;
-    // every one returns what `setReplaysState` actually persisted.
-    handle(REPLAYS_HANDLERS.modWarningRead, modWarningReadInputSchema, () =>
-      app.state.replaysState().modWarning,
+    // Story 182: the `modWarning.*` handlers - same live-slice discipline as `listFilter`;
+    // every one returns what `updateSlice` actually stored.
+    handle(REPLAYS_HANDLERS.modWarningRead, () => ok(replaysState(app.state).get().modWarning))
+    handle(REPLAYS_HANDLERS.modWarningSetEnabled, (payload) =>
+      ok(
+        replaysState(app.state).update((live) => ({
+          ...live,
+          modWarning: { ...live.modWarning, enabled: payload.enabled },
+        })).modWarning,
+      ),
     )
-    handle(REPLAYS_HANDLERS.modWarningSetEnabled, modWarningSetEnabledInputSchema, (payload) => {
-      const current = app.state.replaysState()
-      return app.state.setReplaysState({
-        ...current,
-        modWarning: { ...current.modWarning, enabled: payload.enabled },
-      }).modWarning
-    })
-    handle(REPLAYS_HANDLERS.modWarningTrustMod, modWarningTrustModInputSchema, (payload) => {
-      const current = app.state.replaysState()
+    handle(REPLAYS_HANDLERS.modWarningTrustMod, (payload) => {
       const dir = payload.gameDir.toLowerCase()
-      const trustedMods = current.modWarning.trustedMods.includes(dir)
-        ? current.modWarning.trustedMods
-        : [...current.modWarning.trustedMods, dir]
-      return app.state.setReplaysState({
-        ...current,
-        modWarning: { ...current.modWarning, trustedMods },
-      }).modWarning
+      return ok(
+        replaysState(app.state).update((live) => {
+          const trustedMods = live.modWarning.trustedMods.includes(dir)
+            ? live.modWarning.trustedMods
+            : [...live.modWarning.trustedMods, dir]
+          return { ...live, modWarning: { ...live.modWarning, trustedMods } }
+        }).modWarning,
+      )
     })
-    handle(REPLAYS_HANDLERS.modWarningResetTrusted, modWarningResetTrustedInputSchema, () => {
-      const current = app.state.replaysState()
-      return app.state.setReplaysState({
-        ...current,
-        modWarning: { ...current.modWarning, trustedMods: [] },
-      }).modWarning
-    })
+    handle(REPLAYS_HANDLERS.modWarningResetTrusted, () =>
+      ok(
+        replaysState(app.state).update((live) => ({
+          ...live,
+          modWarning: { ...live.modWarning, trustedMods: [] },
+        })).modWarning,
+      ),
+    )
 
     log.debug('replays module ready')
   },

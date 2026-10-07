@@ -58,7 +58,10 @@ describe('UpdateCheckRow', () => {
 
   it('renders a relative-time string when lastCheckedAt is a real timestamp', () => {
     useLauncher.setState({
-      update: { ...IDLE_UPDATE_STATE, lastCheckedAt: new Date(Date.now() - 5 * 60_000).toISOString() },
+      update: {
+        ...IDLE_UPDATE_STATE,
+        lastCheckedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+      },
     })
     render(createElement(UpdateCheckRow))
 

@@ -36,7 +36,11 @@ export function sidesText(
   if (sides.length === 0) return ''
 
   const [only] = sides
-  if (sides.length === 1 && (only.team === undefined || only.team.trim() === '') && only.players.length === 2) {
+  if (
+    sides.length === 1 &&
+    (only.team === undefined || only.team.trim() === '') &&
+    only.players.length === 2
+  ) {
     return `${only.players[0]} vs ${only.players[1]}`
   }
 
@@ -55,7 +59,9 @@ export function sidesText(
 export function formatDemoDate(ms: number | null | undefined, locale: string): string | null {
   if (ms === null || ms === undefined || !Number.isFinite(ms)) return null
   try {
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ms))
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(
+      new Date(ms),
+    )
   } catch {
     return null
   }

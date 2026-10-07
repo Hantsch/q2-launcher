@@ -6,12 +6,16 @@ import type {
   BootstrapEngineOption,
   BootstrapEngineOptionsEmptyReason,
   BootstrapSummary,
+  BootstrapTargetProposal,
   BootstrapTargetVerdict,
   DetectedRetailSource,
   DownloadFailure,
   GameDataSourceVerdict,
 } from '@shared/modules/downloads'
+import { defaultBootstrapInstallationName } from '@shared/modules/downloads'
+import { ok } from '@shared/types'
 import { invoke } from '../../../lib/bridge'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { useLauncher } from '../../../store/useLauncher'
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
@@ -22,6 +26,7 @@ import {
   getDetectedRetailSources,
   getDownloadFailures,
   getGameDataSourceVerdict,
+  proposeBootstrapTarget,
   startBootstrapInstall,
 } from '../client'
 import { EngineStep } from './EngineStep'
@@ -35,22 +40,22 @@ type Step = 'engine' | 'gameData' | 'target' | 'confirm' | 'running'
 const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running']
 
 /**
- * Story 074 D6, extended by 080 D2, 088 D5 and 089 D4: the bootstrap wizard - engine choice
+ * Story 074, extended by 080, 088 and 089: the bootstrap wizard - engine choice
  * (Q2PRO, R1Q2 once both are pinned) -> game data (free download, a copy of a detected
  * Steam/GOG/Epic installation [[088]], or a hand-picked folder [[089]]) -> target folder (with the
- * D2 verdict's warnings) -> confirm (packages + size + target, AC4) -> run (hands off to the D4
- * job, AC5). Mirrors `CreateInstallationDialog.tsx` for dialog shape.
+ * verdict's warnings) -> confirm (packages + size + target) -> run (hands off to the
+ * download job).
  *
  * `dataSource`/`copySourcePath` hold the game-data step's choice; `detectedSources` is fetched
  * once on mount, same convention as `engineOptions` below - an empty array means the game-data
- * step never offers the copy choice at all (AC1). `gameDataFolderPath`/`gameDataFolderVerdict`
- * are the `'existing-folder'` choice's own state ([[089]] D4) - resolved on demand, whenever the
+ * step never offers the copy choice at all. `gameDataFolderPath`/`gameDataFolderVerdict`
+ * are the `'existing-folder'` choice's own state ([[089]]) - resolved on demand, whenever the
  * user browses, rather than fetched once like `detectedSources`. `copySourcePath` is reused
  * verbatim for that choice's own picked path when a run starts or a summary is fetched
  * (`StartBootstrapInput.copySourcePath`'s own doc comment) - it is never a second field.
  *
  * Wizard state lives here, in `useState`, and is never persisted - closing the dialog before
- * `running` throws all of it away, same as `CreateInstallationDialog`.
+ * `running` throws all of it away.
  *
  * The Program Files remedy holds the picked path in local wizard state (`writeDirPath`) and
  * passes it through `StartBootstrapInput.writeDirPath` when the job starts - there is no
@@ -59,6 +64,8 @@ const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running'
  * call itself, right after `create()`. The write-dir remedy also remains available afterwards from
  * the created installation's own checks list, same as any other installation.
  */
+type HeldProposal = { key: string; proposal: BootstrapTargetProposal }
+
 export function BootstrapWizard() {
   const { t } = useTranslation()
   const closeDialog = useLauncher((state) => state.closeDialog)
@@ -66,21 +73,28 @@ export function BootstrapWizard() {
 
   const [step, setStep] = useState<Step>('engine')
 
-  const [engineOptions, setEngineOptions] = useState<BootstrapEngineOption[] | null>(null)
-  // Story 100 D7/D8: why `engineOptions` came back empty - `null` whenever it is non-empty (or
+  const engineQuery = useModuleQuery(getBootstrapEngineOptions)
+  // A failed read means "no options, no reason to give" (same as an empty list); `null` = loading.
+  const engineOptions: BootstrapEngineOption[] | null =
+    engineQuery.data?.options ?? (engineQuery.state === 'loading' ? null : [])
+  // Story 100: why `engineOptions` came back empty - `null` whenever it is non-empty (or
   // still loading). Rendered by `EngineStep`'s own empty state; never read for anything else.
-  const [engineOptionsEmptyReason, setEngineOptionsEmptyReason] =
-    useState<BootstrapEngineOptionsEmptyReason>(null)
-  const [engine, setEngine] = useState<EngineKind | null>(null)
-  // Whether the user has made an explicit choice - once true, the default-selection effect below
-  // must never overwrite it, even if `engineOptions` itself changes identity on a later render.
-  const userPickedEngine = useRef(false)
+  const engineOptionsEmptyReason: BootstrapEngineOptionsEmptyReason =
+    engineQuery.data?.emptyReason ?? null
+  // Defaults to the first option so a single-choice wizard (today's Q2PRO-only reality) needs zero
+  // extra clicks - derived, so it is there in the same render as the options; a pick always wins.
+  const [pickedEngine, setPickedEngine] = useState<EngineKind | null>(null)
+  const engine: EngineKind | null = pickedEngine ?? engineQuery.data?.options[0]?.engine ?? null
 
-  const [detectedSources, setDetectedSources] = useState<DetectedRetailSource[] | null>(null)
+  const sourcesQuery = useModuleQuery(getDetectedRetailSources)
+  // An empty list makes the copy choice absent rather than disabled (`GameDataStep` reads
+  // `sources.length`, never a loading placeholder, to decide that).
+  const detectedSources: DetectedRetailSource[] | null =
+    sourcesQuery.data ?? (sourcesQuery.state === 'loading' ? null : [])
   const [dataSource, setDataSource] = useState<BootstrapDataSource>('free-download')
   const [copySourcePath, setCopySourcePath] = useState<string | null>(null)
 
-  // Story 089 D4: the `'existing-folder'` choice's own path + resolved verdict - mirrors the
+  // Story 089: the `'existing-folder'` choice's own path + resolved verdict - mirrors the
   // `copySourcePath`/`detectedSources` pair above, but keyed on one hand-picked folder rather than
   // a list. `folderVerdict` is reset to `null` whenever the folder itself changes, same convention
   // as the target step's verdict reset on `targetPath` change below.
@@ -90,9 +104,45 @@ export function BootstrapWizard() {
   )
   const [checkingGameDataFolder, setCheckingGameDataFolder] = useState(false)
 
-  const [targetPath, setTargetPath] = useState('')
-  const [verdict, setVerdict] = useState<BootstrapTargetVerdict | null>(null)
-  const [checkingTarget, setCheckingTarget] = useState(false)
+  // `null` follows the default, so it tracks a data-source change made by going back; typing pins it.
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const name = nameDraft ?? (engine ? defaultBootstrapInstallationName(engine, dataSource) : '')
+
+  // The folder name follows the installation name until the user types one of their own.
+  const [parentPath, setParentPath] = useState('')
+  const [folderNameDraft, setFolderNameDraft] = useState('')
+  const [folderNameEdited, setFolderNameEdited] = useState(false)
+  const folderName = folderNameEdited ? folderNameDraft : name
+  const proposalKey = `${parentPath}|${folderName}|${folderNameEdited}`
+  const proposalQuery = useModuleQuery<HeldProposal | null>(
+    async () => {
+      if (!parentPath) return ok(null)
+      const result = await proposeBootstrapTarget({
+        parentPath,
+        folderName,
+        userTyped: folderNameEdited,
+      })
+      return result.ok ? ok({ key: proposalKey, proposal: result.value }) : result
+    },
+    { deps: [parentPath, folderName, folderNameEdited] },
+  )
+  // The last answer stays on screen while the next one loads, so typing never unmounts the field;
+  // it is only ever accepted for advancing while it was produced for the current key.
+  const [held, setHeld] = useState<HeldProposal | null>(null)
+  useEffect(() => {
+    if (proposalQuery.state === 'success') setHeld(proposalQuery.data ?? null)
+    else if (proposalQuery.state === 'error') setHeld(null)
+  }, [proposalQuery.state, proposalQuery.data])
+  const proposal = parentPath ? (held?.proposal ?? null) : null
+  const proposalCurrent = parentPath !== '' && held?.key === proposalKey
+  const targetPath = proposal?.targetPath ?? ''
+  const verdictQuery = useModuleQuery<BootstrapTargetVerdict | null>(
+    async () => (targetPath ? getBootstrapTargetVerdict(targetPath) : ok(null)),
+    { deps: [targetPath] },
+  )
+  const verdict =
+    targetPath && verdictQuery.state === 'success' ? (verdictQuery.data ?? null) : null
+  const checkingTarget = targetPath !== '' && verdictQuery.state === 'loading'
   const [ackProgramFiles, setAckProgramFiles] = useState(false)
   const [ackNonEmpty, setAckNonEmpty] = useState(false)
   const [ackNotWritable, setAckNotWritable] = useState(false)
@@ -108,7 +158,7 @@ export function BootstrapWizard() {
   const [jobId, setJobId] = useState<string | null>(null)
   const job = useLauncher((state) => state.jobs.find((candidate) => candidate.id === jobId))
 
-  // Story 078 D7 (AC4): once the job turns `failed`, fetch the failure log the same way the
+  // Story 078: once the job turns `failed`, fetch the failure log the same way the
   // Downloads tab does (`getDownloadFailures()`) and match on `jobId` - no new IPC channel, no
   // widening of the `jobs:changed` payload (Decisions (Sprint)). `fetchedForJobId` guards against
   // refetching on every subsequent `jobs:changed` tick while the job stays `failed` - `job`'s
@@ -124,53 +174,18 @@ export function BootstrapWizard() {
     let cancelled = false
     void getDownloadFailures().then((result) => {
       if (cancelled) return
-      setFailure(result.ok ? result.value.find((candidate) => candidate.jobId === job.id) : undefined)
+      setFailure(
+        result.ok ? result.value.find((candidate) => candidate.jobId === job.id) : undefined,
+      )
     })
     return () => {
       cancelled = true
     }
   }, [job])
 
-  useEffect(() => {
-    let cancelled = false
-    void getBootstrapEngineOptions().then((result) => {
-      if (cancelled) return
-      // Story 100 D7/D8: the handler answers `{ options, emptyReason }` - `emptyReason` is `null`
-      // for a failed call too (`Outcome` failure), same "no options, no reason to give" reading as
-      // an empty `options` array on its own always got before this field existed.
-      const options = result.ok ? result.value.options : []
-      setEngineOptions(options)
-      setEngineOptionsEmptyReason(result.ok ? result.value.emptyReason : null)
-      // Defaults the selection to the first option so a single-choice wizard (today's Q2PRO-only
-      // reality, and any future single-option case) still needs zero extra clicks - but never
-      // overwrites a choice the user already made, even on a later options fetch.
-      if (!userPickedEngine.current && options.length > 0) {
-        setEngine(options[0].engine)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   function selectEngine(next: EngineKind): void {
-    userPickedEngine.current = true
-    setEngine(next)
+    setPickedEngine(next)
   }
-
-  // Story 088 D5: the detected-source list, fetched once on mount - an empty array is what makes
-  // AC1's copy choice absent rather than disabled (`GameDataStep` reads `sources.length`, never a
-  // loading placeholder, to decide that).
-  useEffect(() => {
-    let cancelled = false
-    void getDetectedRetailSources().then((result) => {
-      if (cancelled) return
-      setDetectedSources(result.ok ? result.value : [])
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   function selectDataSource(next: BootstrapDataSource): void {
     setDataSource(next)
@@ -178,7 +193,7 @@ export function BootstrapWizard() {
       setCopySourcePath(null)
       return
     }
-    // Story 089 D4: `'existing-folder'` has no detected list to default from - it stays exactly
+    // Story 089: `'existing-folder'` has no detected list to default from - it stays exactly
     // whatever the user last browsed to (`gameDataFolderPath`/`gameDataFolderVerdict`, untouched
     // here), same "never overwrite what the user already picked" rule as the `store-copy` default
     // below just applies to a different piece of state.
@@ -187,7 +202,9 @@ export function BootstrapWizard() {
     // `selectEngine`'s default-selection effect - but never overwrites a path the user already
     // picked from the source list.
     if (copySourcePath === null) {
-      const firstVerified = (detectedSources ?? []).find((candidate) => candidate.inspection.verified)
+      const firstVerified = (detectedSources ?? []).find(
+        (candidate) => candidate.inspection.verified,
+      )
       if (firstVerified) setCopySourcePath(firstVerified.rootPath)
     }
   }
@@ -197,15 +214,17 @@ export function BootstrapWizard() {
       ? (detectedSources ?? []).find((candidate) => candidate.rootPath === copySourcePath)
       : undefined
 
-  // Story 088 D5 (toggle availability rule): the chosen detected source is inspected up front -
+  // Story 088 (toggle availability rule): the chosen detected source is inspected up front -
   // when it has neither `baseq2/video` nor `baseq2/players`, the confirm step's toggle is disabled
   // with this reason rather than left enabled to fail the copy afterwards.
   const includeExtrasDisabledReason =
-    selectedCopySource && !selectedCopySource.inspection.hasVideo && !selectedCopySource.inspection.hasPlayers
+    selectedCopySource &&
+    !selectedCopySource.inspection.hasVideo &&
+    !selectedCopySource.inspection.hasPlayers
       ? t('bootstrapWizard.confirm.includeExtrasDisabledReason')
       : undefined
 
-  // Story 089 D5 (Decisions: "no video/players toggle for this source in this story"): an
+  // Story 089 (Decisions: "no video/players toggle for this source in this story"): an
   // existing-folder run hides the toggle outright, rather than disabling it with a reason the way
   // `store-copy` does - 089's criteria never mention it, and the toggle's payload comes from the
   // point-release archive this source does not download.
@@ -221,10 +240,7 @@ export function BootstrapWizard() {
   // Reset the acknowledges whenever the target folder itself changes - an acknowledge for one
   // folder must never silently carry over to a different one.
   useEffect(() => {
-    if (!targetPath) {
-      setVerdict(null)
-      return
-    }
+    if (!targetPath) return
     setAckProgramFiles(false)
     setAckNonEmpty(false)
     setAckNotWritable(false)
@@ -232,16 +248,6 @@ export function BootstrapWizard() {
     // re-picking a different target must not silently carry it over onto the new one (review
     // finding, story 074 fix cycle 2).
     setWriteDirPath(null)
-    setCheckingTarget(true)
-    let cancelled = false
-    void getBootstrapTargetVerdict(targetPath).then((result) => {
-      if (cancelled) return
-      setCheckingTarget(false)
-      setVerdict(result.ok ? result.value : null)
-    })
-    return () => {
-      cancelled = true
-    }
   }, [targetPath])
 
   useEffect(() => {
@@ -249,7 +255,7 @@ export function BootstrapWizard() {
     setSummaryLoading(true)
     setSummaryError(null)
     let cancelled = false
-    // Story 089 D4: `'existing-folder'` reuses `copySourcePath` verbatim (`StartBootstrapInput`'s
+    // Story 089: `'existing-folder'` reuses `copySourcePath` verbatim (`StartBootstrapInput`'s
     // own doc comment) - the field already means "path to copy game data from", so this sends
     // `gameDataFolderPath` through it rather than adding a second field.
     void getBootstrapSummary({
@@ -274,25 +280,36 @@ export function BootstrapWizard() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, engine, targetPath, includeVideoAndPlayers, dataSource, copySourcePath, gameDataFolderPath])
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the effect re-runs on the listed inputs only; the remaining closure values are read as of that run.
+  }, [
+    step,
+    engine,
+    targetPath,
+    includeVideoAndPlayers,
+    dataSource,
+    copySourcePath,
+    gameDataFolderPath,
+  ])
 
   async function pickTargetFolder(): Promise<void> {
     const picked = await invoke('installations:pickFolder', {
       title: t('bootstrapWizard.target.pickTitle'),
-      buttonLabel: t('bootstrapWizard.target.pickButton'),
+      buttonLabel: t('common.action.useThisFolder'),
     })
-    if (picked) setTargetPath(picked)
+    if (picked) {
+      setHeld(null)
+      setParentPath(picked)
+    }
   }
 
-  // Story 089 D4: browsing for the `'existing-folder'` game-data source - same `installations:
+  // Story 089: browsing for the `'existing-folder'` game-data source - same `installations:
   // pickFolder` call shape as `pickTargetFolder`/`pickWriteDirRemedy` above, then a
-  // `getGameDataSourceVerdict` round trip for AC2's "the wizard reports what it found there before
+  // `getGameDataSourceVerdict` round trip for "the wizard reports what it found there before
   // the user can proceed". A cancelled picker (no path) leaves the previous folder/verdict alone.
   async function pickGameDataSourceFolder(): Promise<void> {
     const picked = await invoke('installations:pickFolder', {
       title: t('bootstrapWizard.gameData.existingFolder.pickTitle'),
-      buttonLabel: t('bootstrapWizard.gameData.existingFolder.pickButton'),
+      buttonLabel: t('common.action.useThisFolder'),
     })
     if (!picked) return
     setGameDataFolderPath(picked)
@@ -328,8 +345,8 @@ export function BootstrapWizard() {
     // someone click past before ever finding out a copy option exists - `GameDataStep` already
     // renders a loading message for `sources === null` (see its own `if (sources === null)`
     // branch), so this keeps Next disabled for exactly the same window that message is shown.
-    // Story 089 D4: `'existing-folder'` gates on a resolved, non-`'unusable'` verdict for the
-    // picked folder - `'retail'` and `'demo'` both proceed (AC4), `'unusable'` never does (AC5),
+    // Story 089: `'existing-folder'` gates on a resolved, non-`'unusable'` verdict for the
+    // picked folder - `'retail'` and `'demo'` both proceed, `'unusable'` never does,
     // and a folder that has not resolved yet (`null`, still checking, or never browsed) blocks
     // Next the same way `detectedSources === null` blocks it above.
     gameData:
@@ -339,7 +356,12 @@ export function BootstrapWizard() {
         (dataSource === 'existing-folder' &&
           !!gameDataFolderVerdict &&
           gameDataFolderVerdict.kind !== 'unusable')),
-    target: !!verdict && !verdict.blocked && targetWarningsAcknowledged,
+    target:
+      proposalCurrent &&
+      name.trim().length > 0 &&
+      !!verdict &&
+      !verdict.blocked &&
+      targetWarningsAcknowledged,
     confirm: !!summary && !starting,
     running: false,
   }
@@ -355,11 +377,12 @@ export function BootstrapWizard() {
   }
 
   async function start(): Promise<void> {
-    if (!engine || !summary) return
+    if (!engine || !summary || !proposalCurrent) return
     setStarting(true)
     setStartError(null)
     const result = await startBootstrapInstall({
       engine,
+      name: name.trim(),
       targetPath,
       includeVideoAndPlayers,
       ...(writeDirPath ? { writeDirPath } : {}),
@@ -386,17 +409,17 @@ export function BootstrapWizard() {
       title={t('bootstrapWizard.title')}
       description={t(`bootstrapWizard.step.${step}`)}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       preventClose={starting}
       footer={
         running ? (
           <Button variant="primary" onClick={closeDialog} data-testid="bootstrap-running-dismiss">
-            {t('bootstrapWizard.running.dismiss')}
+            {t('common.action.runInBackground')}
           </Button>
         ) : (
           <>
             <Button variant="ghost" onClick={closeDialog} disabled={starting}>
-              {t('common.cancel')}
+              {t('common.action.cancel')}
             </Button>
             {step !== 'engine' && (
               <Button variant="ghost" onClick={goBack} disabled={starting}>
@@ -427,7 +450,7 @@ export function BootstrapWizard() {
           emptyReason={engineOptionsEmptyReason}
           selected={engine}
           onSelect={selectEngine}
-          // Story 100 D8 (AC7): the empty state's action - the same `openDialog({ kind:
+          // Story 100: the empty state's action - the same `openDialog({ kind:
           // 'add-existing' })` call `DetectDialog.tsx`'s own "nothing found" empty state already
           // uses, not a second "add existing" mechanism. `Dialogs.tsx` mounts exactly one dialog
           // at a time off `store.dialog.kind`, so this alone swaps this wizard out for
@@ -452,7 +475,15 @@ export function BootstrapWizard() {
 
       {step === 'target' && (
         <TargetStep
-          targetPath={targetPath}
+          name={name}
+          onNameChange={setNameDraft}
+          parentPath={parentPath}
+          proposal={proposal}
+          folderName={folderNameEdited ? folderNameDraft : (proposal?.folderName ?? name)}
+          onFolderNameChange={(next) => {
+            setFolderNameDraft(next)
+            setFolderNameEdited(true)
+          }}
           onBrowse={() => void pickTargetFolder()}
           verdict={verdict}
           checking={checkingTarget}
@@ -470,6 +501,7 @@ export function BootstrapWizard() {
         <div className="space-y-3">
           <ConfirmStep
             summary={summary}
+            targetPath={targetPath}
             loading={summaryLoading}
             includeVideoAndPlayers={includeVideoAndPlayers}
             onIncludeVideoAndPlayersChange={setIncludeVideoAndPlayers}

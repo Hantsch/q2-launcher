@@ -42,7 +42,10 @@ describe('issueUnlockCode - round trip with verifyUnlockCode', () => {
     })
 
     expect(result.ok).toBe(true)
-    expect(result).toMatchObject({ ok: true, payload: { features: ['watchlist'], launcherInstallId: INSTALL_ID } })
+    expect(result).toMatchObject({
+      ok: true,
+      payload: { features: ['watchlist'], launcherInstallId: INSTALL_ID },
+    })
   })
 
   test('accepts a grouped, lower-case install id and normalizes it in the payload', () => {
@@ -154,9 +157,9 @@ describe('issueUnlockCode - input validation', () => {
     expect(() =>
       issueUnlockCode({ features: ['Not-Valid'], launcherInstallId: INSTALL_ID, privateKey }),
     ).toThrow(/feature/)
-    expect(() => issueUnlockCode({ features: [], launcherInstallId: INSTALL_ID, privateKey })).toThrow(
-      /features/,
-    )
+    expect(() =>
+      issueUnlockCode({ features: [], launcherInstallId: INSTALL_ID, privateKey }),
+    ).toThrow(/features/)
     expect(() =>
       issueUnlockCode({ features: ['watchlist'], launcherInstallId: 'too-short', privateKey }),
     ).toThrow(/install id/)
@@ -267,7 +270,10 @@ function toOpenSsh({ publicKey, privateKey }, { cipher = 'none' } = {}) {
     sshString(pubBlob),
     sshString(privSection),
   ])
-  const body = raw.toString('base64').match(/.{1,70}/g).join('\r\n')
+  const body = raw
+    .toString('base64')
+    .match(/.{1,70}/g)
+    .join('\r\n')
   return {
     privateText: `-----BEGIN OPENSSH PRIVATE KEY-----\r\n${body}\r\n-----END OPENSSH PRIVATE KEY-----\r\n`,
     publicLine: `ssh-ed25519 ${pubBlob.toString('base64')} test@example`,
@@ -296,7 +302,9 @@ describe('OpenSSH keys (Bitwarden SSH key) - signing and public-key conversion',
   test('the converted public key is the same key Node exports as SPKI PEM', () => {
     const pair = throwawayKeyPair()
     const { publicLine } = toOpenSsh(pair)
-    expect(openSshPublicKeyToPem(publicLine)).toBe(pair.publicKey.export({ type: 'spki', format: 'pem' }))
+    expect(openSshPublicKeyToPem(publicLine)).toBe(
+      pair.publicKey.export({ type: 'spki', format: 'pem' }),
+    )
   })
 
   test('a passphrase-protected OpenSSH key is refused with a clear message', () => {
@@ -306,7 +314,9 @@ describe('OpenSSH keys (Bitwarden SSH key) - signing and public-key conversion',
 
   test('a non-Ed25519 key is refused, OpenSSH public keys of other types too', () => {
     const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
-    expect(() => loadSigningKey(privateKey.export({ type: 'pkcs8', format: 'pem' }))).toThrow(/Ed25519/)
+    expect(() => loadSigningKey(privateKey.export({ type: 'pkcs8', format: 'pem' }))).toThrow(
+      /Ed25519/,
+    )
     expect(() => openSshPublicKeyToPem('ssh-rsa AAAAB3NzaC1yc2E= x')).toThrow(/ssh-ed25519/)
   })
 

@@ -14,7 +14,7 @@ General setup, once, before any of the three use cases:
   additionally want to see a profile's file appear under a real game folder, which none of these
   three use cases require.
 - `npm run dev` starts the app (Vite dev server + Electron, hot reload). `npm run build && npm
-  start` runs the production build if you'd rather test that instead — nothing in this sprint's
+start` runs the production build if you'd rather test that instead — nothing in this sprint's
   three stories is dev/production-mode sensitive.
 - The app has no custom menu bar (`autoHideMenuBar: true`, frameless window); **F12** or
   **Ctrl+Shift+I** opens Chromium DevTools in any run mode if you want to watch the console.
@@ -108,7 +108,7 @@ was created), or create a fresh empty profile the same way. `npm run dev`.
    back into the launcher window. **Expected:** a toast reads "This profile's file changed on disk
    and was reloaded," the Settings tab shows the Notepad-edited value, and nothing is marked
    unsaved — the baseline moved to match the file exactly, so nothing you didn't type looks pending.
-   Now make an edit in the launcher's Settings tab *without* saving, switch back to Notepad, edit
+   Now make an edit in the launcher's Settings tab _without_ saving, switch back to Notepad, edit
    the same file differently, save it there, then click **Save** in the launcher. **Expected:** the
    **"The file changed on disk"** dialog opens with **"On disk"** / **"Your unsaved changes"**
    panes; pick either **"Take the file"** or **"Overwrite with my version"** — either way, once the
@@ -124,7 +124,7 @@ is written and its baseline seeded in the very same call that creates it, so eve
 exists in the running app already has a baseline the instant it appears in the profile list — there
 is no click-path that produces a profile with unsaved edits and no baseline. The story's own `Done`
 notes confirm this: the only case that actually exercises the disabled-Discard/"no saved state"
-message is a `state.json` record left over from *before* story 049 shipped, which cannot be
+message is a `state.json` record left over from _before_ story 049 shipped, which cannot be
 produced by any sequence of clicks in the current app either. This mechanism is unit-tested
 (main-process level) but the manual test plan above cannot exercise it — it is a real gap, not an
 oversight in this document.
@@ -176,7 +176,7 @@ create it, open it, and go to the **Aliases** tab.
    nothing now that `caller` is gone — if `caller` still existed, deleting `helper` would instead
    open a confirmation dialog naming `caller`; recreate `caller` and re-add its `helper` call to see
    that path, then delete `helper`). **Expected when referenced:** a dialog titled `Delete
-   "helper"?` names the referencing entry and requires clicking **"Delete alias"** to confirm;
+"helper"?` names the referencing entry and requires clicking **"Delete alias"** to confirm;
    Cancel leaves both rows untouched.
 9. Duplicate-name check: create a plain bind action on **Controls** whose own alias name (set via
    that entry's rename dialog) collides with an existing alias's name from the Aliases tab.
@@ -198,8 +198,8 @@ create it, open it, and go to the **Aliases** tab.
 
 ## Coverage note
 
-| Story | Use case |
-| --- | --- |
-| 048 | 1 |
-| 049 | 2 (gap noted: AC7's "no saved state" Discard-disabled path is not reachable through the UI in the current app) |
-| 044 | 3 |
+| Story | Use case                                                                                                       |
+| ----- | -------------------------------------------------------------------------------------------------------------- |
+| 048   | 1                                                                                                              |
+| 049   | 2 (gap noted: AC7's "no saved state" Discard-disabled path is not reachable through the UI in the current app) |
+| 044   | 3                                                                                                              |

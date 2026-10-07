@@ -645,7 +645,9 @@ describe('parseArgs', () => {
   })
 
   test('rejects --promote-changelog without --version - the build-linux job must not re-derive it', () => {
-    expect(() => parseArgs(['--promote-changelog'])).toThrow(/--promote-changelog requires --version/)
+    expect(() => parseArgs(['--promote-changelog'])).toThrow(
+      /--promote-changelog requires --version/,
+    )
   })
 
   test('rejects a v-prefixed version, which would tag vv1.0.0', () => {

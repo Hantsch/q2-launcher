@@ -1,20 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ALL_CVARS } from '@shared/config/cvar-catalog'
+import { ALL_CVARS } from '@shared/config/catalog/cvar-catalog'
 import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 
 /**
- * Add-a-cvar-by-name-and-value form (story 059 D8), scoped to the section it was opened from -
+ * Add-a-cvar-by-name-and-value form (story 059), scoped to the section it was opened from -
  * the section's own toolbar "Add cvar" button mirrors `ControlsTab`'s "New sub-category" button
- * living in the category toolbar (053 D6), scoped to `selectedCategory`.
+ * living in the category toolbar (053), scoped to `selectedCategory`.
  *
  * Unlike `CreateActionDialog`'s catalogue suggestions (which submit immediately on pick, because an
  * action needs no value of its own), picking a suggestion here only fills the name field - a cvar
  * always needs a value too, so the two fields are filled in independently and one "Add cvar"
  * click commits both. A name that matches `ALL_CVARS` (case-insensitively, same rule `findCvar`
- * applies) gets today's rich `CvarRow` the moment it is added (D7's grouping already resolves any
+ * applies) gets today's rich `CvarRow` the moment it is added (the grouping already resolves any
  * cvar name through the catalogue); anything else renders as a `PlainCvarRow` - the acceptance
  * criterion this dialog exists to satisfy (adding `cl_maxfps` vs `zz_unknown`).
  */
@@ -37,7 +38,7 @@ export function AddCvarDialog({
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   const trimmedName = name.trim()
   // Story 059 review Fix 6: a name that already has a stored value must not be submittable with an
@@ -48,13 +49,10 @@ export function AddCvarDialog({
 
   const submit = async (): Promise<void> => {
     if (!canSubmit) return
-    setSubmitting(true)
-    const ok = await onSubmit(trimmedName, value)
-    setSubmitting(false)
-    if (!ok) return
+    await run(() => onSubmit(trimmedName, value))
   }
 
-  // Story 059 D8: a typeahead over the catalogue's own names, not a full "pick from the
+  // Story 059: a typeahead over the catalogue's own names, not a full "pick from the
   // catalogue" list (`CreateActionDialog`'s suggestions need a whole `CatalogRowInfo`; a cvar
   // suggestion only ever needs to fill in the name field) - up to 8 matches, same cap
   // `CreateActionDialog`'s own suggestions box scrolls rather than grows past.
@@ -70,14 +68,14 @@ export function AddCvarDialog({
       size="sm"
       title={t('config.settings.section.addCvarDialog.title', { section: sectionLabel })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.settings.section.addCvarDialog.submit')}
+            {t('common.action.addCvar')}
           </Button>
         </>
       }
@@ -120,7 +118,9 @@ export function AddCvarDialog({
           label={t('config.settings.section.addCvarDialog.valueLabel')}
           error={
             collidesWithEmptyValue
-              ? t('config.settings.section.addCvarDialog.existingNameWarning', { name: trimmedName })
+              ? t('config.settings.section.addCvarDialog.existingNameWarning', {
+                  name: trimmedName,
+                })
               : undefined
           }
         >

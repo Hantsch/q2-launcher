@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next'
 import { PencilLine } from 'lucide-react'
 import type { EngineKind } from '@shared/types/engine'
 import { engineLabel } from '@shared/types/engine'
-import type { CvarDef, EngineDisagreement, ResolvedCvar } from '@shared/config/cvar-facts'
+import type { CvarDef, EngineDisagreement, ResolvedCvar } from '@shared/config/catalog/cvar-facts'
 import {
   engineDisagreement,
   hasEngineFacts,
   isCvarSupported,
   noteForValue,
   resolveCvar,
-} from '@shared/config/cvar-facts'
+} from '@shared/config/catalog/cvar-facts'
 import { effectiveDefaultFor, isChanged, normalizeCvarValue } from '../lib/cvar-rows'
 import { cn } from '../../../lib/cn'
 import { Input, Select } from '../../../components/ui/controls'
@@ -33,7 +33,7 @@ const NUMERIC_FIELD =
  * remaining flex space. `cn` (`lib/cn.ts`) is plain clsx with no tailwind-merge dedup, so appending
  * `w-16` after `NUMERIC_FIELD`'s own `w-full` in a className string does not override it - both
  * classes survive in the compiled CSS and `w-full` wins by stylesheet position, collapsing the range
- * input to 0px (review finding). Built from `NUMERIC_FIELD` via substring replace rather than a
+ * input to 0px. Built from `NUMERIC_FIELD` via substring replace rather than a
  * hand-copied second literal, so the two constants cannot drift on the non-width styling.
  */
 const SLIDER_NUMERIC_FIELD = NUMERIC_FIELD.replace('w-full', 'w-16 shrink-0')
@@ -51,7 +51,7 @@ const NOTE_BADGE: Record<'info' | 'warning' | 'error', string> = {
   error: 'config.cvar.flag.problem',
 }
 
-/** One inline caveat: a badge word plus one sentence, spanning the whole row (story 021 D3). */
+/** One inline caveat: a badge word plus one sentence, spanning the whole row (story 021). */
 interface RowFlag {
   key: string
   tone: BadgeTone
@@ -59,8 +59,8 @@ interface RowFlag {
   text: string
 }
 
-/** Fixed dense-row grid: label · control · value (story 021 D2; the reset column was removed in
- * story 048 D5). */
+/** Fixed dense-row grid: label · control · value (story 021; the reset column was removed in
+ * story 048). */
 const ROW_GRID = 'grid-cols-[minmax(0,1fr)_250px_108px]'
 
 export interface CvarRowProps {
@@ -69,15 +69,15 @@ export interface CvarRowProps {
    * The engine currently in scope, or `null` when the profile has none the
    * catalog carries facts for (unassigned, or assigned only to out-of-scope
    * engines). `null` is rendered as an explicit "no engine facts" row - the
-   * cvar stays listed and editable (AC 3) but no default, range or warning is
+   * cvar stays listed and editable but no default, range or warning is
    * claimed, because substituting r1q2's numbers there would be a lie.
    */
   engine: EngineKind | null
   /** Current value, empty string for "unset" - falls back to the engine/catalog default for display. */
   value: string
   /**
-   * Story 049 D7: whether this row's key is in the profile's pending change set
-   * (`useProfileChanges().keys.cvars`, `@shared/config/profile-diff`) - "edited and unsaved," not
+   * Story 049: whether this row's key is in the profile's pending change set
+   * (`useProfileChanges().keys.cvars`, `@shared/config/profile/profile-diff`) - "edited and unsaved," not
    * "differs from the catalogue default" (that stays `isChanged`, used below only for the
    * default-value text). Computed by the caller (`SettingsTab`'s `buildCvarSectionGroups` call), not here,
    * so the filter/counters/this border/the glyph below always read the exact same predicate rather
@@ -87,7 +87,7 @@ export interface CvarRowProps {
   onChange: (value: string) => void
   /**
    * The other engines this profile is assigned to. Each one that disagrees
-   * about this cvar earns a badge naming it (AC 4). Entries without facts, and
+   * about this cvar earns a badge naming it. Entries without facts, and
    * the scoped engine itself, are ignored by `engineDisagreement`.
    */
   otherAssignedEngines?: EngineKind[]
@@ -96,11 +96,11 @@ export interface CvarRowProps {
 /**
  * One dense grid row for a single cvar: label + mono name + one-line
  * description, the kind-specific control and a two-line value/default cell
- * (story 021 D2 - prototype `docs/prototypes/settings/a-dense-rows.html`; the
- * per-row reset button was removed in story 048 D5, the default-value text
+ * (story 021 - prototype `docs/prototypes/settings/a-dense-rows.html`; the
+ * per-row reset button was removed in story 048, the default-value text
  * stays).
  *
- * Engine caveats (story 021 D3) are full-width flag sub-rows below the three
+ * Engine caveats (story 021) are full-width flag sub-rows below the three
  * columns - badge word plus one sentence, one row per caveat: the def's own
  * engine-independent caution, what the engine in scope says about this exact
  * value, an out-of-range/clamp breach, and one row per other assigned engine
@@ -118,7 +118,14 @@ export interface CvarRowProps {
  * "no engine in scope" note lives once above the list in `EngineScopeSelect`
  * rather than being repeated on all 30 rows.
  */
-export function CvarRow({ def, engine, value, edited, onChange, otherAssignedEngines }: CvarRowProps) {
+export function CvarRow({
+  def,
+  engine,
+  value,
+  edited,
+  onChange,
+  otherAssignedEngines,
+}: CvarRowProps) {
   const { t } = useTranslation()
   const controlId = useId()
   const labelId = useId()
@@ -165,7 +172,7 @@ export function CvarRow({ def, engine, value, edited, onChange, otherAssignedEng
   const engineBounds = factEngine !== null ? def.byEngine?.[factEngine] : undefined
   // A value note already explains what the engine does with this exact value,
   // so the range check is skipped for it - the same "not reported twice" rule
-  // `validate-cvars.ts` (story 009 D4) applies on the Validation tab.
+  // `validate-cvars.ts` (story 009) applies on the Validation tab.
   const breach =
     !disabled && note === undefined && engineBounds !== undefined
       ? boundBreach(engineBounds.min, engineBounds.max, currentValue)
@@ -311,13 +318,13 @@ export function CvarRow({ def, engine, value, edited, onChange, otherAssignedEng
           </span>
           <span className="shrink-0 font-mono text-[11px] text-ink-faint">{def.name}</span>
           {edited && (
-            // Story 049 D7 / AC10: the left border alone is colour-only, so every unsaved row also
+            // Story 0490: the left border alone is colour-only, so every unsaved row also
             // carries a shape-based glyph with its own translated `aria-label` - the border stays as
             // a helpful visual cue, this is the non-colour signal that makes the same fact.
             <span
               role="img"
-              aria-label={t('config.cvar.unsavedLabel')}
-              title={t('config.cvar.unsavedLabel')}
+              aria-label={t('common.label.unsavedChange')}
+              title={t('common.label.unsavedChange')}
               className="shrink-0 text-flame-500"
             >
               <PencilLine aria-hidden className="size-3" />
@@ -396,19 +403,19 @@ export interface PlainCvarRowProps {
 }
 
 /**
- * The row for a cvar the catalogue does not know (story 059 D7 / AC3): its name, a plain text value
+ * The row for a cvar the catalogue does not know (story 059): its name, a plain text value
  * and the unsaved marker - and deliberately nothing else.
  *
  * No label, no description, no control widget beyond a text field, no default, no range, no engine
  * facts, no caveat sub-rows and no validation: the catalogue carries no facts about this cvar, so
- * every one of those would be a guess, which is exactly what AC3 forbids ("never validated against
+ * every one of those would be a guess, which is exactly what the spec forbids ("never validated against
  * facts the catalogue does not have"). The engine-facts selector above the list therefore has
  * nothing to say about this row either - the third column states that once, plainly, instead of
  * leaving an empty cell that reads as "missing" rather than "not applicable".
  *
  * Same grid, row height and unsaved affordances as `CvarRow` above (`ROW_GRID`, `min-h-11`, the
- * left border *and* the `PencilLine` glyph, so the unsaved signal is never colour-only - story 049
- * AC10), so the two kinds of row line up column for column inside one section.
+ * left border *and* the `PencilLine` glyph, so the unsaved signal is never colour-only - story 049),
+ * so the two kinds of row line up column for column inside one section.
  */
 export function PlainCvarRow({ name, value, edited, onChange }: PlainCvarRowProps) {
   const { t } = useTranslation()
@@ -432,8 +439,8 @@ export function PlainCvarRow({ name, value, edited, onChange }: PlainCvarRowProp
           {edited && (
             <span
               role="img"
-              aria-label={t('config.cvar.unsavedLabel')}
-              title={t('config.cvar.unsavedLabel')}
+              aria-label={t('common.label.unsavedChange')}
+              title={t('common.label.unsavedChange')}
               className="shrink-0 text-flame-500"
             >
               <PencilLine aria-hidden className="size-3" />
@@ -564,7 +571,10 @@ function CvarControl({
   const displayValue = value !== '' ? value : effectiveDefault
 
   if (def.kind === 'choice') {
-    const options = resolved.choices.map((choice) => ({ value: choice.value, label: t(choice.labelKey) }))
+    const options = resolved.choices.map((choice) => ({
+      value: choice.value,
+      label: t(choice.labelKey),
+    }))
     return (
       <Select
         id={controlId}

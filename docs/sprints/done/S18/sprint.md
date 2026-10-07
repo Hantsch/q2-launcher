@@ -41,7 +41,7 @@ everything before them is a complete, shippable increment on its own.
 - No fixed right-hand friend-list column. Raised on 2026-09-07 after the prototype and postponed
   by the user; it would be a third fixed zone narrowing both hero and dashboard, and it
   contradicts the decision that the friend list becomes a dashboard module
-  ([concepts/home-screen.md](../../concepts/home-screen.md) open point 1).
+  ([systems/home-screen.md](../../../systems/home-screen.md) open point 1).
 - No `packs/`, `mods/` or `config_templates/` content — the directories exist, nothing reads them.
 - No in-app markdown detail view, no typed in-launcher slide actions, no multiple or
   per-installation layouts, no periodic background refresh.

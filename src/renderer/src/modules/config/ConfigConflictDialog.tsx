@@ -10,9 +10,9 @@ import { ConfigCodeView } from './components/ConfigCodeView'
 import { adoptProfileFromFile } from './lib/file-source-refresh'
 
 /**
- * Story 043 D8: the whole-file conflict dialog - `save`'s `SaveProfileConflict` shown as two
+ * Story 043: the whole-file conflict dialog - `save`'s `SaveProfileConflict` shown as two
  * side-by-side panes, both built from 024's `ConfigCodeView` (single-pane by design, composed
- * twice here rather than rewritten into a diff component). Replaces the plain toast stub D6 left
+ * twice here rather than rewritten into a diff component). Replaces the plain toast stub that stood in
  * in `ProfileSaveActions`/`lib/save-bar.ts` for the `'conflict'` outcome.
  *
  * Mirrors `ImportProfileDialog` for the dialog shell: a `Modal` with a footer of real buttons, no
@@ -22,19 +22,19 @@ import { adoptProfileFromFile } from './lib/file-source-refresh'
  *
  * The two resolutions are real IPC round-trips, not local state mutations:
  * - **Take the file** discards the unsaved edits and adopts whatever is on disk right now, through
- *   `refreshFromFiles`'s existing `adopted` branch (D5) with its new `discardLocalEdits` flag (D8) -
+ *   `refreshFromFiles`'s existing `adopted` branch with its new `discardLocalEdits` flag -
  *   a fresh read, not a replay of the `diskContent` this dialog was opened with, since "take the
  *   file" means "whatever the file says", which could in principle have moved again since the
  *   conflict was first shown.
  * - **Overwrite with my version** writes `ourContent` (the cached profile's own render) through
- *   `save`'s new `force` flag (D8), which skips the re-read/conflict check entirely - the user has
+ *   `save`'s new `force` flag, which skips the re-read/conflict check entirely - the user has
  *   just been shown the disk content and explicitly chosen to replace it regardless.
  *
  * Either resolution lands through `onResolved`, the same single-profile update path `ProfileSaveActions`
  * already gets from `ConfigView` (`handleProfileUpdated`) - there is no separate result shape for a
  * dialog-resolved save than for an ordinary one.
  *
- * Story 057 D5: the raw-text editor hits the same conflict guard, and shows *this* dialog for it
+ * Story 057: the raw-text editor hits the same conflict guard, and shows *this* dialog for it
  * rather than a second one - the two panes mean exactly the same thing there (`ourContent` is then
  * the typed text, per `SaveRawTextResult`'s own doc comment). Only what "Overwrite with my version"
  * *writes* differs, so that one action is parameterized through `onOverwrite` instead of the
@@ -52,7 +52,7 @@ export function ConfigConflictDialog({
   onClose: () => void
   onResolved: (profile: ConfigProfile) => void
   /**
-   * Story 057 D5: replaces the default "re-save the cached profile with `force`" body of the
+   * Story 057: replaces the default "re-save the cached profile with `force`" body of the
    * Overwrite button - the raw editor force-saves the text the user typed instead. The callback owns
    * its own result handling (including reporting its own failures and handing the updated profile on,
    * which is why `onResolved` is not called for it) and answers whether the conflict is resolved:
@@ -70,7 +70,7 @@ export function ConfigConflictDialog({
 
   /**
    * Shares its body with Care -> Sync -> Reload through `adoptProfileFromFile`
-   * (`lib/file-source-refresh.ts`) - story-050 review, finding 1: taking the file can *lose* an
+   * (`lib/file-source-refresh.ts`) - story-050: taking the file can *lose* an
    * entry when the file defines one alias name twice, and that warning has to come from the adopt
    * itself rather than from whichever button happened to trigger it. `failed` means the call's own
    * error toast has already been pushed, so this must not add a second one.
@@ -133,11 +133,11 @@ export function ConfigConflictDialog({
       title={t('config.conflictDialog.title')}
       description={t('config.conflictDialog.description')}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" disabled={busy !== null} onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             data-testid="config-conflict-take-file"
@@ -164,7 +164,7 @@ export function ConfigConflictDialog({
     >
       <div className="grid grid-cols-2 gap-3" data-testid="config-conflict-dialog">
         <div className="min-w-0 space-y-1.5">
-          <SectionLabel>{t('config.conflictDialog.onDisk')}</SectionLabel>
+          <SectionLabel>{t('common.label.onDisk')}</SectionLabel>
           <ConfigCodeView text={conflict.diskContent} searchable />
         </div>
         <div className="min-w-0 space-y-1.5">

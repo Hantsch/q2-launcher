@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FolderOpen, FolderPlus, Import, LayoutGrid, Play, Plus, Search } from 'lucide-react'
+import { Import, LayoutGrid, Play, Plus } from 'lucide-react'
 import type { Installation } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { isDemoData } from '../../lib/demo-data'
@@ -14,7 +14,8 @@ import { FailureBadge } from '../ui/FailureBadge'
 import { EngineBadge } from '../ui/EngineBadge'
 import { HoverCard } from '../ui/HoverCard'
 import { InstallationTile } from '../installations/InstallationTile'
-import { Menu, type MenuItem } from '../ui/Menu'
+import { useAddInstallationEntries } from '../installations/useAddInstallationEntries'
+import { Menu } from '../ui/Menu'
 
 /**
  * The vertical installation strip - this launcher's answer to the Battle.net
@@ -34,32 +35,12 @@ export function InstallationRail() {
   const activeId = useLauncher((state) => state.settings.activeInstallationId)
   const setActive = useLauncher((state) => state.setActiveInstallation)
   const reorder = useLauncher((state) => state.reorderInstallations)
-  const openDialog = useLauncher((state) => state.openDialog)
   const setRoute = useLauncher((state) => state.setRoute)
 
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
 
-  const addItems: MenuItem[] = [
-    {
-      id: 'add-existing',
-      label: t('rail.addExisting'),
-      icon: <FolderOpen className="size-4" />,
-      onSelect: () => openDialog({ kind: 'add-existing' }),
-    },
-    {
-      id: 'detect',
-      label: t('rail.autoDetect'),
-      icon: <Search className="size-4" />,
-      onSelect: () => openDialog({ kind: 'detect' }),
-    },
-    {
-      id: 'create',
-      label: t('rail.createNew'),
-      icon: <FolderPlus className="size-4" />,
-      onSelect: () => openDialog({ kind: 'create' }),
-    },
-  ]
+  const addItems = useAddInstallationEntries()
 
   const commitReorder = (targetId: string): void => {
     if (!dragId || dragId === targetId) return
@@ -89,7 +70,7 @@ export function InstallationRail() {
     >
       <SectionLabel className="text-[9px] tracking-[0.22em]">{t('rail.label')}</SectionLabel>
 
-      <ul className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto px-2">
+      <ul className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto px-2 py-1">
         {installations.map((installation) => (
           <li key={installation.id} className="w-full">
             <HoverCard content={<RailCard installation={installation} />}>
@@ -211,17 +192,18 @@ function RailTile({
       }}
       aria-current={active ? 'true' : undefined}
       aria-label={installation.name}
-      // Story 067 review finding F2: a bare `<button>` defaults to `display: inline-block`, which
+      // A bare `<button>` defaults to `display: inline-block`, which
       // (unlike this rail's old `grid` button) leaves it sized by its inline-formatting-context
       // line box rather than its content - a few extra px below the tile that shifted every tile
-      // beneath it down the rail. `block` restores the pre-D2 block-level sizing without
+      // beneath it down the rail. `block` restores the earlier block-level sizing without
       // reintroducing `place-items-center` (the child `InstallationTile` centers its own content
       // now, the button itself no longer needs to).
       className="group relative block w-full"
     >
-      {/* Active marker, bleeding into the rail edge like a plugged-in cartridge. */}
+      {/* Active marker, bleeding into the rail edge like a plugged-in cartridge. Sits inside the
+          list's padding: the list scrolls, so anything further out is clipped. */}
       {active && (
-        <span className="absolute top-1/2 -left-[9px] h-7 w-[3px] -translate-y-1/2 rounded-r-sm bg-flame-500 shadow-[0_0_10px_rgb(255_138_31/0.8)]" />
+        <span className="absolute top-1/2 -left-2 h-10 w-1 -translate-y-1/2 rounded-r-sm bg-flame-500 shadow-[0_0_10px_rgb(255_138_31/0.8)]" />
       )}
 
       <InstallationTile
@@ -229,9 +211,11 @@ function RailTile({
         size="rail"
         className={cn(
           'transition-[border-color,box-shadow,background-color] duration-[--dur-base] ease-[--ease-out-quart]',
+          // The ring sits outside the tile, so an icon bitmap cannot cover it; inactive tiles
+          // recede so the active one reads at a glance.
           active
-            ? 'border-flame-500 bg-flame-900/25 shadow-[var(--shadow-flame)]'
-            : 'border-line bg-raised hover:border-line-strong hover:bg-hover',
+            ? 'border-flame-500 bg-flame-900/25 shadow-[var(--shadow-flame)] ring-2 ring-flame-500 ring-offset-2 ring-offset-base'
+            : 'border-line bg-raised opacity-55 saturate-50 hover:border-line-strong hover:bg-hover hover:opacity-100 hover:saturate-100',
           dropTarget && 'border-strogg-500',
         )}
         textClassName={active ? 'text-flame-200' : 'text-ink-dim group-hover:text-ink'}
@@ -244,7 +228,7 @@ function RailTile({
       {installation.favorite && (
         <span
           className="absolute bottom-0 left-0 size-0 border-r-8 border-b-8 border-r-transparent border-b-flame-500"
-          title={t('installation.action.unfavorite')}
+          title={t('common.action.removeFromFavourites')}
         />
       )}
     </button>
@@ -274,12 +258,12 @@ function RailCard({ installation }: { installation: Installation }) {
             void play(installation.id)
           }}
         >
-          {t('rail.quickPlay')}
+          {t('common.action.play')}
         </Button>
 
-        {/* Story 090 D4: the tile itself (074) only has room for the CSS microtag, so the
+        {/* Story 090: the tile itself (074) only has room for the CSS microtag, so the
             demo-to-retail trigger lives here on the hover card, its own surface.
-            Story 091 D5: no longer disabled while it is running - the job now waits instead of
+            Story 091: no longer disabled while it is running - the job now waits instead of
             refusing (091 Decisions: "[[090]]'s refusal is replaced by a wait, including on the
             renderer"). */}
         {isDemoData(installation.checks) && (

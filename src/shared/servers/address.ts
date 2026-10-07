@@ -17,10 +17,10 @@
  *
  * ## Result shape
  *
- * Mirrors `src/shared/config/validation.ts`'s convention: a rejection carries a reason *code* (a
+ * Mirrors `src/shared/config/validation/validation.ts`'s convention: a rejection carries a reason *code* (a
  * string-literal union), never a literal English message. A caller resolves the code to an i18n key
  * via `serverAddressRejectionKey()`; the actual `en.json` entries are a separate deliverable (story
- * 107, D3).
+ * 107).
  *
  * ## Scope: IPv4 and hostnames only, no IPv6 (story 107 decision)
  *
@@ -28,7 +28,7 @@
  * in this ecosystem. An IPv6 literal is rejected the same as any other malformed input, with its
  * own `ipv6-not-supported` reason code so the message is still specific.
  *
- * ## Character rule (AC3)
+ * ## Character rule
  *
  * The whole trimmed input must contain no control byte (code point < 0x20), no byte above 126
  * (code point > 0x7E), and none of `'`, `"`, `\`, `;` — this is strictly inside
@@ -43,7 +43,7 @@
  *
  * ## IPv6-looking literal vs. generic multi-colon garbage
  *
- * Both are rejected — v1 has no IPv6 support at all — but AC5 wants a reason a user can act on, so
+ * Both are rejected — v1 has no IPv6 support at all — but the story wants a reason a user can act on, so
  * the two get different codes. The candidate (the single whitespace-token remaining after the
  * earlier checks) enters this analysis when it contains `[` or `]`, or has more than one colon.
  * Inside that set, it is judged "recognizably IPv6" (`ipv6-not-supported`) when any of these hold:
@@ -90,10 +90,10 @@ export interface ParsedServerAddress {
 }
 
 export type ServerAddressResult =
-  | ({ ok: true } & ParsedServerAddress)
-  | { ok: false; reason: ServerAddressRejection }
+  ({ ok: true } & ParsedServerAddress) | { ok: false; reason: ServerAddressRejection }
 
 /** Control bytes, bytes above 126, and the shell/argument metacharacters `'`, `"`, `\`, `;`. */
+// oxlint-disable-next-line no-control-regex -- the pattern exists to reject control bytes.
 const FORBIDDEN_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\uffff'"\\;]/
 
 /** One dotted-decimal label: all digits, used to detect an IPv4-shaped candidate. */
@@ -129,10 +129,15 @@ function looksLikeIpv6Literal(candidate: string): boolean {
 }
 
 /** Classify and validate the host part once port parsing has succeeded. */
-function parseHost(hostPart: string): { ok: true; host: string; kind: 'ipv4' | 'hostname' } | { ok: false; reason: ServerAddressRejection } {
+function parseHost(
+  hostPart: string,
+):
+  | { ok: true; host: string; kind: 'ipv4' | 'hostname' }
+  | { ok: false; reason: ServerAddressRejection } {
   const labels = hostPart.split('.')
 
-  const isDottedNumericCandidate = labels.length === 4 && labels.every((label) => ALL_DIGITS_PATTERN.test(label))
+  const isDottedNumericCandidate =
+    labels.length === 4 && labels.every((label) => ALL_DIGITS_PATTERN.test(label))
   if (isDottedNumericCandidate) {
     const octets: number[] = []
     for (const label of labels) {
@@ -211,9 +216,26 @@ export function formatServerAddress(host: string, port: number): string {
   return `${host.toLowerCase()}:${port}`
 }
 
-/** Maps a rejection reason to its i18n key, `servers.address.reject.<reason>`. The actual `en.json`
- * entries are added by a later deliverable (story 107, D3) — this is just the deterministic naming
- * function. */
-export function serverAddressRejectionKey(reason: ServerAddressRejection): string {
-  return `servers.address.reject.${reason}`
+/** Every rejection's i18n key as a visible literal, so a key scan and the type checker see the same
+ * set; adding a `ServerAddressRejection` without an entry here fails the build. */
+export const SERVER_ADDRESS_REJECTION_KEYS = {
+  empty: 'servers.address.reject.empty',
+  'extra-tokens': 'servers.address.reject.extra-tokens',
+  'forbidden-character': 'servers.address.reject.forbidden-character',
+  'argument-token': 'servers.address.reject.argument-token',
+  'missing-port': 'servers.address.reject.missing-port',
+  'port-not-numeric': 'servers.address.reject.port-not-numeric',
+  'port-out-of-range': 'servers.address.reject.port-out-of-range',
+  'too-many-colons': 'servers.address.reject.too-many-colons',
+  'ipv6-not-supported': 'servers.address.reject.ipv6-not-supported',
+  'host-empty': 'servers.address.reject.host-empty',
+  'host-too-long': 'servers.address.reject.host-too-long',
+  'host-label-invalid': 'servers.address.reject.host-label-invalid',
+  'ipv4-octet-out-of-range': 'servers.address.reject.ipv4-octet-out-of-range',
+} as const satisfies Record<ServerAddressRejection, `servers.address.reject.${string}`>
+
+export function serverAddressRejectionKey(
+  reason: ServerAddressRejection,
+): (typeof SERVER_ADDRESS_REJECTION_KEYS)[ServerAddressRejection] {
+  return SERVER_ADDRESS_REJECTION_KEYS[reason]
 }

@@ -135,7 +135,7 @@ selection, [[152]]/[[153]]'s sort/filter, [[146]]/[[147]]'s `sidecar.read`/`side
    after [[146]]'s normalisation, side/player/tag operations, `suggestTags`, `withQuickEdit`.
 3. **D3 — detail panel:** Zustand store (selection), split layout in `ReplaysView`, read-only
    "What the browser knows" section with source labels and sidecar issues; `replays-detail` screen
-   + `replays-demo-detail` flow.
+   - `replays-demo-detail` flow.
 4. **D4 — notes editor core (hard):** scalar fields, inline errors, Save/Cancel, leave guard,
    confirm-replace dialog, failed-save reason, row patch after save; `replays-editor` screen +
    `replays-edit-sidecar` flow; CHANGELOG.
@@ -155,12 +155,12 @@ Order: D1, D2 (independent) → D3 → D4 → D5, D6 (both need D4's store/dialo
   the row's sidecar values/state) plus the sidecar's valid values (`Partial<SidecarFields>` from
   `@shared/replays/sidecar`). Export `buildDemoDetail(row, sidecar): DemoDetail` with
   `fields: Array<{ id: DetailFieldId; value: string | number | boolean | SidecarSide[] | string[];
-  source: ValueSource | null }>` in this fixed order, omitting unknown values: `name, map, mod,
-  gamemode, sides, date, pov, host` (from `resolveEffectiveValues` in
+source: ValueSource | null }>` in this fixed order, omitting unknown values: `name, map, mod,
+gamemode, sides, date, pov, host` (from `resolveEffectiveValues` in
   `@shared/demos/effective-values`, value + source as returned), then the pass-throughs with source
   `'sidecar'` when set: `description, tags, favourite (only when true), rating`, then the file facts
   with source `null`: `fileName, format, duration (if on the row), levelName (if on the row),
-  source`. Also `knownPlayers: { demo: string[]; name: string[] }` — the header's player list and
+source`. Also `knownPlayers: { demo: string[]; name: string[] }` — the header's player list and
   the name facts' `players`, whatever the sidecar has (not the effective `sides`), each trimmed,
   empties dropped, de-duplicated in order. Carry the row's sidecar state/issues through as
   `sidecarIssues` for D3. Tests › "the detail lists every effective value with its source" (a
@@ -173,19 +173,19 @@ Order: D1, D2 (independent) → D3 → D4 → D5, D6 (both need D4's store/dialo
   `src/shared/replays/sidecar-draft.ts`, new `src/shared/replays/sidecar-draft.test.ts`. Uses
   `sidecarFieldsSchema`, `normalizeSidecarFields`, `SidecarFields`, `SidecarSide` from
   `@shared/replays/sidecar`. Exports: `type SidecarDraft` (all strings for text inputs: `name,
-  description, mod, gamemode, map, date, rating`; `favourite: boolean`; `tags: string[]`; `sides:
-  Array<{ team: string; result: string; players: string[] }>`; `originalDate: string | null`);
+description, mod, gamemode, map, date, rating`; `favourite: boolean`; `tags: string[]`; `sides:
+Array<{ team: string; result: string; players: string[] }>`; `originalDate: string | null`);
   `draftFromSidecar(values)`; `draftToFields(draft): { ok: true; fields: SidecarFields } | { ok:
-  false; errors: Partial<Record<'rating' | 'date', DraftErrorKey>> }` — rating must be empty or an
+false; errors: Partial<Record<'rating' | 'date', DraftErrorKey>> }` — rating must be empty or an
   integer 1–10 (`replays.editor.error.rating`); date empty, or `YYYY-MM-DD HH:MM[:SS]` as a real local
   date-time → ISO with that date's local offset (`±HH:MM`) (`replays.editor.error.date`);
   an unchanged date text returns `originalDate` verbatim; the result passes `sidecarFieldsSchema`.
   `isDraftDirty(draft, baseline)` compares `normalizeSidecarFields` of both (whitespace-only edits
   are not dirty). Side ops (pure, return new drafts): `addSide`, `removeSide(i)`, `addPlayer(side,
-  name)` (trimmed, ignores empty or a duplicate within that side), `removePlayer(side, i)`,
+name)` (trimmed, ignores empty or a duplicate within that side), `removePlayer(side, i)`,
   `movePlayer(side, i, -1 | 1)` (no-op at the ends). Tag ops: `addTag` (trim, case-insensitive
   dedupe, ≤ 40 chars, ≤ 50 tags), `removeTag`. `suggestTags(otherDemosTags: string[][], input,
-  current): string[]` — the ranking rule in Decisions (substring, case-insensitive, excludes
+current): string[]` — the ranking rule in Decisions (substring, case-insensitive, excludes
   `current`, usage count desc then alpha, most-used spelling, max 8; empty input → top 8).
   `withQuickEdit(values, patch: { favourite?: boolean; rating?: number | null }): SidecarFields`
   — every other field of `values` unchanged; `rating: null` removes it. Tests › "a draft
@@ -229,7 +229,7 @@ Order: D1, D2 (independent) → D3 → D4 → D5, D6 (both need D4's store/dialo
   (`replays.editor.*`), edit `CHANGELOG.md` (`### Added`), edit `scripts/lib/screens.mjs`, new
   `scripts/flows/replays-edit-sidecar.mjs`. Use `Field`/inputs from `components/ui/controls.tsx`
   and `Button` from `components/ui/Button.tsx`. Store: `drafts: Record<demoId, { draft, baseline,
-  fingerprint? }>`, built with D2's `draftFromSidecar`/`isDraftDirty`/`draftToFields`; the
+fingerprint? }>`, built with D2's `draftFromSidecar`/`isDraftDirty`/`draftToFields`; the
   baseline is the `sidecar.read(id)` values when the panel opens. `select(id)`/`close()` with a
   dirty draft set `pendingLeave` and open the discard dialog instead (Keep → stay; Discard → drop
   the draft, then go on); switching module does not touch drafts. `save(id)`: `draftToFields` →
@@ -379,6 +379,7 @@ demo: q2dm1"); fixed (`DemoNotesEditor.tsx`/`DemoDetailPanel.tsx`/`en.json`) and
 only hard D; `Review: → default`).
 
 Decisions made during implementation (beyond `## Decisions (Sprint)`):
+
 - D1's `sidecarIssues` on `DemoDetail` carries only `{state}` — 150's row composition
   (`demo-rows.ts`) discards 147's itemized `SidecarIssue[]` when building `DemoRow`. D3 fetches the
   live `sidecar.read` result itself to show the real per-issue text, rather than depending on the

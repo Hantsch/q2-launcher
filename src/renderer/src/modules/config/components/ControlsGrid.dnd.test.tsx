@@ -271,7 +271,9 @@ describe('ControlsGrid row drag', () => {
     // One grip per row, and every sortable element inside a row's own `role="rowgroup"` is one of
     // those grips.
     expect(grips()).toHaveLength(RENDERED_IDS.length)
-    const rowSortables = container.querySelectorAll('[role="rowgroup"] [aria-roledescription="sortable"]')
+    const rowSortables = container.querySelectorAll(
+      '[role="rowgroup"] [aria-roledescription="sortable"]',
+    )
     expect([...rowSortables]).toEqual(grips())
 
     // The row's other elements carry `data-row-id` (story 056) but no drag wiring of their own.
@@ -290,7 +292,9 @@ describe('ControlsGrid row drag', () => {
 
     // Story 054 D6: the sub-category dividers are sortable too now, but as their own distinct
     // group - one grip per divider (`sub-1`, `sub-2`), never among `grips()`'s row-scoped set above.
-    const headerSortables = [...container.querySelectorAll('.ctrl-group [aria-roledescription="sortable"]')]
+    const headerSortables = [
+      ...container.querySelectorAll('.ctrl-group [aria-roledescription="sortable"]'),
+    ]
     expect(headerSortables).toHaveLength(SUBCATEGORIES.length)
     for (const sortable of headerSortables) expect(grips()).not.toContain(sortable)
   })

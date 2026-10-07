@@ -99,7 +99,10 @@ describe('sidecar store', () => {
         throw Object.assign(new Error('boom'), { code: 'EBUSY' })
       },
     }
-    const store = createSidecarStore({ resolveDemo: () => ({ kind: 'file', absolutePath: path }), fs })
+    const store = createSidecarStore({
+      resolveDemo: () => ({ kind: 'file', absolutePath: path }),
+      fs,
+    })
 
     // First save fails: no prior sidecar should exist afterward.
     const first = await store.write('final', { name: 'first' })
@@ -108,7 +111,9 @@ describe('sidecar store', () => {
     await expect(readFile(`${sidecarPath}.tmp`, 'utf8')).rejects.toThrow()
 
     // Seed a real sidecar via the real fs, then fail a second save on top of it.
-    const realStore = createSidecarStore({ resolveDemo: () => ({ kind: 'file', absolutePath: path }) })
+    const realStore = createSidecarStore({
+      resolveDemo: () => ({ kind: 'file', absolutePath: path }),
+    })
     await realStore.write('final', { name: 'seeded' })
     const before = await readFile(sidecarPath, 'utf8')
 
@@ -184,13 +189,16 @@ describe('sidecar store', () => {
   })
 
   it('the store refuses unknown ids, archive entries, vanished demos and unreadable sidecars', async () => {
-    const store = storeFor({ 'archived': { kind: 'archive-entry' } })
+    const store = storeFor({ archived: { kind: 'archive-entry' } })
 
     const unknown = await store.write('nope', { name: 'x' })
     expect(unknown).toEqual({ ok: false, error: { key: 'replays.sidecar.error.unknownDemo' } })
 
     const archiveEntry = await store.write('archived', { name: 'x' })
-    expect(archiveEntry).toEqual({ ok: false, error: { key: 'replays.sidecar.error.archiveEntry' } })
+    expect(archiveEntry).toEqual({
+      ok: false,
+      error: { key: 'replays.sidecar.error.archiveEntry' },
+    })
 
     const vanishedPath = join(dir, 'gone.dm2')
     const vanishedStore = storeFor({ gone: { kind: 'file', absolutePath: vanishedPath } })
@@ -264,10 +272,29 @@ describe('sidecar store', () => {
     if (result.value.state.state === 'error') {
       expect(result.value.state.issues).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ kind: 'invalidField', params: expect.objectContaining({ field: 'rating' }) }),
+          expect.objectContaining({
+            kind: 'invalidField',
+            params: expect.objectContaining({ field: 'rating' }),
+          }),
         ]),
       )
     }
     expect(result.value.values).toEqual({ name: 'good name' })
+  })
+
+  it('comments round-trip through write and read', async () => {
+    const finalPath = await writeDemo('final.dm2')
+    const store = storeFor({ final: { kind: 'file', absolutePath: finalPath } })
+    const comments = [
+      { atMs: 100, text: 'first' },
+      { atMs: 5000, text: 'second' },
+    ]
+    const outcome = await store.write('final', { name: 'GF', comments })
+    expect(outcome.ok).toBe(true)
+
+    const read = await store.read('final')
+    expect(read.ok).toBe(true)
+    if (!read.ok) throw new Error('expected ok')
+    expect(read.value.values).toEqual({ name: 'GF', comments })
   })
 })

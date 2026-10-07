@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { keySlotAt, keySlotCount } from '@shared/config/action-slots'
-import { bindValueFor } from '@shared/config/action-mirror'
-import type { AltLayer } from '@shared/config/alt-layers'
-import type { BindCollision } from '@shared/config/bind-collision'
-import { MODIFIER_LAYER_NAME } from '@shared/config/modifier-layers'
+import { keySlotAt, keySlotCount } from '@shared/config/catalog/action-slots'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
+import type { BindCollision } from '@shared/config/validation/bind-collision'
+import { MODIFIER_LAYER_NAME } from '@shared/config/aliases/modifier-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { findBindConflicts } from './bind-conflicts'
 import {
@@ -71,7 +71,7 @@ describe('findSlotCollision', () => {
   })
 
   it(
-    "still names the owning action, not its bind mirror, once setActions has persisted it " +
+    'still names the owning action, not its bind mirror, once setActions has persisted it ' +
       '(review finding: profile.binds always carries this mirror in real use)',
     () => {
       const owner = catalogAction(forward, { keys: [{ key: 'f' }] })
@@ -210,7 +210,9 @@ describe('findModifierSlotCollision', () => {
   })
 
   it('reports a hand-made override (not written by the actions mirror) by its raw command text', () => {
-    const layers = [altLayer({ id: 'alt-9', name: 'Alt', overrides: { r: 'drop grenade launcher' } })]
+    const layers = [
+      altLayer({ id: 'alt-9', name: 'Alt', overrides: { r: 'drop grenade launcher' } }),
+    ]
 
     const found = findModifierSlotCollision([], layers, 'ALT', 'r')
 
@@ -656,10 +658,11 @@ describe('applyReplace', () => {
     expect(keySlotCount(clearedOwner)).toBe(2)
 
     const conflicts = findBindConflicts(profile({ actions: cleared }))
-    expect(conflicts).toEqual([{ key: 'h', scope: 'base', owners: [clearedOwner.name, other.name] }])
+    expect(conflicts).toEqual([
+      { key: 'h', scope: 'base', owners: [clearedOwner.name, other.name] },
+    ])
   })
 })
-
 
 describe('layerNameForModifier', () => {
   it("resolves a real layer's custom name when one exists", () => {

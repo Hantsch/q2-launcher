@@ -1,13 +1,13 @@
 import i18next, { type i18n as I18nInstance } from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import type { LocaleSetting } from '@shared/types'
-import en from './locales/en.json'
+import { en } from './bundle'
 
 /**
- * All user-visible text lives in `locales/*.json`, including the messages the
+ * All user-visible text lives in `locales/en.shell.json` and each module's `locale/en.json`, including the messages the
  * main process produces - main sends i18n keys, never prose.
  *
- * Only English ships today. Adding a language is: drop in `xx.json`, add it to
+ * Only English ships today. Adding a language is: drop in `xx.shell.json` plus one `xx.json` per module locale, merge them like `bundle.ts` does, add it to
  * `LOCALE_BUNDLES` and to `LocaleSetting` in `src/shared/types/settings.ts`.
  * No component changes.
  */
@@ -44,8 +44,11 @@ export async function initI18n(setting: LocaleSetting): Promise<I18nInstance> {
       // React escapes for us; double-escaping mangles apostrophes and quotes.
       escapeValue: false,
     },
-    // A missing key is a bug we want to see, not a blank label in the UI.
-    parseMissingKeyHandler: (key) => {
+    // A missing key is a bug we want to see, not a blank label in the UI - unless the caller
+    // passed a `defaultValue`, which declares the miss expected (an open set such as unlock
+    // feature ids) and is what must render instead of the key.
+    parseMissingKeyHandler: (key, defaultValue) => {
+      if (defaultValue !== undefined) return defaultValue
       if (import.meta.env.DEV) console.warn(`[i18n] missing key: ${key}`)
       return key
     },

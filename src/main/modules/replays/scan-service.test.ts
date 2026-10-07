@@ -2,6 +2,20 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from '
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Counts whole-file stream opens: a bounded header read uses a positioned `read()`, only a full pass
+// streams the file.
+const streamOpens = vi.hoisted(() => ({ paths: [] as string[] }))
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...actual,
+    createReadStream: (...args: Parameters<typeof actual.createReadStream>) => {
+      streamOpens.paths.push(String(args[0]))
+      return actual.createReadStream(...args)
+    },
+  }
+})
 import {
   REPLAYS_EVENTS,
   discoveredDemoSchema,
@@ -39,6 +53,7 @@ const FACTS: DemoHeaderFacts = {
   pov: null,
   players: [],
   durationMs: null,
+  roster: null,
 }
 const HOUR_AGO_S = (Date.now() - 60 * 60 * 1000) / 1000
 
@@ -208,11 +223,18 @@ describe('replays scan service (story 144 D3)', () => {
       pov: null,
       players: [],
       durationMs: null,
+      roster: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+      folder: [],
       nameFacts: null,
     }
     await new ReplaysIndexCache({ filePath: cacheFile }).write(
-      new Map([[cachedRow.id, { size: 1, mtimeMs: 1, patternFingerprint: 'fp-1', parsed: cachedRow, name: null }]]),
+      new Map([
+        [
+          cachedRow.id,
+          { size: 1, mtimeMs: 1, patternFingerprint: 'fp-1', parsed: cachedRow, name: null },
+        ],
+      ]),
     )
 
     const gate = deferred()
@@ -276,7 +298,10 @@ describe('replays scan service (story 144 D3)', () => {
     await h.waitIdle(1)
     const snapshotA = await h.service.read()
     expect(snapshotA).toHaveLength(2)
-    const cacheBefore = { bytes: await readFile(cacheFile), mtimeMs: (await stat(cacheFile)).mtimeMs }
+    const cacheBefore = {
+      bytes: await readFile(cacheFile),
+      mtimeMs: (await stat(cacheFile)).mtimeMs,
+    }
 
     // A new file forces a parse, which now throws mid-scan.
     await writeFile(join(dir, 'c.dm2'), 'demo c')
@@ -324,7 +349,10 @@ describe('replays scan service (story 144 D3)', () => {
 })
 
 describe('scan service source errors and scan hold (story 151 D2)', () => {
-  function errorFor(path: string, reason: ReplaysSourceError['reason'] = 'unreadable'): ReplaysSourceError {
+  function errorFor(
+    path: string,
+    reason: ReplaysSourceError['reason'] = 'unreadable',
+  ): ReplaysSourceError {
     return { source: { kind: 'extraFolder', path }, archiveName: null, reason }
   }
 
@@ -337,7 +365,7 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
         homeDir: root,
         zipDeps: { extractorPath: '', extractorExists: false },
       })
-      return { demos, sourceErrors: [error] }
+      return { demos, sourceErrors: [error], folders: [] }
     })
     const h = harness([dir], { discover })
 
@@ -347,7 +375,8 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
     const last = h.progress().at(-1)!
     expect(last.running).toBe(false)
     expect(last.sourceErrors).toEqual([error])
-    for (const push of h.progress()) expect(replaysScanProgressSchema.safeParse(push).success).toBe(true)
+    for (const push of h.progress())
+      expect(replaysScanProgressSchema.safeParse(push).success).toBe(true)
   })
 
   it("running pushes carry the previous scan's source errors", async () => {
@@ -367,7 +396,7 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
         homeDir: root,
         zipDeps: { extractorPath: '', extractorExists: false },
       })
-      return { demos, sourceErrors: discoverCall === 1 ? [error1] : [error2] }
+      return { demos, sourceErrors: discoverCall === 1 ? [error1] : [error2], folders: [] }
     })
     const h = harness([dir], { parse, discover })
 
@@ -378,7 +407,10 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
     const beforeSecond = h.progress().length
     h.service.start()
     await vi.waitFor(() => expect(h.progress().length).toBeGreaterThan(beforeSecond))
-    const midPushes = h.progress().slice(beforeSecond).filter((p) => p.running)
+    const midPushes = h
+      .progress()
+      .slice(beforeSecond)
+      .filter((p) => p.running)
     expect(midPushes.length).toBeGreaterThan(0)
     for (const push of midPushes) expect(push.sourceErrors).toEqual([error1])
 
@@ -403,7 +435,11 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
         homeDir: root,
         zipDeps: { extractorPath: '', extractorExists: false },
       })
-      return { demos, sourceErrors: discoverCall === 1 ? [error1] : [errorFor(dir, 'missing')] }
+      return {
+        demos,
+        sourceErrors: discoverCall === 1 ? [error1] : [errorFor(dir, 'missing')],
+        folders: [],
+      }
     })
     const h = harness([dir], { parse, discover })
 
@@ -538,7 +574,10 @@ describe('unreadable demos stay in the index (story 145 D2)', () => {
 
     const broken = byName.get('broken.dm2')!
     const brokenStat = await stat(join(dir, 'broken.dm2'))
-    expect(broken.fileTime).toEqual({ birthtimeMs: brokenStat.birthtimeMs, mtimeMs: brokenStat.mtimeMs })
+    expect(broken.fileTime).toEqual({
+      birthtimeMs: brokenStat.birthtimeMs,
+      mtimeMs: brokenStat.mtimeMs,
+    })
 
     for (const fileName of [GARBAGE_FILE, 'empty.dm2', 'broken.dm2']) {
       const row = byName.get(fileName)!
@@ -610,6 +649,18 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
     expect(discoveredDemoSchema.safeParse(rows[0]).success).toBe(true)
   })
 
+  it('a loose demo is read for one full pass, not two', async () => {
+    const dir = await fixtureFolder()
+    const path = await canonicalizePath(join(dir, 'good.dm2'))
+    streamOpens.paths.length = 0
+
+    const h = harness([dir], { parse: readDemoFacts })
+    h.service.start()
+    await h.waitIdle(1)
+
+    expect(streamOpens.paths.filter((p) => p === path)).toHaveLength(1)
+  })
+
   it('a cache hit keeps gameDir, pov, players and durationMs', async () => {
     const dir = await fixtureFolder()
 
@@ -636,9 +687,36 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
     expect(rows).toHaveLength(1)
     expect(pickFacts(rows[0])).toEqual(EXPECTED)
   })
+
+  it("a cache hit takes reachedBy from this scan's discovery, never the cached row", async () => {
+    const dir = await demoFolder('demos', ['a.dm2'])
+    const discoverReachedBy = (reachedBy: string[]) => async () => {
+      const found = await discoverDemos([], extraFolders([dir]), {
+        platform: process.platform,
+        homeDir: root,
+        zipDeps: { extractorPath: '', extractorExists: false },
+      })
+      return { ...found, demos: found.demos.map((d) => ({ ...d, reachedBy })) }
+    }
+
+    const first = harness([dir], { discover: discoverReachedBy(['inst-a']) })
+    first.service.start()
+    await first.waitIdle(1)
+    expect((await first.service.read())[0].reachedBy).toEqual(['inst-a'])
+
+    const parse = vi.fn(async (): Promise<DemoHeaderFacts> => {
+      throw new Error('a cache hit must not be re-parsed')
+    })
+    const second = harness([dir], { parse, discover: discoverReachedBy(['inst-a', 'inst-b']) })
+    second.service.start()
+    await second.waitIdle(1)
+
+    expect(parse).not.toHaveBeenCalled()
+    expect((await second.service.read())[0].reachedBy).toEqual(['inst-a', 'inst-b'])
+  })
 })
 
-describe('applyRename (story 157)', () => {
+describe('applyRelocate (story 157)', () => {
   it('re-keys the row, file lookup and cache to the new id/name, without touching disk', async () => {
     const dir = await demoFolder('demos', ['old.dm2'])
     const h = harness([dir])
@@ -653,7 +731,7 @@ describe('applyRename (story 157)', () => {
     const newAbsolutePath = join(dir, 'new.dm2')
     const newId = demoIdForPath(newAbsolutePath)
 
-    const renamed = await h.service.applyRename(oldId, newAbsolutePath, 'new.dm2')
+    const renamed = await h.service.applyRelocate(oldId, newAbsolutePath, [])
 
     expect(renamed).toBeDefined()
     expect(renamed!.id).toBe(newId)
@@ -663,7 +741,10 @@ describe('applyRename (story 157)', () => {
     const rows = await h.service.read()
     expect(rows.map((r) => [r.id, r.fileName])).toEqual([[newId, 'new.dm2']])
 
-    expect(h.service.resolveFile(newId)).toEqual({ absolutePath: newAbsolutePath, archiveEntry: null })
+    expect(h.service.resolveFile(newId)).toEqual({
+      absolutePath: newAbsolutePath,
+      archiveEntry: null,
+    })
     expect(h.service.resolveFile(oldId)).toBeUndefined()
 
     // A second service instance over the same cache file gets a hit under the new id.
@@ -687,7 +768,9 @@ describe('applyRename (story 157)', () => {
     h.service.start()
     await h.waitIdle(1)
 
-    expect(await h.service.applyRename('0000000000000000', join(dir, 'x.dm2'), 'x.dm2')).toBeUndefined()
+    expect(
+      await h.service.applyRelocate('0000000000000000', join(dir, 'x.dm2'), []),
+    ).toBeUndefined()
   })
 
   it('isScanning reflects the running flag', async () => {

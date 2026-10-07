@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { SidecarFields } from '../replays/sidecar'
 import type { NameFacts } from '../replays/name-template'
 import type { Dm2Header } from './dm2-header'
+import type { DemoRoster } from './dm2-roster'
 import {
   effectiveFileTime,
   hasValue,
@@ -11,7 +12,7 @@ import {
   type ResolveEffectiveValuesInputs,
 } from './effective-values'
 
-function header(overrides: Partial<Dm2Header> = {}): Dm2Header {
+function header(overrides: Partial<Dm2Header> & { roster?: DemoRoster | null } = {}): Dm2Header {
   return {
     ok: true,
     protocol: 34,
@@ -29,7 +30,9 @@ function header(overrides: Partial<Dm2Header> = {}): Dm2Header {
 
 const FIXED_FILE_TIME = { birthtimeMs: 1_000, mtimeMs: 2_000 } // -> epoch ms 1000 via effectiveFileTime
 
-function baseInputs(overrides: Partial<ResolveEffectiveValuesInputs> = {}): ResolveEffectiveValuesInputs {
+function baseInputs(
+  overrides: Partial<ResolveEffectiveValuesInputs> = {},
+): ResolveEffectiveValuesInputs {
   return {
     fileName: 'final.dm2',
     sidecar: null,
@@ -113,11 +116,20 @@ describe('resolveEffectiveValues', () => {
 
   it("the effective sides are the sidecar's, else the demo's players, else the name's players", () => {
     const sidecarSides = resolveEffectiveValues(
-      baseInputs({ sidecar: { sides: [{ team: 'red', players: ['A'] }] }, header: header(), nameFacts: NAME_FACTS }),
+      baseInputs({
+        sidecar: { sides: [{ team: 'red', players: ['A'] }] },
+        header: header(),
+        nameFacts: NAME_FACTS,
+      }),
     )
-    expect(sidecarSides.sides).toEqual({ value: [{ team: 'red', players: ['A'] }], source: 'sidecar' })
+    expect(sidecarSides.sides).toEqual({
+      value: [{ team: 'red', players: ['A'] }],
+      source: 'sidecar',
+    })
 
-    const demoSides = resolveEffectiveValues(baseInputs({ header: header(), nameFacts: NAME_FACTS }))
+    const demoSides = resolveEffectiveValues(
+      baseInputs({ header: header(), nameFacts: NAME_FACTS }),
+    )
     expect(demoSides.sides).toEqual({ value: [{ players: ['Ranger', 'Slayer'] }], source: 'demo' })
 
     const nameSides = resolveEffectiveValues(baseInputs({ nameFacts: NAME_FACTS }))
@@ -127,13 +139,50 @@ describe('resolveEffectiveValues', () => {
     const emptyDemoPlayers = resolveEffectiveValues(
       baseInputs({ header: header({ players: [] }), nameFacts: NAME_FACTS }),
     )
-    expect(emptyDemoPlayers.sides).toEqual({ value: [{ players: ['Alice', 'Bob'] }], source: 'name' })
+    expect(emptyDemoPlayers.sides).toEqual({
+      value: [{ players: ['Alice', 'Bob'] }],
+      source: 'name',
+    })
 
     // Both demo and name player lists empty: falls all the way through to no value.
     const noPlayers = resolveEffectiveValues(
       baseInputs({ header: header({ players: [] }), nameFacts: { ...NAME_FACTS, players: [] } }),
     )
     expect(noPlayers.sides).toEqual({ value: null, source: null })
+  })
+
+  const ROSTER = {
+    teams: [
+      { name: 'Red', players: ['A', 'B'] },
+      { name: 'Blue', players: ['C'] },
+    ],
+    spectators: ['Watcher'],
+  }
+
+  it('a roster becomes team sides', () => {
+    const r = resolveEffectiveValues(baseInputs({ header: header({ roster: ROSTER }) }))
+    expect(r.sides).toEqual({
+      value: [
+        { team: 'Red', players: ['A', 'B'] },
+        { team: 'Blue', players: ['C'] },
+      ],
+      source: 'demo',
+    })
+  })
+
+  it('sidecar sides win over the demo roster', () => {
+    const r = resolveEffectiveValues(
+      baseInputs({
+        sidecar: { sides: [{ players: ['Z'] }] },
+        header: header({ roster: ROSTER }),
+      }),
+    )
+    expect(r.sides).toEqual({ value: [{ players: ['Z'] }], source: 'sidecar' })
+  })
+
+  it('no roster falls back to the header players', () => {
+    const r = resolveEffectiveValues(baseInputs({ header: header({ roster: null }) }))
+    expect(r.sides).toEqual({ value: [{ players: ['Ranger', 'Slayer'] }], source: 'demo' })
   })
 
   it('a demo with no reported gamemode but an effective ctf game dir is guessed as ctf', () => {
@@ -145,7 +194,10 @@ describe('resolveEffectiveValues', () => {
     const sidecarDate = resolveEffectiveValues(
       baseInputs({ sidecar: { date: '2024-06-01T12:00:00.000Z' }, nameFacts: NAME_FACTS }),
     )
-    expect(sidecarDate.date).toEqual({ value: Date.parse('2024-06-01T12:00:00.000Z'), source: 'sidecar' })
+    expect(sidecarDate.date).toEqual({
+      value: Date.parse('2024-06-01T12:00:00.000Z'),
+      source: 'sidecar',
+    })
 
     const nameDate = resolveEffectiveValues(baseInputs({ nameFacts: NAME_FACTS }))
     expect(nameDate.date).toEqual({ value: NAME_FACTS_DATE_MS, source: 'name' })
@@ -155,7 +207,10 @@ describe('resolveEffectiveValues', () => {
 
     // Unparsable sidecar date string falls through to the name date.
     const unparsable = resolveEffectiveValues(
-      baseInputs({ sidecar: { date: 'not-a-date' as SidecarFields['date'] }, nameFacts: NAME_FACTS }),
+      baseInputs({
+        sidecar: { date: 'not-a-date' as SidecarFields['date'] },
+        nameFacts: NAME_FACTS,
+      }),
     )
     expect(unparsable.date).toEqual({ value: NAME_FACTS_DATE_MS, source: 'name' })
   })
@@ -172,7 +227,9 @@ describe('resolveEffectiveValues', () => {
     )
     expect(withMap.map).toEqual({ value: 'q2dm2', source: 'sidecar' })
 
-    const removed = resolveEffectiveValues(baseInputs({ sidecar: {}, header: header(), nameFacts: NAME_FACTS }))
+    const removed = resolveEffectiveValues(
+      baseInputs({ sidecar: {}, header: header(), nameFacts: NAME_FACTS }),
+    )
     expect(removed.map).toEqual({ value: 'q2dm1', source: 'demo' })
 
     const blank = resolveEffectiveValues(
@@ -180,16 +237,24 @@ describe('resolveEffectiveValues', () => {
     )
     expect(blank.map).toEqual({ value: 'q2dm1', source: 'demo' })
 
-    const noSidecar = resolveEffectiveValues(baseInputs({ sidecar: null, header: header(), nameFacts: NAME_FACTS }))
+    const noSidecar = resolveEffectiveValues(
+      baseInputs({ sidecar: null, header: header(), nameFacts: NAME_FACTS }),
+    )
     expect(noSidecar.map).toEqual({ value: 'q2dm1', source: 'demo' })
 
     // Also exercise an array field (sides) through the same present/removed/empty/null progression.
     const sidesWith = resolveEffectiveValues(
-      baseInputs({ sidecar: { sides: [{ players: ['A'] }] }, header: header(), nameFacts: NAME_FACTS }),
+      baseInputs({
+        sidecar: { sides: [{ players: ['A'] }] },
+        header: header(),
+        nameFacts: NAME_FACTS,
+      }),
     )
     expect(sidesWith.sides.source).toBe('sidecar')
 
-    const sidesRemoved = resolveEffectiveValues(baseInputs({ sidecar: {}, header: header(), nameFacts: NAME_FACTS }))
+    const sidesRemoved = resolveEffectiveValues(
+      baseInputs({ sidecar: {}, header: header(), nameFacts: NAME_FACTS }),
+    )
     expect(sidesRemoved.sides.source).toBe('demo')
 
     const sidesEmpty = resolveEffectiveValues(
@@ -228,6 +293,9 @@ describe('firstValue', () => {
       ]),
     ).toEqual({ value: 'x', source: 'demo' })
 
-    expect(firstValue([{ source: 'sidecar', value: undefined }])).toEqual({ value: null, source: null })
+    expect(firstValue([{ source: 'sidecar', value: undefined }])).toEqual({
+      value: null,
+      source: null,
+    })
   })
 })

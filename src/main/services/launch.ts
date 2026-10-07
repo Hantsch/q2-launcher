@@ -8,6 +8,7 @@ import {
   IDLE_LAUNCH_STATE,
   STEAM_APP_CLIENTS,
   STEAM_RUNNER_CHOICE,
+  engineLabel,
   fail,
   ok,
   steamLaunchUrl,
@@ -18,8 +19,10 @@ import {
   type LaunchState,
   type Outcome,
 } from '@shared/types'
-import { isFile } from '../lib/fs-utils'
+import { isFile, readBinaryKind } from '../lib/fs-utils'
+import { createListenerSet } from '../lib/listeners'
 import { scopedLogger } from '../lib/logger'
+import { isWindows } from '../lib/platform'
 import {
   buildLaunchArgs,
   execsConnectCfg,
@@ -27,7 +30,11 @@ import {
   previewCommand,
   resolveEffectiveUserinfo,
 } from './launch-plan'
-import { openPlaybackSession, type PlaybackSession, type PlaybackSessionHandle } from './playback-session'
+import {
+  openPlaybackSession,
+  type PlaybackSession,
+  type PlaybackSessionHandle,
+} from './playback-session'
 import { detectRunners, needsCompatRunner, resolveRunner } from './runners'
 import type { InstallationsService } from './installations'
 import type { WriteLockReader } from './write-guard'
@@ -44,13 +51,12 @@ export interface LaunchDeps {
   installations: InstallationsService
   onStateChange: LaunchStateListener
   /**
-   * Story 091 D2: the installation write guard, as a getter for the same reason
-   * `AppContext.getMainWindow` is one - the guard is built *from* this service,
-   * so it does not exist yet when this service is constructed.
+   * Story 091: the installation write guard, as a getter - the guard is built *from* this
+   * service, so it does not exist yet when this service is constructed.
    */
   getWriteGuard?: () => WriteLockReader | null
   /**
-   * Story 103 D5: how `plan()` learns which compatibility runners this machine has. Injectable
+   * Story 103: how `plan()` learns which compatibility runners this machine has. Injectable
    * only so a test can hand in a list instead of a real `PATH`/Steam scan; production wiring uses
    * the default, and it is never called at all on the native path (see `plan()`).
    */
@@ -70,7 +76,7 @@ async function removeConnectCfg(path: string): Promise<void> {
 }
 
 /**
- * Story 104 D4: the plan that hands this installation's launch to Steam, or `undefined` when the
+ * Story 104: the plan that hands this installation's launch to Steam, or `undefined` when the
  * resolved runner is not Steam (or the stored client index is not one Steam lists for the appid) -
  * in which case the caller plans the normal way. The command is only `<steam> <steam://launch URL>`:
  * none of `buildLaunchArgs`' `+set` arguments apply, because Steam starts the game itself.
@@ -82,7 +88,10 @@ function steamHandoffPlan(
   if (runner?.kind !== 'steam' || !installation.steamAppId) return undefined
   const table = STEAM_APP_CLIENTS[installation.steamAppId]
   if (!table) return undefined
-  const url = steamLaunchUrl(installation.steamAppId, installation.steamClient ?? table.defaultIndex)
+  const url = steamLaunchUrl(
+    installation.steamAppId,
+    installation.steamClient ?? table.defaultIndex,
+  )
   if (!url) {
     log.warn(
       `not handing ${installation.id} to Steam: client ${String(installation.steamClient)} is not listed for app ${installation.steamAppId}`,
@@ -116,8 +125,8 @@ export class LaunchService {
    * `listeners` below - not optional, not removable, and called first.
    */
   private readonly broadcast: LaunchStateListener
-  /** Story 091 D2's additive observers - see `onStateChange()`. */
-  private readonly listeners = new Set<LaunchStateListener>()
+  /** Story 091's additive observers - see `onStateChange()`. */
+  private readonly listeners = createListenerSet<LaunchState>(log, 'a launch onStateChange')
   private readonly getWriteGuard: (() => WriteLockReader | null) | undefined
   private readonly detectRunners: () => Promise<DetectedRunner[]>
   private current: LaunchState = IDLE_LAUNCH_STATE
@@ -126,16 +135,16 @@ export class LaunchService {
   private launchSeq = 0
   /** Story 125 review fix: a `start()` is between its guards and its first state change. */
   private startInFlight = false
-  /** Story 163 D1: the running playback launch's pipes, if the running launch is one. */
+  /** Story 163: the running playback launch's pipes, if the running launch is one. */
   private playback: PlaybackSessionHandle | undefined
   /**
-   * Story 173 D1: the running playback launch's process - the only child this service ever keeps,
+   * Story 173: the running playback launch's process - the only child this service ever keeps,
    * so `terminatePlayback()` can never reach an ordinary Play/Join/Spectate. Cleared by that
    * launch's own `'exit'`/`'error'` handler (identity-guarded), and deliberately *not* by
    * `releasePlaybackSession()`: letting go of the pipes leaves the game running.
    */
   private playbackChild: ChildProcess | undefined
-  private readonly beforeReleaseListeners = new Set<() => void>()
+  private readonly beforeReleaseListeners = createListenerSet(log, 'an onBeforePlaybackRelease')
 
   constructor(deps: LaunchDeps) {
     this.installations = deps.installations
@@ -149,9 +158,9 @@ export class LaunchService {
   }
 
   /**
-   * Story 091 D2: registers an additional observer of launch state, and returns
+   * Story 091: registers an additional observer of launch state, and returns
    * its unsubscribe function. `InstallationWriteGuard` uses it to learn that a
-   * game has exited so a deferred write can resume on its own (AC3).
+   * game has exited so a deferred write can resume on its own.
    *
    * Additive by construction, exactly as `JobsService.onChange` is: the
    * constructor's `broadcast` is still called exactly once per change and
@@ -160,13 +169,10 @@ export class LaunchService {
    * logged and skipped.
    */
   onStateChange(listener: LaunchStateListener): () => void {
-    this.listeners.add(listener)
-    return () => {
-      this.listeners.delete(listener)
-    }
+    return this.listeners.add(listener)
   }
 
-  /** Story 104 D4: `'handed-off'` is deliberately absent - Steam, not us, runs that game. */
+  /** Story 104: `'handed-off'` is deliberately absent - Steam, not us, runs that game. */
   isRunning(): boolean {
     return this.current.phase === 'starting' || this.current.phase === 'running'
   }
@@ -174,25 +180,41 @@ export class LaunchService {
   /**
    * Builds the exact command line without running it. Also used by the UI preview.
    *
-   * Story 103 D5: and it is the *only* place a compatibility runner is applied. Everything
+   * Story 103: and it is the *only* place a compatibility runner is applied. Everything
    * downstream - the preview string, `start()`'s `spawn`, and with it the `launch:state` sequence,
    * the playtime recorded on exit and the write guard's view of a running game - reads the pair
-   * this function returns, so wrapping here means none of them needed a change (AC5), and a plan
+   * this function returns, so wrapping here means none of them needed a change, and a plan
    * that cannot be run at all is refused here rather than spawned and reported as a clean exit
-   * four seconds later (AC7).
+   * four seconds later.
    */
   async plan(input: LaunchInput): Promise<Outcome<LaunchPlan>> {
     const installation = this.installations.find(input.installationId)
-    if (!installation) return fail('launch.error.notFound')
+    if (!installation) return fail('installations.error.notFound')
 
-    if (!installation.executablePath) {
+    // An engine override (demo playback) runs a detected client other than the chosen one; its
+    // path always comes from main's own detection, never from the input.
+    let baseExecutable = installation.executablePath
+    // The runner decision follows the executable actually started, not the stored chosen one.
+    let runnerSubject: Installation = installation
+    if (input.engine && input.engine !== installation.engineKind) {
+      const detectedEngine = installation.detectedEngines?.find((e) => e.kind === input.engine)
+      if (!detectedEngine) {
+        return fail('installations.error.engineNotDetected', { engine: engineLabel(input.engine) })
+      }
+      baseExecutable = detectedEngine.executablePath
+      if (!isWindows()) {
+        runnerSubject = { ...installation, executableKind: await readBinaryKind(baseExecutable) }
+      }
+    }
+
+    if (!baseExecutable) {
       return fail('launch.error.noExecutable', { name: installation.name })
     }
-    if (!(await isFile(installation.executablePath))) {
-      return fail('launch.error.executableMissing', { path: installation.executablePath })
+    if (!(await isFile(baseExecutable))) {
+      return fail('launch.error.executableMissing', { path: baseExecutable })
     }
 
-    // Story 104 D4: a stored Steam choice is checked *before* `needsCompatRunner` below, because
+    // Story 104: a stored Steam choice is checked *before* `needsCompatRunner` below, because
     // Steam is not a compatibility wrapper - it applies on every platform and to every executable
     // kind, so that guard (false on win32 and for ELF) would never let it through. Runner detection
     // is still only paid for when the user actually chose Steam, so an installation without that
@@ -206,7 +228,9 @@ export class LaunchService {
         // Story 125: a steam:// URL has no way to carry `+connect` (or the connect cfg's
         // `+exec`), so a join through Steam would silently land in the menu instead.
         if (input.connect) {
-          log.warn(`refused to join a server through Steam for ${installation.id}: needs a direct launch`)
+          log.warn(
+            `refused to join a server through Steam for ${installation.id}: needs a direct launch`,
+          )
           return fail('launch.error.connectNeedsDirectLaunch')
         }
         return ok(handoff)
@@ -225,15 +249,15 @@ export class LaunchService {
       log.warn(`dropped unsafe launch value "${entry.value}" (${entry.reason})`)
     }
 
-    // Story 103 D5: on Windows - and for any executable the OS can run itself - `needsCompatRunner`
+    // Story 103: on Windows - and for any executable the OS can run itself - `needsCompatRunner`
     // is false, so no runner is detected, nothing is rewritten, and the four values below are the
-    // ones this function has always returned (AC8). Off Windows, a Windows PE is wrapped:
+    // ones this function has always returned. Off Windows, a Windows PE is wrapped:
     // `<runner> <exe> <the same generated args>`, still an argv array, never a shell string, and
     // with no `env` of our own - Q2's machine-default wine prefix.
-    let executablePath = installation.executablePath
+    let executablePath = baseExecutable
     let commandArgs = args
-    if (needsCompatRunner(installation)) {
-      const runner = resolveRunner(installation, detected ?? (await this.detectRunners()))
+    if (needsCompatRunner(runnerSubject)) {
+      const runner = resolveRunner(runnerSubject, detected ?? (await this.detectRunners()))
       if (!runner) {
         log.warn(`refused to plan ${installation.id}: no runner can run ${executablePath}`)
         return fail('launch.error.noRunner', { executable: basename(executablePath) })
@@ -255,7 +279,7 @@ export class LaunchService {
   }
 
   /**
-   * Story 163 D1: the running playback launch's session, or `undefined` when the running launch is
+   * Story 163: the running playback launch's session, or `undefined` when the running launch is
    * not one (or nothing runs). Ended - and gone from here - once its process exits or errors, or
    * after `releasePlaybackSession()`.
    */
@@ -264,42 +288,33 @@ export class LaunchService {
   }
 
   /**
-   * Story 164 D4: listeners called synchronously at the start of `releasePlaybackSession()`, before the
+   * Story 164: listeners called synchronously at the start of `releasePlaybackSession()`, before the
    * session's stdin is ended, so a last console line can still be written. Errors are logged, never thrown.
    */
   onBeforePlaybackRelease(listener: () => void): () => void {
-    this.beforeReleaseListeners.add(listener)
-    return () => {
-      this.beforeReleaseListeners.delete(listener)
-    }
+    return this.beforeReleaseListeners.add(listener)
   }
 
   /**
-   * Story 163 D1: lets go of the game's pipes - stdin ended, stdout closed, `onEnd` fired - and
+   * Story 163: lets go of the game's pipes - stdin ended, stdout closed, `onEnd` fired - and
    * leaves the game itself running. Never kills the process: that is the user's to close, and its
    * exit still arrives through the normal lifecycle (state, playtime). A no-op without a session.
    */
   releasePlaybackSession(): void {
     const handle = this.playback
     if (!handle) return
-    for (const listener of [...this.beforeReleaseListeners]) {
-      try {
-        listener()
-      } catch (error) {
-        log.error('an onBeforePlaybackRelease listener threw', error)
-      }
-    }
+    this.beforeReleaseListeners.emit()
     this.playback = undefined
     handle.end()
   }
 
-  /** Story 173 D1: a playback launch's process is running (whether or not its pipes are still held). */
+  /** Story 173: a playback launch's process is running (whether or not its pipes are still held). */
   isPlaybackRunning(): boolean {
     return this.playbackChild !== undefined
   }
 
   /**
-   * Story 173 D1: terminates the running playback launch's process and returns `true`; kills
+   * Story 173: terminates the running playback launch's process and returns `true`; kills
    * nothing and returns `false` when no playback launch runs. There is no cleanup of its own here:
    * the kill surfaces as that launch's ordinary `'exit'` (or `'error'`), so session end, connect-cfg
    * removal, playtime and the `exited` state all run through the one existing exit chain.
@@ -307,16 +322,21 @@ export class LaunchService {
   terminatePlayback(): boolean {
     const child = this.playbackChild
     if (!child) return false
-    log.warn(`terminating the playback launch${child.pid !== undefined ? ` (pid ${String(child.pid)})` : ''}`)
+    log.warn(
+      `terminating the playback launch${child.pid !== undefined ? ` (pid ${String(child.pid)})` : ''}`,
+    )
     child.kill()
     return true
   }
 
   /**
-   * `options.playback` (story 163 D1) is main-only - deliberately not part of `LaunchInput` or its
+   * `options.playback` (story 163) is main-only - deliberately not part of `LaunchInput` or its
    * schema, so the renderer cannot ask for piped stdio on an ordinary Play/Join/Spectate.
    */
-  async start(input: LaunchInput, options?: { playback?: true; demo?: true }): Promise<Outcome<LaunchState>> {
+  async start(
+    input: LaunchInput,
+    options?: { playback?: true; demo?: true },
+  ): Promise<Outcome<LaunchState>> {
     // Story 125 review fix: `phase` only becomes `'starting'` after the sweep, `plan()` and the
     // connect-cfg write have all been awaited, so on its own `isRunning()` would let a second,
     // overlapping `start()` (a double-clicked Join) through - and its sweep would delete this
@@ -328,7 +348,7 @@ export class LaunchService {
       return fail('launch.error.alreadyRunning')
     }
 
-    // Story 091 AC5, the inverse direction of the write guard: a job copying into
+    // Story 091, the inverse direction of the write guard: a job copying into
     // this installation's folder must not have the files pulled out from under it
     // by the game starting. Asked of the guard itself, never derived from the
     // renderer-visible `Job.writeLock`, so the authoritative answer is main's.
@@ -349,7 +369,11 @@ export class LaunchService {
   }
 
   /** `start()` past its guards, with the in-flight reservation held - see `startInFlight`. */
-  private async startReserved(input: LaunchInput, playback: boolean, demo = false): Promise<Outcome<LaunchState>> {
+  private async startReserved(
+    input: LaunchInput,
+    playback: boolean,
+    demo = false,
+  ): Promise<Outcome<LaunchState>> {
     // Story 125: every launch counts, so an event arriving late from an earlier, already
     // finished launch can never remove the connect cfg this one is about to write.
     const launchSeq = ++this.launchSeq
@@ -367,10 +391,12 @@ export class LaunchService {
     if (!planned.ok) return planned
 
     if (planned.value.handoff) {
-      // Story 163 D1: a steam:// URL starts the game somewhere we hold no pipes to, so a playback
+      // Story 163: a steam:// URL starts the game somewhere we hold no pipes to, so a playback
       // launch through Steam would play nothing it could steer. Refused before any state change.
       if (playback) {
-        log.warn(`refused to play a demo through Steam for ${input.installationId}: needs a direct launch`)
+        log.warn(
+          `refused to play a demo through Steam for ${input.installationId}: needs a direct launch`,
+        )
         return fail('launch.error.playbackNeedsDirectLaunch')
       }
       return this.handOff(input.installationId, planned.value)
@@ -423,7 +449,7 @@ export class LaunchService {
         playback
           ? {
               cwd: workingDirectory,
-              // Story 163 D1: a playback launch is steered over stdin and heard over stdout;
+              // Story 163: a playback launch is steered over stdin and heard over stdout;
               // stderr stays unread, so it is not piped at all - an unread pipe fills and stalls.
               stdio: ['pipe', 'pipe', 'ignore'],
               windowsHide: false,
@@ -453,7 +479,7 @@ export class LaunchService {
     // join password cannot appear here (story 125).
     log.info(`launching ${executablePath} ${args.join(' ')}`)
 
-    // Story 163 D1: opened right after `spawn()` returns, so stdout is drained from the first byte.
+    // Story 163: opened right after `spawn()` returns, so stdout is drained from the first byte.
     // A spawn that threw never got here, so there is no session to end on that path - the getter
     // simply stays `undefined`. `endOwnSession` is the one exit for the error and exit branches:
     // it ends only the session *this* launch opened (never a later one's, never one that was
@@ -468,7 +494,7 @@ export class LaunchService {
         ownSession.end()
       }
     }
-    // Story 173 D1: only a playback launch's child is kept, and only this launch may clear it.
+    // Story 173: only a playback launch's child is kept, and only this launch may clear it.
     // `demo` marks a demo launch without pipes (Windows channel): stoppable, but no piped stdio.
     if (playback || demo) this.playbackChild = child
     const forgetOwnChild = (): void => {
@@ -516,7 +542,7 @@ export class LaunchService {
   }
 
   /**
-   * Story 104 D4: the process-less launch path. The spawned `steam` only forwards the URL to the
+   * Story 104: the process-less launch path. The spawned `steam` only forwards the URL to the
    * Steam client (or *becomes* the client if none was running), so it is started `detached` and
    * `unref`'d - otherwise quitting the launcher would take Steam down with it, and a still-open
    * Steam would keep the launcher's event loop alive. Its exit says nothing about the game, so no
@@ -563,7 +589,7 @@ export class LaunchService {
   }
 
   /**
-   * Story 090 D5: drives `launch:state` for `dev:simulateLaunch`, since fixture
+   * Story 090: drives `launch:state` for `dev:simulateLaunch`, since fixture
    * engine binaries used in e2e tests are filler bytes and cannot actually be
    * spawned. Goes through the same `current`/`onStateChange` path `start()`
    * uses, so it is indistinguishable from a real launch/exit to any consumer -
@@ -591,12 +617,6 @@ export class LaunchService {
   private setState(next: LaunchState): void {
     this.current = next
     this.broadcast(next)
-    for (const listener of [...this.listeners]) {
-      try {
-        listener(next)
-      } catch (error) {
-        log.error('a launch onStateChange listener threw', error)
-      }
-    }
+    this.listeners.emit(next)
   }
 }

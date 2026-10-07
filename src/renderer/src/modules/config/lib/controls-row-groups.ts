@@ -1,10 +1,10 @@
 /**
- * Sub-category derivation for the Controls grid (story 020 D3, generalised in D4, replaced by
- * story 053 D5).
+ * Sub-category derivation for the Controls grid (story 020, generalised later, replaced by
+ * story 053).
  *
- * D5 deletes the catalogue-id-prefix grouping this module used to do (`GROUP_LABEL_KEY_BY_PREFIX`,
+ * The later rework deletes the catalogue-id-prefix grouping this module used to do (`GROUP_LABEL_KEY_BY_PREFIX`,
  * which read a row's `CatalogRowKind` namespace off its `catalogId`) and groups by the profile's
- * own data instead: a category's `subcategories` array (story 053 D1,
+ * own data instead: a category's `subcategories` array (story 053,
  * `@shared/modules/config`'s `ConfigActionCategory.subcategories`), in that array's own order, and
  * each entry's `action.subcategoryId`. An entry whose `subcategoryId` is unset, or names an id the
  * category's `subcategories` does not have, is ungrouped - mirroring how a dangling `categoryId`
@@ -12,9 +12,9 @@
  *
  * The ungrouped run always renders first, then one group per `subcategories` entry in the
  * category's own order - the same shape the file writer (`render.ts`'s `withSubcategoryBuckets`,
- * story 053 D2) already produces on disk. Every subcategory the category has gets a group here,
+ * story 053) already produces on disk. Every subcategory the category has gets a group here,
  * even one with no rows yet: an empty sub-category still has to be visible so it can be renamed,
- * reordered or deleted (story 053 D6) and so a freshly created one does not appear to vanish.
+ * reordered or deleted (story 053) and so a freshly created one does not appear to vanish.
  *
  * Pure and hook-free like `catalog-binds.ts`, so `ControlsTab`/`ControlsGrid` can resolve
  * everything else (i18n, row rendering) while this module stays trivially testable.

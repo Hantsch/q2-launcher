@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { en } from '../../renderer/src/i18n/bundle'
 import { DEMO_RENAME_MAX_STEM, demoExtension, validateDemoRename } from './demo-rename'
 
 describe('demoExtension', () => {
@@ -19,41 +20,55 @@ describe('demoExtension', () => {
 describe('validateDemoRename', () => {
   it('rejects an empty stem', () => {
     const result = validateDemoRename('   ', 'old.dm2')
-    expect(result).toEqual({ ok: false, reason: 'empty' })
+    expect(result).toEqual({ ok: false, reasonKey: 'replays.rename.error.empty' })
   })
 
   it('rejects a stem with a path separator', () => {
     const result = validateDemoRename('foo/bar', 'old.dm2')
-    expect(result).toEqual({ ok: false, reason: 'separator' })
+    expect(result).toEqual({ ok: false, reasonKey: 'replays.rename.error.separator' })
   })
 
   it('rejects a stem containing ..', () => {
     const result = validateDemoRename('foo..bar', 'old.dm2')
-    expect(result).toEqual({ ok: false, reason: 'dotDot' })
+    expect(result).toEqual({ ok: false, reasonKey: 'replays.rename.error.dotDot' })
   })
 
   it('rejects a stem with an invalid character, reporting the first offender', () => {
     const result = validateDemoRename('foo?bar*baz', 'old.dm2')
-    expect(result).toEqual({ ok: false, reason: 'invalidChar', params: { char: '?' } })
+    expect(result).toEqual({
+      ok: false,
+      reasonKey: 'replays.rename.error.invalidChar',
+      params: { char: '?' },
+    })
   })
 
   it('rejects a stem with a trailing dot or space', () => {
-    expect(validateDemoRename('foo.', 'old.dm2')).toEqual({ ok: false, reason: 'trailingDotOrSpace' })
+    expect(validateDemoRename('foo.', 'old.dm2')).toEqual({
+      ok: false,
+      reasonKey: 'replays.rename.error.trailingDotOrSpace',
+    })
     // trailing whitespace is trimmed first, so a trailing space only survives when it's exposed by
     // stripping a re-typed extension off the (already trimmed) stem
-    expect(validateDemoRename('foo .dm2', 'old.dm2')).toEqual({ ok: false, reason: 'trailingDotOrSpace' })
+    expect(validateDemoRename('foo .dm2', 'old.dm2')).toEqual({
+      ok: false,
+      reasonKey: 'replays.rename.error.trailingDotOrSpace',
+    })
   })
 
   it('rejects reserved device names, case-insensitively', () => {
-    expect(validateDemoRename('con', 'old.dm2')).toEqual({ ok: false, reason: 'reserved', params: { name: 'con' } })
+    expect(validateDemoRename('con', 'old.dm2')).toEqual({
+      ok: false,
+      reasonKey: 'replays.rename.error.reserved',
+      params: { name: 'con' },
+    })
     expect(validateDemoRename('Com1', 'old.dm2')).toEqual({
       ok: false,
-      reason: 'reserved',
+      reasonKey: 'replays.rename.error.reserved',
       params: { name: 'Com1' },
     })
     expect(validateDemoRename('LPT9.notes', 'old.dm2')).toEqual({
       ok: false,
-      reason: 'reserved',
+      reasonKey: 'replays.rename.error.reserved',
       params: { name: 'LPT9' },
     })
   })
@@ -61,14 +76,30 @@ describe('validateDemoRename', () => {
   it('rejects a stem longer than DEMO_RENAME_MAX_STEM', () => {
     const stem = 'a'.repeat(DEMO_RENAME_MAX_STEM + 1)
     const result = validateDemoRename(stem, 'old.dm2')
-    expect(result).toEqual({ ok: false, reason: 'tooLong', params: { max: 100 } })
+    expect(result).toEqual({
+      ok: false,
+      reasonKey: 'replays.rename.error.tooLong',
+      params: { max: 100 },
+    })
   })
 
   it('keeps the extension for all four recognised extensions', () => {
-    expect(validateDemoRename('new-name', 'old.dm2')).toEqual({ ok: true, fileName: 'new-name.dm2' })
-    expect(validateDemoRename('new-name', 'old.mvd2')).toEqual({ ok: true, fileName: 'new-name.mvd2' })
-    expect(validateDemoRename('new-name', 'old.dm2.gz')).toEqual({ ok: true, fileName: 'new-name.dm2.gz' })
-    expect(validateDemoRename('new-name', 'old.mvd2.gz')).toEqual({ ok: true, fileName: 'new-name.mvd2.gz' })
+    expect(validateDemoRename('new-name', 'old.dm2')).toEqual({
+      ok: true,
+      fileName: 'new-name.dm2',
+    })
+    expect(validateDemoRename('new-name', 'old.mvd2')).toEqual({
+      ok: true,
+      fileName: 'new-name.mvd2',
+    })
+    expect(validateDemoRename('new-name', 'old.dm2.gz')).toEqual({
+      ok: true,
+      fileName: 'new-name.dm2.gz',
+    })
+    expect(validateDemoRename('new-name', 'old.mvd2.gz')).toEqual({
+      ok: true,
+      fileName: 'new-name.mvd2.gz',
+    })
   })
 
   it('preserves the extension case from a mixed-case current file name', () => {
@@ -84,5 +115,25 @@ describe('validateDemoRename', () => {
   it('accepts a stem with spaces and a single inner dot', () => {
     const result = validateDemoRename('finale vs tom pt.2', 'old.dm2')
     expect(result).toEqual({ ok: true, fileName: 'finale vs tom pt.2.dm2' })
+  })
+})
+
+describe('a rejected stem', () => {
+  it('carries the full replays.rename.error key', () => {
+    const resolves = (key: string): boolean =>
+      typeof key
+        .split('.')
+        .reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], en) === 'string'
+    const stems = ['', 'a/b', 'a..b', 'a?b', 'a.', 'con', 'x'.repeat(DEMO_RENAME_MAX_STEM + 1)]
+    const keys = stems.map((stem) => {
+      const r = validateDemoRename(stem, 'old.dm2')
+      if (r.ok) throw new Error(`expected a rejection for ${stem}`)
+      return r.reasonKey
+    })
+    expect(new Set(keys).size).toBe(7)
+    for (const key of keys) {
+      expect(key).toMatch(/^replays\.rename\.error\./)
+      expect(resolves(key), key).toBe(true)
+    }
   })
 })

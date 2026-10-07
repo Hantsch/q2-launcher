@@ -1,9 +1,11 @@
+import type { BoundModule } from '../define-module'
 import {
   REPLAYS_EVENTS,
   type DemoFormat,
   type ReplaysPlaybackDisplay,
   type ReplaysPlaybackPosition,
   type ReplaysPlaybackState,
+  type ReplaysContract,
 } from '@shared/modules/replays'
 import type { CinemaAvailability } from '@shared/replays/cinema'
 import { fail, type LaunchState, type Outcome } from '@shared/types'
@@ -11,10 +13,13 @@ import { scopedLogger } from '../../lib/logger'
 import { createLinuxChannel } from './playback-channel/linux-channel'
 import { POSITION_PUSH_MS } from './playback-channel/protocol'
 import type { EngineIo, PlaybackChannel } from './playback-channel/types'
-import { createWindowsChannel, type WindowsChannelOptions } from './playback-channel/windows-channel'
+import {
+  createWindowsChannel,
+  type WindowsChannelOptions,
+} from './playback-channel/windows-channel'
 
 /**
- * Story 164 D4: the one owner of the running demo's playback channel. `prepare` picks the platform's
+ * Story 164: the one owner of the running demo's playback channel. `prepare` picks the platform's
  * channel and hands back the launch args it needs, `attach` starts it once the game is up and pushes
  * `playback.state` / `playback.position` to the renderer, `send` forwards a console line. The session
  * ends - with `playback.state ended` as the very last event - when the game exits or fails, or when the
@@ -32,14 +37,20 @@ export interface PlaybackControlLaunch {
 }
 
 export interface PlaybackControlDeps {
-  emit: (type: string, payload: unknown) => void
+  emit: BoundModule<ReplaysContract>['emit']
   launch: PlaybackControlLaunch
   platform?: string
   makeWindows?: (options: WindowsChannelOptions) => PlaybackChannel
-  makeLinux?: (deps: { io: EngineIo; log: ReturnType<typeof scopedLogger>; gameDirPath: string }) => PlaybackChannel
-  /** Story 187 D5: whether the cinema overlay is open and whether cinema could run now - read each
+  makeLinux?: (deps: {
+    io: EngineIo
+    log: ReturnType<typeof scopedLogger>
+    gameDirPath: string
+  }) => PlaybackChannel
+  /** Story 187: whether the cinema overlay is open and whether cinema could run now - read each
    * time a display event is built. Defaults to no cinema (tests that do not care). */
   cinema?: () => { open: boolean; availability: CinemaAvailability }
+  /** Why the staged game is not kept on top, read each time a display event is built (default none). */
+  stageNotice?: () => { key: string } | null
 }
 
 export interface PlaybackPrepared {
@@ -49,7 +60,13 @@ export interface PlaybackPrepared {
 
 export interface PlaybackControl {
   /** Picks the channel; on Windows also starts it (writes its files) so they exist before the game is spawned. */
-  prepare(input: { gameDirPath: string; durationMs: number | null; format: DemoFormat }): Promise<PlaybackPrepared>
+  prepare(input: {
+    gameDirPath: string
+    durationMs: number | null
+    format: DemoFormat
+    /** Game volume the session starts with (default 70). */
+    volumePercent?: number
+  }): Promise<PlaybackPrepared>
   /** The game is up: start the channel on Linux (it needs the engine's pipes); Windows started in `prepare`. */
   attach(io?: EngineIo): Promise<void>
   /** Drops a prepared channel whose launch never started - no events. */
@@ -57,26 +74,37 @@ export interface PlaybackControl {
   send(line: string): Outcome<void>
   /** Story 187: every line sent so far has run in the game (see `PlaybackChannel.settled`). */
   settled(): Promise<void>
-  /** Format of the demo in the current session, or null with no live session (story 165 D2). */
+  /** Format of the demo in the current session, or null with no live session (story 165). */
   currentFormat(): DemoFormat | null
-  /** Story 172 D5: switch the running demo to fullscreen; no session is `NO_SESSION`. */
+  /** Story 172: switch the running demo to fullscreen; no session is `NO_SESSION`. */
   enterFullscreen(): Outcome<void>
-  /** Story 172 D5: the running demo went fullscreen (true) or came back to the stage (false). */
+  /** Story 172: the running demo went fullscreen (true) or came back to the stage (false). */
   onDisplayChange(cb: (fullscreen: boolean) => void): () => void
-  /** Story 187 D5: every `playback.state` push (`playing`, `finished`, `ended`), after it went out. */
+  /** Story 187: every `playback.state` push (`playing`, `finished`, `ended`), after it went out. */
   onStateChange(cb: (state: ReplaysPlaybackState['state']) => void): () => void
-  /** Story 187 D5: the display as a `playback.display` push would carry it now. */
+  /** Story 187: the display as a `playback.display` push would carry it now. */
   display(): ReplaysPlaybackDisplay
-  /** Story 187 D5: pushes `playback.display` now (cinema entered/left, availability changed). */
+  /** Story 187: pushes `playback.display` now (cinema entered/left, availability changed). */
   emitDisplay(): void
-  /** Story 187 D5: a `speed` timeline action reached the game - main holds the speed. */
+  /** Story 187: a `speed` timeline action reached the game - main holds the speed. */
   setSpeed(speed: number): void
+  /** A `playback.volume` line reached the game - main holds the volume, so the display can carry it. */
+  setVolume(volume: { percent: number; muted: boolean }): void
+  /** The level (never the muted 0) last set, once; survives the session ending. Null when unchanged. */
+  takeChangedVolume(): number | null
+  /**
+   * Module shutdown: drops the launch subscriptions and closes whatever channel is still open. At
+   * quit the playback release has usually ended the session already; that close is awaited, never
+   * repeated.
+   */
+  dispose(): Promise<void>
 }
 
 interface Prepared {
   channel: PlaybackChannel
   durationMs: number | null
   format: DemoFormat
+  volumePercent: number
   bindIo: (io: EngineIo | undefined) => void
   /** The channel was started in `prepare` (Windows): `attach` must not start it again. */
   startedEarly: boolean
@@ -90,7 +118,10 @@ interface Session extends Prepared {
   fullscreen: boolean
   ending: boolean
   speed: number
+  volume: { percent: number; muted: boolean }
 }
+
+export const DEFAULT_VOLUME_PERCENT = 70
 
 export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackControl {
   const { emit, launch } = deps
@@ -98,9 +129,12 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   const makeLinux = deps.makeLinux ?? createLinuxChannel
   let prepared: Prepared | null = null
   let session: Session | null = null
+  let changedVolume: number | null = null
   const displayListeners = new Set<(fullscreen: boolean) => void>()
   const stateListeners = new Set<(state: ReplaysPlaybackState['state']) => void>()
-  const cinema = deps.cinema ?? (() => ({ open: false, availability: { available: true } as CinemaAvailability }))
+  const cinema =
+    deps.cinema ??
+    (() => ({ open: false, availability: { available: true } as CinemaAvailability }))
 
   const pushState = (state: ReplaysPlaybackState['state']): void => {
     emit(REPLAYS_EVENTS.playbackState, { state } satisfies ReplaysPlaybackState)
@@ -111,7 +145,14 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     const live = session && !session.ending ? session : null
     const fullscreen = live?.fullscreen ?? false
     const c = cinema()
-    return { fullscreen, cinema: !fullscreen && c.open, speed: live?.speed ?? 1, cinemaAvailability: c.availability }
+    return {
+      fullscreen,
+      cinema: !fullscreen && c.open,
+      speed: live?.speed ?? 1,
+      volume: live?.volume ?? { percent: DEFAULT_VOLUME_PERCENT, muted: false },
+      cinemaAvailability: c.availability,
+      stageNotice: deps.stageNotice?.() ?? null,
+    }
   }
 
   const emitDisplay = (): void => {
@@ -134,9 +175,19 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     s.timer = null
   }
 
+  // Ends whose channel close is still running, so `dispose` can wait for them instead of closing again.
+  const endings = new Set<Promise<void>>()
+
   /** Closes the channel, then - and only then - announces the end. Idempotent per session. */
-  const end = async (s: Session): Promise<void> => {
-    if (s.ending) return
+  const end = (s: Session): Promise<void> => {
+    if (s.ending) return Promise.resolve()
+    const done = closeAndAnnounce(s).finally(() => endings.delete(done))
+    endings.add(done)
+    return done
+  }
+
+  // Everything up to the first `await` runs synchronously, so the close starts within `end`'s caller.
+  const closeAndAnnounce = async (s: Session): Promise<void> => {
     s.ending = true
     stopTimer(s)
     s.offFinished()
@@ -151,30 +202,35 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   }
 
   // Subscribed on first use, so a module that never plays a demo never touches the launch service.
+  // Stays true after `dispose`, so a late `prepare` cannot subscribe again.
   let subscribed = false
+  let unsubscribers: Array<() => void> = []
   const subscribe = (): void => {
     if (subscribed) return
     subscribed = true
-    launch.onStateChange((state) => {
+    const offState = launch.onStateChange((state) => {
       if (state.phase !== 'exited' && state.phase !== 'failed') return
       if (session) void end(session)
     })
     // Launcher quit: the Linux channel's last sys_console 0 write must land while stdin is still
     // open, so the close is started synchronously, before the session's pipes end.
-    launch.onBeforePlaybackRelease(() => {
+    const offRelease = launch.onBeforePlaybackRelease(() => {
       if (session) void end(session)
     })
+    unsubscribers = [offState, offRelease]
   }
 
   return {
-    async prepare({ gameDirPath, durationMs, format }) {
+    async prepare({ gameDirPath, durationMs, format, volumePercent }) {
       subscribe()
+      changedVolume = null
       if (prepared) void prepared.channel.close().catch(() => undefined)
       let channel: PlaybackChannel
       let bound: EngineIo | undefined
       const bindIo: Prepared['bindIo'] = (io) => {
         bound = io
       }
+      // platform-read: injectable default, tests pass their own
       const platform = deps.platform ?? process.platform
       if (platform === 'win32') {
         channel = makeWindows({ gameDirPath, log })
@@ -186,7 +242,14 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         channel = makeLinux({ io: lateIo, log, gameDirPath })
       }
       const startedEarly = platform === 'win32'
-      prepared = { channel, durationMs, format, bindIo, startedEarly }
+      prepared = {
+        channel,
+        durationMs,
+        format,
+        volumePercent: volumePercent ?? DEFAULT_VOLUME_PERCENT,
+        bindIo,
+        startedEarly,
+      }
       if (startedEarly) await channel.start()
       return { argsBeforeDemo: channel.argsBeforeDemo, argsAfterDemo: channel.argsAfterDemo }
     },
@@ -196,7 +259,17 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       if (!p) return
       prepared = null
       p.bindIo(io)
-      const s: Session = { ...p, timer: null, finished: false, offFinished: () => undefined, offDisplay: () => undefined, fullscreen: false, ending: false, speed: 1 }
+      const s: Session = {
+        ...p,
+        timer: null,
+        finished: false,
+        offFinished: () => undefined,
+        offDisplay: () => undefined,
+        fullscreen: false,
+        ending: false,
+        speed: 1,
+        volume: { percent: p.volumePercent, muted: false },
+      }
       session = s
       try {
         if (!p.startedEarly) await p.channel.start()
@@ -268,8 +341,41 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       emitDisplay()
     },
 
+    setVolume(volume) {
+      if (!session || session.ending) return
+      changedVolume = volume.percent
+      if (session.volume.percent === volume.percent && session.volume.muted === volume.muted) return
+      session.volume = { ...volume }
+      emitDisplay()
+    },
+
+    takeChangedVolume() {
+      const v = changedVolume
+      changedVolume = null
+      return v
+    },
+
     currentFormat() {
       return session && !session.finished ? session.format : null
+    },
+
+    async dispose() {
+      subscribed = true
+      for (const off of unsubscribers) off()
+      unsubscribers = []
+      const p = prepared
+      prepared = null
+      // `end` cleared `session` synchronously when the release started it; only that close is awaited.
+      const pending = [...endings]
+      if (session) pending.push(end(session))
+      if (p) {
+        pending.push(
+          p.channel.close().catch((error: unknown) => {
+            log.warn(`playback channel close failed: ${String(error)}`)
+          }),
+        )
+      }
+      await Promise.all(pending)
     },
   }
 }

@@ -4,7 +4,6 @@
 // movement and stay while the demo is paused; the keys Space, Right, Shift+Right and . reach the log;
 // Esc closes the overlay, the stub gets the stage geometry again and a launcher timeline click reaches
 // the log (AC6). Keys are dispatched to the overlay page via Playwright: the harness overlay is non-focusable.
-import { existsSync, readFileSync } from 'node:fs'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_TIMELINE_VARIANT,
@@ -12,6 +11,14 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { waitForWindow } from '../lib/harness.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import {
+  commands,
+  launchGeometry,
+  openDemos,
+  openFolder,
+  windowLines,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -32,72 +39,45 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-cinema: ${message}`)
-}
-const lines = (path) =>
-  existsSync(path)
-    ? readFileSync(path, 'utf8')
-        .split(/\r?\n/)
-        .filter((l) => l.length > 0)
-    : []
-const commands = () => lines(files.commandLog)
-const geometry = () => lines(files.windowLog).filter((l) => l.startsWith('set vid_geometry '))
+const fail = makeFail('replays-cinema')
+const geometry = () => windowLines(files.windowLog).filter((l) => l.startsWith('set vid_geometry '))
 const cinemaWindows = (app) => app.windows().filter((w) => w.url().includes('cinema.html'))
 
 /** Runs `act`, then waits until a command matching `expected` (string or regexp) was appended. */
 async function expectAppended(act, expected, label) {
-  const before = commands().length
+  const before = commands(files.commandLog).length
   await act()
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
   for (;;) {
-    const fresh = commands().slice(before)
+    const fresh = commands(files.commandLog).slice(before)
     const hit = fresh.find((c) => (expected instanceof RegExp ? expected.test(c) : c === expected))
     if (hit !== undefined) return hit
-    if (Date.now() >= deadline) fail(`${label}: engine ran ${JSON.stringify(fresh)} (all: ${JSON.stringify(commands())}), expected ${expected}`)
+    if (Date.now() >= deadline)
+      fail(
+        `${label}: engine ran ${JSON.stringify(fresh)} (all: ${JSON.stringify(commands(files.commandLog))}), expected ${expected}`,
+      )
     await sleep(50)
-  }
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
   }
 }
 
 async function waitAttr(locator, name, value, label, timeoutMs = 6_000) {
   const deadline = Date.now() + timeoutMs
   while ((await locator.getAttribute(name)) !== value) {
-    if (Date.now() >= deadline) fail(`${label}: ${name} is ${await locator.getAttribute(name)}, expected ${value}`)
+    if (Date.now() >= deadline)
+      fail(`${label}: ${name} is ${await locator.getAttribute(name)}, expected ${value}`)
     await sleep(100)
-  }
-}
-
-/** The stage geometry the game was launched with (`+set vid_geometry` on the main.log launching line). */
-async function launchGeometry(page) {
-  const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  const deadline = Date.now() + 10_000
-  for (;;) {
-    const content = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
-    const line = content.split(/\r?\n/).filter((l) => l.includes('launching')).pop()
-    const m = line ? /\+set vid_geometry (\d+x\d+\+-?\d+\+-?\d+)/.exec(line) : null
-    if (m) return m[1]
-    if (Date.now() >= deadline) fail(`main.log has no launching line with a vid_geometry: ${JSON.stringify(line)}`)
-    await new Promise((resolve) => setTimeout(resolve, 150))
   }
 }
 
 export default async function replaysCinema({ page, app, log, step, shot }) {
   step('a demo plays and Cinema opens the overlay')
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForScan(page)
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await openDemos(page)
+  await openFolder(page, 'ctf')
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -109,7 +89,8 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
     await sleep(100)
   }
   // The stage geometry the stub was last given before cinema pinned the display rect (AC6 compares it).
-  const stageGeometry = await launchGeometry(page)
+  const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
+  const stageGeometry = (await launchGeometry(logPath, { fail })).raw
   await page.getByTestId('replays-timeline-cinema').click({ timeout: TIMEOUT_MS })
   const overlay = await waitForWindow(app, 'cinema.html', log)
   const root = overlay.getByTestId('cinema-root')
@@ -129,11 +110,31 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
   )
   const target = Number(seek.split(' ')[1])
   if (Math.abs(target - Math.round(41 * 0.25)) > 2) fail(`a click at 25% sent ${seek}`)
-  await expectAppended(() => overlay.getByTestId('cinema-forward').click({ timeout: TIMEOUT_MS }), 'seek +10', 'jump +10')
-  await expectAppended(() => overlay.getByTestId('cinema-back').click({ timeout: TIMEOUT_MS }), 'seek -10', 'jump -10')
-  await expectAppended(() => overlay.getByTestId('cinema-back60').click({ timeout: TIMEOUT_MS }), 'seek -60', 'jump -60')
-  await expectAppended(() => overlay.getByTestId('cinema-speed').selectOption('2', { timeout: TIMEOUT_MS }), 'timescale 2', 'speed 2')
-  await expectAppended(() => overlay.getByTestId('cinema-speed').selectOption('1', { timeout: TIMEOUT_MS }), 'timescale 1', 'speed 1')
+  await expectAppended(
+    () => overlay.getByTestId('cinema-forward').click({ timeout: TIMEOUT_MS }),
+    'seek +10',
+    'jump +10',
+  )
+  await expectAppended(
+    () => overlay.getByTestId('cinema-back').click({ timeout: TIMEOUT_MS }),
+    'seek -10',
+    'jump -10',
+  )
+  await expectAppended(
+    () => overlay.getByTestId('cinema-back60').click({ timeout: TIMEOUT_MS }),
+    'seek -60',
+    'jump -60',
+  )
+  await expectAppended(
+    () => overlay.getByTestId('cinema-speed').selectOption('2', { timeout: TIMEOUT_MS }),
+    'timescale 2',
+    'speed 2',
+  )
+  await expectAppended(
+    () => overlay.getByTestId('cinema-speed').selectOption('1', { timeout: TIMEOUT_MS }),
+    'timescale 1',
+    'speed 1',
+  )
   await shot('cinema-controls')
 
   step('the controls hide when idle and come back on mouse movement')
@@ -147,7 +148,11 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
 
   step('a paused demo keeps the controls up')
   await overlay.mouse.move(60, 60)
-  await expectAppended(() => overlay.getByTestId('cinema-toggle').click({ timeout: TIMEOUT_MS }), 'pause', 'pause')
+  await expectAppended(
+    () => overlay.getByTestId('cinema-toggle').click({ timeout: TIMEOUT_MS }),
+    'pause',
+    'pause',
+  )
   await overlay.mouse.move(5, 5)
   await sleep(3_500)
   await waitAttr(root, 'data-controls', 'visible', 'paused demo', 1_000)
@@ -156,8 +161,16 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
   // +60 overshoots the 41 s demo and a playing demo would end there; paused it only clamps. The seek bar
   // brings the position back afterwards.
   const back = () =>
-    expectAppended(() => overlay.mouse.click(bar.x + bar.width * 0.25, bar.y + bar.height / 2), /^seek \d+$/, 'seek back')
-  await expectAppended(() => overlay.getByTestId('cinema-forward60').click({ timeout: TIMEOUT_MS }), 'seek +60', 'jump +60')
+    expectAppended(
+      () => overlay.mouse.click(bar.x + bar.width * 0.25, bar.y + bar.height / 2),
+      /^seek \d+$/,
+      'seek back',
+    )
+  await expectAppended(
+    () => overlay.getByTestId('cinema-forward60').click({ timeout: TIMEOUT_MS }),
+    'seek +60',
+    'jump +60',
+  )
   await back()
 
   step('keys reach the log: Space, Right, Shift+Right and .')
@@ -178,13 +191,28 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
   }
   const stageBy = Date.now() + ENGINE_TIMEOUT_MS
   while (geometry().length <= geometryBefore) {
-    if (Date.now() >= stageBy) fail(`the stub never got the stage geometry again: ${JSON.stringify(lines(files.windowLog))}`)
+    if (Date.now() >= stageBy)
+      fail(
+        `the stub never got the stage geometry again: ${JSON.stringify(windowLines(files.windowLog))}`,
+      )
     await sleep(50)
   }
   if (geometry().at(-1)?.slice('set vid_geometry '.length) !== stageGeometry) {
-    fail(`the newest geometry after leaving is ${geometry().at(-1)}, expected the stage geometry ${stageGeometry}`)
+    fail(
+      `the newest geometry after leaving is ${geometry().at(-1)}, expected the stage geometry ${stageGeometry}`,
+    )
   }
-  await waitAttr(page.getByTestId('replays-timeline-cinema'), 'data-mode', 'preview', 'mode after leaving', 6_000)
-  await expectAppended(() => page.getByTestId('replays-timeline-forward').click({ timeout: TIMEOUT_MS }), 'seek +10', 'launcher jump')
+  await waitAttr(
+    page.getByTestId('replays-timeline-cinema'),
+    'data-mode',
+    'preview',
+    'mode after leaving',
+    6_000,
+  )
+  await expectAppended(
+    () => page.getByTestId('replays-timeline-forward').click({ timeout: TIMEOUT_MS }),
+    'seek +10',
+    'launcher jump',
+  )
   if (log.pageErrors.length > 0) fail(`page errors: ${JSON.stringify(log.pageErrors)}`)
 }

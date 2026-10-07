@@ -2,6 +2,7 @@
 import { StrictMode } from 'react'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { initI18n } from '../../i18n'
@@ -36,10 +37,8 @@ function profile(id: string, name: string): ConfigProfile {
 
 const PROFILES = [profile('p1', 'Competitive'), profile('p2', 'Casual')]
 
-const listConfigProfiles = vi.fn<() => Promise<Outcome<ConfigProfile[]>>>(async () => ({
-  ok: true,
-  value: PROFILES,
-}))
+const listAll = async (): Promise<Outcome<ConfigProfile[]>> => ({ ok: true, value: PROFILES })
+const listConfigProfiles = vi.fn<() => Promise<Outcome<ConfigProfile[]>>>(listAll)
 
 vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = {
@@ -60,10 +59,12 @@ vi.stubGlobal(
   },
 )
 
-vi.mock('./client', async () => {
-  const actual = await vi.importActual<typeof import('./client')>('./client')
-  return { ...actual, listConfigProfiles: () => listConfigProfiles() }
-})
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listConfigProfiles: () => listConfigProfiles(),
+    getSwitchBinds: async () => ({ ok: true as const, value: {} }),
+  }),
+)
 
 vi.mock('./lib/use-drift-state', () => ({
   useDriftState: () => ({ status: { kind: 'loading' as const }, refetch: () => {} }),
@@ -81,6 +82,7 @@ vi.mock('./lib/useProfileDraft', () => ({
 
 const { ConfigView } = await import('./ConfigView')
 const { useLauncher, ROUTE_HOME } = await import('../../store/useLauncher')
+const { useConfigProfiles } = await import('./config-profiles-store')
 
 beforeAll(async () => {
   await initI18n('en')
@@ -88,12 +90,15 @@ beforeAll(async () => {
 
 beforeEach(() => {
   useLauncher.setState({ route: ROUTE_HOME, routeFocus: null })
+  // The store outlives a mount, so each test starts from the empty list of a first visit.
+  useConfigProfiles.setState({ profiles: [] })
 })
 
 afterEach(() => {
   cleanup()
   useLauncher.setState({ route: ROUTE_HOME, routeFocus: null })
   listConfigProfiles.mockClear()
+  listConfigProfiles.mockImplementation(listAll)
 })
 
 /**
@@ -142,6 +147,34 @@ describe('ConfigView route focus', () => {
 
     await expectListScreen()
     expect(useLauncher.getState().routeFocus).toBeNull()
+  })
+
+  it('a route-focus hint opens the profile when the store already holds the list', async () => {
+    // A later visit: the list is kept from before, and this mount's re-read never answers - so
+    // the hint can only have been applied from the stored list, on the first commit.
+    useConfigProfiles.setState({ profiles: PROFILES })
+    listConfigProfiles.mockImplementation(() => new Promise(() => {}))
+    useLauncher.getState().setRoute('/config', 'p2')
+
+    renderView()
+
+    await waitFor(() =>
+      expect(screen.getByTestId('config-profile-identity').textContent).toContain('Casual'),
+    )
+    expect(useLauncher.getState().routeFocus).toBeNull()
+  })
+
+  it('a hint missing from the stored list opens the profile once the re-read brings it', async () => {
+    // The stored list predates the hinted profile; dropping the hint against it would land on the
+    // list even though the profile exists.
+    useConfigProfiles.setState({ profiles: [PROFILES[0]!] })
+    useLauncher.getState().setRoute('/config', 'p2')
+
+    renderView()
+
+    await waitFor(() =>
+      expect(screen.getByTestId('config-profile-identity').textContent).toContain('Casual'),
+    )
   })
 
   it('without a focus the view opens on the list, as before', async () => {

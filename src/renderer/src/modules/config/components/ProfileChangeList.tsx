@@ -4,11 +4,11 @@ import type {
   ProfileChangeDetail,
   ProfileChangeSection,
   ProfileChangeSet,
-} from '@shared/config/profile-diff'
+} from '@shared/config/profile/profile-diff'
 import { Badge, type BadgeTone, SectionLabel } from '../../../components/ui/primitives'
 
 /**
- * Story 049 D5: the before/after list of what a Save would write, rendered by `UnsavedChangesTab`
+ * Story 049: the before/after list of what a Save would write, rendered by `UnsavedChangesTab`
  * (originally a disclosure inside the save-bar row) - a structured list of
  * `changeSet`'s per-section buckets (story Decisions: a structured list, not a text diff of the
  * rendered file), grouped the same way `ProfileChangeSet.sections` already groups them.
@@ -22,17 +22,17 @@ import { Badge, type BadgeTone, SectionLabel } from '../../../components/ui/prim
  * before/after strings (`profile-diff.ts`), so there is no file text to diff here, only prose to
  * wrap around numbers that already make sense.
  *
- * Story 064 D2: a row now reads as an actual diff rather than a one-line summary a user has to
+ * Story 064: a row now reads as an actual diff rather than a one-line summary a user has to
  * compare by eye. Three additions over story 049's shape, all renderer-side (main sends no prose,
  * per CLAUDE.md):
  * - a text `kind` `Badge` (added/removed/changed) next to the existing "unset"/"unbound"
- *   placeholder for the missing side - AC2's non-colour-alone marker, mirroring story 049's own
+ *   placeholder for the missing side - the non-colour-alone marker, mirroring story 049's own
  *   row glyph rule.
- * - when `change.details` is populated (D1, `actions`/`layers` `changed` rows only), a nested
+ * - when `change.details` is populated (`actions`/`layers` `changed` rows only), a nested
  *   `field: before -> after` list under the summary line, each value in a bounded, scrollable
  *   block (`max-h-24 overflow-y-auto whitespace-pre-line break-words`, mirroring
  *   `CareBatchFixDialog.tsx`'s before/after pair) rather than `line-clamp` + `title`, which would
- *   hide the very command that changed and be unreachable by keyboard (AC5).
+ *   hide the very command that changed and be unreachable by keyboard.
  * - `settings` rows resolve their field key (`name`/`writeUnbindall`/`sectionHeaderStyle`) through
  *   an i18n label map instead of printing it verbatim; the values stay the literal strings a save
  *   writes.
@@ -48,11 +48,11 @@ const SECTION_ORDER: readonly ProfileChangeSection[] = [
 ]
 
 const SECTION_LABEL_KEYS: Record<ProfileChangeSection, string> = {
-  cvars: 'config.save.changes.section.cvars',
+  cvars: 'common.label.cvars',
   binds: 'config.save.changes.section.binds',
   actions: 'config.save.changes.section.actions',
   layers: 'config.save.changes.section.layers',
-  settings: 'config.save.changes.section.settings',
+  settings: 'common.label.settings',
   unrecognized: 'config.save.changes.section.unrecognized',
 }
 
@@ -84,10 +84,10 @@ export function ProfileChangeList({ changeSet }: { changeSet: ProfileChangeSet }
 const SETTINGS_LABEL_KEYS: Record<string, string> = {
   name: 'config.save.changes.settingsLabel.name',
   writeUnbindall: 'config.save.changes.settingsLabel.writeUnbindall',
-  sectionHeaderStyle: 'config.save.changes.settingsLabel.sectionHeaderStyle',
+  sectionHeaderStyle: 'common.label.sectionHeaderStyle',
 }
 
-/** Badge tone per kind - text is the actual AC2 marker (below), the tone is a secondary,
+/** Badge tone per kind - text is the actual non-colour marker (below), the tone is a secondary,
  * non-load-bearing cue. */
 const KIND_TONE: Record<ProfileChange['kind'], BadgeTone> = {
   added: 'success',

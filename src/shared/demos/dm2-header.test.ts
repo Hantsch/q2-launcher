@@ -34,7 +34,13 @@ describe('parseDm2Header', () => {
 
   it('the game dir comes from serverdata and an empty one is baseq2', () => {
     const withDir = parseDm2Header(
-      buildDm2({ protocol: 34, gameDir: 'xatrix', playernum: 0, configstrings: {}, terminate: true }),
+      buildDm2({
+        protocol: 34,
+        gameDir: 'xatrix',
+        playernum: 0,
+        configstrings: {},
+        terminate: true,
+      }),
     )
     expect(withDir.ok).toBe(true)
     if (withDir.ok) expect(withDir.gameDir).toBe('xatrix')
@@ -178,7 +184,13 @@ describe('parseDm2Header', () => {
     if (!badLengthResult.ok) expect(badLengthResult.reason).toBe('not-a-demo')
 
     const unknownProtocol = parseDm2Header(
-      buildDm2({ protocol: 9999 as never, gameDir: 'baseq2', playernum: 0, configstrings: {}, terminate: true }),
+      buildDm2({
+        protocol: 9999 as never,
+        gameDir: 'baseq2',
+        playernum: 0,
+        configstrings: {},
+        terminate: true,
+      }),
     )
     expect(unknownProtocol.ok).toBe(false)
     if (!unknownProtocol.ok) {

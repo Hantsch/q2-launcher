@@ -1,15 +1,11 @@
-import { ok } from '@shared/types'
+import { fail, ok } from '@shared/types'
 import {
   devSimulateAppUpdateSchema,
   devSimulateJobSchema,
   devSimulateLaunchSchema,
 } from '@shared/ipc-schemas'
-import { isWriteCancelled } from '../services/write-guard'
 import type { AppContext } from '../context'
 import { handle } from './index'
-import { scopedLogger } from '../lib/logger'
-
-const log = scopedLogger('dev-ipc')
 
 /**
  * Development-only channels - see `DEV_ONLY_CHANNELS` in `src/shared/ipc.ts`. Registered in dev
@@ -22,46 +18,34 @@ export function registerDevIpc(app: AppContext): void {
     const { scenario } = payload
 
     if (scenario === 'writing') {
-      // Story 091 D7: creates a job that acquires the *real* `InstallationWriteGuard`
-      // lock for `installationId` and holds it until cancelled - AC5's Play-button
-      // refusal (`launch.error.installationBusy`) has to be exercised through the
-      // real guard, not faked, or the e2e flow would prove nothing.
+      // A job that takes the *real* write lock for `installationId` through
+      // the shared runner and holds it until cancelled - the Play-button refusal
+      // (`launch.error.installationBusy`) and the runner's own busy refusal have to be exercised
+      // through the real guard and runner, not faked, or the e2e flows would prove nothing.
       const { installationId } = payload
-      const cancellation = new AbortController()
-
-      const job = app.jobs.create({
-        moduleId: 'downloads',
-        kind: 'dev-simulated-write',
-        labelKey: 'jobs.simulatedWrite',
-        installationId,
-        cancellable: true,
-        onCancel: () => {
-          cancellation.abort()
+      const started = app.jobRunner.run(
+        {
+          moduleId: 'downloads',
+          kind: 'dev-simulated-write',
+          labelKey: 'jobs.simulatedWrite',
+          installationId,
+          exclusive: 'installation',
+          cancellable: true,
         },
-      })
-
-      // Never resolves on its own - it only settles once `onCancel` aborts the
-      // signal, same "holds forever until cancelled" contract as the `stall`
-      // scenario below, but for the write phase instead of progress.
-      const holdUntilCancelled = (): Promise<void> =>
-        new Promise((resolve) => {
-          if (cancellation.signal.aborted) {
-            resolve()
-            return
-          }
-          cancellation.signal.addEventListener('abort', () => resolve(), { once: true })
-        })
-
-      app.writeGuard
-        .runWrite(installationId, job.id, cancellation.signal, holdUntilCancelled)
-        .catch((error: unknown) => {
-          // `JobsService.cancel()` already finishes the job as `cancelled` before
-          // this rejection is even observed here - nothing more to do for the
-          // expected abort-while-waiting path. Anything else is a real bug.
-          if (!isWriteCancelled(error)) {
-            log.error(`dev:simulateJob 'writing' scenario failed for job ${job.id}`, error)
-          }
-        })
+        async (ctx) => {
+          // Never resolves on its own - it only settles once the job's cancel aborts the signal.
+          const result = await ctx.write(
+            installationId,
+            () =>
+              new Promise<void>((resolve) => {
+                if (ctx.signal.aborted) return resolve()
+                ctx.signal.addEventListener('abort', () => resolve(), { once: true })
+              }),
+          )
+          return result === 'cancelled' ? ctx.cancelled() : { status: 'succeeded' }
+        },
+      )
+      if (!started.ok) return fail(started.error.key, started.error.params)
 
       return ok(null)
     }
@@ -112,7 +96,7 @@ export function registerDevIpc(app: AppContext): void {
       return ok(null)
     }
 
-    // scenario === 'success': the pre-D5 behaviour, unchanged - progresses to
+    // scenario === 'success': the earlier behaviour, unchanged - progresses to
     // completion on a timer, then finishes `succeeded`.
     let ratio = 0
 
@@ -135,7 +119,7 @@ export function registerDevIpc(app: AppContext): void {
     return ok(null)
   })
 
-  // Story 090 D5: lets the e2e flow put one installation into `running`/`idle`
+  // Story 090: lets the e2e flow put one installation into `running`/`idle`
   // through a real IPC surface - see `devSimulateLaunchSchema` and
   // `LaunchService.simulate` for why this exists instead of a real launch.
   handle('dev:simulateLaunch', devSimulateLaunchSchema, ({ installationId, phase }) => {
@@ -143,8 +127,8 @@ export function registerDevIpc(app: AppContext): void {
     return ok(null)
   })
 
-  // Story 098 D4: offline simulation of the whole update flow - see `UpdateService.simulate()`'s
-  // doc comment for why no real check or download is involved. AC6's restart guard is deliberately
+  // Story 098: offline simulation of the whole update flow - see `UpdateService.simulate()`'s
+  // doc comment for why no real check or download is involved. the restart guard is deliberately
   // not one of these scenarios: it is exercised through the real `update:installAndRestart` channel
   // once `'downloaded'` has staged a release, same as `dev:simulateJob('writing')`'s "real guard,
   // faked work" precedent.

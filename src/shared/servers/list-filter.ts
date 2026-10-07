@@ -6,15 +6,21 @@
  *
  * Pure by contract: this file lives in `src/shared`, so no `node:*` import, no DOM types, no IPC.
  */
+import { equalsIgnoreCase, matchesTerm } from '../list/search'
 import { isBotsOnly, isWaitingForOpponent, knownPlayerCount } from './row-markers'
 import type { ServerGamemode } from './row-markers'
 import type { ServerListEntry, ServerListRow } from '../modules/servers'
 
+export const MAX_PING_STEPS = [50, 100, 150, 200] as const
+export type MaxPingMs = (typeof MAX_PING_STEPS)[number]
+
 export interface ServerListFilter {
   search: string
-  mod: string | null
+  mod: string[]
   gamemode: ServerGamemode | null
-  map: string | null
+  map: string[]
+  /** Strict "below" this many ms; only online rows with a measured ping match. */
+  maxPingMs: MaxPingMs | null
   /** Only servers known to have nobody on them. */
   empty: boolean
   /** Hides servers whose whole roster looks like bots (`isBotsOnly`) - an estimate. */
@@ -25,9 +31,10 @@ export interface ServerListFilter {
 /** The filter with every criterion cleared — `filterServers` returns every row unchanged for this. */
 export const EMPTY_SERVER_LIST_FILTER: ServerListFilter = {
   search: '',
-  mod: null,
+  mod: [],
   gamemode: null,
-  map: null,
+  map: [],
+  maxPingMs: null,
   empty: false,
   hideBotsOnly: false,
   waitingForOpponent: false,
@@ -37,9 +44,10 @@ export const EMPTY_SERVER_LIST_FILTER: ServerListFilter = {
  * not count, matching `matchesSearch`'s own empty-term behaviour. */
 export function isFilterActive(f: ServerListFilter): boolean {
   return (
-    f.mod !== null ||
+    f.mod.length > 0 ||
     f.gamemode !== null ||
-    f.map !== null ||
+    f.map.length > 0 ||
+    f.maxPingMs !== null ||
     f.empty ||
     f.hideBotsOnly ||
     f.waitingForOpponent ||
@@ -51,26 +59,25 @@ export function isFilterActive(f: ServerListFilter): boolean {
  * Whether `row` matches a free-text search term: an empty (or whitespace-only) term always matches.
  * Otherwise matches case-insensitively against the row's name, address, or - only when `players` is
  * the fetched roster array rather than a bare count or unknown - any player's name. Never throws.
+ *
+ * Quoted mode: a trimmed term of at least three characters that starts and ends with a double quote
+ * (`"ffa"`) matches exactly instead - the text between the quotes (case-insensitive, not trimmed)
+ * must equal the whole name, the whole address, or, where a roster was fetched, a whole player
+ * name. Anything else (an unclosed quote, empty quotes, a lone quote, single quotes) is plain text.
  */
 export function matchesSearch(
   row: Pick<ServerListEntry, 'name' | 'address' | 'players'>,
   term: string,
 ): boolean {
-  const t = term.trim().toLowerCase()
-  if (t === '') return true
-
-  if (row.name !== undefined && row.name.toLowerCase().includes(t)) return true
-  if (row.address.toLowerCase().includes(t)) return true
-
-  if (Array.isArray(row.players)) {
-    return row.players.some((player) => player.name.toLowerCase().includes(t))
-  }
-
-  return false
+  return matchesTerm(term, [
+    row.name,
+    row.address,
+    ...(Array.isArray(row.players) ? row.players.map((p) => p.name) : []),
+  ])
 }
 
 function matchesText(value: string | undefined, filterValue: string): boolean {
-  return value !== undefined && value.toLowerCase() === filterValue.toLowerCase()
+  return equalsIgnoreCase(value, filterValue)
 }
 
 /**
@@ -80,9 +87,15 @@ function matchesText(value: string | undefined, filterValue: string): boolean {
 export function matchesFilter(row: ServerListRow, f: ServerListFilter): boolean {
   if (!matchesSearch(row, f.search)) return false
 
-  if (f.mod !== null && !matchesText(row.mod, f.mod)) return false
-  if (f.map !== null && !matchesText(row.map, f.map)) return false
+  if (f.mod.length > 0 && !f.mod.some((m) => matchesText(row.mod, m))) return false
+  if (f.map.length > 0 && !f.map.some((m) => matchesText(row.map, m))) return false
   if (f.gamemode !== null && row.gamemode !== f.gamemode) return false
+  if (
+    f.maxPingMs !== null &&
+    !(row.status === 'online' && row.rttMs !== undefined && row.rttMs < f.maxPingMs)
+  ) {
+    return false
+  }
 
   if (f.empty || f.waitingForOpponent) {
     const n = knownPlayerCount(row)
@@ -118,7 +131,10 @@ function distinctSorted(values: (string | undefined)[]): string[] {
 
 /** The distinct `mod`/`map` values across `rows`, deduped case-insensitively (first spelling
  * encountered wins) and sorted with `localeCompare`, for populating filter dropdowns. */
-export function filterOptions(rows: readonly ServerListEntry[]): { mods: string[]; maps: string[] } {
+export function filterOptions(rows: readonly ServerListEntry[]): {
+  mods: string[]
+  maps: string[]
+} {
   return {
     mods: distinctSorted(rows.map((r) => r.mod)),
     maps: distinctSorted(rows.map((r) => r.map)),

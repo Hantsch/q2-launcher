@@ -13,7 +13,7 @@ for message text, and compose multi-command binds, so I can build the kind of ri
 action binds `q2-config-manager` supported without memorizing escape codes or byte limits by
 hand.
 
-See [docs/concepts/config-module.md §5](../concepts/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
+See [docs/concepts/config-module.md §5](../../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
 ("Advanced").
 
 ## Acceptance Criteria
@@ -51,7 +51,7 @@ this story's acceptance criteria. See `## Decisions (Sprint)`._
 4. **Built-in categories are exactly the three the AC names** — `movement`, `weapons`, `drops`
    ("Weapon dropping"), matching upstream's `group: 'main'` set; upstream's `comms`/`misc`
    catalogue groups feed the command picker but are not categories, and "Team messages"/"Timings"
-   are seeded as *custom* categories (upstream marks them `builtin: false` too).
+   are seeded as _custom_ categories (upstream marks them `builtin: false` too).
 5. **Built-in categories are a shared constant, not persisted rows**
    (`BUILT_IN_ACTION_CATEGORIES`) — a profile persists only its custom categories, so their
    labels stay translatable and no migration is needed when the list changes.
@@ -68,14 +68,14 @@ this story's acceptance criteria. See `## Decisions (Sprint)`._
    (`AdvancedTab.tsx:400`); storing the message body separately makes the round-trip exact and
    gives story 009 a field to point a finding at.
 9. **Message text is a plain latin-1 string with the macro tokens inline, not a segment array** —
-   that string *is* what the engine receives; the editor derives its highlighting from a pure
+   that string _is_ what the engine receives; the editor derives its highlighting from a pure
    `tokenizeMessage()`, so there is only ever one source of truth to keep in sync.
 10. **Latin-1 is enforced at the schema boundary**: every action/message string is restricted to
     code points U+0000–U+00FF by zod. JSON persistence and the writer's `latin1` encoding then
     both round-trip byte-for-byte, and a paste of a UTF-8 em dash is rejected at the door rather
     than truncated by `Buffer.from(str, 'latin1')` later (the trap `render.ts` already documents).
 11. **Colour is the high-bit alternate charset (`| 0x80`), not `^1`-style markup** — Quake 2 has
-    no colour markup; the conchars font's upper half *is* the green set. The picker therefore
+    no colour markup; the conchars font's upper half _is_ the green set. The picker therefore
     offers "alternate charset" on the selection plus the curated `Q2_GLYPHS` byte list.
 12. **Double quotes are rejected in action/command/message text** — Quake has no in-quote
     escaping (concept §5), so a `"` cannot be represented at all; rejecting it in the schema and
@@ -91,7 +91,7 @@ this story's acceptance criteria. See `## Decisions (Sprint)`._
     `MAX_ALIAS_NAME` (32, i.e. 31 usable).
 16. **The auto-split is upstream's `chunkCommands`, ported and generalised to user-authored
     actions** — 16 bytes of headroom under `maxLineBytes`, parts named `<alias>_p<n>`, the parent
-    body becoming `p1; p2; …`. Upstream only auto-split *generated* alt-layer aliases and left
+    body becoming `p1; p2; …`. Upstream only auto-split _generated_ alt-layer aliases and left
     user aliases to a validator error; AC 4 asks for the split, so it moves into the renderer.
 17. **`profile.binds` stays the single source of truth for key → command**: on every save the
     handler drops every bind whose value starts with `q2l_a_` and re-adds one per action with a
@@ -146,9 +146,9 @@ rather than duplicating (decision 20).
 - **D1 — Message facts (shared, pure).** `src/shared/config/chat-macros.ts`, `q2-charset.ts`,
   `chat-macros.test.ts`, `q2-charset.test.ts`. Ported from upstream `core/macros.ts` +
   `core/encoding.ts`, prose replaced by i18n keys (decision 3). Adds `tokenizeMessage(text):
-  { kind: 'text' | 'meta' | 'macro'; value; index }[]` which upstream did not have.
-  *Mirror:* `src/shared/config/cvar-facts.ts` (+ its test for style).
-  *Accepted when:* tests cover all 7 tokens, a `$` that is not a macro staying literal text, a
+{ kind: 'text' | 'meta' | 'macro'; value; index }[]` which upstream did not have.
+  _Mirror:_ `src/shared/config/cvar-facts.ts` (+ its test for style).
+  _Accepted when:_ tests cover all 7 tokens, a `$` that is not a macro staying literal text, a
   single-dollar `$loc_here` being flagged, `toAltCharset` leaving spaces and existing high bytes
   alone, and a 0x80–0xFF string surviving `toAltCharset`/`fromAltCharset` unchanged.
   **Covers AC 2 (macro vocabulary + distinction), AC 3 (charset side).**
@@ -156,23 +156,23 @@ rather than duplicating (decision 20).
   `src/shared/config/action-catalog.ts`, `engine-limits.ts`, `action-catalog.test.ts`.
   Movement/weapon/droppable actions and the `MESSAGE_SUGGESTIONS`/`ITEM_RESPAWN_SECONDS` presets
   from upstream `core/catalog.ts` + `core/macros.ts`; limits with their engine citations copied
-  verbatim from upstream `core/engines.ts`. *Accepted when:* every droppable with ammo yields a
+  verbatim from upstream `core/engines.ts`. _Accepted when:_ every droppable with ammo yields a
   weapon+ammo command pair, ids are unique, and the limit constants carry their source comments.
   **Covers AC 1 (built-in category contents), AC 4 (limit constants).**
 - **D3 — Contract, persisted shape and payload validation.** `src/shared/modules/config.ts`
   (types above + `CONFIG_HANDLERS.setActions`), `src/main/lib/schemas.ts` (`categories`/`actions`
   on `configProfileSchema`, each `.catch(() => [])`), `src/main/modules/config/schemas.ts`
   (`setProfileActionsInputSchema`, latin-1 code-point + no-`"` refinements).
-  *Mirror:* the `cvars` field and `setProfileCvarsInputSchema` added by story 003.
-  *Accepted when:* a profile without the keys loads with empty lists (no
+  _Mirror:_ the `cvars` field and `setProfileCvarsInputSchema` added by story 003.
+  _Accepted when:_ a profile without the keys loads with empty lists (no
   `STATE_SCHEMA_VERSION` bump), a malformed row is dropped alone, a string containing U+2014 or
   `"` is rejected, and a string of U+00A0–U+00FF is accepted.
   **Covers AC 1 (shape), AC 3 (byte-exactness at the boundary).**
 - **D4 — `setActions` handler and the bind mirror.** `src/main/modules/config/profiles.ts`,
   `index.ts`, `profiles.test.ts`. Replaces `categories` + `actions` wholesale, bumps `updatedAt`,
   and rebuilds `binds`: every entry whose value starts with `q2l_a_` is dropped, then one
-  `binds[normalizeBindKey(action.key)] = <alias name>` per keyed action. *Mirror:* `setCvars`.
-  *Accepted when:* tests prove a user's hand-written bind survives a save, a removed action's
+  `binds[normalizeBindKey(action.key)] = <alias name>` per keyed action. _Mirror:_ `setCvars`.
+  _Accepted when:_ tests prove a user's hand-written bind survives a save, a removed action's
   bind disappears, two actions on the same key resolve deterministically (last wins, by action
   order), and the list round-trips through `StateStore`.
   **Covers AC 1 (persistence), AC 5 (overview + write trigger, main side).**
@@ -182,7 +182,7 @@ rather than duplicating (decision 20).
   `'; '` with a message rendering as `say_team <text>`; over `CBUF_LINE_BYTES - 16` the body is
   chunked into `<alias>_p<n>` parts whose names the parent calls in order (upstream
   `altlayers.ts:67-115`). `renderProfileFile` emits the alias block between the cvar and bind
-  blocks, deterministically ordered. *Accepted when:* tests cover a short action (single line),
+  blocks, deterministically ordered. _Accepted when:_ tests cover a short action (single line),
   an action long enough to need 3 parts (every emitted line < 1024 bytes, every alias name
   ≤ 31 chars, executing the parent runs the commands in the original order), a high-ASCII message
   round-tripping byte-for-byte through `Buffer.from(text, 'latin1')`, and a profile with no
@@ -194,7 +194,7 @@ rather than duplicating (decision 20).
   (`config.tabs.advanced`, `config.advanced.*`). Category rail: the three built-ins plus custom
   categories with create/rename/delete (delete cascades its actions, built-ins can only be
   emptied); selected category lists its actions with add/remove and a save debounced like
-  `SettingsTab`. Design-system primitives only. *Mirror:* `SettingsTab.tsx` (debounced save,
+  `SettingsTab`. Design-system primitives only. _Mirror:_ `SettingsTab.tsx` (debounced save,
   props shape), `ConfigView.tsx:233-260` (tab strip).
   **Covers AC 1 (UI), AC 5 (save trigger).**
 - **D7 — Action editor: multi-command composer and key assignment.**
@@ -202,7 +202,7 @@ rather than duplicating (decision 20).
   `lib/keyboard-layout.ts` (`resolveAliasChain` expands `q2l_a_` aliases, decision 18). Ordered
   command list with add/remove/reorder, a picker fed by D2's catalogue, a free-text command row,
   and press-to-capture key assignment via `resolveQuakeKeyName`. Shows the rendered byte length
-  with a marker when the split will kick in. *Mirror:* `SwitchBindControl` (story 007) for key
+  with a marker when the split will kick in. _Mirror:_ `SwitchBindControl` (story 007) for key
   capture, `CvarRow.tsx` for row layout.
   **Covers AC 4 (composition UI), AC 5 (overview reflection).**
 - **D8 — Message editor with symbol and colour picker.**
@@ -235,7 +235,7 @@ AC 4 → D2 + D5 + D7 · AC 5 → D4 + D5 + D6 + D7.
 
 1. Config → open a profile → the detail view now has an **Advanced** tab.
 2. The category rail shows **Movement**, **Weapons** and **Weapon dropping**; none of them offers
-   a delete action. Create a custom category "Team messages" → it appears and *is* deletable.
+   a delete action. Create a custom category "Team messages" → it appears and _is_ deletable.
 3. In **Weapon dropping**, add an action from the catalogue for the Rocket Launcher → it comes
    pre-filled with `drop rocket launcher` + `drop rockets`. Add a third command by hand, assign
    it to a key by pressing that key. Open the **Overview** tab → that keycap is now bound and
@@ -251,7 +251,7 @@ AC 4 → D2 + D5 + D7 · AC 5 → D4 + D5 + D6 + D7.
 7. Add commands to one action until the composer says the line will be split → save, preview
    again: the alias body is now `…_p1; …_p2` and every line stays under 1024 bytes.
 8. Restart the app → categories, actions, messages and key assignments are all still there.
-9. Launch the installation and press the two bound keys: the drop chain drops weapon *and* ammo;
+9. Launch the installation and press the two bound keys: the drop chain drops weapon _and_ ammo;
    the message key posts the team message with the location filled in.
 
 ## Done
@@ -302,7 +302,7 @@ emitter, the `setActions` handler and bind mirror, and a new Advanced tab in the
   accepted-when criteria never reference, while D1's do.
 - **`alias-render.ts` was relocated from `src/main/modules/config/` to `src/shared/config/`
   mid-story (during D7)** — D7's byte-length/split preview and `resolveAliasChain`'s alias
-  expansion both need the *exact* alias-naming/chunking function the writer uses, not a second
+  expansion both need the _exact_ alias-naming/chunking function the writer uses, not a second
   reimplementation that could drift from what lands on disk. This is the identical reasoning
   `alt-layers.ts`'s own doc comment gives for why layer-alias generation lives in `src/shared`
   ("one generator, so preview and disk can never disagree"). The file had zero main-only
@@ -332,7 +332,7 @@ layer D1-D5, and renderer/UI layer D6-D8 — per the diff-size guidance, plus on
 fix-verification pass):
 
 1. **[confirmed, high] Stale-closure data-loss race in `AdvancedTab.tsx`.** A debounced
-   action-list save closed over `localCategories` at *schedule* time; an immediate category
+   action-list save closed over `localCategories` at _schedule_ time; an immediate category
    CRUD save completing inside that ~500ms window could be silently overwritten once the stale
    debounce fired (worst case: a just-deleted category and its actions reappearing). Fixed by
    cancelling the pending debounce at the top of `persistCategoriesAndActions` — its own
@@ -343,7 +343,7 @@ fix-verification pass):
    the whole modal through `Modal.tsx`'s own Escape handler before the capture was saved. Fixed
    with `event.stopPropagation()` in both capture-phase listeners.
 3. **[confirmed, medium] Editor preview/save mismatch for quotes** (decision 12): a typed `"`
-   looked fine in `ActionEditor`'s row preview (which renders the *sanitized* form) while the
+   looked fine in `ActionEditor`'s row preview (which renders the _sanitized_ form) while the
    raw, unsanitized text was what got saved and would be silently rejected by the schema. Fixed:
    `addRawCommand` now sanitizes via `sanitizeCommand` before appending;
    `MessageEditor`'s text field strips `"` live (not full sanitization, to avoid collapsing a
@@ -367,6 +367,7 @@ fix-verification pass):
    codebase has no precedent for anywhere else was judged out of scope for this story's plan.
 
 **Verification:**
+
 - `npm run build` — green (main/preload/renderer all build).
 - `npm test` — 323/323 tests green across 19 files (was 273 after D1/D2, climbing through each
   deliverable; +2 net after the review-fix cycle's new `profiles.test.ts` cases). One flaky,
@@ -387,6 +388,7 @@ fix-verification pass):
   policy, status stays `in-progress` pending that manual pass.
 
 **Commit message (prepared, not committed by this session):**
+
 ```
 008: advanced tab — categories, messages, macros, symbol picker
 

@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { initI18n } from '../../i18n'
+import { stubBridge } from './test/bridge'
+import { profileFixture as baseProfileFixture } from './test/fixtures'
+import { renderWithProviders } from './test/render'
 import { SPRING_LOAD_MS } from './components/ControlsDragZone'
-import { ProfileChangesProvider } from './lib/profile-changes'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
+import { ControlsTab } from './ControlsTab'
+import { useConfigProfiles } from './config-profiles-store'
 
 /**
  * Story 054 D5: cross-category drops.
@@ -22,22 +25,6 @@ import { ProfileChangesProvider } from './lib/profile-changes'
  * every rect the drag needs is stubbed below; what is *not* stubbed is dnd-kit itself, the
  * collision detection, the 600 ms timer or any of `ControlsTab`'s own logic.
  */
-
-// `ControlsTab`'s import chain reaches `lib/bridge.ts`, which resolves `window.q2` at *module*
-// scope and throws when it is missing - so the bridge has to exist before this file's imports are
-// evaluated (same idiom as `ControlsTab.dialogs.test.ts`). `invoke` is replaced per test below.
-const bridge = vi.hoisted(() => {
-  const stub = {
-    invoke: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
-    on: () => () => {},
-  }
-  ;(globalThis as unknown as { q2: unknown }).q2 = stub
-  return stub
-})
-
-// eslint-disable-next-line import/first -- must be imported after the bridge stub above exists.
-const { ControlsTab } = await import('./ControlsTab')
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const CATEGORIES: ConfigActionCategory[] = [
   { id: 'movement', name: 'Movement' },
@@ -67,21 +54,13 @@ const ACTIONS: ConfigAction[] = [
 ]
 
 function profileFixture(): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    cvars: {},
-    binds: {},
-    assignments: [],
+  return baseProfileFixture({
     categories: CATEGORIES.map((category) => ({ ...category })),
     actions: ACTIONS.map((entry) => ({ ...entry })),
-  }
+  })
 }
 
-let container: HTMLDivElement
-let root: Root
+let container: HTMLElement
 /** Every `actions` array `ControlsTab` tried to persist, in order. Empty means the model was never
  * touched - which is exactly what "Escape leaves the model untouched" has to assert. */
 let saved: ConfigAction[][]
@@ -89,10 +68,6 @@ let saved: ConfigAction[][]
  * what writes to. Read alongside `saved` so a cancel is proven not to have moved anything either on
  * disk or in the draft the save bar diffs against. */
 let latestDraft: ConfigProfile
-
-beforeAll(async () => {
-  await initI18n('en')
-})
 
 /**
  * jsdom reports a 0x0 rect for everything, so the drag is given a layout: the category rail across
@@ -177,31 +152,20 @@ async function step(fire: () => void): Promise<void> {
   })
 }
 
-function Harness() {
-  const [draft, setDraft] = useState<ConfigProfile>(profileFixture)
-  const profile = profileFixture()
-  latestDraft = draft
-  return (
-    <ProfileChangesProvider profile={profile}>
-      <ControlsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
-    </ProfileChangesProvider>
-  )
+/** Mirrors the provider's draft into `latestDraft` so a test can prove a cancelled drag left it untouched. */
+function DraftProbe(): null {
+  latestDraft = useProfileDraftContext().draft
+  return null
 }
 
 function renderTab(): void {
-  act(() => {
-    root.render(<Harness />)
-  })
+  ;({ container } = renderWithProviders(
+    <>
+      <DraftProbe />
+      <ControlsTab />
+    </>,
+    { profile: profileFixture() },
+  ))
 }
 
 /** The rows the grid is showing right now, in rendered order. */
@@ -258,25 +222,21 @@ async function waitOutSpringLoad(): Promise<void> {
 }
 
 beforeEach(() => {
+  useConfigProfiles.setState({ profiles: [] })
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   // jsdom implements no scrolling at all, so `scrollIntoView` does not even exist to be spied on;
   // `ControlsTab` scrolls the selected chip into view on every category change.
   HTMLElement.prototype.scrollIntoView = () => {}
-  container = document.createElement('div')
-  document.body.appendChild(container)
-  root = createRoot(container)
   saved = []
-  bridge.invoke = vi.fn((_channel: string, payload: unknown) => {
-    const envelope = payload as { type: string; payload?: { actions?: ConfigAction[] } }
+  stubBridge().invoke.mockImplementation((...args: unknown[]) => {
+    const envelope = args[1] as { payload?: { actions?: ConfigAction[] } }
     if (envelope.payload?.actions) saved.push(envelope.payload.actions)
     return Promise.resolve({ ok: true, value: [] })
-  }) as unknown as typeof bridge.invoke
+  })
   stubRects()
 })
 
 afterEach(() => {
-  act(() => root.unmount())
-  container.remove()
   vi.restoreAllMocks()
   vi.useRealTimers()
 })

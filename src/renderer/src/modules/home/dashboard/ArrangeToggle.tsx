@@ -4,7 +4,7 @@ import { IconButton } from '../../../components/ui/Button'
 import { cn } from '../../../lib/cn'
 
 /**
- * The dashboard's arrange-mode toggle (story 086 D4, User decision: the arrange control sits with
+ * The dashboard's arrange-mode toggle (story 086, User decision: the arrange control sits with
  * the content it edits, not the titlebar utility row).
  *
  * User feedback: the header row this replaces - an all-caps "DASHBOARD" title beside a labelled

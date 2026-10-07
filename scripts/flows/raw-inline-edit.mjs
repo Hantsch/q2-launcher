@@ -50,7 +50,7 @@ const TIMEOUT_MS = 8_000
 const RAW_TAB_LOAD_TIMEOUT_MS = 20_000
 
 /** Mirrors `scripts/lib/screens.mjs`'s `PLAIN_PROFILE_FILE_NAME` - `resolveProfileFileNames`
- * (`@shared/config/profile-files.ts`) sanitizes "Plain Profile"'s space to `-`, so the on-disk name
+ * (`@shared/config/profile/profile-files.ts`) sanitizes "Plain Profile"'s space to `-`, so the on-disk name
  * is `Plain-Profile.cfg`, not `Plain Profile.cfg`. */
 const PLAIN_PROFILE_FILE_NAME = 'Plain-Profile.cfg'
 

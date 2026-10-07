@@ -7,15 +7,14 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 
 /**
- * Story 067 D6: lets the user give an installation an icon from the shipped set (D1's
- * `SHIPPED_ICONS`), pick their own image file, or clear back to the default code tile.
+ * Story 067: lets the user give an installation an icon from the shipped set (`SHIPPED_ICONS`), pick their own image file, or clear back to the default code tile.
  *
  * Mirrors `RenameInstallationDialog`'s shell/store-call/Outcome shape, but does not close on
- * success (unlike rename): AC5 exercises "pick a shipped icon, then clear" as two actions inside
+ * success (unlike rename): a user may do "pick a shipped icon, then clear" as two actions inside
  * one open dialog, and staying open also lets the user see the icon they just picked highlighted
- * in the grid before deciding whether to keep it. A failed `Outcome` (AC6) renders its i18n key
+ * in the grid before deciding whether to keep it. A failed `Outcome` renders its i18n key
  * inline and never closes the dialog or touches the installation's current icon - both handlers
- * (`installations:setIcon`/`installations:pickIconFile`, D4) already guarantee nothing is
+ * (`installations:setIcon`/`installations:pickIconFile`) already guarantee nothing is
  * persisted on failure; this only has to surface the message.
  */
 export function SetInstallationIconDialog({ installationId }: { installationId: string }) {
@@ -25,16 +24,24 @@ export function SetInstallationIconDialog({ installationId }: { installationId: 
   const setInstallationIcon = useLauncher((state) => state.setInstallationIcon)
   const pickInstallationIconFile = useLauncher((state) => state.pickInstallationIconFile)
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<{ key: string; params?: Record<string, string | number> } | null>(
-    null,
-  )
+  const [error, setError] = useState<{
+    key: string
+    params?: Record<string, string | number>
+  } | null>(null)
 
   if (!installation) return null
 
   const hasIcon = Boolean(installation.icon)
 
   const applyOutcome = (result: Awaited<ReturnType<typeof setInstallationIcon>>): void => {
-    setError(result.ok ? null : { key: result.error.key, ...(result.error.params ? { params: result.error.params } : {}) })
+    setError(
+      result.ok
+        ? null
+        : {
+            key: result.error.key,
+            ...(result.error.params ? { params: result.error.params } : {}),
+          },
+    )
   }
 
   const pickShipped = async (id: string): Promise<void> => {
@@ -64,18 +71,14 @@ export function SetInstallationIconDialog({ installationId }: { installationId: 
       size="sm"
       title={t('dialog.installationIcon.title', { name: installation.name })}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
-          <Button
-            variant="ghost"
-            disabled={!hasIcon || pending}
-            onClick={() => void clear()}
-          >
+          <Button variant="ghost" disabled={!hasIcon || pending} onClick={() => void clear()}>
             {t('dialog.installationIcon.clear')}
           </Button>
           <Button variant="primary" onClick={closeDialog}>
-            {t('common.close')}
+            {t('common.action.close')}
           </Button>
         </>
       }
@@ -93,7 +96,8 @@ export function SetInstallationIconDialog({ installationId }: { installationId: 
           </p>
           <div className="grid grid-cols-6 gap-2">
             {SHIPPED_ICONS.map((shipped) => {
-              const selected = installation.icon?.kind === 'shipped' && installation.icon.id === shipped.id
+              const selected =
+                installation.icon?.kind === 'shipped' && installation.icon.id === shipped.id
               return (
                 <button
                   key={shipped.id}

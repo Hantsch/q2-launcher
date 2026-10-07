@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
-import type { LocalizedMessage, Outcome } from '@shared/types'
-import type { ExtraFoldersResult, ReplaysExtraFolder, ReplaysModWarning } from '@shared/modules/replays'
+import type { Outcome } from '@shared/types'
+import type { ExtraFoldersResult, ReplaysModWarning } from '@shared/modules/replays'
 import { invoke } from '../../lib/bridge'
+import { useModuleMutation, useModuleQuery } from '../../lib/useModuleQuery'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Switch } from '../../components/ui/controls'
 import { SectionLabel } from '../../components/ui/primitives'
@@ -18,48 +18,27 @@ import {
 import { NameTemplatesList } from './NameTemplatesList'
 
 /**
- * Story 142 D4: the extra-demo-folders list a user actually edits - a sibling block to
+ * Story 142: the extra-demo-folders list a user actually edits - a sibling block to
  * `NameTemplatesList` in the same Settings section, mirroring `servers/ServersSettingsSection.tsx`'s
  * `mutate()`-through-`Outcome` discipline: every mutating action re-renders from the handler's
  * returned full list, never an optimistic local copy.
  */
 function ExtraFoldersList() {
   const { t } = useTranslation()
-  const [folders, setFolders] = useState<ReplaysExtraFolder[] | null>(null)
-  const [error, setError] = useState<LocalizedMessage | null>(null)
-  const [busy, setBusy] = useState(false)
+  const query = useModuleQuery(listExtraFolders)
+  const mutation = useModuleMutation((action: () => Promise<Outcome<ExtraFoldersResult>>) =>
+    action(),
+  )
+  const folders = query.data ?? null
+  const busy = mutation.busy
+  const error = mutation.error ?? (query.state === 'error' ? query.error : null)
+  const { setData: setFolders } = query
 
-  useEffect(() => {
-    let cancelled = false
-    void listExtraFolders().then((result) => {
-      if (cancelled) return
-      if (result.ok) setFolders(result.value)
-      else setError(result.error)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  /** Every `extraFolders.*` mutation goes through here: clears the previous error, runs the
-   * action, and either applies main's returned full list (success) or renders the refusal's
-   * reason - transport failure and domain refusal are two different shapes but both become the
-   * same `error` state, never raw prose (CLAUDE.md). */
+  /** Every `extraFolders.*` mutation goes through here: main's returned full list replaces the
+   * view; a refusal or transport failure becomes the shown error, never raw prose (CLAUDE.md). */
   const mutate = async (action: () => Promise<Outcome<ExtraFoldersResult>>): Promise<void> => {
-    setError(null)
-    setBusy(true)
-    const result = await action()
-    setBusy(false)
-    if (!result.ok) {
-      setError(result.error)
-      return
-    }
-    const domain = result.value
-    if (!domain.ok) {
-      setError({ key: `replays.extraFolders.error.${domain.reason}` })
-      return
-    }
-    setFolders(domain.folders)
+    const result = await mutation.run(action)
+    if (result?.ok) setFolders(result.folders)
   }
 
   const handleAdd = async (): Promise<void> => {
@@ -125,35 +104,24 @@ function ExtraFoldersList() {
 }
 
 /**
- * Story 182 D3: the missing-mod warning's switch and its remembered mods, a sibling of
+ * Story 182: the missing-mod warning's switch and its remembered mods, a sibling of
  * `ExtraFoldersList` with the same discipline: every action re-renders from the handler's returned
  * full state, never an optimistic local copy.
  */
 function ModWarningSettings() {
   const { t } = useTranslation()
-  const [state, setState] = useState<ReplaysModWarning | null>(null)
-  const [error, setError] = useState<LocalizedMessage | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    void readModWarning().then((result) => {
-      if (cancelled) return
-      if (result.ok) setState(result.value)
-      else setError(result.error)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const query = useModuleQuery(readModWarning)
+  const mutation = useModuleMutation((action: () => Promise<Outcome<ReplaysModWarning>>) =>
+    action(),
+  )
+  const state = query.data ?? null
+  const busy = mutation.busy
+  const error = mutation.error ?? (query.state === 'error' ? query.error : null)
+  const { setData: setState } = query
 
   const mutate = async (action: () => Promise<Outcome<ReplaysModWarning>>): Promise<void> => {
-    setError(null)
-    setBusy(true)
-    const result = await action()
-    setBusy(false)
-    if (result.ok) setState(result.value)
-    else setError(result.error)
+    const result = await mutation.run(action)
+    if (result) setState(result)
   }
 
   return (
@@ -195,15 +163,15 @@ function ModWarningSettings() {
 }
 
 /**
- * Story 135 D3: the replays module's Settings section - inner content only, the shell
+ * Story 135: the replays module's Settings section - inner content only, the shell
  * (`SettingsView.tsx`) already wraps every contributed section in its own `Panel` + `SectionLabel`
  * chrome, same as `servers/ServersSettingsSection.tsx`.
  *
- * Story 140 D3 replaces the placeholder paragraph with the naming-pattern list a user actually
- * edits (`NameTemplatesList`) - the module's first real control, mirroring story 111 D4's own
+ * Story 140 replaces the placeholder paragraph with the naming-pattern list a user actually
+ * edits (`NameTemplatesList`) - the module's first real control, mirroring story 111's own
  * replacement of `servers-settings-placeholder`.
  *
- * Story 142 D4 adds `ExtraFoldersList` as a sibling block below it - the second real control in
+ * Story 142 adds `ExtraFoldersList` as a sibling block below it - the second real control in
  * this section.
  */
 export function ReplaysSettingsSection() {

@@ -1,0 +1,106 @@
+{
+  "mods": {
+    "view": {
+      "selectedInstallation": "Selected installation"
+    },
+    "noInstallation": {
+      "body": "Select an installation to see its mods."
+    },
+    "empty": {
+      "title": "No mods in this installation",
+      "body": "This installation has no game directories besides baseq2."
+    },
+    "detail": {
+      "close": "Close details",
+      "reveal": "Reveal folder",
+      "license": "Licence",
+      "source": "Source",
+      "defaultVersion": "default",
+      "prerelease": "pre-release",
+      "manualNote": "Installed manually — the launcher does not update or remove it",
+      "installVersion": "Version to install",
+      "installedVsCatalog": "Installed {{installed}} · Catalog {{catalog}}"
+    },
+    "status": {
+      "installed": "Installed",
+      "installedContentOnly": "Installed, content only"
+    },
+    "reason": {
+      "notPlayableLocally": "Not playable locally with {{engine}}: no matching build",
+      "pkzNeedsQ2pro": "Not playable locally with {{engine}}: its packs are .pkz, which only Q2PRO reads"
+    },
+    "job": {
+      "install": "Installing {{name}}",
+      "remove": "Removing {{mod}} from {{installation}}",
+      "update": "Updating {{name}} to {{version}}",
+      "waitingForDecision": "Waiting for your answer about the existing folder {{folder}}"
+    },
+    "decision": {
+      "title": "Folder already exists",
+      "body": "This installation already has a mod folder the launcher did not create:",
+      "noConflicts": "None of its files differ from the ones being installed.",
+      "conflicts_one": "{{count}} file differs from the one being installed:",
+      "conflicts_other": "{{count}} files differ from the ones being installed:",
+      "hint": "Overwrite replaces those files (the old ones are restored if the install fails). Keep my files installs only what is missing.",
+      "keep": "Keep my files"
+    },
+    "catalog": {
+      "unavailable": "The mod catalog is not available right now. Mods already on disk are still shown.",
+      "asOf": "Catalog as of {{date}}"
+    },
+    "origin": {
+      "manual": "Installed manually"
+    },
+    "error": {
+      "installationNotFound": "This installation no longer exists.",
+      "gameDirNotFound": "This game directory no longer exists.",
+      "revealFailed": "Could not open the folder: {{message}}",
+      "unknownMod": "This mod is not in the catalog.",
+      "alreadyInstalled": "This mod is already installed in this installation.",
+      "noVariant": "This mod has no build for your engine.",
+      "badPackage": "The mod's download is not usable.",
+      "writeFailed": "Could not write the mod's files. Nothing was changed.",
+      "noPendingDecision": "This install is no longer waiting for an answer."
+    },
+    "update": {
+      "title": "Update {{mod}} in {{installation}}?",
+      "body": "Updates {{mod}} from {{from}} to {{to}}. Your demos, configs and screenshots stay.",
+      "changed_one": "{{count}} installed file has changed since it was installed:",
+      "changed_other": "{{count}} installed files have changed since they were installed:",
+      "keepChanged": "Keep my versions",
+      "overwriteChanged": "Overwrite them",
+      "refused": {
+        "noRecord": "The launcher did not install this mod, so it will not update it.",
+        "upToDate": "This mod is already at the catalog's version.",
+        "unsafePath": "The install record points outside the mod folder. Nothing was changed."
+      }
+    },
+    "playWith": {
+      "title": "Play {{installation}} with...",
+      "baseGame": "Base game",
+      "noMap": "No map",
+      "loadingMaps": "Loading maps...",
+      "gameType": "Game type",
+      "deathmatch": "Deathmatch",
+      "single": "Single player",
+      "start": "Start"
+    },
+    "remove": {
+      "title": "Remove {{mod}} from {{installation}}?",
+      "titleLoading": "Remove mod",
+      "body": "Only the files the launcher installed are removed. Your demos, configs and screenshots stay.",
+      "changed_one": "{{count}} installed file has changed since it was installed:",
+      "changed_other": "{{count}} installed files have changed since they were installed:",
+      "keepChanged": "Keep them",
+      "deleteChanged": "Delete them too",
+      "refused": {
+        "noRecord": "The launcher did not install this mod, so it will not remove it.",
+        "unsafePath": "The install record points outside the mod folder. Nothing was removed."
+      },
+      "failed": {
+        "locked": "Could not remove {{path}}. The rest was removed; remove it again once the file is free."
+      },
+      "fellBackToBase": "{{installation}} now starts the base game — {{gameDir}} was removed"
+    }
+  }
+}

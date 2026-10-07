@@ -1,14 +1,17 @@
 import type { EngineKind } from '@shared/types'
 import type { ManifestPackage } from '@shared/modules/downloads'
 import type { DiagnosticsCollector } from '../diagnostics'
-import { extractArchive } from '../extractor'
-import { downloadPackage } from '../fetcher'
-import { ManifestUnavailableError, type ManifestService } from '../manifest-service'
-import type { DownloadFn, ExtractFn } from '../pipeline'
+import { extractArchive } from '../../../lib/archive/extractor'
+import { downloadPackage } from '../../../lib/net/fetcher'
+import {
+  ManifestUnavailableError,
+  type ManifestService,
+} from '../../../services/content/manifest-service'
+import type { StageDownloadFn, StageExtractFn } from '../../../services/package-staging'
 import { installR1q2Notices, probeX86Runtime, realFileExists, seedR1glConfig } from './r1q2-setup'
 
 /**
- * Story 074 D4: the three seams the bootstrap job reaches the outside world through - the
+ * Story 074: the three seams the bootstrap job reaches the outside world through - the
  * manifest, the network and the extractor - plus their production adapters.
  *
  * Ports rather than direct imports, for the reason the sprint's decisions name: "070/071 are being
@@ -17,7 +20,7 @@ import { installR1q2Notices, probeX86Runtime, realFileExists, seedR1glConfig } f
  * playable, clean up on cancel), and proving a sequence needs fetches and extractions that resolve
  * instantly and deterministically - not a real 190 MB download and a real `7za.exe`.
  *
- * The two function-shaped ports deliberately reuse `DownloadFn`/`ExtractFn` from `../pipeline`:
+ * The two function-shaped ports deliberately reuse `StageDownloadFn`/`StageExtractFn` from `package-staging`:
  * those aliases already describe exactly `downloadPackage`/`extractArchive`, and a second,
  * hand-copied description of the same two functions is how the two flows would drift apart.
  */
@@ -40,16 +43,16 @@ export interface ManifestSource {
 
 /** Narrow view of `downloadPackage` (`../fetcher`). */
 export interface PackageFetcher {
-  fetch: DownloadFn
+  fetch: StageDownloadFn
 }
 
 /** Narrow view of `extractArchive` (`../extractor`). */
 export interface Extractor {
-  extract: ExtractFn
+  extract: StageExtractFn
 }
 
 /**
- * Story 075 D3: how the bootstrap job reaches the diagnostics collector (`../diagnostics.ts`).
+ * Story 075: how the bootstrap job reaches the diagnostics collector (`../diagnostics.ts`).
  *
  * A *factory*, not a collector: `createDiagnosticsCollector` is keyed by the job id, and that id
  * does not exist until `startBootstrap` has created the `Job` - long after `bootstrapDepsFor()`
@@ -59,8 +62,8 @@ export interface Extractor {
  * Optional on `BootstrapDeps`: a job without one records nothing and behaves exactly as it did
  * before this story. The collector observes the job; it never influences what the job does.
  *
- * Story 078 D3: the surface this port hands the job widened with `recordAssembly` (AC7) and with
- * `recordPackage`'s `contents`/`contentsTruncated`/`contributed` (AC8/AC1) - both on
+ * Story 078: the surface this port hands the job widened with `recordAssembly` and with
+ * `recordPackage`'s `contents`/`contentsTruncated`/`contributed` - both on
  * `DiagnosticsCollector` itself, which this alias is, so there is no second description of that
  * surface here to keep in step with it.
  */
@@ -88,10 +91,7 @@ export interface BootstrapLog {
  * ships exactly one of each, and picking the first keeps the choice a property of the manifest's
  * own order rather than of an id convention this file would have to invent.
  */
-export function manifestSourceFrom(
-  service: ManifestService,
-  log?: BootstrapLog,
-): ManifestSource {
+export function manifestSourceFrom(service: ManifestService, log?: BootstrapLog): ManifestSource {
   /** Never throws: a manifest that cannot be produced is "no packages", which each resolver below
    * turns into `undefined` - the job's single "a required package is unavailable" failure. */
   const packages = async (): Promise<ManifestPackage[]> => {
@@ -118,7 +118,9 @@ export function manifestSourceFrom(
     },
 
     async resolveGameDataPackage(role) {
-      const pkg = (await packages()).find((entry) => entry.kind === 'gamedata' && entry.role === role)
+      const pkg = (await packages()).find(
+        (entry) => entry.kind === 'gamedata' && entry.role === role,
+      )
       if (pkg === undefined) log?.warn(`the manifest lists no "${role}" game-data package`)
       return pkg
     },
@@ -132,17 +134,17 @@ export const realPackageFetcher: PackageFetcher = { fetch: downloadPackage }
 export const realExtractor: Extractor = { extract: extractArchive }
 
 /**
- * Story 080 D3: the seam `job.ts` calls R1Q2's own setup/runtime checks through
+ * Story 080: the seam `job.ts` calls R1Q2's own setup/runtime checks through
  * (`r1q2-setup.ts`) - a port for the same reason every other one here is: a fake lets the job's
  * tests exercise the x86-runtime gate and the config-seed/notice calls without touching the real
  * machine or a real external checkout.
  */
 export interface R1q2SetupPort {
-  /** Whether the x86 VC++ runtime `vcruntime140.dll` is present on this machine (AC5). */
+  /** Whether the x86 VC++ runtime `vcruntime140.dll` is present on this machine. */
   probeX86Runtime(): Promise<boolean>
   /** Forces `vid_ref "r1gl"` on a fresh install; a no-op if `baseq2/autoexec.cfg` already exists. */
   seedR1glConfig(targetRoot: string): Promise<void>
-  /** Copies the R1Q2 mirror's GPLv3 license text into the target (AC8). Best-effort. */
+  /** Copies the R1Q2 mirror's GPLv3 license text into the target. Best-effort. */
   installR1q2Notices(
     targetRoot: string,
     licenseSourceOverride?: string,
@@ -151,8 +153,10 @@ export interface R1q2SetupPort {
 }
 
 /** The production `R1q2SetupPort`, over `r1q2-setup.ts`'s real implementations. */
-export const realR1q2Setup: R1q2SetupPort = {
-  probeX86Runtime: () => probeX86Runtime({ fileExists: realFileExists }),
-  seedR1glConfig,
-  installR1q2Notices,
+export function createR1q2Setup(env: NodeJS.ProcessEnv): R1q2SetupPort {
+  return {
+    probeX86Runtime: () => probeX86Runtime({ fileExists: realFileExists, env }),
+    seedR1glConfig,
+    installR1q2Notices,
+  }
 }

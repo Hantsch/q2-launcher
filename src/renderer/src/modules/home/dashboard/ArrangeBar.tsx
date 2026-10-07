@@ -8,13 +8,13 @@ import { DASHBOARD_MODULES } from './dashboard-modules'
 import { ResetLayoutDialog } from './ResetLayoutDialog'
 
 /**
- * Story 086 D4: the catalog + status line, docked absolutely over the dashboard grid (AC4) - see
+ * Story 086: the catalog + status line, docked absolutely over the dashboard grid - see
  * `Dashboard.tsx`'s doc comment for why it mounts here rather than being lifted into
  * `HomeView.tsx`. `.dashboard-arrange-bar` (dashboard.css) does the actual docking; this component
  * only owns content.
  *
  * The catalog (`DASHBOARD_MODULE_IDS` minus whatever `layout.tiles` already places) responds to
- * Enter and to a pointer drag, never to a plain click (AC6) - see `CatalogEntry` below.
+ * Enter and to a pointer drag, never to a plain click - see `CatalogEntry` below.
  *
  * "Reset to default" opens `ResetLayoutDialog` from local state, never the global dialog store
  * (see that component's own doc comment).
@@ -50,7 +50,7 @@ export function ArrangeBar({
         )}
       </div>
 
-      {/* Story 086 D6: the visible status line IS the live region (AC9's "announced in a live
+      {/* Story 086: the visible status line IS the live region ("announced in a live
           region and mirrored in a visible status line") - one element, so the two texts cannot
           drift apart, and no second hidden node a screen reader would read twice. `aria-atomic`
           because each announcement is a whole new sentence, not an append. */}
@@ -69,7 +69,7 @@ export function ArrangeBar({
         data-testid="dashboard-reset-trigger"
         onClick={() => setResetDialogOpen(true)}
       >
-        {t('home.dashboard.arrangeBar.reset')}
+        {t('common.action.resetToDefault')}
       </Button>
 
       {resetDialogOpen && (
@@ -87,10 +87,10 @@ export function ArrangeBar({
 
 /**
  * One catalog chip. Its own component rather than JSX inside `unplacedIds.map()` because
- * `useDraggable` is a hook and cannot be called in a map callback (story 086 D5).
+ * `useDraggable` is a hook and cannot be called in a map callback (story 086).
  *
  * Two ways in, both deliberate:
- * - **Enter** places the module at the first free spot that fits it (D4, unchanged here).
+ * - **Enter** places the module at the first free spot that fits it.
  * - **A pointer drag** (`place-<moduleId>`, picked up by `Dashboard.tsx`'s `DndContext`) places it
  *   at the cell under the pointer.
  *

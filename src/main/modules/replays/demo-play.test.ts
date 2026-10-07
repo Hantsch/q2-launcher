@@ -3,16 +3,25 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { en as enBundle } from '../../../renderer/src/i18n/bundle'
 import { engineKindSchema } from '@shared/schemas'
 import { replaysDemoPlaySchema, type DiscoveredDemo } from '@shared/modules/replays'
 import { ok, type Installation, type LaunchInput, type LaunchState } from '@shared/types'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { buildLaunchArgs } from '../../services/launch-plan'
 import { StateStore } from '../../services/state'
-import { createDemoPlay, engineIoFromSession, launcherSweepDirs, type DemoPlayLaunch } from './demo-play'
+import {
+  createDemoPlay,
+  engineIoFromSession,
+  launcherSweepDirs,
+  SESSION_RESTORE_CVARS,
+  type DemoPlayLaunch,
+} from './demo-play'
 import type { PlaybackControl } from './playback-control'
 import type { StageAvailability } from './stage'
 import { LAUNCHER_DIR_NAME } from './demo-staging'
+import { replaysState } from './persisted'
+import { createCvarRestore } from './session-cvar-restore'
 
 /**
  * Story 159 D2: `demo.play` in main. Real temp folders on disk (containment is a realpath question,
@@ -47,11 +56,18 @@ function installation(overrides: Partial<Installation>): Installation {
   }
 }
 
-function demo(overrides: Partial<DiscoveredDemo> & Pick<DiscoveredDemo, 'id' | 'fileName'>): DiscoveredDemo {
+function demo(
+  overrides: Partial<DiscoveredDemo> & Pick<DiscoveredDemo, 'id' | 'fileName'>,
+): DiscoveredDemo {
   return {
     format: 'dm2',
     gzip: false,
-    source: { kind: 'installation', installationId: 'q2pro-a', installationName: 'Q2PRO', gameDir: 'baseq2' },
+    source: {
+      kind: 'installation',
+      installationId: 'q2pro-a',
+      installationName: 'Q2PRO',
+      gameDir: 'baseq2',
+    },
     archiveEntry: null,
     map: 'q2dm1',
     unparsableReason: null,
@@ -61,7 +77,9 @@ function demo(overrides: Partial<DiscoveredDemo> & Pick<DiscoveredDemo, 'id' | '
     pov: null,
     players: [],
     durationMs: null,
+    roster: null,
     fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+    folder: [],
     nameFacts: null,
     ...overrides,
   }
@@ -75,7 +93,10 @@ function fakeLaunch(initiallyRunning = false) {
     isRunning: () => state.running,
     start: vi.fn(async (input: LaunchInput) => {
       state.running = !state.exitBeforeResolve
-      return ok<LaunchState>({ phase: state.running ? 'running' : 'exited', installationId: input.installationId })
+      return ok<LaunchState>({
+        phase: state.running ? 'running' : 'exited',
+        installationId: input.installationId,
+      })
     }),
     onStateChange: vi.fn((listener: (s: LaunchState) => void) => {
       listeners.add(listener)
@@ -101,6 +122,7 @@ interface Setup {
   contextPlatform?: NodeJS.Platform
   /** Engine of the active installation (`q2pro-a`); defaults to q2pro. */
   activeEngine?: Installation['engineKind']
+  activeDetectedEngines?: Installation['detectedEngines']
   /** Story 164 D4: the platform `demo.play` runs on, and an optional playback control. */
   platform?: string
   playback?: PlaybackControl
@@ -110,14 +132,39 @@ interface Setup {
   /** Story 170 D3 */
   cvarRestore?: { snapshot: (configPath: string) => Promise<void>; restore: () => Promise<void> }
   /** Story 171 D2 */
-  onStageSession?: (start: { geometry: string; rect: { x: number; y: number; width: number; height: number } }) => () => void
+  onStageSession?: (start: {
+    geometry: string
+    rect: { x: number; y: number; width: number; height: number }
+  }) => () => void
+  /** The level the last demo session ended at; null when none was remembered. */
+  demoVolume?: number | null
 }
 
-function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32', activeEngine = 'q2pro', platform = 'win32', playback, stageAvail = { available: true }, geometry = '800x600+10+20', cvarRestore, onStageSession }: Setup) {
+function harness({
+  demos,
+  files,
+  active = 'q2pro-a',
+  running = false,
+  contextPlatform = 'win32',
+  activeEngine = 'q2pro',
+  activeDetectedEngines,
+  platform = 'win32',
+  playback,
+  stageAvail = { available: true },
+  geometry = '800x600+10+20',
+  cvarRestore,
+  onStageSession,
+  demoVolume = null,
+}: Setup) {
   const fake = fakeLaunch(running)
   const sessions = { begin: vi.fn(), end: vi.fn() }
   const installations = [
-    installation({ id: 'q2pro-a', rootPath: q2proRoot, engineKind: activeEngine }),
+    installation({
+      id: 'q2pro-a',
+      rootPath: q2proRoot,
+      engineKind: activeEngine,
+      detectedEngines: activeDetectedEngines,
+    }),
     installation({ id: 'q2pro-other', rootPath: siblingRoot }),
     installation({ id: 'r1q2-b', rootPath: r1q2Root, engineKind: 'r1q2' }),
   ]
@@ -132,6 +179,7 @@ function harness({ demos, files, active = 'q2pro-a', running = false, contextPla
     toGeometry: () => geometry,
     cvarRestore,
     onStageSession,
+    demoVolume: () => demoVolume,
     launch: fake.launch,
     sessions,
     discoveryContext: () => ({
@@ -147,7 +195,12 @@ const CTF_DEMO = demo({
   id: 'ctf',
   fileName: 'x.dm2',
   gameDir: 'ctf',
-  source: { kind: 'installation', installationId: 'q2pro-a', installationName: 'Q2PRO', gameDir: 'ctf' },
+  source: {
+    kind: 'installation',
+    installationId: 'q2pro-a',
+    installationName: 'Q2PRO',
+    gameDir: 'ctf',
+  },
 })
 const BASE_DEMO = demo({ id: 'base', fileName: 'b.dm2' })
 
@@ -187,11 +240,18 @@ describe('demo.play with a mod the installation does not list', () => {
       id: 'tdm',
       fileName: 'o.dm2',
       gameDir: 'opentdm',
-      source: { kind: 'installation', installationId: 'q2pro-a', installationName: 'Q2PRO', gameDir: 'opentdm' },
+      source: {
+        kind: 'installation',
+        installationId: 'q2pro-a',
+        installationName: 'Q2PRO',
+        gameDir: 'opentdm',
+      },
     })
     const h = harness({
       demos: [tdm],
-      files: { tdm: { absolutePath: join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), archiveEntry: null } },
+      files: {
+        tdm: { absolutePath: join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), archiveEntry: null },
+      },
     })
     expect(await h.play('tdm', 'q2pro-a')).toEqual({
       ok: false,
@@ -199,7 +259,10 @@ describe('demo.play with a mod the installation does not list', () => {
     })
     expect(h.launch.start).not.toHaveBeenCalled()
 
-    expect(await h.play('tdm', 'q2pro-a', { acknowledgeModMissing: true })).toEqual({ ok: true, value: { stage: null } })
+    expect(await h.play('tdm', 'q2pro-a', { acknowledgeModMissing: true })).toEqual({
+      ok: true,
+      value: { stage: null },
+    })
     expect(h.launch.start).toHaveBeenCalledWith(
       { installationId: 'q2pro-a', gameDir: 'opentdm', extraArgs: ['+demo', 'o.dm2'] },
       { demo: true },
@@ -212,14 +275,14 @@ describe('demo.play with a trusted mod (story 182 D1)', () => {
     // The trust list is renderer-side convenience: main never reads it, so a stored trust entry
     // cannot turn a mod-missing play into an unacknowledged one.
     const stateFile = join(tmp, 'trusted-state.json')
-    const store = new StateStore(stateFile)
+    const store = new StateStore(stateFile, { migrations: 'none' })
     await store.load()
-    store.setReplaysState({
-      ...store.replaysState(),
+    replaysState(store).update((live) => ({
+      ...live,
       modWarning: { enabled: false, trustedMods: ['opentdm'] },
-    })
+    }))
     await store.settle()
-    expect(store.replaysState().modWarning.trustedMods).toEqual(['opentdm'])
+    expect(replaysState(store).get().modWarning.trustedMods).toEqual(['opentdm'])
 
     await mkdir(join(q2proRoot, 'opentdm', 'demos'), { recursive: true })
     await writeFile(join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), 'demo')
@@ -227,11 +290,18 @@ describe('demo.play with a trusted mod (story 182 D1)', () => {
       id: 'tdm',
       fileName: 'o.dm2',
       gameDir: 'opentdm',
-      source: { kind: 'installation', installationId: 'q2pro-a', installationName: 'Q2PRO', gameDir: 'opentdm' },
+      source: {
+        kind: 'installation',
+        installationId: 'q2pro-a',
+        installationName: 'Q2PRO',
+        gameDir: 'opentdm',
+      },
     })
     const h = harness({
       demos: [tdm],
-      files: { tdm: { absolutePath: join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), archiveEntry: null } },
+      files: {
+        tdm: { absolutePath: join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), archiveEntry: null },
+      },
     })
     expect(await h.play('tdm', 'q2pro-a')).toEqual({
       ok: false,
@@ -256,17 +326,54 @@ describe('demo.play engine guard (story 161 D1)', () => {
         demos: [BASE_DEMO, outsider],
         files: {
           ...ctfFiles(),
-          evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null },
+          evil: {
+            absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'),
+            archiveEntry: null,
+          },
         },
         activeEngine: engineKind,
       })
       for (const id of ['base', 'evil']) {
         const result = await h.play(id, 'q2pro-a')
-        expect(result, engineKind).toEqual({ ok: false, error: { key: 'replays.play.unavailable.notQ2pro' } })
+        expect(result, engineKind).toEqual({
+          ok: false,
+          error: { key: 'replays.play.unavailable.notQ2pro' },
+        })
       }
       expect(h.launch.start, engineKind).not.toHaveBeenCalled()
-      expect(existsSync(join(q2proRoot, 'baseq2', 'demos', LAUNCHER_DIR_NAME)), engineKind).toBe(false)
+      expect(existsSync(join(q2proRoot, 'baseq2', 'demos', LAUNCHER_DIR_NAME)), engineKind).toBe(
+        false,
+      )
       expect(h.sessions.begin, engineKind).not.toHaveBeenCalled()
+    }
+  })
+
+  it('playback passes the q2pro engine override to launch', async () => {
+    const outsider = demo({
+      id: 'evil',
+      fileName: 'evil.dm2',
+      source: {
+        kind: 'installation',
+        installationId: 'q2pro-other',
+        installationName: 'Other',
+        gameDir: 'baseq2',
+      },
+    })
+    for (const id of ['base', 'evil']) {
+      const h = harness({
+        demos: [BASE_DEMO, outsider],
+        files: {
+          ...ctfFiles(),
+          evil: {
+            absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'),
+            archiveEntry: null,
+          },
+        },
+        activeEngine: 'r1q2',
+        activeDetectedEngines: [{ kind: 'q2pro', executablePath: 'q2pro.exe', supported: true }],
+      })
+      expect((await h.play(id, 'q2pro-a')).ok, id).toBe(true)
+      expect(h.launch.start.mock.calls[0][0].engine, id).toBe('q2pro')
     }
   })
 
@@ -287,7 +394,10 @@ describe('demo.play engine guard (story 161 D1)', () => {
       }
       for (const [input] of h.launch.start.mock.calls) {
         const args = buildLaunchArgs(h.installations[0], input).args
-        expect(args.some((a) => a.toLowerCase().includes('demomap')), engineKind).toBe(false)
+        expect(
+          args.some((a) => a.toLowerCase().includes('demomap')),
+          engineKind,
+        ).toBe(false)
       }
       expect(h.launch.start.mock.calls.length > 0, engineKind).toBe(engineKind === 'q2pro')
     }
@@ -312,7 +422,10 @@ describe('demo.play engine guard (story 161 D1)', () => {
       const installation = { ...h.installations[0], engineKind }
       for (const input of inputs) {
         const args = buildLaunchArgs(installation, input).args
-        expect(args.some((a) => a.toLowerCase().includes('demomap')), engineKind).toBe(false)
+        expect(
+          args.some((a) => a.toLowerCase().includes('demomap')),
+          engineKind,
+        ).toBe(false)
       }
     }
   })
@@ -352,12 +465,21 @@ describe('demo.play (story 159 D2)', () => {
   // Story 160 D2 replaced 159's refusal of a demo from elsewhere with a staged copy: such a demo is
   // still never played in place - it is launched only as `_launcher/<id><ext>`, never by its own name.
   it("a demo outside the installation's demos folder is never played in place", async () => {
-    const stagedArgs = { installationId: 'q2pro-a', gameDir: 'baseq2', extraArgs: ['+demo', '_launcher/evil.dm2'] }
+    const stagedArgs = {
+      installationId: 'q2pro-a',
+      gameDir: 'baseq2',
+      extraArgs: ['+demo', '_launcher/evil.dm2'],
+    }
 
     // Sibling-prefix root: `<tmp>/Quake2-other` starts with `<tmp>/Quake2`, but it is not that folder.
     const sibling = harness({
       demos: [demo({ id: 'evil', fileName: 'evil.dm2' })],
-      files: { evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null } },
+      files: {
+        evil: {
+          absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'),
+          archiveEntry: null,
+        },
+      },
     })
     expect(await sibling.play('evil', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
     expect(sibling.launch.start.mock.calls).toEqual([[stagedArgs, { demo: true }]])
@@ -369,15 +491,34 @@ describe('demo.play (story 159 D2)', () => {
 
     // A demo row that belongs to another (non-active) installation.
     const otherRow = harness({
-      demos: [demo({ id: 'evil', fileName: 'evil.dm2', source: { kind: 'installation', installationId: 'q2pro-other', installationName: 'Other', gameDir: 'baseq2' } })],
-      files: { evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null } },
+      demos: [
+        demo({
+          id: 'evil',
+          fileName: 'evil.dm2',
+          source: {
+            kind: 'installation',
+            installationId: 'q2pro-other',
+            installationName: 'Other',
+            gameDir: 'baseq2',
+          },
+        }),
+      ],
+      files: {
+        evil: {
+          absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'),
+          archiveEntry: null,
+        },
+      },
     })
     expect((await otherRow.play('evil', 'q2pro-a')).ok).toBe(true)
     expect(otherRow.launch.start.mock.calls).toEqual([[stagedArgs, { demo: true }]])
 
     // An archive entry - once as the row says it, once only in main's own resolved file record. Both
     // are staged from the archive (never played in place); with no extractor there, neither launches.
-    const entry = { archivePath: join(q2proRoot, 'baseq2', 'demos', 'pack.zip'), entryPath: 'b.dm2' }
+    const entry = {
+      archivePath: join(q2proRoot, 'baseq2', 'demos', 'pack.zip'),
+      entryPath: 'b.dm2',
+    }
     const archiveRow = harness({
       demos: [demo({ id: 'base', fileName: 'b.dm2', archiveEntry: entry })],
       files: { base: { absolutePath: entry.archivePath, archiveEntry: entry } },
@@ -386,18 +527,36 @@ describe('demo.play (story 159 D2)', () => {
     expect(archiveRow.launch.start).not.toHaveBeenCalled()
     const archiveFile = harness({
       demos: [BASE_DEMO],
-      files: { base: { absolutePath: join(q2proRoot, 'baseq2', 'demos', 'b.dm2'), archiveEntry: entry } },
+      files: {
+        base: { absolutePath: join(q2proRoot, 'baseq2', 'demos', 'b.dm2'), archiveEntry: entry },
+      },
     })
     expect((await archiveFile.play('base', 'q2pro-a')).ok).toBe(false)
     expect(archiveFile.launch.start).not.toHaveBeenCalled()
 
     // An r1q2 installation's id sent directly (active, so the only thing refusing it is the engine).
     const r1q2 = harness({
-      demos: [demo({ id: 'r', fileName: 'r.dm2', source: { kind: 'installation', installationId: 'r1q2-b', installationName: 'R1Q2', gameDir: 'baseq2' } })],
-      files: { r: { absolutePath: join(r1q2Root, 'baseq2', 'demos', 'r.dm2'), archiveEntry: null } },
+      demos: [
+        demo({
+          id: 'r',
+          fileName: 'r.dm2',
+          source: {
+            kind: 'installation',
+            installationId: 'r1q2-b',
+            installationName: 'R1Q2',
+            gameDir: 'baseq2',
+          },
+        }),
+      ],
+      files: {
+        r: { absolutePath: join(r1q2Root, 'baseq2', 'demos', 'r.dm2'), archiveEntry: null },
+      },
       active: 'r1q2-b',
     })
-    expect(await r1q2.play('r', 'r1q2-b')).toEqual({ ok: false, error: { key: 'replays.play.unavailable.notQ2pro' } })
+    expect(await r1q2.play('r', 'r1q2-b')).toEqual({
+      ok: false,
+      error: { key: 'replays.play.unavailable.notQ2pro' },
+    })
     expect(r1q2.launch.start).not.toHaveBeenCalled()
 
     // A game already running - main's own launch state, not anything the renderer said.
@@ -415,19 +574,31 @@ describe('demo.play (story 159 D2)', () => {
 
   it('an unknown demo or a file that is gone is refused without a launch', async () => {
     const unknown = harness({ demos: [CTF_DEMO], files: ctfFiles() })
-    expect(await unknown.play('nope', 'q2pro-a')).toEqual({ ok: false, error: { key: 'replays.play.error.notFound' } })
+    expect(await unknown.play('nope', 'q2pro-a')).toEqual({
+      ok: false,
+      error: { key: 'replays.play.error.notFound' },
+    })
     expect(unknown.launch.start).not.toHaveBeenCalled()
 
     await rm(join(q2proRoot, 'ctf', 'Demos', 'x.dm2'))
     const missing = harness({ demos: [CTF_DEMO], files: ctfFiles() })
-    expect(await missing.play('ctf', 'q2pro-a')).toEqual({ ok: false, error: { key: 'replays.play.error.fileMissing' } })
+    expect(await missing.play('ctf', 'q2pro-a')).toEqual({
+      ok: false,
+      error: { key: 'replays.play.error.fileMissing' },
+    })
     expect(missing.launch.start).not.toHaveBeenCalled()
   })
 
   it('the payload schema refuses a smuggled path', () => {
-    expect(replaysDemoPlaySchema.safeParse({ demoId: 'ctf', installationId: 'q2pro-a' }).success).toBe(true)
     expect(
-      replaysDemoPlaySchema.safeParse({ demoId: 'ctf', installationId: 'q2pro-a', path: 'C:\\evil.dm2' }).success,
+      replaysDemoPlaySchema.safeParse({ demoId: 'ctf', installationId: 'q2pro-a' }).success,
+    ).toBe(true)
+    expect(
+      replaysDemoPlaySchema.safeParse({
+        demoId: 'ctf',
+        installationId: 'q2pro-a',
+        path: 'C:\\evil.dm2',
+      }).success,
     ).toBe(false)
   })
 
@@ -462,7 +633,10 @@ describe('demo.play (story 159 D2)', () => {
 
     // A failed start begins no session and subscribes to nothing.
     const failing = harness({ demos: [CTF_DEMO], files: ctfFiles() })
-    failing.launch.start.mockResolvedValueOnce({ ok: false, error: { key: 'launch.error.executableMissing' } })
+    failing.launch.start.mockResolvedValueOnce({
+      ok: false,
+      error: { key: 'launch.error.executableMissing' },
+    })
     expect(await failing.play('ctf', 'q2pro-a')).toEqual({
       ok: false,
       error: { key: 'launch.error.executableMissing' },
@@ -477,7 +651,12 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
   const ELSEWHERE = demo({
     id: 'away',
     fileName: 'evil.dm2',
-    source: { kind: 'installation', installationId: 'q2pro-other', installationName: 'Other', gameDir: 'baseq2' },
+    source: {
+      kind: 'installation',
+      installationId: 'q2pro-other',
+      installationName: 'Other',
+      gameDir: 'baseq2',
+    },
   })
   const elsewhereFiles = (): Setup['files'] => ({
     away: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null },
@@ -507,7 +686,10 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
 
     // The launch never starts: the copy is gone by the time `play` answers, and nothing is tracked.
     const failing = harness({ demos: [ELSEWHERE], files: elsewhereFiles() })
-    failing.launch.start.mockResolvedValueOnce({ ok: false, error: { key: 'launch.error.executableMissing' } })
+    failing.launch.start.mockResolvedValueOnce({
+      ok: false,
+      error: { key: 'launch.error.executableMissing' },
+    })
     expect(await failing.play('away', 'q2pro-a')).toEqual({
       ok: false,
       error: { key: 'launch.error.executableMissing' },
@@ -530,7 +712,10 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
     for (const end of ['exited', 'failed', 'start'] as const) {
       const h = harness({ demos: [CTF_DEMO], files: ctfFiles() })
       if (end === 'start') {
-        h.launch.start.mockResolvedValueOnce({ ok: false, error: { key: 'launch.error.executableMissing' } })
+        h.launch.start.mockResolvedValueOnce({
+          ok: false,
+          error: { key: 'launch.error.executableMissing' },
+        })
       }
       await h.play('ctf', 'q2pro-a')
       expect(h.launch.start.mock.calls[0][0].extraArgs).toEqual(['+demo', 'x.dm2'])
@@ -540,6 +725,20 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
       expect(existsSync(join(q2proRoot, 'ctf', 'Demos', '_launcher'))).toBe(false)
       expect(existsSync(join(q2proRoot, 'ctf', 'demos', '_launcher'))).toBe(false)
     }
+  })
+
+  it('a demo in a subfolder of demos plays from a copy', async () => {
+    const nested = join(q2proRoot, 'baseq2', 'demos', 'cups', 'deep.dm2')
+    await mkdir(join(q2proRoot, 'baseq2', 'demos', 'cups'), { recursive: true })
+    await writeFile(nested, 'demo')
+    const h = harness({
+      demos: [demo({ id: 'deep', fileName: 'deep.dm2', folder: ['cups'] })],
+      files: { deep: { absolutePath: nested, archiveEntry: null } },
+    })
+
+    expect(await h.play('deep', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
+    expect(h.launch.start.mock.calls[0][0].extraArgs).toEqual(['+demo', '_launcher/deep.dm2'])
+    expect(existsSync(nested)).toBe(true)
   })
 
   it('a staging failure never calls launch', async () => {
@@ -557,7 +756,10 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
     expect(h.sessions.begin).not.toHaveBeenCalled()
 
     // A zip entry that cannot be read out of its archive is refused the same way, before any launch.
-    const entry = { archivePath: join(siblingRoot, 'baseq2', 'demos', 'pack.zip'), entryPath: 'evil.dm2' }
+    const entry = {
+      archivePath: join(siblingRoot, 'baseq2', 'demos', 'pack.zip'),
+      entryPath: 'evil.dm2',
+    }
     await writeFile(entry.archivePath, 'not really a zip')
     const zip = harness({
       demos: [{ ...ELSEWHERE, archiveEntry: entry }],
@@ -582,7 +784,11 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
 
   it('the startup sweep covers every staging dir of every installation', () => {
     const [q2pro, , r1q2] = harness({ demos: [], files: {} }).installations
-    const linux = { platform: 'linux' as const, homeDir, zipDeps: { extractorPath: '', extractorExists: false } }
+    const linux = {
+      platform: 'linux' as const,
+      homeDir,
+      zipDeps: { extractorPath: '', extractorExists: false },
+    }
     expect(launcherSweepDirs([q2pro, r1q2], linux)).toEqual([
       join(q2proRoot, 'baseq2', 'demos'),
       join(homeDir, '.q2pro', 'baseq2', 'demos'),
@@ -594,24 +800,36 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
   })
 })
 
-describe('demo.play playback channel (story 164 D4)', () => {
-  function fakeControl() {
-    return {
-      prepare: vi.fn(async () => ({ argsBeforeDemo: ['+before'], argsAfterDemo: ['+exec', 'after.cfg'] })),
-      attach: vi.fn(async () => undefined),
-      cancel: vi.fn(async () => undefined),
-      send: vi.fn(),
-      currentFormat: vi.fn(() => null),
-      enterFullscreen: vi.fn(),
-      onDisplayChange: vi.fn(() => () => undefined),
-      onStateChange: vi.fn(() => () => undefined),
-      display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
-      emitDisplay: vi.fn(),
-      setSpeed: vi.fn(),
-      settled: vi.fn(() => Promise.resolve()),
-    } satisfies PlaybackControl
-  }
+function fakeControl() {
+  return {
+    prepare: vi.fn(async () => ({
+      argsBeforeDemo: ['+before'],
+      argsAfterDemo: ['+exec', 'after.cfg'],
+    })),
+    attach: vi.fn(async () => undefined),
+    cancel: vi.fn(async () => undefined),
+    send: vi.fn(),
+    currentFormat: vi.fn(() => null),
+    enterFullscreen: vi.fn(),
+    onDisplayChange: vi.fn(() => () => undefined),
+    onStateChange: vi.fn(() => () => undefined),
+    display: vi.fn(() => ({
+      fullscreen: false,
+      cinema: false,
+      speed: 1,
+      cinemaAvailability: { available: true as const },
+      stageNotice: null,
+    })),
+    emitDisplay: vi.fn(),
+    setSpeed: vi.fn(),
+    setVolume: vi.fn(),
+    takeChangedVolume: vi.fn(() => null),
+    settled: vi.fn(() => Promise.resolve()),
+    dispose: vi.fn(() => Promise.resolve()),
+  } satisfies PlaybackControl
+}
 
+describe('demo.play playback channel (story 164 D4)', () => {
   it('channel args wrap +demo so +demo precedes +exec', async () => {
     for (const platform of ['win32', 'linux']) {
       const playback = fakeControl()
@@ -622,6 +840,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
         gameDirPath: join(q2proRoot, 'baseq2'),
         durationMs: 61_000,
         format: 'dm2',
+        volumePercent: 70,
       })
       const [input, options] = h.launch.start.mock.calls[0] as unknown as [LaunchInput, unknown]
       const args = input.extraArgs ?? []
@@ -697,32 +916,66 @@ describe('demo.play playback channel (story 164 D4)', () => {
 describe('demo.play on the stage (story 170 D2)', () => {
   const STAGE = { x: 1, y: 2, width: 640, height: 360 }
   const STAGE_ARGS = [
-    '+set', 'vid_fullscreen', '0', '+set', 'win_noborder', '1', '+set', 'win_notitle', '1',
-    '+set', 'win_alwaysontop', '1', '+set', 'win_noresize', '1', '+set', 's_driver', 'wave',
-    '+set', 'vid_geometry', '800x600+10+20',
+    '+set',
+    'vid_fullscreen',
+    '0',
+    '+set',
+    'win_noborder',
+    '1',
+    '+set',
+    'win_notitle',
+    '1',
+    '+set',
+    'win_alwaysontop',
+    '1',
+    '+set',
+    'win_noresize',
+    '1',
+    '+set',
+    's_driver',
+    'wave',
+    '+set',
+    'vid_geometry',
+    '800x600+10+20',
   ]
   const argsOf = (h: ReturnType<typeof harness>): string[] =>
-    ((h.launch.start.mock.calls[0] as unknown as [LaunchInput])[0].extraArgs ?? [])
-  const control = () => ({
-    prepare: vi.fn(async () => ({ argsBeforeDemo: ['+before'], argsAfterDemo: ['+exec', 'after.cfg'] })),
-    attach: vi.fn(async () => undefined),
-    cancel: vi.fn(async () => undefined),
-    send: vi.fn(),
-    currentFormat: vi.fn(() => null),
-    enterFullscreen: vi.fn(),
-    onDisplayChange: vi.fn(() => () => undefined),
-    onStateChange: vi.fn(() => () => undefined),
-    display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
-    emitDisplay: vi.fn(),
-    setSpeed: vi.fn(),
-    settled: vi.fn(() => Promise.resolve()),
-  }) satisfies PlaybackControl
+    (h.launch.start.mock.calls[0] as unknown as [LaunchInput])[0].extraArgs ?? []
+  const control = () =>
+    ({
+      prepare: vi.fn(async () => ({
+        argsBeforeDemo: ['+before'],
+        argsAfterDemo: ['+exec', 'after.cfg'],
+      })),
+      attach: vi.fn(async () => undefined),
+      cancel: vi.fn(async () => undefined),
+      send: vi.fn(),
+      currentFormat: vi.fn(() => null),
+      enterFullscreen: vi.fn(),
+      onDisplayChange: vi.fn(() => () => undefined),
+      onStateChange: vi.fn(() => () => undefined),
+      display: vi.fn(() => ({
+        fullscreen: false,
+        cinema: false,
+        speed: 1,
+        cinemaAvailability: { available: true as const },
+        stageNotice: null,
+      })),
+      emitDisplay: vi.fn(),
+      setSpeed: vi.fn(),
+      setVolume: vi.fn(),
+      takeChangedVolume: vi.fn(() => null),
+      settled: vi.fn(() => Promise.resolve()),
+      dispose: vi.fn(() => Promise.resolve()),
+    }) satisfies PlaybackControl
 
   it('stage args sit before +demo', async () => {
     for (const platform of ['win32', 'linux']) {
       const playback = control()
       const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), platform, playback })
-      expect(await h.play('base', 'q2pro-a', { stage: STAGE })).toEqual({ ok: true, value: { stage: { placed: true } } })
+      expect(await h.play('base', 'q2pro-a', { stage: STAGE })).toEqual({
+        ok: true,
+        value: { stage: { ok: true } },
+      })
       const args = argsOf(h)
       const demoAt = args.indexOf('+demo')
       expect(args.slice(0, 1), platform).toEqual(['+before'])
@@ -733,15 +986,39 @@ describe('demo.play on the stage (story 170 D2)', () => {
 
   it('Wayland plays a normal window with the reason', async () => {
     const reason = { key: 'replays.stage.unavailable.wayland' } as const
-    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), stageAvail: { available: false, reason } })
+    const h = harness({
+      demos: [BASE_DEMO],
+      files: ctfFiles(),
+      stageAvail: { available: false, reason },
+    })
     expect(await h.play('base', 'q2pro-a', { stage: STAGE })).toEqual({
       ok: true,
-      value: { stage: { placed: false, reason } },
+      value: { stage: { ok: false, reasonKey: reason.key } },
     })
     const args = argsOf(h)
     expect(args.join(' ')).toContain('+set vid_fullscreen 0 +demo')
     expect(args).not.toContain('vid_geometry')
     expect(args).not.toContain('win_noborder')
+  })
+
+  it('an unplaced stage is a Refusal with its key', async () => {
+    const reason = { key: 'replays.stage.unavailable.wayland' } as const
+    const h = harness({
+      demos: [BASE_DEMO],
+      files: ctfFiles(),
+      stageAvail: { available: false, reason },
+    })
+    const result = await h.play('base', 'q2pro-a', { stage: STAGE })
+    if (!result.ok || !result.value.stage) throw new Error('expected a stage result')
+    const stage = result.value.stage
+    expect(stage.ok).toBe(false)
+    if (stage.ok) return
+    expect(stage.reasonKey).toBe('replays.stage.unavailable.wayland')
+    const en = enBundle as Record<string, unknown>
+    const resolved = stage.reasonKey
+      .split('.')
+      .reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], en)
+    expect(typeof resolved).toBe('string')
   })
 
   it('no stage rect keeps the args as they are today', async () => {
@@ -755,7 +1032,12 @@ describe('demo.play on the stage (story 170 D2)', () => {
     const end = vi.fn()
     const onStageSession = vi.fn(() => end)
 
-    const unplaced = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: control(), onStageSession })
+    const unplaced = harness({
+      demos: [BASE_DEMO],
+      files: ctfFiles(),
+      playback: control(),
+      onStageSession,
+    })
     await unplaced.play('base', 'q2pro-a')
     unplaced.emit({ phase: 'exited', installationId: 'q2pro-a' })
     const wayland = harness({
@@ -766,13 +1048,24 @@ describe('demo.play on the stage (story 170 D2)', () => {
       stageAvail: { available: false, reason: { key: 'replays.stage.unavailable.wayland' } },
     })
     await wayland.play('base', 'q2pro-a', { stage: STAGE })
-    const noWindow = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: control(), onStageSession, geometry: null })
+    const noWindow = harness({
+      demos: [BASE_DEMO],
+      files: ctfFiles(),
+      playback: control(),
+      onStageSession,
+      geometry: null,
+    })
     await noWindow.play('base', 'q2pro-a', { stage: STAGE })
     const noChannel = harness({ demos: [BASE_DEMO], files: ctfFiles(), onStageSession })
     await noChannel.play('base', 'q2pro-a', { stage: STAGE })
     expect(onStageSession).not.toHaveBeenCalled()
 
-    const placed = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: control(), onStageSession })
+    const placed = harness({
+      demos: [BASE_DEMO],
+      files: ctfFiles(),
+      playback: control(),
+      onStageSession,
+    })
     await placed.play('base', 'q2pro-a', { stage: STAGE })
     expect(onStageSession).toHaveBeenCalledTimes(1)
     expect(onStageSession).toHaveBeenCalledWith({ geometry: '800x600+10+20', rect: STAGE })
@@ -785,7 +1078,10 @@ describe('demo.play on the stage (story 170 D2)', () => {
 
 describe('demo.play stage cvar restore (story 170 D3)', () => {
   const STAGE = { x: 1, y: 2, width: 640, height: 360 }
-  const restorer = () => ({ snapshot: vi.fn(async () => undefined), restore: vi.fn(async () => undefined) })
+  const restorer = () => ({
+    snapshot: vi.fn(async () => undefined),
+    restore: vi.fn(async () => undefined),
+  })
 
   it('a normal launch takes no snapshot', async () => {
     const cvarRestore = restorer()
@@ -801,7 +1097,9 @@ describe('demo.play stage cvar restore (story 170 D3)', () => {
     const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore })
     expect((await h.play('base', 'q2pro-a', { stage: STAGE })).ok).toBe(true)
     expect(cvarRestore.snapshot).toHaveBeenCalledWith(join(q2proRoot, 'baseq2', 'q2config.cfg'))
-    expect(cvarRestore.snapshot.mock.invocationCallOrder[0]).toBeLessThan(h.launch.start.mock.invocationCallOrder[0] ?? 0)
+    expect(cvarRestore.snapshot.mock.invocationCallOrder[0]).toBeLessThan(
+      h.launch.start.mock.invocationCallOrder[0] ?? 0,
+    )
     expect(cvarRestore.restore).not.toHaveBeenCalled()
     // Another installation's exit is not this session's end.
     h.emit({ phase: 'exited', installationId: 'q2pro-other' })
@@ -822,7 +1120,9 @@ describe('demo.play stage cvar restore (story 170 D3)', () => {
       stageAvail: { available: false, reason },
     })
     await h.play('base', 'q2pro-a', { stage: STAGE })
-    expect(cvarRestore.snapshot).toHaveBeenCalledWith(join(homeDir, '.q2pro', 'baseq2', 'q2config.cfg'))
+    expect(cvarRestore.snapshot).toHaveBeenCalledWith(
+      join(homeDir, '.q2pro', 'baseq2', 'q2config.cfg'),
+    )
     h.emit({ phase: 'failed', installationId: 'q2pro-a' })
     expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
   })
@@ -841,15 +1141,26 @@ describe('demo.play stage cvar restore (story 170 D3)', () => {
       enterFullscreen: vi.fn(),
       onDisplayChange: vi.fn(() => () => undefined),
       onStateChange: vi.fn(() => () => undefined),
-      display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
+      display: vi.fn(() => ({
+        fullscreen: false,
+        cinema: false,
+        speed: 1,
+        cinemaAvailability: { available: true as const },
+        stageNotice: null,
+      })),
       emitDisplay: vi.fn(),
       setSpeed: vi.fn(),
+      setVolume: vi.fn(),
+      takeChangedVolume: vi.fn(() => null),
       settled: vi.fn(() => Promise.resolve()),
+      dispose: vi.fn(() => Promise.resolve()),
     } satisfies PlaybackControl
     const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore, playback })
     expect((await h.play('base', 'q2pro-a')).ok).toBe(true)
     expect(cvarRestore.snapshot).toHaveBeenCalledWith(join(q2proRoot, 'baseq2', 'q2config.cfg'))
-    expect(cvarRestore.snapshot.mock.invocationCallOrder[0]).toBeLessThan(h.launch.start.mock.invocationCallOrder[0] ?? 0)
+    expect(cvarRestore.snapshot.mock.invocationCallOrder[0]).toBeLessThan(
+      h.launch.start.mock.invocationCallOrder[0] ?? 0,
+    )
     expect(cvarRestore.restore).not.toHaveBeenCalled()
     h.emit({ phase: 'exited', installationId: 'q2pro-a' })
     expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
@@ -858,9 +1169,106 @@ describe('demo.play stage cvar restore (story 170 D3)', () => {
   it('a launch that does not start restores right away', async () => {
     const cvarRestore = restorer()
     const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore })
-    h.launch.start.mockImplementationOnce(async () => ({ ok: false, error: { key: 'launch.error.x' } }) as never)
+    h.launch.start.mockImplementationOnce(
+      async () => ({ ok: false, error: { key: 'launch.error.x' } }) as never,
+    )
     expect((await h.play('base', 'q2pro-a', { stage: STAGE })).ok).toBe(false)
     expect(cvarRestore.snapshot).toHaveBeenCalledTimes(1)
     expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('demo.play session volume', () => {
+  const configPath = (): string => join(q2proRoot, 'baseq2', 'q2config.cfg')
+  const argsOf = (h: ReturnType<typeof harness>): string[] =>
+    (h.launch.start.mock.calls[0] as unknown as [LaunchInput])[0].extraArgs ?? []
+  /** The three args right before `+demo`. */
+  const beforeDemo = (h: ReturnType<typeof harness>): string[] => {
+    const args = argsOf(h)
+    const at = args.indexOf('+demo')
+    return args.slice(at - 3, at)
+  }
+
+  it('a play launches with +set s_volume at the remembered volume', async () => {
+    await writeFile(configPath(), 'seta s_volume "0.2"\n')
+    const playback = fakeControl()
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback, demoVolume: 40 })
+    expect((await h.play('base', 'q2pro-a')).ok).toBe(true)
+    expect(beforeDemo(h)).toEqual(['+set', 's_volume', '0.4'])
+    expect(playback.prepare).toHaveBeenCalledWith(expect.objectContaining({ volumePercent: 40 }))
+  })
+
+  it("without a remembered volume it starts at the config's s_volume, else 0.7", async () => {
+    // The engine execs its config top to bottom, so the last line is the game's own level.
+    await writeFile(configPath(), 'seta s_volume "0.2"\r\nset s_volume "0.35"\r\n')
+    const fromConfig = fakeControl()
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: fromConfig })
+    expect((await h.play('base', 'q2pro-a')).ok).toBe(true)
+    expect(beforeDemo(h)).toEqual(['+set', 's_volume', '0.35'])
+    expect(fromConfig.prepare).toHaveBeenCalledWith(expect.objectContaining({ volumePercent: 35 }))
+
+    await rm(configPath())
+    const fresh = fakeControl()
+    const first = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: fresh })
+    expect((await first.play('base', 'q2pro-a')).ok).toBe(true)
+    expect(beforeDemo(first)).toEqual(['+set', 's_volume', '0.7'])
+    expect(fresh.prepare).toHaveBeenCalledWith(expect.objectContaining({ volumePercent: 70 }))
+  })
+
+  it("s_volume's archived line is restored after the game exits (also when nothing was remembered)", async () => {
+    const elsewhere = demo({
+      id: 'away',
+      fileName: 'evil.dm2',
+      source: {
+        kind: 'installation',
+        installationId: 'q2pro-other',
+        installationName: 'Other',
+        gameDir: 'baseq2',
+      },
+    })
+    const cases = [
+      {
+        path: 'in place',
+        demoId: 'base',
+        demos: [BASE_DEMO],
+        remembered: null,
+        before: 'set name "p"\nseta s_volume "0.3"\n',
+      },
+      {
+        path: 'staged copy',
+        demoId: 'away',
+        demos: [elsewhere],
+        remembered: 60,
+        before: 'set name "p"\n',
+      },
+    ]
+    for (const c of cases) {
+      await writeFile(configPath(), c.before)
+      const real = createCvarRestore({
+        names: SESSION_RESTORE_CVARS,
+        pendingPath: join(tmp, `pending-${c.demoId}.json`),
+      })
+      let restored: Promise<void> = Promise.resolve()
+      const cvarRestore = { snapshot: real.snapshot, restore: () => (restored = real.restore()) }
+      const h = harness({
+        demos: c.demos,
+        files: {
+          ...ctfFiles(),
+          away: {
+            absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'),
+            archiveEntry: null,
+          },
+        },
+        playback: fakeControl(),
+        cvarRestore,
+        demoVolume: c.remembered,
+      })
+      expect((await h.play(c.demoId, 'q2pro-a')).ok, c.path).toBe(true)
+      // On its way out the game archives the level the user left it at.
+      await writeFile(configPath(), 'set name "p"\nseta s_volume "0.9"\n')
+      h.emit({ phase: 'exited', installationId: 'q2pro-a' })
+      await restored
+      expect(await readFile(configPath(), 'latin1'), c.path).toBe(c.before)
+    }
   })
 })

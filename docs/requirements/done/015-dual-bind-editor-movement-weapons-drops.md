@@ -24,8 +24,7 @@ weapon-dropping row needs two things the other two categories don't: a choice of
 includes the matching ammo or not, and a free-text field for the team-chat line said when the key
 is pressed (a `say_team` alongside the `drop` command(s)).
 
-The built-in/custom split and the entry-kind picker (`bind`/`message`/`alias`, story 008 decision
-6) stop applying to these three categories once they get their own dedicated editor — that
+The built-in/custom split and the entry-kind picker (`bind`/`message`/`alias`, story 008 decision 6) stop applying to these three categories once they get their own dedicated editor — that
 generic machinery stays exactly as it is today, but only for categories the user creates
 themselves.
 
@@ -33,7 +32,7 @@ Assigning a key while a modifier (Alt/Ctrl/Shift) is held is a related but separ
 covered by [016](016-modifier-layer-on-bind-capture.md) — this story's capture slots must exist
 and be pressable before that story has anywhere to plug into.
 
-See [docs/systems/config-module.md §5](../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned),
+See [docs/systems/config-module.md §5](../../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned),
 `src/shared/config/action-catalog.ts` (`MOVEMENT_ACTIONS`, `WEAPONS`/`WEAPON_ACTIONS`/
 `WEAPON_EXTRA_ACTIONS`, `DROPPABLES`/`DROP_ACTIONS`) and story 008's
 `src/renderer/src/modules/config/AdvancedTab.tsx` / `components/ActionEditor.tsx`, which this
@@ -71,12 +70,12 @@ story replaces the built-in-category path of.
 
 ## Open Questions
 
-*(none — all detail questions were decided during the sprint refine pass, see below)*
+_(none — all detail questions were decided during the sprint refine pass, see below)_
 
 ## Decisions (Sprint)
 
 1. **Slot storage:** `ConfigAction` gains an optional `secondaryKey?: string`; both `key` and
-   `secondaryKey` mirror onto the *same* alias in `setActions`. Reason: one alias per action
+   `secondaryKey` mirror onto the _same_ alias in `setActions`. Reason: one alias per action
    instead of two duplicate actions per row, and it is a purely additive contract change.
 2. **Row identity:** `ConfigAction` gains an optional `catalogId?: string` — a catalogue row is
    recognised by that field, never by its `name`. Reason: stable identity that survives i18n
@@ -89,7 +88,7 @@ story replaces the built-in-category path of.
 5. **Legacy free-form actions** that already exist in `movement`/`weapons`/`drops` (no
    `catalogId`) are shown in a separate "Other actions" group at the bottom of the category,
    with edit/remove but no create. Reason: their binds stay reachable instead of turning
-   invisible; AC 1 forbids *adding* rows, not cleaning up pre-existing ones.
+   invisible; AC 1 forbids _adding_ rows, not cleaning up pre-existing ones.
 6. **Ammo choice + team message live in `commands`**, not in new fields: `{raw 'drop <item>'}`
    [+ `{raw 'drop <ammo>'}`] + optional `{kind:'message', channel:'say_team', text}` last, and
    the UI derives its state back from that array. Reason: `alias-render.ts` already renders both
@@ -118,7 +117,7 @@ story replaces the built-in-category path of.
     Cancel/Replace (the house inline-confirm idiom from `AdvancedTab`'s category delete). On
     Replace the previous owner loses the key. Reason: AC 10 "not silently overwritten", and 016
     expects a plain-key collision warning it can mirror.
-14. **Collision, layer level:** a key that only has an *alt-layer override* is surfaced as a
+14. **Collision, layer level:** a key that only has an _alt-layer override_ is surfaced as a
     non-blocking warning and the assignment proceeds. Reason: a base bind and a layer override
     legitimately coexist — that is how layers work (cf. `layer.triggerConflict`) — and layer
     writes go through a different IPC channel that 015 does not touch.
@@ -140,7 +139,7 @@ dual-bind editor, built on top of the existing action/alias/bind machinery rathe
 1. **Contract (D1)** — `ConfigAction` gains `secondaryKey?` + `catalogId?`
    (`src/shared/modules/config.ts`), zod mirrors it (`src/main/modules/config/schemas.ts`,
    `src/main/lib/schemas.ts`), and `setActions` (`src/main/modules/config/profiles.ts`) mirrors
-   *both* keys onto the same alias name. From there the whole downstream pipeline (alias render,
+   _both_ keys onto the same alias name. From there the whole downstream pipeline (alias render,
    bind block, Overview resolution) already works unchanged.
 2. **Collision core (D2)** — new pure `src/shared/config/bind-collision.ts`: find who owns a key
    (base bind / other action slot / layer override) and release it. Modelled on `alt-layers.ts`
@@ -176,7 +175,7 @@ Files: `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
 `src/main/lib/schemas.ts`, `src/main/modules/config/profiles.ts`,
 `src/main/modules/config/profiles.test.ts`.
 Acceptance: both fields are optional on `ConfigAction` and accepted/validated by zod
-(`secondaryKey` uses the same key validation as `key`); `setActions` writes *both* keys into
+(`secondaryKey` uses the same key validation as `key`); `setActions` writes _both_ keys into
 `profile.binds` pointing at the same `aliasNameFor(action)`; clearing one key removes only its
 bind; all existing config tests stay green (`npm test`).
 
@@ -207,11 +206,12 @@ Files: new `src/renderer/src/modules/config/lib/useKeyCapture.ts`, new
 `components/ActionEditor.tsx` capture effect (lines ~56-74) for the listener shape,
 `components/KeyBindDialog.tsx` for banner/atom idiom.
 Acceptance: the hook adds a capturing `keydown` listener, skips `event.repeat`, `preventDefault`
-+ `stopPropagation`, resolves via `resolveQuakeKeyName`, reports
-`{ key, modifiers: { alt, ctrl, shift } }` and cancels on Escape; `BindSlot` shows the bound key
-(mono/`numeric`), an explicit "not bound" state, a "Press a key…" state while capturing, and a
-Clear affordance that is available without entering capture. Existing inline capture sites are
-not modified.
+
+- `stopPropagation`, resolves via `resolveQuakeKeyName`, reports
+  `{ key, modifiers: { alt, ctrl, shift } }` and cancels on Escape; `BindSlot` shows the bound key
+  (mono/`numeric`), an explicit "not bound" state, a "Press a key…" state while capturing, and a
+  Clear affordance that is available without entering capture. Existing inline capture sites are
+  not modified.
 
 **D5 — Movement + Weapons dual-bind panel, wired into the Advanced tab**
 Files: new `…/components/DualBindPanel.tsx`, `…/AdvancedTab.tsx`,
@@ -240,7 +240,7 @@ Files: `…/components/BindSlot.tsx`, `…/components/DualBindPanel.tsx`,
 `KeyBindDialog.tsx` banner classes + `AdvancedTab.tsx` inline delete confirm.
 Acceptance: capturing a key that already has a base bind or belongs to another action does not
 apply immediately — the row shows an inline banner naming the current owner plus Cancel /
-Replace; Replace applies the assignment *and* releases the key from its previous owner in the
+Replace; Replace applies the assignment _and_ releases the key from its previous owner in the
 same save; a key that only has an alt-layer override shows a non-blocking warning and the
 assignment goes through; Cancel leaves the slot exactly as it was.
 
@@ -261,7 +261,7 @@ chip) · collision surfaced → D2, D7 · Overview + generated file → D1, D8.
 ## Model Hints
 
 - `D1 → deliverable-hard` — `setActions` rebuilds the whole `binds` record from actions;
-  getting the two-key mirror wrong silently drops or duplicates binds in *existing* profiles,
+  getting the two-key mirror wrong silently drops or duplicates binds in _existing_ profiles,
   and it is the one change that crosses shared contract, zod schemas and main state at once.
 - `D7 → deliverable-hard` — the Replace path has to mutate two owners (the new slot and the
   previous base bind / other action's slot) inside a single `updateProfileActions` +
@@ -312,18 +312,19 @@ completely untouched.
 
 **Review-fix cycle (1 of the allowed 3).** The first `story-review-hard` pass returned FAIL on
 2 of 11 ACs:
+
 - **AC 3** — an occupied `BindSlot` only showed Clear, not a way to re-capture directly (had to
   Clear first, then capture). Fixed by restructuring `BindSlot.tsx`'s render branches so a
   capture-again button is always shown alongside Clear, mirroring `ActionEditor`'s idiom.
 - **AC 9** — `findBindCollision` checked base binds (`profile.binds`) before other actions'
   slots. Since `setActions` mirrors every action's key into `profile.binds` as its alias name, a
   second action capturing a key already held by a first action was misreported as `kind:
-  'baseBind'` (naming an opaque alias token) instead of `kind: 'action'` — and `releaseKey`'s
+'baseBind'` (naming an opaque alias token) instead of `kind: 'action'` — and `releaseKey`'s
   `baseBind` case does not clear any action's slot, so Replace left both actions' key fields
   pointing at the same key, with `setActions`' "later action wins" array-order tie-break silently
   deciding the outcome after a reload. Fixed by reordering `findBindCollision`'s checks (actions
   before base binds), so any key another action already holds is always reported as `kind:
-  'action'`, whose `releaseKey`/`applyReplace` path genuinely clears the previous owner's slot in
+'action'`, whose `releaseKey`/`applyReplace` path genuinely clears the previous owner's slot in
   the same submitted array.
 
 A second `story-review-hard` pass re-verified both fixes line-by-line (including self-ignore
@@ -333,6 +334,7 @@ ACs, and returned **PASS**, no further findings.
 
 **Decisions made or reaffirmed during build** (beyond the 17 already recorded above, which were
 all followed as written):
+
 - **D3's row `name`** for a lazily-materialised catalogue action is the row's own raw engine
   command text (e.g. `+forward`, `drop rocket launcher`), not its translated i18n label —
   `catalog-binds.ts` is hook-free (no `useTranslation()`) so it cannot resolve a `labelKey`, and
@@ -358,7 +360,8 @@ all followed as written):
 
 **Known, deliberately unfixed low-severity findings** (documented rather than spent on further
 review-fix cycles, none AC-blocking):
-- `findBindCollision` returns only the *first* action holding a given key; a pre-story-015 legacy
+
+- `findBindCollision` returns only the _first_ action holding a given key; a pre-story-015 legacy
   profile that already had two actions sharing one key (impossible to create through this story's
   own editor, since every second capture goes through Replace) would have a Replace release only
   one of them. Pre-existing data shape, not reachable via this story's UI.
@@ -375,11 +378,12 @@ review-fix cycles, none AC-blocking):
   reviewed D3 file for an export-only change; both encode the identical rule today.
 
 **Verification.**
+
 - `npm run build` — clean (main/preload/renderer all bundle).
 - `npx tsc -p tsconfig.web.json --noEmit` / `-p tsconfig.node.json --noEmit` — both clean.
 - `npm test` — **31 files / 507 tests pass** (run via PowerShell; the Bash tool intermittently
   throws a uniform, unrelated `Cannot read properties of undefined (reading 'config')` error
-  across the *entire* suite in this sandbox — a known, pre-existing environment flake this sprint,
+  across the _entire_ suite in this sandbox — a known, pre-existing environment flake this sprint,
   reproduced and ruled out repeatedly against clean PowerShell runs at every deliverable boundary,
   not a real failure).
 - Two `story-review-hard` clean-agent reviews: first FAIL (2/11 ACs, detailed above), second PASS
@@ -391,6 +395,7 @@ review-fix cycles, none AC-blocking):
   acceptance pending** against the 8-step manual test plan above.
 
 **Commit message:**
+
 ```
 015: dual-bind editor for Movement, Weapons, Weapon dropping
 

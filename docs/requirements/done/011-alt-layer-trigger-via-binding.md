@@ -39,11 +39,11 @@ losing its overrides in the process.
 1. **`triggerKey: string | null`, not optional** — mirrors story 007's
    `SetSwitchBindInput.key: string | null`, and a nullable (rather than absent) field makes the
    compiler flag every existing read site instead of letting `undefined` slip through.
-2. **Trigger assignment lives in `KeyBindDialog`, base-layer view only** — a trigger *is* a
+2. **Trigger assignment lives in `KeyBindDialog`, base-layer view only** — a trigger _is_ a
    base-layer bind (`render.ts` emits it in the bind block); offering it while editing a layer's
    own overrides would mix two different meanings of "bind this key".
 3. **One key triggers at most one layer** — assigning a key that is already another layer's
-   trigger *moves* it (clears the previous owner) in the same save, because two `bind <key>` lines
+   trigger _moves_ it (clears the previous owner) in the same save, because two `bind <key>` lines
    would otherwise silently fight in the rendered file.
 4. **Assigning a trigger to a key the target layer already overrides stays a blocking error** —
    keeps story 006 decision 12 (`layer.selfbind`) intact rather than saving a layer nobody can leave.
@@ -199,13 +199,15 @@ a matching preview line/"not reachable" note. The existing `layer.selfbind` (blo
 path, computed from the same conditions the generator uses, so the two can never disagree.
 
 **Deliverables:** D1 `src/shared/config/alt-layers.ts` + `.test.ts` — D2 `src/shared/config/render.ts`
-+ `src/main/modules/config/render.test.ts` — D3 `src/main/modules/config/schemas.ts`,
-`src/main/lib/schemas.ts` + `profiles.test.ts`/`schemas.test.ts` — D4
-`src/renderer/src/modules/config/LayersPanel.tsx` + `en.json` — D5 (hard tier)
-`src/renderer/src/modules/config/components/KeyBindDialog.tsx` + `en.json`.
+
+- `src/main/modules/config/render.test.ts` — D3 `src/main/modules/config/schemas.ts`,
+  `src/main/lib/schemas.ts` + `profiles.test.ts`/`schemas.test.ts` — D4
+  `src/renderer/src/modules/config/LayersPanel.tsx` + `en.json` — D5 (hard tier)
+  `src/renderer/src/modules/config/components/KeyBindDialog.tsx` + `en.json`.
 
 **Decisions taken during the build** (beyond the story's own `## Decisions (Sprint)`, which the
 implementation followed as written):
+
 - D3's persisted schema uses `z.string().nullable().catch(null)` for `triggerKey` so a missing or
   malformed value degrades to `null` per-field rather than failing the whole layer row, matching
   this file's existing forgiving-schema convention.
@@ -222,11 +224,12 @@ implementation followed as written):
   cannot mean two unrelated actions.
 
 **Verification:**
+
 - `npm run build` — green.
 - `npm run typecheck` (node + web) — clean (not a required gate per the project profile, run as an
   extra check).
 - `npm test` — 435/435 passing across 25 files. Note: an early run of `npx vitest run
-  src/main/modules/config/render.test.ts` inside this session's Bash tool threw
+src/main/modules/config/render.test.ts` inside this session's Bash tool threw
   `TypeError: Cannot read properties of undefined (reading 'config')` on every test file, including
   on an unmodified `git stash`'d tree — confirmed to be a Bash-tool/Git-Bash environment quirk with
   this vitest version, not a regression: the identical suite passed cleanly (435/435) run through
@@ -237,12 +240,12 @@ implementation followed as written):
   1. `LayersPanel`'s expanded preview can show a trigger-bind line for a layer that `render.ts`
      would actually skip (an empty layer with a trigger key set but no valid overrides) — a cosmetic
      accuracy gap, mitigated by the `layer.empty` banner already shown alongside it.
-  2–3. Minor `.trim()`-asymmetry edge cases in trigger-key/self-bind comparisons, reachable only via
+     2–3. Minor `.trim()`-asymmetry edge cases in trigger-key/self-bind comparisons, reachable only via
      a hand-edited state file or a whitespace-padded key the UI/strict schema can never produce.
-  4. "Clear trigger" always targets the key's current trigger owner regardless of what's selected in
+  2. "Clear trigger" always targets the key's current trigger owner regardless of what's selected in
      the layer picker — behaviorally correct (there's only ever one owner to clear) but an implicit
      UX coupling worth a comment if this file is touched again.
-  5. Two assertion lines added to `render.test.ts` exceed the repo's `printWidth: 100` —
+  3. Two assertion lines added to `render.test.ts` exceed the repo's `printWidth: 100` —
      `npm run format:check` is already red on 232 pre-existing files repo-wide, so this is a
      pre-existing-condition nit, not a new regression.
 - **Live UI smoke test (P2): NOT completed — built, live acceptance pending.** `npm run dev` could

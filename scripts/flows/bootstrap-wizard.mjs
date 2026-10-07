@@ -15,10 +15,10 @@
 //
 // Two harness-only overrides, both under the SAME double gate (`Q2L_UI_HARNESS === '1' && isDev`,
 // `src/main/lib/ui-harness.ts`), both provably unreachable in a packaged build where `isDev` is
-// always `false` - see `src/main/modules/downloads/harness.test.ts`:
+// always `false` - see `src/main/services/content/source.test.ts`:
 //
 //   Q2L_UI_CONTENT_REPO_BASE  the manifest/package base URL (`resolveDownloadSource()`,
-//                             `src/main/modules/downloads/harness.ts`). Refused unless it names a
+//                             `src/main/services/content/source.ts`). Refused unless it names a
 //                             `127.0.0.1` origin, so it can never redirect a run somewhere public.
 //   Q2L_UI_PICK_FOLDER        the folders `installations:pickFolder` answers with instead of
 //                             opening a native OS dialog (`src/main/ipc/installations.ts`), in
@@ -46,7 +46,7 @@
 // ## Selectors, not guesses
 //
 // Read the components before changing any of these:
-//   library-download-install                      views/LibraryView.tsx (D5)
+//   library-add                                   views/LibraryView.tsx (menu: "New installation…")
 //   bootstrap-engine-q2pro                        modules/downloads/bootstrap/EngineStep.tsx
 //   bootstrap-target-path-input                   .../TargetStep.tsx (wraps `PathPicker`)
 //   bootstrap-target-programfiles-warning         .../TargetStep.tsx  (+ -acknowledge)
@@ -68,7 +68,7 @@
 // fail at step "start" rather than prove anything. `setup()` therefore reseeds `populated` and
 // recreates the target folder, which is what makes the flow re-runnable.
 import { existsSync, readdirSync, statSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { basename, delimiter, dirname, join } from 'node:path'
 import {
   BOOTSTRAP_FIXTURE_LAYOUT,
   BOOTSTRAP_TARGET_LOOSE_FILE,
@@ -80,6 +80,7 @@ import {
   writeBootstrapTargetDir,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** The whole job: three throttled downloads, three 7za spawns, assemble, two revalidations. */
@@ -125,9 +126,10 @@ export async function setup() {
     env: {
       Q2L_UI_CONTENT_REPO_BASE: server.baseUrl,
       // In call order: the Program Files path AC2 needs a warning for (never created), then the
-      // real fixture target everything after step 2 uses. The second entry repeats for any further
+      // parent of the real fixture target - the flow types the target's own name into the
+      // folder-name field to land on it. The second entry repeats for any further
       // pick, so the write-dir remedy button cannot exhaust the list.
-      Q2L_UI_PICK_FOLDER: [bootstrapProgramFilesProbePath(), targetPath].join(delimiter),
+      Q2L_UI_PICK_FOLDER: [bootstrapProgramFilesProbePath(), dirname(targetPath)].join(delimiter),
     },
   }
 }
@@ -160,9 +162,8 @@ export default async function bootstrapWizard({ page, shot, step }) {
   }, SAMPLE_INTERVAL_MS)
 
   // --- AC1: the Library opens the wizard and offers Q2PRO only ------------------------------------
-  step('open the Library and click "Download & install"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
+  step('open the Library and choose "New installation…"')
+  await openLibraryAddEntry(page, 'New installation…')
 
   step('assert the engine step offers Q2PRO and nothing else (AC1)')
   const engineOption = page.getByTestId('bootstrap-engine-q2pro')
@@ -217,6 +218,13 @@ export default async function bootstrapWizard({ page, shot, step }) {
     )
   }
 
+  const shownFinalPath = (await page.getByTestId('bootstrap-target-final-path').innerText()).trim()
+  if (shownFinalPath !== programFilesPath) {
+    throw new Error(
+      `expected the warning to apply to the final path ${JSON.stringify(programFilesPath)}, got ${JSON.stringify(shownFinalPath)}`,
+    )
+  }
+
   const programFilesText = await programFilesWarning.innerText()
   if (!/write access/i.test(programFilesText)) {
     throw new Error(
@@ -264,18 +272,41 @@ export default async function bootstrapWizard({ page, shot, step }) {
   await shot('target-programfiles-warning')
 
   // --- AC3: a non-empty target lists its contents and can be continued ---------------------------
-  step('re-pick the real fixture target (second stubbed folder pick)')
+  step('pick the parent of the real fixture target (second stubbed folder pick)')
   await browse.click({ timeout: TIMEOUT_MS })
 
-  step('assert the non-empty warning lists what is already in the folder (AC3)')
+  step('assert the non-empty folder is not installed into: a subfolder is proposed')
+  const finalPathField = page.getByTestId('bootstrap-target-final-path')
+  const parentDir = dirname(targetPath)
+  await page.waitForFunction(
+    (picked) => {
+      const text = document
+        .querySelector('[data-testid="bootstrap-target-final-path"]')
+        ?.textContent?.trim()
+      return Boolean(text) && text !== picked && text.startsWith(picked)
+    },
+    parentDir,
+    { timeout: TIMEOUT_MS },
+  )
+  const shownPath = await pathField.inputValue()
+  if (shownPath !== parentDir) {
+    throw new Error(
+      `expected the target field to show ${JSON.stringify(parentDir)}, got ${JSON.stringify(shownPath)}`,
+    )
+  }
+  if (await page.getByTestId('bootstrap-target-nonempty-warning').count()) {
+    throw new Error('the proposed subfolder was reported as non-empty')
+  }
+
+  step('type the existing folder name into the folder-name field (AC3)')
+  await page
+    .getByTestId('bootstrap-target-folder-name')
+    .fill(basename(targetPath), { timeout: TIMEOUT_MS })
   const nonEmptyWarning = page.getByTestId('bootstrap-target-nonempty-warning')
   await nonEmptyWarning.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  const shownPath = await pathField.inputValue()
-  if (shownPath !== targetPath) {
-    throw new Error(
-      `expected the target field to show ${JSON.stringify(targetPath)}, got ${JSON.stringify(shownPath)}`,
-    )
+  const typedFinalPath = (await finalPathField.innerText()).trim()
+  if (typedFinalPath !== targetPath) {
+    throw new Error(`expected the typed name to yield ${targetPath}, got ${typedFinalPath}`)
   }
   const nonEmptyText = await nonEmptyWarning.innerText()
   if (!nonEmptyText.includes(BOOTSTRAP_TARGET_LOOSE_FILE)) {
@@ -284,14 +315,16 @@ export default async function bootstrapWizard({ page, shot, step }) {
     )
   }
   if (await page.getByTestId('bootstrap-target-blocked').count()) {
-    throw new Error('the fixture target was reported as blocked; a warning was expected, not a block')
+    throw new Error(
+      'the fixture target was reported as blocked; a warning was expected, not a block',
+    )
   }
   // Changing the target resets every acknowledge (`BootstrapWizard.tsx`: "an acknowledge for one
   // folder must never silently carry over to a different one") - so Next is disabled again here
   // even though a warning was already acknowledged for the previous folder.
   if (await next.isEnabled()) {
     throw new Error(
-      'Next was enabled for a freshly picked non-empty target - the previous folder\'s ' +
+      "Next was enabled for a freshly picked non-empty target - the previous folder's " +
         'acknowledge appears to have carried over (AC3)',
     )
   }
@@ -331,7 +364,9 @@ export default async function bootstrapWizard({ page, shot, step }) {
   console.log(`confirm step: total ${totalSizeText} for ${server.totalSizeBytes} real bytes`)
   await shot('confirm-step')
 
-  step('turn on "include videos and player models" (AC4 e2e half - exercises GLOB_DIRS\' baseq2/players candidate)')
+  step(
+    'turn on "include videos and player models" (AC4 e2e half - exercises GLOB_DIRS\' baseq2/players candidate)',
+  )
   // `Checkbox` (`components/ui/controls.tsx`) hides its real `<input type="checkbox">` with
   // `sr-only` and paints a visible `<span>` checkmark box next to it, so the click has to land on
   // the wrapping `<label>` - same pattern as the Program-Files-acknowledge checkbox above. This
@@ -385,7 +420,8 @@ export default async function bootstrapWizard({ page, shot, step }) {
     return window.__q2lBootstrapSamples
   })
   const playableWhileRunning = samples.filter(
-    (sample) => sample.job === 'running' && sample.playDisabled === false && sample.playAction === 'play',
+    (sample) =>
+      sample.job === 'running' && sample.playDisabled === false && sample.playAction === 'play',
   )
   const runningSamples = samples.filter((sample) => sample.job === 'running')
   if (playableWhileRunning.length === 0) {
@@ -393,7 +429,9 @@ export default async function bootstrapWizard({ page, shot, step }) {
       `Play was never enabled while the job status was still "running" (AC6). ` +
         `${runningSamples.length} running sample(s) at ${SAMPLE_INTERVAL_MS}ms; ` +
         `play states seen while running: ${JSON.stringify([
-          ...new Set(runningSamples.map((s) => `${s.playAction}/${s.playDisabled ? 'disabled' : 'enabled'}`)),
+          ...new Set(
+            runningSamples.map((s) => `${s.playAction}/${s.playDisabled ? 'disabled' : 'enabled'}`),
+          ),
         ])}`,
     )
   }
@@ -446,7 +484,9 @@ export default async function bootstrapWizard({ page, shot, step }) {
   }
   for (const expected of ['q2pro.exe', BOOTSTRAP_TARGET_LOOSE_FILE]) {
     if (!tree.files.includes(expected)) {
-      throw new Error(`expected ${expected} in the target root, found ${JSON.stringify(tree.files)}`)
+      throw new Error(
+        `expected ${expected} in the target root, found ${JSON.stringify(tree.files)}`,
+      )
     }
   }
   for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
@@ -477,7 +517,9 @@ export default async function bootstrapWizard({ page, shot, step }) {
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
   console.log(`fixture server served: ${JSON.stringify([...new Set(server.requested)])}`)
 

@@ -1,12 +1,12 @@
 /**
- * Unified row-entry adapter for the Controls grid (story 020 D4, rewritten by story 052 D8).
+ * Unified row-entry adapter for the Controls grid (story 020, rewritten by story 052).
  *
  * A row is one of `profile.actions`, full stop. Until story 052 this module also *invented* rows:
  * for `movement`/`weapons`/`drops` it walked the action catalogue and emitted one row per catalogue
  * entry whether or not the profile carried it, with `action: undefined` for the ones it did not
  * ("lazy materialisation", `catalog-binds.ts`). That is what made the Controls tab a catalogue with
  * the user's config laid over it rather than an editor of that config - and an invented row has no
- * entry to reorder, which is why only free-form rows could be moved. D6's migration has since
+ * entry to reorder, which is why only free-form rows could be moved. the migration has since
  * materialised every catalogue row into every existing profile, and `STANDARD_TEMPLATE` seeds them
  * for new ones, so nothing is lost by building the list from `profile.actions` alone.
  *
@@ -28,10 +28,15 @@ import {
   MOVEMENT_ACTIONS,
   WEAPON_ACTIONS,
   WEAPON_EXTRA_ACTIONS,
-} from '@shared/config/action-catalog'
-import { buildDemoRows } from '@shared/config/catalog-rows'
+} from '@shared/config/catalog/action-catalog'
+import { buildDemoRows } from '@shared/config/catalog/catalog-rows'
 import type { ConfigAction } from '@shared/modules/config'
-import { buildDropGroups, buildMovementRows, buildWeaponRows, type CatalogRow } from './catalog-binds'
+import {
+  buildDropGroups,
+  buildMovementRows,
+  buildWeaponRows,
+  type CatalogRow,
+} from './catalog-binds'
 
 /** What the catalogue knows about one of its rows: the row itself plus the i18n key naming it. */
 export interface CatalogRowInfo {
@@ -40,7 +45,7 @@ export interface CatalogRowInfo {
 }
 
 /** A row backed by an entry the profile has *and* whose `catalogId` still names a catalogue row.
- * `action` is always present - an entry the profile does not carry has no row (story 052 D8). */
+ * `action` is always present - an entry the profile does not carry has no row (story 052). */
 export interface CatalogControlsRowEntry extends CatalogRowInfo {
   kind: 'catalog'
   action: ConfigAction
@@ -73,9 +78,18 @@ function buildCatalogRowIndex(): ReadonlyMap<string, CatalogRowInfo> {
   pair(useRows, WEAPON_ACTIONS)
   pair(extraRows, WEAPON_EXTRA_ACTIONS)
   const drops = buildDropGroups()
-  pair(drops.weapon, DROPPABLES.filter((d) => d.kind === 'weapon'))
-  pair(drops.ammo, DROPPABLES.filter((d) => d.kind === 'ammo'))
-  pair(drops.misc, DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech'))
+  pair(
+    drops.weapon,
+    DROPPABLES.filter((d) => d.kind === 'weapon'),
+  )
+  pair(
+    drops.ammo,
+    DROPPABLES.filter((d) => d.kind === 'ammo'),
+  )
+  pair(
+    drops.misc,
+    DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech'),
+  )
   pair(buildDemoRows(), DEMO_ACTIONS)
 
   return index
@@ -85,12 +99,18 @@ const CATALOG_ROWS_BY_ID = buildCatalogRowIndex()
 
 /** What the catalogue knows about `catalogId`, or `undefined` for an entry with no `catalogId` and
  * for one naming a row the catalogue no longer has. */
+/** The first raw command of a free-form entry; an alias/message entry has no single one to show. */
+export function rawCommandText(action: ConfigAction): string | undefined {
+  const raw = action.commands.find((command) => command.kind === 'raw')
+  return raw?.kind === 'raw' ? raw.text : undefined
+}
+
 export function catalogRowInfo(catalogId: string | undefined): CatalogRowInfo | undefined {
   return catalogId ? CATALOG_ROWS_BY_ID.get(catalogId) : undefined
 }
 
 /** Every catalogue row there is, in the catalogue's own order - the source "Add action"'s
- * suggestion list draws from (story 052 D9). Same knowledge `catalogRowInfo` exposes per id, just
+ * suggestion list draws from (story 052). Same knowledge `catalogRowInfo` exposes per id, just
  * as one flat list rather than a lookup. */
 export function allCatalogRowInfos(): CatalogRowInfo[] {
   return Array.from(CATALOG_ROWS_BY_ID.values())
@@ -100,13 +120,15 @@ export function allCatalogRowInfos(): CatalogRowInfo[] {
  * a plain entry otherwise. */
 export function controlsRowEntryFor(action: ConfigAction): ControlsRowEntry {
   const info = catalogRowInfo(action.catalogId)
-  return info ? { kind: 'catalog', row: info.row, labelKey: info.labelKey, action } : { kind: 'action', action }
+  return info
+    ? { kind: 'catalog', row: info.row, labelKey: info.labelKey, action }
+    : { kind: 'action', action }
 }
 
 /**
  * The rows of one category: exactly the profile's entries filed under `categoryId`, in
  * `profile.actions`' own array order (story 019's ordering model, which `swapEntries` edits) - no
- * row for an entry the profile does not have, in any category (story 052 AC 3).
+ * row for an entry the profile does not have, in any category (story 052).
  *
  * `actions` is the full draft array rather than a pre-filtered one, so a row's index here and the
  * neighbour walk a move does stay derived from the same source.

@@ -18,6 +18,7 @@
 
 import { copyFileSync, existsSync, rmSync } from 'node:fs'
 import { REPLAYS_FIXTURE_DEMOS, installationRootFilePath } from '../lib/fixture.mjs'
+import { openFolder, showAllInstallations } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -29,7 +30,10 @@ const RUN_SUFFIX = Date.now().toString(36)
 const SOURCE_DEMO = REPLAYS_FIXTURE_DEMOS.find((demo) => demo.fileName === 'duel_q2dm1.dm2')
 
 function sourceDemoPath() {
-  return installationRootFilePath(SOURCE_DEMO.installationId, `baseq2/demos/${SOURCE_DEMO.fileName}`)
+  return installationRootFilePath(
+    SOURCE_DEMO.installationId,
+    `baseq2/demos/${SOURCE_DEMO.fileName}`,
+  )
 }
 
 function newDemoFileName() {
@@ -61,12 +65,23 @@ async function waitForScanToFinish(page) {
 }
 
 export default async function replaysIncrementalScan({ page, shot, step }) {
-  step('a fresh variant has no replays-index.json cache yet - opening Demos can only show the ' +
-    'fixture rows via a real scan')
+  step(
+    'a fresh variant has no replays-index.json cache yet - opening Demos can only show the ' +
+      'fixture rows via a real scan',
+  )
   await openDemosView(page)
 
+  await showAllInstallations(page)
   const expectedNames = REPLAYS_FIXTURE_DEMOS.map((demo) => demo.fileName)
-  const namesAfterFirstOpen = await page.getByTestId('replays-demo-name').allTextContents()
+  const rootLabel = (demo) => `${demo.installationName} · ${demo.gameDir}`
+  const namesAfterFirstOpen = []
+  for (const root of new Set(REPLAYS_FIXTURE_DEMOS.map(rootLabel))) {
+    await openFolder(page, root)
+    namesAfterFirstOpen.push(...(await page.getByTestId('replays-demo-name').allTextContents()))
+    await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
+    await page.getByTestId('replays-breadcrumb').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  }
+  await openFolder(page, rootLabel(SOURCE_DEMO))
   const sortedActual = [...namesAfterFirstOpen].sort()
   const sortedExpected = [...expectedNames].sort()
   if (JSON.stringify(sortedActual) !== JSON.stringify(sortedExpected)) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import en from '../../renderer/src/i18n/locales/en.json'
+import { en } from '../../renderer/src/i18n/bundle'
 import {
   CONNECT_CFG_NAME,
   parseUserinfoValue,
@@ -88,7 +88,10 @@ describe('every userinfo rejection has an i18n key', () => {
     const value: unknown = path
       .split('.')
       .reduce<unknown>(
-        (acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined),
+        (acc, key) =>
+          acc && typeof acc === 'object' && key in acc
+            ? (acc as Record<string, unknown>)[key]
+            : undefined,
         en,
       )
     return typeof value === 'string' ? value : undefined

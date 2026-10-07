@@ -9,7 +9,6 @@ import {
 } from '@shared/ipc'
 import { fail, type Outcome } from '@shared/types'
 import { scopedLogger } from '../lib/logger'
-import { UI_HARNESS_ENV } from '../lib/ui-harness'
 import type { AppContext } from '../context'
 import { registerAppIpc } from './app'
 import { registerDetectionIpc } from './detection'
@@ -30,6 +29,9 @@ const registeredChannels = new Set<InvokeChannel>()
 
 /** Fallback rejection key for `handleOutcome`; per-channel keys are passed explicitly. */
 const INVALID_PAYLOAD_KEY = 'ipc.error.invalidPayload'
+
+/** What a throwing handler is reported as; the original error is logged, never sent across IPC. */
+const HANDLER_FAILED_KEY = 'ipc.error.handlerFailed'
 
 /**
  * A handler for `channel`, receiving the payload *after* validation.
@@ -80,13 +82,27 @@ function register<C extends InvokeChannel>(
  * rejected `invoke` promise. That is deliberate: these channels have no failure
  * channel in their return type, and a bad payload here is a renderer bug rather
  * than user input.
+ *
+ * A handler that throws (or rejects) is a bug: the original error is logged and
+ * the renderer's promise rejects with an `Error` whose message is only
+ * `ipc.error.handlerFailed`, so raw system text or paths never cross IPC.
  */
 export function handle<C extends InvokeChannel>(
   channel: C,
   schema: ZodType<InvokeRequest<C>>,
   handler: Handler<C>,
 ): void {
-  register(channel, (event, payload) => handler(schema.parse(payload), event))
+  register(channel, (event, payload) => {
+    const data = schema.parse(payload)
+    return (async () => {
+      try {
+        return await handler(data, event)
+      } catch (error) {
+        log.error(`handler for channel '${channel}' threw`, error)
+        throw new Error(HANDLER_FAILED_KEY)
+      }
+    })()
+  })
 }
 
 /**
@@ -98,6 +114,10 @@ export function handle<C extends InvokeChannel>(
  *
  * `invalidKey` defaults to the generic `ipc.error.invalidPayload`; pass a
  * channel-specific key where the UI has a better message for it.
+ *
+ * A handler that throws (or rejects) resolves to
+ * `fail('ipc.error.handlerFailed', { channel })` after logging the original
+ * error; its message never reaches the renderer.
  */
 export function handleOutcome<C extends OutcomeChannel>(
   channel: C,
@@ -105,10 +125,15 @@ export function handleOutcome<C extends OutcomeChannel>(
   handler: Handler<C>,
   invalidKey: string = INVALID_PAYLOAD_KEY,
 ): void {
-  register(channel, (event, payload) => {
+  register(channel, async (event, payload) => {
     const parsed = schema.safeParse(payload)
     if (!parsed.success) return fail(invalidKey)
-    return handler(parsed.data, event)
+    try {
+      return await handler(parsed.data, event)
+    } catch (error) {
+      log.error(`handler for channel '${channel}' threw`, error)
+      return fail(HANDLER_FAILED_KEY, { channel })
+    }
   })
 }
 
@@ -131,7 +156,7 @@ export function registerAllIpc(app: AppContext): void {
   // and screens need to reach. The variable is never set by the app itself or by electron-builder,
   // so a real user's packaged install never registers this without deliberately exporting it
   // before starting the binary.
-  if (app.isDev || process.env[UI_HARNESS_ENV] === '1') registerDevIpc(app)
+  if (app.isDev || app.harness.enabled) registerDevIpc(app)
 
   assertContractFullyHandled(app.isDev)
   log.info(`registered ${registeredChannels.size} IPC channels`)

@@ -186,7 +186,9 @@ export default async function homeHeroCarousel({ page, app, shot, step }) {
   await page.getByRole('button', { name: 'Next news slide' }).click({ timeout: TIMEOUT_MS })
   const afterNext = await readCounter(page)
   if (afterNext.position === start.position) {
-    throw new Error(`clicking "Next news slide" did not change the slide (AC3) - stayed on ${start.position}`)
+    throw new Error(
+      `clicking "Next news slide" did not change the slide (AC3) - stayed on ${start.position}`,
+    )
   }
   await page.getByRole('button', { name: 'Previous news slide' }).click({ timeout: TIMEOUT_MS })
   const afterPrev = await readCounter(page)
@@ -199,12 +201,16 @@ export default async function homeHeroCarousel({ page, app, shot, step }) {
   await page.getByRole('button', { name: 'Show news slide 2' }).click({ timeout: TIMEOUT_MS })
   const afterDot2 = await readCounter(page)
   if (afterDot2.position !== 2) {
-    throw new Error(`clicking the second dot did not select slide 2 (AC3/AC9) - got ${afterDot2.position}`)
+    throw new Error(
+      `clicking the second dot did not select slide 2 (AC3/AC9) - got ${afterDot2.position}`,
+    )
   }
   await page.getByRole('button', { name: 'Show news slide 1' }).click({ timeout: TIMEOUT_MS })
   const afterDot1 = await readCounter(page)
   if (afterDot1.position !== 1) {
-    throw new Error(`clicking the first dot did not select slide 1 (AC3/AC9) - got ${afterDot1.position}`)
+    throw new Error(
+      `clicking the first dot did not select slide 1 (AC3/AC9) - got ${afterDot1.position}`,
+    )
   }
   console.log('dots, previous and next each changed the slide as expected')
   await page.mouse.move(AWAY_FROM_HERO.x, AWAY_FROM_HERO.y)
@@ -230,7 +236,9 @@ export default async function homeHeroCarousel({ page, app, shot, step }) {
   // Un-latch, restoring the hero to its normal rotating state before the reduced-motion check below.
   await resumeButton.click({ timeout: TIMEOUT_MS })
   await pauseButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  console.log('the pause control latches until pressed again, and stays paused with no pointer over it')
+  console.log(
+    'the pause control latches until pressed again, and stays paused with no pointer over it',
+  )
 
   step('assert reduced motion stops auto-advance but dots/previous/next still work (AC5)')
   // `settings:patch` resolves to the plain, patched `LauncherSettings` (`src/shared/ipc.ts`), not an
@@ -240,11 +248,17 @@ export default async function homeHeroCarousel({ page, app, shot, step }) {
     window.q2.invoke('settings:patch', { motion: 'reduced' }),
   )
   if (patchedSettings?.motion !== 'reduced') {
-    throw new Error(`settings:patch({ motion: 'reduced' }) did not apply: ${JSON.stringify(patchedSettings)}`)
+    throw new Error(
+      `settings:patch({ motion: 'reduced' }) did not apply: ${JSON.stringify(patchedSettings)}`,
+    )
   }
-  await page.waitForFunction(() => document.documentElement.dataset.motion === 'reduced', undefined, {
-    timeout: TIMEOUT_MS,
-  })
+  await page.waitForFunction(
+    () => document.documentElement.dataset.motion === 'reduced',
+    undefined,
+    {
+      timeout: TIMEOUT_MS,
+    },
+  )
   await page.mouse.move(AWAY_FROM_HERO.x, AWAY_FROM_HERO.y)
   const beforeReducedWait = await readCounter(page)
   await page.waitForTimeout(ADVANCE_WAIT_MS)
@@ -289,7 +303,10 @@ export default async function homeHeroCarousel({ page, app, shot, step }) {
   const tabOrder = [
     { locator: page.getByRole('button', { name: 'Show news slide 1' }), label: 'dot 1' },
     { locator: page.getByRole('button', { name: 'Show news slide 2' }), label: 'dot 2' },
-    { locator: page.getByRole('button', { name: 'Next news slide' }), label: 'the next-slide button' },
+    {
+      locator: page.getByRole('button', { name: 'Next news slide' }),
+      label: 'the next-slide button',
+    },
     {
       locator: page.getByRole('button', { name: /^(Pause|Resume) the news rotation$/ }),
       label: 'the pause/resume button',

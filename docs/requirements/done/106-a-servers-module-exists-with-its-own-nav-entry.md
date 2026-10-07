@@ -10,7 +10,7 @@ created: 2026-09-24
 A user opens the launcher and sees a "Servers" entry in the primary navigation, at the same level
 as Library and Config — a dedicated place to find out where something is going on, distinct from
 managing an installation. Today that place does not exist; the game browser concept
-(`docs/concepts/game-browser.md`) describes everything it will eventually do, but nothing is
+(`docs/systems/game-browser.md`) describes everything it will eventually do, but nothing is
 registered with the app yet.
 
 This story does none of that content. It is the foundation the other three stories in this sprint,
@@ -21,7 +21,7 @@ rather than create.
 
 The concept left the module's final id and label open (its own open point #8: the document uses
 `servers` throughout but the home concept once called the planned feature "Gamebrowser"). This
-story settles it: the module id is `servers`, following [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module)'s
+story settles it: the module id is `servers`, following [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module)'s
 existing lowercase-noun convention (`library`, `config`, `downloads`, `mods`, `assets`), and its
 nav label is "Servers" — the plain, activity-neutral name a user would look for, not the
 implementation-flavoured "Gamebrowser". This is a decision, not an open question.
@@ -35,7 +35,7 @@ behaviour, consistent with `node:dgram` and `fetch` both being platform-neutral 
 ## Acceptance Criteria
 
 - [x] **AC1** — A `servers` module is registered per the 5-step checklist in
-      [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module): a shared contract file
+      [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module): a shared contract file
       under `src/shared/modules/`, a `ModuleId` entry, a `MODULE_MANIFESTS` row, a main half, and a
       renderer half — with no edit to `AppShell.tsx` or any other shell file.
 - [x] **AC2** — The manifest's `nav` is `{ section: 'primary', order: … }`, placing "Servers" in the
@@ -95,10 +95,10 @@ guardrails — see `## Decisions (Sprint)`. -->
   the `ICONS` record is a data registry the manifest's `icon` field resolves against (`mods`/`assets`
   have rows there too), not shell behaviour, so AC1's "no shell edit" is read as no shell logic, nav
   or routing change; every other shell file stays untouched.
-- **AC4 is covered as a *convention* test, not a new runtime assertion** — the registry already makes
+- **AC4 is covered as a _convention_ test, not a new runtime assertion** — the registry already makes
   cross-namespace registration impossible by construction (handler keys are `module.id` + `/` +
   `type`, `src/main/modules/registry.ts`), so the story adds the missing tests (`ipcNamespace ===
-  'module:<id>'` for every manifest; one module's handlers unreachable under another module's id)
+'module:<id>'` for every manifest; one module's handlers unreachable under another module's id)
   instead of a redundant second check.
 - **AC6 is proven by a guard test, not by editing `CLAUDE.md`** — the rule is already in "Key rules",
   so the test asserts it is still there and that no `servers` source file branches on the platform.
@@ -107,11 +107,11 @@ guardrails — see `## Decisions (Sprint)`. -->
 
 ## Plan
 
-Five-step module registration per [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module),
+Five-step module registration per [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module),
 bottom-up, one layer per deliverable. No shell logic, no new IPC channel, no platform branch.
 
 1. **Shared** (D1) — `src/shared/modules/servers.ts`: `SERVERS_HANDLERS = { overviewRead:
-   'overview.read' }`, `serversNoInputSchema = z.void()`, `serversOverviewSchema` + `ServersOverview`
+'overview.read' }`, `serversNoInputSchema = z.void()`, `serversOverviewSchema` + `ServersOverview`
    type, and `SERVERS_HANDLER_SCHEMAS` (the map `servers.test.ts` iterates), all mirroring
    `src/shared/modules/home.ts`. `src/shared/types/module.ts`: `'servers'` in `ModuleId` and the
    manifest row — `icon: 'Globe'`, `route: '/servers'`, `nav: { section: 'primary', order: 20 }`,
@@ -220,6 +220,7 @@ guard test (`src/main/modules/servers/platform-parity.test.ts`) locks in AC6 for
 **Commit message:** `106: register the servers module (nav entry, settings slot, contract-first main/shared halves)`
 
 **Decisions (beyond the story's own `## Decisions (Sprint)`, made during build):**
+
 - The story's Decisions section claimed adding `'servers'` to `ModuleId` extends
   `moduleInvokeSchema` "automatically" — it does not; `moduleId` there is a hardcoded
   `z.enum([...])` in `src/shared/ipc-schemas.ts`. Added `'servers'` to that enum; this was caught
@@ -227,10 +228,11 @@ guard test (`src/main/modules/servers/platform-parity.test.ts`) locks in AC6 for
   module ids known to MODULE_MANIFESTS, no more, no fewer" failing under the narrow gate, not by
   the review.
 - `scripts/flows/servers-module-shell.mjs`'s heading locator (`getByRole('heading', { name:
-  'Servers' })`) was ambiguous — it also matched the `PlannedModuleView`'s "Servers is coming in
+'Servers' })`) was ambiguous — it also matched the `PlannedModuleView`'s "Servers is coming in
   a later release" sub-heading. Narrowed to `{ name: 'Servers', exact: true }`.
 
 **Verification — narrow gate:**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `test-story` (`npx vitest run --changed HEAD`) — 123 files, 1972 passed, 7 pre-existing skips,
@@ -246,6 +248,7 @@ guard test (`src/main/modules/servers/platform-parity.test.ts`) locks in AC6 for
   rather than scope creep.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `src/shared/types/module.test.ts` (servers registered in `ModuleId`/`MODULE_MANIFESTS`),
   `src/main/modules/servers/index.test.ts` (main half registers under its own id),
   `src/renderer/src/modules/servers/ServersSettingsSection.test.tsx` (renderer contributes a

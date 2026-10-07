@@ -202,7 +202,7 @@ async function measureCover(page) {
   if (image.objectFit !== 'cover') {
     throw new Error(
       `the cover image renders with object-fit: ${image.objectFit} - every visible-rectangle ` +
-        "formula below assumes `cover`",
+        'formula below assumes `cover`',
     )
   }
   // `object-position` is deliberately NOT asserted to equal '100% 50%' here: AC1's right-anchoring

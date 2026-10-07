@@ -1,8 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ok } from '@shared/types'
-import type { MainWindowEvent, MainWindowObserver, MainWindowSnapshot } from '../../main-window-observer'
+import type {
+  MainWindowEvent,
+  MainWindowObserver,
+  MainWindowSnapshot,
+} from '../../main-window-observer'
 import { geometryLine, STAGE_FOLLOW_QUIET_MS } from './stage-follow'
-import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
+import {
+  createStageFollowSessions,
+  parkGeometryAt,
+  virtualDesktopRightEdge,
+} from './stage-follow-session'
 
 const RECT = { x: 10, y: 20, width: 800, height: 600 }
 
@@ -10,6 +18,9 @@ function fakeWindow() {
   const listeners = new Set<(event: MainWindowEvent) => void>()
   let snap: MainWindowSnapshot | null = {
     contentBounds: { x: 0, y: 0, width: 1280, height: 800 },
+    bounds: { x: 0, y: 0, width: 1280, height: 800 },
+    zoomFactor: 1,
+    displayId: 1,
     scaleFactor: 1,
     minimized: false,
     focused: true,
@@ -42,7 +53,8 @@ function setup() {
       lines.push(line)
       return ok(undefined)
     },
-    computeGeometry: (r, w) => `${r.width}x${r.height}+${w.contentBounds.x + r.x}+${w.contentBounds.y + r.y}`,
+    computeGeometry: (r, w) =>
+      `${r.width}x${r.height}+${w.contentBounds.x + r.x}+${w.contentBounds.y + r.y}`,
     parkGeometry: (g) => parkGeometryAt(g, 1920),
   })
   return { win, lines, sessions }
@@ -158,5 +170,43 @@ describe('stage follow sessions', () => {
     sessions.report(null)
     vi.advanceTimersByTime(1000)
     expect(lines).toEqual([])
+  })
+})
+
+describe('stage follow sessions dispose', () => {
+  it('dispose ends the live follower and drops its window subscription', () => {
+    const t = setup()
+    const end = t.sessions.begin({ geometry: '800x600+10+20', rect: RECT })
+    expect(t.win.listeners.size).toBe(1)
+
+    t.sessions.dispose()
+
+    expect(t.win.listeners.size).toBe(0)
+    expect(t.sessions.hasFollower()).toBe(false)
+    expect(t.sessions.pin('1920x1080+0+0')).toBe(false)
+    // The session's own end afterwards is a no-op, not a second dispose.
+    expect(() => end()).not.toThrow()
+    expect(t.win.listeners.size).toBe(0)
+  })
+})
+
+describe('stage follow sessions window-state', () => {
+  it('begin hands the window-state owner to the follower', () => {
+    const created: Array<{ windowState?: unknown }> = []
+    const sessions = createStageFollowSessions({
+      window: fakeWindow().observer,
+      send: () => ok(undefined),
+      computeGeometry: () => '1x1+0+0',
+      parkGeometry: (g) => g,
+      createFollower: (d) => {
+        created.push(d)
+        return { update: () => undefined, pin: () => undefined, dispose: () => undefined }
+      },
+    })
+    const windowState = { setTop: () => ok(undefined), placed: () => undefined }
+    sessions.begin({ geometry: '800x600+0+0', rect: RECT, windowState })
+    sessions.begin({ geometry: '800x600+0+0', rect: RECT })
+    expect(created[0]?.windowState).toBe(windowState)
+    expect(created[1]).not.toHaveProperty('windowState')
   })
 })

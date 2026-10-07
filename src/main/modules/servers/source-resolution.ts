@@ -1,6 +1,6 @@
 /**
- * Story 114 D4: resolving the configured source list into one address set, source by source,
- * isolated (AC3).
+ * Story 114: resolving the configured source list into one address set, source by source,
+ * isolated.
  *
  * This is the seam between the source list (`MasterSource[]`, story 111) and the two transport
  * seams that already know how to talk to a single source (`resolveUdpMasterSource`,
@@ -9,12 +9,11 @@
  * for `http-list` the source's own URL picks `raw` mode), and how one source's failure is kept from
  * ever taking the others down with it.
  *
- * Both transport seams already document themselves as "never throws" for the failures they know
- * about, but a resolve call can still reject for a reason neither seam guards (e.g. a response body
- * that errors mid-read in `resolveHttpListSource`, since only the `fetch` call itself, not
- * `response.text()`/`arrayBuffer()`, is wrapped there). `Promise.allSettled` is used rather than
- * `Promise.all` specifically so such a rejection is caught right here, per source, instead of
- * rejecting the whole `resolveSources` call and losing every other source's addresses with it.
+ * Both transport seams document themselves as "never throws". `Promise.allSettled` is still used
+ * rather than `Promise.all` so an unexpected rejection from one source is caught right here, per
+ * source, instead of rejecting the whole `resolveSources` call and losing every other source's
+ * addresses with it. An HTTP source that stalls ends at its own time budget (`httpListTimeoutMs`),
+ * so it cannot hold the other sources' results back.
  */
 
 import type { MasterSource } from '@shared/modules/servers'
@@ -22,7 +21,7 @@ import type { ScanSourceFailure } from '@shared/modules/servers'
 import type { ParsedServerAddress } from '@shared/servers/address'
 import { parseServerAddress } from '@shared/servers/address'
 import { masterSourceFailureKey, type MasterSourceFailure } from '@shared/servers/master-records'
-import type { FetchImpl } from '../downloads/fetcher'
+import type { FetchImpl } from '../../lib/http'
 import {
   dgramMasterUdp,
   resolveUdpMasterSource,
@@ -45,6 +44,7 @@ export interface ResolveSourcesDeps {
   clock?: Clock
   quietPeriodMs?: number
   firstReplyTimeoutMs?: number
+  httpListTimeoutMs?: number
   signal?: AbortSignal
 }
 
@@ -56,8 +56,7 @@ export interface ResolveSourcesResult {
 /** Common shape both transport results share: an address list on success, a `MasterSourceFailure`
  * reason on failure. Only the fields this module reads. */
 type SourceOutcome =
-  | { ok: true; addresses: ParsedServerAddress[] }
-  | { ok: false; reason: MasterSourceFailure }
+  { ok: true; addresses: ParsedServerAddress[] } | { ok: false; reason: MasterSourceFailure }
 
 /**
  * `?raw=2` on the source's own URL means the bare packed-binary shape; anything else (including no
@@ -98,6 +97,7 @@ async function resolveOneSource(
     raw: deriveHttpListRaw(source.address),
     fetchImpl: deps.fetchImpl,
     signal: deps.signal,
+    timeoutMs: deps.httpListTimeoutMs,
   })
 }
 
@@ -105,7 +105,7 @@ async function resolveOneSource(
  * Resolves every enabled source in `sources` independently and merges the results: every address
  * every source contributed (order preserved, no cross-source dedupe — that is the scan's job, not
  * this seam's), and one `ScanSourceFailure` per source that failed, whether by returning a failure
- * result or by its resolve call rejecting outright (AC3). A disabled source is skipped entirely —
+ * result or by its resolve call rejecting outright. A disabled source is skipped entirely —
  * no resolve call, no failure entry.
  */
 export async function resolveSources(
@@ -114,9 +114,7 @@ export async function resolveSources(
 ): Promise<ResolveSourcesResult> {
   const enabled = sources.filter((source) => source.enabled)
 
-  const settled = await Promise.allSettled(
-    enabled.map((source) => resolveOneSource(source, deps)),
-  )
+  const settled = await Promise.allSettled(enabled.map((source) => resolveOneSource(source, deps)))
 
   const addresses: ParsedServerAddress[] = []
   const failures: ScanSourceFailure[] = []
@@ -130,7 +128,10 @@ export async function resolveSources(
     if (outcome.value.ok) {
       addresses.push(...outcome.value.addresses)
     } else {
-      failures.push({ sourceId: source.id, reasonKey: masterSourceFailureKey(outcome.value.reason) })
+      failures.push({
+        sourceId: source.id,
+        reasonKey: masterSourceFailureKey(outcome.value.reason),
+      })
     }
   })
 

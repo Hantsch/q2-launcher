@@ -35,7 +35,9 @@ async function waitForCfg(predicate, what) {
     }
     await new Promise((r) => setTimeout(r, 150))
   }
-  throw new Error(`timed out waiting for ${PROFILE_FILE_NAME} to ${what}; last content: ${JSON.stringify(last.slice(0, 600))}`)
+  throw new Error(
+    `timed out waiting for ${PROFILE_FILE_NAME} to ${what}; last content: ${JSON.stringify(last.slice(0, 600))}`,
+  )
 }
 
 const valueOf = (line) => (line ? /"([^"]*)"/.exec(line)?.[1] : undefined)
@@ -51,7 +53,10 @@ export default async function autorecordSetting({ page, shot, step }) {
   await page.getByTestId('config-tab-settings').click({ timeout: TIMEOUT_MS })
 
   const sw = page.getByTestId('config-autorecord-switch')
-  const scope = page.locator('select').filter({ has: page.locator('option[value="q2pro"]') }).first()
+  const scope = page
+    .locator('select')
+    .filter({ has: page.locator('option[value="q2pro"]') })
+    .first()
   await sw.waitFor({ state: 'visible', timeout: 15_000 })
 
   async function setSwitch(on) {
@@ -60,10 +65,13 @@ export default async function autorecordSetting({ page, shot, step }) {
       null,
       { timeout: TIMEOUT_MS },
     )
-    if ((await sw.getAttribute('aria-checked')) !== String(on)) await sw.click({ timeout: TIMEOUT_MS })
+    if ((await sw.getAttribute('aria-checked')) !== String(on))
+      await sw.click({ timeout: TIMEOUT_MS })
     await page.waitForFunction(
       (want) =>
-        document.querySelector('[data-testid="config-autorecord-switch"]')?.getAttribute('aria-checked') === want,
+        document
+          .querySelector('[data-testid="config-autorecord-switch"]')
+          ?.getAttribute('aria-checked') === want,
       String(on),
       { timeout: TIMEOUT_MS },
     )
@@ -71,14 +79,20 @@ export default async function autorecordSetting({ page, shot, step }) {
     const save = page.getByTestId('config-save')
     if ((await save.count()) > 0 && (await save.isEnabled())) {
       await save.click({ timeout: TIMEOUT_MS })
-      await page.getByTestId('config-tab-unsaved').waitFor({ state: 'detached', timeout: TIMEOUT_MS }).catch(() => {})
+      await page
+        .getByTestId('config-tab-unsaved')
+        .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+        .catch(() => {})
     }
   }
 
   async function pickScope(kind) {
     await scope.selectOption({ value: kind })
-    await page.getByTestId('config-autorecord-caveat').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-    if ((await scope.inputValue()) !== kind) throw new Error(`engine scope did not switch to ${kind}`)
+    await page
+      .getByTestId('config-autorecord-caveat')
+      .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    if ((await scope.inputValue()) !== kind)
+      throw new Error(`engine scope did not switch to ${kind}`)
   }
 
   step('idempotence: switch off on both scopes if a previous run left it on')
@@ -91,10 +105,14 @@ export default async function autorecordSetting({ page, shot, step }) {
   const r1q2Caveat = page.getByTestId('config-autorecord-caveat')
   await r1q2Caveat.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const r1q2Text = (await r1q2Caveat.innerText()).trim()
-  if (!/minute/i.test(r1q2Text)) throw new Error(`r1q2 caveat should mention the same-minute limit, got: ${r1q2Text}`)
+  if (!/minute/i.test(r1q2Text))
+    throw new Error(`r1q2 caveat should mention the same-minute limit, got: ${r1q2Text}`)
   await shot('r1q2-off')
   await setSwitch(true)
-  const onCfg = await waitForCfg((c) => lineFor(c, 'cl_autorecord') !== null, 'contain cl_autorecord')
+  const onCfg = await waitForCfg(
+    (c) => lineFor(c, 'cl_autorecord') !== null,
+    'contain cl_autorecord',
+  )
   const onLine = lineFor(onCfg, 'cl_autorecord')
   if (!/^\s*set\s/.test(onLine) || valueOf(onLine) !== '1')
     throw new Error(`expected a \`set cl_autorecord "1"\` line, got: ${onLine}`)
@@ -107,10 +125,14 @@ export default async function autorecordSetting({ page, shot, step }) {
   step('Q2PRO scope: console-clock caveat visible, switch on chains record after the existing cmd')
   await pickScope('q2pro')
   const q2proText = (await page.getByTestId('config-autorecord-caveat').innerText()).trim()
-  if (!/clock|time/i.test(q2proText)) throw new Error(`Q2PRO caveat should mention the console clock, got: ${q2proText}`)
+  if (!/clock|time/i.test(q2proText))
+    throw new Error(`Q2PRO caveat should mention the console clock, got: ${q2proText}`)
   await shot('q2pro-off')
   await setSwitch(true)
-  const q2On = await waitForCfg((c) => lineFor(c, 'com_time_format') !== null, 'contain com_time_format')
+  const q2On = await waitForCfg(
+    (c) => lineFor(c, 'com_time_format') !== null,
+    'contain com_time_format',
+  )
   const beginOn = lineFor(q2On, 'cl_beginmapcmd')
   if (!beginOn || !/^\s*set\s/.test(beginOn) || valueOf(beginOn) !== Q2PRO_RECORD)
     throw new Error(`expected \`set cl_beginmapcmd "${Q2PRO_RECORD}"\`, got: ${beginOn}`)
@@ -121,7 +143,10 @@ export default async function autorecordSetting({ page, shot, step }) {
 
   step('Q2PRO scope: switch off restores cl_beginmapcmd and drops com_time_format')
   await setSwitch(false)
-  const q2Off = await waitForCfg((c) => lineFor(c, 'com_time_format') === null, 'drop com_time_format')
+  const q2Off = await waitForCfg(
+    (c) => lineFor(c, 'com_time_format') === null,
+    'drop com_time_format',
+  )
   const beginOff = lineFor(q2Off, 'cl_beginmapcmd')
   if (valueOf(beginOff) !== 'echo welcome')
     throw new Error(`expected cl_beginmapcmd back to "echo welcome", got: ${beginOff}`)

@@ -1,5 +1,5 @@
 /**
- * Story 066 D5: the session-scoped registry that stands between the file picker and the reader -
+ * Story 066: the session-scoped registry that stands between the file picker and the reader -
  * and with it, the whole path-trust boundary of the file-import flow.
  *
  * The rule it exists to enforce (CLAUDE.md: "paths from the renderer are never trusted"): main
@@ -36,7 +36,7 @@ import type { PickedConfigFile } from '@shared/modules/config'
  * still be holding, and an evicted id degrades to the ordinary "unknown id" rejection - never to a
  * wrong path.
  *
- * Note this is a *different* bound from `MAX_IMPORT_FILE_IDS` (`schemas.ts`), which caps how many
+ * Note this is a *different* bound from `MAX_IMPORT_FILE_IDS` (`src/shared/modules/config-schemas.ts`), which caps how many
  * ids ONE request may carry.
  */
 export const MAX_REGISTERED_PICKED_FILES = 512
@@ -108,7 +108,7 @@ export class PickedFilesRegistry implements PickedFileRegistrar, PickedFileResol
 
   /**
    * Resolves `ids` to absolute paths **in the order given** - the load order the fold depends on
-   * (AC5), so this must never reorder or deduplicate.
+   *, so this must never reorder or deduplicate.
    *
    * All or nothing: the first unknown id throws, before this returns anything and therefore before
    * the caller can read a single one of the *known* paths in the same request. That is what makes

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { classifyModifierCapture, resolveModifierCapture, resolveModifierRelease } from './modifier-capture'
+import {
+  classifyModifierCapture,
+  resolveModifierCapture,
+  resolveModifierRelease,
+} from './modifier-capture'
 
 type FakeKeyboardEvent = Pick<KeyboardEvent, 'code' | 'altKey' | 'ctrlKey' | 'shiftKey'>
 
@@ -50,9 +54,7 @@ describe('resolveModifierCapture', () => {
   })
 
   it('refuses Alt+Ctrl+R as multipleModifiers', () => {
-    const result = resolveModifierCapture(
-      keydown({ code: 'KeyR', altKey: true, ctrlKey: true }),
-    )
+    const result = resolveModifierCapture(keydown({ code: 'KeyR', altKey: true, ctrlKey: true }))
 
     expect(result).toEqual({ kind: 'refused', reason: 'multipleModifiers' })
   })

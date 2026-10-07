@@ -1,4 +1,10 @@
+import { readFileSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { installShutdown, type ShutdownApp } from '../../shutdown'
+import { StateStore } from '../state'
 import type { Job, UpdateDownloadProgress, UpdateState } from '@shared/types'
 import type { UpdateCheckStoreData } from './store'
 import {
@@ -8,10 +14,10 @@ import {
   type UpdateCheckOutcome,
   type UpdateDownloadOutcome,
 } from './service'
-// A static import, not a runtime `fs.readFile`: mirrors `src/shared/config/comment-labels.test.ts`
+// A static import, not a runtime `fs.readFile`: mirrors `src/shared/config/render/comment-labels.test.ts`
 // (story 040 D1) - `tsconfig.node.json` lists this one renderer data file explicitly so `tsc`
 // accepts the cross-project import here too (see the comment there).
-import en from '../../../renderer/src/i18n/locales/en.json'
+import { en } from '../../../renderer/src/i18n/bundle'
 
 /**
  * Story 098 D1 acceptance tests: the staged actions and the restart guard. Split from
@@ -253,6 +259,61 @@ describe('AC6 - the restart guard refuses and cancels nothing', () => {
   })
 })
 
+describe('quitAndInstall under the held before-quit', () => {
+  it("quitAndInstall's quit runs through the held before-quit and state is on disk before the app exits", async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'q2-update-quit-'))
+    try {
+      const file = join(dir, 'state.json')
+      const store = new StateStore(file, { migrations: 'none' })
+      await store.load()
+
+      const listeners: ((event: { preventDefault(): void }) => void)[] = []
+      const held: boolean[] = []
+      const events: string[] = []
+      const onDisk: string[] = []
+      const app: ShutdownApp = {
+        on: (_event, listener) => {
+          listeners.push(listener)
+        },
+        quit: () => {
+          let prevented = false
+          for (const listener of listeners) listener({ preventDefault: () => (prevented = true) })
+          held.push(prevented)
+          if (prevented) return
+          events.push('exit')
+          onDisk.push(readFileSync(file, 'utf8'))
+        },
+      }
+      installShutdown({
+        app,
+        log: { error: () => undefined },
+        releasePlayback: () => undefined,
+        disposeModules: async () => undefined,
+        settles: [{ label: 'state', run: () => store.settle() }],
+      })
+
+      const { service, backend } = await downloaded()
+      // Mirrors electron-updater's BaseUpdater.quitAndInstall: install is recorded, then the quit
+      // is queued, not issued synchronously.
+      backend.quitAndInstall.mockImplementation(() => {
+        events.push('install')
+        setImmediate(() => app.quit())
+      })
+
+      store.patchSettings({ lastRoute: '/written-before-install' })
+      expect((await service.installAndRestart()).ok).toBe(true)
+      await vi.waitFor(() => expect(events).toContain('exit'))
+
+      expect(held[0]).toBe(true)
+      expect(onDisk).toHaveLength(1)
+      expect(onDisk[0]).toContain('/written-before-install')
+      expect(events.filter((name) => name === 'exit')).toHaveLength(1)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('AC7 - a failed download falls back to available with its reason', () => {
   it.each([
     ['offline', 'appUpdate.error.offline'],
@@ -476,7 +537,9 @@ describe('appUpdate.error.* i18n coverage', () => {
         .split('.')
         .reduce<unknown>(
           (node, segment) =>
-            node && typeof node === 'object' ? (node as Record<string, unknown>)[segment] : undefined,
+            node && typeof node === 'object'
+              ? (node as Record<string, unknown>)[segment]
+              : undefined,
           en,
         )
       expect(typeof value, `${key} should be a string in en.json`).toBe('string')

@@ -1,20 +1,40 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
+import type { FolderEntry } from '@shared/replays/demo-folders'
 import type { DemoListSort, DemoSortColumn } from '@shared/replays/list-sort'
 import { DEMO_ROW_HEIGHT } from '../list-grid'
 import { visibleRange } from '../visible-range'
+import type { MenuPoint } from '../row-menu'
 import type { RowPatcher } from '../demo-editor-store'
 import { DemoListHeader } from './DemoListHeader'
 import { DemoRow } from './DemoRow'
+import { DemoFolderRow } from './DemoFolderRow'
+
+/** What the list renders: folders first, then demos, one fixed row height for both. */
+export type DemoListItem =
+  | { kind: 'folder'; folder: FolderEntry }
+  | { kind: 'demo'; row: DemoRowData; folderText?: string }
+  | { kind: 'heading'; labelKey: string; testId: string }
 
 export interface VirtualDemoListProps {
-  rows: DemoRowData[]
-  selectedId: string | null
+  items: DemoListItem[]
+  onOpenFolder: (folder: FolderEntry) => void
+  onRenameFolder: (folder: FolderEntry) => void
+  /** A row asked for its context menu: the pointer's point, or the focused row's for the keyboard. */
+  onDemoMenu: (id: string, at: MenuPoint) => void
+  onFolderMenu: (folder: FolderEntry, at: MenuPoint) => void
+  selectedIds: readonly string[]
   onSelect: (id: string) => void
-  /** Story 155 D6: forwarded straight to each `DemoRow` for its favourite/rating quick edit. */
+  onToggle: (id: string) => void
+  /** Shift-click: `visibleOrder` is every demo of the current view, in list order. */
+  onRange: (id: string, visibleOrder: readonly string[]) => void
+  onSelectAll: (visibleOrder: readonly string[]) => void
+  /** Escape: also dismisses a shown bulk outcome, so it runs when nothing is selected. */
+  onClearSelection: () => void
+  /** Story 155: forwarded straight to each `DemoRow` for its favourite/rating quick edit. */
   onRowPatched?: RowPatcher
-  /** The demos list's current column sort (story 152 D3), or `null` for the default
+  /** The demos list's current column sort (story 152), or `null` for the default
    * favourites-first order - forwarded straight through to `DemoListHeader`. */
   sort: DemoListSort | null
   onSort: (column: DemoSortColumn) => void
@@ -28,7 +48,7 @@ export interface VirtualDemoListProps {
 }
 
 /**
- * Story 158/159 D4: the demos list's virtualised, selectable body - one scroll container holding a
+ * Story 158/159: the demos list's virtualised, selectable body - one scroll container holding a
  * sticky `DemoListHeader` and a full-height spacer, with only the rows the current scroll position
  * and viewport can actually show ever mounted as `DemoRow`s. Mirrors the windowing shape used by
  * other dense lists in this codebase, but built directly on `visibleRange` (kept pure and separately
@@ -36,9 +56,17 @@ export interface VirtualDemoListProps {
  * simple enough not to need one.
  */
 export function VirtualDemoList({
-  rows,
-  selectedId,
+  items,
+  onOpenFolder,
+  onRenameFolder,
+  onDemoMenu,
+  onFolderMenu,
+  selectedIds,
   onSelect,
+  onToggle,
+  onRange,
+  onSelectAll,
+  onClearSelection,
   onRowPatched,
   sort,
   onSort,
@@ -66,10 +94,32 @@ export function VirtualDemoList({
     scrollTop,
     viewportHeight,
     rowHeight: DEMO_ROW_HEIGHT,
-    count: rows.length,
+    count: items.length,
     overscan,
   })
-  const visibleRows = rows.slice(start, end)
+  const visibleItems = items.slice(start, end)
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  // Every demo of the view (not just the rendered window), in list order; folders and headings
+  // are never part of a selection.
+  const visibleOrder = useMemo(
+    () => items.flatMap((item) => (item.kind === 'demo' ? [item.row.id] : [])),
+    [items],
+  )
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    // React events bubble through portals: a dialog opened from a row must not drive the list.
+    const target = event.target as HTMLElement
+    if (!event.currentTarget.contains(target)) return
+    // The row checkbox keeps focus after a click, so it must not swallow the list's chords.
+    const field = target.closest('input, textarea, select, [contenteditable="true"]')
+    if (field !== null && field.getAttribute('data-testid') !== 'replays-row-select') return
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.preventDefault()
+      onSelectAll(visibleOrder)
+    } else if (event.key === 'Escape') {
+      onClearSelection()
+    }
+  }
 
   return (
     <div
@@ -78,22 +128,54 @@ export function VirtualDemoList({
       tabIndex={0}
       className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable"
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+      onKeyDown={handleKeyDown}
     >
       <DemoListHeader sort={sort} onSort={onSort} />
-      <div style={{ position: 'relative', height: rows.length * DEMO_ROW_HEIGHT }}>
+      <div style={{ position: 'relative', height: items.length * DEMO_ROW_HEIGHT }}>
         <ul
           data-testid="replays-demo-list"
-          aria-label={t('replays.list.label')}
+          aria-label={t('common.label.demos')}
           style={{ position: 'absolute', top: start * DEMO_ROW_HEIGHT, left: 0, right: 0 }}
         >
-          {visibleRows.map((row, index) => (
-            <li key={row.id} aria-setsize={rows.length} aria-posinset={start + index + 1}>
-              <DemoRow
-                row={row}
-                selected={row.id === selectedId}
-                onSelect={onSelect}
-                onRowPatched={onRowPatched}
-              />
+          {visibleItems.map((item, index) => (
+            <li
+              key={
+                item.kind === 'folder'
+                  ? `folder:${item.folder.ref.sourceKey}:${item.folder.ref.path.join('/')}`
+                  : item.kind === 'heading'
+                    ? `heading:${item.testId}`
+                    : item.row.id
+              }
+              aria-setsize={items.length}
+              aria-posinset={start + index + 1}
+            >
+              {item.kind === 'heading' ? (
+                <div
+                  className="flex items-end px-3 pb-1 text-xs font-medium tracking-wide text-ink-muted uppercase"
+                  style={{ height: DEMO_ROW_HEIGHT }}
+                  data-testid={item.testId}
+                >
+                  {t(item.labelKey)}
+                </div>
+              ) : item.kind === 'folder' ? (
+                <DemoFolderRow
+                  folder={item.folder}
+                  onOpen={onOpenFolder}
+                  onRename={onRenameFolder}
+                  onContextMenu={onFolderMenu}
+                />
+              ) : (
+                <DemoRow
+                  row={item.row}
+                  folderText={item.folderText}
+                  selected={selectedSet.has(item.row.id)}
+                  onSelect={onSelect}
+                  onToggle={onToggle}
+                  onRange={(id) => onRange(id, visibleOrder)}
+                  onRowPatched={onRowPatched}
+                  onContextMenu={onDemoMenu}
+                />
+              )}
             </li>
           ))}
         </ul>

@@ -1,7 +1,7 @@
 import type { ConfigProfile } from '@shared/modules/config'
 
 /**
- * Story 127 D1: pure logic for "add this server to my address book" - writing one of Quake II's
+ * Story 127: pure logic for "add this server to my address book" - writing one of Quake II's
  * nine `adr0`-`adr8` cvars, which the engine's in-game address book menu reads directly, into a
  * chosen config profile. No React, no electron - this is the same shape/reasoning the address
  * validator (`@shared/servers/address.ts`) already follows: one small pure module three call sites
@@ -49,8 +49,7 @@ export function pickPreselectedProfileId(
   if (activeInstallationId !== null) {
     const defaultProfile = profiles.find((profile) =>
       profile.assignments.some(
-        (assignment) =>
-          assignment.installationId === activeInstallationId && assignment.isDefault,
+        (assignment) => assignment.installationId === activeInstallationId && assignment.isDefault,
       ),
     )
     if (defaultProfile) return defaultProfile.id

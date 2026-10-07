@@ -32,14 +32,8 @@
   },
   "exitedCleanly": true,
   "configRestored": true,
-  "nlLines": [
-    "NL 0 CH 1"
-  ],
-  "chatSeenInLog": [
-    "[MVD] Chasing lamb shanker.",
-    "lamb shanker: gl",
-    "lamb shanker: gl"
-  ],
+  "nlLines": ["NL 0 CH 1"],
+  "chatSeenInLog": ["[MVD] Chasing lamb shanker.", "lamb shanker: gl", "lamb shanker: gl"],
   "posSamples": [
     "POS 0:00.0",
     "POS 0:02.2",

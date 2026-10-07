@@ -6,10 +6,10 @@
 non-derivable minimum (050), then land toggle/press-release/`wait`-chain idioms as first-class
 entries the launcher understands and can render, on top of that reduced tag (045).
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 050 — The metadata tag carries only what the file cannot say | done | `7212f6a` |
-| 045 — Toggles, press/release pairs and wait chains as first-class entries | done | `6739f9d` |
+| Story                                                                     | Status | Commit    |
+| ------------------------------------------------------------------------- | ------ | --------- |
+| 050 — The metadata tag carries only what the file cannot say              | done   | `7212f6a` |
+| 045 — Toggles, press/release pairs and wait chains as first-class entries | done   | `6739f9d` |
 
 Both stories done, both committed on `sprint/S10`. `npm run build`/`test` (2043 tests)/`typecheck`
 green on the branch tip. Live `npm run ui:verify` smoke pass was **not** run this session — see
@@ -48,17 +48,18 @@ real data-loss bugs (an anchor prefix-match that silently merged two distinct en
 name/commands/keys with no warning; a `MessageEditor` save path that silently dropped a key's
 modifier); round 2 found the fix for the alias-name-collision case was still dead code on the path
 it needed to cover (the warning was wired downstream of where the actual data loss happened); round
-3 found the fix for *that* was itself only wired to one of three adopt paths (Care → Sync → Reload
+3 found the fix for _that_ was itself only wired to one of three adopt paths (Care → Sync → Reload
 and "Take the file" still adopted silently). 045's build also needed 3 full cycles, catching a
 truncation-triggered round-trip break, Care checks blind to bound (not just orphaned) broken
 shapes, unchecked generated-name (`_s1`/`_s2`) collisions, a `parts`-contract violation, an
 incomplete cross-wire check, and a chunk-boundary `wait`-collapse bug — several of these only
-surfaced because each review round re-verified the *previous* round's fix through the real
+surfaced because each review round re-verified the _previous_ round's fix through the real
 render→import/restore pipeline rather than trusting the fix agent's self-report or reading the
 diff.
 
 **Both stories hit their 3-cycle review-fix budget with one item each left over, both documented
 as accepted residual limitations rather than chased into a 4th cycle:**
+
 - **050:** two entries in the same category whose display names derive the same alias slug (e.g.
   both named "Fire") still cause a genuine loss at the Quake II engine's own alias-name fold — the
   file itself is ambiguous, not just the reader. Mitigated (a `droppedAliases` warning now fires on

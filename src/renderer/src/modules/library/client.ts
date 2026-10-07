@@ -1,8 +1,10 @@
-import { LIBRARY_HANDLERS, type LibraryStats } from '@shared/modules/library'
+import { LIBRARY_HANDLERS, type LibraryContract, type LibraryStats } from '@shared/modules/library'
 import type { Outcome } from '@shared/types'
-import { callModule } from '../moduleClient'
+import { createModuleClient } from '../moduleClient'
+
+const client = createModuleClient<LibraryContract>('library')
 
 /** Typed client for the library module. One function per handler in its contract. */
 export function getLibraryStats(): Promise<Outcome<LibraryStats>> {
-  return callModule<LibraryStats>('library', LIBRARY_HANDLERS.stats)
+  return client.call(LIBRARY_HANDLERS.stats)
 }
