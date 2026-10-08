@@ -1,13 +1,17 @@
-// `npm run rehearse` - runs the slow pre-merge rehearsal (verify:release, ci:local, ci:local:flows)
-// in a detached process and keeps a timed pass/fail record, so whoever started it - a person or an
-// agent whose tool call ends after a few minutes - can walk away and poll for the verdict later.
-// The rules (record, shard parsing, verdict) live in lib/rehearsal.mjs; this file does the I/O.
+// `npm run rehearse` - runs the slow pre-merge rehearsal (verify:release, ci:local, and with
+// `--linux` the Linux ui-flows leg ci:local:flows) in a detached process and keeps a timed
+// pass/fail record, so whoever started it - a person or an agent whose tool call ends after a few
+// minutes - can walk away and poll for the verdict later. The rules (command list, record, shard
+// parsing, verdict) live in lib/rehearsal.mjs; this file does the I/O.
 //
 // Usage:
-//   npm run rehearse                 start a run in .rehearsal/<UTC yyyymmdd-hhmmss>/ and return
+//   npm run rehearse                 start a run in .rehearsal/<UTC yyyymmdd-hhmmss>/ and return;
+//                                    the Linux ui-flows leg is skipped and one line says so
+//   npm run rehearse -- --linux      the same, plus ci:local:flows (six act shards, ~24 min)
 //   npm run rehearse -- --status     summarise the newest run; exit 0 passed, 1 failed, 2 running
 //                                    or aborted
-//   node scripts/rehearse.mjs --run <dir>   the detached runner itself (started by the launcher)
+//   node scripts/rehearse.mjs --run <dir> [--linux]   the detached runner itself (started by the
+//                                    launcher, which passes its own --linux on)
 //
 // Each command's output goes to <dir>/<command>.log, every line prefixed with the time it arrived:
 // act prints no timestamps itself, and the per-shard wall time is read from those prefixes.
@@ -31,15 +35,19 @@ import { fileURLToPath } from 'node:url'
 import { dockerRunning, removeStaleActContainers, resolveAct } from './lib/act.mjs'
 import { REPO_ROOT } from './lib/paths.mjs'
 import {
-  DEFAULT_COMMANDS,
+  LINUX_FLAG,
+  LINUX_FLOWS_COMMAND,
+  commandsFor,
   finalStatus,
   initialRecord,
   logFileName,
   marginOk,
   newestRunDir,
+  parseRehearseArgs,
   parseShards,
   preflightReason,
   runDirName,
+  skippedLinuxLine,
   statusView,
 } from './lib/rehearsal.mjs'
 
@@ -57,11 +65,19 @@ function rehearsalRoot() {
   return override
 }
 
-function loadPlan() {
+/** The run's commands and the legs left out; a stub plan is taken verbatim, nothing is skipped. */
+function loadPlan(linux) {
   const file = process.env.Q2L_REHEARSAL_PLAN
-  if (!file) return { commands: DEFAULT_COMMANDS, preflight: null, stub: false }
+  if (!file) {
+    return {
+      commands: commandsFor({ linux }),
+      skipped: linux ? [] : [LINUX_FLOWS_COMMAND.name],
+      preflight: null,
+      stub: false,
+    }
+  }
   const plan = JSON.parse(readFileSync(file, 'utf-8'))
-  return { commands: plan.commands, preflight: plan.preflight ?? null, stub: true }
+  return { commands: plan.commands, skipped: [], preflight: plan.preflight ?? null, stub: true }
 }
 
 const recordPath = (dir) => join(dir, 'record.json')
@@ -143,9 +159,9 @@ function runLogged(command, env, logPath) {
   )
 }
 
-async function runRehearsal(dir) {
-  const plan = loadPlan()
-  const record = readRecord(dir) ?? initialRecord(new Date(), plan.commands)
+async function runRehearsal(dir, linux) {
+  const plan = loadPlan(linux)
+  const record = readRecord(dir) ?? initialRecord(new Date(), plan.commands, plan.skipped)
   record.pid = process.pid
   writeRecord(dir, record)
   try {
@@ -186,8 +202,8 @@ async function runRehearsal(dir) {
   }
 }
 
-async function launch() {
-  const plan = loadPlan()
+async function launch(linux) {
+  const plan = loadPlan(linux)
   const root = rehearsalRoot()
   mkdirSync(root, { recursive: true })
   const startedAt = new Date()
@@ -199,11 +215,11 @@ async function launch() {
     console.error(`rehearse: a rehearsal started this second already: ${dir}`)
     return 1
   }
-  writeRecord(dir, initialRecord(startedAt, plan.commands))
+  writeRecord(dir, initialRecord(startedAt, plan.commands, plan.skipped))
   // `detached` keeps the runner out of libuv's kill-on-close job, which takes down a Node parent's
   // attached children when the parent exits; it outlives this launcher and the shell that started
   // it. A host that puts its whole tree in a kill-on-close job without breakaway would still end it.
-  const child = spawn(process.execPath, [SELF, '--run', dir], {
+  const child = spawn(process.execPath, [SELF, '--run', dir, ...(linux ? [LINUX_FLAG] : [])], {
     cwd: REPO_ROOT,
     detached: true,
     stdio: 'ignore',
@@ -227,6 +243,7 @@ async function launch() {
     return 1
   }
   console.log(`rehearsal running in ${dir}`)
+  if (plan.skipped.includes(LINUX_FLOWS_COMMAND.name)) console.log(skippedLinuxLine())
   console.log('poll it with: npm run rehearse -- --status')
   return 0
 }
@@ -251,14 +268,14 @@ function status() {
 }
 
 async function main() {
-  const args = process.argv.slice(2)
-  if (args.length === 0) return launch()
-  if (args.length === 1 && args[0] === '--status') return status()
-  if (args.length === 2 && args[0] === '--run') {
-    await runRehearsal(args[1])
+  const { mode, linux, dir } = parseRehearseArgs(process.argv.slice(2))
+  if (mode === 'launch') return launch(linux)
+  if (mode === 'status') return status()
+  if (mode === 'run') {
+    await runRehearsal(dir, linux)
     return 0
   }
-  console.error('usage: npm run rehearse [-- --status]')
+  console.error(`usage: npm run rehearse [-- ${LINUX_FLAG} | --status]`)
   return 1
 }
 

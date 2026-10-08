@@ -1497,9 +1497,10 @@ Each screen's `navigate()` opens the Servers view and waits for `servers-scan-st
 
 ### The flow gate: quarantine, shards, timeout
 
-`npm run ui:flows [-- <flow>... --affected[=<ref>] --shard=i/n --timeout=<seconds> --repeat=<n>]`
-(`scripts/flows-all.mjs`, decisions in `scripts/lib/flow-gate.mjs`) reseeds
-and runs every flow, or only the named ones.
+`npm run ui:flows [-- <flow>... --affected[=<ref>] --shard=i/n --timeout=<seconds> --repeat=<n> --parallel=<n>]`
+(`scripts/flows-all.mjs`, decisions in `scripts/lib/flow-gate.mjs` and
+`scripts/lib/flow-parallel.mjs`) reseeds and runs every flow, or only the
+named ones.
 
 - `<flow>` is a name or a `scripts/flows/<name>.mjs` path (either separator).
   An unknown name or path is a usage error, exit 1, never an empty run.
@@ -1517,9 +1518,47 @@ and runs every flow, or only the named ones.
 - `--timeout=<seconds>` (default 300, must be > 0) kills a flow that runs
   longer — the whole process tree, so no Electron survives — and counts it
   failed.
+- `--parallel=<n>` (n >= 1) runs the selected flows in n child processes at
+  once instead of one after another; see below. Without it the run is serial
+  and behaves exactly as before.
 - Exit code 0 when the gate is ok, 1 when any non-quarantined flow failed, a
-  quarantined flow passed twice, the quarantine list is invalid or stale, or
-  the arguments are malformed.
+  quarantined flow passed twice, the quarantine list is invalid or stale, the
+  arguments are malformed, or (with `--parallel`) any child exited non-zero.
+
+**Parallel runs.** A flow takes ~22 s on this machine (seed, Electron launch,
+the steps), so the full suite of 169 flows is ~65 min serially; four workers
+bring that to roughly a third. The parent process selects the flows exactly as
+a serial run does — names, `--affected`, the quarantine list and, if given,
+`--shard=i/n` applied to that selection first — then `partitionFlows`
+(`scripts/lib/flow-parallel.mjs`) splits the selection round robin into at
+most n groups, and each group runs as a child `scripts/flows-all.mjs` with the
+group's explicit flow names, the same `--timeout` and `--repeat`, and its own
+output root `Q2L_UI_VERIFY_ROOT=<root>/shard-<i>` (so
+`.ui-verify/shard-1/`, `.ui-verify/shard-2/`, ... hold each child's fixtures
+and screenshots, and the per-userData Electron single-instance lock never
+collides). Every line a child prints is forwarded with `[<i>]` in front; the
+children's results are merged (`mergeResults`) into the one final summary,
+in the same format as a serial run. A child that ends without writing its
+report counts all of its flows as failed and says so.
+
+Five flows are **pinned** (`PINNED_FLOWS` in `scripts/lib/flow-parallel.mjs`)
+and never share the machine with another flow: `servers-lan-mode`,
+`servers-lan-no-scan-while-playing` and `servers-list-states` bind the stub's
+fixed loopback ports (27950–27953, 27955; `scripts/lib/servers-stub.mjs`),
+while `harness-offscreen` asserts the window never has focus and
+`replays-stage-follow` drives focus, blur, minimize and restore. The parent
+keeps them out of every group and runs them serially itself, under the plain
+`<root>`, after all children have finished — the simplest design that is
+correct, at the cost of ~2 min of serial tail. A test
+(`scripts/flow-parallel.test.mjs`) matches the list against the flow sources,
+so a new flow that calls `startServerResponders`/`startListServer` or touches
+window focus fails until it is listed.
+
+Fixed-port fixture servers aside, everything a flow writes lives under its
+output root and every other fixture server binds port 0, which is why the
+groups can share one machine. Do not start two `ui:flows` invocations on the
+same root at once: the pinned flows and the parent's own `.ui-verify/` are
+not shared-safe.
 
 `scripts/flows/quarantine.json` lists flows that are known broken. Each entry
 has `flow` (a name in `scripts/flows/`), `reason`, `story` (the story that
@@ -1564,7 +1603,11 @@ two jobs:
 
 Both trigger on pull requests into `main` and on `workflow_dispatch` only; a
 push or schedule run would re-verify a tree that only changes through PRs.
-`npm run ci:local:flows` rehearses the Linux leg locally with `act`.
+`npm run ci:local:flows` rehearses the Linux leg locally with `act` (six
+shards, one at a time, ~24 min). `npm run rehearse` leaves that leg out by
+default — the GitHub job is advisory (`continue-on-error`) and 20 flows are
+quarantined for Linux — and prints one line saying so; `npm run rehearse --
+--linux` includes it.
 
 ## Known blind spots
 

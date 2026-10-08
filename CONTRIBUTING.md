@@ -90,6 +90,14 @@ The three workflows that run on Linux can each be run here through
 | `npm run ci:local:verify` | `linux-verify.yml` — packaged AppImage, screenshots, axe-core |
 | `npm run ci:local:update` | `linux-update.yml` — the AppImage self-update e2e             |
 | `npm run ci:local:all`    | all three, in that order                                      |
+| `npm run ci:local:flows`  | `ui-flows.yml` — every UI flow in six shards, ~24 min         |
+
+`npm run rehearse` runs `verify:release` and `ci:local` detached, with a timed
+pass/fail record under the gitignored `.rehearsal/` (`npm run rehearse --
+--status` prints it). The Linux `ui-flows` leg is **opt-in**: the GitHub job is
+advisory (`continue-on-error`) and it costs ~24 minutes under act, so a plain
+`npm run rehearse` skips it and says so in one line; `npm run rehearse --
+--linux` includes it.
 
 The two AppImage workflows pass `--container-options --privileged`: an AppImage
 mounts itself through FUSE, which a default container cannot do. `--device

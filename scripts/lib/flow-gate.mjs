@@ -26,12 +26,14 @@ export function selectShard(names, index, count) {
   return names.filter((_, k) => k % count === index - 1)
 }
 
-/** Parses `--repeat`'s value (integer >= 1); `null` when malformed. */
-export function parseRepeat(text) {
+/** Parses a count flag's value (`--repeat`, `--parallel`: integer >= 1); `null` when malformed. */
+export function parseCount(text) {
   if (!/^\d+$/.test(String(text))) return null
   const count = Number(text)
   return count >= 1 ? count : null
 }
+
+export const parseRepeat = parseCount
 
 /** Each flow n times in a row, so a flaky flow shows up as consecutive runs of one name. */
 export function repeatFlows(names, count) {
@@ -50,7 +52,7 @@ export function flowNameOf(arg) {
 /**
  * Parses the gate's arguments against the known flow names. `errors` is non-empty on any
  * malformed flag or unknown flow; `affected` is `null` without `--affected`, else `{ ref }`
- * (`ref` is `null` for the bare flag, meaning HEAD).
+ * (`ref` is `null` for the bare flag, meaning HEAD); `parallel` is `null` without `--parallel`.
  */
 export function parseFlowArgs(args, known, defaultTimeoutSeconds = 300) {
   const errors = []
@@ -59,6 +61,7 @@ export function parseFlowArgs(args, known, defaultTimeoutSeconds = 300) {
   let shard = null
   let timeoutSeconds = defaultTimeoutSeconds
   let repeat = 1
+  let parallel = null
   for (const arg of args) {
     if (!arg.startsWith('--')) {
       const name = flowNameOf(arg)
@@ -76,15 +79,18 @@ export function parseFlowArgs(args, known, defaultTimeoutSeconds = 300) {
       timeoutSeconds = /^\d+(\.\d+)?$/.test(value) ? Number(value) : 0
       if (!(timeoutSeconds > 0)) errors.push(`malformed ${arg}`)
     } else if (key === '--repeat') {
-      repeat = parseRepeat(value)
+      repeat = parseCount(value)
       if (repeat === null) errors.push(`malformed ${arg}`)
+    } else if (key === '--parallel') {
+      parallel = parseCount(value)
+      if (parallel === null) errors.push(`malformed ${arg}`)
     } else if (key === '--affected' && (eq === -1 || value !== '')) {
       affected = { ref: eq === -1 ? null : value }
     } else {
       errors.push(`unknown option: ${arg}`)
     }
   }
-  return { errors, named, affected, shard, timeoutSeconds, repeat }
+  return { errors, named, affected, shard, timeoutSeconds, repeat, parallel }
 }
 
 /**
