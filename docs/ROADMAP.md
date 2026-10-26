@@ -3,7 +3,7 @@
 ## Where we stand
 
 _As of 2026-10-06._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31). Current: Phase 11, codebase health.
-S32, S33 and S34 are finished: S34 (health drafts 232–236, demo/install/server stories 237–250) is 19/19 on `sprint/S34` ([S34 review](sprints/S34/review.md)). Next: Mods milestone 5.2, or the open [TECH-DEBT.md](TECH-DEBT.md) rows.
+S32, S33 and S34 are finished: S34 (health drafts 232–236, demo/install/server stories 237–250) is 19/19 on `sprint/S34` ([S34 review](sprints/S34/review.md)). Next: [S35](sprints/S35/sprint.md) (stories 251–263, user feedback 2026-10-26), planned with all questions answered — `/sprint S35`.
 Waiting on the user: 234 AC3 GitHub half (a PR or dispatch for real-runner shard times and `windows-verify`), merging `sprint/S32`, `S33`, `S34` into `dev` in order,
 the manual residue in the S28–S30, [S32](sprints/done/S32/testplan.md), [S33](sprints/done/S33/testplan.md) and [S34](sprints/S34/testplan.md) testplans, and 102's Q1–Q4.
 
@@ -32,6 +32,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 | 11.1 | A green gate, safe foundations, one module bus             | done 2026-10-02 | [S32](sprints/done/S32/review.md) | 18 stories, main side and infra; merge into `dev` waits on the user.                                 |
 | 11.2 | Config module and renderer on shared layers, docs as built | done 2026-10-03 | [S33](sprints/done/S33/review.md) | 16 stories incl. X11 stage story 198; merge into `dev` waits on the user.                            |
 | 11.3 | Health drafts closed, demo/install/server user stories     | done 2026-10-06 | [S34](sprints/S34/review.md)      | 19 stories incl. the 234 rehearsal (20 Linux flows quarantined); merge into `dev` waits on the user. |
+| 11.4 | User feedback 2026-10-26: launch, config safety, browsing  | planned         | [S35](sprints/S35/sprint.md)      | 13 stories 251–263; questions answered at the cut.                                                   |
 
 ## Open / unprioritised
 
