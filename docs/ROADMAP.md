@@ -3,7 +3,7 @@
 ## Where we stand
 
 _As of 2026-10-27._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31). Current: Phase 11, codebase health and user feedback.
-S35 is finished: all 13 stories (251–263, user feedback 2026-10-26) are done on `sprint/S35`, gate green ([S35 review](sprints/S35/review.md)). Next: plan 11.5 or Mods 5.2 with `/roadmap plan`.
+S35 is finished: all 13 stories (251–263, user feedback 2026-10-26) are done on `sprint/S35`, gate green ([S35 review](sprints/S35/review.md)). S36 is planned: all nine tests-review stories (264–272) in one sprint ([S36](sprints/S36/sprint.md)). Next: `/sprint S36`.
 Waiting on the user: 234 AC3 GitHub half (a PR or dispatch for real-runner shard times and `windows-verify`), merging `sprint/S32`, `S33`, `S34`, `S35` into `dev` in order,
 the manual residue in the S28–S30, [S32](sprints/done/S32/testplan.md), [S33](sprints/done/S33/testplan.md) and [S34](sprints/done/S34/testplan.md) testplans, and 102's Q1–Q4.
 
@@ -21,7 +21,7 @@ the manual residue in the S28–S30, [S32](sprints/done/S32/testplan.md), [S33](
 | 8 — Platform parity (Linux support, Steam Play/Proton runners)    | 1/1        | done        |
 | 9 — Game browser (server list, detail, watchlist, observing)      | 7/7        | done        |
 | 10 — Demo browser (library, metadata, remote-controlled playback) | 10/10      | done        |
-| 11 — Codebase health (review 2026-10-01, stories 199–231)         | 0/2        | planned     |
+| 11 — Codebase health (reviews 2026-10-01 and 2026-10-27)          | 4/5        | in progress |
 
 ## Current phase
 
@@ -33,6 +33,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 | 11.2 | Config module and renderer on shared layers, docs as built | done 2026-10-03 | [S33](sprints/done/S33/review.md) | 16 stories incl. X11 stage story 198; merge into `dev` waits on the user.                            |
 | 11.3 | Health drafts closed, demo/install/server user stories     | done 2026-10-06 | [S34](sprints/done/S34/review.md) | 19 stories incl. the 234 rehearsal (20 Linux flows quarantined); merge into `dev` waits on the user. |
 | 11.4 | User feedback 2026-10-26: launch, config safety, browsing  | done 2026-10-27 | [S35](sprints/S35/review.md)      | 13 stories 251–263; merge into `dev` waits on the user.                                              |
+| 11.5 | Tests review 2026-10-27: blocking lanes, cheaper gate      | planned         | [S36](sprints/S36/sprint.md)      | 9 stories 264–272, all in one sprint.                                                                |
 
 ## Open / unprioritised
 
@@ -44,6 +45,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 | Assets — texture/model/sound packs                                                                                                                                                                                         | Not started; needs conflict detection between packs touching the same files, plus a per-pack change record (`Installation.moduleData` is the slot)                                                                                                                                                                                                                                                                                                                                                                                                   | `/roadmap plan` when prioritized                                                                                                                |
 | Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Decide when a config story next needs it                                                                                                        |
 | [Codebase review 2026-10-01](reviews/2026-10-01-codebase-review.md), stories 199–231 (its [five-group suggestion](reviews/2026-10-01-codebase-review.md) is the cut)                                                       | Cut as applied: S32 = 11.1, S33 = 11.2; the S32 review's drafts [232](requirements/done/232-every-modules-handlers-are-typed-from-a-contract.md), [233](requirements/done/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md), [234](requirements/done/234-release-verification-and-ci-rehearsals-run-before-a-merge-to-main.md), [235](requirements/done/235-shutdown-state-store-and-job-edge-cases-are-closed.md), [236](requirements/done/236-the-layer-and-error-key-rules-have-no-known-holes.md) await a decision | Decide on 232–236 after S33; unfixed findings live in [TECH-DEBT.md](TECH-DEBT.md)                                                              |
+| Tests review 2026-10-27                                                                                                                                                                                                    | 17 findings, drafts 264–272 cut into [S36](sprints/S36/sprint.md) — [report](reviews/2026-10-27-tests-review.md)                                                                                                                                                                                                                                                                                                                                                                                                                                      | `/roadmap plan`                                                                                                                                 |
 
 ## Follow-ups worth doing
 
@@ -53,10 +55,9 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - `detectedVersion` is only recorded by the update/rollback path; probe a Windows version resource or console banner for the general case.
 - Per-installation launch profiles (cvar overrides, connect-to-server, a launcher-composed `+set` safe mode: r1q2 has no `-safe`).
 - Crash detection: a non-zero exit shortly after start is worth surfacing.
-- Make `ci.yml`'s `npm audit` step blocking (drop `continue-on-error`) on 2026-10-09, after S33. (story 226)
 - Upstream the tech-debt ageing rule (docs/README.md, `.claude/ai-scrum.md` Notes) into the ai-scrum plugin — for the user. [story 229]
 - Register the six S34 flows in `scripts/flows/areas.json` and make `--affected` selective when `scripts/lib` changes (TD-042, TD-043). [S34 review](sprints/done/S34/review.md)
-- Promote or delete the nine TECH-DEBT rows older than three sprints (TD-008, 009, 010, 011, 015, 016, 019, 029, 030). [S34 review](sprints/done/S34/review.md)
+- Promote or delete the 15 TECH-DEBT rows older than three sprints at S36 (TD-001–011, 015, 016, 019, 020, 021, 029, 030; `check-docs --overdue`). [S34 review](sprints/done/S34/review.md)
 
 ## History
 

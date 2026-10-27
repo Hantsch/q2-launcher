@@ -5,7 +5,7 @@ model: opus
 effort: high
 ---
 
-<!-- ai-scrum:managed 4.5.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.6.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Refine the story with ID **$1**.
@@ -145,6 +145,39 @@ into memory. Everything has to be reviewable in the repository.
        by substituting the file and test name from these lines into the profile's
        `e2e-story` template. So name them exactly as the harness selects them — the real
        path relative to the repo root and the literal test (or flow) name — not a paraphrase.
+     - **AC → test, not AC → new test.** One test may prove several criteria, and a criterion
+       an existing test already proves names that test. Two criteria that are one behaviour
+       seen twice share a line's test. A test that exists only so a criterion has a name next
+       to it is padding — measured in one repository: tests asserting a constant, a mock's
+       own return or that a handler "is registered", because the criterion said so, and
+       files growing one `describe` per story.
+     - **Wiring criteria get no test of their own.** "Handler X is registered", "the module
+       contributes a settings section", "the constant is Y" are proven by the behaviour test
+       that goes through that wiring. If no behaviour goes through it, the criterion is not
+       observable — rewrite it in step 5 instead of pinning the wiring.
+     - **Test names carry the behaviour, never an id.** `"a text-less day proposes nothing"`,
+       not `"AC2"` or `"story 042 D3"`: the id lives on the mapping line, the test file
+       outlives the story, and a `describe` per story is how a test file becomes a history
+       nobody can prune.
+     - **e2e lines cost forever.** Every flow adds its launch to every full run from now on
+       (measured: ~20 s per flow, a suite that doubled in five sprints). A story adds at most
+       one new flow per user-facing path it introduces; criteria on the same path are steps
+       of that flow, and a criterion an existing flow already walks names that flow. A third
+       new flow in one story needs a sentence on why its path cannot be a step of an
+       existing one.
+     - **Speed is proven by cost, not by a clock.** A criterion about speed or load ("saving one
+       file stays cheap", "listing stays fast") maps to a test in `test` that counts what the
+       code does - bytes written, files read, calls made - which no machine changes. A
+       wall-clock budget is never the proof and never a line here: it belongs to the perf lane
+       of the project's `test-gates` rules (a perf file or category), which warns and does not
+       decide. If the story wants one, the deliverable's text names it - and only where the
+       project's test config already excludes the perf lane from `test`; otherwise that
+       exclusion is the deliverable's first step. Measured before this rule: a budget of 150 ms,
+       about 4.5x the locally measured 33 ms, blocked a release at 155 ms on the CI runner,
+       while the byte count that proved the criterion was green.
+     - **A new flow is not a release smoke test.** Which flows the release lane runs is the
+       project's lane map (`## Test lanes` in `CLAUDE.md`), decided by the architecture review;
+       a story's flows run in its own gate, the sprint gate and release prep.
      - **A missing trigger is a story gap, not a test problem.** If a user-facing action has no
        path through the real surface yet, plan that trigger as a deliverable.
      - **`manual residue`** (only if `manual-residue-allowed: true`) is for a criterion that

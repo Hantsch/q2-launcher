@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.5.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.6.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run sprint **$1**.
@@ -258,14 +258,18 @@ Resume: the result lives in `sprint.md` under `## Regression gate` and is commit
 review in phase 3. If that section already holds a result and no story or fix commit came
 after the commit it names, skip to phase 3.
 
-**Budget — launches, and it is small.** The full suites run once (steps 1 and 1b). The
+**Budget — launches, and it is small.** The full suites run once (steps 1 and 1b) —
+**once**, the long suite included: there is no confirmation run of `e2e-all` after a fix. The
 attribution agent re-runs only the failing tests, at most twice (once on `HEAD`, once at the
-merge-base). A fix agent re-runs the failing tests and the short suites once per attempt, and
-you re-run the long suite once per attempt — two attempts. One extra launch is allowed for a
+merge-base). A fix agent re-runs the failing tests, the short suites and the story-sized e2e
+gate on its own fix once per attempt — two attempts — and that narrow run *is* the
+confirmation. Measured over six sprints before this rule: the second full run after the fixes
+was ~45 % of all gate flow time and never once caught a regression a fix had introduced; the
+one sprint that skipped it lost nothing. One extra launch is allowed for a
 run the environment lost — an empty log, `another instance is already running`, a port in
 use, a crash before the first test — after the leftover check in step 1b; a second loss of
 that kind is reported as the environment's state, not launched a third time. That is every
-launch this phase has: at most five, usually one per suite. A collision with a stale process
+launch this phase has: at most three full-suite launches, usually one per suite. A collision with a stale process
 is not a test result. And once the attribution agent has returned its verdicts, the gate is
 **decided**: no baseline run in a worktree, no "one clean, isolated run", no re-run "to be
 sure", no second attribution — go to step 5 with what you have. Measured without this
@@ -339,9 +343,16 @@ story builds together.
 4. **Fix it on the sprint branch, or report it as a blocker.** Per attributed story, ONE fresh
    `Agent` (`model: "sonnet"`, `run_in_background: false`) gets the story file, the failing
    tests, the bisected commit's diff and the build rules that still hold: fix the cause, never
-   the test — a test weakened until the gate goes green is the regression shipped. It re-runs
-   the failing tests and the short suites once; the long suite's confirmation run is yours, as
-   in step 1b, once per attempt. Green → commit on the sprint branch as
+   the test — a test weakened until the gate goes green is the regression shipped. **Its
+   re-run is the confirmation; the long suite does not run again.** Once per attempt, on the
+   still uncommitted fix, it re-runs: the failing tests (the way the attribution agent ran
+   them), the short suites, and — when the profile sets `e2e-story` — that template filled
+   with the failing e2e tests' files (and `{shard}` per `e2e-story-slices`, as in `build.md`
+   step 5), so a changed-files selection also covers whatever the fix diff touches. The
+   ceiling rule from `build.md` applies to it like to any subagent. A full `e2e-all` after
+   the fix is not launched, not even "to be sure": the fix was checked where it can break
+   something, and the next full run is the next sprint's gate or the release.
+   Green → commit on the sprint branch as
    `<id>: fix regression from sprint gate` (only with `auto-commit-per-story: true`, same rules
    as phase 2), and append one line to that story's `## Done` naming the regression and the fix
    commit. Two fix attempts without green → stop fixing: it is a **blocker for the merge**,
