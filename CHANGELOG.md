@@ -20,6 +20,7 @@ version section when a release actually ships.
 - **Servers** — Double-click or Enter joins a server; arrow keys move the selection.
 
 ### Changed
+- **Demos** — The detail pane stays beside the list; empty until you pick a demo.
 - **Replays** — Delete, Tag and Move show as soon as one demo is selected.
 - **Launch with** — applies only to Play now; servers and demos bring their own mod, no mod-mismatch prompt.
 - **Servers** — Server details stay on screen; clicking a server no longer hides them.

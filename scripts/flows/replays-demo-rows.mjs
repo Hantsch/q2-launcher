@@ -22,7 +22,6 @@
 //   replays-detail                  DemoDetailPanel.tsx - the side panel opened by clicking a row
 //                                   (story 155: its heading is the row's effective name, no separate
 //                                   title testid any more - assert against the panel's own text)
-//   replays-detail-close            DemoDetailPanel.tsx - the panel's close IconButton
 //   replays-refresh                ReplaysView.tsx - toggles back to "Refresh" once the scan settles
 
 import {
@@ -215,8 +214,8 @@ export default async function replaysDemoRows({ page, shot, step }) {
   }
   await shot('replays-demo-rows-detail')
 
-  await detail.getByTestId('replays-detail-close').click({ timeout: TIMEOUT_MS })
-  await detail.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await page.getByTestId('replays-demo-scroll').press('Escape')
+  await page.getByTestId('replays-detail-empty').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   await shot('replays-demo-rows')
 }

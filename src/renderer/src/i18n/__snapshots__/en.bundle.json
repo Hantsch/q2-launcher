@@ -2766,6 +2766,7 @@
       "stageInputHint": "The game's own console and key binds do not reach the game while it plays on the stage. Use this console field, switch to fullscreen, or close the game window (Alt+F4)."
     },
     "detail": {
+      "empty": "Select a demo to see its details.",
       "favourite": {
         "ariaLabel": "Favourite {{name}}"
       },

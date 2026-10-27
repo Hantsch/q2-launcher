@@ -8,7 +8,8 @@
 //   replays-row-select         DemoRow.tsx - the row's checkbox
 //   replays-demo-scroll        VirtualDemoList.tsx - the focusable list container
 //   replays-multi-selection    ReplaysView.tsx - the pane shown while two or more are selected
-//   replays-detail             DemoDetailPanel.tsx - shown only while exactly one is selected
+//   replays-detail             DemoDetailPanel.tsx - shown in the pane only while exactly one is selected
+//   replays-detail-empty       ReplaysView.tsx - the pane's empty state while nothing is selected
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
@@ -104,6 +105,7 @@ export default async function replaysMultiSelect({ page, shot, step }) {
   await page
     .getByTestId('replays-multi-selection')
     .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  await page.getByTestId('replays-detail-empty').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   // The filter is persisted after a debounce: leave it empty for the flows that follow.
   await page.getByTestId('replays-filter-search').fill('')

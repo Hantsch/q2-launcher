@@ -48,7 +48,8 @@ counts follow the scoped rows; the filter value survives an installation switch.
 - `ReplaysView.tsx`, `components/VirtualDemoList.tsx`, `components/DemoRow.tsx`, `DemoListFilterBar.tsx`, `ReplaysListStatus.tsx`
   — the list.
 - `components/BulkActionBar.tsx`, `components/SelectionSummary.tsx`, `useBulkActions.ts` — the Delete/Tag/Move bar shows from
-  one selected demo (and while an outcome is shown); the selection summary replaces the detail from two.
+  one selected demo (and while an outcome is shown). The detail pane is always present beside the list: empty
+  until a demo is chosen, the demo's detail for one, the selection summary from two.
 - `components/DemoDetailPanel.tsx`, `components/InPlaceField.tsx`, `components/TagInput.tsx`, `components/SidesField.tsx`,
   `components/SidesEditor.tsx`, `RenameDemoDialog.tsx` — the detail is one view, edited in place: every text fact is an
   `InPlaceField` saving per field (Enter or leaving it; Escape reverts) through the editor store's single `edit` write path; the

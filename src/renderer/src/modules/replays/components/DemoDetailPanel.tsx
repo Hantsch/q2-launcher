@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Star, X } from 'lucide-react'
+import { Star } from 'lucide-react'
 import type { DemoRow, SidecarState } from '@shared/modules/replays'
 import { buildDemoDetail, type DemoDetailField } from '@shared/replays/demo-detail'
 import {
@@ -28,7 +28,6 @@ import { effectiveQuickValues, useDemoEditorStore, type RowPatcher } from '../de
 
 export interface DemoDetailPanelProps {
   row: DemoRow
-  onClose: () => void
   /** Patches this row's `sidecar` part in the view's list after a save - never a rescan. */
   onRowPatched: RowPatcher
   /** Rename, move and delete open the list's own dialogs; threaded straight to `DemoFileActions`. */
@@ -105,7 +104,6 @@ function fieldValueText(
  */
 export function DemoDetailPanel({
   row,
-  onClose,
   onRowPatched,
   onRename,
   onMove,
@@ -227,14 +225,6 @@ export function DemoDetailPanel({
             />
           </IconButton>
           <DemoFileActions demo={row} onRename={onRename} onMove={onMove} onDelete={onDelete} />
-          <IconButton
-            label={t('common.action.close')}
-            size="sm"
-            onClick={onClose}
-            data-testid="replays-detail-close"
-          >
-            <X className="size-3.5" aria-hidden="true" />
-          </IconButton>
         </div>
         {archived && (
           <div

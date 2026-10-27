@@ -87,11 +87,10 @@ const BASE_ROW: DemoRow = {
   },
 }
 
-function renderPanel(row: DemoRow = BASE_ROW, onClose: () => void = () => {}) {
+function renderPanel(row: DemoRow = BASE_ROW) {
   render(
     createElement(DemoDetailPanel, {
       row,
-      onClose,
       onRowPatched: () => {},
       onRename: () => {},
       onMove: () => {},
@@ -203,12 +202,11 @@ describe('DemoDetailPanel', () => {
     expect(screen.getByTestId('replays-detail-tags').textContent).toContain('ctf')
   })
 
-  it('close calls onClose', () => {
+  it('the detail panel has no close button', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    const onClose = vi.fn()
-    renderPanel(BASE_ROW, onClose)
-    screen.getByTestId('replays-detail-close').click()
-    expect(onClose).toHaveBeenCalled()
+    renderPanel()
+    expect(screen.getByTestId('replays-detail-header')).toBeTruthy()
+    expect(screen.queryByTestId('replays-detail-close')).toBeNull()
   })
 
   it('the detail is one view: no Edit, Save, Cancel or discard dialog', () => {
@@ -268,7 +266,6 @@ describe('DemoDetailPanel', () => {
     render(
       createElement(DemoDetailPanel, {
         row: { ...BASE_ROW, sidecar: { state: 'ok', values } },
-        onClose: () => {},
         onRowPatched,
         onRename: () => {},
         onMove: () => {},

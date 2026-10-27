@@ -129,3 +129,16 @@
 - 2026-10-27 12:01 · 259 · review 1 · started
 - 2026-10-27 12:01 · 259 · review 1 · done
 - 2026-10-27 12:02 · 259 · story · done
+- 12:02:17 · 260 · build · started
+- 2026-10-27 12:02 · 260 · D1 always-present detail pane · started
+- 2026-10-27 12:07 · 260 · D1 always-present detail pane · done
+- 2026-10-27 12:07 · 260 · D2 no close button · started
+- 2026-10-27 12:10 · 260 · D2 no close button · done
+- 2026-10-27 12:10 · 260 · verify · started
+- 2026-10-27 12:21 · 260 · verify · blocked: i18n bundle snapshot, flow replays-demo-file-actions
+- 2026-10-27 12:21 · 260 · D3 fix verify reds · started
+- 2026-10-27 12:39 · 260 · D3 fix verify reds · done
+- 2026-10-27 12:39 · 260 · verify · done
+- 2026-10-27 12:39 · 260 · review 1 · started
+- 2026-10-27 12:41 · 260 · review 1 · done
+- 2026-10-27 12:41 · 260 · story · done

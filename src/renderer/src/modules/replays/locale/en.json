@@ -503,6 +503,7 @@
       }
     },
     "detail": {
+      "empty": "Select a demo to see its details.",
       "sides": {
         "edit": "Edit sides",
         "refused": "These sides were not saved. Fix them, or press Escape to discard them."
