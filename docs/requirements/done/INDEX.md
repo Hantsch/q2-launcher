@@ -353,3 +353,4 @@ second roadmap.
 - 256 — Server details are always shown · S35 · the list tab's detail pane is always present (empty state until a server is chosen), a click never deselects and the close button is gone
 - 257 — I join a server with double-click or Enter and move through the list with arrow keys · S35 · double-click (setting, default on) and Enter join, arrow keys move the selection through visible rows
 - 258 — Server pings match what I get in game · S35 · pings are the median of 3–6 samples timed per send on a monotonic arrival stamp, and stage 2 never overwrites them
+- 259 — Batch actions show from one selected demo · S35 · the Delete/Tag/Move bar shows as soon as one demo is selected; actions act on that demo only and a lone zip demo disables them with the zip reason

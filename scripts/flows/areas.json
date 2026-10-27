@@ -799,6 +799,7 @@
       "replays-multi-select",
       "replays-bulk-delete",
       "replays-bulk-tag-move",
+      "replays-bulk-one-selected",
       "replays-demo-context-menu",
       "replays-demo-rows"
     ],

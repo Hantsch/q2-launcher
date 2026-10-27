@@ -839,7 +839,7 @@ export function ReplaysView() {
                   </Button>
                 </div>
               )}
-              {(multiSelected || bulk.outcome !== null) && (
+              {(selectedIds.length > 0 || bulk.outcome !== null) && (
                 <BulkActionBar
                   count={selectedIds.length}
                   zipCount={zipCount}

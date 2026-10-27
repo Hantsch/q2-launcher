@@ -121,3 +121,11 @@
 - 2026-10-27 11:41 · 258 · verify 2 · started
 - 2026-10-27 11:46 · 258 · verify 2 · done
 - 2026-10-27 11:46 · 258 · story · done
+- 11:46:23 · 259 · build · started
+- 2026-10-27 11:46 · 259 · D1 bulk bar shows from one selected demo · started
+- 2026-10-27 11:50 · 259 · D1 bulk bar shows from one selected demo · done
+- 2026-10-27 11:50 · 259 · verify · started
+- 2026-10-27 12:01 · 259 · verify · done
+- 2026-10-27 12:01 · 259 · review 1 · started
+- 2026-10-27 12:01 · 259 · review 1 · done
+- 2026-10-27 12:02 · 259 · story · done

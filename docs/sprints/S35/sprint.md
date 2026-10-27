@@ -26,7 +26,7 @@ accuracy stats.
 - [x] 256 — Server details are always shown
 - [x] 257 — I join a server with double-click or Enter and move through the list with arrow keys
 - [x] 258 — Server pings match what I get in game
-- [ ] 259 — Batch actions show from one selected demo
+- [x] 259 — Batch actions show from one selected demo
 - [ ] 260 — Demo details are always shown
 - [ ] 261 — The demo players are split by team
 - [ ] 262 — Demo details show the POV player's accuracy stats

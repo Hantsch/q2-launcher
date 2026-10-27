@@ -1,7 +1,7 @@
 ---
 id: 259
 title: Batch actions show from one selected demo
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -17,11 +17,11 @@ Today `BulkActionBar` renders only when `selectedIds.length > 1` (`ReplaysView.t
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With exactly one demo selected, the bar shows Delete, Tag and Move.
-- [ ] **AC2** — Each action applied with one demo selected acts on that demo only (Delete asks for
+- [x] **AC1** — With exactly one demo selected, the bar shows Delete, Tag and Move.
+- [x] **AC2** — Each action applied with one demo selected acts on that demo only (Delete asks for
       confirmation as it does with several).
-- [ ] **AC3** — With no demo selected, the bar is not shown.
-- [ ] **AC4** — With one demo inside a zip selected, the actions are disabled with the same reason as for
+- [x] **AC3** — With no demo selected, the bar is not shown.
+- [x] **AC4** — With one demo inside a zip selected, the actions are disabled with the same reason as for
       several.
 
 ## Open Questions
@@ -113,3 +113,17 @@ Order note: 260 edits the same `ReplaysView` layout afterwards (sprint order 259
   action is disabled and the zip reason is shown"
 
 ## Done
+
+Summary: `BulkActionBar` in `ReplaysView` now renders for one or more selected demos (or while an outcome is shown); `multiSelected` still drives only the selection summary and detail split. New flow `replays-bulk-one-selected` (registered in the `replays-bulk` area) plus one unit case; docs/systems/replays-module.md and CHANGELOG updated.
+
+Commit message: `259: Delete/Tag/Move bar shows from one selected demo — condition selectedIds.length > 0, flow replays-bulk-one-selected`
+
+Decisions:
+- Review findings left unfixed: `waitForTimeout(600)` (filter-debounce reset) and the `setup()` on-disk fixture in the new flow, plus `expectText`/harness-trash/extractor-guard shapes duplicated from `replays-bulk-delete.mjs`. All mirror the sibling bulk flows as the plan demands; a shared helper in `scripts/lib/replays-copy-in.mjs` would be a separate refactor.
+- The unit test for AC4 would pass without the view change (component already handled count 1); the view wiring is proven by the e2e step, as mapped.
+- Tag-input selector in the flow is scoped to the "Tag 1 demo" dialog, because the detail pane's tag input shares the test id with one demo selected.
+
+Verification (narrow gate; full gate is the sprint's): `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEAD` (9 files / 91 tests) green; `npm run build:dev` then `npm run ui:flows -- --affected scripts/flows/replays-bulk-one-selected.mjs --parallel=4 --shard=1/2` (36/36) and `--shard=2/2` (35/35) green. Review: stage 1 (default) PASS, 1 cycle, no fixes needed.
+AC → test (all passed): AC1 flow step "one selected demo shows Delete, Tag and Move"; AC2 steps "Tag/Move acts on the one selected demo", "Delete asks first and removes only the one selected demo"; AC3 steps "with no demo selected the bar is not shown", "clearing the selection hides the bar"; AC4 step "one selected zip demo disables the actions with the zip reason" + unit BulkActionBar.test.tsx "one selected demo inside a zip: every action is disabled and the zip reason is shown". No manual residue. Also green in the affected run: `replays-bulk-tag-move`, `replays-bulk-delete`, `replays-multi-select`.
+
+tiers: D 1 / hard 0 · review default · cycles 1 · agents 3
