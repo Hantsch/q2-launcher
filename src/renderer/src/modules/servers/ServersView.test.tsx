@@ -209,17 +209,17 @@ async function renderView(initial: ScanSnapshot): Promise<void> {
   })
 }
 
-describe('ServersView - blocked banner (story 116 D5)', () => {
-  it('renders the blocked reason as real text and disables the refresh control', async () => {
+describe('ServersView - game-running note (story 116 D5)', () => {
+  it('renders the paused-auto-refresh note as real text and keeps the refresh control enabled', async () => {
     await renderView(snapshot({ state: { blockedReason: 'game-running' } }))
 
     const banner = await screen.findByTestId('servers-scan-blocked')
     // Exact string, not a loose regex/truthy check - a raw unresolved i18n key
     // ("servers.scan.blocked.gameRunning") would also match `/game/i` and be truthy.
-    expect(banner.textContent).toBe("Servers can't be scanned while the game is running.")
+    expect(banner.textContent).toBe('Automatic refresh is paused while the game is running.')
 
     const refresh = screen.getByTestId('servers-refresh') as HTMLButtonElement
-    expect(refresh.disabled).toBe(true)
+    expect(refresh.disabled).toBe(false)
   })
 
   it('shows no banner and an enabled refresh control when nothing blocks the scan', async () => {
@@ -334,15 +334,13 @@ describe('ServersView - scoped refresh controls (story 117 D5)', () => {
     )
   })
 
-  it('disables the toolbar refresh controls while blocked by the game running', async () => {
+  it('keeps the toolbar refresh controls enabled while the game runs', async () => {
     await renderView(snapshot({ state: { blockedReason: 'game-running' } }))
 
-    expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(false)
     expect((screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled).toBe(
-      true,
+      false,
     )
-    // Blocked is the more specific/urgent reason - the busy banner does not also render.
-    expect(screen.queryByTestId('servers-scan-busy')).toBeNull()
   })
 
   it('"Refresh this server" and the address-book action are not in the list toolbar', async () => {
@@ -834,18 +832,15 @@ describe('ServersView - refresh the shown servers (story 250)', () => {
     )
   })
 
-  it('the refresh-shown button and the options menu are disabled while a scan runs or the game blocks it', async () => {
-    for (const state of [{ running: true }, { blockedReason: 'game-running' as const }]) {
-      await renderView(snapshot({ state, entries: [CTF, BASEQ2] }))
-      toggleMod('ctf')
-      await screen.findByTestId('servers-row-a:1')
+  it('the refresh-shown button and the options menu are disabled while a scan runs', async () => {
+    await renderView(snapshot({ state: { running: true }, entries: [CTF, BASEQ2] }))
+    toggleMod('ctf')
+    await screen.findByTestId('servers-row-a:1')
 
-      expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
-      expect((screen.getByTestId('servers-refresh-options') as HTMLButtonElement).disabled).toBe(
-        true,
-      )
-      cleanup()
-    }
+    expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('servers-refresh-options') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
   })
 })
 

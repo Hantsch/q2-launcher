@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SCAN_UNKNOWN_ADDRESS_REASON_KEY,
   SERVERS_EVENTS,
   type ServersScanState,
@@ -37,8 +36,8 @@ describe('createScanService - game-running guard', () => {
       .map((event) => event.payload as ServersScanState)
   }
 
-  it('AC2: a manual scan while the game runs is refused, not queued, and no sweep runs', async () => {
-    const { emit, events } = recorder()
+  it('a manual scan runs while the game runs; blockedReason stays published', async () => {
+    const { emit } = recorder()
     const state = baseState({ manualServers: [manualEntry('6.6.6.6:27910')] })
     const { fn: queryServer, calls } = deferredQuery()
     const launch = fakeLaunch(RUNNING)
@@ -49,54 +48,14 @@ describe('createScanService - game-running guard', () => {
       deps: { queryServer },
     })
 
-    expect(service.start()).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
-    // `starting` blocks just the same (D-D's exact predicate); a `selectedAddress` changes nothing.
-    launch.set({ phase: 'starting', installationId: 'inst-1' })
-    expect(service.start({ selectedAddress: '6.6.6.6:27910' })).toEqual({
-      ok: false,
-      reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
-    })
-
-    await tick()
-    await tick()
-    expect(calls).toHaveLength(0)
-    expect(service.read().state).toMatchObject({ running: false, phase: 'idle', startedAt: null })
-    expect(service.read().state.blockedReason).toBe('game-running')
-    expect(service.overview()).toEqual({ scanning: false, knownServerCount: 0, lastScanAt: null })
-    expect(changedStates(events).some((s) => s.running)).toBe(false)
-
-    // Not queued: ending the session starts nothing by itself - the service has no memory of the
-    // refused call (a resumed *automatic* scan is scan-cadence.ts's job, D-G).
-    launch.set({ phase: 'exited', installationId: 'inst-1' })
-    await tick()
-    await tick()
-    expect(calls).toHaveLength(0)
-    expect(service.read().state.running).toBe(false)
-
-    // ...and the very next manual call goes through normally.
     expect(service.start()).toEqual({ ok: true })
     for (let i = 0; i < 10 && calls.length === 0; i++) await tick()
     expect(calls).toHaveLength(1)
+    expect(service.read().state).toMatchObject({ running: true, blockedReason: 'game-running' })
+    // Single-flight still applies during a session.
+    expect(service.start()).toEqual({ ok: false, reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY })
     service.dispose()
     await waitForIdle(service)
-  })
-
-  it('the game-running refusal wins over the single-flight refusal', () => {
-    const { emit } = recorder()
-    const state = baseState({ manualServers: [manualEntry('6.6.6.7:27910')] })
-    const { fn: queryServer } = deferredQuery()
-    const launch = fakeLaunch()
-    const service = createScanService({
-      getServersState: () => state,
-      emit,
-      launch: launch.host,
-      deps: { queryServer },
-    })
-
-    expect(service.start()).toEqual({ ok: true })
-    launch.set(RUNNING)
-    expect(service.start()).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
-    service.dispose()
   })
 
   it('AC1/AC4: blockedReason mirrors the live launch state and clears the moment the session ends', () => {
@@ -401,7 +360,7 @@ describe('createScanService - scoped rounds', () => {
     expect(entryOf(MANUAL)).toEqual(manualBefore)
   })
 
-  it('single-flight and the game guard refuse a scoped start exactly like a full one', () => {
+  it('single-flight refuses a scoped start exactly like a full one', () => {
     const { emit } = recorder()
     const { fn: queryServer, calls } = deferredQuery()
     const launch = fakeLaunch()
@@ -419,12 +378,6 @@ describe('createScanService - scoped rounds', () => {
       reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY,
     })
     expect(service.read().state.scope).toEqual({ kind: 'all' })
-
-    launch.set(RUNNING)
-    expect(service.start({ scope: { kind: 'favourites' } })).toEqual({
-      ok: false,
-      reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
-    })
     expect(calls.every((call) => call.address === MANUAL)).toBe(true)
     service.dispose()
   })
@@ -848,7 +801,7 @@ describe('addresses scope (story 250)', () => {
     ).toEqual([LAN_A, LAN_B, LAN_C])
   })
 
-  it('an addresses round is refused while a scan runs and while the game runs', async () => {
+  it('an addresses round is refused while a scan runs', async () => {
     const { fn: queryServer, calls } = deferredQuery()
     const launch = fakeLaunch()
     const service = createScanService({
@@ -864,13 +817,6 @@ describe('addresses scope (story 250)', () => {
       reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY,
     })
     expect(service.read().state.scope).toEqual({ kind: 'all' })
-
-    // The game guard comes first - even ahead of the unknown-address refusal.
-    launch.set(RUNNING)
-    expect(service.start({ scope: { kind: 'addresses', addresses: [UNKNOWN] } })).toEqual({
-      ok: false,
-      reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
-    })
     await tick()
     expect(calls.map((call) => call.address)).toEqual([MANUAL])
     service.dispose()

@@ -158,7 +158,6 @@ export function ServersView() {
           direction: t(`servers.sort.direction.${sort.direction}`),
         })
   const isBusy = scanState.running
-  const isRefreshDisabled = scanState.blockedReason !== null || isBusy
 
   const table =
     visible.length === 0 && entries.length > 0 ? (
@@ -281,7 +280,7 @@ export function ServersView() {
                 onRefresh={() => {
                   if (selectedAddress !== null) scan.refreshServer(selectedAddress)
                 }}
-                refreshDisabled={isRefreshDisabled}
+                refreshDisabled={isBusy}
                 refreshing={isBusy}
                 onFavouriteChanged={scan.rereadEntries}
               />
@@ -309,7 +308,7 @@ export function ServersView() {
             <ServerDetailView
               address={watchlistDetailAddress}
               onRefresh={() => scan.refreshServer(watchlistDetailAddress)}
-              refreshDisabled={isRefreshDisabled}
+              refreshDisabled={isBusy}
               refreshing={isBusy}
               onFavouriteChanged={scan.rereadEntries}
             />

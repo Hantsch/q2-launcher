@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY,
   SERVERS_EVENTS,
   type ScanServerPush,
@@ -318,7 +317,7 @@ describe('createScanService - online and LAN lists', () => {
     expect(service.readDetail(LAN_A)?.row.origins).toEqual(['lan'])
   })
 
-  it('a LAN scan is refused while the game runs', () => {
+  it('a LAN scan runs while the game runs', async () => {
     const lan = fakeLan([LAN_A])
     const query = recordingQuery()
     const service = createScanService({
@@ -329,18 +328,10 @@ describe('createScanService - online and LAN lists', () => {
     })
     service.setMode('lan')
 
-    for (const scope of [
-      { kind: 'all' },
-      { kind: 'favourites' },
-      { kind: 'server', address: LAN_A },
-    ] as const) {
-      expect(service.start({ scope })).toEqual({
-        ok: false,
-        reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
-      })
-    }
-    expect(lan.calls).toHaveLength(0)
-    expect(query.calls).toHaveLength(0)
+    expect(service.start()).toEqual({ ok: true })
+    await waitForIdle(service)
+    expect(lan.calls).toHaveLength(1)
+    expect(addresses(service)).toEqual([LAN_A])
   })
 
   it('a favourites scan is refused in LAN mode', () => {

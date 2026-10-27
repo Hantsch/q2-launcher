@@ -27,6 +27,7 @@ version section when a release actually ships.
 - **Replays** — Delete, Tag and Move show as soon as one demo is selected.
 - **Launch with** — applies only to Play now; servers and demos bring their own mod, no mod-mismatch prompt.
 - **Servers** — Server details stay on screen; clicking a server no longer hides them.
+- **Servers** — Refresh works while the game runs; only automatic refresh pauses.
 
 ### Fixed
 - **Servers** — Server pings are the median of several samples and match the ping you get in game.

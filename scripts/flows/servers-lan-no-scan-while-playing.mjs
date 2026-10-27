@@ -10,6 +10,7 @@ import {
   readFinishedAt,
   rowAddresses,
   setMode,
+  waitForFinishedAtChange,
 } from '../lib/servers-lan-flow.mjs'
 import {
   SERVERS_STUB_LAN_RESPONDER,
@@ -73,11 +74,16 @@ export default async function serversLanNoScanWhilePlaying({ page, step, shot })
   }
   assertRows(await rowAddresses(page), [], 'LAN list while the game runs')
 
-  step('AC7: a LAN refresh is refused with the visible reason')
-  if (!(await page.getByTestId('servers-refresh').isDisabled())) {
-    throw new Error('expected servers-refresh to be disabled while the game runs')
+  step('a LAN refresh still runs while the game runs')
+  const refresh = page.getByTestId('servers-refresh')
+  if (await refresh.isDisabled()) {
+    throw new Error('expected servers-refresh to stay enabled while the game runs')
   }
+  await refresh.click({ timeout: TIMEOUT_MS })
+  await waitForFinishedAtChange(page, finishedAtBefore)
   await blocked.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await shot('lan-blocked')
-  console.log('servers-lan-no-scan-while-playing: LAN scan blocked with a visible reason (AC7).')
+  await shot('lan-manual-while-playing')
+  console.log(
+    'servers-lan-no-scan-while-playing: no automatic LAN scan while playing (AC7); a manual one runs.',
+  )
 }

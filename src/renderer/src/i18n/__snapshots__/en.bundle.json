@@ -3497,7 +3497,7 @@
     },
     "scan": {
       "blocked": {
-        "gameRunning": "Servers can't be scanned while the game is running."
+        "gameRunning": "Automatic refresh is paused while the game is running."
       },
       "error": {
         "already-running": "A scan is already running.",

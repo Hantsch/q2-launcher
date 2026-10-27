@@ -61,7 +61,7 @@
         "favouritesNotInLan": "Favourites can't be refreshed on the local network."
       },
       "blocked": {
-        "gameRunning": "Servers can't be scanned while the game is running."
+        "gameRunning": "Automatic refresh is paused while the game is running."
       }
     },
     "row": {

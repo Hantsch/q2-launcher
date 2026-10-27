@@ -1,6 +1,5 @@
 import { refuse } from '@shared/types'
 import {
-  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY,
   SCAN_UNKNOWN_ADDRESS_REASON_KEY,
   SERVERS_EVENTS,
@@ -61,17 +60,12 @@ import type { Clock, MasterUdpImpl } from './udp-master-source'
  *   to `null` the moment a new scan starts, which is correct for the live scan state but wrong for
  *   "when did a scan last actually finish": that question should keep answering with the previous
  *   scan's timestamp for as long as the next one is still running, not flash back to "never".
- * - **The game-running guard.** `start()` refuses with
- *   `SCAN_BLOCKED_GAME_RUNNING_REASON_KEY` while `isScanBlocked(launch.getState())` - checked ahead
- *   of the single-flight rule, and the *only* extra condition on the manual path. The launch
- *   state is always read live at call time, never cached, so the refusal cannot depend on the order
- *   in which `onStateChange` listeners run. `blockedReason` is a reactive mirror of that same
- *   predicate: set at construction and on every launch state change, so the view can show the
- *   reason (and disable its refresh control) for the whole session, and it clears the moment the
- *   session ends without any scan attempt being needed first. An automatic trigger never
- *   reaches `start()` while blocked (scan-cadence.ts skips it with `'game-running'`), which is why
- *   the mirror - not a refusal - is what publishes the reason for the skipped automatic round
- *   (story 116)
+ * - **The game-running pause.** Only automatic rounds hold back while
+ *   `isScanBlocked(launch.getState())` - scan-cadence.ts skips them with `'game-running'` before
+ *   they reach `start()`; a manual `start()` runs during a session like any other. `blockedReason`
+ *   is a reactive mirror of that predicate: set at construction and on every launch state change,
+ *   so the view can say automatic refresh is paused for the whole session, and it clears the
+ *   moment the session ends (story 116)
  * - **Scoped rounds.** `start()` takes an optional `ScanScope` (default `'all'`, so
  *   every automatic trigger and "Refresh servers" are literally the same run). A scope only narrows
  *   the address set; the guard, single-flight, `runScan` and `mergeStaleRound` are the same calls for
@@ -609,16 +603,9 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   }
 
   function start(options: ScanStartOptions = {}): ScanStartResult {
-    // The guard and single-flight below are scope-agnostic on purpose - a refusal is
-    // a refusal whatever scope was asked for, so the scope is only resolved once both have passed.
-    // Main stays authoritative - refused regardless of what the renderer
-    // shows, never queued, and checked before single-flight so the reason is always the game
-    // (story 116)
-    if (isScanBlocked(launch.getState())) {
-      syncBlockedReason(true)
-      return refuse(SCAN_BLOCKED_GAME_RUNNING_REASON_KEY)
-    }
-
+    // Single-flight is scope-agnostic on purpose - a refusal is a refusal whatever scope was asked
+    // for, so the scope is only resolved once it has passed. A running game does not refuse a
+    // manual start; only automatic triggers hold back for it (scan-cadence.ts)
     if (scanState.running) {
       return refuse(SCAN_ALREADY_RUNNING_REASON_KEY)
     }
@@ -659,6 +646,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       finishedAt: null,
       scope: stateScope,
       mode: sweepMode,
+      blockedReason: scanState.blockedReason,
     }
     emitChanged()
 
