@@ -449,6 +449,7 @@ describe('architecture', () => {
     expect(readTsconfig('tsconfig.web.json').exclude).toEqual([
       'src/shared/demos/dm2-frames.test.ts',
       'src/shared/demos/dm2-roster.test.ts',
+      'src/shared/demos/dm2-stats.test.ts',
       'src/shared/replays/demo-guard.test.ts',
       'src/shared/fixture-constants.test.ts',
       'src/shared/types/common.test.ts',

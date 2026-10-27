@@ -219,3 +219,5 @@ Review: clean agent, 1 cycle, PASS with findings; the LAN stage-2 overwrite was 
 `scan-integration.test.ts` empty-responder bound `retries + 6` is looser than strictly needed (upper bound, kept).
 
 tiers: D 5 / hard 1 · review default · cycles 1 · agents 11
+
+Gate regression (S35): a comment ended "(story 258)." instead of a trailing pointer, docs/systems/servers-module.md carried a seventh section, and ping-samples.ts had no area row; fixed in the comment, the doc (folded into Map) and areas.json (servers-scan).

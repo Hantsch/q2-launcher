@@ -28,7 +28,10 @@ This document describes the module as built. `servers` is a registered module; i
 - `master-sources.ts` / `udp-master-source.ts` / `http-list-source.ts` — master source list
   handling and the two transports.
 - `server-query.ts` / `ping-samples.ts` / `lan-discovery.ts` — one-server UDP queries, ping sample
-  maths, LAN broadcast discovery.
+  maths, LAN broadcast discovery. Ping is the median of 3 `info` samples per server (3 more if the spread
+  exceeds max(20 ms, 25% of the median)), rounded to whole ms; a failed extra sample is dropped. Stage 2
+  (`status`) never overrides it; a server queried only in stage 2 (single-server refresh) takes the
+  `status` ping, and LAN rounds follow the same rule.
 - `favourites.ts` / `history-log.ts` / `quick-filter-entries.ts` — the persisted collections.
 - `watchlist-service.ts` / `watchlist-entries.ts` / `watchlist-matcher.ts` /
   `watchlist-regex-host.ts` — watchlist entries and name matching (regex runs isolated).
@@ -122,14 +125,6 @@ Events: `SERVERS_EVENTS` pushes `scanChanged`, `scanServer` (one row per result)
 - Harness: `Q2L_UI_GEO_ADDRESSES` (comma list of `127.0.0.1:<port>=<public IPv4>`, harness gate required) makes the location lookup use that IPv4 for a loopback fixture server; nothing else changes.
 - Engine processes: none read; joining hands `+connect <address>` to the game launch, with the
   address re-validated in main. A join passes no mod, never the saved one: the game switches mod on connect.
-
-## How a scan measures ping
-
-Stage 1 sends every reachable server 3 `info` queries, one after another. If the samples are far
-apart (max − min > max(20 ms, 25% of the median)), 3 more follow. The row carries the median,
-rounded to whole ms; a failed extra sample is dropped, an unreachable server is not sampled. Stage 2
-(`status`) does not override the ping. A server queried only in stage 2 (a single-server refresh)
-takes the `status` ping; LAN rounds follow the same rule once discovery has found the server.
 
 ## Limitations
 

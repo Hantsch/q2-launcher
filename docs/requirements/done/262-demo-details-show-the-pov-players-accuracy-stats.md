@@ -292,3 +292,5 @@ Decisions:
 - Unfixed, low: no test for an unterminated print with the observer attached (guarded in code), nor for a table cut off by the next "Stats for" line.
 
 tiers: D 3 / hard 1 · review default · cycles 1 · agents 7
+
+Gate regression (S35): replays-detail-stats redeclared the `fail` helper (fourth copy) and dm2-stats.test.ts was missing from the pinned tsconfig.web.json exclude list in architecture.test.ts; fixed with makeFail from flow-common and the pinned list.

@@ -264,7 +264,7 @@ function readGamemode(
  * while only `info` has answered, and is replaced by the full roster the moment a `status` reply
  * lands (same field, never two) - see `ServerListEntry`'s own doc comment. `keepPing` leaves the
  * entry's ping and history untouched: a stage-2 `status` reply is one sample against stage 1's
- * median, so it must neither replace it nor add a second history sample for the scan (story 258). */
+ * median, so it must neither replace it nor add a second history sample for the scan (story 258) */
 function mergeSuccessfulReply(
   existing: ServerListEntry | undefined,
   target: ScanTarget,

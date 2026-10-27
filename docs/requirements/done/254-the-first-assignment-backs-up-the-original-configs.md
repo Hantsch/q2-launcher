@@ -216,3 +216,5 @@ Review: default stage PASS with findings; fixed (ordering test on second-target 
 - Flow uses the plain unassigned fixture installation `INSTALL_REMOVE_STORE_ID`; no fixture change.
 
 tiers: D 3 / hard 1 · review default · cycles 1 · agents 6
+
+Gate regression (S35): original-backup.ts was unreached by an area row, config-profiles exceeded the 12-flow cap and InstallationProfilesPanel added a hand-rolled cancellation flag; fixed with a config-originals area row and by reading the backup list through useModuleQuery.

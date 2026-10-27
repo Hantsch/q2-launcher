@@ -200,3 +200,30 @@
 - 2026-10-27 14:41 · 263 · verify 2 · started
 - 2026-10-27 14:44 · 263 · verify 2 · done
 - 2026-10-27 14:45 · 263 · story · done
+- 14:45:27 · gate · short suites · started
+- 14:45:44 · gate · npm run build · started
+- 14:45:56 · gate · npm run build · done
+- 14:45:56 · gate · npm test · started
+- 14:47:09 · gate · npm test · done (red: 12 failed)
+- 14:47:13 · gate · npm run build:dev (pre-ui:verify) · started
+- 14:47:31 · gate · npm run build:dev (pre-ui:verify) · done
+- 14:47:34 · gate · npm run ui:verify · started
+- 14:51:47 · gate · npm run ui:verify · done (red)
+- 14:52:07 · gate · short suites · done (build green, test red 12, ui:verify red)
+- 14:52:07 · gate · e2e-all · started
+- 15:14:51 · gate · e2e-all · done
+- 15:23:15 · gate · fix regressions · started
+- 15:23:22 · gate-fix · regression fixes · started
+- 15:24:40 · gate-fix · npm ci (node_modules was empty) · started
+- 15:25:31 · gate-fix · npm ci · done
+- 15:26:21 · gate-fix · crlf, 252 locators/comment, areas.json · done
+- 15:26:49 · gate-fix · 258 comment + servers doc · done
+- 15:27:06 · gate-fix · 262 fail helper + architecture pinned list · done
+- 15:27:30 · gate-fix · 254 cancellation flag -> useModuleQuery · done
+- 15:28:20 · gate-fix · ServersView hooks extracted (useServerJoin, useRowNavigation) · done
+- 15:28:52 · gate-fix · detail pane focusable region · done
+- 15:30:12 · gate-fix · build:dev + ui:verify · started
+- 15:33:57 · gate-fix · ui:verify done (0 serious)
+- 15:36:25 · gate-fix · flows · started
+- 15:43:30 · gate-fix · regression fixes · done
+- 15:43:48 · gate · fix regressions · done

@@ -266,3 +266,5 @@ Decisions:
 - `docs/concepts/mods.md` / `demo-browser.md` still mention the old dialog (concept docs, left as history).
 
 tiers: D 5 / hard 1 · review default · cycles 1 · agents 10
+
+Gate regression (S35): bare `locator('select')` in the unsaved-diff flow and the config-save screens resolved to the footer Map select, and a comment carried a non-trailing story pointer; fixed in the flow/screens by scoping to the Raw tab toolbar, comment and areas.json rows (footer-map, game-dir-fs, map-list) corrected.

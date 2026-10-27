@@ -169,3 +169,5 @@ Decisions:
   line about `null` is slightly ambiguous.
 
 tiers: D 2 / hard 0 · review default · cycles 1 · agents 6
+
+Gate regression (S35): the always-rendered detail pane was a scrollable region without keyboard access (axe scrollable-region-focusable, serious, at 940x620) and ServersView.tsx grew past 350 lines; fixed with a focusable DetailPane and by extracting useServerJoin and useRowNavigation.

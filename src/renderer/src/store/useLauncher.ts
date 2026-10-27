@@ -466,7 +466,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     const id = installationId ?? get().settings.activeInstallationId
     if (!id) return
     // Applied here, not in main: main's launch-args builder is shared with demo playback, which
-    // must never start in the saved map (story 252).
+    // must never start in the saved map (story 252)
     const savedMap =
       options === undefined
         ? (get().installations.find((entry) => entry.id === id)?.activeMap ?? '')

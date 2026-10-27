@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EngineBadge } from '../../components/ui/EngineBadge'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { useSubmitting } from '../../components/ui/useSubmitting'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { useLauncher } from '../../store/useLauncher'
 import { getSwitchBinds, listOriginalConfigs, restoreOriginalConfigs } from './client'
 import { useConfigProfiles } from './config-profiles-store'
@@ -39,7 +40,10 @@ export function InstallationProfilesPanel({ profiles }: { profiles: ConfigProfil
   const installations = useLauncher((state) => state.installations)
   const replaceAll = useConfigProfiles((state) => state.replaceAll)
   const [switchBinds, setSwitchBinds] = useState<Record<string, string>>({})
-  const [backedUp, setBackedUp] = useState<string[]>([])
+  const { data: backedUpData, reload: reloadBackedUp } = useModuleQuery(listOriginalConfigs, {
+    deps: [profiles],
+  })
+  const backedUp = backedUpData ?? []
   const [restoring, setRestoring] = useState<Installation | null>(null)
   const [restoreError, setRestoreError] = useState<ReactNode>(null)
   const { submitting, run } = useSubmitting()
@@ -53,16 +57,6 @@ export function InstallationProfilesPanel({ profiles }: { profiles: ConfigProfil
       cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    void listOriginalConfigs().then((result) => {
-      if (!cancelled && result.ok) setBackedUp(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [profiles])
 
   const closeRestore = useCallback(() => {
     setRestoring(null)
@@ -82,8 +76,7 @@ export function InstallationProfilesPanel({ profiles }: { profiles: ConfigProfil
       }
       replaceAll(result.value)
       closeRestore()
-      const refreshed = await listOriginalConfigs()
-      if (refreshed.ok) setBackedUp(refreshed.value)
+      reloadBackedUp()
     })
 
   return (

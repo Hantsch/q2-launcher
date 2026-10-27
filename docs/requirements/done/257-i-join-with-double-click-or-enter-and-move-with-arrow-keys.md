@@ -182,3 +182,5 @@ Decisions:
 - Space keeps selecting only; Enter on an unselected row selects.
 
 tiers: D 4 / hard 0 · review default · cycles 1 · agents 9
+
+Gate regression (S35): the join and arrow-key handlers pushed ServersView.tsx over its 350-line budget; fixed by moving them unchanged into useServerJoin and useRowNavigation (area row servers-join extended).

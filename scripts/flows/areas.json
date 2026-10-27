@@ -50,9 +50,6 @@
       "harness-offscreen",
       "home-route-roundtrip",
       "tabs-keyboard",
-      "action-bar-view",
-      "footer-map",
-      "launch-with-scope",
       "config-header-geometry",
       "replays-fullscreen",
       "replays-cinema-fullscreen",
@@ -63,6 +60,17 @@
       "servers-module-shell"
     ],
     "why": "The main window, its chrome and the app shell frame every screen; these flows cover navigation, geometry and fullscreen."
+  },
+  {
+    "area": "footer-map",
+    "paths": [
+      "src/renderer/src/components/shell/ActionBar*",
+      "src/main/lib/game-dir-fs.ts",
+      "src/main/services/map-list.ts",
+      "src/main/modules/mods/map-presence.ts"
+    ],
+    "flows": ["footer-map", "launch-with-scope", "action-bar-view", "mods-view"],
+    "why": "The footer Map select and Play: the map list read from the game directory and the launch that starts in the saved map."
   },
   {
     "area": "ipc-contract",
@@ -485,12 +493,26 @@
       "raw-save-cascades",
       "tabs-keyboard",
       "config-header-geometry",
-      "external-edit-cascades",
-      "config-unassigned-warning",
-      "config-original-configs-restore",
-      "assign-foreign-config"
+      "external-edit-cascades"
     ],
     "why": "Config profiles, their assignments, care checks, the profile draft and the config view frame."
+  },
+  {
+    "area": "config-originals",
+    "paths": [
+      "src/main/modules/config/original-backup.ts",
+      "src/main/modules/config/cleanup.ts",
+      "src/main/modules/config/sync.ts",
+      "src/main/modules/config/profile-writes.ts",
+      "src/renderer/src/modules/config/InstallationProfilesPanel.tsx",
+      "src/renderer/src/modules/config/components/UnassignedProfileBanner.tsx"
+    ],
+    "flows": [
+      "config-original-configs-restore",
+      "assign-foreign-config",
+      "config-unassigned-warning"
+    ],
+    "why": "Backing up the original configs before the first write, restoring them, and the assign-over-a-foreign-config and unassigned warnings around it."
   },
   {
     "area": "config-controls",
@@ -999,7 +1021,8 @@
       "src/main/modules/servers/source-resolution.ts",
       "src/main/modules/servers/http-list-source.ts",
       "src/main/modules/servers/udp-master-source.ts",
-      "src/main/modules/servers/master-sources.ts"
+      "src/main/modules/servers/master-sources.ts",
+      "src/main/modules/servers/ping-samples.ts"
     ],
     "flows": [
       "servers-list-states",
@@ -1073,7 +1096,11 @@
   },
   {
     "area": "servers-join",
-    "paths": ["src/renderer/src/modules/servers/join/**"],
+    "paths": [
+      "src/renderer/src/modules/servers/join/**",
+      "src/renderer/src/modules/servers/useServerJoin.ts",
+      "src/renderer/src/modules/servers/useRowNavigation.ts"
+    ],
     "flows": [
       "servers-join",
       "servers-actionbar-join",
@@ -1082,6 +1109,6 @@
       "servers-detail-local-content",
       "steam-handoff"
     ],
-    "why": "Joining a server from the list, the detail panel and the action bar."
+    "why": "Joining a server from the list, the detail panel and the action bar, and the list keyboard navigation."
   }
 ]

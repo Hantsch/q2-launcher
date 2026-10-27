@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ServerListRow, WatchlistMatch } from '@shared/modules/servers'
 import {
@@ -16,19 +16,14 @@ import {
   type ServerSortColumn,
 } from '@shared/servers/list-sort'
 import { PanelRight } from 'lucide-react'
-import type { LocalizedMessage } from '@shared/types'
-import { parseServerAddress, serverAddressRejectionKey } from '@shared/servers/address'
 import { Button } from '../../components/ui/Button'
-import { usePrimaryActionContribution, type ContributedAction } from '../../lib/primary-action'
 import { useFeatureUnlocked } from '../../components/features/FeatureGate'
 import { cn } from '../../lib/cn'
 import { useListSort } from '../../lib/useListSort'
-import { useModuleQuery } from '../../lib/useModuleQuery'
-import { ROUTE_SETTINGS, useActiveInstallation, useLauncher } from '../../store/useLauncher'
-import { getListSort, getScanSettings, setListSort } from './client'
+import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
+import { getListSort, setListSort } from './client'
 import { deriveListState } from './list-state'
 import { JoinServerButton } from './join/JoinServerButton'
-import { useJoinFlow } from './join/useJoinFlow'
 import { ServerDetailView } from './ServerDetailView'
 import { ServerListFilterBar } from './ServerListFilterBar'
 import { QuickFilterChipMenu } from './QuickFilterChipMenu'
@@ -41,6 +36,8 @@ import { TabPanel } from '../../components/ui/Tabs'
 import { ServersTabStrip, type ServersTab } from './ServersTabStrip'
 import { ServersToolbar } from './ServersToolbar'
 import { useQuickFilters } from './useQuickFilters'
+import { useRowNavigation } from './useRowNavigation'
+import { useServerJoin } from './useServerJoin'
 import { useServerScan } from './useServerScan'
 import { WatchlistPanel } from './watchlist/WatchlistPanel'
 
@@ -56,17 +53,17 @@ function detailSplit(detailOpen: boolean): string {
   )
 }
 
-const DETAIL_PANE =
-  'min-h-0 overflow-y-auto border-t border-line bg-panel/40 @4xl:border-t-0 @4xl:border-l'
-
-/** Why a row cannot be joined right now, or `undefined` when it can. */
-function joinBlockedReason(
-  row: ServerListRow,
-  hasInstallation: boolean,
-): LocalizedMessage | undefined {
-  const parsed = parseServerAddress(row.address)
-  if (!parsed.ok) return { key: serverAddressRejectionKey(parsed.reason) }
-  return hasInstallation ? undefined : { key: 'servers.join.noInstallation' }
+/** The detail pane scrolls, so it is focusable: a keyboard-only user can reach and scroll it
+ * (axe's scrollable-region-focusable). The server detail inside is the named landmark. */
+function DetailPane({ children }: { children: ReactNode }) {
+  return (
+    <div
+      tabIndex={0}
+      className="min-h-0 overflow-y-auto border-t border-line bg-panel/40 @4xl:border-t-0 @4xl:border-l"
+    >
+      {children}
+    </div>
+  )
 }
 
 /**
@@ -108,11 +105,6 @@ export function ServersView() {
     setSelectedAddress(address)
   }
 
-  const handleRowActivated = (address: string): void => {
-    const row = resolveServer(address)
-    if (row) joinIfAllowed(row)
-  }
-
   const handleOpenSourceSettings = (): void => {
     setRoute(ROUTE_SETTINGS)
     scrollToSourceSettings()
@@ -121,41 +113,10 @@ export function ServersView() {
   const resolveServer = (address: string): ServerListRow | undefined =>
     entries.find((entry) => entry.address === address)
 
-  // The action bar's "Join" targets the list selection, or on the watchlist tab the server open in
-  // its detail pane. `run` reads the latest `start` through a ref: the flow's closure changes every
-  // render, and a new contribution identity would republish every time.
-  const joinFlow = useJoinFlow()
-  const startJoinRef = useRef(joinFlow.start)
-  useLayoutEffect(() => {
-    startJoinRef.current = joinFlow.start
-  })
-  const hasInstallation = useActiveInstallation() !== null
-  // Not yet loaded counts as on: the default, so a fresh mount never swallows an early double-click.
-  const scanSettings = useModuleQuery(getScanSettings)
-  const doubleClickJoins = scanSettings.data?.doubleClickJoins ?? true
-  const joinAddress = activeTab === 'watchlist' ? watchlistDetailAddress : selectedAddress
-  const joinRow = joinAddress === null ? undefined : resolveServer(joinAddress)
-  // The one guard for every join from this view's list: the action bar's Join and a row's double-click.
-  const joinIfAllowed = (row: ServerListRow): void => {
-    if (joinBlockedReason(row, hasInstallation) === undefined) startJoinRef.current(row)
-  }
-  const joinIfAllowedRef = useRef(joinIfAllowed)
-  useLayoutEffect(() => {
-    joinIfAllowedRef.current = joinIfAllowed
-  })
-  const joinAction = useMemo<ContributedAction>(() => {
-    const reason = joinRow === undefined ? undefined : joinBlockedReason(joinRow, hasInstallation)
-    return {
-      id: 'join-server',
-      labelKey: 'common.action.join',
-      disabled: joinRow === undefined || reason !== undefined,
-      ...(reason ? { reason } : {}),
-      run: () => {
-        if (joinRow) joinIfAllowedRef.current(joinRow)
-      },
-    }
-  }, [joinRow, hasInstallation])
-  usePrimaryActionContribution('/servers', joinAction)
+  const join = useServerJoin(
+    resolveServer,
+    activeTab === 'watchlist' ? watchlistDetailAddress : selectedAddress,
+  )
 
   // The watchlist's actions column reuses this view's real Join. A match with no live row (the
   // watchlist's own scan raced this view's `entries`) renders nothing - never a fallback Join for a
@@ -183,42 +144,11 @@ export function ServersView() {
   const sortedRows = useMemo(() => sortServerRows(entries, sort), [entries, sort])
   const visible = useMemo(() => filterServers(sortedRows, filter), [sortedRows, filter])
 
-  const tableRef = useRef<HTMLDivElement>(null)
-  const focusSelectedRef = useRef(false)
-  const focusSelectedRow = (): void => {
-    const rowElement = tableRef.current?.querySelector<HTMLElement>('[data-selected="true"]')
-    rowElement?.focus()
-    // jsdom has no scrollIntoView.
-    rowElement?.scrollIntoView?.({ block: 'nearest' })
-  }
-
-  // Arrow keys stop at the first and last row; focus follows the selection so the next key press
-  // lands on the new row.
-  const handleRowNavigate = (address: string, step: 1 | -1): void => {
-    const index = visible.findIndex((row) => row.address === address)
-    if (index < 0) return
-    const target = visible[Math.min(Math.max(index + step, 0), visible.length - 1)]
-    if (target.address === selectedAddress) {
-      focusSelectedRow()
-      return
-    }
-    focusSelectedRef.current = true
-    setSelectedAddress(target.address)
-  }
-
-  useEffect(() => {
-    if (!focusSelectedRef.current) return
-    focusSelectedRef.current = false
-    focusSelectedRow()
-  }, [selectedAddress])
-
-  // A selection the filter hides is dropped - it would keep driving "Refresh this server" against
-  // an address the user can no longer see or pick again.
-  useEffect(() => {
-    if (selectedAddress !== null && !visible.some((row) => row.address === selectedAddress)) {
-      setSelectedAddress(null)
-    }
-  }, [selectedAddress, visible])
+  const { tableRef, navigate: handleRowNavigate } = useRowNavigation(
+    visible,
+    selectedAddress,
+    setSelectedAddress,
+  )
 
   const sortCaption =
     sort === null
@@ -255,9 +185,9 @@ export function ServersView() {
             row={entry}
             selected={entry.address === selectedAddress}
             onSelect={handleRowSelected}
-            onJoin={handleRowActivated}
+            onJoin={join.joinAddress}
             onNavigate={handleRowNavigate}
-            onActivate={doubleClickJoins ? handleRowActivated : undefined}
+            onActivate={join.doubleClickJoins ? join.joinAddress : undefined}
           />
         ))}
       </>
@@ -345,7 +275,7 @@ export function ServersView() {
                 {table}
               </div>
             </div>
-            <div className={DETAIL_PANE}>
+            <DetailPane>
               <ServerDetailView
                 address={selectedAddress}
                 onRefresh={() => {
@@ -355,7 +285,7 @@ export function ServersView() {
                 refreshing={isBusy}
                 onFavouriteChanged={scan.rereadEntries}
               />
-            </div>
+            </DetailPane>
           </div>
         </div>
       </div>
@@ -375,7 +305,7 @@ export function ServersView() {
           </div>
         </div>
         {watchlistDetailAddress !== null && (
-          <div className={DETAIL_PANE}>
+          <DetailPane>
             <ServerDetailView
               address={watchlistDetailAddress}
               onRefresh={() => scan.refreshServer(watchlistDetailAddress)}
@@ -383,7 +313,7 @@ export function ServersView() {
               refreshing={isBusy}
               onFavouriteChanged={scan.rereadEntries}
             />
-          </div>
+          </DetailPane>
         )}
       </div>
     </div>
@@ -391,7 +321,7 @@ export function ServersView() {
 
   return (
     <div className="flex h-full flex-col">
-      {joinFlow.dialogs}
+      {join.dialogs}
       <ServersTabStrip activeTab={activeTab} onChange={setActiveTab} />
       <TabPanel idBase="servers" tabId={activeTab} className="min-h-0 flex-1">
         {activeTab === 'watchlist' ? isWatchlistUnlocked && watchlistAndDetail : listAndDetail}

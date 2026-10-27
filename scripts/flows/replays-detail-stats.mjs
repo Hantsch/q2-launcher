@@ -8,6 +8,7 @@ import {
   writeReplaysTeamsFixture,
 } from '../lib/fixture.mjs'
 import { assertNoAxeViolations } from '../lib/flow-axe.mjs'
+import { makeFail } from '../lib/flow-common.mjs'
 import { openDemosRoot, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
@@ -20,9 +21,7 @@ export async function setup() {
   return {}
 }
 
-function fail(message) {
-  throw new Error(`replays-detail-stats: ${message}`)
-}
+const fail = makeFail('replays-detail-stats')
 
 async function cellsOf(row) {
   return (await row.getByRole('cell').allTextContents()).map((text) => text.trim())
