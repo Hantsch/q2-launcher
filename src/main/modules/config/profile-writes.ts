@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type {
   AssignProfileInput,
+  AssignProfileResult,
   CommitProfileCvarsInput,
   ConfigProfile,
   ProfileFileSyncStatus,
@@ -43,11 +44,17 @@ import type { configState } from './persisted'
 import type { ProfilesStore } from './profiles'
 import { detectSectionHeaderStyle, detectWriteUnbindall, recoverProfileName } from './rebuild'
 import { installationCopySource, syncProfile } from './sync'
-import { hasOriginalBackup, readManifest, restoreOriginals } from './original-backup'
+import {
+  backupOriginals,
+  hasOriginalBackup,
+  readManifest,
+  restoreOriginals,
+} from './original-backup'
 import { mergeWriteFailureChanges } from './write-failures'
 import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from './write-plan'
 import {
   BASE_GAME_DIR,
+  isForeignFile,
   ownedProfileIdFromContent,
   readExisting,
   writeInstallationFiles,
@@ -125,7 +132,7 @@ export interface ProfileWrites {
   /** Best-effort cleanup after the store dropped a profile: its canonical file and write bookkeeping. */
   cleanupRemoved(profileId: string): Promise<void>
   commitCvars(input: CommitProfileCvarsInput): Promise<Outcome<ConfigProfile>>
-  assign(input: AssignProfileInput): Promise<Outcome<ConfigProfile[]>>
+  assign(input: AssignProfileInput): Promise<Outcome<AssignProfileResult>>
   unassign(input: UnassignProfileInput): Promise<Outcome<ConfigProfile[]>>
   /** Ids of the registered installations whose root holds a valid original-config backup. */
   listOriginalConfigs(): Promise<Outcome<string[]>>
@@ -1107,13 +1114,41 @@ async function commitCvars(
   return ok(withLiveAssignments(deps, profiles.list()).find((p) => p.id === profile.id)!)
 }
 
+/**
+ * Assigning writes `<name>.cfg` into the installation, so a file of that name the launcher did not
+ * write is the user's own and stops the call (`foreignFile`) before anything is touched. Consent
+ * (`overwriteForeign`) backs the file up first; an already-assigned profile is not re-checked, its
+ * file is ours by then.
+ */
 async function assign(
   deps: ProfileWritesDeps,
   input: AssignProfileInput,
-): Promise<Outcome<ConfigProfile[]>> {
-  if (!deps.installations.find(input.installationId)) {
-    return fail('installations.error.notFound')
+): Promise<Outcome<AssignProfileResult>> {
+  const installation = deps.installations.find(input.installationId)
+  if (!installation) return fail('installations.error.notFound')
+
+  const alreadyAssigned = deps.profiles
+    .find(input.profileId)
+    ?.assignments.some((a) => a.installationId === input.installationId)
+  const fileName = resolveProfileFileNames(deps.profiles.list()).get(input.profileId)
+  if (!alreadyAssigned && fileName !== undefined) {
+    const path = join(installation.rootPath, BASE_GAME_DIR, fileName)
+    try {
+      if (await isForeignFile(path)) {
+        if (input.overwriteForeign !== true) {
+          return ok({ status: 'foreignFile', fileName, installationId: input.installationId })
+        }
+        await backupOriginals(installation.rootPath, [path])
+      }
+    } catch (error) {
+      deps.log.error(
+        `failed to check or back up ${fileName} before assigning ${input.profileId}`,
+        error,
+      )
+      return fail('config.error.writeFailed')
+    }
   }
+
   let list: ConfigProfile[]
   try {
     list = withLiveAssignments(deps, deps.profiles.assign(input))
@@ -1126,7 +1161,7 @@ async function assign(
     list.find((p) => p.id === input.profileId)!,
     list,
   )
-  return ok(list)
+  return ok({ status: 'assigned', profiles: list })
 }
 
 async function unassign(

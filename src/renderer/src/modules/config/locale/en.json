@@ -186,6 +186,11 @@
         "body": "Your config files in this installation go back to what they were before the launcher first wrote to them. Every config profile is unassigned from it; the profiles themselves stay.",
         "confirm": "Restore configs"
       },
+      "foreignFile": {
+        "title": "A config named {{fileName}} already exists",
+        "body": "“{{name}}” already has a file called {{fileName}} that the launcher did not write. Write backs it up first, then replaces it. Cancel leaves it untouched, so you can rename the profile instead.",
+        "confirm": "Write"
+      },
       "unassignedBanner": {
         "title": "No installation uses this config",
         "body": "The game does not load it until you assign it to an installation.",

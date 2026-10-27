@@ -1,7 +1,7 @@
 ---
 id: 255
 title: Assigning a profile never overwrites a foreign config silently
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -18,13 +18,13 @@ profiles; a foreign `baseq2/<name>.cfg` is backed up once and overwritten withou
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Assigning a profile whose file name matches an existing file in the installation that the
+- [x] **AC1** — Assigning a profile whose file name matches an existing file in the installation that the
       launcher did not write opens a dialog naming the file and the installation, before anything is
       written.
-- [ ] **AC2** — "Cancel" leaves the assignment undone and the existing file byte-identical.
-- [ ] **AC3** — "Write" backs up the existing file (story 254's folder), then completes the assignment.
-- [ ] **AC4** — A file that the launcher wrote itself (ownership stamp) is updated without the dialog.
-- [ ] **AC5** — Assigning to several installations at once asks once per conflicting installation; the
+- [x] **AC2** — "Cancel" leaves the assignment undone and the existing file byte-identical.
+- [x] **AC3** — "Write" backs up the existing file (story 254's folder), then completes the assignment.
+- [x] **AC4** — A file that the launcher wrote itself (ownership stamp) is updated without the dialog.
+- [x] **AC5** — Assigning to several installations at once asks once per conflicting installation; the
       others are assigned normally.
 
 ## Open Questions
@@ -80,7 +80,7 @@ Order: D1 before D2. Story 254 is built first; its backup-folder helper is reuse
 
 ## Deliverables
 
-- **D1 — `assign` refuses to overwrite a foreign profile file without consent (contract + main).**
+- [x] **D1 — `assign` refuses to overwrite a foreign profile file without consent (contract + main).**
   Files:
   - `src/shared/modules/config.ts`: `overwriteForeign?: boolean` on `AssignProfileInput`; new
     `AssignProfileResult = { status: 'assigned'; profiles: ConfigProfile[] } | { status: 'foreignFile';
@@ -114,7 +114,7 @@ Order: D1 before D2. Story 254 is built first; its backup-folder helper is reuse
   `overwriteForeign` is accepted on assign and rejected (stripped/strict as the file's other cases do) on
   unassign/setDefault.
 
-- **D2 — the assignments popover asks before writing (renderer + flow).**
+- [x] **D2 — the assignments popover asks before writing (renderer + flow).**
   Files:
   - `src/renderer/src/modules/config/client.ts`: `assignConfigProfile` returns
     `Outcome<AssignProfileResult>`.
@@ -171,3 +171,36 @@ Review: → default
   › "a foreign file answer opens the dialog instead of a toast"
 
 ## Done
+
+Summary: `assign` now answers `foreignFile` (file name + installation) before anything is written when
+`baseq2/<name>.cfg` exists and carries no launcher stamp; the assignments popover opens a danger
+`ForeignConfigDialog`. Write re-sends `assign` with `overwriteForeign`, which backs the file up through
+story 254's `backupOriginals` and then assigns; Cancel changes nothing. Stamped or absent files and
+already-assigned installations assign without asking. Each tick is its own call, so several installations
+ask once per conflicting one.
+
+Commit message: `255: assigning a profile asks before replacing a foreign config — dialog, Write backs it up first`
+
+Verification (narrow gate): typecheck, lint green; `npx vitest run --changed HEAD` green except
+`import-reader.test.ts` (20 s timeout under load, 42/42 green on its own re-run); `build:dev` green;
+`ui:flows -- --affected scripts/flows/assign-foreign-config.mjs --parallel=4 --shard=1/2` and `2/2`:
+only the known-red `unsaved-diff` failed. Review 1 (default tier): PASS, no blocking findings.
+AC -> test, all passed: AC1 flow `assign-foreign-config` "a foreign config asks before anything is
+written" + unit "a foreign profile file stops the assignment before anything is written"; AC2 same flow
+test; AC3 flow "write backs the foreign config up and assigns" + unit "overwriteForeign backs the foreign
+file up and assigns"; AC4 flow "a launcher-written config is updated without asking" + unit "a
+launcher-stamped file is assigned without asking"; AC5 flow "write backs..." + component
+`ProfileAssignmentsPanel.foreign.test.tsx` "a foreign file answer opens the dialog instead of a toast".
+No manual residue. Full gate not run (sprint's job). Pre-existing, not mine: `scripts/flow-select.test.mjs`
+(the config-profiles area now holds 14 flows against a cap of 12 — it already held 13), prettier on
+`CHANGELOG.md`/`InstallationProfilesPanel.tsx`.
+
+Decisions:
+- The backup helper is `backupOriginals` in `original-backup.ts` (254), not `backup.ts` as the plan says.
+- `unassign`/`setDefault` schemas are not strict: `overwriteForeign` is stripped there, not rejected.
+- `AssignmentsMenu.tsx` ignores outside-click/Escape while a `[role=dialog]` is open; the dialog is
+  portalled outside the popover and its click would otherwise unmount the panel before Write fired.
+- Unfixed (low): that guard matches any dialog, not only this panel's; the unit test cannot tell the
+  explicit `backupOriginals` call from the writer's own backup, and no test covers a failing backup.
+
+tiers: D 2 / hard 0 · review default · cycles 0 · agents 4

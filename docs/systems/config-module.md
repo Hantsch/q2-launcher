@@ -107,6 +107,8 @@ tags) and `index.ts` (drives the stages).
 - `components/ProfileBanner.tsx` (shared banner shell), `components/UnassignedProfileBanner.tsx`
   (the "No installation uses this config" banner with its Assign… action) and the "Not assigned"
   marker on `ConfigListScreen.tsx` rows — both follow `assignments` in the store, no reload.
+- `components/ForeignConfigDialog.tsx` — `ProfileAssignmentsPanel` opens it on a `foreignFile` answer;
+  Write repeats the assignment with `overwriteForeign`, Cancel changes nothing.
 
 ## Flow
 
@@ -161,7 +163,7 @@ counted as a store write.
 | `create`                  | New profile (empty, template or copy); writes its canonical file at once (`syncAppended`).                     | both                     |
 | `rename`                  | Renames and marks dirty; the file keeps its old name until `save`.                                             | writes the profile store |
 | `remove`                  | Removes the profile and deletes its canonical file (`cleanupRemoved`); installation copies are left.           | both                     |
-| `assign`                  | Assigns to an installation, then syncs the profile.                                                            | both                     |
+| `assign`                  | Assigns to an installation, then syncs the profile; a foreign `<name>.cfg` there answers `foreignFile` first.  | both                     |
 | `unassign`                | Unassigns, syncs the profile and the installation's remaining default.                                         | both                     |
 | `setDefault`              | Makes the profile the installation's default; syncs every profile there plus the loader.                       | both                     |
 | `setCvars`                | Replaces cvars, marks dirty.                                                                                   | writes the profile store |
@@ -200,6 +202,13 @@ The central write rule lives in `profile-writes.ts#syncAndPersist` (`canonicalWr
 baseline plus cvars itself), and a canonical file is only overwritten when it is absent, the
 profile has no `fileHash` baseline yet, it already holds exactly `renderProfileFile(profile)`, or
 the user forced the overwrite. A refused write records no failure; the row reports `outOfSync`.
+
+`assign` is two-step. Unless the profile is already assigned there, it first checks
+`<root>/baseq2/<name>.cfg` (`writer.ts#isForeignFile`: exists and carries no launcher stamp). A
+foreign file answers `{ status: 'foreignFile', fileName, installationId }` with nothing assigned or
+written; an unreadable one fails with `config.error.writeFailed`. The caller asks the user and
+repeats the call with `overwriteForeign: true`, which backs the file up into the installation's
+original-configs folder (first original wins) before the assignment and sync run.
 
 ## Startup
 

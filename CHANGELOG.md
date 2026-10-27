@@ -15,6 +15,7 @@ version section when a release actually ships.
 ### Added
 - **Config** — Profiles no installation uses now say so, with a one-click Assign.
 - **Config** — Your original config files are backed up on first assignment and can be restored.
+- **Config** — Assigning a profile asks before replacing a config file of yours with the same name.
 - **Footer** — Pick a map; Play starts a deathmatch in it.
 
 ### Changed

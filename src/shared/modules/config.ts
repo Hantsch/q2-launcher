@@ -402,7 +402,18 @@ export interface RemoveConfigProfileInput {
 export interface AssignProfileInput {
   profileId: string
   installationId: string
+  /** The user's consent to replace a foreign (not launcher-stamped) file of the profile's name. */
+  overwriteForeign?: boolean
 }
+
+/**
+ * `assign` answers `foreignFile` - and has changed nothing - when the installation already holds a
+ * file the launcher did not write under the name the profile would take; the caller asks the user
+ * and repeats the call with `overwriteForeign: true`.
+ */
+export type AssignProfileResult =
+  | { status: 'assigned'; profiles: ConfigProfile[] }
+  | { status: 'foreignFile'; fileName: string; installationId: string }
 
 export interface UnassignProfileInput {
   profileId: string
@@ -971,7 +982,7 @@ export type ConfigContract = {
     [CONFIG_HANDLERS.create]: { req: ConfigReq<'create'>; res: ConfigProfile[] }
     [CONFIG_HANDLERS.rename]: { req: ConfigReq<'rename'>; res: ConfigProfile[] }
     [CONFIG_HANDLERS.remove]: { req: ConfigReq<'remove'>; res: ConfigProfile[] }
-    [CONFIG_HANDLERS.assign]: { req: ConfigReq<'assign'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.assign]: { req: ConfigReq<'assign'>; res: AssignProfileResult }
     [CONFIG_HANDLERS.unassign]: { req: ConfigReq<'unassign'>; res: ConfigProfile[] }
     [CONFIG_HANDLERS.setDefault]: { req: ConfigReq<'setDefault'>; res: ConfigProfile[] }
     [CONFIG_HANDLERS.setCvars]: { req: ConfigReq<'setCvars'>; res: ConfigProfile[] }

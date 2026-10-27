@@ -59,3 +59,13 @@
 - 2026-10-27 09:34 · 254 · review 1 fixes · started
 - 2026-10-27 09:36 · 254 · review 1 fixes · done
 - 2026-10-27 09:36 · 254 · story · done
+- 09:37:05 · 255 · build · started
+- 2026-10-27 09:37 · 255 · D1 assign refuses foreign file · started
+- 2026-10-27 09:42 · 255 · D1 assign refuses foreign file · done
+- 2026-10-27 09:42 · 255 · D2 popover dialog + flow · started
+- 2026-10-27 09:49 · 255 · D2 popover dialog + flow · done
+- 2026-10-27 09:49 · 255 · verify · started
+- 2026-10-27 09:55 · 255 · verify · done
+- 2026-10-27 09:55 · 255 · review 1 · started
+- 2026-10-27 09:57 · 255 · review 1 · done
+- 2026-10-27 09:58 · 255 · story · done

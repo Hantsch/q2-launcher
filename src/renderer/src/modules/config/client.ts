@@ -2,6 +2,7 @@ import {
   CONFIG_HANDLERS,
   type ConfigContract,
   type AssignProfileInput,
+  type AssignProfileResult,
   type CleanupApplyInput,
   type CleanupApplyResult,
   type CleanupRestoreInput,
@@ -162,7 +163,9 @@ export function discardConfigProfile(
   return client.call(CONFIG_HANDLERS.discard, input)
 }
 
-export function assignConfigProfile(input: AssignProfileInput): Promise<Outcome<ConfigProfile[]>> {
+export function assignConfigProfile(
+  input: AssignProfileInput,
+): Promise<Outcome<AssignProfileResult>> {
   return client.call(CONFIG_HANDLERS.assign, input)
 }
 

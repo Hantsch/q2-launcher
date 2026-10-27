@@ -22,7 +22,7 @@ accuracy stats.
 - [x] 252 — I pick a map in the footer and Play starts in it
 - [x] 253 — An unassigned config profile tells me it is not used
 - [x] 254 — The first assignment backs up the original configs and I can restore them
-- [ ] 255 — Assigning a profile never overwrites a foreign config silently
+- [x] 255 — Assigning a profile never overwrites a foreign config silently
 - [ ] 256 — Server details are always shown
 - [ ] 257 — I join a server with double-click or Enter and move through the list with arrow keys
 - [ ] 258 — Server pings match what I get in game

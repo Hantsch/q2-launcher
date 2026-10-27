@@ -568,6 +568,11 @@
     "assignment": {
       "byInstallation": "By installation",
       "default": "Default",
+      "foreignFile": {
+        "body": "“{{name}}” already has a file called {{fileName}} that the launcher did not write. Write backs it up first, then replaces it. Cancel leaves it untouched, so you can rename the profile instead.",
+        "confirm": "Write",
+        "title": "A config named {{fileName}} already exists"
+      },
       "label": "Assigned installations",
       "noInstallations": "No installations registered yet.",
       "noneAssigned": "No profiles assigned.",

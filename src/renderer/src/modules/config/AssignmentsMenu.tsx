@@ -67,14 +67,19 @@ export function AssignmentsMenu({
   useEffect(() => {
     if (!open) return
 
+    // A dialog the panel opened (portalled to body, so outside `panelRef`) must not dismiss
+    // the popover that owns it: its pointer and Escape belong to the dialog.
+    const dialogOpen = (): boolean => document.querySelector('[role="dialog"]') !== null
+
     const onPointerDown = (event: PointerEvent): void => {
+      if (dialogOpen()) return
       const target = event.target as Node
       if (panelRef.current?.contains(target)) return
       if (anchorRef.current?.contains(target)) return
       onOpenChange(false)
     }
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onOpenChange(false)
+      if (event.key === 'Escape' && !dialogOpen()) onOpenChange(false)
     }
 
     document.addEventListener('pointerdown', onPointerDown)

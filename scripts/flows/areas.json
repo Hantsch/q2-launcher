@@ -486,7 +486,8 @@
       "config-header-geometry",
       "external-edit-cascades",
       "config-unassigned-warning",
-      "config-original-configs-restore"
+      "config-original-configs-restore",
+      "assign-foreign-config"
     ],
     "why": "Config profiles, their assignments, care checks, the profile draft and the config view frame."
   },

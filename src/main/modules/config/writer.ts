@@ -139,6 +139,15 @@ export async function readExisting(filePath: string): Promise<string | null> {
 }
 
 /**
+ * True when `path` exists and the launcher did not write it. An unreadable file rejects instead of
+ * answering: "not foreign" must never be the fallback for a file whose ownership could not be read.
+ */
+export async function isForeignFile(path: string): Promise<boolean> {
+  const content = await readExisting(path)
+  return content !== null && !isLauncherOwnedFile(content)
+}
+
+/**
  * Skip / back up + write / write, for one file in the launcher's own canonical
  * directory (`canonical.ts`, `profile-writes.ts`). A foreign file there still
  * gets the `<file>.q2l-backup` sibling; installation targets go through
