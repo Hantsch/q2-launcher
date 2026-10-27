@@ -45,10 +45,14 @@ export function ConfigDetailHeader({
   onBack,
   onRename,
   onDelete,
+  assignmentsOpen,
+  onAssignmentsOpenChange,
 }: {
   onBack: () => void
   onRename: () => void
   onDelete: () => void
+  assignmentsOpen: boolean
+  onAssignmentsOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
   const { profile } = useProfileDraftContext()
@@ -99,7 +103,7 @@ export function ConfigDetailHeader({
         {/* Save/Discard come and go, so they sit first and keep the always-present controls at a
             stable position on the right edge. */}
         <ProfileSaveActions />
-        <AssignmentsMenu />
+        <AssignmentsMenu open={assignmentsOpen} onOpenChange={onAssignmentsOpenChange} />
         <div className="flex items-center gap-1">
           <RenameHeaderButton onClick={onRename} />
           <IconButton

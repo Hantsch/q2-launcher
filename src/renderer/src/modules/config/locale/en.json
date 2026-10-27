@@ -8,7 +8,8 @@
       "hint": "Use “New profile” to create one, empty or from the standard template."
     },
     "list": {
-      "label": "Profiles"
+      "label": "Profiles",
+      "notAssigned": "Not assigned"
     },
     "nav": {
       "back": "Back to profiles"
@@ -178,7 +179,12 @@
       "default": "Default",
       "setDefault": "Set default",
       "byInstallation": "By installation",
-      "noneAssigned": "No profiles assigned."
+      "noneAssigned": "No profiles assigned.",
+      "unassignedBanner": {
+        "title": "No installation uses this config",
+        "body": "The game does not load it until you assign it to an installation.",
+        "assign": "Assign…"
+      }
     },
     "switchBind": {
       "label": "Switch key",

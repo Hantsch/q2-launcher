@@ -459,6 +459,8 @@
       "src/renderer/src/modules/config/components/ConfigTabContent.tsx",
       "src/renderer/src/modules/config/components/LayerSwitcher.tsx",
       "src/renderer/src/modules/config/components/ProfileFileBanners.tsx",
+      "src/renderer/src/modules/config/components/ProfileBanner.tsx",
+      "src/renderer/src/modules/config/components/UnassignedProfileBanner.tsx",
       "src/renderer/src/modules/config/lib/care-*",
       "src/renderer/src/modules/config/lib/use-care-sync.ts",
       "src/renderer/src/modules/config/lib/use-drift-state.ts",
@@ -477,13 +479,13 @@
       "care-fix-item",
       "controls-category-rename-reorder",
       "home-tile-states",
-      "home-dashboard-arrange",
       "quit-persists-state",
       "unsaved-diff",
       "raw-save-cascades",
       "tabs-keyboard",
       "config-header-geometry",
-      "external-edit-cascades"
+      "external-edit-cascades",
+      "config-unassigned-warning"
     ],
     "why": "Config profiles, their assignments, care checks, the profile draft and the config view frame."
   },

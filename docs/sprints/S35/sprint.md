@@ -20,7 +20,7 @@ accuracy stats.
 
 - [x] 251 — Launch with applies only when I start the game
 - [x] 252 — I pick a map in the footer and Play starts in it
-- [ ] 253 — An unassigned config profile tells me it is not used
+- [x] 253 — An unassigned config profile tells me it is not used
 - [ ] 254 — The first assignment backs up the original configs and I can restore them
 - [ ] 255 — Assigning a profile never overwrites a foreign config silently
 - [ ] 256 — Server details are always shown

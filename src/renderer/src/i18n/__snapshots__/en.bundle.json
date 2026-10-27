@@ -572,7 +572,12 @@
       "noInstallations": "No installations registered yet.",
       "noneAssigned": "No profiles assigned.",
       "setDefault": "Set default",
-      "summary": "{{count}} of {{total}} assigned"
+      "summary": "{{count}} of {{total}} assigned",
+      "unassignedBanner": {
+        "assign": "Assign…",
+        "body": "The game does not load it until you assign it to an installation.",
+        "title": "No installation uses this config"
+      }
     },
     "care": {
       "action": {
@@ -1583,7 +1588,8 @@
       "trigger": "Trigger: {{key}}"
     },
     "list": {
-      "label": "Profiles"
+      "label": "Profiles",
+      "notAssigned": "Not assigned"
     },
     "nav": {
       "back": "Back to profiles"

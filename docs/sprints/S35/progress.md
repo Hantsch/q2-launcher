@@ -35,3 +35,13 @@
 - 2026-10-27 08:38 · 252 · verify 2 · started
 - 2026-10-27 08:41 · 252 · verify 2 · done
 - 2026-10-27 08:41 · 252 · story · done
+- 08:41:23 · 253 · build · started
+- 2026-10-27 08:41 · 253 · D1 Unassigned banner + Assign action · started
+- 2026-10-27 08:45 · 253 · D1 Unassigned banner + Assign action · done
+- 2026-10-27 08:45 · 253 · D2 Not assigned list marker + docs · started
+- 2026-10-27 08:51 · 253 · D2 Not assigned list marker + docs · done
+- 2026-10-27 08:51 · 253 · verify · started
+- 2026-10-27 08:59 · 253 · verify · done
+- 2026-10-27 08:59 · 253 · review 1 · started
+- 2026-10-27 09:01 · 253 · review 1 · done
+- 2026-10-27 09:02 · 253 · story · done

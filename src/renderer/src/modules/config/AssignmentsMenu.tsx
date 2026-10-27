@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link2 } from 'lucide-react'
@@ -24,20 +24,28 @@ interface Placement {
  * checkbox list, so assignment lives next to the profile's other header
  * actions instead of claiming a whole tab for what is usually a quick toggle.
  *
+ * Controlled, so the profile view can open it from elsewhere; the popover still lands at the
+ * header trigger because placement is computed from the trigger whenever `open` turns true.
+ *
  * Positioning mirrors `Menu.tsx` - right-aligned to the trigger and flipped
  * above/below depending on which half of the window it sits in - so it never
  * needs a measure-then-reposition pass.
  */
-export function AssignmentsMenu() {
+export function AssignmentsMenu({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const { t } = useTranslation()
   const { profile, installations } = useProfileDraftContext()
   const anchorRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [placement, setPlacement] = useState<Placement | null>(null)
-  const open = placement !== null
 
-  const toggle = (): void => {
-    if (open) {
+  useLayoutEffect(() => {
+    if (!open) {
       setPlacement(null)
       return
     }
@@ -54,7 +62,7 @@ export function AssignmentsMenu() {
         ? { left, top: Math.max(EDGE, anchor.bottom + GAP) }
         : { left, bottom: Math.max(EDGE, window.innerHeight - anchor.top + GAP) },
     )
-  }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -63,10 +71,10 @@ export function AssignmentsMenu() {
       const target = event.target as Node
       if (panelRef.current?.contains(target)) return
       if (anchorRef.current?.contains(target)) return
-      setPlacement(null)
+      onOpenChange(false)
     }
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setPlacement(null)
+      if (event.key === 'Escape') onOpenChange(false)
     }
 
     document.addEventListener('pointerdown', onPointerDown)
@@ -75,13 +83,13 @@ export function AssignmentsMenu() {
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open])
+  }, [open, onOpenChange])
 
   return (
     <div ref={anchorRef} className="contents">
       <button
         type="button"
-        onClick={toggle}
+        onClick={() => onOpenChange(!open)}
         aria-expanded={open}
         className={cn(
           'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium',
@@ -98,7 +106,8 @@ export function AssignmentsMenu() {
         })}
       </button>
 
-      {placement &&
+      {open &&
+        placement &&
         createPortal(
           <div
             ref={panelRef}

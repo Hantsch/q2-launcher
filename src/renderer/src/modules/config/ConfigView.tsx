@@ -16,6 +16,7 @@ import { ConfigListScreen } from './components/ConfigListScreen'
 import { ConfigTabContent, type TabFocusState, type GoToTab } from './components/ConfigTabContent'
 import { ConfigTabStrip } from './components/ConfigTabStrip'
 import { ProfileFileBanners } from './components/ProfileFileBanners'
+import { UnassignedProfileBanner } from './components/UnassignedProfileBanner'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { useConfigProfiles } from './config-profiles-store'
 
@@ -43,6 +44,7 @@ export function ConfigView() {
   const [showImport, setShowImport] = useState(false)
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [assignmentsOpen, setAssignmentsOpen] = useState(false)
 
   const consumeRouteFocus = useLauncher((state) => state.consumeRouteFocus)
 
@@ -95,6 +97,7 @@ export function ConfigView() {
 
   useEffect(() => {
     setActiveLayerId(null)
+    setAssignmentsOpen(false)
   }, [selectedId])
 
   const selected = profiles.find((profile) => profile.id === selectedId) ?? null
@@ -111,6 +114,7 @@ export function ConfigView() {
   }
 
   const backToList = (): void => {
+    setAssignmentsOpen(false)
     setScreen('list')
   }
 
@@ -238,6 +242,8 @@ export function ConfigView() {
                     onBack={backToList}
                     onRename={() => setShowRename(true)}
                     onDelete={() => setShowDelete(true)}
+                    assignmentsOpen={assignmentsOpen}
+                    onAssignmentsOpenChange={setAssignmentsOpen}
                   />
 
                   <ProfileFileBanners
@@ -246,6 +252,11 @@ export function ConfigView() {
                     rewriting={rewriting}
                     onRewrite={() => void rewriteFromCache()}
                     onDelete={() => setShowDelete(true)}
+                  />
+
+                  <UnassignedProfileBanner
+                    profile={selected}
+                    onAssign={() => setAssignmentsOpen(true)}
                   />
 
                   <ConfigTabStrip

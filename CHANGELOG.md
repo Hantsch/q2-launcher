@@ -13,6 +13,7 @@ version section when a release actually ships.
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
 ### Added
+- **Config** — Profiles no installation uses now say so, with a one-click Assign.
 - **Footer** — Pick a map; Play starts a deathmatch in it.
 
 ### Changed

@@ -1,7 +1,7 @@
 ---
 id: 253
 title: An unassigned config profile tells me it is not used
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -19,13 +19,13 @@ in sync.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Opening a profile that is assigned to no installation shows a warning banner stating that no
+- [x] **AC1** — Opening a profile that is assigned to no installation shows a warning banner stating that no
       installation uses this config.
-- [ ] **AC2** — The banner has an action that opens the assignment panel.
-- [ ] **AC3** — In the profile list, an unassigned profile's row carries a visible "Not assigned" marker (text,
+- [x] **AC2** — The banner has an action that opens the assignment panel.
+- [x] **AC3** — In the profile list, an unassigned profile's row carries a visible "Not assigned" marker (text,
       not colour only).
-- [ ] **AC4** — Assigning the profile to an installation removes the banner and the marker without a reload.
-- [ ] **AC5** — A profile assigned to at least one installation shows neither banner nor marker.
+- [x] **AC4** — Assigning the profile to an installation removes the banner and the marker without a reload.
+- [x] **AC5** — A profile assigned to at least one installation shows neither banner nor marker.
 
 ## Open Questions
 
@@ -75,7 +75,7 @@ Order: D1 → D2. Stories 254/255 may touch the assignment surfaces; this story 
 
 ## Deliverables
 
-- [ ] **D1 — Unassigned banner in the profile view with an "Assign…" action, plus its tests.**
+- [x] **D1 — Unassigned banner in the profile view with an "Assign…" action, plus its tests.**
       Files: new `src/renderer/src/modules/config/components/ProfileBanner.tsx`,
       `src/renderer/src/modules/config/components/ProfileFileBanners.tsx`, new
       `src/renderer/src/modules/config/components/UnassignedProfileBanner.tsx`,
@@ -117,7 +117,7 @@ Order: D1 → D2. Stories 254/255 may touch the assignment surfaces; this story 
         checkbox in the popover → `config-unassigned-banner` detaches with no navigation or reload;
         (4) back to the list, open `Plain Profile` (assigned) → `config-unassigned-banner` count is 0.
 
-- [ ] **D2 — "Not assigned" marker in the profile list, flow completion, docs and changelog.**
+- [x] **D2 — "Not assigned" marker in the profile list, flow completion, docs and changelog.**
       Files: `src/renderer/src/modules/config/components/ConfigListScreen.tsx`,
       `src/renderer/src/modules/config/locale/en.json`, the
       `src/renderer/src/i18n/__snapshots__/en.bundle.json` snapshot, new
@@ -167,3 +167,22 @@ Order: D1 → D2. Stories 254/255 may touch the assignment surfaces; this story 
 Coverage: AC1 D1 · AC2 D1 · AC3 D2 · AC4 D1 (banner) + D2 (marker) · AC5 D1 (banner) + D2 (marker).
 
 ## Done
+
+**Summary.** An unassigned config profile now shows a warning `ProfileBanner` ("No installation uses this config") with an "Assign…" action that opens the header `AssignmentsMenu` (made controlled), and a "Not assigned" `Badge` on its list row. Both follow `profile.assignments` from the store, so assigning clears them without a reload. The two file banners were rebuilt on the shared `ProfileBanner` with no visual change.
+
+**Commit message:** `253: unassigned config profile warns — banner with Assign… action + "Not assigned" list marker`
+
+**Verification (narrow gate).** `npm run lint`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (154 files, 1246 tests); `npm run build:dev` then `ui:flows -- --affected scripts/flows/config-unassigned-warning.mjs --parallel=4 --shard=1/2` green (16/16, flow ran there) and `--shard=2/2` 15/16 — red `unsaved-diff` is pre-existing (see below). Full gate not run (sprint's).
+- AC1 flow step 1 + "a profile with no assignments shows the not-used warning" — passed. AC2 flow step 2 + "Assign… calls onAssign" — passed. AC3 flow list step + "an unassigned profile's row carries a Not assigned text marker" — passed. AC4 flow step 3 + return-to-list — passed. AC5 flow step 4 + Plain Profile list check + "an assigned profile renders no banner" + "an assigned profile's row has no marker" — passed. No manual residue.
+- Review (default tier, 1 cycle): PASS, no blocking findings.
+- Pre-existing reds, not this story: `unsaved-diff` flow (bare `locator('select')` now resolves to the footer Map select from 252; red on stashed HEAD too); `scripts/flow-select.test.mjs` (game-dir-fs.ts / map-list.ts uncovered, shell-window row 14 > 12); `comments.test.ts` (useLauncher.ts, 252); repo-hygiene CRLF (ActionBar files, requirement 260); check-docs/tech-debt (ROADMAP links to missing S34 files).
+
+**Decisions.**
+- `ProfileBanner` also takes an optional `hint` prop — the diagnostic banner has a third muted line; needed for "no visual change".
+- `ConfigView` closes the assignments popover in `backToList`, otherwise reopening the same profile id would pop it open (reset effect only fires on id change).
+- `scripts/flows/areas.json`: registered the flow and the two new banner paths in the `config-profiles` row; dropped `home-dashboard-arrange` from that row to stay at the 12-flow cap (still in its Home rows).
+- Flow ticks the popover row's `label` (the checkbox input is visually hidden).
+- Changelog line carries the file's bold `**Config**` prefix.
+- Unfixed reviewer nit: `AssignmentsMenu` with a null anchor rect would be `open` but render nothing (unlikely; old code did not open) — left as is. No component test drives `AssignmentsMenu` as a controlled component; AC2's open is covered by the flow.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 5

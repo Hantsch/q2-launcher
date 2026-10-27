@@ -97,6 +97,9 @@ tags) and `index.ts` (drives the stages).
   `lib/file-source-refresh.ts`, `ConfigConflictDialog.tsx` — save, re-read and conflict resolution.
 - `ImportProfileDialog.tsx`, `InstallationProfilesPanel.tsx`, `ProfileAssignmentsPanel.tsx` —
   import and assignment surfaces.
+- `components/ProfileBanner.tsx` (shared banner shell), `components/UnassignedProfileBanner.tsx`
+  (the "No installation uses this config" banner with its Assign… action) and the "Not assigned"
+  marker on `ConfigListScreen.tsx` rows — both follow `assignments` in the store, no reload.
 
 ## Flow
 
