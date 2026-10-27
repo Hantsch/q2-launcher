@@ -116,3 +116,28 @@ describe('sortServerRows — purity', () => {
     expect(rows).toEqual(original)
   })
 })
+
+describe('sortServerRows — location column', () => {
+  it('location sorts by region then country with LAN and Unknown last', () => {
+    const country = (code: string, continent: 'EU' | 'NA' | 'AS') =>
+      makeRow({ location: { kind: 'country', country: code, continent } })
+    const jp = country('JP', 'AS')
+    const fr = country('FR', 'EU')
+    const de = country('DE', 'EU')
+    const us = country('US', 'NA')
+    const lan = makeRow({ location: { kind: 'lan' } })
+    const unknown = makeRow({ location: { kind: 'unknown' } })
+    const missing = makeRow({})
+    const rows = [us, missing, fr, lan, jp, unknown, de]
+
+    const asc = sortServerRows(rows, { column: 'location', direction: 'asc' })
+    expect(asc.slice(0, 4)).toEqual([jp, fr, de, us])
+    expect(asc.slice(4)).toHaveLength(3)
+    expect(asc.slice(4)).toEqual(expect.arrayContaining([lan, unknown, missing]))
+
+    const desc = sortServerRows(rows, { column: 'location', direction: 'desc' })
+    expect(desc.slice(0, 4)).toEqual([us, de, fr, jp])
+    expect(desc.slice(4)).toHaveLength(3)
+    expect(NATURAL_DIRECTION.location).toBe('asc')
+  })
+})

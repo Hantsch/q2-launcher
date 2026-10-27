@@ -43,6 +43,7 @@ function installation(overrides: Partial<Installation>): Installation {
     executablePath: 'unset',
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],
@@ -270,6 +271,40 @@ describe('demo.play with a mod the installation does not list', () => {
   })
 })
 
+describe('demo.play with a saved mod', () => {
+  it('a demo launches with its own mod when the saved mod differs', async () => {
+    await mkdir(join(q2proRoot, 'opentdm', 'demos'), { recursive: true })
+    await writeFile(join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), 'demo')
+    const tdm = demo({
+      id: 'tdm',
+      fileName: 'o.dm2',
+      gameDir: 'opentdm',
+      source: {
+        kind: 'installation',
+        installationId: 'q2pro-a',
+        installationName: 'Q2PRO',
+        gameDir: 'opentdm',
+      },
+    })
+    const h = harness({
+      demos: [tdm],
+      files: {
+        tdm: { absolutePath: join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), archiveEntry: null },
+      },
+    })
+    Object.assign(h.installations[0], {
+      activeGameDir: 'ctf',
+      gameDirs: ['baseq2', 'ctf', 'opentdm'],
+    })
+
+    expect(await h.play('tdm', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
+    expect(h.launch.start).toHaveBeenCalledWith(
+      { installationId: 'q2pro-a', gameDir: 'opentdm', extraArgs: ['+demo', 'o.dm2'] },
+      { demo: true },
+    )
+  })
+})
+
 describe('demo.play with a trusted mod (story 182 D1)', () => {
   it('a mod-missing play without acknowledgement is refused even when the mod is trusted', async () => {
     // The trust list is renderer-side convenience: main never reads it, so a stored trust entry
@@ -449,6 +484,18 @@ describe('demo.play (story 159 D2)', () => {
     for (const args of [ctfArgs, baseArgs]) {
       expect(args.some((a) => a.toLowerCase().includes('demomap'))).toBe(false)
     }
+  })
+
+  it('demo playback never passes the saved map', async () => {
+    const h = harness({ demos: [CTF_DEMO], files: ctfFiles() })
+    Object.assign(h.installations[0], { activeMap: 'q2dm1' })
+
+    await h.play('ctf', 'q2pro-a')
+
+    const args = buildLaunchArgs(h.installations[0], h.launch.start.mock.calls[0][0]).args
+    expect(args).toContain('+demo')
+    expect(args).not.toContain('+map')
+    expect(args).not.toContain('deathmatch')
   })
 
   it('the fake launch service receives exactly the eligible LaunchInput', async () => {

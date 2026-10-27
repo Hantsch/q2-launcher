@@ -133,17 +133,17 @@ shards 685/682/820/664/747/666 s against the 900 s limit.
 **Process observations**
 
 - Build agents hit the 10-minute call ceiling with `--affected`, which selected 25-145 flows whenever `scripts/lib` or
-  a broad file changed, and ran flows by name in batches ([TD-043](../../TECH-DEBT.md)). Six new flows are not in
-  `areas.json` because its rows are capped at 12 ([TD-042](../../TECH-DEBT.md)).
+  a broad file changed, and ran flows by name in batches ([TD-043](../../../TECH-DEBT.md)). Six new flows are not in
+  `areas.json` because its rows are capped at 12 ([TD-042](../../../TECH-DEBT.md)).
 - Several story agents condensed `docs/systems/replays-module.md` to its 150-line cap and dropped some detail
-  ([TD-045](../../TECH-DEBT.md)).
+  ([TD-045](../../../TECH-DEBT.md)).
 - One fix agent's temporary worktree wiped `node_modules` through a junction; restored with `npm ci`, lockfile
   unchanged.
 - Story 232 left a comment-convention red (`comments.test.ts`) in `shared/modules/downloads.ts`, fixed in `7152267`.
 - The attribution and fix agent took about 30 minutes; the confirmation `ui:flows` another 65.
 
 **Deliberately unfixed or open, with where each went** (every defect or debt finding is a row in
-[TECH-DEBT.md](../../TECH-DEBT.md), `since` S34)
+[TECH-DEBT.md](../../../TECH-DEBT.md), `since` S34)
 
 - 238 → TD-034 (duplicate row ids on a shared Linux write dir); 250 → TD-035 (silent favourite left as a stale row)
 - 235 → TD-036 (guard test sanity, implicit quit order, installer vs 3 s shutdown); 243 → TD-037 (tag and sides edges)
@@ -163,7 +163,7 @@ shards 685/682/820/664/747/666 s against the 900 s limit.
   promotion to a story or deletion by the maintainer.
 
 **Module-doc check** (a story that touched `src/main/modules/<id>/` or `src/renderer/src/modules/<id>/` also touches
-that module's `docs/systems/` doc). Misses, filed as [TD-046](../../TECH-DEBT.md): 232 did not touch
+that module's `docs/systems/` doc). Misses, filed as [TD-046](../../../TECH-DEBT.md): 232 did not touch
 `install-module.md` (downloads and library handlers); 235 did not touch `replays-module.md` (cinema dispose; the story
 says so deliberately); 236 did not touch `replays-module.md`, `servers-module.md` or `config-module.md` (key records,
 a `RawFileTab` comment path). All other stories touched their module's doc: 245, 243, 242, 238, 244, 241, 237, 246
@@ -285,11 +285,11 @@ Every criterion below has a named automated test (listed in full in each story's
 
 - 245 AC4 — component level only (no roster-less fixture row for a flow).
 - 237 — the keyboard unit test asserts `step=5` and click-toggle (jsdom has no arrow-key value change); ArrowUp and
-  Space are proven in the flow. The Linux `q2config.cfg` path is unrun on this host ([TD-044](../../TECH-DEBT.md)).
+  Space are proven in the flow. The Linux `q2config.cfg` path is unrun on this host ([TD-044](../../../TECH-DEBT.md)).
 - 240 — "a subfolder of a non-writable parent is not writable" is `skipIf` on Windows/root.
 - 249 — `.pkz` tests self-skip without the vendored 7-Zip.
 - 234 AC2 — 20 flows are quarantined on Linux rather than fixed, 12 of them for a Windows-engine fixture limitation
-  ([TD-047](../../TECH-DEBT.md)); the rehearsal ran them under Docker, not on a real Linux desktop.
+  ([TD-047](../../../TECH-DEBT.md)); the rehearsal ran them under Docker, not on a real Linux desktop.
 - 232, 236, 233 — structural criteria (one contract, import direction, key records) are proven by source-scanning
   tests; their flows are regression proof.
 

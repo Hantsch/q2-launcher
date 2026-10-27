@@ -7,7 +7,9 @@
     "filesRemaining_one": "{{count}} file remaining",
     "filesRemaining_other": "{{count}} files remaining",
     "handedOff": "Handed off to Steam — not tracked",
-    "playWith": "Play with...",
+    "map": {
+      "none": "No map"
+    },
     "playable": "Playable",
     "running": "Quake II is running"
   },
@@ -155,7 +157,6 @@
       "finalPathLabel": "Installs into",
       "folderNameLabel": "Folder name",
       "installHere": "Installs directly into this empty folder",
-      "locationLabel": "Location",
       "nonEmpty": {
         "acknowledge": "Continue anyway",
         "body": "This folder is not empty. It already contains:"
@@ -252,6 +253,7 @@
       "layerTrigger": "Layer trigger",
       "library": "Library",
       "loading": "Loading…",
+      "location": "Location",
       "map": "Map",
       "missing": "Missing",
       "mod": "Mod",
@@ -566,11 +568,27 @@
     "assignment": {
       "byInstallation": "By installation",
       "default": "Default",
+      "foreignFile": {
+        "body": "“{{name}}” already has a file called {{fileName}} that the launcher did not write. Write backs it up first, then replaces it. Cancel leaves it untouched, so you can rename the profile instead.",
+        "confirm": "Write",
+        "title": "A config named {{fileName}} already exists"
+      },
       "label": "Assigned installations",
       "noInstallations": "No installations registered yet.",
       "noneAssigned": "No profiles assigned.",
+      "restoreOriginals": {
+        "action": "Restore original configs",
+        "body": "Your config files in this installation go back to what they were before the launcher first wrote to them. Every config profile is unassigned from it; the profiles themselves stay.",
+        "confirm": "Restore configs",
+        "title": "Restore the original configs of “{{name}}”?"
+      },
       "setDefault": "Set default",
-      "summary": "{{count}} of {{total}} assigned"
+      "summary": "{{count}} of {{total}} assigned",
+      "unassignedBanner": {
+        "assign": "Assign…",
+        "body": "The game does not load it until you assign it to an installation.",
+        "title": "No installation uses this config"
+      }
     },
     "care": {
       "action": {
@@ -1452,12 +1470,15 @@
       "fileNotFound": "That file could not be found on disk.",
       "installationRunning": "This installation is currently running. Close the game first.",
       "invalidLayerAlias": "One of the aliases you chose to import as a layer is not one this import found.",
+      "noOriginalBackup": "This installation has no backup of its original configs to restore.",
       "notAssigned": "This profile is not assigned to that installation.",
       "openFailed": "Could not open that file: {{message}}",
+      "originalBackupInvalid": "The backup folder of this installation's original configs is unreadable. Fix or delete the q2launcher-original-configs folder, then try again.",
       "pickedFileNotFound": "One of the files you picked is no longer available to this import. Choose the files again.",
       "profileNotFound": "That config profile no longer exists.",
       "rawTextNotLatin1": "This text contains characters a Quake II config file cannot hold. Only plain latin-1 text works.",
       "rawTextNotOwned": "This text no longer carries the profile header the launcher identifies this file by. Keep the header at the top of the file, or edit the file outside the launcher instead.",
+      "restoreOriginalsFailed": "Some original configs could not be restored. The backup folder is kept, so you can try again.",
       "unknownCategory": "That category no longer exists in this profile.",
       "writeFailed": "Could not write this profile's files to disk."
     },
@@ -1581,7 +1602,8 @@
       "trigger": "Trigger: {{key}}"
     },
     "list": {
-      "label": "Profiles"
+      "label": "Profiles",
+      "notAssigned": "Not assigned"
     },
     "nav": {
       "back": "Back to profiles"
@@ -2398,16 +2420,6 @@
     "origin": {
       "manual": "Installed manually"
     },
-    "playWith": {
-      "baseGame": "Base game",
-      "deathmatch": "Deathmatch",
-      "gameType": "Game type",
-      "loadingMaps": "Loading maps...",
-      "noMap": "No map",
-      "single": "Single player",
-      "start": "Start",
-      "title": "Play {{installation}} with..."
-    },
     "reason": {
       "notPlayableLocally": "Not playable locally with {{engine}}: no matching build",
       "pkzNeedsQ2pro": "Not playable locally with {{engine}}: its packs are .pkz, which only Q2PRO reads"
@@ -2549,6 +2561,10 @@
           "start": "Edit source"
         },
         "list": {
+          "doubleClickJoins": {
+            "label": "Double-click a server to join it"
+          },
+          "heading": "Server list",
           "label": "Master and list sources"
         },
         "remove": {
@@ -2750,6 +2766,7 @@
       "stageInputHint": "The game's own console and key binds do not reach the game while it plays on the stage. Use this console field, switch to fullscreen, or close the game window (Alt+F4)."
     },
     "detail": {
+      "empty": "Select a demo to see its details.",
       "favourite": {
         "ariaLabel": "Favourite {{name}}"
       },
@@ -2781,6 +2798,28 @@
       "sides": {
         "edit": "Edit sides",
         "refused": "These sides were not saved. Fix them, or press Escape to discard them."
+      },
+      "stats": {
+        "col": {
+          "accuracy": "Acc.",
+          "dealt": "Dealt",
+          "deaths": "Deaths",
+          "item": "Item",
+          "kills": "Kills",
+          "missed": "Miss",
+          "pickups": "Pick",
+          "received": "Recvd"
+        },
+        "title": "Stats for {{name}}",
+        "total": {
+          "received": "Received",
+          "suicides": "Suicides",
+          "teamDealt": "Team dealt",
+          "teamKills": "Team kills",
+          "teamReceived": "Team received",
+          "telefrags": "Telefrags",
+          "title": "Total"
+        }
       }
     },
     "editor": {
@@ -3240,10 +3279,10 @@
       "title": "Add to address book"
     },
     "detail": {
-      "close": "Close server details",
       "copyAddress": "Copy IP address",
       "copyAddressError": "Could not copy the server address",
       "copyAddressSuccess": "Server address copied to clipboard",
+      "empty": "Select a server to see who's playing and join.",
       "favourite": {
         "add": "Mark as favourite"
       },
@@ -3357,6 +3396,9 @@
     },
     "filter": {
       "hideBotsOnly": "Hide bot-only servers",
+      "locationSearch": "Search regions and countries",
+      "locationsCount_one": "{{count}} location",
+      "locationsCount_other": "{{count}} locations",
       "mapsCount_one": "{{count}} map",
       "mapsCount_other": "{{count}} maps",
       "maxPing": "Max ping",
@@ -3376,11 +3418,6 @@
       "team": "Team"
     },
     "join": {
-      "mismatch": {
-        "body": "This server runs \"{{server}}\", but the active installation is set to \"{{installation}}\". Join anyway?",
-        "confirm": "Join anyway",
-        "title": "Different mod"
-      },
       "noInstallation": "Choose an active installation to join a server.",
       "password": {
         "title": "Server password"
@@ -3395,6 +3432,7 @@
     },
     "list": {
       "column": {
+        "location": "Location",
         "map": "Map",
         "mod": "Mod",
         "name": "Server",
@@ -3410,8 +3448,18 @@
         "stage2": "Fetching players: {{done}} of {{total}}"
       },
       "openSourceSettings": "Open source settings",
-      "selectedHint": "Select a server to see who's playing and join.",
       "sourceFailed": "{{source}}: {{reason}}"
+    },
+    "location": {
+      "lan": "LAN",
+      "region": {
+        "AF": "Africa",
+        "AS": "Asia",
+        "EU": "Europe",
+        "NA": "North America",
+        "OC": "Oceania",
+        "SA": "South America"
+      }
     },
     "mode": {
       "label": "Browse",
@@ -3449,7 +3497,7 @@
     },
     "scan": {
       "blocked": {
-        "gameRunning": "Servers can't be scanned while the game is running."
+        "gameRunning": "Automatic refresh is paused while the game is running."
       },
       "error": {
         "already-running": "A scan is already running.",
@@ -3459,6 +3507,7 @@
     },
     "sort": {
       "column": {
+        "location": "Location",
         "map": "Map",
         "mod": "Mod",
         "name": "Name",
@@ -3549,11 +3598,14 @@
       "checkUpToDate": "You're up to date.",
       "checking": "Checking for updates…",
       "currentVersion": "Launcher version",
+      "geoipLicence": "CC BY 4.0",
+      "geoipProvider": "IP geolocation by DB-IP",
       "lastChecked": "Last checked {{time}}",
       "neverChecked": "Never checked for updates",
       "notInstalled": "Not yet installed",
       "notesEmpty": "This version has no release notes.",
       "technical": "Technical details",
+      "thirdPartyData": "Third-party data",
       "whatsNew": "What's new in this version"
     },
     "changelog": "Full changelog",

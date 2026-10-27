@@ -29,11 +29,11 @@ const outcome: BulkOutcomeView = {
   ],
 }
 
-function renderBar(count: number, shown: BulkOutcomeView | null) {
+function renderBar(count: number, shown: BulkOutcomeView | null, zipCount = 0) {
   render(
     createElement(BulkActionBar, {
       count,
-      zipCount: 0,
+      zipCount,
       busy: null,
       outcome: shown,
       onDelete: vi.fn(),
@@ -56,5 +56,15 @@ describe('BulkActionBar', () => {
     renderBar(0, outcome)
     expect(screen.queryByTestId('replays-bulk-count')).toBeNull()
     expect(screen.getByTestId('replays-bulk-outcome')).toBeTruthy()
+  })
+
+  it('one selected demo inside a zip: every action is disabled and the zip reason is shown', () => {
+    renderBar(1, null, 1)
+    for (const id of ['replays-bulk-delete', 'replays-bulk-tag', 'replays-bulk-move']) {
+      expect((screen.getByTestId(id) as HTMLButtonElement).disabled).toBe(true)
+    }
+    expect(screen.getByTestId('replays-bulk-zip-skip').textContent).toContain(
+      '1 zip entry is skipped',
+    )
   })
 })

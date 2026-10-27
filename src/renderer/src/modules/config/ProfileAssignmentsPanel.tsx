@@ -1,11 +1,19 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { AssignProfileResult } from '@shared/modules/config'
 import { Button } from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/controls'
 import { EngineBadge } from '../../components/ui/EngineBadge'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { assignConfigProfile, setDefaultConfigProfile, unassignConfigProfile } from './client'
+import { ForeignConfigDialog } from './components/ForeignConfigDialog'
 import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { useProfileSave } from './lib/useProfileSave'
+
+interface ForeignConflict {
+  fileName: string
+  installationId: string
+}
 
 /**
  * The profile-side half of assignment: for the currently selected profile,
@@ -14,21 +22,35 @@ import { useProfileSave } from './lib/useProfileSave'
  *
  * Every mutation round-trips through main (see `client.ts`) and only updates
  * the view via `save` once the real outcome comes back - no optimistic
- * local state, so a failed call simply leaves the row as it was.
+ * local state, so a failed call simply leaves the row as it was. An assignment main
+ * holds back because a foreign file is in the way changes nothing until the user confirms.
  */
 export function ProfileAssignmentsPanel() {
   const { t } = useTranslation()
   const { profile, installations, save } = useProfileDraftContext()
+  const [conflict, setConflict] = useState<ForeignConflict | null>(null)
 
   const { saveNow } = useProfileSave({ profileId: profile.id, onChanged: save })
+  const onAssigned = (result: AssignProfileResult): void => {
+    if (result.status === 'assigned') save(result.profiles)
+    else setConflict({ fileName: result.fileName, installationId: result.installationId })
+  }
+  const { saveNow: saveAssign } = useProfileSave<AssignProfileResult>({
+    profileId: profile.id,
+    onChanged: onAssigned,
+  })
+
+  const assign = (installationId: string, overwriteForeign?: boolean): Promise<boolean> =>
+    saveAssign({
+      run: () => assignConfigProfile({ profileId: profile.id, installationId, overwriteForeign }),
+    })
 
   const toggle = async (installationId: string, next: boolean): Promise<void> => {
-    await saveNow({
-      run: () =>
-        next
-          ? assignConfigProfile({ profileId: profile.id, installationId })
-          : unassignConfigProfile({ profileId: profile.id, installationId }),
-    })
+    if (next) {
+      await assign(installationId)
+      return
+    }
+    await saveNow({ run: () => unassignConfigProfile({ profileId: profile.id, installationId }) })
   }
 
   const makeDefault = async (installationId: string): Promise<void> => {
@@ -86,6 +108,21 @@ export function ProfileAssignmentsPanel() {
             )
           })}
         </ul>
+      )}
+
+      {conflict && (
+        <ForeignConfigDialog
+          fileName={conflict.fileName}
+          installationName={
+            installations.find((installation) => installation.id === conflict.installationId)
+              ?.name ?? conflict.installationId
+          }
+          onWrite={() => {
+            setConflict(null)
+            void assign(conflict.installationId, true)
+          }}
+          onClose={() => setConflict(null)}
+        />
       )}
     </div>
   )

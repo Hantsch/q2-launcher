@@ -26,9 +26,10 @@ This document describes the module as built. It follows the architecture rules i
   to, cascading to profiles whose resolved file name moved; `installationCopySource`.
 - `write-plan.ts` — pure planning: `defaultProfileFor`, `assignedProfilesFor`,
   `previewProfileFiles`, `validatePlayedMods`.
-- `writer.ts` / `backup.ts` / `canonical.ts` — the disk: installation files (diff-skip,
-  backup-once to `<file>.q2l-backup`, atomic), ownership reads, the canonical
-  `<userData>/<name>.cfg` file and its rename/delete.
+- `writer.ts` / `backup.ts` / `original-backup.ts` / `canonical.ts` — the disk: installation files
+  (diff-skip, atomic; originals copied once to `<root>/q2launcher-original-configs/` first),
+  ownership reads, the canonical `<userData>/<name>.cfg` file (backup-once to
+  `<file>.q2l-backup`) and its rename/delete.
 - `file-source.ts` — reads, hashes and classifies a canonical file (`readFileState`), folding it
   into profile fields.
 - `core/config-parser.ts` / `core/import-reader.ts` — tokenizer/classifier for config text; the
@@ -42,6 +43,12 @@ This document describes the module as built. It follows the architecture rules i
   state.json sections and their forgiving parse, its migration steps, the failure-map merge.
   Its strict IPC request schemas live in shared at `src/shared/modules/config-schemas.ts`.
 - `cleanup.ts` — redundant mod-folder copy scan, backed-up removal and restore.
+- `original-backup.ts` — the configs an installation had before the launcher first wrote them,
+  copied to `<root>/q2launcher-original-configs/` (a manifest plus `.cfg` copies) by the
+  installation writer before it writes, and put back by `originalConfigs.restore`. First original
+  wins; the manifest is untrusted (only `<game dir>/<bare .cfg>` entries, else `invalid`). While the
+  manifest is invalid every write into that installation is refused until the user fixes or
+  deletes the folder.
 
 **Shared** (`src/shared/config/`, pure — no node, no DOM, no electron)
 
@@ -97,6 +104,11 @@ tags) and `index.ts` (drives the stages).
   `lib/file-source-refresh.ts`, `ConfigConflictDialog.tsx` — save, re-read and conflict resolution.
 - `ImportProfileDialog.tsx`, `InstallationProfilesPanel.tsx`, `ProfileAssignmentsPanel.tsx` —
   import and assignment surfaces.
+- `components/ProfileBanner.tsx` (shared banner shell), `components/UnassignedProfileBanner.tsx`
+  (the "No installation uses this config" banner with its Assign… action) and the "Not assigned"
+  marker on `ConfigListScreen.tsx` rows — both follow `assignments` in the store, no reload.
+- `components/ForeignConfigDialog.tsx` — `ProfileAssignmentsPanel` opens it on a `foreignFile` answer;
+  Write repeats the assignment with `overwriteForeign`, Cancel changes nothing.
 
 ## Flow
 
@@ -151,7 +163,7 @@ counted as a store write.
 | `create`                  | New profile (empty, template or copy); writes its canonical file at once (`syncAppended`).                     | both                     |
 | `rename`                  | Renames and marks dirty; the file keeps its old name until `save`.                                             | writes the profile store |
 | `remove`                  | Removes the profile and deletes its canonical file (`cleanupRemoved`); installation copies are left.           | both                     |
-| `assign`                  | Assigns to an installation, then syncs the profile.                                                            | both                     |
+| `assign`                  | Assigns to an installation, then syncs the profile; a foreign `<name>.cfg` there answers `foreignFile` first.  | both                     |
 | `unassign`                | Unassigns, syncs the profile and the installation's remaining default.                                         | both                     |
 | `setDefault`              | Makes the profile the installation's default; syncs every profile there plus the loader.                       | both                     |
 | `setCvars`                | Replaces cvars, marks dirty.                                                                                   | writes the profile store |
@@ -182,12 +194,21 @@ counted as a store write.
 | `cleanupApply`            | `cleanup.apply`: backs up and deletes them; refused while the installation runs.                               | writes engine cfg files  |
 | `cleanupRestore`          | `cleanup.restore`: restores removed copies from backup; refused while the installation runs.                   | writes engine cfg files  |
 | `tidyUpApply`             | `tidyUp.apply`: one atomic tidy-up batch, one commit and one sync; the file only when authorised.              | both                     |
+| `originalConfigsList`     | `originalConfigs.list`: ids of installations holding a valid original-config backup.                           | none                     |
+| `originalConfigsRestore`  | `originalConfigs.restore`: unassigns every profile there, then restores the originals; refused while running.  | writes engine cfg files  |
 
 The central write rule lives in `profile-writes.ts#syncAndPersist` (`canonicalWriteAllowed`): a
 `dirty` profile's canonical file is written by nothing but `save` (and `commitCvars`, which writes
 baseline plus cvars itself), and a canonical file is only overwritten when it is absent, the
 profile has no `fileHash` baseline yet, it already holds exactly `renderProfileFile(profile)`, or
 the user forced the overwrite. A refused write records no failure; the row reports `outOfSync`.
+
+`assign` is two-step. Unless the profile is already assigned there, it first checks
+`<root>/baseq2/<name>.cfg` (`writer.ts#isForeignFile`: exists and carries no launcher stamp). A
+foreign file answers `{ status: 'foreignFile', fileName, installationId }` with nothing assigned or
+written; an unreadable one fails with `config.error.writeFailed`. The caller asks the user and
+repeats the call with `overwriteForeign: true`, which backs the file up into the installation's
+original-configs folder (first original wins) before the assignment and sync run.
 
 ## Startup
 
@@ -228,7 +249,7 @@ the user forced the overwrite. A refused write records no failure; the row repor
   only at `exec` time. `pending` is gone from state and contract; `cleanup.apply`/`restore`, which
   delete files, still refuse a running installation.
 - **Writes stay inside the installation**: `baseq2` and mod folders listed in
-  `installation.gameDirs`; a user's own file is backed up once, forever, before first overwrite;
+  `installation.gameDirs`; a user's own file is copied once, forever, into `<root>/q2launcher-original-configs/` before the first write;
   writes are diff-skipped and atomic. Latin-1 throughout, byte-for-byte.
 - **Renderer paths are never trusted**: `openFile` takes ids only and checks ownership before the
   OS is touched; import addresses picked files by opaque ids from `picked-files.ts`.

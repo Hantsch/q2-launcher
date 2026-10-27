@@ -15,7 +15,6 @@
 //   replays-detail-facts-match     DemoDetailPanel.tsx - `<dl>` of match facts (map, mod, gamemode, pov)
 //   replays-detail-field-<id>      DemoDetailPanel.tsx - one wrapper per rendered `DetailFieldId`
 //   demo-detail-mvd2-note          DemoDetailPanel.tsx - the mvd2 camera note
-//   replays-detail-close           DemoDetailPanel.tsx - the panel's close IconButton
 //   replays-refresh                ReplaysView.tsx - toggles back to "Refresh" once the scan settles
 
 import { REPLAYS_ROWS_DUEL_DEMO, REPLAYS_ROWS_MVD_DEMO } from '../lib/fixture.mjs'
@@ -158,7 +157,7 @@ export default async function replaysDemoDetail({ page, shot, step }) {
 
   await shot('replays-demo-detail')
 
-  step('closing the panel hides it')
-  await detail.getByTestId('replays-detail-close').click({ timeout: TIMEOUT_MS })
-  await detail.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  step('Escape in the list returns the pane to its empty state')
+  await page.getByTestId('replays-demo-scroll').press('Escape')
+  await page.getByTestId('replays-detail-empty').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }

@@ -15,6 +15,7 @@ import {
   idListSchema,
   idSchema,
   installationsInspectPathSchema,
+  installationsListMapsSchema,
   installationsListRunnersSchema,
   installationsListSchema,
   nullableIdSchema,
@@ -26,6 +27,8 @@ import {
   updateInstallationInputSchema,
 } from '@shared/ipc-schemas'
 import { inspectInstallation } from '../services/inspector'
+import { listMaps } from '../services/map-list'
+import { resolveVendoredExtractor } from '../services/package-staging'
 import { detectRunners, steamUnavailableReason } from '../services/runners'
 import type { AppContext } from '../context'
 import { isWindows } from '../lib/platform'
@@ -72,6 +75,22 @@ export function registerInstallationsIpc(app: AppContext): void {
 
     const detected = await detectRunners()
     return ok(collapseProtonOptions(detected.map((runner) => toRunnerOption(runner, installation))))
+  })
+
+  handleOutcome('installations:listMaps', installationsListMapsSchema, async (input) => {
+    const installation = app.installations.find(input.installationId)
+    if (!installation) return fail('installations.error.notFound')
+    const extractor = resolveVendoredExtractor(app.isPackaged)
+    return ok(
+      await listMaps(
+        {
+          rootPath: installation.rootPath,
+          gameDir: input.gameDir,
+          engineKind: installation.engineKind,
+        },
+        { zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists } },
+      ),
+    )
   })
 
   handleOutcome(

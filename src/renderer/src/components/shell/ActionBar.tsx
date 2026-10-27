@@ -1,7 +1,9 @@
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Import, Play, Wrench, X } from 'lucide-react'
-import { DEV_MODULES } from '@shared/dev-modules'
-import type { Installation, Job, LaunchState } from '@shared/types'
+import { MODULE_MANIFESTS } from '@shared/types/module'
+import type { Installation, Job, LaunchState, MapList, Outcome } from '@shared/types'
+import { invoke } from '../../lib/bridge'
 import { cn } from '../../lib/cn'
 import { isDemoData } from '../../lib/demo-data'
 import {
@@ -13,8 +15,9 @@ import {
 } from '../../lib/format'
 import { type ContributedAction, usePrimaryActionStore } from '../../lib/primary-action'
 import { isPlayable, statusTone } from '../../lib/status'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
-import { Button, IconButton, PlayButton } from '../ui/Button'
+import { IconButton, PlayButton } from '../ui/Button'
 import { DemoBadge } from '../ui/DemoBadge'
 import { EngineBadge } from '../ui/EngineBadge'
 import { InstallationTile } from '../installations/InstallationTile'
@@ -45,15 +48,16 @@ export function ActionBar() {
   const openDialog = useLauncher((state) => state.openDialog)
   const runFix = useFixAction()
   const demo = useDemoStop()
+  const switchGameDir = useSwitchGameDir()
 
   const route = useLauncher((state) => state.route)
+  const launchDecidedByContent =
+    MODULE_MANIFESTS.find((m) => m.route === route)?.launchDecidedByContent === true
   const contribution = usePrimaryActionStore((state) =>
     state.owner === route ? state.action : null,
   )
 
   const action = resolvePrimaryAction(installation, job, launch, demo, contribution)
-  // A tab's contributed action never decides this one: Play with... is about starting the game.
-  const canPlay = resolvePrimaryAction(installation, job, launch, demo, null).kind === 'play'
   const note =
     action.kind === 'contributed' && contribution
       ? contribution.error
@@ -133,12 +137,24 @@ export function ActionBar() {
                 </span>
               </div>
 
-              <GameDirSelect
-                installation={installation}
-                onChange={(activeGameDir) =>
-                  void updateInstallation({ id: installation.id, activeGameDir })
-                }
-              />
+              {!launchDecidedByContent && (
+                <div className="flex items-center gap-3">
+                  <GameDirSelect
+                    installation={installation}
+                    onChange={(gameDir) => void switchGameDir(installation.id, gameDir)}
+                  />
+                  {/* Keyed on what it lists, so a new installation or mod starts from loading and
+                      never judges the saved map against the previous list. */}
+                  <MapSelect
+                    key={`${installation.id}
+${installation.activeGameDir}`}
+                    installation={installation}
+                    onChange={(activeMap) =>
+                      void updateInstallation({ id: installation.id, activeMap })
+                    }
+                  />
+                </div>
+              )}
             </>
           ) : (
             <p className="text-[11px] text-ink-muted">{t('empty.body')}</p>
@@ -200,25 +216,6 @@ export function ActionBar() {
               only be proven by sampling this exact button's enabled-ness against a live job, and
               the footer's buttons are otherwise addressable only by translated label - which
               changes per `action.kind`, i.e. precisely with the state under test. */}
-          {DEV_MODULES && (
-            <Button
-              variant="ghost"
-              data-testid="actionbar-play-with"
-              disabled={!installation || !canPlay}
-              onClick={() =>
-                installation &&
-                openDialog({
-                  kind: 'module',
-                  moduleId: 'mods',
-                  view: 'play-with',
-                  installationId: installation.id,
-                })
-              }
-            >
-              {t('actionbar.playWith')}
-            </Button>
-          )}
-
           <PlayButton
             data-testid="actionbar-play"
             data-action={
@@ -272,6 +269,90 @@ function GameDirSelect({
           { value: '', label: t('dialog.gameDir.base') },
           ...mods.map((dir) => ({ value: dir, label: dir })),
         ]}
+      />
+    </div>
+  )
+}
+
+function listMaps(installationId: string, gameDir: string): Promise<Outcome<MapList>> {
+  return invoke('installations:listMaps', { installationId, gameDir })
+}
+
+/**
+ * Switches an installation's game dir and decides its map in the same write, so the saved map
+ * never outlives a switch to a mod that lacks it. Only an installation's latest switch writes: a
+ * listing that answers after a newer switch was made is dropped.
+ */
+function useSwitchGameDir(): (installationId: string, gameDir: string) => Promise<void> {
+  const updateInstallation = useLauncher((state) => state.updateInstallation)
+  const latest = useRef(new Map<string, number>())
+  return useCallback(
+    async (installationId: string, gameDir: string) => {
+      const mine = (latest.current.get(installationId) ?? 0) + 1
+      latest.current.set(installationId, mine)
+      const listed = await listMaps(installationId, gameDir).catch(() => null)
+      if (latest.current.get(installationId) !== mine) return
+      const saved =
+        useLauncher.getState().installations.find((entry) => entry.id === installationId)
+          ?.activeMap ?? ''
+      // A failed listing cannot show the new mod has the saved map, so the map is cleared rather
+      // than kept: launching a map the mod lacks is worse than starting without one.
+      const keep =
+        saved !== '' && listed?.ok === true && listed.value.maps.some((m) => m.name === saved)
+      await updateInstallation({
+        id: installationId,
+        activeGameDir: gameDir,
+        activeMap: keep ? saved : '',
+      })
+    },
+    [updateInstallation],
+  )
+}
+
+/** The map plain Play starts in, from the maps the installation's active game dir offers. */
+function MapSelect({
+  installation,
+  onChange,
+}: {
+  installation: Installation
+  onChange: (map: string) => void
+}) {
+  const { t } = useTranslation()
+  const updateInstallation = useLauncher((state) => state.updateInstallation)
+  const { id, activeGameDir, activeMap, status } = installation
+  const query = useModuleQuery(() => listMaps(id, activeGameDir))
+  // A missing or unreadable root lists as a successful empty list, so only a playable
+  // installation's list can prove the saved map is gone; a failed or untrusted one keeps it.
+  const listed = query.state === 'success' && isPlayable(status) ? query.data?.maps : undefined
+  const gone = listed !== undefined && activeMap !== '' && !listed.some((m) => m.name === activeMap)
+
+  useEffect(() => {
+    if (gone) void updateInstallation({ id, activeMap: '' })
+  }, [gone, id, updateInstallation])
+
+  const options = useMemo(() => {
+    const entries = (listed ?? []).map((m) => ({
+      value: m.name,
+      label: m.title ? `${m.name} — ${m.title}` : m.name,
+    }))
+    // While loading or after a failed listing the saved map is still shown as what Play starts.
+    if (activeMap !== '' && listed === undefined) {
+      entries.push({ value: activeMap, label: activeMap })
+    }
+    return [{ value: '', label: t('actionbar.map.none') }, ...entries]
+  }, [listed, activeMap, t])
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="stencil text-[9px]">{t('common.label.map')}</span>
+      <Select
+        className="h-6 w-44 py-0 text-xs"
+        aria-label={t('common.label.map')}
+        data-testid="actionbar-map"
+        disabled={query.state === 'loading'}
+        value={gone ? '' : activeMap}
+        onChange={(event) => onChange(event.target.value)}
+        options={options}
       />
     </div>
   )

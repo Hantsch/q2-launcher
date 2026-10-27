@@ -3,10 +3,12 @@ import { MODULE_MANIFESTS } from './types/module'
 import {
   iconDataUrlInputSchema,
   installationIconSchema,
+  installationsListMapsSchema,
   launchInputSchema,
   moduleInvokeSchema,
   pickIconFileInputSchema,
   setInstallationIconInputSchema,
+  updateInstallationInputSchema,
   shippedIconIdSchema,
   updateCheckSchema,
   updateGetStateSchema,
@@ -211,6 +213,25 @@ describe('launch:start refuses an unvalidated connect or userinfo value', () => 
   })
 })
 
+describe('installations:listMaps payload', () => {
+  it('listMaps refuses an unsafe game dir', () => {
+    for (const gameDir of ['../baseq2', 'a/b', 'my mod', 'C:evil']) {
+      expect(
+        installationsListMapsSchema.safeParse({ installationId: 'inst-1', gameDir }).success,
+      ).toBe(false)
+    }
+    expect(
+      installationsListMapsSchema.safeParse({ installationId: 'inst-1', gameDir: '' }).success,
+    ).toBe(true)
+    expect(
+      installationsListMapsSchema.safeParse({ installationId: 'inst-1', gameDir: 'ctf' }).success,
+    ).toBe(true)
+    expect(installationsListMapsSchema.safeParse({ installationId: '', gameDir: '' }).success).toBe(
+      false,
+    )
+  })
+})
+
 describe('launch input map', () => {
   it('launch input refuses an unsafe map name', () => {
     for (const map of ['q2dm1 +quit', 'a/b', '..', 'q"x', ''])
@@ -227,5 +248,16 @@ describe('launch input map', () => {
       connect: '1.2.3.4:27910',
     })
     expect(result.success).toBe(false)
+  })
+})
+
+describe('updateInstallationInputSchema', () => {
+  it('installation update accepts an empty or safe activeMap and refuses an unsafe one', () => {
+    const parse = (activeMap: string) =>
+      updateInstallationInputSchema.safeParse({ id: 'i', activeMap }).success
+    expect(parse('')).toBe(true)
+    expect(parse('q2dm1')).toBe(true)
+    expect(parse('../x')).toBe(false)
+    expect(parse('a b')).toBe(false)
   })
 })

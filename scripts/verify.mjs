@@ -407,7 +407,10 @@ export async function run(argv) {
     console.error(error.message)
     return 1
   }
-  const full = screens.length === SCREENS.length
+  // A packaged binary is a release build, which leaves the dev-only modules out.
+  if (flags.appPath) screens = screens.filter((screen) => !screen.devOnly)
+  const releaseScreens = flags.appPath ? SCREENS.filter((screen) => !screen.devOnly) : SCREENS
+  const full = screens.length === releaseScreens.length
 
   // `--app=<path>` (story 101 D4) drives a packaged binary — there is no dev
   // build to require or fall back to building.

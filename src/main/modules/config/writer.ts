@@ -4,21 +4,23 @@ import type { Installation } from '@shared/types'
 import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/render/file-ownership'
 import { pathKey, writeFileAtomic } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX, backupOnce } from './backup'
+import { backupOriginals } from './original-backup'
 
 export { BACKUP_SUFFIX }
 
 /**
  * Puts already-rendered config text onto an installation's disk. This module
  * knows nothing about `ConfigProfile` - it only decides, per target file,
- * whether to skip, back up or overwrite, and where the target files live.
+ * whether to skip or overwrite, and where the target files live.
  *
  * It is the one irreversible step of the config module, so both of its
  * decisions are deliberately conservative:
  *
- * - **Backup once, forever.** A file we are about to overwrite that is not ours
- *   is the user's own hand-written cfg. It is copied to `<file>.q2l-backup`
- *   exactly once - a later save must never replace that backup with output we
- *   generated ourselves, or the original is gone for good.
+ * - **Originals first, once, forever.** Before anything in an installation is
+ *   written or renamed over, the files about to be replaced are recorded in
+ *   `original-backup.ts`'s folder at the installation root - and a path that is
+ *   already recorded is never recorded again, or a later save would replace the
+ *   user's original with output we generated ourselves.
  * - **Never write outside the installation's own known folders.** Every target
  *   path is built from `installation.rootPath` plus either the literal
  *   `baseq2` or a mod name that the installation's own validation scan already
@@ -137,7 +139,19 @@ export async function readExisting(filePath: string): Promise<string | null> {
 }
 
 /**
- * Skip / back up + write / write, for one target file.
+ * True when `path` exists and the launcher did not write it. An unreadable file rejects instead of
+ * answering: "not foreign" must never be the fallback for a file whose ownership could not be read.
+ */
+export async function isForeignFile(path: string): Promise<boolean> {
+  const content = await readExisting(path)
+  return content !== null && !isLauncherOwnedFile(content)
+}
+
+/**
+ * Skip / back up + write / write, for one file in the launcher's own canonical
+ * directory (`canonical.ts`, `profile-writes.ts`). A foreign file there still
+ * gets the `<file>.q2l-backup` sibling; installation targets go through
+ * `writeInstallationTarget` instead, whose originals are already backed up.
  *
  * The diff check compares the file's decoded content against `content`. Should
  * `content` ever carry a character outside latin1, the comparison fails and the
@@ -164,6 +178,16 @@ export async function writeTargetFile(
     }
   }
 
+  await writeFileAtomic(filePath, content, FILE_ENCODING)
+  return 'written'
+}
+
+/** Diff-skip + atomic write for an installation target whose original `backupOriginals` already holds. */
+async function writeInstallationTarget(
+  filePath: string,
+  content: string,
+): Promise<WriteFileOutcome> {
+  if ((await readExisting(filePath)) === content) return 'unchanged'
   await writeFileAtomic(filePath, content, FILE_ENCODING)
   return 'written'
 }
@@ -203,12 +227,22 @@ export async function writeInstallationFiles(
     targets.push({ path, content: loaderFileContent })
   }
 
+  // Every original lands before the first target is written; a backup failure
+  // throws here, with nothing in the installation written yet.
+  await backupOriginals(
+    installation.rootPath,
+    targets.map((target) => target.path),
+  )
+
   // Sequential on purpose: two targets can resolve to the same file on a
   // case-insensitive filesystem, and a failure halfway must not race writes
   // that are still in flight.
   const files: WriteInstallationFilesResult['files'] = []
   for (const target of targets) {
-    files.push({ path: target.path, outcome: await writeTargetFile(target.path, target.content) })
+    files.push({
+      path: target.path,
+      outcome: await writeInstallationTarget(target.path, target.content),
+    })
   }
 
   return {
@@ -353,18 +387,11 @@ export async function reconcileOwnedProfileFiles(
     // POSIX unconditionally - fine when the destination is stale output from
     // an earlier partial migration, but NOT when it is the user's own
     // hand-written file that happens to share this profile's expected name
-    // (a wrong ownership check here is exactly what backup-once
-    // exists to protect against, and a rename's destination is no exception to
-    // that rule). Back a foreign destination up first, same as a plain write
-    // would.
-    let destination: string | null = null
-    try {
-      destination = await readFile(targetPath, FILE_ENCODING)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    }
-    if (destination !== null && !isLauncherOwnedFile(destination)) {
-      await backupOnce(targetPath)
+    // (a rename's destination is no exception to the originals-first rule).
+    // Record an existing destination's original first, same as a plain write
+    // would; a missing one is recorded by the write pass that creates it.
+    if ((await readExisting(targetPath)) !== null) {
+      await backupOriginals(installation.rootPath, [targetPath])
     }
 
     try {

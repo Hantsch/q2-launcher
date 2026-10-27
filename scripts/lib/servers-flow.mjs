@@ -48,6 +48,15 @@ export async function waitForRowCount(
   )
 }
 
+/** The quick-filter chip whose text contains `name`. */
+export const chipNamed = (page, name) =>
+  page.getByTestId('servers-quickfilter-chip').filter({ hasText: name })
+
+/** Resets every list filter through the filter bar's clear button. */
+export async function clearFilters(page, timeout = 8_000) {
+  await page.getByTestId('servers-filter-clear').click({ timeout })
+}
+
 /** The MultiSelect root: the nearest ancestor of the trigger that also holds its status region. */
 export const multiRoot = (page, testId) =>
   page.getByTestId(testId).locator('xpath=ancestor::div[.//*[@role="status"]][1]')
@@ -86,6 +95,8 @@ export async function setMultiFilter(page, testId, values) {
   const texts = (await options.allTextContents()).map((x) => x.trim())
   for (const [i, text] of texts.entries()) {
     const option = options.nth(i)
+    // An option implied by a checked region shows checked and cannot be toggled.
+    if ((await option.getAttribute('aria-disabled')) === 'true') continue
     const on = (await option.getAttribute('aria-selected')) === 'true'
     if (on !== values.includes(text)) await option.click()
   }

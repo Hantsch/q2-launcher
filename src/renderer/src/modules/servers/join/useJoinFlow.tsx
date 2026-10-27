@@ -4,11 +4,10 @@ import type { ServerListRow } from '@shared/modules/servers'
 import { parseServerAddress, serverAddressRejectionKey } from '@shared/servers/address'
 import { parseUserinfoValue, userinfoRejectionKey } from '@shared/launch/userinfo'
 import { Button } from '../../../components/ui/Button'
-import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Field, Input } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
-import { useActiveInstallation, useLauncher } from '../../../store/useLauncher'
-import { modMismatch, needsJoinPassword, type ModMismatch } from './join-flow'
+import { useLauncher } from '../../../store/useLauncher'
+import { needsJoinPassword } from './join-flow'
 
 interface Pending {
   row: ServerListRow
@@ -16,9 +15,9 @@ interface Pending {
 }
 
 /**
- * The join flow as a hook: validates the address, warns on a mod mismatch (with a way to join
- * anyway), prompts for a password when the server needs one, then calls `play()` with
- * `+connect`/`userinfo` set - never argv, per `src/shared/launch/userinfo.ts`'s own reasoning.
+ * The join flow as a hook: validates the address, prompts for a password when the server needs
+ * one, then calls `play()` with `+connect`/`userinfo` set - never argv, per
+ * `src/shared/launch/userinfo.ts`'s own reasoning.
  *
  * The row is an argument of `start()` and is kept in state for the pending steps, so any caller can
  * pass any row. Render `dialogs` once next to the trigger.
@@ -29,17 +28,10 @@ export function useJoinFlow(): {
   dialogs: ReactNode
 } {
   const { t } = useTranslation()
-  const installation = useActiveInstallation()
   const [addressError, setAddressError] = useState<string | null>(null)
-  const [mismatch, setMismatch] = useState<ModMismatch | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
   const [askPassword, setAskPassword] = useState(false)
   const [password, setPassword] = useState('')
-
-  const closeMismatch = (): void => {
-    setMismatch(null)
-    setPending(null)
-  }
 
   const closePassword = (): void => {
     setAskPassword(false)
@@ -54,15 +46,6 @@ export function useJoinFlow(): {
     })
   }
 
-  const proceedAfterMismatch = (next: Pending): void => {
-    if (needsJoinPassword(next.row)) {
-      setPending(next)
-      setAskPassword(true)
-      return
-    }
-    launch(next.connect)
-  }
-
   const start = (row: ServerListRow): void => {
     setAddressError(null)
     const result = parseServerAddress(row.address)
@@ -71,23 +54,12 @@ export function useJoinFlow(): {
       return
     }
     const next: Pending = { row, connect: result.normalized }
-
-    if (installation) {
-      const mismatchResult = modMismatch(row, installation)
-      if (mismatchResult) {
-        setPending(next)
-        setMismatch(mismatchResult)
-        return
-      }
+    if (needsJoinPassword(row)) {
+      setPending(next)
+      setAskPassword(true)
+      return
     }
-
-    proceedAfterMismatch(next)
-  }
-
-  const confirmMismatch = (): void => {
-    const next = pending
-    setMismatch(null)
-    if (next) proceedAfterMismatch(next)
+    launch(next.connect)
   }
 
   const passwordValidation = parseUserinfoValue(password)
@@ -106,30 +78,6 @@ export function useJoinFlow(): {
 
   const dialogs = (
     <>
-      {mismatch && (
-        <ConfirmDialog
-          title={t('servers.join.mismatch.title')}
-          body={
-            <div data-testid="servers-join-mismatch">
-              <p className="text-sm text-ink">
-                {t('servers.join.mismatch.body', {
-                  server: mismatch.server,
-                  installation: mismatch.installation,
-                })}
-              </p>
-            </div>
-          }
-          confirmLabel={t('servers.join.mismatch.confirm')}
-          tone="primary"
-          onConfirm={confirmMismatch}
-          onClose={closeMismatch}
-          testIds={{
-            confirm: 'servers-join-mismatch-confirm',
-            cancel: 'servers-join-mismatch-cancel',
-          }}
-        />
-      )}
-
       <Modal
         open={askPassword}
         size="sm"

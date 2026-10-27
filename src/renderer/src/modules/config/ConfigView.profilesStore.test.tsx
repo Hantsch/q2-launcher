@@ -47,6 +47,7 @@ vi.mock('./client', (importOriginal) =>
     listConfigProfiles: () => listConfigProfiles(),
     getProfileSyncState: async () => ({ ok: true as const, value: SYNC }),
     getSwitchBinds: async () => ({ ok: true as const, value: {} }),
+    listOriginalConfigs: async () => ({ ok: true as const, value: [] }),
   }),
 )
 

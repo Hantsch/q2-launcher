@@ -21,6 +21,7 @@ const DEFAULT_SCAN_SETTINGS: ServersScanSettings = {
   retries: 1,
   minSpacingMs: 30_000,
   autoScanOnOpen: true,
+  doubleClickJoins: true,
   autoRefreshEnabled: false,
   autoRefreshIntervalMs: 60_000,
 }
@@ -219,5 +220,41 @@ describe('servers scan settings', () => {
 
     // Not the requested '16' - the value main's mocked response actually resolved with.
     await waitFor(() => expect(concurrency.value).toBe(String(RETURNED_SETTINGS.concurrency)))
+  })
+
+  it('the double-click switch is on by default and patches doubleClickJoins', async () => {
+    invokeMock().mockImplementation((_channel: string, args: { type: string }) => {
+      if (args?.type === SERVERS_HANDLERS.scanGetSettings) {
+        return Promise.resolve({ ok: true, value: DEFAULT_SCAN_SETTINGS })
+      }
+      if (args?.type === SERVERS_HANDLERS.scanPatchSettings) {
+        return Promise.resolve({
+          ok: true,
+          value: { ...DEFAULT_SCAN_SETTINGS, doubleClickJoins: false },
+        })
+      }
+      return Promise.resolve({ ok: true, value: SOURCES })
+    })
+
+    render(createElement(ServersSettingsSection))
+
+    const testid = 'servers-list-settings-double-click-joins'
+    const toggle = await waitFor(() => {
+      const el = switchIn(testid)
+      expect(el.disabled).toBe(false)
+      return el
+    })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+
+    fireEvent.click(toggle)
+
+    await waitFor(() =>
+      expect(invokeMock()).toHaveBeenCalledWith('module:invoke', {
+        moduleId: 'servers',
+        type: SERVERS_HANDLERS.scanPatchSettings,
+        payload: { doubleClickJoins: false },
+      }),
+    )
+    await waitFor(() => expect(switchIn(testid).getAttribute('aria-checked')).toBe('false'))
   })
 })

@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { EMPTY_SERVER_LIST_FILTER, type ServerListFilter } from '@shared/servers/list-filter'
-import { quickFilterCriteriaSchema } from '@shared/modules/servers'
+import { quickFilterCriteriaSchema, type ServerListEntry } from '@shared/modules/servers'
 import type { QuickFilter } from '@shared/servers/quick-filters'
 import { initI18n } from '../../i18n'
 
@@ -23,12 +23,14 @@ function renderBar(
   onChange: (f: ServerListFilter) => void,
   shown = 2,
   total = 2,
+  rows: readonly ServerListEntry[] = [],
 ) {
   render(
     createElement(ServerListFilterBar, {
       filter,
       onChange,
       options: { mods: ['baseq2', 'ctf'], maps: ['q2dm1', 'q2dm2'] },
+      rows,
       shown,
       total,
     }),
@@ -340,5 +342,46 @@ describe('ServerListFilterBar - quick filter chip menu (story 197 D4)', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
     expect(onDelete).toHaveBeenCalledWith(qf)
     expect(onChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('ServerListFilterBar location filter', () => {
+  const entry = (address: string, location: ServerListEntry['location']): ServerListEntry => ({
+    address,
+    origins: ['manual'],
+    status: 'online',
+    lastSeenAt: null,
+    location,
+  })
+  const rows = [
+    entry('1.1.1.1:27910', { kind: 'country', country: 'DE', continent: 'EU' }),
+    entry('2.2.2.2:27910', { kind: 'country', country: 'FR', continent: 'EU' }),
+    entry('3.3.3.3:27910', { kind: 'country', country: 'US', continent: 'NA' }),
+    entry('192.168.0.2:27910', { kind: 'lan' }),
+  ]
+
+  it('the location filter lists regions with their countries indented', () => {
+    const onChange = vi.fn()
+    renderBar(EMPTY_SERVER_LIST_FILTER, onChange, 4, 4, rows)
+
+    fireEvent.click(screen.getByTestId('servers-filter-location'))
+    const options = screen.getAllByTestId('servers-filter-location-option')
+
+    expect(options.map((o) => o.textContent)).toEqual([
+      'Europe',
+      'France',
+      'Germany',
+      'North America',
+      'United States',
+      'LAN',
+    ])
+    const indented = options.filter((o) => o.className.includes('pl-8')).map((o) => o.textContent)
+    expect(indented).toEqual(['France', 'Germany', 'United States'])
+
+    fireEvent.click(options[0])
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...EMPTY_SERVER_LIST_FILTER,
+      location: ['region:EU'],
+    })
   })
 })

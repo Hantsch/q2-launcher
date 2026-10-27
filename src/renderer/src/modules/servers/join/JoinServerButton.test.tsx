@@ -77,65 +77,6 @@ describe('JoinServerButton', () => {
     expect(invokeMock).not.toHaveBeenCalled()
   })
 
-  it('a mod mismatch warns naming both mods, and join anyway launches', async () => {
-    useLauncher.setState({
-      installations: [makeInstallation({ activeGameDir: '' })],
-    })
-    render(createElement(JoinServerButton, { row: makeRow({ mod: 'ctf' }) }))
-
-    fireEvent.click(screen.getByTestId('servers-join'))
-
-    const mismatch = screen.getByTestId('servers-join-mismatch')
-    expect(mismatch.textContent).toContain('ctf')
-    expect(mismatch.textContent).toContain('baseq2')
-    expect(invokeMock).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByTestId('servers-join-mismatch-confirm'))
-
-    await vi.waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith('launch:start', {
-        installationId: 'inst-1',
-        connect: '1.2.3.4:27910',
-        userinfo: undefined,
-      })
-    })
-  })
-
-  it('cancelling a mismatch aborts the join', () => {
-    useLauncher.setState({ installations: [makeInstallation({ activeGameDir: '' })] })
-    render(createElement(JoinServerButton, { row: makeRow({ mod: 'ctf' }) }))
-
-    fireEvent.click(screen.getByTestId('servers-join'))
-    fireEvent.click(screen.getByTestId('servers-join-mismatch-cancel'))
-
-    expect(screen.queryByTestId('servers-join-mismatch')).toBeNull()
-    expect(invokeMock).not.toHaveBeenCalled()
-  })
-
-  it('no mismatch launches without a warning', async () => {
-    useLauncher.setState({ installations: [makeInstallation({ activeGameDir: 'ctf' })] })
-    render(createElement(JoinServerButton, { row: makeRow({ mod: 'ctf' }) }))
-
-    fireEvent.click(screen.getByTestId('servers-join'))
-
-    expect(screen.queryByTestId('servers-join-mismatch')).toBeNull()
-    await vi.waitFor(() => {
-      expect(invokeMock).toHaveBeenCalled()
-    })
-  })
-
-  it('an unknown server mod does not warn', async () => {
-    useLauncher.setState({ installations: [makeInstallation({ activeGameDir: 'ctf' })] })
-    render(createElement(JoinServerButton, { row: makeRow({ mod: undefined }) }))
-
-    fireEvent.click(screen.getByTestId('servers-join'))
-
-    expect(screen.queryByTestId('servers-join-mismatch')).toBeNull()
-    await vi.waitFor(() => {
-      expect(invokeMock).toHaveBeenCalled()
-    })
-  })
-
   it('a password server asks before launch:start, and cancel never calls it', () => {
     render(createElement(JoinServerButton, { row: makeRow({ needpass: true }) }))
 

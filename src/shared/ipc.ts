@@ -11,6 +11,7 @@ import type {
   LaunchPlan,
   LaunchState,
   LauncherSettings,
+  MapList,
   ModuleEvent,
   ModuleInvokeRequest,
   ModuleManifest,
@@ -135,6 +136,14 @@ export interface IpcInvokeMap {
    * the choice needs no channel of its own; it rides `installations:update`'s `runner` field.
    */
   'installations:listRunners': { req: string; res: Outcome<RunnerOption[]> }
+  /**
+   * The maps a mod (`gameDir`, `''` for baseq2 only) plus baseq2 offers. Root and engine kind come
+   * from the installation record, never from the payload.
+   */
+  'installations:listMaps': {
+    req: { installationId: string; gameDir: string }
+    res: Outcome<MapList>
+  }
   /** Validate a folder the user is *considering*, without registering anything. */
   'installations:inspectPath': { req: string; res: Outcome<ValidationResult> }
   'installations:pickFolder': { req: PickPathInput; res: string | null }
@@ -284,6 +293,7 @@ export const INVOKE_CHANNELS = [
   'installations:setActive',
   'installations:validate',
   'installations:listRunners',
+  'installations:listMaps',
   'installations:inspectPath',
   'installations:pickFolder',
   'installations:pickExecutable',

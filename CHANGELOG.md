@@ -12,10 +12,33 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Added
+
+- **Config** — Profiles no installation uses now say so, with a one-click Assign.
+- **Config** — Your original config files are backed up on first assignment and can be restored.
+- **Config** — Assigning a profile asks before replacing a config file of yours with the same name.
+- **Footer** — Pick a map; Play starts a deathmatch in it.
+- **Servers** — See each server's country and region and filter by them.
+- **Servers** — Double-click or Enter joins a server; arrow keys move the selection.
+- **Demos** — Demo details show your OpenTDM accuracy stats as a table.
+
+### Changed
+
+- **Replays** — Demo details show the two teams side by side, each in its own colour.
+- **Demos** — The detail pane stays beside the list; empty until you pick a demo.
+- **Replays** — Delete, Tag and Move show as soon as one demo is selected.
+- **Launch with** — applies only to Play now; servers and demos bring their own mod, no mod-mismatch prompt.
+- **Servers** — Server details stay on screen; clicking a server no longer hides them.
+- **Servers** — Refresh works while the game runs; only automatic refresh pauses.
+
+### Fixed
+
+- **Servers** — Server pings are the median of several samples and match the ping you get in game.
 
 ## 0.7.0 — 2026-10-07
 
 ### Added
+
 - **Servers** — Scan now refreshes only the servers your filter shows; Scan all is one click away.
 - **Servers** — Hide servers above a maximum ping (< 50 to < 200 ms).
 - **Library** — A folder with several engines lists them all; choose which one Play starts.
@@ -31,6 +54,7 @@ version section when a release actually ships.
 - **Demos** — Comment a moment of a demo on its timeline; comments show as marks and in the detail.
 
 ### Changed
+
 - **Servers** — Filter by several mods or maps at once.
 - New installation… in the rail and Library is one wizard that ends with a playable, named installation.
 - **Downloads** — Settings now say which options are not available yet.
@@ -38,6 +62,7 @@ version section when a release actually ships.
 - **Demos** — Demo details are edited in place and save themselves — no Edit or Save button.
 
 ### Fixed
+
 - **Demos** — On Linux X11 the staged demo stays on top of the launcher, borderless.
 - An unexpected launcher error now shows a translated message instead of raw system text.
 - **Downloads** — A retry that broke while starting now shows its failure and can be retried.
@@ -49,10 +74,11 @@ version section when a release actually ships.
 - **Settings** — Unlock codes name their features instead of showing an internal id.
 
 ### Security
+
 - Updated Electron to 43.7.7 for upstream security fixes.
 
-
 ## 0.6.0 — 2026-09-30
+
 ### Added
 
 - **Demos** — new Demos view: browse every demo from your installations, folders and `.zip` archives; search, filter, sort, rename, rate and favourite them.
@@ -65,6 +91,7 @@ version section when a release actually ships.
 - **Servers** — an address you add from the server browser lands in the game's address book right away.
 
 ## 0.5.0 — 2026-09-26
+
 ### Added
 
 - **Servers** — a full server browser: scan, filter and sort the list, see live status and
@@ -77,12 +104,14 @@ version section when a release actually ships.
 - **Linux** — the Runner picker is now a tidy row of chips instead of a wall of buttons.
 
 ## 0.4.0 — 2026-09-23
+
 ### Added
 
 - **Linux** — Quake II now runs on Linux via Wine or umu-run, and Steam-owned installs can hand
   off straight to Steam instead.
 
 ## 0.3.0 — 2026-09-22
+
 ### Added
 
 - **Linux** — native support from source: auto-detects Steam and Flatpak installs, and ships its
@@ -94,6 +123,7 @@ version section when a release actually ships.
   nothing.
 
 ## 0.2.0 — 2026-09-13
+
 ### Added
 
 - **Library** — auto-detects installations (Steam, GOG, Epic, deep scan), health-checks each one,

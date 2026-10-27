@@ -6,6 +6,7 @@ import type { ConfigProfile } from '@shared/modules/config'
 import type { Installation } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
 import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from '@shared/config/render/render'
+import { ORIGINAL_CONFIGS_DIR_NAME } from './original-backup'
 import { BACKUP_SUFFIX, reconcileOwnedProfileFiles, writeInstallationFiles } from './writer'
 import type { WriteInstallationFilesOptions } from './writer'
 
@@ -50,6 +51,7 @@ function installation(overrides: Partial<Installation> = {}): Installation {
     engineKind: 'r1q2',
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],
@@ -78,6 +80,11 @@ function options(
 
 function read(...segments: string[]): Promise<string> {
   return readFile(join(dir, ...segments), 'latin1')
+}
+
+/** Where the original of `<dir>/<segments>` is kept once the launcher has written over it. */
+function original(...segments: string[]): string {
+  return join(dir, ORIGINAL_CONFIGS_DIR_NAME, ...segments)
 }
 
 async function seed(relativePath: string, content: string): Promise<void> {
@@ -111,7 +118,8 @@ describe('writeInstallationFiles', () => {
 
     await writeInstallationFiles(options())
 
-    expect(await read('baseq2', `autoexec.cfg${BACKUP_SUFFIX}`)).toBe(HAND_WRITTEN)
+    expect(await readFile(original('baseq2', 'autoexec.cfg'), 'latin1')).toBe(HAND_WRITTEN)
+    expect(await pathExists(join(dir, 'baseq2', `autoexec.cfg${BACKUP_SUFFIX}`))).toBe(false)
     expect(await read('baseq2', 'autoexec.cfg')).toBe(LOADER_CONTENT)
 
     // Second save with different content: the file on disk is now our own
@@ -120,7 +128,7 @@ describe('writeInstallationFiles', () => {
     const secondLoader = `${OWNERSHIP_MARKER} p2 - hand-edited changes are read back\nexec q2l-profile-p2.cfg\n`
     await writeInstallationFiles(options({ loaderFileContent: secondLoader }))
 
-    expect(await read('baseq2', `autoexec.cfg${BACKUP_SUFFIX}`)).toBe(HAND_WRITTEN)
+    expect(await readFile(original('baseq2', 'autoexec.cfg'), 'latin1')).toBe(HAND_WRITTEN)
     expect(await read('baseq2', 'autoexec.cfg')).toBe(secondLoader)
   })
 
@@ -136,6 +144,7 @@ describe('writeInstallationFiles', () => {
     expect((await stat(join(dir, 'baseq2', 'autoexec.cfg'))).mtimeMs).toBe(before.mtimeMs)
     // A skipped file is not a backed-up file either.
     expect(await pathExists(join(dir, 'baseq2', `autoexec.cfg${BACKUP_SUFFIX}`))).toBe(false)
+    expect(await pathExists(original('baseq2', 'autoexec.cfg'))).toBe(false)
   })
 
   it('reports a real change when only one of several targets differs', async () => {
@@ -181,10 +190,11 @@ describe('writeInstallationFiles', () => {
       }),
     )
 
-    expect(await read('ctf', `autoexec.cfg${BACKUP_SUFFIX}`)).toBe(HAND_WRITTEN)
+    expect(await readFile(original('ctf', 'autoexec.cfg'), 'latin1')).toBe(HAND_WRITTEN)
+    expect(await pathExists(join(dir, 'ctf', `autoexec.cfg${BACKUP_SUFFIX}`))).toBe(false)
     expect(await read('ctf', 'autoexec.cfg')).toBe(LOADER_CONTENT)
     // baseq2 had no user file, so it gets no backup of its own.
-    expect(await pathExists(join(dir, 'baseq2', `autoexec.cfg${BACKUP_SUFFIX}`))).toBe(false)
+    expect(await pathExists(original('baseq2', 'autoexec.cfg'))).toBe(false)
   })
 
   it('rejects a mod name that is not in gameDirs, without touching the disk', async () => {
@@ -222,6 +232,7 @@ describe('writeInstallationFiles', () => {
 
     expect(await read('baseq2', 'autoexec.cfg')).toBe(LOADER_CONTENT)
     expect(await pathExists(join(dir, 'baseq2', `autoexec.cfg${BACKUP_SUFFIX}`))).toBe(false)
+    expect(await pathExists(original('baseq2', 'autoexec.cfg'))).toBe(false)
     expect(outcomeOf(result, 'baseq2', 'autoexec.cfg')).toBe('written')
   })
 
@@ -236,6 +247,7 @@ describe('writeInstallationFiles', () => {
 
     expect(await read('baseq2', 'autoexec.cfg')).toBe(LOADER_CONTENT)
     expect(await pathExists(join(dir, 'baseq2', `autoexec.cfg${BACKUP_SUFFIX}`))).toBe(false)
+    expect(await pathExists(original('baseq2', 'autoexec.cfg'))).toBe(false)
     expect(outcomeOf(result, 'baseq2', 'autoexec.cfg')).toBe('written')
   })
 
@@ -244,7 +256,7 @@ describe('writeInstallationFiles', () => {
 
     await writeInstallationFiles(options())
 
-    expect(await read('baseq2', `autoexec.cfg${BACKUP_SUFFIX}`)).toBe(HAND_WRITTEN)
+    expect(await readFile(original('baseq2', 'autoexec.cfg'), 'latin1')).toBe(HAND_WRITTEN)
     expect(await read('baseq2', 'autoexec.cfg')).toBe(LOADER_CONTENT)
   })
 
@@ -329,7 +341,8 @@ describe('reconcileOwnedProfileFiles', () => {
     await reconcileOwnedProfileFiles(installation(), new Map([['p1', 'Name.cfg']]))
 
     expect(await read('baseq2', 'Name.cfg')).toBe(owned('p1'))
-    expect(await read('baseq2', `Name.cfg${BACKUP_SUFFIX}`)).toBe(HAND_WRITTEN)
+    expect(await readFile(original('baseq2', 'Name.cfg'), 'latin1')).toBe(HAND_WRITTEN)
+    expect(await pathExists(join(dir, 'baseq2', `Name.cfg${BACKUP_SUFFIX}`))).toBe(false)
   })
 
   it('does not back up a rename destination that is already one of ours', async () => {
@@ -340,6 +353,7 @@ describe('reconcileOwnedProfileFiles', () => {
 
     expect(await read('baseq2', 'Name.cfg')).toBe(owned('p1'))
     expect(await pathExists(join(dir, 'baseq2', `Name.cfg${BACKUP_SUFFIX}`))).toBe(false)
+    expect(await pathExists(original('baseq2', 'Name.cfg'))).toBe(false)
   })
 
   it('leaves a file that already carries its expected name alone', async () => {

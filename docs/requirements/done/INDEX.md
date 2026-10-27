@@ -345,3 +345,16 @@ second roadmap.
 - 250 — Scan now refreshes only the servers my filter shows · S34 · filter active: "Refresh N shown" re-queries just the visible servers, chevron menu keeps Scan all; LAN re-queries known rows only
 - 248 — I filter servers by several mods at once · S34 · mod and map filters are multi-select (any-of), quick filters store the sets and legacy single-mod rows load as a set of one
 - 234 — release verification and CI rehearsals run before a merge to main · S34 · `npm run rehearse` runs verify:release, ci:local and ci:local:flows detached with a timed record; real run green, 20 Linux flows quarantined, ui-flows in 6 shards (<= 820 s)
+- 251 — Launch with applies only when I start the game · S35 · footer hides Launch with on Servers/Demos, a join passes no mod, mod-mismatch confirmation removed
+- 252 — I pick a map in the footer and Play starts in it · S35 · footer Map select saved per installation, plain Play starts a deathmatch in it, dev Play with… dialog removed
+- 253 — An unassigned config profile tells me it is not used · S35 · warning banner with an Assign… action in the profile view plus a "Not assigned" marker on its list row, both cleared by assigning
+- 254 — The first assignment backs up the original configs and I can restore them · S35 · existing configs the launcher writes are copied to q2launcher-original-configs/ first; a Restore original configs action puts them back and unassigns the profiles
+- 255 — Assigning a profile never overwrites a foreign config silently · S35 · assign asks (Write backs the existing file up first, Cancel leaves it) before replacing a config the launcher did not write
+- 256 — Server details are always shown · S35 · the list tab's detail pane is always present (empty state until a server is chosen), a click never deselects and the close button is gone
+- 257 — I join a server with double-click or Enter and move through the list with arrow keys · S35 · double-click (setting, default on) and Enter join, arrow keys move the selection through visible rows
+- 258 — Server pings match what I get in game · S35 · pings are the median of 3–6 samples timed per send on a monotonic arrival stamp, and stage 2 never overwrites them
+- 259 — Batch actions show from one selected demo · S35 · the Delete/Tag/Move bar shows as soon as one demo is selected; actions act on that demo only and a lone zip demo disables them with the zip reason
+- 260 — Demo details are always shown · S35 · the Demos view always shows the detail pane beside the list, empty until a demo is picked, with no close button and a stable list width
+- 261 — The demo players are split by team · S35 · two teams sit side by side in side-1/side-2 colours, one or more than two stack, no teams is a plain list; side tokens meet contrast and flow axe is a shared helper
+- 262 — Demo details show the POV player's accuracy stats · S35 · the demo detail shows the recording player's OpenTDM weapon accuracy table and Total line, read from the demo and indexed (cache v7); no block, no section
+- 263 — I see where a server is and filter by region or country · S35 · server rows show a country/region from the bundled DB-IP database in a sortable Location column and detail field, filterable by region/country/LAN/Unknown, saved in quick filters, credited in About

@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
 import { executableFileName } from '../platform'
+import { resolveResourcePath } from '../resource-path'
 
 /**
  * Story 071: resolves the absolute path to the vendored 7-Zip binary.
@@ -53,36 +53,9 @@ function getBinaryName(): string {
   return executableFileName('7za', '7zz')
 }
 
-/** The marker file that identifies the repo root - this repo has exactly one, at the root. */
-const REPO_ROOT_MARKER = 'package.json'
-
-/** Enough to cover both `out/main` (2) and `src/main/lib/archive` (4) with room to spare. */
-const MAX_WALK_UP_LEVELS = 12
-
-/**
- * Nearest ancestor of `startDir` (inclusive) that contains a `package.json`, or `process.cwd()`
- * when no such directory is found within `maxLevels`. Exported so a test can point the walk-up at
- * a constructed directory tree instead of relying on wherever the test runner happens to load this
- * module from - the exact assumption whose breakage this function exists to prevent.
- */
-export function findRepoRoot(startDir: string, maxLevels: number = MAX_WALK_UP_LEVELS): string {
-  let current = startDir
-  for (let level = 0; level < maxLevels; level += 1) {
-    if (existsSync(join(current, REPO_ROOT_MARKER))) return current
-    const parent = dirname(current)
-    if (parent === current) break
-    current = parent
-  }
-  return process.cwd()
-}
-
-const DEFAULT_REPO_ROOT = findRepoRoot(__dirname)
-
 export function resolveExtractorPath(input: ExtractorPathInput): ExtractorPathResult {
   const binaryName = getBinaryName()
-  const path = input.isPackaged
-    ? join(input.resourcesPath ?? '', 'bin', binaryName)
-    : join(input.repoRoot ?? DEFAULT_REPO_ROOT, 'resources', 'bin', binaryName)
+  const path = resolveResourcePath(input, 'bin', binaryName)
 
   return { path, exists: existsSync(path) }
 }

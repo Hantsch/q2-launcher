@@ -15,8 +15,8 @@ const SCAN_SETTLE_TIMEOUT_MS = 15_000
 const LOG_POLL_TIMEOUT_MS = 10_000
 const CONNECT_CFG_NAME = 'q2launcher-connect.cfg'
 
-/** Binds one loopback responder with an explicit `gamename` (this flow's mismatch/no-mismatch
- * split is judged on that field, not a gametype flag - see file header). */
+/** Binds one loopback responder with an explicit `gamename` (this flow's same-mod/different-mod
+ * split is carried by that field, not a gametype flag - see file header). */
 const bindResponder = makeResponderBinder(
   (hostname, playerLines, { gamename = 'baseq2', needpass = false } = {}) => ({
     infoLine:
@@ -163,13 +163,10 @@ export default async function serversActionbarJoin({ page, step, shot }) {
   // The stand-in client exits within milliseconds; wait until the button is pressable again.
   await expectBar('Join', false)
 
-  step('mismatch then password then join, password never logged')
+  step('password then join, password never logged')
   await page.getByTestId(`servers-row-${serverA.address}`).click({ timeout: TIMEOUT_MS })
   await expectBar('Join', false)
   await bar.click({ timeout: TIMEOUT_MS })
-  const mismatchDialog = page.getByTestId('servers-join-mismatch')
-  await mismatchDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-join-mismatch-confirm').click({ timeout: TIMEOUT_MS })
   const passwordDialog = page.getByTestId('servers-join-password')
   await passwordDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await passwordDialog.locator('input[type="password"]').fill('hunter2 x')

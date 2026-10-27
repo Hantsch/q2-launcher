@@ -333,4 +333,24 @@ export default async function serversScanSettings({ page, shot, step }) {
       `expected state.json's servers.scan.autoScanOnOpen to end back at the seeded ${SERVERS_SCAN_SETTINGS_SEED.autoScanOnOpen}, got ${JSON.stringify(finalOnDisk.servers?.scan)}`,
     )
   }
+
+  step('the double-click-joins switch is on by default, switches off and persists, then back on')
+  // The seed carries no `doubleClickJoins`, so this exercises the default (on).
+  const doubleClickSwitch = page
+    .getByTestId('servers-list-settings-double-click-joins')
+    .getByRole('switch')
+  await doubleClickSwitch.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  if ((await doubleClickSwitch.getAttribute('aria-checked')) !== 'true') {
+    throw new Error('expected the double-click-joins switch to be on by default')
+  }
+  await clickSwitchAndWait(doubleClickSwitch, 'servers-list-settings-double-click-joins', false)
+  await waitForPopulatedStateJson(
+    (doc) => doc.servers?.scan?.doubleClickJoins === false,
+    'doubleClickJoins switched off',
+  )
+  await clickSwitchAndWait(doubleClickSwitch, 'servers-list-settings-double-click-joins', true)
+  await waitForPopulatedStateJson(
+    (doc) => doc.servers?.scan?.doubleClickJoins !== false,
+    'doubleClickJoins switched back on',
+  )
 }

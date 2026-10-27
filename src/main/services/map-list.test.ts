@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { resolveExtractorPath } from '../../lib/archive/7za-path'
-import type { ZipDeps } from '../../lib/zip-entries'
+import { resolveExtractorPath } from '../lib/archive/7za-path'
+import type { ZipDeps } from '../lib/zip-entries'
 import { listMaps } from './map-list'
 
 function bsp(title?: string): Buffer {

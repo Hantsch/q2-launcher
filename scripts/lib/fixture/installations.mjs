@@ -863,19 +863,37 @@ export function writeJoinInstallRoot(dirName = JOIN_INSTALL_DIR) {
  * gets - e.g. `servers-watchlist.mjs` passes its own name so the two flows' fixtures never share a
  * directory, defaulting to `'servers-join'` so the original caller is unaffected.
  */
-export function writeJoinFixture({ servers, variant = 'servers-join' }) {
+export function writeJoinFixture({
+  servers,
+  variant = 'servers-join',
+  activeGameDir = '',
+  gameDirs = ['baseq2'],
+}) {
   return seedJoinStyleFixture({
     variant,
     install: writeJoinInstallRoot(),
     id: JOIN_INSTALL_ID,
     name: 'Fixture Join Install',
-    gameDirs: ['baseq2'],
+    activeGameDir,
+    gameDirs,
     servers,
   })
 }
 
-/** Seeds `install` as the sole, active installation of a fresh `variant` userDataDir. */
-function seedJoinStyleFixture({ variant, install, id, name, gameDirs, servers }) {
+/** Seeds `install` as the sole, active installation of a fresh `variant` userDataDir. Every
+ * non-baseq2 entry of `gameDirs` gets a folder on disk, or startup revalidation drops it. */
+function seedJoinStyleFixture({
+  variant,
+  install,
+  id,
+  name,
+  activeGameDir = '',
+  gameDirs,
+  servers,
+}) {
+  for (const dir of gameDirs) {
+    if (dir !== 'baseq2') mkdirSync(join(install.root, dir), { recursive: true })
+  }
   const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
@@ -891,7 +909,7 @@ function seedJoinStyleFixture({ variant, install, id, name, gameDirs, servers })
         engineKind: 'r1q2',
         executablePath: install.executablePath,
         launchArgs: [],
-        activeGameDir: '',
+        activeGameDir,
         detectedVersion: undefined,
         source: 'manual',
         status: 'ok',
@@ -922,7 +940,7 @@ function seedJoinStyleFixture({ variant, install, id, name, gameDirs, servers })
   }
 }
 
-// --- the "Play with..." flow's own installation ---------------------------------------
+// --- the footer-map flows' installation (a mod, a loose map, a packed map, an unsafe name) ----
 
 export const PLAY_WITH_INSTALL_ID = 'fixture-play-with-install'
 
@@ -961,9 +979,10 @@ function buildPak(entries) {
 
 /**
  * One r1q2 installation with game dirs `baseq2` + `ctf`: loose `q2dm1` ("The Edge") and an unsafe
- * `bad name`, `base1` inside `baseq2/pak0.pak`, and `ctf1` in `ctf`.
+ * `bad name`, `base1` inside `baseq2/pak0.pak`, and `ctf1` in `ctf`. `servers` is the optional
+ * persisted servers slice, passed through verbatim.
  */
-export function writePlayWithFixture({ variant = 'play-with' } = {}) {
+export function writePlayWithFixture({ variant = 'footer-map', servers } = {}) {
   const install = writeJoinInstallRoot(PLAY_WITH_INSTALL_ID)
   const writeDeep = (relativePath, bytes) => {
     const path = join(install.root, relativePath)
@@ -980,6 +999,7 @@ export function writePlayWithFixture({ variant = 'play-with' } = {}) {
     id: PLAY_WITH_INSTALL_ID,
     name: 'Fixture Play With Install',
     gameDirs: ['baseq2', 'ctf'],
+    servers,
   })
 }
 

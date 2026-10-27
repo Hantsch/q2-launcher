@@ -61,7 +61,7 @@
         "favouritesNotInLan": "Favourites can't be refreshed on the local network."
       },
       "blocked": {
-        "gameRunning": "Servers can't be scanned while the game is running."
+        "gameRunning": "Automatic refresh is paused while the game is running."
       }
     },
     "row": {
@@ -71,6 +71,17 @@
       "copyIp": "Copy server address",
       "copySuccess": "Server address copied",
       "copyError": "Couldn't copy the server address"
+    },
+    "location": {
+      "lan": "LAN",
+      "region": {
+        "AF": "Africa",
+        "AS": "Asia",
+        "EU": "Europe",
+        "NA": "North America",
+        "OC": "Oceania",
+        "SA": "South America"
+      }
     },
     "list": {
       "loading": {
@@ -85,12 +96,12 @@
       "sourceFailed": "{{source}}: {{reason}}",
       "column": {
         "name": "Server",
+        "location": "Location",
         "mod": "Mod",
         "map": "Map",
         "players": "Players",
         "ping": "Ping"
-      },
-      "selectedHint": "Select a server to see who's playing and join."
+      }
     },
     "gamemode": {
       "ctf": "CTF",
@@ -106,7 +117,7 @@
     },
     "detail": {
       "title": "Server details",
-      "close": "Close server details",
+      "empty": "Select a server to see who's playing and join.",
       "favourite": {
         "add": "Mark as favourite"
       },
@@ -226,6 +237,9 @@
       "modsCount_other": "{{count}} mods",
       "mapsCount_one": "{{count}} map",
       "mapsCount_other": "{{count}} maps",
+      "locationsCount_one": "{{count}} location",
+      "locationsCount_other": "{{count}} locations",
+      "locationSearch": "Search regions and countries",
       "noMatch": "No servers match your filters."
     },
     "source": {
@@ -242,6 +256,7 @@
     "sort": {
       "column": {
         "name": "Name",
+        "location": "Location",
         "mod": "Mod",
         "players": "Players",
         "map": "Map",
@@ -271,11 +286,6 @@
     },
     "join": {
       "noInstallation": "Choose an active installation to join a server.",
-      "mismatch": {
-        "title": "Different mod",
-        "body": "This server runs \"{{server}}\", but the active installation is set to \"{{installation}}\". Join anyway?",
-        "confirm": "Join anyway"
-      },
       "password": {
         "title": "Server password"
       }

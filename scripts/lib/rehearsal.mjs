@@ -5,12 +5,45 @@
 /** A ui-flows shard must finish inside this, or GitHub's job timeout is too close for comfort. */
 export const MARGIN_SECONDS = 15 * 60
 
-/** The commands a rehearsal runs, in order; `shards` marks the one whose act log is per shard. */
-export const DEFAULT_COMMANDS = [
-  { name: 'verify:release' },
-  { name: 'ci:local' },
-  { name: 'ci:local:flows', shards: true },
-]
+/** The commands every rehearsal runs, in order. */
+export const CORE_COMMANDS = [{ name: 'verify:release' }, { name: 'ci:local' }]
+
+/**
+ * The Linux ui-flows leg: six act shards, ~24 min, with 20 flows quarantined for Linux — and
+ * advisory on GitHub (`continue-on-error`), so a rehearsal runs it only on `--linux`. `shards`
+ * marks its act log as per shard.
+ */
+export const LINUX_FLOWS_COMMAND = { name: 'ci:local:flows', shards: true }
+
+export const LINUX_FLAG = '--linux'
+
+/** The commands of one run: the core ones, plus the Linux leg when opted in. */
+export function commandsFor({ linux = false } = {}) {
+  return linux ? [...CORE_COMMANDS, LINUX_FLOWS_COMMAND] : [...CORE_COMMANDS]
+}
+
+/** The one line the launcher prints when the Linux leg stays out. */
+export function skippedLinuxLine() {
+  return (
+    `skipped ${LINUX_FLOWS_COMMAND.name} (the Linux ui-flows leg: six act shards, ~24 min, ` +
+    `advisory on GitHub); include it with: npm run rehearse -- ${LINUX_FLAG}`
+  )
+}
+
+/**
+ * The launcher's arguments: `{ mode: 'launch' | 'status' | 'run' | 'usage', linux, dir }`.
+ * `--linux` is accepted by `launch` and by the runner it starts (`--run <dir>`), nowhere else.
+ */
+export function parseRehearseArgs(args) {
+  const linux = args.includes(LINUX_FLAG)
+  const rest = args.filter((arg) => arg !== LINUX_FLAG)
+  if (rest.length === 0) return { mode: 'launch', linux, dir: null }
+  if (!linux && rest.length === 1 && rest[0] === '--status') {
+    return { mode: 'status', linux, dir: null }
+  }
+  if (rest.length === 2 && rest[0] === '--run') return { mode: 'run', linux, dir: rest[1] }
+  return { mode: 'usage', linux, dir: null }
+}
 
 const pad = (n) => String(n).padStart(2, '0')
 
@@ -33,13 +66,17 @@ export function logFileName(name) {
   return `${name.replaceAll(':', '-')}.log`
 }
 
-/** The record before the runner has started: `pid` is set by the runner itself once it runs. */
-export function initialRecord(startedAt, commands) {
+/**
+ * The record before the runner has started: `pid` is set by the runner itself once it runs.
+ * `skipped` names the legs left out on purpose (the Linux leg without `--linux`).
+ */
+export function initialRecord(startedAt, commands, skipped = []) {
   return {
     startedAt: startedAt.toISOString(),
     status: 'running',
     pid: null,
     commands: commands.map(({ name }) => ({ name, status: 'pending' })),
+    skipped: [...skipped],
   }
 }
 
@@ -131,6 +168,9 @@ export function statusView(dirName, record, pidAlive) {
       const over = shard.seconds > MARGIN_SECONDS ? ` - over the ${MARGIN_SECONDS}s margin` : ''
       lines.push(`    shard ${shard.shard}: ${shard.status} (${shard.seconds}s)${over}`)
     }
+  }
+  for (const name of record.skipped ?? []) {
+    lines.push(`  ${'skipped'.padEnd(8)} ${name} (opt in with: npm run rehearse -- ${LINUX_FLAG})`)
   }
   if (record.marginOk === false) lines.push(`  shard margin (<= ${MARGIN_SECONDS}s): not met`)
   if (record.reason) lines.push(`  reason: ${record.reason}`)

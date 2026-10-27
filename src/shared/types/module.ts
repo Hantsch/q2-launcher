@@ -61,6 +61,11 @@ export interface ModuleManifest {
   ipcNamespace: string
   /** Requires an active installation to be useful. */
   requiresInstallation: boolean
+  /**
+   * The module's content - a server, a demo - decides mod and map, so the footer offers no
+   * launch choice (no "Launch with") while its route is active.
+   */
+  launchDecidedByContent?: true
 }
 
 const ALL_MODULE_MANIFESTS: readonly ModuleManifest[] = [
@@ -172,6 +177,7 @@ const ALL_MODULE_MANIFESTS: readonly ModuleManifest[] = [
     capabilities: ['network', 'game-lifecycle'],
     ipcNamespace: 'module:servers',
     requiresInstallation: false,
+    launchDecidedByContent: true,
   },
   {
     id: 'replays',
@@ -190,6 +196,7 @@ const ALL_MODULE_MANIFESTS: readonly ModuleManifest[] = [
     capabilities: ['mutates-installation', 'game-lifecycle'],
     ipcNamespace: 'module:replays',
     requiresInstallation: false,
+    launchDecidedByContent: true,
   },
 ]
 

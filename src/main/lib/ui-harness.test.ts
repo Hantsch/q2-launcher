@@ -9,6 +9,7 @@ import {
   HARNESS_REVEALED_PATHS_FILE,
   UI_HARNESS_DETECTED_RUNNERS_ENV,
   UI_HARNESS_ENV,
+  UI_HARNESS_GEO_ADDRESSES_ENV,
   UI_HARNESS_LAN_TARGETS_ENV,
   UI_HARNESS_PICK_FOLDER_ENV,
   parseHarnessBaseUrl,
@@ -16,6 +17,7 @@ import {
   recordHarnessExternalUrl,
   recordHarnessRevealedPath,
   uiHarnessDetectedRunners,
+  uiHarnessGeoAddresses,
   uiHarnessLanTargets,
 } from './ui-harness'
 
@@ -133,6 +135,36 @@ describe('uiHarnessLanTargets', () => {
       read('192.168.1.5:27910,127.0.0.1:27911,localhost:1,127.0.0.1:99999,127.0.0.1:abc'),
     ).toEqual(['127.0.0.1:27911'])
     expect(read('192.168.1.5:27910')).toBeUndefined()
+  })
+})
+
+describe('uiHarnessGeoAddresses', () => {
+  const read = (value: string | undefined, gate = true) =>
+    uiHarnessGeoAddresses(
+      resolveUiHarness({
+        ...(gate ? { [UI_HARNESS_ENV]: '1' } : {}),
+        ...(value === undefined ? {} : { [UI_HARNESS_GEO_ADDRESSES_ENV]: value }),
+      }),
+    )
+
+  it('geo address overrides accept only loopback keys and IPv4 values', () => {
+    expect(read('127.0.0.1:27911=5.5.5.5, 127.0.0.1:27912=9.9.9.9')).toEqual(
+      new Map([
+        ['127.0.0.1:27911', '5.5.5.5'],
+        ['127.0.0.1:27912', '9.9.9.9'],
+      ]),
+    )
+    expect(
+      read(
+        '192.168.1.5:27910=5.5.5.5,localhost:1=5.5.5.5,127.0.0.1:99999=5.5.5.5,127.0.0.1:27911=999.1.1.1,127.0.0.1:27912=example.org,127.0.0.1:27913=8.8.8.8',
+      ),
+    ).toEqual(new Map([['127.0.0.1:27913', '8.8.8.8']]))
+  })
+
+  it('gate closed or unset: no overrides', () => {
+    expect(read('127.0.0.1:27911=5.5.5.5', false).size).toBe(0)
+    expect(read(undefined).size).toBe(0)
+    expect(read('').size).toBe(0)
   })
 })
 

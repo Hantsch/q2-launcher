@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY,
   SERVERS_EVENTS,
   type ScanServerPush,
   type ServersScanState,
   type ServersState,
 } from '@shared/modules/servers'
+import { createCountryLookup } from '../../lib/geoip/country-lookup'
 import type { FetchImpl } from '../../lib/net/fetcher'
 import type { LanDiscoveryOptions, LanReply } from './lan-discovery'
 import type { QueryServerFn } from './scan-runner'
@@ -142,6 +142,27 @@ describe('createScanService - online and LAN lists', () => {
         .entries.map((e) => e.address)
         .sort(),
     ).toEqual([FAV, NET].sort())
+  })
+
+  it('LAN-mode rows are located as LAN', async () => {
+    const lookup = createCountryLookup('unused.mmdb')
+    const service = createScanService({
+      getServersState: onlineState,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: {
+        queryServer: recordingQuery().fn,
+        lanDiscovery: fakeLan([LAN_A, LAN_B]).fn,
+        locate: (ip) => lookup.locate(ip),
+      },
+    })
+    service.setMode('lan')
+    service.start()
+    await waitForIdle(service)
+
+    const rows = service.read().entries
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => row.location)).toEqual([{ kind: 'lan' }, { kind: 'lan' }])
   })
 
   it('an online scan never runs LAN discovery', async () => {
@@ -296,7 +317,7 @@ describe('createScanService - online and LAN lists', () => {
     expect(service.readDetail(LAN_A)?.row.origins).toEqual(['lan'])
   })
 
-  it('a LAN scan is refused while the game runs', () => {
+  it('a LAN scan runs while the game runs', async () => {
     const lan = fakeLan([LAN_A])
     const query = recordingQuery()
     const service = createScanService({
@@ -307,18 +328,10 @@ describe('createScanService - online and LAN lists', () => {
     })
     service.setMode('lan')
 
-    for (const scope of [
-      { kind: 'all' },
-      { kind: 'favourites' },
-      { kind: 'server', address: LAN_A },
-    ] as const) {
-      expect(service.start({ scope })).toEqual({
-        ok: false,
-        reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
-      })
-    }
-    expect(lan.calls).toHaveLength(0)
-    expect(query.calls).toHaveLength(0)
+    expect(service.start()).toEqual({ ok: true })
+    await waitForIdle(service)
+    expect(lan.calls).toHaveLength(1)
+    expect(addresses(service)).toEqual([LAN_A])
   })
 
   it('a favourites scan is refused in LAN mode', () => {
@@ -370,7 +383,7 @@ describe('createScanService - online and LAN lists', () => {
       getServersState: onlineState,
       emit: recorder().emit,
       launch: fakeLaunch().host,
-      deps: { queryServer: deferred.fn, lanDiscovery: lan.fn },
+      deps: { queryServer: deferred.fn, pingSamples: 1, lanDiscovery: lan.fn },
     })
     online.start()
     await tick()
@@ -481,6 +494,37 @@ describe('createScanService - online and LAN lists', () => {
     ).toEqual([LAN_A, LAN_B].sort())
     expect(service.readDetail(LAN_A)?.serverinfo).toEqual({ hostname: 'Status' })
     expect(onStage2Row).not.toHaveBeenCalled()
+  })
+
+  it('a LAN status reply does not overwrite the stage-1 median ping', async () => {
+    const queryServer: QueryServerFn = async (_target, options) =>
+      options.kind === 'status'
+        ? {
+            ok: true,
+            kind: 'status',
+            reply: { ok: true, serverinfo: { hostname: 'Status' }, players: [] },
+            rttMs: 300,
+          }
+        : {
+            ok: true,
+            kind: 'info',
+            reply: { ok: true, serverinfo: { hostname: LAN_A }, clients: 2 },
+            rttMs: 25,
+          }
+    const service = createScanService({
+      getServersState: onlineState,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer, lanDiscovery: fakeLan([LAN_A]).fn },
+    })
+    service.setMode('lan')
+    service.start()
+    await waitForIdle(service)
+
+    const entry = service.read().entries.find((e) => e.address === LAN_A)
+    expect(entry?.rttMs).toBe(25)
+    expect(entry?.rttHistory?.map((sample) => sample.rttMs)).not.toContain(300)
+    expect(service.readDetail(LAN_A)?.serverinfo).toEqual({ hostname: 'Status' })
   })
 
   it('a LAN single-server refresh never adds a row the broadcast did not find', async () => {

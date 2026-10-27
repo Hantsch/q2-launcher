@@ -13,6 +13,7 @@ import { AddToAddressBookDialog } from './AddToAddressBookDialog'
 import { addFavourite, removeFavourite } from './client'
 import { JoinServerButton } from './join/JoinServerButton'
 import { ServerLocalContentSection } from './ServerLocalContentSection'
+import { fullLocation } from './location-label'
 import { displayName, formatOccupancy, formatPing, orDash } from './server-format'
 
 export interface ServerDetailHeaderProps {
@@ -75,7 +76,7 @@ export function ServerDetailHeader({
   refreshing,
   onFavouriteChanged,
 }: ServerDetailHeaderProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { row, serverinfo } = detail
   const pushToast = useLauncher((state) => state.pushToast)
   const [addressBookOpen, setAddressBookOpen] = useState(false)
@@ -216,6 +217,13 @@ export function ServerDetailHeader({
         </StatCell>
         <StatCell label={t('servers.detail.field.protocol')} testId="servers-detail-field-protocol">
           <span className="numeric">{orDash(protocol)}</span>
+        </StatCell>
+        <StatCell
+          label={t('common.label.location')}
+          testId="servers-detail-field-location"
+          className="col-span-3"
+        >
+          {fullLocation(row.location, t, i18n.language)}
         </StatCell>
       </div>
       {DEV_MODULES && <ServerLocalContentSection mod={mod} map={row.map} />}

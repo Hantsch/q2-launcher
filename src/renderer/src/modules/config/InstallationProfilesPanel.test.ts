@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { mockClient } from '../../test-support/mock-client'
 import type { ConfigProfile } from '@shared/modules/config'
@@ -8,6 +8,8 @@ import type { EngineKind } from '@shared/types/engine'
 import type { Installation } from '@shared/types/installation'
 import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
+import { listOriginalConfigs, restoreOriginalConfigs } from './client'
+import { useConfigProfiles } from './config-profiles-store'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
 import { ProfileAssignmentsPanel } from './ProfileAssignmentsPanel'
@@ -39,6 +41,8 @@ vi.hoisted(() => {
 vi.mock('./client', (importOriginal) =>
   mockClient<typeof import('./client')>(importOriginal, {
     getSwitchBinds: vi.fn(async () => ({ ok: true as const, value: {} })),
+    listOriginalConfigs: vi.fn(async () => ({ ok: true as const, value: [] })),
+    restoreOriginalConfigs: vi.fn(),
   }),
 )
 
@@ -49,6 +53,8 @@ beforeAll(async () => {
 afterEach(() => {
   cleanup()
   useLauncher.setState({ installations: [] })
+  vi.mocked(listOriginalConfigs).mockClear()
+  vi.mocked(restoreOriginalConfigs).mockReset()
 })
 
 function installation(overrides: Partial<Installation> & { id: string }): Installation {
@@ -58,6 +64,7 @@ function installation(overrides: Partial<Installation> & { id: string }): Instal
     engineKind: 'r1q2' as EngineKind,
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],
@@ -122,6 +129,49 @@ describe('InstallationProfilesPanel', () => {
     expect(nameClasses).not.toContain('shrink-0')
 
     expect(within(row).getByTestId('engine-badge')).toBeTruthy()
+  })
+})
+
+describe('InstallationProfilesPanel original configs', () => {
+  it('the restore action shows only for an installation with a backup', async () => {
+    useLauncher.setState({
+      installations: [
+        installation({ id: 'i-backed', name: 'Backed up' }),
+        installation({ id: 'i-plain', name: 'No backup' }),
+      ],
+    })
+    vi.mocked(listOriginalConfigs).mockResolvedValue({ ok: true, value: ['i-backed'] })
+
+    render(createElement(InstallationProfilesPanel, { profiles: [] }))
+
+    const [backed, plain] = screen.getAllByRole('listitem')
+    await within(backed).findByRole('button', { name: 'Restore original configs' })
+    expect(within(plain).queryByRole('button', { name: 'Restore original configs' })).toBeNull()
+  })
+
+  it('restore asks for confirmation before calling main', async () => {
+    useLauncher.setState({
+      installations: [installation({ id: 'i-backed', name: 'Backed up' })],
+    })
+    vi.mocked(listOriginalConfigs).mockResolvedValue({ ok: true, value: ['i-backed'] })
+    vi.mocked(restoreOriginalConfigs).mockResolvedValue({ ok: true, value: [profile()] })
+
+    render(createElement(InstallationProfilesPanel, { profiles: [] }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Restore original configs' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(/Backed up/)).toBeTruthy()
+    expect(restoreOriginalConfigs).not.toHaveBeenCalled()
+
+    vi.mocked(listOriginalConfigs).mockResolvedValue({ ok: true, value: [] })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Restore configs' }))
+
+    await waitFor(() => expect(restoreOriginalConfigs).toHaveBeenCalledTimes(1))
+    expect(restoreOriginalConfigs).toHaveBeenCalledWith({ installationId: 'i-backed' })
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Restore original configs' })).toBeNull(),
+    )
+    expect(useConfigProfiles.getState().profiles).toEqual([profile()])
   })
 })
 

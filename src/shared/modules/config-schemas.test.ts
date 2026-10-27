@@ -3,6 +3,7 @@ import type { z } from 'zod'
 import { CONFIG_HANDLERS, type ConfigContract, type TidyUpApplyInput } from './config'
 import {
   actionTextSchema,
+  assignProfileInputSchema,
   CONFIG_HANDLER_SCHEMAS,
   commitProfileCvarsInputSchema,
   configActionSchema,
@@ -10,10 +11,12 @@ import {
   importFilesPreviewInputSchema,
   MAX_COMMIT_CVARS,
   MAX_IMPORT_FILE_IDS,
+  setDefaultProfileInputSchema,
   setProfileActionsInputSchema,
   setProfileCvarsInputSchema,
   setSwitchBindInputSchema,
   syncStateInputSchema,
+  unassignProfileInputSchema,
   writeProfileInputSchema,
 } from './config-schemas'
 
@@ -642,5 +645,31 @@ describe('config contract', () => {
     expect(Object.keys(CONFIG_HANDLER_SCHEMAS).sort()).toEqual(
       Object.values(CONFIG_HANDLERS).sort(),
     )
+  })
+})
+
+describe('assignment payload schemas - overwriteForeign', () => {
+  const base = { profileId: 'p1', installationId: 'i1' }
+
+  it('assign accepts overwriteForeign and keeps it', () => {
+    const result = assignProfileInputSchema.safeParse({ ...base, overwriteForeign: true })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.overwriteForeign).toBe(true)
+  })
+
+  it('assign still accepts a payload without it, and rejects a non-boolean', () => {
+    expect(assignProfileInputSchema.safeParse(base).success).toBe(true)
+    expect(assignProfileInputSchema.safeParse({ ...base, overwriteForeign: 'yes' }).success).toBe(
+      false,
+    )
+  })
+
+  it.each([
+    ['unassign', unassignProfileInputSchema],
+    ['setDefault', setDefaultProfileInputSchema],
+  ])('%s drops overwriteForeign', (_name, schema) => {
+    const result = schema.safeParse({ ...base, overwriteForeign: true })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data).toEqual(base)
   })
 })

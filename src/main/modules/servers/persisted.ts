@@ -77,6 +77,7 @@ const serversScanSettingsForgivingSchema = z
       .refine((value) => (SCAN_MIN_SPACING_CHOICES_MS as readonly number[]).includes(value))
       .catch(DEFAULT_SERVERS_STATE.scan.minSpacingMs),
     autoScanOnOpen: z.boolean().catch(DEFAULT_SERVERS_STATE.scan.autoScanOnOpen),
+    doubleClickJoins: z.boolean().catch(DEFAULT_SERVERS_STATE.scan.doubleClickJoins),
     autoRefreshEnabled: z.boolean().catch(DEFAULT_SERVERS_STATE.scan.autoRefreshEnabled),
     autoRefreshIntervalMs: z
       .number()

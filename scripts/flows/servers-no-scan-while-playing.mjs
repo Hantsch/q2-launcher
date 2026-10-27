@@ -51,7 +51,7 @@
 //    makes the later "stale, but keeps its data" round provable for real.
 // 3. AC1 - simulate the game running, let the seeded 15s auto-refresh interval come due with no
 //    interaction, and prove nothing ran (banner visible, `data-finished-at` unchanged).
-// 4. AC2 - manual refresh while still running: disabled control + the real refused IPC value.
+// 4. AC2 - manual refresh while still running: the control stays enabled and a real scan runs.
 // 5. AC4 (then AC3) - simulate idle with no further interaction: the banner clears and a real scan
 //    resumes on its own; only once that resumed round has actually run does AC3's stale-row proof
 //    make sense (a round had to run and find the address silent for `stale` to mean anything).
@@ -63,12 +63,10 @@
 // test-observability attributes), `servers-scan-blocked` (116 D5's blocked-reason line),
 // `servers-row-stale-<address>` (116 D5's stale label). `module:invoke` is the renderer's single
 // generic module bridge channel (`src/renderer/src/modules/moduleClient.ts`'s `callModule`) -
-// used directly here (not through a click) for the two places a real IPC *value* is the actual
-// proof: `scan.start`'s refusal (AC2b - a disabled `<button>` never dispatches a click, so the
-// click alone cannot show the returned value) and `scan.read`'s entries (AC3's data-survival
-// half). `'scan.start'`/`'servers.scan.blocked.gameRunning'` below are hand-mirrored literals of
-// `SERVERS_HANDLERS.scanStart`/`SCAN_BLOCKED_GAME_RUNNING_REASON_KEY`
-// (`src/shared/modules/servers.ts`) - same mirror-not-import discipline as the wire protocol.
+// used directly here (not through a click) where a real IPC *value* is the actual proof:
+// `scan.read`'s entries (AC3's data-survival half). `'scan.read'` below is a hand-mirrored literal
+// of `SERVERS_HANDLERS.scanRead` (`src/shared/modules/servers.ts`) - same mirror-not-import
+// discipline as the wire protocol.
 import {
   INSTALL_ONE_ID,
   SERVERS_DISABLED_SOURCES,
@@ -102,10 +100,6 @@ const RESUME_TIMEOUT_MS = 15_000
 const RESPONDER_HOSTNAME = 'Fixture Live Server'
 const RESPONDER_INFO_LINE = `\\gamename\\baseq2\\hostname\\${RESPONDER_HOSTNAME}\\mapname\\q2dm1\\clients\\2\\maxclients\\8\\version\\3.20`
 const RESPONDER_PLAYER_LINES = ['5 20 "Alpha"', '3 10 "Bravo"']
-
-/** Mirrors `SERVERS_HANDLERS.scanStart`/`scanRead` (`src/shared/modules/servers.ts`) by hand. */
-/** Mirrors `SCAN_BLOCKED_GAME_RUNNING_REASON_KEY` (`src/shared/modules/servers.ts`) by hand. */
-const SCAN_BLOCKED_GAME_RUNNING_REASON_KEY = 'servers.scan.blocked.gameRunning'
 
 let responder = null
 let populatedAddress = null
@@ -158,12 +152,6 @@ export async function teardown() {
   // step 3 below already closes it deliberately mid-flow (`responder.closed` is then already
   // `true` and this is a no-op); this is the safety net for a throw anywhere before that.
   await closeResponderOnce()
-}
-
-async function invokeScanStart(page) {
-  return page.evaluate(() =>
-    window.q2.invoke('module:invoke', { moduleId: 'servers', type: 'scan.start' }),
-  )
 }
 
 async function invokeScanRead(page) {
@@ -230,39 +218,20 @@ export default async function serversNoScanWhilePlaying({ page, step, shot }) {
   }
   await shot('blocked-auto-refresh-skipped')
 
-  step('AC2: a manual scan attempted while running is refused, not silently ignored or queued')
-  if (!(await manualRefresh.isDisabled())) {
-    throw new Error('expected servers-refresh to be disabled while a game session is active (AC2)')
+  step('AC2: a manual scan while running is allowed - only automatic refresh pauses')
+  if (await manualRefresh.isDisabled()) {
+    throw new Error('expected servers-refresh to stay enabled while a game session is active (AC2)')
   }
-  const refusal = await invokeScanStart(page)
-  if (refusal?.ok !== true) {
-    throw new Error(
-      `expected the module:invoke transport to succeed, got ${JSON.stringify(refusal)}`,
-    )
-  }
-  if (
-    refusal.value?.ok !== false ||
-    refusal.value.reasonKey !== SCAN_BLOCKED_GAME_RUNNING_REASON_KEY
-  ) {
-    throw new Error(
-      `expected scan.start to refuse with ${JSON.stringify(SCAN_BLOCKED_GAME_RUNNING_REASON_KEY)}, ` +
-        `got ${JSON.stringify(refusal.value)} (AC2)`,
-    )
-  }
+  await manualRefresh.click({ timeout: TIMEOUT_MS })
+  await waitForFinishedAtChange(page, finishedAtBeforeBlockedWait, SCAN_SETTLE_TIMEOUT_MS)
   await blockedBanner.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const finishedAtAfterRefusal = await readFinishedAt(page)
-  if (finishedAtAfterRefusal !== finishedAtBeforeBlockedWait) {
-    throw new Error(
-      `expected data-finished-at to still be ${JSON.stringify(finishedAtBeforeBlockedWait)} after the ` +
-        `refused manual scan, got ${JSON.stringify(finishedAtAfterRefusal)} (AC2)`,
-    )
-  }
-  await shot('blocked-manual-refused')
+  const finishedAtAfterManual = await readFinishedAt(page)
+  await shot('manual-scan-while-running')
 
   step('AC4: the moment the game session ends, scanning resumes with no user action')
   await simulateLaunch(page, INSTALL_ONE_ID, 'idle')
   await blockedBanner.waitFor({ state: 'detached', timeout: RESUME_TIMEOUT_MS })
-  await waitForFinishedAtChange(page, finishedAtBeforeBlockedWait, RESUME_TIMEOUT_MS)
+  await waitForFinishedAtChange(page, finishedAtAfterManual, RESUME_TIMEOUT_MS)
   await shot('resumed-after-game-ended')
 
   step('AC3: the silenced server keeps its last known data, visibly flagged as stale')
@@ -297,8 +266,7 @@ export default async function serversNoScanWhilePlaying({ page, step, shot }) {
 
   console.log(
     'servers-no-scan-while-playing: a due auto-refresh was skipped (not queued) while the game ran ' +
-      '(AC1), a manual refresh was refused with the same visible reason and the real IPC refusal ' +
-      '(AC2), scanning resumed on its own the moment the session ended (AC4), and the silenced ' +
+      '(AC1), a manual refresh still ran during the session (AC2), scanning resumed on its own the moment the session ended (AC4), and the silenced ' +
       "server's row stayed flagged stale while keeping its full player data instead of reading as " +
       'empty or absent (AC3)',
   )

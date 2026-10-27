@@ -49,6 +49,7 @@ const BASE_INSTALLATION: Installation = {
   engineKind: 'r1q2',
   launchArgs: [],
   activeGameDir: '',
+  activeMap: '',
   source: 'manual',
   status: 'ok',
   checks: [],

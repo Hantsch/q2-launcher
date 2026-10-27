@@ -436,12 +436,30 @@ describe('a demo is read in one full pass', () => {
     expect((await readDemoFullPass(gzPath)).roster?.teams).toEqual(expected)
   })
 
+  it("the example demo's full pass carries shad's stats", async () => {
+    const plain = (await readDemoFullPass(OPENTDM_FIXTURE_PATH)).stats
+    expect(plain?.player).toBe('shad')
+    expect(plain?.items.find((i) => i.item === 'Railgun')?.accuracy).toBe(36)
+    expect(plain?.total?.kills).toBe(10)
+    expect(plain?.total?.deaths).toBe(27)
+
+    const gzPath = join(dir, 'opentdm-stats.dm2.gz')
+    await writeFile(gzPath, gzipSync(await readFile(OPENTDM_FIXTURE_PATH)))
+    expect((await readDemoFullPass(gzPath)).stats).toEqual(plain)
+
+    expect((await readDemoFullPass(FIXTURE_PATH)).stats).toBeNull()
+  })
+
   it('an mvd2 demo has no roster', async () => {
     expect((await readDemoFullPass(MVD2_FIXTURE_PATH)).roster).toBeNull()
   })
 
   it('a missing path is unreadable', async () => {
     const result = await readDemoFullPass(join(dir, 'does-not-exist.demo'))
-    expect(result).toEqual({ duration: { ok: false, reason: 'unreadable' }, roster: null })
+    expect(result).toEqual({
+      duration: { ok: false, reason: 'unreadable' },
+      roster: null,
+      stats: null,
+    })
   })
 })

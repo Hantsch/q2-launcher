@@ -16,6 +16,7 @@ const NONE: QuickFilterCriteria = {
   empty: false,
   hideBotsOnly: false,
   waitingForOpponent: false,
+  location: [],
 }
 const CTF: QuickFilterCriteria = { ...NONE, mod: ['ctf'] }
 const EMPTY_ONLY: QuickFilterCriteria = { ...NONE, empty: true }

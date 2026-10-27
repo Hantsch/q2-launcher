@@ -42,6 +42,8 @@ export const DYNAMIC_KEY_PREFIXES: readonly string[] = [
   'servers.sort.column.',
   // t(`servers.sort.direction.${sort.direction}`) in src/renderer/src/modules/servers/ServersView.tsx
   'servers.sort.direction.',
+  // t(`servers.location.region.${location.continent}`) in src/renderer/src/modules/servers/location-label.ts
+  'servers.location.region.',
   // t(`servers.mode.${m}`) in src/renderer/src/modules/servers/ServersModeToggle.tsx
   'servers.mode.',
   // t(`servers.engine.${value.engine}`) in src/renderer/src/modules/servers/ServerRulesPanel.tsx
@@ -124,6 +126,8 @@ export const DYNAMIC_KEY_PREFIXES: readonly string[] = [
 export const DUPLICATE_EXCEPTIONS: Record<string, string> = {
   Close: 'The titlebar button closes the window; the others dismiss a panel.',
   Scan: 'A section heading in the servers settings versus the button that starts a cleanup scan.',
+  'Server list':
+    'A section heading in the servers settings versus the servers view tab that shows the list.',
   Reset: 'A column header in the controls grid versus a name-template action button.',
   'Import from files':
     'A source choice in the config profile dialog versus the import dialog title.',
@@ -162,6 +166,7 @@ export const DUPLICATE_EXCEPTIONS: Record<string, string> = {
     'The same words as a dialog title and as its submit button, which are different roles.',
   'Create alias':
     'The same words as a dialog title and as its submit button, which are different roles.',
+  Total: 'A caption of the demo stats totals versus the playtime tile status on the dashboard.',
 }
 
 // i18next resolves `t('x', { count })` to `x_one`/`x_other`/..., so the source names only `x`.

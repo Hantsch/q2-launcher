@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
-  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SERVERS_HANDLERS,
   type FavouriteServerEntry,
   type ServerHistoryEntry,
@@ -69,14 +68,6 @@ function fakeAppContextWithControllableLaunch(state: StateStore): {
       for (const listener of [...listeners]) listener(next)
     },
   }
-}
-
-/** An `app.launch` stub frozen in `launchState`; the shared helper's default is idle. */
-function launchIn(launchState: LaunchState): AppContext['launch'] {
-  return {
-    getState: () => launchState,
-    onStateChange: () => () => {},
-  } as unknown as AppContext['launch']
 }
 
 describe('servers module', () => {
@@ -658,6 +649,7 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
     hideBotsOnly: true,
     waitingForOpponent: false,
     maxPingMs: null,
+    location: [],
   }
 
   it('quick filter handlers persist to servers state', async () => {
@@ -730,25 +722,6 @@ describe('servers module scan.start is guarded and single-flight per scope (stor
     await rm(filePath, { force: true })
     await rm(`${filePath}.tmp`, { force: true })
     await rm(`${filePath}.bak`, { force: true })
-  })
-
-  it('a scoped scan.start is refused with the game-running reason key while the game is running', async () => {
-    const registry = new MainModuleRegistry()
-    await registry.register(
-      serversModule,
-      fakeAppContext({ state, launch: launchIn({ phase: 'running', installationId: 'inst-1' }) }),
-    )
-
-    const outcome = await registry.invoke({
-      moduleId: 'servers',
-      type: SERVERS_HANDLERS.scanStart,
-      payload: { scope: { kind: 'favourites' } },
-    })
-
-    expect(outcome).toEqual({
-      ok: true,
-      value: { ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY },
-    })
   })
 
   it('a scoped scan.start is refused, not queued, while a scan is already running', async () => {

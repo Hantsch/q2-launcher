@@ -752,7 +752,7 @@ export const SCREENS = [
     // the tooltip first.
     navigate: async (page) => {
       await configDetail('raw')(page)
-      await page.locator('select').selectOption('brackets')
+      await page.getByTestId('config-raw-toolbar-row').locator('select').selectOption('brackets')
       await page
         .getByTestId('config-tab-unsaved')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -780,7 +780,7 @@ export const SCREENS = [
     // directly instead.
     navigate: async (page) => {
       await configDetail('raw')(page)
-      await page.locator('select').selectOption('brackets')
+      await page.getByTestId('config-raw-toolbar-row').locator('select').selectOption('brackets')
       await page
         .getByTestId('config-tab-unsaved')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -841,6 +841,8 @@ export const SCREENS = [
   },
   {
     id: 'mods',
+    // Dev-only module: release builds (a packaged `--app=` run) have no `nav-mods`.
+    devOnly: true,
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
     navigate: async (page) => {
@@ -849,6 +851,8 @@ export const SCREENS = [
   },
   {
     id: 'assets',
+    // Dev-only module: release builds (a packaged `--app=` run) have no `nav-assets`.
+    devOnly: true,
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
     navigate: async (page) => {

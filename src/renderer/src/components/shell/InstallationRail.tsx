@@ -251,6 +251,7 @@ function RailCard({ installation }: { installation: Installation }) {
           variant={playable ? 'primary' : 'neutral'}
           size="sm"
           fullWidth
+          data-testid="rail-play"
           disabled={!playable}
           icon={<Play className="size-3.5" />}
           onClick={() => {

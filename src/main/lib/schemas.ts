@@ -3,6 +3,7 @@ import { parseForgivingRows } from './forgiving'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
+import { isSafeGameName } from '@shared/mods/server-local-content'
 import {
   WINDOW_DEFAULT_HEIGHT,
   WINDOW_DEFAULT_WIDTH,
@@ -93,6 +94,8 @@ const installationSchema = z.object({
   steamClient: z.number().optional().catch(undefined),
   launchArgs: z.array(z.string()).catch([]),
   activeGameDir: z.string().catch(''),
+  // A stored map that is not a safe game name reads as no map.
+  activeMap: z.string().refine(isSafeGameName).catch(''),
   detectedVersion: z.string().optional(),
   source: sourceSchema.catch('unknown'),
   // Health is re-derived on startup, so a stale value here is harmless.

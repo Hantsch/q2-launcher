@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ServerListRow } from '@shared/modules/servers'
-import { modMismatch, needsJoinPassword } from './join-flow'
-import { makeInstallation } from '../../../../../test-support/fixtures'
+import { needsJoinPassword } from './join-flow'
 
 function makeRow(overrides: Partial<ServerListRow> = {}): ServerListRow {
   return {
@@ -13,33 +12,6 @@ function makeRow(overrides: Partial<ServerListRow> = {}): ServerListRow {
     ...overrides,
   }
 }
-
-describe('modMismatch', () => {
-  it('compares the server mod with the active game dir, baseq2 for empty', () => {
-    expect(modMismatch(makeRow({ mod: 'ctf' }), makeInstallation({ activeGameDir: '' }))).toEqual({
-      server: 'ctf',
-      installation: 'baseq2',
-    })
-
-    expect(
-      modMismatch(makeRow({ mod: 'BaseQ2' }), makeInstallation({ activeGameDir: '' })),
-    ).toBeNull()
-
-    expect(modMismatch(makeRow({ mod: '' }), makeInstallation({ activeGameDir: 'ctf' }))).toBeNull()
-    expect(
-      modMismatch(makeRow({ mod: undefined }), makeInstallation({ activeGameDir: 'ctf' })),
-    ).toBeNull()
-  })
-
-  it('matches case-insensitively against a non-empty active game dir', () => {
-    expect(
-      modMismatch(makeRow({ mod: 'CTF' }), makeInstallation({ activeGameDir: 'ctf' })),
-    ).toBeNull()
-    expect(
-      modMismatch(makeRow({ mod: 'xatrix' }), makeInstallation({ activeGameDir: 'ctf' })),
-    ).toEqual({ server: 'xatrix', installation: 'ctf' })
-  })
-})
 
 describe('needsJoinPassword', () => {
   it('is true only when needpass is exactly true', () => {

@@ -8,6 +8,7 @@ import type { ServerListSort, ServerSortColumn } from '../servers/list-sort'
 import type { MasterSourceAddressRejection } from '../servers/master-source-address'
 import { QUICK_FILTER_NAME_MAX, hasCriteria } from '../servers/quick-filters'
 import type { QuickFilter } from '../servers/quick-filters'
+import type { ServerLocation } from '../servers/location'
 import type { ServerGamemode } from '../servers/row-markers'
 import type { ServerPlayer, StatusReplySuccess } from '../servers/status-reply'
 
@@ -246,6 +247,7 @@ export const SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS = [
  * The scanner's budget knobs, user-facing settings. Beyond `concurrency`/`timeoutMs`/
  * `retries`/`minSpacingMs`:
  * - `autoScanOnOpen`: whether opening the Servers view kicks off a scan automatically.
+ * - `doubleClickJoins`: whether double-clicking a server row joins it.
  * - `autoRefreshEnabled`: whether the view keeps re-scanning on its own once open.
  * - `autoRefreshIntervalMs`: how often it does so while `autoRefreshEnabled` is on.
  */
@@ -255,6 +257,7 @@ export interface ServersScanSettings {
   retries: number
   minSpacingMs: number
   autoScanOnOpen: boolean
+  doubleClickJoins: boolean
   autoRefreshEnabled: boolean
   autoRefreshIntervalMs: number
 }
@@ -265,6 +268,7 @@ export const serversScanSettingsSchema = z.object({
   retries: z.number(),
   minSpacingMs: z.number(),
   autoScanOnOpen: z.boolean(),
+  doubleClickJoins: z.boolean(),
   autoRefreshEnabled: z.boolean(),
   autoRefreshIntervalMs: z.number(),
 })
@@ -446,6 +450,7 @@ export const quickFilterCriteriaSchema = z
     empty: z.boolean(),
     hideBotsOnly: z.boolean(),
     waitingForOpponent: z.boolean(),
+    location: z.array(z.string()).default([]),
   })
   .strict()
 
@@ -490,6 +495,7 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
     retries: 1,
     minSpacingMs: 30_000,
     autoScanOnOpen: true,
+    doubleClickJoins: true,
     autoRefreshEnabled: false,
     autoRefreshIntervalMs: 60_000,
   },
@@ -613,8 +619,8 @@ export interface ScanTarget {
  * hand-declaring a structurally-identical copy that nothing keeps in sync if either side changes.
  */
 export type ScanQueryResult =
-  | { ok: true; kind: 'info'; reply: InfoReplySuccess; rttMs: number }
-  | { ok: true; kind: 'status'; reply: StatusReplySuccess; rttMs: number }
+  | { ok: true; kind: 'info'; reply: InfoReplySuccess; rttMs: number; fromAddress?: string }
+  | { ok: true; kind: 'status'; reply: StatusReplySuccess; rttMs: number; fromAddress?: string }
   | { ok: false; reason: 'no-reply' | 'transport-error' | 'malformed' }
 
 /** One row as delivered through the `scan.server` push (D-C) - `scan-runner.ts`'s `ScanServerResult`
@@ -653,6 +659,8 @@ export interface ServerListEntry {
   rttHistory?: RttSample[]
   players?: number | ServerPlayer[]
   gamemode?: ServerGamemode
+  /** Computed in main at read time from the server's IP, never persisted. */
+  location?: ServerLocation
   /** ISO timestamp of the last reply. */
   lastSeenAt: string | null
 }
@@ -690,9 +698,10 @@ export interface ScanSourceFailure {
 export type ScanPhase = 'idle' | 'stage1' | 'stage2'
 
 /**
- * Why a scan is currently refused/held back from starting - a closed union so a later reason (if
- * any) is a compile-time-visible addition, unlike `ScanStartResult`'s/ `ManualServerAddResult`'s
- * free-text `reasonKey`. Currently only one member: the game is running (story 116)
+ * Why automatic scans are currently held back - a closed union so a later reason (if any) is a
+ * compile-time-visible addition, unlike `ScanStartResult`'s/ `ManualServerAddResult`'s free-text
+ * `reasonKey`. A manual scan is never held back by it. Currently only one member: the game is
+ * running (story 116)
  */
 export type ScanBlockedReason = 'game-running'
 
@@ -731,12 +740,10 @@ export type ScanStartResult = DomainResult<Record<never, never>>
 export type WatchlistMutationResult = DomainResult<{ snapshot: WatchlistSnapshot }>
 
 /**
- * The `reasonKey` a refused `scan.start` (or a `blockedReason: 'game-running'` scan state) carries
- * when the game is running - a distinct i18n convention from `SCAN_ALREADY_RUNNING_REASON_KEY`
- * (`servers.scan.error.<reason>`, `scan-service.ts`) because this is a *blocked* state rather than
- * an *error*, mirroring `WAITING_REASON_GAME_RUNNING` (`jobs.waiting.gameRunning`,
- * `src/main/services/write-guard.ts`). Lives here rather than in `scan-service.ts` because both a
- * later main-side deliverable and a renderer i18n-key check need it.
+ * The i18n key for a `blockedReason: 'game-running'` scan state - a distinct convention from
+ * `SCAN_ALREADY_RUNNING_REASON_KEY` (`servers.scan.error.<reason>`, `scan-service.ts`) because this
+ * is a *paused* state rather than an *error*, mirroring `WAITING_REASON_GAME_RUNNING`
+ * (`jobs.waiting.gameRunning`, `src/main/services/write-guard.ts`).
  */
 export const SCAN_BLOCKED_GAME_RUNNING_REASON_KEY = 'servers.scan.blocked.gameRunning'
 
@@ -850,6 +857,7 @@ export const scanPatchSettingsInputSchema = z
       .refine((value) => (SCAN_MIN_SPACING_CHOICES_MS as readonly number[]).includes(value))
       .optional(),
     autoScanOnOpen: z.boolean().optional(),
+    doubleClickJoins: z.boolean().optional(),
     autoRefreshEnabled: z.boolean().optional(),
     autoRefreshIntervalMs: z
       .number()

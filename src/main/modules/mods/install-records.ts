@@ -1,9 +1,5 @@
 import { z } from 'zod'
-import {
-  modLastLaunchSchema,
-  type ModInstallRecord,
-  type ModLastLaunch,
-} from '@shared/modules/mods'
+import type { ModInstallRecord } from '@shared/modules/mods'
 import { parseForgivingRows } from '../../lib/forgiving'
 
 /**
@@ -102,23 +98,6 @@ export function withRecord(moduleData: unknown, record: ModInstallRecord): Recor
   const key = record.gameDir.toLowerCase()
   const kept = readModsState(moduleData).records.filter((r) => r.gameDir.toLowerCase() !== key)
   return withRecords(moduleData, [...kept, record])
-}
-
-/** The remembered launch choice; anything that does not parse reads as "nothing remembered" (story 249). */
-export function readLastLaunch(moduleData: unknown): ModLastLaunch | null {
-  return modLastLaunchSchema
-    .nullable()
-    .catch(null)
-    .parse(envelopeOf(moduleData)?.['lastLaunch'] ?? null)
-}
-
-/** Returns a new `moduleData` remembering `choice` (only its choice fields); every other key is kept. */
-export function withLastLaunch(
-  moduleData: unknown,
-  choice: ModLastLaunch,
-): Record<string, unknown> {
-  const { gameDir, map, gameType } = choice
-  return withEnvelopeKey(moduleData, 'lastLaunch', { gameDir, map, gameType })
 }
 
 /**

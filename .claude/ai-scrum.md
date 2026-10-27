@@ -37,17 +37,24 @@ e2e: npm run ui:verify
 <!-- npm run ui:verify: builds if needed, seeds the fixture, screenshots every screen and runs an accessibility report against the real app; see docs/UI-VERIFICATION.md. -->
 
 test-story: npx vitest run --changed HEAD
-e2e-story: npm run ui:flows -- --affected {files}
-e2e-all: npm run ui:flows
+e2e-story: npm run ui:flows -- --affected {files} --parallel=4 --shard={shard}
+e2e-story-slices: 2 <!-- /build runs e2e-story once per slice, {shard} = 1/2 and 2/2, so a selection of most of the suite still fits two ten-minute calls at 4 workers -->
+e2e-all: npm run ui:flows -- --parallel=4
 e2e-cleanup: none <!-- e.g. taskkill /F /IM electron.exe | pkill -f electron | none -->
 <!--
   Narrow gates /build runs per-story instead of the full `test`/`e2e` above.
   `/sprint` still runs full `test`, full `e2e` and `e2e-all` once after the last story.
-  `e2e-story` is one run: the story's named flow files ({files}) plus the flows its diff can break
-  (--affected), each reseeded per flow (scripts/flows-all.mjs). `ui:flow -- <name>` still runs one flow.
+  `e2e-story` is one run per slice: the story's named flow files ({files}) plus the flows its diff
+  can break (--affected), each reseeded per flow (scripts/flows-all.mjs). `--shard={shard}` takes
+  the slice of that selection first, then `--parallel=4` splits the slice over four child runs
+  (each under .ui-verify/shard-<i>, ~3x the serial throughput on this machine); the five pinned
+  flows (fixed UDP/HTTP ports or window focus, scripts/lib/flow-parallel.mjs) run serially in the
+  parent afterwards. `ui:flow -- <name>` still runs one flow.
   `e2e-all` runs every flow in scripts/flows/, each against a freshly seeded fixture
-  (scripts/flows-all.mjs). `e2e` (ui:verify) does not cover it: it only screenshots and
-  audits screens, and running all flows together is what caught S18's regression.
+  (scripts/flows-all.mjs), through the same parallel runner (~22 s per flow serially, about 65 min
+  for the suite; roughly a third of that at 4 workers). `e2e` (ui:verify) does not cover it: it
+  only screenshots and audits screens, and running all flows together is what caught S18's
+  regression.
 -->
 
 test-support: src/test-support/ <!-- shared fixtures, builders and fakes — pasted into every deliverable prompt by /build -->

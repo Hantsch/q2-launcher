@@ -83,6 +83,11 @@
   --color-danger: #ff5a52; /*  6.4:1 */
   --color-info: #6ab7ff; /*  8.0:1 */
 
+  /* Team sides: a team colour is not a status, so these never alias danger/info. Ratios are
+     against base / panel / raised. */
+  --color-side-1: #ff6a5f; /*  6.8 / 6.4 / 5.9:1  first team */
+  --color-side-2: #62b0ff; /*  8.4 / 7.9 / 7.3:1  second team */
+
   /* --- config syntax highlighting (story 024) ---------------------------
      One semantic token per kind `tokenizeConfigText` can emit, so
      `config-syntax.css` never names a ramp step directly. Each derives from

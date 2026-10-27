@@ -172,3 +172,32 @@ describe('installationSchema - detectedEngines', () => {
     expect(parseInstallation({ ...baseRow, checks: [check] })?.checks).toEqual([check])
   })
 })
+
+describe('installationSchema - activeMap', () => {
+  const row = {
+    id: 'install-1',
+    rootPath: 'C:/Games/Quake2',
+    name: 'Quake II',
+    engineKind: 'r1q2',
+    launchArgs: [],
+    activeGameDir: '',
+    source: 'manual',
+    status: 'ok',
+    checks: [],
+    gameDirs: [],
+    favorite: false,
+    sortOrder: 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    totalPlaytimeSeconds: 0,
+  }
+
+  it('a stored installation without activeMap reads as no map', () => {
+    expect(parseInstallation(row)?.activeMap).toBe('')
+  })
+
+  it('a stored map that is not a safe game name reads as no map', () => {
+    expect(parseInstallation({ ...row, activeMap: '../x' })?.activeMap).toBe('')
+    expect(parseInstallation({ ...row, activeMap: 'q2dm1' })?.activeMap).toBe('q2dm1')
+  })
+})

@@ -101,6 +101,11 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   }
 
   step('reveal and copy path on a pack.zip entry act on pack.zip itself')
+  // Clicking the loose demo's row scrolled the virtualized list down; folder rows sit at its top and
+  // are only rendered while in the window.
+  await page.getByTestId('replays-demo-scroll').evaluate((el) => {
+    el.scrollTop = 0
+  })
   await openFolder(page, 'pack.zip')
   const zipRow = page
     .getByTestId('replays-demo-row')

@@ -2,6 +2,7 @@ import type { BoundModule } from '../define-module'
 import { stat } from 'node:fs/promises'
 import { basename, join, resolve, sep } from 'node:path'
 import type { DemoRoster } from '@shared/demos/dm2-roster'
+import type { DemoStats } from '@shared/demos/dm2-stats'
 import { isPrefix, type DiscoveredFolder, type FolderRef } from '@shared/replays/demo-folders'
 import { demoReadability } from '@shared/demos/readability'
 import type { DemoUnreadable } from '@shared/demos/readability'
@@ -76,6 +77,8 @@ export interface DemoHeaderFacts {
   durationMs: number | null
   /** Teams and spectators from the same frame-count pass; null for mvd2 or when none was read. */
   roster: DemoRoster | null
+  /** The recording player's end-of-match stats from the same pass; absent when there are none. */
+  stats?: DemoStats
 }
 
 /** A discovered demo plus the identity the incremental scan compares against the cache. For a zip entry, `size`,
@@ -212,6 +215,7 @@ function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
     players: facts.players,
     durationMs: facts.durationMs,
     roster: facts.roster,
+    ...(facts.stats ? { stats: facts.stats } : {}),
     fileTime:
       file.archiveEntry !== null
         ? file.fileTime
@@ -316,6 +320,7 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
       players: file.players,
       durationMs: file.durationMs,
       roster: file.roster,
+      ...(file.stats ? { stats: file.stats } : {}),
     }
   }
   const header = await readDemoHeader(file.absolutePath)
@@ -336,7 +341,7 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
       roster: null,
     }
   }
-  const { duration, roster } = await readDemoFullPass(file.absolutePath)
+  const { duration, roster, stats } = await readDemoFullPass(file.absolutePath)
   return {
     map: header.map,
     unparsableReason: null,
@@ -347,6 +352,7 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
     players: header.players,
     durationMs: duration.ok ? duration.durationMs : null,
     roster,
+    ...(stats ? { stats } : {}),
   }
 }
 

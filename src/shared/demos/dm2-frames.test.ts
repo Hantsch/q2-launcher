@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { createDm2FactsCollector } from './dm2-facts'
 import { createDm2FrameCounter } from './dm2-frames'
 import { buildDm2Stream, dm2Msg, TE, TE_FIELDS } from './dm2-frames-writer'
 import type { Dm2StreamMessage, TeName } from './dm2-frames-writer'
@@ -313,13 +314,14 @@ describe('createDm2FrameCounter', () => {
     }
   })
 
-  it('an observer sees configstrings, layouts and serverdata without changing the count', () => {
+  it('an observer sees configstrings, layouts, prints and serverdata without changing the count', () => {
     const recordingCount = (bytes: Uint8Array): { result: FrameCountResult; seen: string[] } => {
       const seen: string[] = []
       const counter = createDm2FrameCounter({
         onServerdata: (protocol) => seen.push(`serverdata ${protocol}`),
         onConfigstring: (index, value) => seen.push(`cs ${index} ${value}`),
         onLayout: (text) => seen.push(`layout ${text}`),
+        onPrint: (level, text) => seen.push(`print ${level} ${text}`),
       })
       counter.push(bytes)
       return { result: counter.finish(), seen }
@@ -344,8 +346,22 @@ describe('createDm2FrameCounter', () => {
       expect(observed.seen).toEqual([
         `serverdata ${protocol}`,
         'cs 33 maps/q2dm1.bsp',
+        'print 2 hello\n',
         'layout xv 32 yv 8 string "hi"',
       ])
+    }
+  })
+
+  it('collecting roster and stats leaves the frame count of the real demos unchanged', () => {
+    for (const name of ['test.dm2', 'shad-maq_PFDE3_q2rdm2_20260922-161521.dm2']) {
+      const bytes = new Uint8Array(
+        readFileSync(resolve(__dirname, '../../../docs/fixtures/demos', name)),
+      )
+      const counter = createDm2FrameCounter(createDm2FactsCollector())
+      counter.push(bytes)
+      const observed = counter.finish()
+      expect(observed, name).toEqual(count(bytes))
+      expect(observed.ok, name).toBe(true)
     }
   })
 

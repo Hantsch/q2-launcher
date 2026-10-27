@@ -180,7 +180,10 @@ export default async function unsavedDiff({ page, shot, step }) {
 
   step('dirty settings: change the Raw tab\'s "Section header style" (the idempotent setter)')
   await page.getByTestId('config-tab-raw').click({ timeout: CLICK_TIMEOUT_MS })
-  await page.locator('select').selectOption('brackets', { timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+  await page
+    .getByTestId('config-raw-toolbar-row')
+    .locator('select')
+    .selectOption('brackets', { timeout: RAW_TAB_LOAD_TIMEOUT_MS })
 
   step('open the Unsaved tab')
   await page

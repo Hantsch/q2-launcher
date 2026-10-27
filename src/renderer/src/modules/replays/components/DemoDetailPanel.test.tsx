@@ -87,11 +87,10 @@ const BASE_ROW: DemoRow = {
   },
 }
 
-function renderPanel(row: DemoRow = BASE_ROW, onClose: () => void = () => {}) {
+function renderPanel(row: DemoRow = BASE_ROW) {
   render(
     createElement(DemoDetailPanel, {
       row,
-      onClose,
       onRowPatched: () => {},
       onRename: () => {},
       onMove: () => {},
@@ -111,6 +110,41 @@ describe('DemoDetailPanel', () => {
     expect(screen.queryByTestId('replays-demo-play-anyway')).toBeNull()
     const buttons = screen.getAllByRole('button').map((button) => button.textContent ?? '')
     expect(buttons.some((label) => /\bplay\b/i.test(label))).toBe(false)
+    await waitFor(() => expect(sidecarRead).toHaveBeenCalledWith(BASE_ROW.id))
+  })
+
+  it('a row without stats renders no stats section', async () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } })
+
+    renderPanel()
+
+    expect(screen.queryByTestId('replays-detail-stats')).toBeNull()
+    await waitFor(() => expect(sidecarRead).toHaveBeenCalledWith(BASE_ROW.id))
+  })
+
+  it('a row with stats renders the stats table', async () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } })
+    const stats = {
+      player: 'shad',
+      items: [
+        {
+          item: 'Railgun',
+          accuracy: 36,
+          kills: 3,
+          deaths: 11,
+          dealt: 1000,
+          received: 2000,
+          pickups: 6,
+          missed: 3,
+        },
+      ],
+      total: null,
+    }
+
+    renderPanel({ ...BASE_ROW, stats })
+
+    expect(screen.getByTestId('replays-detail-stats-title').textContent).toBe('Stats for shad')
+    expect(screen.getByTestId('replays-detail-stats-row').textContent).toContain('Railgun36%')
     await waitFor(() => expect(sidecarRead).toHaveBeenCalledWith(BASE_ROW.id))
   })
 
@@ -203,12 +237,11 @@ describe('DemoDetailPanel', () => {
     expect(screen.getByTestId('replays-detail-tags').textContent).toContain('ctf')
   })
 
-  it('close calls onClose', () => {
+  it('the detail panel has no close button', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    const onClose = vi.fn()
-    renderPanel(BASE_ROW, onClose)
-    screen.getByTestId('replays-detail-close').click()
-    expect(onClose).toHaveBeenCalled()
+    renderPanel()
+    expect(screen.getByTestId('replays-detail-header')).toBeTruthy()
+    expect(screen.queryByTestId('replays-detail-close')).toBeNull()
   })
 
   it('the detail is one view: no Edit, Save, Cancel or discard dialog', () => {
@@ -268,7 +301,6 @@ describe('DemoDetailPanel', () => {
     render(
       createElement(DemoDetailPanel, {
         row: { ...BASE_ROW, sidecar: { state: 'ok', values } },
-        onClose: () => {},
         onRowPatched,
         onRename: () => {},
         onMove: () => {},

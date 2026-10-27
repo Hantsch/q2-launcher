@@ -22,8 +22,8 @@ import { isInstallationRunning } from './write-plan'
  * so they are built the same conservative way `writer.ts` is:
  *
  * - **Backup before unlink, always.** A file is copied to `<file>.q2l-backup`
- *   via `backupOnce()` - the exact same helper and suffix the write pipeline
- *   uses - and only then deleted. There is no code path to `unlink` that has
+ *   via `backupOnce()` - the helper and suffix the canonical-file writes use;
+ *   installation writes keep their originals elsewhere - and only then deleted. There is no code path to `unlink` that has
  *   not awaited `backupOnce` for that same path first, and `backupOnce` only
  *   resolves when a backup is in place (it swallows nothing but `EEXIST`,
  *   which means one is already there). A pre-existing backup always wins: it

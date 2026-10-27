@@ -25,6 +25,7 @@ function installation(id: string, engineKind: EngineKind): Installation {
     engineKind,
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],

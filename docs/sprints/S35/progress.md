@@ -1,0 +1,233 @@
+- 06:55:37 · refine · 251 252 253 254 255 256 257 258 259 260 261 262 263 · started
+- 07:03:49 · refine · done
+- 07:03:49 · 251 · build · started
+- 2026-10-27 07:04 · 251 · D1 footer hides Launch with · started
+- 2026-10-27 07:06 · 251 · D1 footer hides Launch with · done
+- 2026-10-27 07:06 · 251 · D2 no mismatch confirmation · started
+- 2026-10-27 07:09 · 251 · D2 no mismatch confirmation · done
+- 2026-10-27 07:09 · 251 · D3 join launches without saved mod · started
+- 2026-10-27 07:13 · 251 · D3 join launches without saved mod · done
+- 2026-10-27 07:13 · 251 · verify · started
+- 2026-10-27 07:42 · 251 · verify · done
+- 2026-10-27 07:42 · 251 · review 1 · started
+- 2026-10-27 07:45 · 251 · review 1 · done
+- 2026-10-27 07:45 · 251 · review-fix 1 · started
+- 2026-10-27 07:49 · 251 · review-fix 1 · done
+- 2026-10-27 07:49 · 251 · story · done
+- 07:49:35 · 252 · build · started
+- 2026-10-27 07:49 · 252 · D1 core map listing + IPC channel · started
+- 2026-10-27 07:51 · 252 · D1 core map listing + IPC channel · done
+- 2026-10-27 07:51 · 252 · D2 saved map + deathmatch launch · started
+- 2026-10-27 07:54 · 252 · D2 saved map + deathmatch launch · done
+- 2026-10-27 07:54 · 252 · D3 footer Map select + plain Play (hard) · started
+- 2026-10-27 07:59 · 252 · D3 footer Map select + plain Play (hard) · done
+- 2026-10-27 07:59 · 252 · D4 remove Play with dialog · started
+- 2026-10-27 08:01 · 252 · D4 remove Play with dialog · done
+- 2026-10-27 08:01 · 252 · D5 footer-map e2e flow + changelog · started
+- 2026-10-27 08:06 · 252 · D5 footer-map e2e flow + changelog · done
+- 2026-10-27 08:06 · 252 · verify · started
+- 2026-10-27 08:31 · 252 · verify · blocked: 15 mods flows red after release build overwrote the dev bundle, re-running on build:dev
+- 2026-10-27 08:34 · 252 · verify · done
+- 2026-10-27 08:34 · 252 · review 1 · started
+- 2026-10-27 08:37 · 252 · review 1 · done
+- 2026-10-27 08:37 · 252 · review-fix 1 · started
+- 2026-10-27 08:38 · 252 · review-fix 1 · done
+- 2026-10-27 08:38 · 252 · verify 2 · started
+- 2026-10-27 08:41 · 252 · verify 2 · done
+- 2026-10-27 08:41 · 252 · story · done
+- 08:41:23 · 253 · build · started
+- 2026-10-27 08:41 · 253 · D1 Unassigned banner + Assign action · started
+- 2026-10-27 08:45 · 253 · D1 Unassigned banner + Assign action · done
+- 2026-10-27 08:45 · 253 · D2 Not assigned list marker + docs · started
+- 2026-10-27 08:51 · 253 · D2 Not assigned list marker + docs · done
+- 2026-10-27 08:51 · 253 · verify · started
+- 2026-10-27 08:59 · 253 · verify · done
+- 2026-10-27 08:59 · 253 · review 1 · started
+- 2026-10-27 09:01 · 253 · review 1 · done
+- 2026-10-27 09:02 · 253 · story · done
+- 09:02:13 · 254 · build · started
+- 2026-10-27 09:02 · 254 · D1 Original-config backup in the writer · started
+- 2026-10-27 09:10 · 254 · D1 Original-config backup in the writer · done
+- 2026-10-27 09:10 · 254 · D2 Restore and list over IPC · started
+- 2026-10-27 09:18 · 254 · D2 Restore and list over IPC · done
+- 2026-10-27 09:18 · 254 · D3 Restore original configs action · started
+- 2026-10-27 09:23 · 254 · D3 Restore original configs action · done
+- 2026-10-27 09:23 · 254 · verify · started
+- 2026-10-27 09:30 · 254 · verify · done
+- 2026-10-27 09:30 · 254 · review 1 · started
+- 2026-10-27 09:34 · 254 · review 1 · done
+- 2026-10-27 09:34 · 254 · review 1 fixes · started
+- 2026-10-27 09:36 · 254 · review 1 fixes · done
+- 2026-10-27 09:36 · 254 · story · done
+- 09:37:05 · 255 · build · started
+- 2026-10-27 09:37 · 255 · D1 assign refuses foreign file · started
+- 2026-10-27 09:42 · 255 · D1 assign refuses foreign file · done
+- 2026-10-27 09:42 · 255 · D2 popover dialog + flow · started
+- 2026-10-27 09:49 · 255 · D2 popover dialog + flow · done
+- 2026-10-27 09:49 · 255 · verify · started
+- 2026-10-27 09:55 · 255 · verify · done
+- 2026-10-27 09:55 · 255 · review 1 · started
+- 2026-10-27 09:57 · 255 · review 1 · done
+- 2026-10-27 09:58 · 255 · story · done
+- 09:58:13 · 256 · build · started
+- 2026-10-27 09:58 · 256 · D1 Detail pane always present · started
+- 2026-10-27 10:00 · 256 · D1 Detail pane always present · done
+- 2026-10-27 10:00 · 256 · D2 Flows prove always-present pane · started
+- 2026-10-27 10:02 · 256 · D2 Flows prove always-present pane · done
+- 2026-10-27 10:02 · 256 · verify · started
+- 2026-10-27 10:06 · 256 · verify · blocked: servers-filter-search red (re-click deselect no longer possible), fixed in flow, re-running
+- 2026-10-27 10:09 · 256 · verify · done
+- 2026-10-27 10:09 · 256 · review 1 · started
+- 2026-10-27 10:11 · 256 · review 1 · done
+- 2026-10-27 10:11 · 256 · story · done
+- 10:11:39 · 257 · build · started
+- 2026-10-27 10:12 · 257 · D1 doubleClickJoins setting · started
+- 2026-10-27 10:14 · 257 · D1 doubleClickJoins setting · done
+- 2026-10-27 10:14 · 257 · D2 settings switch · started
+- 2026-10-27 10:15 · 257 · D2 settings switch · done
+- 2026-10-27 10:15 · 257 · D3 double-click join · started
+- 2026-10-27 10:23 · 257 · D3 double-click join · done
+- 2026-10-27 10:23 · 257 · D4 arrow keys + Enter · started
+- 2026-10-27 10:27 · 257 · D3b fix sibling ServersView tests · started
+- 2026-10-27 10:28 · 257 · D3b fix sibling ServersView tests · done
+- 2026-10-27 10:28 · 257 · verify · started
+- 2026-10-27 10:37 · 257 · verify · done
+- 2026-10-27 10:37 · 257 · review 1 · started
+- 2026-10-27 10:40 · 257 · review 1 · done
+- 2026-10-27 10:40 · 257 · D5 review fixes · started
+- 2026-10-27 10:43 · 257 · D5 review fixes · done
+- 2026-10-27 10:43 · 257 · verify · started
+- 2026-10-27 10:54 · 257 · verify · done
+- 2026-10-27 10:54 · 257 · story · done
+- 10:54:28 · 258 · build · started
+- 2026-10-27 10:54 · 258 · D1 Ping sample maths · started
+- 2026-10-27 10:55 · 258 · D1 Ping sample maths · done
+- 2026-10-27 10:55 · 258 · D2 Per-send timing monotonic clock · started
+- 2026-10-27 11:00 · 258 · D2 Per-send timing monotonic clock · done
+- 2026-10-27 11:00 · 258 · D3 Stage 1 samples · started
+- 2026-10-27 11:04 · 258 · D3 Stage 1 samples · done
+- 2026-10-27 11:04 · 258 · D4 Stage 2 keeps median · started
+- 2026-10-27 11:05 · 258 · D4 Stage 2 keeps median · done
+- 2026-10-27 11:05 · 258 · D5 Real-socket accuracy proof · started
+- 2026-10-27 11:22 · 258 · D5 discriminating load test · started
+- 2026-10-27 11:32 · 258 · D5 discriminating load test · blocked: not stably achievable on real sockets, third test dropped
+- 2026-10-27 11:33 · 258 · D5 Real-socket accuracy proof · done
+- 2026-10-27 11:33 · 258 · verify · started
+- 2026-10-27 11:34 · 258 · verify · done
+- 2026-10-27 11:34 · 258 · review 1 · started
+- 2026-10-27 11:40 · 258 · review 1 · done
+- 2026-10-27 11:40 · 258 · review 1 fix (LAN keeps median) · started
+- 2026-10-27 11:41 · 258 · review 1 fix (LAN keeps median) · done
+- 2026-10-27 11:41 · 258 · verify 2 · started
+- 2026-10-27 11:46 · 258 · verify 2 · done
+- 2026-10-27 11:46 · 258 · story · done
+- 11:46:23 · 259 · build · started
+- 2026-10-27 11:46 · 259 · D1 bulk bar shows from one selected demo · started
+- 2026-10-27 11:50 · 259 · D1 bulk bar shows from one selected demo · done
+- 2026-10-27 11:50 · 259 · verify · started
+- 2026-10-27 12:01 · 259 · verify · done
+- 2026-10-27 12:01 · 259 · review 1 · started
+- 2026-10-27 12:01 · 259 · review 1 · done
+- 2026-10-27 12:02 · 259 · story · done
+- 12:02:17 · 260 · build · started
+- 2026-10-27 12:02 · 260 · D1 always-present detail pane · started
+- 2026-10-27 12:07 · 260 · D1 always-present detail pane · done
+- 2026-10-27 12:07 · 260 · D2 no close button · started
+- 2026-10-27 12:10 · 260 · D2 no close button · done
+- 2026-10-27 12:10 · 260 · verify · started
+- 2026-10-27 12:21 · 260 · verify · blocked: i18n bundle snapshot, flow replays-demo-file-actions
+- 2026-10-27 12:21 · 260 · D3 fix verify reds · started
+- 2026-10-27 12:39 · 260 · D3 fix verify reds · done
+- 2026-10-27 12:39 · 260 · verify · done
+- 2026-10-27 12:39 · 260 · review 1 · started
+- 2026-10-27 12:41 · 260 · review 1 · done
+- 2026-10-27 12:41 · 260 · story · done
+- 12:41:49 · 261 · build · started
+- 2026-10-27 12:42 · 261 · D1 side tokens + flow axe helper · started
+- 2026-10-27 12:46 · 261 · D1 side tokens + flow axe helper · done
+- 2026-10-27 12:46 · 261 · D2 player table splits by team · started
+- 2026-10-27 12:48 · 261 · D2 player table splits by team · done
+- 2026-10-27 12:48 · 261 · D1 fix typecheck of token test · started
+- 2026-10-27 12:49 · 261 · D1 fix typecheck of token test · done
+- 2026-10-27 12:49 · 261 · verify · started
+- 2026-10-27 12:54 · 261 · verify · done
+- 2026-10-27 12:54 · 261 · review 1 · started
+- 2026-10-27 12:55 · 261 · review 1 · done
+- 2026-10-27 12:55 · 261 · D2 review fixes · started
+- 2026-10-27 12:57 · 261 · D2 review fixes · done
+- 2026-10-27 12:57 · 261 · verify 2 · started
+- 2026-10-27 13:01 · 261 · verify 2 · done
+- 2026-10-27 13:02 · 261 · story · done
+- 13:02:36 · 262 · build · started
+- 2026-10-27 13:02 · 262 · D1 stats collector in frame pass · started
+- 2026-10-27 13:06 · 262 · D1 stats collector in frame pass · done
+- 2026-10-27 13:06 · 262 · D2 stats in the index · started
+- 2026-10-27 13:10 · 262 · D2 stats in the index · done
+- 2026-10-27 13:10 · 262 · D3 stats table in the demo detail · started
+- 2026-10-27 13:15 · 262 · D3 stats table in the demo detail · done
+- 2026-10-27 13:15 · 262 · verify · started
+- 2026-10-27 13:24 · 262 · verify · done
+- 2026-10-27 13:24 · 262 · review 1 · started
+- 2026-10-27 13:26 · 262 · review 1 · done
+- 2026-10-27 13:26 · 262 · D3 review fixes · started
+- 2026-10-27 13:28 · 262 · D3 review fixes · done
+- 2026-10-27 13:28 · 262 · verify 2 · started
+- 2026-10-27 13:36 · 262 · story · done
+- 13:37:02 · 263 · build · started
+- 2026-10-27 13:37 · 263 · D1 GeoIP database ships · started
+- 2026-10-27 13:41 · 263 · D1 GeoIP database ships · done
+- 2026-10-27 13:41 · 263 · D2 location model and lookup · started
+- 2026-10-27 13:41 · 263 · D5 MultiSelect grouped options · started
+- 2026-10-27 13:44 · 263 · D2 location model and lookup · done
+- 2026-10-27 13:44 · 263 · D5 MultiSelect grouped options · done
+- 2026-10-27 13:44 · 263 · D3 rows carry location · started
+- 2026-10-27 13:51 · 263 · D3 rows carry location · done
+- 2026-10-27 13:51 · 263 · D4 filter sort quick-filter model · started
+- 2026-10-27 13:57 · 263 · D4 filter sort quick-filter model · done
+- 2026-10-27 13:57 · 263 · D6 list and detail pane location · started
+- 2026-10-27 13:59 · 263 · D6 list and detail pane location · done
+- 2026-10-27 13:59 · 263 · D7 location filter and About attribution · started
+- 2026-10-27 14:02 · 263 · D7 location filter and About attribution · done
+- 2026-10-27 14:02 · 263 · D8 flow, systems doc, changelog · started
+- 2026-10-27 14:16 · 263 · D8 flow, systems doc, changelog · done
+- 2026-10-27 14:16 · 263 · verify · started
+- 2026-10-27 14:33 · 263 · verify · blocked: red in renderer-health, scan-ping-accuracy to attribute
+- 2026-10-27 14:34 · 263 · verify · done
+- 2026-10-27 14:34 · 263 · review 1 · started
+- 2026-10-27 14:39 · 263 · review 1 · done
+- 2026-10-27 14:39 · 263 · review fixes 1 · started
+- 2026-10-27 14:41 · 263 · review fixes 1 · done
+- 2026-10-27 14:41 · 263 · verify 2 · started
+- 2026-10-27 14:44 · 263 · verify 2 · done
+- 2026-10-27 14:45 · 263 · story · done
+- 14:45:27 · gate · short suites · started
+- 14:45:44 · gate · npm run build · started
+- 14:45:56 · gate · npm run build · done
+- 14:45:56 · gate · npm test · started
+- 14:47:09 · gate · npm test · done (red: 12 failed)
+- 14:47:13 · gate · npm run build:dev (pre-ui:verify) · started
+- 14:47:31 · gate · npm run build:dev (pre-ui:verify) · done
+- 14:47:34 · gate · npm run ui:verify · started
+- 14:51:47 · gate · npm run ui:verify · done (red)
+- 14:52:07 · gate · short suites · done (build green, test red 12, ui:verify red)
+- 14:52:07 · gate · e2e-all · started
+- 15:14:51 · gate · e2e-all · done
+- 15:23:15 · gate · fix regressions · started
+- 15:23:22 · gate-fix · regression fixes · started
+- 15:24:40 · gate-fix · npm ci (node_modules was empty) · started
+- 15:25:31 · gate-fix · npm ci · done
+- 15:26:21 · gate-fix · crlf, 252 locators/comment, areas.json · done
+- 15:26:49 · gate-fix · 258 comment + servers doc · done
+- 15:27:06 · gate-fix · 262 fail helper + architecture pinned list · done
+- 15:27:30 · gate-fix · 254 cancellation flag -> useModuleQuery · done
+- 15:28:20 · gate-fix · ServersView hooks extracted (useServerJoin, useRowNavigation) · done
+- 15:28:52 · gate-fix · detail pane focusable region · done
+- 15:30:12 · gate-fix · build:dev + ui:verify · started
+- 15:33:57 · gate-fix · ui:verify done (0 serious)
+- 15:36:25 · gate-fix · flows · started
+- 15:43:30 · gate-fix · regression fixes · done
+- 15:43:48 · gate · fix regressions · done
+- 15:43:49 · gate · e2e-all (confirmation) · started
+- 16:07:27 · gate · e2e-all (confirmation) · done
+- 16:07:51 · gate · attribution 2 · started
+- 16:11:34 · gate · recorded

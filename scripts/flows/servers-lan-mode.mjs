@@ -90,11 +90,17 @@ export default async function serversLanMode({ page, step, shot }) {
   }
 
   step('AC4: the LAN row opens the detail with Join')
+  await page.getByTestId('servers-detail-empty').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await row.click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-detail').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('servers-detail-join').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('lan-detail')
-  await page.getByTestId('servers-detail-close').click({ timeout: TIMEOUT_MS })
+
+  step('story 256: on LAN the pane is always shown and a re-click keeps the details')
+  await row.click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('servers-detail-join').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const closeButtons = await page.getByTestId('servers-detail-close').count()
+  if (closeButtons !== 0) throw new Error(`expected no close button, found ${closeButtons}`)
 
   step('AC5: Online again shows its rows at once, without the LAN-only row')
   await setMode(page, 'online')

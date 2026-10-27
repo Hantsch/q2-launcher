@@ -89,6 +89,7 @@
       "layerTrigger": "Layer trigger",
       "library": "Library",
       "loading": "Loading…",
+      "location": "Location",
       "map": "Map",
       "missing": "Missing",
       "mod": "Mod",
@@ -198,7 +199,11 @@
         "description": "Where the server list comes from and how servers are queried.",
         "sourcesHeading": "Server lists",
         "list": {
-          "label": "Master and list sources"
+          "label": "Master and list sources",
+          "heading": "Server list",
+          "doubleClickJoins": {
+            "label": "Double-click a server to join it"
+          }
         },
         "type": {
           "udp-master": "UDP master",
@@ -469,7 +474,9 @@
   },
   "actionbar": {
     "playable": "Playable",
-    "playWith": "Play with...",
+    "map": {
+      "none": "No map"
+    },
     "downloading": "Downloading {{done}}",
     "filesRemaining_one": "{{count}} file remaining",
     "filesRemaining_other": "{{count}} files remaining",
@@ -609,6 +616,9 @@
       "currentVersion": "Launcher version",
       "whatsNew": "What's new in this version",
       "technical": "Technical details",
+      "thirdPartyData": "Third-party data",
+      "geoipProvider": "IP geolocation by DB-IP",
+      "geoipLicence": "CC BY 4.0",
       "checkUpToDate": "You're up to date.",
       "checkAvailable": "Version {{version}} found."
     },

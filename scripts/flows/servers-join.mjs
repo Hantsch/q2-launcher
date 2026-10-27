@@ -6,7 +6,7 @@
 // Two genuine loopback `dgram` responders stand in for two manual servers - B (same mod as the
 // active installation, no password) and A (a different mod, `ctf`, AND password-protected) - so a
 // single flow exercises both the no-friction join (AC1/AC5) and the full
-// mismatch-then-password-then-join sequence (AC3/AC4/AC6) against one real, spawnable installation
+// password-then-join sequence for a server with a different mod (AC3/AC4/AC6) against one real, spawnable installation
 // (`writeJoinInstallRoot()`, `scripts/lib/fixture.mjs`, mirroring `writeLinuxJourneyInstallRoot()`'s
 // own stand-in-client trick).
 //
@@ -15,14 +15,14 @@
 // Same OOB envelope / `info`+`status` responder shape as `servers-row-markers.mjs`/
 // `servers-scoped-refresh.mjs` (`scripts/*.mjs` never imports `src/` TypeScript). Unlike those two
 // files' own `bindResponder`, this one takes an explicit `gamename` (not just an extra gametype
-// flag) - AC3's mismatch is judged on `serverinfo.gamename` (`scan-service.ts`'s `mod` derivation),
-// not on a `\deathmatch\1\ctf\1`-style flag.
+// flag) - the server's mod is `serverinfo.gamename` (`scan-service.ts`'s `mod` derivation),
+// not a `\deathmatch\1\ctf\1`-style flag.
 //
 // ## Fixture: one real installation, two manual servers, no master sources
 //
-// The active installation's `activeGameDir` is `''` (i.e. plain `baseq2`, CLAUDE.md's own
-// convention) - server B's `gamename` is also `baseq2`, so B is a clean, no-mismatch join; server
-// A's `gamename` is `ctf`, so A always trips the mismatch dialog. `installations` is a full
+// The active installation's `activeGameDir` is `ctf` (a saved mod) - server B's `gamename` is
+// `baseq2` and server A's is `ctf`, and neither join may pass the saved mod to the game, which
+// switches mod on connect. `installations` is a full
 // top-level `stateOverrides` replace (`populatedStateDocument`'s own merge discipline: a listed key
 // replaces wholesale) seeded with exactly one installation, at `JOIN_INSTALL_ID` -
 // `DEFAULT_SETTINGS`'s own `activeInstallationId: null` is not enough, so `settings` is replaced
@@ -42,7 +42,6 @@
 //
 // `nav-servers` (TitleBar.tsx), `servers-refresh`/`servers-row-<address>` (ServersView.tsx),
 // `servers-join` (the list toolbar's `JoinServerButton`, story 125 D4),
-// `servers-join-mismatch`/`-mismatch-confirm`/`-mismatch-cancel`,
 // `servers-join-password`/`-password-submit`/`-password-cancel` (`JoinServerButton.tsx`),
 // `servers-detail-join` (this deliverable's own placement in `ServerDetailHeader.tsx`).
 // `module:invoke` reads `history.read` directly - the authoritative, main-side proof of AC5, since
@@ -65,8 +64,8 @@ const LOG_POLL_TIMEOUT_MS = 10_000
 const CONNECT_CFG_NAME = 'q2launcher-connect.cfg'
 const BASE_GAME_DIR = 'baseq2'
 
-/** Binds one loopback responder with an explicit `gamename` (this flow's mismatch/no-mismatch
- * split is judged on that field, not a gametype flag - see file header). */
+/** Binds one loopback responder with an explicit `gamename` (this flow's same-mod/different-mod
+ * split is carried by that field, not a gametype flag - see file header). */
 const bindResponder = makeResponderBinder(
   (hostname, playerLines, { gamename = 'baseq2', needpass = false } = {}) => ({
     infoLine:
@@ -93,6 +92,8 @@ export async function setup() {
   responders = [serverA, serverB]
 
   const fixture = writeJoinFixture({
+    activeGameDir: 'ctf',
+    gameDirs: ['baseq2', 'ctf'],
     servers: {
       sources: SERVERS_DISABLED_SOURCES,
       favourites: [],
@@ -276,9 +277,6 @@ export default async function serversJoin({ page, step, shot }) {
   await armPhaseListener(page)
   await listJoinButton(page).click({ timeout: TIMEOUT_MS })
 
-  if ((await page.getByTestId('servers-join-mismatch').count()) !== 0) {
-    throw new Error('expected no mismatch dialog for server B (same mod as the active install)')
-  }
   if ((await page.getByTestId('servers-join-password').count()) !== 0) {
     throw new Error('expected no password dialog for server B (needpass is not set)')
   }
@@ -313,26 +311,20 @@ export default async function serversJoin({ page, step, shot }) {
   }
   await shot('joined-b-no-friction')
 
-  // --- Step 2: attempt A - mismatch, then cancel at the password step (AC3/AC4) ---
+  // --- Step 2: attempt A - different mod, straight to the password step, then cancel (AC3/AC4) ---
 
-  step('select server A and press Join - different mod triggers the mismatch dialog')
+  step('server A with a different mod goes straight to the password prompt')
   await page.getByTestId(`servers-row-${serverA.address}`).click({ timeout: TIMEOUT_MS })
   await armPhaseListener(page)
   await listJoinButton(page).click({ timeout: TIMEOUT_MS })
 
-  const mismatchDialog = page.getByTestId('servers-join-mismatch')
-  await mismatchDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const mismatchText = (await mismatchDialog.textContent()) ?? ''
-  if (!mismatchText.includes('ctf') || !mismatchText.includes('baseq2')) {
-    throw new Error(
-      `expected the mismatch dialog to name both "ctf" and "baseq2", got ${JSON.stringify(mismatchText)}`,
-    )
-  }
-  await shot('join-mismatch-dialog')
-
-  await page.getByTestId('servers-join-mismatch-confirm').click({ timeout: TIMEOUT_MS })
   const passwordDialog = page.getByTestId('servers-join-password')
   await passwordDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  if ((await page.getByTestId('servers-join-mismatch').count()) !== 0) {
+    throw new Error(
+      'expected no mod confirmation for server A (a different mod than the active install)',
+    )
+  }
   await shot('join-password-dialog')
 
   const phasesAtPassword = await readPhases(page)
@@ -344,7 +336,6 @@ export default async function serversJoin({ page, step, shot }) {
 
   step('cancel at the password step - nothing launches, history stays untouched')
   await page.getByTestId('servers-join-password-cancel').click({ timeout: TIMEOUT_MS })
-  await mismatchDialog.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   await passwordDialog.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
 
   const logAfterCancel = readLog(logPath)
@@ -363,12 +354,10 @@ export default async function serversJoin({ page, step, shot }) {
   // --- Step 3: join A for real, with a password - never in argv or main.log (AC6) ---
 
   step(
-    'press Join on A again (still selected - clicking a selected row would deselect it), confirm the mismatch, and submit a password with a space in it',
+    'press Join on A again (still selected - clicking a selected row would deselect it), and submit a password with a space in it',
   )
   await armPhaseListener(page)
   await listJoinButton(page).click({ timeout: TIMEOUT_MS })
-  await mismatchDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-join-mismatch-confirm').click({ timeout: TIMEOUT_MS })
   await passwordDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   const JOIN_PASSWORD = 'hunter2 x'
@@ -422,6 +411,25 @@ export default async function serversJoin({ page, step, shot }) {
   }
   await shot('joined-a-with-password')
 
+  step('joins launch without the saved mod')
+  // Positive control: the saved mod is still set, so a missing "+set game" is the join's doing.
+  const installations = await invoke(page, 'installations:list')
+  const list = Array.isArray(installations) ? installations : (installations?.value ?? [])
+  if (!list.some((install) => install.activeGameDir === 'ctf')) {
+    throw new Error('expected the seeded installation to still have activeGameDir ctf')
+  }
+  if (countLaunchingLines(logAfterA) !== launchingCountAfterB + 1) {
+    throw new Error('expected exactly one "launching" line for server A after server B')
+  }
+  for (const [label, line] of [
+    ['B', launchLineB],
+    ['A', launchLineA],
+  ]) {
+    if (line.includes('+set game')) {
+      throw new Error(`expected server ${label}'s launch without the saved mod, got ${line}`)
+    }
+  }
+
   step("screenshot the detail view's own Join button (this deliverable's placement)")
   const detail = page.getByTestId('servers-detail')
   await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -430,7 +438,7 @@ export default async function serversJoin({ page, step, shot }) {
 
   console.log(
     'servers-join: joined server B with no dialogs at all (same mod, no password - AC1/AC5), ' +
-      'server A triggered the mismatch dialog naming both "ctf" and "baseq2" (AC3), cancelling at ' +
+      'server A (a different mod) went straight to the password prompt (AC3), cancelling at ' +
       'the password step left nothing launched and history untouched (AC4/AC5), and joining A for ' +
       'real with a password produced +exec q2launcher-connect.cfg +connect in argv, never the ' +
       'password itself anywhere in main.log (AC6), and the one-shot cfg was removed on exit.',

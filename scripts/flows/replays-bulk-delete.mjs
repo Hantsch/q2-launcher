@@ -7,7 +7,7 @@
 // Selectors - read `BulkActionBar.tsx`, `SelectionSummary.tsx` and `ReplaysView.tsx` before changing:
 //   replays-filter-search        DemoListFilterBar.tsx - narrows the list to this flow's demos
 //   replays-demo-row             DemoRow.tsx - one row (data-demo-id); replays-row-select its checkbox
-//   replays-bulk-bar             BulkActionBar.tsx - shown at two or more selected, or with an outcome
+//   replays-bulk-bar             BulkActionBar.tsx - shown at one or more selected, or with an outcome
 //   replays-bulk-count/-delete/-tag/-move/-zip-skip/-outcome/-summary/-entries   its parts
 //   replays-bulk-delete-confirm  ReplaysView.tsx - the confirmation dialog's confirm button
 //   replays-selection-summary    SelectionSummary.tsx - the detail pane while several are selected

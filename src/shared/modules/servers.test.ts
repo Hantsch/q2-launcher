@@ -362,6 +362,12 @@ describe('scan settings (story 115 D1)', () => {
     expect(scanPatchSettingsInputSchema.safeParse({ concurrency: 8 }).success).toBe(true)
   })
 
+  it('the scan patch accepts doubleClickJoins', () => {
+    expect(scanPatchSettingsInputSchema.safeParse({ doubleClickJoins: false }).success).toBe(true)
+    expect(scanPatchSettingsInputSchema.safeParse({ doubleClickJoins: true }).success).toBe(true)
+    expect(scanPatchSettingsInputSchema.safeParse({ doubleClickJoins: 'off' }).success).toBe(false)
+  })
+
   it('scanPatchSettingsInputSchema rejects an out-of-range numeric field', () => {
     expect(scanPatchSettingsInputSchema.safeParse({ concurrency: 999 }).success).toBe(false)
     expect(scanPatchSettingsInputSchema.safeParse({ timeoutMs: 999_999 }).success).toBe(false)

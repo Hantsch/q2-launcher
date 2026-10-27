@@ -49,17 +49,23 @@ export const removeConfigProfileInputSchema = z.object({
   id: z.string().min(1),
 })
 
-/**
- * The three assignment payloads are shape-identical (`profileId` +
- * `installationId`), so they alias one schema rather than duplicate it.
- */
 export const assignProfileInputSchema = z.object({
   profileId: z.string().min(1),
   installationId: z.string().min(1),
+  overwriteForeign: z.boolean().optional(),
 })
 
-export const unassignProfileInputSchema = assignProfileInputSchema
-export const setDefaultProfileInputSchema = assignProfileInputSchema
+export const unassignProfileInputSchema = z.object({
+  profileId: assignProfileInputSchema.shape.profileId,
+  installationId: assignProfileInputSchema.shape.installationId,
+})
+
+export const originalConfigsListInputSchema = z.void()
+
+export const restoreOriginalConfigsInputSchema = z.object({
+  installationId: assignProfileInputSchema.shape.installationId,
+})
+export const setDefaultProfileInputSchema = unassignProfileInputSchema
 
 /**
  * The cvar sub-section/section shapes come from the shared profile schema; this side adds the IPC
@@ -546,4 +552,6 @@ export const CONFIG_HANDLER_SCHEMAS = {
   [CONFIG_HANDLERS.cleanupApply]: cleanupApplyInputSchema,
   [CONFIG_HANDLERS.cleanupRestore]: cleanupRestoreInputSchema,
   [CONFIG_HANDLERS.tidyUpApply]: tidyUpApplyInputSchema,
+  [CONFIG_HANDLERS.originalConfigsList]: originalConfigsListInputSchema,
+  [CONFIG_HANDLERS.originalConfigsRestore]: restoreOriginalConfigsInputSchema,
 } satisfies Record<(typeof CONFIG_HANDLERS)[keyof typeof CONFIG_HANDLERS], z.ZodTypeAny>

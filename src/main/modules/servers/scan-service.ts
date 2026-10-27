@@ -1,6 +1,5 @@
 import { refuse } from '@shared/types'
 import {
-  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY,
   SCAN_UNKNOWN_ADDRESS_REASON_KEY,
   SERVERS_EVENTS,
@@ -21,6 +20,7 @@ import {
   type ServersState,
 } from '@shared/modules/servers'
 import { parseServerAddress, type ParsedServerAddress } from '@shared/servers/address'
+import { isIPv4, type ServerLocation } from '@shared/servers/location'
 import { readIntKey } from '@shared/servers/infostring'
 import { deriveGamemode } from '@shared/servers/row-markers'
 import type { LaunchHost } from '../../services/write-guard'
@@ -60,17 +60,12 @@ import type { Clock, MasterUdpImpl } from './udp-master-source'
  *   to `null` the moment a new scan starts, which is correct for the live scan state but wrong for
  *   "when did a scan last actually finish": that question should keep answering with the previous
  *   scan's timestamp for as long as the next one is still running, not flash back to "never".
- * - **The game-running guard.** `start()` refuses with
- *   `SCAN_BLOCKED_GAME_RUNNING_REASON_KEY` while `isScanBlocked(launch.getState())` - checked ahead
- *   of the single-flight rule, and the *only* extra condition on the manual path. The launch
- *   state is always read live at call time, never cached, so the refusal cannot depend on the order
- *   in which `onStateChange` listeners run. `blockedReason` is a reactive mirror of that same
- *   predicate: set at construction and on every launch state change, so the view can show the
- *   reason (and disable its refresh control) for the whole session, and it clears the moment the
- *   session ends without any scan attempt being needed first. An automatic trigger never
- *   reaches `start()` while blocked (scan-cadence.ts skips it with `'game-running'`), which is why
- *   the mirror - not a refusal - is what publishes the reason for the skipped automatic round
- *   (story 116)
+ * - **The game-running pause.** Only automatic rounds hold back while
+ *   `isScanBlocked(launch.getState())` - scan-cadence.ts skips them with `'game-running'` before
+ *   they reach `start()`; a manual `start()` runs during a session like any other. `blockedReason`
+ *   is a reactive mirror of that predicate: set at construction and on every launch state change,
+ *   so the view can say automatic refresh is paused for the whole session, and it clears the
+ *   moment the session ends (story 116)
  * - **Scoped rounds.** `start()` takes an optional `ScanScope` (default `'all'`, so
  *   every automatic trigger and "Refresh servers" are literally the same run). A scope only narrows
  *   the address set; the guard, single-flight, `runScan` and `mergeStaleRound` are the same calls for
@@ -108,9 +103,15 @@ export interface ScanServiceDeps {
   udpImpl?: MasterUdpImpl
   clock?: Clock
   queryServer?: QueryServerFn
+  /** `runScan`'s `pingSamples`; tests set 1 to keep one query per server. */
+  pingSamples?: number
   /** The LAN discovery round, defaulting to `discoverLanServers` - same injection
    * style as `queryServer`. The UI harness wraps the real one with its `targetsOverride`. */
   lanDiscovery?: LanDiscoveryFn
+  /** Country lookup for a server's IP (never the user's own). Without it rows carry no location. */
+  locate?: (ip: string) => ServerLocation
+  /** The UI harness's address-to-IP stand-ins, read per `read()` because flows set them after boot. */
+  geoOverrides?: () => ReadonlyMap<string, string>
 }
 
 export type LanDiscoveryFn = typeof discoverLanServers
@@ -186,11 +187,18 @@ function initialScanState(): ServersScanState {
 interface ScanList {
   entries: Map<string, ServerListEntry>
   statusInfo: Map<string, Record<string, string>>
+  /** The IP each address's last reply came from - the only way to locate a hostname server. */
+  replyIps: Map<string, string>
   lastScanAt: string | null
 }
 
 function emptyList(): ScanList {
-  return { entries: new Map(), statusInfo: new Map(), lastScanAt: null }
+  return { entries: new Map(), statusInfo: new Map(), replyIps: new Map(), lastScanAt: null }
+}
+
+/** The host part of a normalized `host:port` address. */
+function hostOf(address: string): string {
+  return address.slice(0, address.lastIndexOf(':'))
 }
 
 /** The well-known `serverinfo` keys this module reads out of a reply's raw record, shared by both
@@ -248,12 +256,15 @@ function readGamemode(
 
 /** Builds the refreshed `ServerListEntry` for one successful reply. `players` is the numeric count
  * while only `info` has answered, and is replaced by the full roster the moment a `status` reply
- * lands (same field, never two) - see `ServerListEntry`'s own doc comment. */
+ * lands (same field, never two) - see `ServerListEntry`'s own doc comment. `keepPing` leaves the
+ * entry's ping and history untouched: a stage-2 `status` reply is one sample against stage 1's
+ * median, so it must neither replace it nor add a second history sample for the scan (story 258) */
 function mergeSuccessfulReply(
   existing: ServerListEntry | undefined,
   target: ScanTarget,
   result: Extract<ServerQueryResult, { ok: true }>,
   now: string,
+  keepPing = false,
 ): ServerListEntry {
   const fields = readServerInfoFields(result.reply.serverinfo, existing)
   const players =
@@ -264,10 +275,14 @@ function mergeSuccessfulReply(
     origins: target.origins,
     status: 'online',
     ...fields,
-    rttMs: result.rttMs,
     // Session history of measured round trips, oldest first - the single `rttMs`
-    // field above still tracks only the latest value (story 124)
-    rttHistory: appendRttSample(existing?.rttHistory, { at: now, rttMs: result.rttMs }),
+    // field still tracks only the latest value (story 124)
+    ...(keepPing && existing !== undefined
+      ? { rttMs: existing.rttMs, rttHistory: existing.rttHistory }
+      : {
+          rttMs: result.rttMs,
+          rttHistory: appendRttSample(existing?.rttHistory, { at: now, rttMs: result.rttMs }),
+        }),
     players,
     lastSeenAt: now,
   }
@@ -318,14 +333,16 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     list: ScanList,
     target: ScanTarget,
     result: Extract<ScanQueryResult, { ok: true }>,
+    keepPing = false,
   ): void {
     const now = new Date().toISOString()
     list.entries.set(
       target.address,
-      mergeSuccessfulReply(list.entries.get(target.address), target, result, now),
+      mergeSuccessfulReply(list.entries.get(target.address), target, result, now, keepPing),
     )
     if (result.kind === 'status')
       list.statusInfo.set(target.address, { ...result.reply.serverinfo })
+    if (result.fromAddress !== undefined) list.replyIps.set(target.address, result.fromAddress)
   }
 
   async function runOnlineRound(
@@ -375,6 +392,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
             : undefined
 
     const answeredOnline = new Set<string>()
+    const pingedInStage1 = new Set<string>()
 
     const outcome = await runScan({
       targets: runTargets,
@@ -382,17 +400,23 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       selectedAddress: runSelectedAddress,
       signal,
       deps: { queryServer: deps.queryServer },
+      pingSamples: deps.pingSamples,
       onServer: (row) => {
         const now = new Date().toISOString()
         if (row.result.ok) {
           answeredOnline.add(row.target.address)
+          if (row.stage === 'stage1') pingedInStage1.add(row.target.address)
           const existing = list.entries.get(row.target.address)
+          const keepPing = row.result.kind === 'status' && pingedInStage1.has(row.target.address)
           list.entries.set(
             row.target.address,
-            mergeSuccessfulReply(existing, row.target, row.result, now),
+            mergeSuccessfulReply(existing, row.target, row.result, now, keepPing),
           )
           if (row.result.kind === 'status') {
             list.statusInfo.set(row.target.address, { ...row.result.reply.serverinfo })
+          }
+          if (row.result.fromAddress !== undefined) {
+            list.replyIps.set(row.target.address, row.result.fromAddress)
           }
         }
         // A failed reply never creates or overwrites an entry here - it is left exactly as it
@@ -454,10 +478,16 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   ): Promise<void> {
     // Only broadcast answers ever enter the LAN list: a reply for an address not already in it is
     // neither stored nor pushed, so a scoped refresh can never add a non-LAN row.
+    const pingedInStage1 = new Set<string>()
     const onServer = (row: ScanServerPush): void => {
       if (!list.entries.has(row.target.address)) return
       const target: ScanTarget = { address: row.target.address, origins: ['lan'] }
-      if (row.result.ok) storeReply(list, target, row.result)
+      if (row.result.ok) {
+        if (row.stage === 'stage1') pingedInStage1.add(row.target.address)
+        // Same rule as the online round: a stage-2 status keeps the stage-1 median (story 258)
+        const keepPing = row.result.kind === 'status' && pingedInStage1.has(row.target.address)
+        storeReply(list, target, row.result, keepPing)
+      }
       emit(SERVERS_EVENTS.scanServer, { ...row, target })
     }
     const onProgress = (progress: Partial<ServersScanState>): void => {
@@ -472,6 +502,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         selectedAddress: scope.address,
         signal,
         deps: { queryServer: deps.queryServer },
+        pingSamples: deps.pingSamples,
         onServer,
         onProgress,
       })
@@ -488,6 +519,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         selectedAddress: selectedInScope(selectedAddress, targets),
         signal,
         deps: { queryServer: deps.queryServer },
+        pingSamples: deps.pingSamples,
         onServer,
         onProgress,
       })
@@ -497,6 +529,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     // The round replaces the list - a server that stopped answering is gone, not stale.
     list.entries.clear()
     list.statusInfo.clear()
+    list.replyIps.clear()
     lanFailureKey = null
     const discovered: ScanTarget[] = []
     const discovery = await (deps.lanDiscovery ?? discoverLanServers)({
@@ -532,6 +565,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         : undefined,
       signal,
       deps: { queryServer: deps.queryServer },
+      pingSamples: deps.pingSamples,
       onServer,
       onProgress,
     })
@@ -569,16 +603,9 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   }
 
   function start(options: ScanStartOptions = {}): ScanStartResult {
-    // The guard and single-flight below are scope-agnostic on purpose - a refusal is
-    // a refusal whatever scope was asked for, so the scope is only resolved once both have passed.
-    // Main stays authoritative - refused regardless of what the renderer
-    // shows, never queued, and checked before single-flight so the reason is always the game
-    // (story 116)
-    if (isScanBlocked(launch.getState())) {
-      syncBlockedReason(true)
-      return refuse(SCAN_BLOCKED_GAME_RUNNING_REASON_KEY)
-    }
-
+    // Single-flight is scope-agnostic on purpose - a refusal is a refusal whatever scope was asked
+    // for, so the scope is only resolved once it has passed. A running game does not refuse a
+    // manual start; only automatic triggers hold back for it (scan-cadence.ts)
     if (scanState.running) {
       return refuse(SCAN_ALREADY_RUNNING_REASON_KEY)
     }
@@ -619,12 +646,25 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       finishedAt: null,
       scope: stateScope,
       mode: sweepMode,
+      blockedReason: scanState.blockedReason,
     }
     emitChanged()
 
     void runSweep(list, sweepMode, scope, options.selectedAddress, knownRows, controller.signal)
 
     return { ok: true }
+  }
+
+  /** Every row read goes through here, whatever its status: the lookup IP is the harness override,
+   * else the host when it is an IPv4 literal, else the IP its last reply came from. */
+  function withLocation<T extends ServerListEntry>(list: ScanList, row: T): T {
+    if (deps.locate === undefined) return row
+    const host = hostOf(row.address)
+    const ip =
+      deps.geoOverrides?.().get(row.address) ??
+      (isIPv4(host) ? host : undefined) ??
+      list.replyIps.get(row.address)
+    return { ...row, location: ip === undefined ? { kind: 'unknown' } : deps.locate(ip) }
   }
 
   function read(listMode: ServersBrowseMode = mode): ScanSnapshot {
@@ -637,7 +677,8 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     const manualAddresses = new Set(current.manualServers.map((m) => m.address))
     // The active mode's list only - never a mix of online and LAN rows (story 196)
     const activeMode = listMode
-    const entries = lists[activeMode].entries
+    const list = lists[activeMode]
+    const entries = list.entries
 
     const rows = [...entries.values()].map((entry) => ({
       ...entry,
@@ -667,7 +708,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
 
     return {
       state: { ...scanState },
-      entries: rows,
+      entries: rows.map((row) => withLocation(list, row)),
       mode: activeMode,
       lan: { lastFinishedAt: lists.lan.lastScanAt, failureKey: lanFailureKey },
     }

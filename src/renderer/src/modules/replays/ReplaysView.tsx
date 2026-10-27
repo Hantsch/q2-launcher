@@ -29,6 +29,7 @@ import {
 import { scopeDemoRows, type DemoListScope } from '@shared/replays/list-scope'
 import { Button } from '../../components/ui/Button'
 import { Switch } from '../../components/ui/controls'
+import { EmptyState } from '../../components/ui/primitives'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { cn } from '../../lib/cn'
 import { toastOutcomeError } from '../../lib/toast'
@@ -91,13 +92,14 @@ import { sidesText } from './row-format'
 import { ReplaysListStatus } from './ReplaysListStatus'
 
 /** The list-beside-detail grid, mirroring `ServersView.tsx`'s own `detailSplit`/`DETAIL_PANE`
- * (read there first before changing this) - one slot until a demo is selected, then a fixed
- * 32rem detail pane beside it (or, below the `@4xl` container width, under it). On the stage the
- * list is hidden and the grid holds the detail pane alone, docked right of the stage. */
-function detailSplit(detailOpen: boolean, stageMode: boolean): string {
+ * (read there first before changing this) - the list with a fixed 32rem detail pane beside
+ * it (or, below the `@4xl` container width, under it), present whether or not a demo is selected.
+ * On the stage the list is hidden and the grid holds the detail pane alone, docked right of the
+ * stage. */
+function detailSplit(stageMode: boolean): string {
   return cn(
     'grid h-full',
-    detailOpen && !stageMode
+    !stageMode
       ? 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_32rem] @4xl:grid-rows-1'
       : 'grid-rows-1',
   )
@@ -821,8 +823,11 @@ export function ReplaysView() {
           )}
           data-testid="replays-list-detail"
         >
-          <div className={detailSplit(selected !== null || multiSelected, stageMode)}>
-            <div className={cn('flex min-h-0 flex-col p-5', stageMode && 'hidden')}>
+          <div className={detailSplit(stageMode)}>
+            <div
+              className={cn('flex min-h-0 flex-col p-5', stageMode && 'hidden')}
+              data-testid="replays-list-pane"
+            >
               {demos !== null && filterLoaded && rowCount > 0 && noMatch && (
                 <div
                   className="flex flex-col items-center gap-3 px-6 py-12 text-center"
@@ -839,7 +844,7 @@ export function ReplaysView() {
                   </Button>
                 </div>
               )}
-              {(multiSelected || bulk.outcome !== null) && (
+              {(selectedIds.length > 0 || bulk.outcome !== null) && (
                 <BulkActionBar
                   count={selectedIds.length}
                   zipCount={zipCount}
@@ -902,40 +907,33 @@ export function ReplaysView() {
               </DemoDragZone>
             </div>
 
-            {multiSelected && (
-              <div
-                className={cn(
-                  DETAIL_PANE,
-                  stageMode ? 'border-l' : 'border-t @4xl:border-t-0 @4xl:border-l',
-                )}
-                data-testid="replays-multi-selection"
-              >
-                <SelectionSummary count={selectedIds.length} zipCount={zipCount} />
-              </div>
-            )}
-
-            {selected && (
-              <div
-                className={cn(
-                  DETAIL_PANE,
-                  stageMode ? 'border-l' : 'border-t @4xl:border-t-0 @4xl:border-l',
-                )}
-              >
+            <div
+              className={cn(
+                DETAIL_PANE,
+                stageMode ? 'border-l' : 'border-t @4xl:border-t-0 @4xl:border-l',
+              )}
+              data-testid="replays-detail-pane"
+            >
+              {multiSelected ? (
+                <div data-testid="replays-multi-selection">
+                  <SelectionSummary count={selectedIds.length} zipCount={zipCount} />
+                </div>
+              ) : selected ? (
                 <DemoDetailPanel
                   key={selected.id}
                   row={selected}
-                  onClose={() => {
-                    pinnedRowIdRef.current = null
-                    closeDemo()
-                  }}
                   onRowPatched={handleRowPatched}
                   onRename={setRenaming}
                   onMove={(demo) => setBulkDialog({ kind: 'move', ids: [demo.id] })}
                   onDelete={(demo) => setDeleteIds([demo.id])}
                   otherDemosTags={otherDemosTags}
                 />
-              </div>
-            )}
+              ) : (
+                <div data-testid="replays-detail-empty">
+                  <EmptyState title={t('replays.detail.empty')} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -1,12 +1,12 @@
 import { join } from 'node:path'
 import { isSafeGameName } from '@shared/mods/server-local-content'
-import type { ModMapList } from '@shared/modules/mods'
+import type { MapList } from '@shared/types/launch'
 import type { EngineKind } from '@shared/types/engine'
-import { readBspTitle } from '../../lib/bsp-title'
-import { isFile } from '../../lib/fs-utils'
-import { readPakDirectory } from '../../lib/pak-directory'
-import { listZipEntries, type ZipDeps } from '../../lib/zip-entries'
-import { asciiLower, listNames, matching, matchingChildren } from './game-dir-fs'
+import { readBspTitle } from '../lib/bsp-title'
+import { isFile } from '../lib/fs-utils'
+import { readPakDirectory } from '../lib/pak-directory'
+import { listZipEntries, type ZipDeps } from '../lib/zip-entries'
+import { asciiLower, listNames, matching, matchingChildren } from '../lib/game-dir-fs'
 
 /**
  * The maps a player can start in a mod: loose `maps/<name>.bsp`, then `.pak` entries, then `.pkz`
@@ -81,7 +81,7 @@ async function collectGameDir(
   }
 }
 
-export async function listMaps(input: MapListInput, deps: MapListDeps): Promise<ModMapList> {
+export async function listMaps(input: MapListInput, deps: MapListDeps): Promise<MapList> {
   const wanted: string[] = []
   for (const name of [input.gameDir, 'baseq2']) {
     if (name === '' || !isSafeGameName(name)) continue

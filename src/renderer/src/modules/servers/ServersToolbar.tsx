@@ -38,8 +38,9 @@ export interface ServersToolbarProps {
 
 /**
  * Title + live status line on the left, the scoped refresh controls on the right, and every
- * disabled control's visible reason underneath. The controls are disabled while a scan runs or the
- * game blocks it - convenience only, main refuses `scan.start` either way.
+ * disabled control's visible reason underneath. The controls are disabled while a scan runs -
+ * convenience only, main refuses a concurrent `scan.start` either way. A running game pauses only
+ * automatic refresh, so it gets a note, not a disabled control.
  */
 export function ServersToolbar({
   scanState,
@@ -55,9 +56,8 @@ export function ServersToolbar({
   onRefreshFavourites,
 }: ServersToolbarProps) {
   const { t } = useTranslation()
-  const isBlocked = scanState.blockedReason !== null
   const isBusy = scanState.running
-  const isRefreshDisabled = isBlocked || isBusy
+  const isRefreshDisabled = isBusy
   const noneShown = filterActive && shownCount === 0
   const isLan = mode === 'lan'
   const stateLabel = t(isBusy ? 'common.action.scanning' : 'module.servers.view.status.idle')
@@ -158,12 +158,12 @@ export function ServersToolbar({
             {t('module.servers.view.refreshShownNone')}
           </p>
         )}
-        {isBlocked && scanState.blockedReason && (
-          <p className="text-xs text-warning" data-testid="servers-scan-blocked">
+        {scanState.blockedReason !== null && (
+          <p className="text-xs text-ink-muted" data-testid="servers-scan-blocked">
             {t(BLOCKED_REASON_KEYS[scanState.blockedReason])}
           </p>
         )}
-        {isBusy && !isBlocked && (
+        {isBusy && (
           <p className="text-xs text-warning" data-testid="servers-scan-busy">
             {t(SCAN_BUSY_REASON_KEY)}
           </p>

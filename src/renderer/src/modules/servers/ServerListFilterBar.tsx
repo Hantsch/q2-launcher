@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BookmarkPlus, BotOff, Check, Search, User, UserX, X } from 'lucide-react'
 import {
   EMPTY_SERVER_LIST_FILTER,
   isFilterActive,
+  locationOptions,
   MAX_PING_STEPS,
   type MaxPingMs,
   type ServerListFilter,
@@ -17,17 +18,23 @@ import {
   sameCriteria,
   type QuickFilter,
 } from '@shared/servers/quick-filters'
+import { countryName, parseLocationToken } from '@shared/servers/location'
 import type { ServerGamemode } from '@shared/servers/row-markers'
+import type { ServerListEntry } from '@shared/modules/servers'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select, type SelectOption } from '../../components/ui/controls'
-import { MultiSelect } from '../../components/ui/MultiSelect'
+import { MultiSelect, type MultiSelectOption } from '../../components/ui/MultiSelect'
 import { SectionLabel } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
+
+const NO_ROWS: readonly ServerListEntry[] = Object.freeze([])
 
 export interface ServerListFilterBarProps {
   filter: ServerListFilter
   onChange: (f: ServerListFilter) => void
   options: { mods: string[]; maps: string[] }
+  /** The scanned rows the location choices are derived from. */
+  rows?: readonly ServerListEntry[]
   shown: number
   total: number
   /** Story 197: the saved quick filters, rendered as chips after the built-in ones. */
@@ -94,13 +101,44 @@ export function ServerListFilterBar({
   filter,
   onChange,
   options,
+  rows = NO_ROWS,
   shown,
   total,
   quickFilters = [],
   onSaveQuickFilter,
   renderQuickFilterActions,
 }: ServerListFilterBarProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language
+
+  const locationChoices = useMemo(() => {
+    const continentOf = new Map<string, string>()
+    for (const { location } of rows) {
+      if (location?.kind === 'country') continentOf.set(location.country, location.continent)
+    }
+    return locationOptions(rows, filter.location).map((token): MultiSelectOption => {
+      const parsed = parseLocationToken(token)
+      switch (parsed?.kind) {
+        case 'region':
+          return { value: token, label: t(`servers.location.region.${parsed.continent}`) }
+        case 'country': {
+          const continent = continentOf.get(parsed.country)
+          return {
+            value: token,
+            label: countryName(parsed.country, locale),
+            level: continent ? 1 : 0,
+            impliedBy: continent ? `region:${continent}` : undefined,
+          }
+        }
+        case 'lan':
+          return { value: token, label: t('servers.location.lan') }
+        case 'unknown':
+          return { value: token, label: t('common.label.unknown') }
+        default:
+          return { value: token, label: token }
+      }
+    })
+  }, [rows, filter.location, t, locale])
 
   const gamemodeOptions: SelectOption[] = [
     { value: '', label: t('common.label.any') },
@@ -214,6 +252,19 @@ export function ServerListFilterBar({
             onChange={(mod) => onChange({ ...filter, mod })}
             summaryCount={(count) => t('servers.filter.modsCount', { count })}
             data-testid="servers-filter-mod"
+          />
+        </Field>
+
+        <Field label={t('common.label.location')}>
+          <MultiSelect
+            label={t('common.label.location')}
+            options={locationChoices}
+            value={filter.location}
+            onChange={(location) => onChange({ ...filter, location })}
+            summaryCount={(count) => t('servers.filter.locationsCount', { count })}
+            filterable
+            filterLabel={t('servers.filter.locationSearch')}
+            data-testid="servers-filter-location"
           />
         </Field>
 

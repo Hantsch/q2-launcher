@@ -70,7 +70,7 @@ export function TargetStep({
         />
       </Field>
 
-      <Field label={t('bootstrapWizard.target.locationLabel')}>
+      <Field label={t('common.label.location')}>
         <div data-testid="bootstrap-target-path-input">
           <PathPicker
             value={parentPath}

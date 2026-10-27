@@ -99,9 +99,46 @@ describe('ReplaysIndexCache', () => {
     expect(await new ReplaysIndexCache().read()).toEqual(entries)
   })
 
+  it('a row with stats reads back identical', async () => {
+    const withStats: CachedDemo = {
+      ...demoA,
+      parsed: {
+        ...(demoA.parsed as object),
+        stats: {
+          player: 'shad',
+          items: [
+            {
+              item: 'Railgun',
+              accuracy: 36,
+              kills: 3,
+              deaths: null,
+              dealt: 1000,
+              received: 2000,
+              pickups: 6,
+              missed: 3,
+            },
+          ],
+          total: null,
+        },
+      },
+    }
+    const entries = new Map<string, CachedDemo>([['entry-1', withStats]])
+
+    await new ReplaysIndexCache().write(entries)
+
+    expect(await new ReplaysIndexCache().read()).toEqual(entries)
+  })
+
+  it('a version-6 cache is discarded', async () => {
+    // Version-6 rows predate stats - reusing them would leave every existing demo without any.
+    expect(REPLAYS_INDEX_CACHE_VERSION).toBe(7)
+    await writeRawCacheFile(JSON.stringify({ cacheVersion: 6, entries: { 'entry-1': demoA } }))
+    await expect(new ReplaysIndexCache().read()).resolves.toEqual(new Map())
+  })
+
   it('a version-1 cache is discarded', async () => {
     // Version-1 rows predate gameDir/pov/players/durationMs - never reused.
-    expect(REPLAYS_INDEX_CACHE_VERSION).toBe(6)
+    expect(REPLAYS_INDEX_CACHE_VERSION).toBeGreaterThan(1)
     await writeRawCacheFile(JSON.stringify({ cacheVersion: 1, entries: { 'entry-1': demoA } }))
     await expect(new ReplaysIndexCache().read()).resolves.toEqual(new Map())
   })

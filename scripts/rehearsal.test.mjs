@@ -12,7 +12,17 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { marginOk, parseShards } from './lib/rehearsal.mjs'
+import {
+  CORE_COMMANDS,
+  LINUX_FLOWS_COMMAND,
+  commandsFor,
+  initialRecord,
+  marginOk,
+  parseRehearseArgs,
+  parseShards,
+  skippedLinuxLine,
+  statusView,
+} from './lib/rehearsal.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SCRIPT = join(ROOT, 'scripts', 'rehearse.mjs')
@@ -260,5 +270,61 @@ describe('release rehearsal', () => {
     expect(live.status).toBe(2)
     expect(live.stdout).toContain('rehearsal 20261005-120001')
     expect(live.stdout).toContain('verdict: RUNNING')
+  })
+})
+
+describe('the Linux ui-flows leg is opt-in', () => {
+  test('without --linux the plan holds the core commands only', () => {
+    expect(commandsFor({ linux: false }).map((c) => c.name)).toEqual(['verify:release', 'ci:local'])
+    expect(commandsFor()).toEqual(CORE_COMMANDS)
+    expect(commandsFor({ linux: false })).not.toContain(LINUX_FLOWS_COMMAND)
+  })
+
+  test('with --linux the sharded flows leg runs last', () => {
+    const commands = commandsFor({ linux: true })
+    expect(commands.map((c) => c.name)).toEqual(['verify:release', 'ci:local', 'ci:local:flows'])
+    expect(commands[2]).toEqual({ name: 'ci:local:flows', shards: true })
+    // The core list is not mutated by opting in.
+    expect(CORE_COMMANDS).toHaveLength(2)
+  })
+
+  test('the skip line names the leg, its cost and how to include it', () => {
+    const line = skippedLinuxLine()
+    expect(line).toContain('ci:local:flows')
+    expect(line).toContain('advisory')
+    expect(line).toContain('npm run rehearse -- --linux')
+  })
+
+  test('the launcher arguments: --linux only where a run is started', () => {
+    expect(parseRehearseArgs([])).toEqual({ mode: 'launch', linux: false, dir: null })
+    expect(parseRehearseArgs(['--linux'])).toEqual({ mode: 'launch', linux: true, dir: null })
+    expect(parseRehearseArgs(['--status'])).toEqual({ mode: 'status', linux: false, dir: null })
+    expect(parseRehearseArgs(['--run', 'd'])).toEqual({ mode: 'run', linux: false, dir: 'd' })
+    expect(parseRehearseArgs(['--run', 'd', '--linux'])).toEqual({
+      mode: 'run',
+      linux: true,
+      dir: 'd',
+    })
+    for (const bad of [['--status', '--linux'], ['--bogus'], ['--run'], ['--run', 'd', 'e']]) {
+      expect(parseRehearseArgs(bad).mode, bad.join(' ')).toBe('usage')
+    }
+  })
+
+  test('the record lists the skipped leg and --status shows how to opt in', () => {
+    const skipped = initialRecord(new Date('2026-10-08T08:00:00Z'), CORE_COMMANDS, [
+      LINUX_FLOWS_COMMAND.name,
+    ])
+    expect(skipped.skipped).toEqual(['ci:local:flows'])
+    expect(skipped.commands.map((c) => c.name)).toEqual(['verify:release', 'ci:local'])
+    const { lines } = statusView('20261008-080000', skipped, true)
+    expect(lines).toContain('  skipped  ci:local:flows (opt in with: npm run rehearse -- --linux)')
+
+    const opted = initialRecord(new Date(), commandsFor({ linux: true }))
+    expect(opted.skipped).toEqual([])
+    expect(statusView('x', opted, true).lines.join('\n')).not.toContain('opt in with')
+    // A record written before this field existed still renders.
+    const legacy = { ...skipped }
+    delete legacy.skipped
+    expect(statusView('x', legacy, true).lines.join('\n')).not.toContain('skipped')
   })
 })

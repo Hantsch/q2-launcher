@@ -69,3 +69,7 @@ export const APP_REPO_URL = 'https://github.com/Hantsch/q2-launcher'
 
 /** Story 099: the full changelog, linked from Settings > About next to the repository link. */
 export const APP_CHANGELOG_URL = 'https://github.com/Hantsch/q2-launcher/blob/main/CHANGELOG.md'
+
+/** The IP geolocation database's provider and its licence, linked as the attribution it requires. */
+export const GEOIP_PROVIDER_URL = 'https://db-ip.com'
+export const GEOIP_LICENCE_URL = 'https://creativecommons.org/licenses/by/4.0/'

@@ -4,6 +4,7 @@ import {
   filterOptions,
   filterServers,
   isFilterActive,
+  locationOptions,
   matchesFilter,
   matchesSearch,
 } from './list-filter'
@@ -449,5 +450,78 @@ describe('ping limit (story 247)', () => {
   it('a ping limit makes the filter active', () => {
     expect(isFilterActive(filter({ maxPingMs: 50 }))).toBe(true)
     expect(isFilterActive(filter({ maxPingMs: null }))).toBe(false)
+  })
+})
+
+describe('location filter', () => {
+  const berlin = row({ location: { kind: 'country', country: 'DE', continent: 'EU' } })
+  const paris = row({ location: { kind: 'country', country: 'FR', continent: 'EU' } })
+  const austin = row({ location: { kind: 'country', country: 'US', continent: 'NA' } })
+  const lan = row({ location: { kind: 'lan' } })
+  const unlocated = row({})
+
+  it('a server passes when its country or its region is selected', () => {
+    expect(matchesFilter(berlin, filter({ location: ['country:DE'] }))).toBe(true)
+    expect(matchesFilter(paris, filter({ location: ['country:DE'] }))).toBe(false)
+    expect(matchesFilter(paris, filter({ location: ['region:EU'] }))).toBe(true)
+    expect(matchesFilter(austin, filter({ location: ['region:EU'] }))).toBe(false)
+    expect(matchesFilter(lan, filter({ location: ['lan'] }))).toBe(true)
+    expect(matchesFilter(berlin, filter({ location: ['lan'] }))).toBe(false)
+    expect(isFilterActive(filter({ location: ['lan'] }))).toBe(true)
+  })
+
+  it('region and country tokens OR together and AND with mod', () => {
+    const ctfAustin = row({ ...austin, mod: 'ctf' })
+    const ctfBerlin = row({ ...berlin, mod: 'ctf' })
+    const dmBerlin = row({ ...berlin, mod: 'dm' })
+    const f = filter({ location: ['region:NA', 'country:DE'], mod: ['ctf'] })
+    expect(matchesFilter(ctfAustin, f)).toBe(true)
+    expect(matchesFilter(ctfBerlin, f)).toBe(true)
+    expect(matchesFilter(dmBerlin, f)).toBe(false)
+    expect(matchesFilter(row({ ...paris, mod: 'ctf' }), f)).toBe(false)
+  })
+
+  it('an empty location set does not restrict the list', () => {
+    const rows = [berlin, lan, unlocated]
+    expect(filterServers(rows, filter({ location: [] }))).toEqual(rows)
+    expect(isFilterActive(filter({ location: [] }))).toBe(false)
+  })
+
+  it('a server without location matches only unknown', () => {
+    expect(matchesFilter(unlocated, filter({ location: ['unknown'] }))).toBe(true)
+    expect(
+      matchesFilter(row({ location: { kind: 'unknown' } }), filter({ location: ['unknown'] })),
+    ).toBe(true)
+    expect(matchesFilter(unlocated, filter({ location: ['lan', 'region:EU', 'country:DE'] }))).toBe(
+      false,
+    )
+    expect(matchesFilter(berlin, filter({ location: ['unknown'] }))).toBe(false)
+  })
+
+  it('locationOptions lists present regions with their countries and keeps a selected absent country', () => {
+    const rows = [
+      austin,
+      paris,
+      berlin,
+      row({ location: { kind: 'country', country: 'AT', continent: 'EU' } }),
+      lan,
+      unlocated,
+    ]
+    expect(locationOptions(rows, [])).toEqual([
+      'region:EU',
+      'country:AT',
+      'country:FR',
+      'country:DE',
+      'region:NA',
+      'country:US',
+      'lan',
+      'unknown',
+    ])
+    expect(locationOptions([berlin], ['country:JP'])).toEqual([
+      'region:EU',
+      'country:DE',
+      'country:JP',
+    ])
+    expect(locationOptions([], [])).toEqual([])
   })
 })

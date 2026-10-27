@@ -11,6 +11,23 @@ export const makeFail = (prefix) => (message) => {
 /** Plain-text read of a stand-in client's log; empty until the first write. */
 export const readLog = (logPath) => (existsSync(logPath) ? readFileSync(logPath, 'utf8') : '')
 
+/** Every "launching" line of a client log, oldest first. */
+export const launchLines = (logPath) =>
+  readLog(logPath)
+    .split(/\r?\n/)
+    .filter((line) => line.includes('launching'))
+
+/** Waits for a "launching" line beyond the `before` already seen and returns the newest. */
+export async function nextLaunchLine(logPath, before, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const lines = launchLines(logPath)
+    if (lines.length > before) return lines[lines.length - 1]
+    if (Date.now() >= deadline) throw new Error('timed out waiting for a new "launching" line')
+    await sleep(150)
+  }
+}
+
 export async function invoke(page, channel, payload) {
   return page.evaluate(({ ch, p }) => window.q2.invoke(ch, p), { ch: channel, p: payload })
 }

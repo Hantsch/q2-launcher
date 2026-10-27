@@ -118,6 +118,8 @@ const INVALID_PAYLOADS: Record<string, unknown> = {
   [CONFIG_HANDLERS.cleanupApply]: {},
   [CONFIG_HANDLERS.cleanupRestore]: {},
   [CONFIG_HANDLERS.tidyUpApply]: {},
+  [CONFIG_HANDLERS.originalConfigsList]: 'x',
+  [CONFIG_HANDLERS.originalConfigsRestore]: {},
 }
 
 /** Results of the channels already answered, for payloads that need an id an earlier call minted. */
@@ -187,6 +189,9 @@ const HAPPY_PATHS: [string, (answers: Answers) => unknown][] = [
       return { id: created.find((p) => p.name === 'Created')!.id }
     },
   ],
+  // After the writes above have taken i1's backup; unassigns everything there, so it runs last.
+  [CONFIG_HANDLERS.originalConfigsList, () => undefined],
+  [CONFIG_HANDLERS.originalConfigsRestore, () => ({ installationId: 'i1' })],
 ]
 
 function pickedIds(answers: Answers): string[] {

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModInstallRecord } from '@shared/modules/mods'
 import { ok, type Installation } from '@shared/types'
 import { makeJobRunner, type JobRunnerHarness } from '../../../test-support/job-runner'
-import { readLastLaunch, readModsState } from './install-records'
+import { readModsState } from './install-records'
 import { startModRemove, previewModRemoval, type ModRemoveDeps } from './remove-job'
 
 const forced = vi.hoisted(() => ({ failPath: undefined as string | undefined }))
@@ -67,7 +67,7 @@ function harness(
     activeGameDir?: string
     gate?: boolean
     revalidatedActive?: string
-    lastLaunch?: unknown
+    unknownKey?: string
   } = {},
 ): Harness {
   const installation = {
@@ -78,10 +78,7 @@ function harness(
     activeGameDir: opts.activeGameDir ?? '',
     moduleData: rec
       ? {
-          mods: {
-            records: [rec],
-            ...(opts.lastLaunch !== undefined ? { lastLaunch: opts.lastLaunch } : {}),
-          },
+          mods: { records: [rec], ...(opts.unknownKey ? { unknownKey: opts.unknownKey } : {}) },
           other: 1,
         }
       : {},
@@ -154,10 +151,9 @@ describe('startModRemove', () => {
     expect(h.jobs.list()).toEqual([])
   })
 
-  it('removing a mod keeps the remembered launch', async () => {
+  it('removing a mod keeps an unknown envelope key', async () => {
     await seed(FILES)
-    const choice = { gameDir: 'rogue', map: 'rmine1', gameType: 'single' }
-    const h = harness(record(FILES), { lastLaunch: choice })
+    const h = harness(record(FILES), { unknownKey: 'kept' })
     const started = startModRemove(h.deps, {
       installationId: 'inst-1',
       modId: 'rogue',
@@ -166,7 +162,7 @@ describe('startModRemove', () => {
     if (!started.ok) throw new Error('expected a started job')
     expect(await started.value.settled).toEqual({ status: 'succeeded' })
     expect(readModsState(h.installation.moduleData).records).toEqual([])
-    expect(readLastLaunch(h.installation.moduleData)).toEqual(choice)
+    expect(h.installation.moduleData?.['mods']).toMatchObject({ unknownKey: 'kept' })
   })
 
   it('nothing is deleted before the write guard grants the lock', async () => {

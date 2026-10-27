@@ -24,6 +24,11 @@ export interface LaunchState {
   connect?: string
 }
 
+/** Map names (no `.bsp`) a mod plus baseq2 offers, each with its BSP title when one could be read. */
+export interface MapList {
+  maps: Array<{ name: string; title?: string }>
+}
+
 export const IDLE_LAUNCH_STATE: LaunchState = { phase: 'idle', installationId: null }
 
 export interface LaunchInput {
@@ -34,8 +39,6 @@ export interface LaunchInput {
   connect?: string
   /** `+map <name>` - starts that map directly; cannot be combined with `connect`. */
   map?: string
-  /** With `map`: `deathmatch` 1 (default) or `single` for `deathmatch` 0. */
-  gameType?: 'deathmatch' | 'single'
   /** Extra arguments for this launch only, appended last. */
   extraArgs?: string[]
   /** set via a one-shot exec'd cfg, never argv; story 125, reused by 126 */

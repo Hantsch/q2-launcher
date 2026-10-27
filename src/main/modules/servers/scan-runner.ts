@@ -7,6 +7,7 @@ import {
   type ServerQueryResult,
   type ServerUdpTarget,
 } from './server-query'
+import { medianPing, PING_SAMPLES_EXTRA, PING_SAMPLES_FIRST, samplesFarApart } from './ping-samples'
 
 /**
  * Story 114: the two-stage sweep. One call runs one scan from start to finish (or abort); it
@@ -15,6 +16,10 @@ import {
  * - **Stage 1 (`info`)** runs a concurrency-capped pool over every target. Each pool slot awaits
  *   only *its own* query, and `onServer` fires in that slot's continuation, so a row is delivered
  *   the moment its reply lands - never after an `await` on the whole stage.
+ *   When the first `info` succeeds, the same slot takes `pingSamples - 1` more (one at a time, no
+ *   retries) and, if they are far apart, `PING_SAMPLES_EXTRA` more; the row is emitted once, with
+ *   `rttMs` replaced by the median. A failed extra sample is dropped; a failed first query is not
+ *   sampled. Stage 2 never touches the ping (story 258).
  * - **Stage 2 (`status`)** starts once stage 1 has fully settled and runs the same pool over
  *   exactly {every target stage 1 reported worth checking} plus the selected address (
  *   widened). The selected address is queried in stage 2 whatever stage 1 said about it (empty,
@@ -90,6 +95,9 @@ export interface RunScanOptions {
   settings: Pick<ServersScanSettings, 'concurrency' | 'timeoutMs' | 'retries'>
   /** Stage 2's "currently selected server" (D-G). Ignored if it does not parse. */
   selectedAddress?: string
+  /** `info` samples per reachable server in stage 1; the row carries their median. `1` is a single
+   * query. Defaults to `PING_SAMPLES_FIRST`. */
+  pingSamples?: number
   signal?: AbortSignal
   deps?: ScanRunnerDeps
   onServer: (row: ScanServerResult) => void
@@ -158,6 +166,7 @@ async function runPool<T>(
 export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
   const { settings, onServer, onProgress } = options
   const query = options.deps?.queryServer ?? defaultQueryServer
+  const pingSamples = Math.max(1, Math.floor(options.pingSamples ?? PING_SAMPLES_FIRST))
   const concurrency = Number.isFinite(settings.concurrency)
     ? Math.max(1, Math.floor(settings.concurrency))
     : 1
@@ -193,30 +202,53 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
     }
   }
 
+  const send = async (
+    udp: ServerUdpTarget,
+    kind: 'info' | 'status',
+    retries: number,
+  ): Promise<ServerQueryResult | null> => {
+    const pending = query(udp, {
+      kind,
+      timeoutMs: settings.timeoutMs,
+      retries,
+      signal: internal,
+    }).catch((): ServerQueryResult => ({ ok: false, reason: 'transport-error' }))
+    const landed = await Promise.race([pending, aborted])
+    if (landed === null || internal.aborted) return null
+    return landed
+  }
+
+  // One more round of `info` queries, strictly one after another; a failed sample is just dropped.
+  const collectSamples = async (
+    udp: ServerUdpTarget,
+    count: number,
+    into: number[],
+  ): Promise<boolean> => {
+    for (let i = 0; i < count; i += 1) {
+      const sample = await send(udp, 'info', 0)
+      if (sample === null) return false
+      if (sample.ok && sample.kind === 'info') into.push(sample.rttMs)
+    }
+    return true
+  }
+
   const queryOne = async (
     stage: ScanStage,
     target: ScanTarget,
   ): Promise<ServerQueryResult | null> => {
     const parsed = parseServerAddress(target.address)
-    let result: ServerQueryResult
-    if (!parsed.ok) {
-      result = { ok: false, reason: 'transport-error' }
-    } else {
-      const pending = query(
-        { host: parsed.host, port: parsed.port },
-        {
-          kind: stage === 'stage1' ? 'info' : 'status',
-          timeoutMs: settings.timeoutMs,
-          retries: settings.retries,
-          signal: internal,
-        },
-      ).catch((): ServerQueryResult => ({ ok: false, reason: 'transport-error' }))
-      const landed = await Promise.race([pending, aborted])
-      if (landed === null) return null
-      result = landed
+    if (!parsed.ok) return internal.aborted ? null : { ok: false, reason: 'transport-error' }
+    const udp = { host: parsed.host, port: parsed.port }
+    const first = await send(udp, stage === 'stage1' ? 'info' : 'status', settings.retries)
+    if (first === null) return null
+    if (stage === 'stage2' || !first.ok || pingSamples <= 1) return first
+
+    const collected = [first.rttMs]
+    if (!(await collectSamples(udp, pingSamples - 1, collected))) return null
+    if (samplesFarApart(collected) && !(await collectSamples(udp, PING_SAMPLES_EXTRA, collected))) {
+      return null
     }
-    if (internal.aborted) return null
-    return result
+    return { ...first, rttMs: medianPing(collected) }
   }
 
   // Stage 1: info over the whole address set.

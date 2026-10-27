@@ -22,6 +22,7 @@
         "100"
       ],
       "activeGameDir": "baseq2",
+      "activeMap": "",
       "source": "unknown",
       "status": "unknown",
       "checks": [],
@@ -767,6 +768,7 @@
       "retries": 1,
       "minSpacingMs": 30000,
       "autoScanOnOpen": true,
+      "doubleClickJoins": true,
       "autoRefreshEnabled": false,
       "autoRefreshIntervalMs": 60000
     },

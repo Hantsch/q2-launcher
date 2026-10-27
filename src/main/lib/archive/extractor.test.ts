@@ -7,7 +7,8 @@ import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stubPlatform } from '../../../test-support/platform'
-import { findRepoRoot, resolveExtractorPath } from './7za-path'
+import { resolveExtractorPath } from './7za-path'
+import { findRepoRoot } from '../resource-path'
 import { extractArchive, markVerified, parseBsp1ProgressLine } from './extractor'
 
 /**

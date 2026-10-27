@@ -166,6 +166,7 @@ export class InstallationsService {
       engineKind,
       launchArgs: [],
       activeGameDir: '',
+      activeMap: '',
       source: input.source ?? 'manual',
       status: result.status,
       checks: result.checks,
@@ -251,6 +252,7 @@ export class InstallationsService {
       engineKind: input.engineKind,
       launchArgs: [],
       activeGameDir: '',
+      activeMap: '',
       source: 'created',
       status: result.status,
       checks: result.checks,
@@ -303,6 +305,7 @@ export class InstallationsService {
     if (input.launchArgs !== undefined) userPatch.launchArgs = input.launchArgs
     if (input.favorite !== undefined) userPatch.favorite = input.favorite
     if (input.activeGameDir !== undefined) userPatch.activeGameDir = input.activeGameDir
+    if (input.activeMap !== undefined) userPatch.activeMap = input.activeMap
     if (input.executablePath !== undefined) userPatch.executablePath = input.executablePath
     // Story 103: the runner choice `resolveRunner` (src/main/services/runners.ts) reads. Does
     // not trigger revalidation below - it changes nothing an inspection checks.
@@ -726,6 +729,7 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
   // The selected game dir may have been deleted behind our back.
   if (next.activeGameDir && !result.gameDirs.includes(next.activeGameDir)) {
     next.activeGameDir = ''
+    next.activeMap = ''
   }
 
   return next

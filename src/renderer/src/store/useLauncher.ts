@@ -202,17 +202,14 @@ interface LauncherStore {
   // --- playing -------------------------------------------------------------
   /** `options`: `connect`/`userinfo` for the join
    * flow's `+connect`/password path, `spectate` to put the engine into spectator mode - all spread
-   * straight into the `launch:start` payload, alongside every existing call site that omits
-   * `options` entirely and keeps launching the installation's own default. */
+   * straight into the `launch:start` payload. Without `options` this is plain Play: the
+   * installation's own default plus its saved `activeMap`, which a join therefore never carries. */
   play: (
     installationId?: string,
     options?: {
       connect?: string
       userinfo?: LaunchUserinfo
       spectate?: true
-      gameDir?: string
-      map?: string
-      gameType?: 'deathmatch' | 'single'
     },
   ) => Promise<void>
   cancelJob: (jobId: string) => Promise<void>
@@ -468,7 +465,17 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   play: async (installationId, options) => {
     const id = installationId ?? get().settings.activeInstallationId
     if (!id) return
-    const result = await invoke('launch:start', { installationId: id, ...options })
+    // Applied here, not in main: main's launch-args builder is shared with demo playback, which
+    // must never start in the saved map (story 252)
+    const savedMap =
+      options === undefined
+        ? (get().installations.find((entry) => entry.id === id)?.activeMap ?? '')
+        : ''
+    const result = await invoke('launch:start', {
+      installationId: id,
+      ...(savedMap ? { map: savedMap } : {}),
+      ...options,
+    })
     if (!result.ok) toastOutcomeError(get().pushToast, result)
   },
 

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { initI18n } from '../../i18n'
-import { MultiSelect } from './MultiSelect'
+import { MultiSelect, type MultiSelectOption } from './MultiSelect'
 
 beforeAll(async () => {
   await initI18n('en')
@@ -149,5 +149,132 @@ describe('MultiSelect', () => {
     render(<Harness options={['Ctf', 'ctf']} initial={[]} />)
     fireEvent.click(trigger())
     expect(screen.getAllByRole('option')).toHaveLength(2)
+  })
+})
+
+const REGIONS: MultiSelectOption[] = [
+  { value: 'eu', label: 'Europe' },
+  { value: 'eu-de', label: 'Germany', level: 1, impliedBy: 'eu' },
+  { value: 'eu-fr', label: 'France', level: 1, impliedBy: 'eu' },
+  { value: 'na', label: 'North America' },
+  { value: 'na-us', label: 'USA', level: 1, impliedBy: 'na' },
+]
+
+function GroupedHarness({
+  initial,
+  filterable = false,
+}: {
+  initial: string[]
+  filterable?: boolean
+}) {
+  const [value, setValue] = useState(initial)
+  return (
+    <MultiSelect
+      label="Region"
+      options={REGIONS}
+      value={value}
+      onChange={setValue}
+      summaryCount={(n) => `${n} regions`}
+      filterable={filterable}
+      filterLabel="Filter regions"
+      data-testid="ms"
+    />
+  )
+}
+
+const rowTexts = () => screen.getAllByRole('option').map((r) => r.textContent)
+const filterField = () => screen.getByRole('textbox', { name: 'Filter regions' })
+
+describe('MultiSelect with grouped options and a filter', () => {
+  it('a grouped option is indented and shows its label', () => {
+    render(<GroupedHarness initial={['eu-de']} />)
+    expect(trigger().textContent).toBe('Germany')
+    fireEvent.click(trigger())
+    const rows = screen.getAllByRole('option')
+    expect(rowTexts()).toEqual(['Europe', 'Germany', 'France', 'North America', 'USA'])
+    expect(rows[1].className).toContain('pl-8')
+    expect(rows[0].className).not.toContain('pl-8')
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('children of a checked parent show checked and cannot be toggled', () => {
+    render(<GroupedHarness initial={['eu']} />)
+    fireEvent.click(trigger())
+    const child = screen.getAllByRole('option')[1]
+    expect(child.getAttribute('aria-selected')).toBe('true')
+    expect(child.getAttribute('aria-disabled')).toBe('true')
+    expect(child.querySelector('svg')).not.toBeNull()
+    expect(child.className).toContain('text-ink-muted')
+    expect(screen.getAllByRole('option')[3].hasAttribute('aria-disabled')).toBe(false)
+
+    fireEvent.click(child)
+    const list = screen.getByRole('listbox')
+    fireEvent.keyDown(list, { key: ' ' })
+    fireEvent.keyDown(list, { key: 'Enter' })
+    expect(trigger().textContent).toBe('Europe')
+    expect(screen.getByRole('status').textContent).toBe('1 selected')
+  })
+
+  it('typing narrows options and keeps the parent of a matching child', () => {
+    render(<GroupedHarness initial={[]} filterable />)
+    fireEvent.click(trigger())
+    fireEvent.change(filterField(), { target: { value: 'GERM' } })
+    expect(rowTexts()).toEqual(['Europe', 'Germany'])
+    fireEvent.change(filterField(), { target: { value: 'europe' } })
+    expect(rowTexts()).toEqual(['Europe', 'Germany', 'France'])
+    fireEvent.change(filterField(), { target: { value: 'zzz' } })
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+    expect(screen.getByRole('listbox').hasAttribute('aria-activedescendant')).toBe(false)
+  })
+
+  it('typing on the focused list feeds the filter and Space still toggles', async () => {
+    render(<GroupedHarness initial={[]} filterable />)
+    fireEvent.keyDown(trigger(), { key: 'ArrowDown' })
+    await Promise.resolve()
+    const list = screen.getByRole('listbox')
+    expect(document.activeElement).toBe(list)
+    fireEvent.keyDown(list, { key: 'End' })
+    fireEvent.keyDown(list, { key: 'u' })
+    fireEvent.keyDown(list, { key: 's' })
+    fireEvent.keyDown(list, { key: 'x', ctrlKey: true })
+    expect(filterField()).toHaveProperty('value', 'us')
+    expect(rowTexts()).toEqual(['North America', 'USA'])
+    expect(document.activeElement).toBe(list)
+    const activeText = () =>
+      document.getElementById(list.getAttribute('aria-activedescendant')!)?.textContent
+    expect(activeText()).toBe('USA')
+    fireEvent.keyDown(list, { key: 'Backspace' })
+    expect(filterField()).toHaveProperty('value', 'u')
+    fireEvent.keyDown(list, { key: 'Home' })
+    fireEvent.keyDown(list, { key: ' ' })
+    expect(trigger().textContent).toBe('Europe')
+    expect(filterField()).toHaveProperty('value', 'u')
+  })
+
+  it('Escape from the filter field closes and refocuses the trigger', () => {
+    render(<GroupedHarness initial={[]} filterable />)
+    fireEvent.click(trigger())
+    const list = screen.getByRole('listbox')
+    fireEvent.blur(list, { relatedTarget: filterField() })
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    filterField().focus()
+    fireEvent.change(filterField(), { target: { value: 'fr' } })
+    fireEvent.keyDown(filterField(), { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(screen.getByRole('listbox'))
+    filterField().focus()
+    fireEvent.keyDown(filterField(), { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(document.activeElement).toBe(trigger())
+    fireEvent.click(trigger())
+    expect(filterField()).toHaveProperty('value', '')
+    expect(rowTexts()).toHaveLength(5)
+  })
+
+  it('typing on the list of a plain multiselect does not filter', () => {
+    render(<Harness options={['x', 'y']} initial={[]} />)
+    fireEvent.click(trigger())
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'y' })
+    expect(rowTexts()).toEqual(['x', 'y'])
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 })

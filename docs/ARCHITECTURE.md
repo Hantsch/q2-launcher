@@ -384,7 +384,8 @@ The shell never needs editing to add a module. The steps, walked through `replay
    `servers.ts`. Every built module is contract-typed.
 2. **`ModuleId` + manifest** — add the id to `ModuleId` and an entry to `MODULE_MANIFESTS` in
    `src/shared/types/module.ts`: title/description i18n keys, icon, route, nav placement,
-   `status`, capabilities, `ipcNamespace`.
+   `status`, capabilities, `ipcNamespace`, and `launchDecidedByContent` when the module's content
+   (a server, a demo) decides mod and map so the footer hides "Launch with".
 3. **State slot** — `src/main/modules/<id>/persisted.ts`: the schema, the forgiving parse, the
    defaults and `<id>State(app.state)` over `app.state.section()` (replays: `replaysState`, key
    `replays`), plus the module's line in the golden document of

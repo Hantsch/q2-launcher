@@ -33,6 +33,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, delimiter, join } from 'node:path'
 import { z } from 'zod'
 import type { DetectedRunner } from '@shared/types'
+import { isIPv4 } from '@shared/servers/location'
 import { moveFile } from './fs-utils'
 import { userDataDir } from './paths'
 import { scopedLogger } from './logger'
@@ -67,6 +68,7 @@ export type UiHarnessVar =
   | 'Q2L_UI_STEAM_EXECUTABLE'
   | 'Q2L_UI_DETECTED_RUNNERS'
   | 'Q2L_UI_LAN_TARGETS'
+  | 'Q2L_UI_GEO_ADDRESSES'
   | 'Q2L_UI_SESSION_TYPE'
   | 'Q2L_UI_CINEMA_DISPLAY'
   | 'Q2L_UI_UNLOCK_PUBLIC_KEY'
@@ -374,4 +376,30 @@ export function uiHarnessLanTargets(harness: UiHarness): string[] | 'none' | und
       return port >= 1 && port <= 65535
     })
   return targets.length > 0 ? targets : undefined
+}
+
+/**
+ * Lets a flow place a loopback fixture server in a country: the harness's stand-in for a server on a
+ * public IP, which a CI machine cannot host.
+ */
+export const UI_HARNESS_GEO_ADDRESSES_ENV = 'Q2L_UI_GEO_ADDRESSES' satisfies UiHarnessVar
+
+const GEO_ADDRESS = /^127\.0\.0\.1:(\d{1,5})=(\d{1,3}(?:\.\d{1,3}){3})$/
+
+/**
+ * Server address (`127.0.0.1:<port>`) to the IPv4 it is located as, from the comma-separated list.
+ * Any other entry (a non-loopback key, a non-IPv4 value) is dropped; gate closed or unset is empty.
+ */
+export function uiHarnessGeoAddresses(harness: UiHarness): Map<string, string> {
+  const overrides = new Map<string, string>()
+  const raw = harness.read(UI_HARNESS_GEO_ADDRESSES_ENV)?.trim()
+  if (raw === undefined || raw.length === 0) return overrides
+  for (const entry of raw.split(',')) {
+    const match = GEO_ADDRESS.exec(entry.trim())
+    if (match === null) continue
+    const [, port, ip] = match
+    if (port === undefined || ip === undefined || !isIPv4(ip)) continue
+    if (Number(port) >= 1 && Number(port) <= 65535) overrides.set(`127.0.0.1:${Number(port)}`, ip)
+  }
+  return overrides
 }

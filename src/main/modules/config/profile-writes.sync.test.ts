@@ -25,6 +25,7 @@ import {
   writesHarness,
   type WritesHarness,
 } from './profile-writes.test-helpers'
+import { ORIGINAL_CONFIGS_DIR_NAME, restoreOriginals } from './original-backup'
 import { writeTargetFile } from './writer'
 
 // The sync engine writes the canonical file through `writer.ts` directly, so holding or failing
@@ -43,6 +44,8 @@ beforeEach(() => {
 
 const canonicalPath = (fileName: string): string => join(dir, 'userData', fileName)
 const copyPath = (fileName: string): string => join(dir, 'baseq2', fileName)
+const originalPath = (fileName: string): string =>
+  join(dir, ORIGINAL_CONFIGS_DIR_NAME, 'baseq2', fileName)
 
 /** What the `create` handler does: the store call, then the sync tail of the service. */
 async function createProfile(
@@ -535,15 +538,18 @@ describe('sync triggers that are not a save', () => {
 
   /**
    * `write`'s optional `installationId` is "Sync now" - a one-click rewrite of ONE installation's
-   * copy from the canonical file. `writer.ts#writeTargetFile`'s backup-once contract applies
+   * copy from the canonical file. The installation writer's originals-first contract applies
    * exactly as it would for any other write: a copy holding content the launcher did not itself
    * generate is the user's own file and is preserved once, forever, before being overwritten -
-   * this test asserts that contract is actually reached through the targeted path.
+   * this test asserts that contract is actually reached through the targeted path. The save's own
+   * backup is restored away first, so the targeted write is the one that meets the foreign copy
+   * as the installation's original.
    */
   it('write with installationId backs up a foreign copy once, then overwrites', async () => {
     const h = await seeded([profile()], { installations: [installation({ rootPath: dir })] })
     await save(h)
     const canonical = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    expect(await restoreOriginals(dir)).toEqual({ status: 'restored' })
 
     // A foreign, hand-written copy at the installation - not launcher output.
     const foreign = 'set sensitivity "42"\n'
@@ -554,7 +560,8 @@ describe('sync triggers that are not a save', () => {
     if (!result.ok) throw new Error('expected write to succeed')
     expect(result.value).toEqual([{ installationId: 'i1', status: 'written' }])
     // Backed up once before being overwritten.
-    expect(await readFile(`${copyPath('Profile.cfg')}.q2l-backup`, 'latin1')).toBe(foreign)
+    expect(await readFile(originalPath('Profile.cfg'), 'latin1')).toBe(foreign)
+    expect(await pathExists(`${copyPath('Profile.cfg')}.q2l-backup`)).toBe(false)
     // Overwritten with the canonical file's own bytes.
     expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(canonical)
     expect(configState(h.state).writeFailures.get()).toEqual({})
@@ -563,7 +570,7 @@ describe('sync triggers that are not a save', () => {
     const secondForeign = 'set sensitivity "99"\n'
     await writeFile(copyPath('Profile.cfg'), secondForeign, 'latin1')
     await h.writes.write({ profileId: 'p1', installationId: 'i1' })
-    expect(await readFile(`${copyPath('Profile.cfg')}.q2l-backup`, 'latin1')).toBe(foreign)
+    expect(await readFile(originalPath('Profile.cfg'), 'latin1')).toBe(foreign)
   })
 
   /**

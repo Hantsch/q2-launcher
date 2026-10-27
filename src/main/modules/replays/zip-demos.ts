@@ -4,7 +4,9 @@ import { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
 import { parseDemoHeader } from '@shared/demos/demo-header'
 import { createDm2FrameCounter } from '@shared/demos/dm2-frames'
-import { createDm2RosterCollector, type DemoRoster } from '@shared/demos/dm2-roster'
+import { createDm2FactsCollector } from '@shared/demos/dm2-facts'
+import type { DemoRoster } from '@shared/demos/dm2-roster'
+import type { DemoStats } from '@shared/demos/dm2-stats'
 import { createMvd2FrameCounter } from '@shared/demos/mvd2-frames'
 import { demoReadability } from '@shared/demos/readability'
 import type { DemoUnreadable } from '@shared/demos/readability'
@@ -105,15 +107,17 @@ function gunzipBounded(
 function durationOf(
   bytes: Uint8Array,
   format: DemoFormat,
-): { durationMs: number | null; roster: DemoRoster | null } {
-  const collector = format === 'mvd2' ? null : createDm2RosterCollector()
+): { durationMs: number | null; roster: DemoRoster | null; stats?: DemoStats } {
+  const collector = format === 'mvd2' ? null : createDm2FactsCollector()
   const counter =
     format === 'mvd2' ? createMvd2FrameCounter() : createDm2FrameCounter(collector ?? undefined)
   counter.push(bytes)
   const result = counter.finish()
+  const facts = collector?.finish()
   return {
     durationMs: result.ok ? result.durationMs : null,
-    roster: collector?.finish() ?? null,
+    roster: facts?.roster ?? null,
+    ...(facts?.stats ? { stats: facts.stats } : {}),
   }
 }
 

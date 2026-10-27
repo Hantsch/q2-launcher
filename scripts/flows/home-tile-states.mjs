@@ -54,45 +54,9 @@
 //   dashboard-tile-frame-retry        DashboardTileFrame.tsx (the retry button inside the error state)
 //   dashboard-arrange-toggle          ArrangeToggle.tsx
 //   dashboard-catalog                 ArrangeBar.tsx
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { REPO_ROOT } from '../lib/paths.mjs'
-import { AXE_RUN_OPTIONS } from '../lib/session.mjs'
+import { assertNoAxeViolations } from '../lib/flow-axe.mjs'
 
 const TIMEOUT_MS = 8_000
-
-// Story 026/027's `scripts/lib/session.mjs` reads axe-core the same way for the registry-driven
-// path; this is the first `ui:flow` script that needs it, so there is no shared flow-facing helper
-// to import yet (per this deliverable's own brief) - this replicates that file's exact idiom instead
-// of adding one.
-const AXE_SOURCE_PATH = join(REPO_ROOT, 'node_modules', 'axe-core', 'axe.min.js')
-const axeSource = readFileSync(AXE_SOURCE_PATH, 'utf8')
-
-async function ensureAxe(page) {
-  const present = await page.evaluate(() => typeof window.axe !== 'undefined')
-  if (!present) await page.evaluate(axeSource)
-}
-
-async function assertNoAxeViolations(page, label) {
-  await ensureAxe(page)
-  const results = await page.evaluate(
-    async (options) => await window.axe.run(options),
-    AXE_RUN_OPTIONS,
-  )
-  if (!Array.isArray(results?.violations)) {
-    throw new Error(
-      `axe.run() returned no violations array during '${label}' (got ${typeof results})`,
-    )
-  }
-  if (results.violations.length !== 0) {
-    const ids = results.violations
-      .map((violation) => `${violation.id} (${violation.impact})`)
-      .join(', ')
-    throw new Error(
-      `expected zero axe violations during '${label}', got ${results.violations.length}: ${ids}`,
-    )
-  }
-}
 
 function tile(page, tileId) {
   return page.getByTestId(`dashboard-tile-${tileId}`)
