@@ -7,6 +7,7 @@ import type {
   ScanSnapshot,
   ServerDetail,
   ServerListEntry,
+  ServersScanSettings,
   ServersScanState,
 } from '@shared/modules/servers'
 import { sortServerRows, type ServerListSort } from '@shared/servers/list-sort'
@@ -42,7 +43,14 @@ const {
   setListSortMock,
   readServerDetailMock,
   setModeMock,
+  getScanSettingsMock,
+  startJoinMock,
 } = vi.hoisted(() => ({
+  getScanSettingsMock: vi.fn(async () => ({
+    ok: true as const,
+    value: { doubleClickJoins: true } as ServersScanSettings,
+  })),
+  startJoinMock: vi.fn(),
   readScanMock: vi.fn(),
   startScanMock: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
   setScanViewActiveMock: vi.fn(async () => ({ ok: true as const, value: undefined })),
@@ -74,8 +82,13 @@ vi.mock('./client', (importOriginal) =>
     setListSort: setListSortMock,
     readServerDetail: readServerDetailMock,
     setMode: setModeMock,
+    getScanSettings: getScanSettingsMock,
   }),
 )
+
+vi.mock('./join/useJoinFlow', () => ({
+  useJoinFlow: () => ({ start: startJoinMock, addressError: null, dialogs: null }),
+}))
 
 vi.mock('@shared/servers/list-sort', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@shared/servers/list-sort')>()
@@ -107,6 +120,10 @@ afterEach(() => {
     value: sort,
   }))
   readServerDetailMock.mockImplementation(async () => ({ ok: true as const, value: null }))
+  getScanSettingsMock.mockImplementation(async () => ({
+    ok: true as const,
+    value: { doubleClickJoins: true } as ServersScanSettings,
+  }))
 })
 
 const BASE_STATE: ServersScanState = {
@@ -154,6 +171,29 @@ function toggleMod(name: string): void {
     .find((el) => el.textContent === name)
   if (!option) throw new Error(`no mod option ${name}`)
   fireEvent.click(option)
+}
+
+/** Waits until the settings query has really resolved, so the view no longer runs on its default. */
+async function settingsLoaded(): Promise<void> {
+  await waitFor(() => expect(getScanSettingsMock).toHaveBeenCalled())
+  await act(async () => {
+    await Promise.all(getScanSettingsMock.mock.results.map((result) => result.value))
+  })
+}
+
+/** Renders the view over `entries` with (or without) an active installation, settings loaded. */
+async function renderWithInstallation(
+  entries: ServerListEntry[],
+  { installed = true }: { installed?: boolean } = {},
+): Promise<void> {
+  const { useLauncher } = await import('../../store/useLauncher')
+  useLauncher.setState((state) => ({
+    settings: { ...state.settings, activeInstallationId: installed ? 'inst-1' : null },
+    installations: installed ? [{ id: 'inst-1' } as never] : [],
+  }))
+  await renderView(snapshot({ entries }))
+  await screen.findByTestId(`servers-row-${entries[0].address}`)
+  await settingsLoaded()
 }
 
 async function renderView(initial: ScanSnapshot): Promise<void> {
@@ -806,5 +846,142 @@ describe('ServersView - refresh the shown servers (story 250)', () => {
       )
       cleanup()
     }
+  })
+})
+
+describe('ServersView - double-click on a row', () => {
+  const ADDRESS = '1.2.3.4:27910'
+  const ENTRY: ServerListEntry = {
+    address: ADDRESS,
+    origins: ['manual'],
+    status: 'online',
+    lastSeenAt: 'x',
+  }
+
+  it('double-click joins when the setting is on', async () => {
+    await renderWithInstallation([ENTRY])
+
+    fireEvent.doubleClick(screen.getByTestId(`servers-row-${ADDRESS}`))
+
+    expect(startJoinMock).toHaveBeenCalledTimes(1)
+    expect(startJoinMock).toHaveBeenCalledWith(expect.objectContaining({ address: ADDRESS }))
+  })
+
+  it('double-click only selects when the setting is off', async () => {
+    getScanSettingsMock.mockResolvedValue({
+      ok: true,
+      value: { doubleClickJoins: false } as ServersScanSettings,
+    })
+    await renderWithInstallation([ENTRY])
+    const row = screen.getByTestId(`servers-row-${ADDRESS}`)
+
+    fireEvent.click(row)
+    fireEvent.doubleClick(row)
+    fireEvent.click(row)
+
+    expect(startJoinMock).not.toHaveBeenCalled()
+    expect(row.getAttribute('data-selected')).toBe('true')
+  })
+
+  it.each([
+    ['there is no active installation', ENTRY, false],
+    ['the address is invalid', { ...ENTRY, address: 'not-an-address' }, true],
+  ])('double-click and Enter only select when %s', async (_reason, entry, installed) => {
+    await renderWithInstallation([entry], { installed })
+    const row = screen.getByTestId(`servers-row-${entry.address}`)
+
+    fireEvent.click(row)
+    fireEvent.doubleClick(row)
+    fireEvent.keyDown(row, { key: 'Enter' })
+
+    expect(startJoinMock).not.toHaveBeenCalled()
+    expect(row.getAttribute('data-selected')).toBe('true')
+  })
+})
+
+describe('ServersView - keyboard navigation', () => {
+  const ADDRESSES = ['1.2.3.4:27910', '1.2.3.5:27910', '1.2.3.6:27910']
+  const entries: ServerListEntry[] = ADDRESSES.map((address) => ({
+    address,
+    origins: ['manual'],
+    status: 'online',
+    lastSeenAt: 'x',
+  }))
+  const rowOf = (address: string) => screen.getByTestId(`servers-row-${address}`)
+  const selectedAddresses = () =>
+    ADDRESSES.filter((address) => rowOf(address).getAttribute('data-selected') === 'true')
+
+  it('ArrowDown selects the next visible row and shows its details', async () => {
+    await renderWithInstallation(entries)
+    fireEvent.click(rowOf(ADDRESSES[0]))
+
+    fireEvent.keyDown(rowOf(ADDRESSES[0]), { key: 'ArrowDown' })
+
+    expect(selectedAddresses()).toEqual([ADDRESSES[1]])
+    await waitFor(() => expect(readServerDetailMock).toHaveBeenCalledWith(ADDRESSES[1]))
+    expect(screen.queryByTestId('servers-detail-empty')).toBeNull()
+    expect(document.activeElement).toBe(rowOf(ADDRESSES[1]))
+  })
+
+  it('arrow keys skip rows hidden by the filter', async () => {
+    const [first, middle, last] = ADDRESSES.map(
+      (address, index): ServerListEntry => ({
+        ...entries[index],
+        address,
+        name: `Server ${index}`,
+        mod: index === 1 ? 'baseq2' : 'ctf',
+      }),
+    )
+    await renderWithInstallation([first, middle, last])
+    toggleMod('ctf')
+    await waitFor(() => expect(screen.queryByTestId(`servers-row-${middle.address}`)).toBeNull())
+    fireEvent.click(rowOf(first.address))
+
+    fireEvent.keyDown(rowOf(first.address), { key: 'ArrowDown' })
+    expect(rowOf(last.address).getAttribute('data-selected')).toBe('true')
+
+    fireEvent.keyDown(rowOf(last.address), { key: 'ArrowUp' })
+    expect(rowOf(first.address).getAttribute('data-selected')).toBe('true')
+  })
+
+  it('arrow keys stop at the first and last row', async () => {
+    await renderWithInstallation(entries)
+    fireEvent.click(rowOf(ADDRESSES[0]))
+
+    fireEvent.keyDown(rowOf(ADDRESSES[0]), { key: 'ArrowUp' })
+    expect(selectedAddresses()).toEqual([ADDRESSES[0]])
+
+    fireEvent.click(rowOf(ADDRESSES[2]))
+    fireEvent.keyDown(rowOf(ADDRESSES[2]), { key: 'ArrowDown' })
+    expect(selectedAddresses()).toEqual([ADDRESSES[2]])
+  })
+
+  it('Enter on the selected row joins even with double-click joining off', async () => {
+    getScanSettingsMock.mockResolvedValue({
+      ok: true,
+      value: { doubleClickJoins: false } as ServersScanSettings,
+    })
+    await renderWithInstallation(entries)
+    fireEvent.click(rowOf(ADDRESSES[0]))
+
+    // The setting is really off: a double-click does not join, Enter still does.
+    fireEvent.doubleClick(rowOf(ADDRESSES[0]))
+    expect(startJoinMock).not.toHaveBeenCalled()
+    fireEvent.keyDown(rowOf(ADDRESSES[0]), { key: 'Enter' })
+
+    expect(startJoinMock).toHaveBeenCalledTimes(1)
+    expect(startJoinMock).toHaveBeenCalledWith(expect.objectContaining({ address: ADDRESSES[0] }))
+  })
+
+  it('Enter in the search field does not join', async () => {
+    await renderWithInstallation(entries)
+    fireEvent.click(rowOf(ADDRESSES[0]))
+
+    const search = screen.getByTestId('servers-filter-search')
+    fireEvent.keyDown(search, { key: 'Enter' })
+    fireEvent.keyDown(search, { key: 'ArrowDown' })
+
+    expect(startJoinMock).not.toHaveBeenCalled()
+    expect(selectedAddresses()).toEqual([ADDRESSES[0]])
   })
 })

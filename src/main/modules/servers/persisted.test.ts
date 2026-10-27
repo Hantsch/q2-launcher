@@ -246,6 +246,7 @@ describe('parseServersState (story 110 D2)', () => {
         retries: 3,
         minSpacingMs: 15_000,
         autoScanOnOpen: false,
+        doubleClickJoins: true,
         autoRefreshEnabled: true,
         autoRefreshIntervalMs: 120_000,
       },
@@ -257,6 +258,7 @@ describe('parseServersState (story 110 D2)', () => {
       retries: 3,
       minSpacingMs: 15_000,
       autoScanOnOpen: false,
+      doubleClickJoins: true,
       autoRefreshEnabled: true,
       autoRefreshIntervalMs: 120_000,
     })
@@ -278,6 +280,7 @@ describe('parseServersState (story 110 D2)', () => {
         retries: 2,
         minSpacingMs: 15_000,
         autoScanOnOpen: false,
+        doubleClickJoins: true,
         autoRefreshEnabled: true,
         autoRefreshIntervalMs: 120_000,
       },
@@ -289,6 +292,7 @@ describe('parseServersState (story 110 D2)', () => {
       retries: 2,
       minSpacingMs: 15_000,
       autoScanOnOpen: false,
+      doubleClickJoins: true,
       autoRefreshEnabled: true,
       autoRefreshIntervalMs: 120_000,
     })
@@ -308,6 +312,7 @@ describe('parseServersState (story 110 D2)', () => {
         retries: 2,
         minSpacingMs: 15_000,
         autoScanOnOpen: false,
+        doubleClickJoins: true,
         autoRefreshEnabled: true,
         autoRefreshIntervalMs: 999_999_999,
       },
@@ -319,9 +324,52 @@ describe('parseServersState (story 110 D2)', () => {
       retries: 2,
       minSpacingMs: 15_000,
       autoScanOnOpen: false,
+      doubleClickJoins: true,
       autoRefreshEnabled: true,
       autoRefreshIntervalMs: DEFAULT_SERVERS_STATE.scan.autoRefreshIntervalMs,
     })
+  })
+
+  it('a scan block without doubleClickJoins reads as on', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: {
+        concurrency: 16,
+        timeoutMs: 1000,
+        retries: 2,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: false,
+        autoRefreshEnabled: false,
+        autoRefreshIntervalMs: 60_000,
+      },
+    })
+
+    expect(result.scan.doubleClickJoins).toBe(true)
+  })
+
+  it('a non-boolean doubleClickJoins falls back to on', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: {
+        concurrency: 16,
+        timeoutMs: 1000,
+        retries: 2,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: false,
+        autoRefreshEnabled: false,
+        autoRefreshIntervalMs: 60_000,
+        doubleClickJoins: 'nope',
+      },
+    })
+
+    expect(result.scan.doubleClickJoins).toBe(true)
+    expect(result.scan.autoScanOnOpen).toBe(false)
   })
 
   it('duplicate sources sharing an id collapse to the first occurrence', () => {
@@ -502,6 +550,7 @@ describe('serversState', () => {
         retries: 2,
         minSpacingMs: 15_000,
         autoScanOnOpen: true,
+        doubleClickJoins: true,
         autoRefreshEnabled: false,
         autoRefreshIntervalMs: 60000,
       },

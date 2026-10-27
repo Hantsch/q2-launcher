@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement } from 'react'
+import { createElement, type ComponentProps } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ServerListRow } from '@shared/modules/servers'
@@ -35,8 +35,21 @@ const BASE_ROW: ServerListRow = {
   favourite: false,
 }
 
-function renderRow(row: ServerListRow, selected = false) {
-  render(createElement(ServerRow, { row, selected, onSelect: () => {} }))
+function renderRow(
+  row: ServerListRow,
+  selected = false,
+  handlers: Partial<ComponentProps<typeof ServerRow>> = {},
+) {
+  render(
+    createElement(ServerRow, {
+      row,
+      selected,
+      onSelect: () => {},
+      onJoin: () => {},
+      onNavigate: () => {},
+      ...handlers,
+    }),
+  )
 }
 
 describe('ServerRow (story 118 D3)', () => {
@@ -171,6 +184,8 @@ describe('ServerRow (story 118 D3)', () => {
         onSelect: (address: string) => {
           selectedAddress = address
         },
+        onJoin: () => {},
+        onNavigate: () => {},
       }),
     )
     const button = screen.getByTestId(`servers-row-${BASE_ROW.address}`)
@@ -188,6 +203,8 @@ describe('ServerRow (story 118 D3)', () => {
         onSelect: (address: string) => {
           selectedAddress = address
         },
+        onJoin: () => {},
+        onNavigate: () => {},
       }),
     )
 
@@ -195,5 +212,74 @@ describe('ServerRow (story 118 D3)', () => {
 
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('app:copyText', BASE_ROW.address))
     expect(selectedAddress).toBeUndefined()
+  })
+})
+
+describe('ServerRow - double-click', () => {
+  it('double-click calls onActivate with the row address', () => {
+    const onActivate = vi.fn()
+    renderRow(BASE_ROW, false, { onActivate })
+
+    fireEvent.doubleClick(screen.getByTestId(`servers-row-${BASE_ROW.address}`))
+
+    expect(onActivate).toHaveBeenCalledTimes(1)
+    expect(onActivate).toHaveBeenCalledWith(BASE_ROW.address)
+  })
+
+  it('double-click on the copy button does not activate', () => {
+    const onActivate = vi.fn()
+    renderRow(BASE_ROW, false, { onActivate })
+
+    fireEvent.doubleClick(screen.getByTestId(`servers-row-copy-${BASE_ROW.address}`))
+
+    expect(onActivate).not.toHaveBeenCalled()
+  })
+})
+
+describe('ServerRow - keyboard', () => {
+  const rowElement = () => screen.getByTestId(`servers-row-${BASE_ROW.address}`)
+
+  it('Enter on an unselected row selects it', () => {
+    const onSelect = vi.fn()
+    const onJoin = vi.fn()
+    renderRow(BASE_ROW, false, { onSelect, onJoin })
+
+    fireEvent.keyDown(rowElement(), { key: 'Enter' })
+
+    expect(onSelect).toHaveBeenCalledWith(BASE_ROW.address)
+    expect(onJoin).not.toHaveBeenCalled()
+  })
+
+  it('Enter on the selected row joins', () => {
+    const onSelect = vi.fn()
+    const onJoin = vi.fn()
+    renderRow(BASE_ROW, true, { onSelect, onJoin })
+
+    fireEvent.keyDown(rowElement(), { key: 'Enter' })
+
+    expect(onJoin).toHaveBeenCalledWith(BASE_ROW.address)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('Space only selects, even on the selected row', () => {
+    const onSelect = vi.fn()
+    const onJoin = vi.fn()
+    renderRow(BASE_ROW, true, { onSelect, onJoin })
+
+    fireEvent.keyDown(rowElement(), { key: ' ' })
+
+    expect(onSelect).toHaveBeenCalledWith(BASE_ROW.address)
+    expect(onJoin).not.toHaveBeenCalled()
+  })
+
+  it('arrow keys call onNavigate', () => {
+    const onNavigate = vi.fn()
+    renderRow(BASE_ROW, true, { onNavigate })
+
+    fireEvent.keyDown(rowElement(), { key: 'ArrowDown' })
+    fireEvent.keyDown(rowElement(), { key: 'ArrowUp' })
+
+    expect(onNavigate).toHaveBeenNthCalledWith(1, BASE_ROW.address, 1)
+    expect(onNavigate).toHaveBeenNthCalledWith(2, BASE_ROW.address, -1)
   })
 })

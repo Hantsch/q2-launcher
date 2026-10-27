@@ -55,6 +55,7 @@ const SCAN_SETTINGS = {
   retries: 1,
   minSpacingMs: 0,
   autoScanOnOpen: true,
+  doubleClickJoins: true,
   autoRefreshEnabled: false,
   autoRefreshIntervalMs: 60000,
 }

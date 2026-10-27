@@ -48,7 +48,14 @@ This document describes the module as built. `servers` is a registered module; i
 - `ServerDetailView.tsx` and its `ServerDetailSection.tsx`, `ServerPlayersPanel.tsx`,
   `ServerRulesPanel.tsx` sections.
   The list tab's detail pane is always present (empty state until a server is chosen); a click
-  selects, never deselects.
+  selects, never deselects. Double-clicking a row joins it (`ServersView` passes `ServerRow` an
+  `onActivate` through the same guard as the action bar's Join: valid address, active installation),
+  while the persisted scan setting `doubleClickJoins` is on (default; Settings > Servers); with it
+  off, a double-click is two selecting clicks.
+  Keyboard, handled on the focused row only (never a window listener, so the filter inputs keep
+  their keys): Enter selects an unselected row and joins the selected one through the same guard,
+  independent of `doubleClickJoins`; Arrow Up/Down move the selection to the neighbouring visible row
+  (no wrap) and focus it; Space only selects.
 - `join/useJoinFlow.tsx`, `join/join-flow.ts`, `join/JoinServerButton.tsx` — joining.
 - `watchlist/WatchlistPanel.tsx` with `watchlist/useWatchlist.ts`; `useServerScan.ts`,
   `useQuickFilters.ts`, `client.ts`, `list-state.ts`, `list-grid.ts`, `locale/en.json`.

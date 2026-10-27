@@ -1,7 +1,7 @@
 ---
 id: 257
 title: I join a server with double-click or Enter and move through the list with arrow keys
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -18,14 +18,14 @@ selection.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Double-clicking a server row joins that server (same flow as the Join action).
-- [ ] **AC2** — The Servers settings have a "Double-click joins" switch, on by default, persisted.
-- [ ] **AC3** — With the switch off, double-clicking only selects the row.
-- [ ] **AC4** — With a server selected and the list focused, Arrow Down/Up selects the next/previous visible
+- [x] **AC1** — Double-clicking a server row joins that server (same flow as the Join action).
+- [x] **AC2** — The Servers settings have a "Double-click joins" switch, on by default, persisted.
+- [x] **AC3** — With the switch off, double-clicking only selects the row.
+- [x] **AC4** — With a server selected and the list focused, Arrow Down/Up selects the next/previous visible
       row, keeps it scrolled into view and updates the detail pane.
-- [ ] **AC5** — Arrow keys stop at the first and last row (no wrap).
-- [ ] **AC6** — Enter on the selected row joins that server, regardless of the double-click switch.
-- [ ] **AC7** — Arrow keys and Enter typed in a filter or search field do not move the selection or join.
+- [x] **AC5** — Arrow keys stop at the first and last row (no wrap).
+- [x] **AC6** — Enter on the selected row joins that server, regardless of the double-click switch.
+- [x] **AC7** — Arrow keys and Enter typed in a filter or search field do not move the selection or join.
 
 ## Open Questions
 
@@ -164,3 +164,21 @@ Review: → default
   unit `ServersView.test.tsx` › "Enter in the search field does not join" (D4)
 
 ## Done
+
+Servers list: double-click joins (new persisted `doubleClickJoins` scan setting, default on, switch under Settings > Servers > "Server list"); Enter on the selected row joins independent of the setting; ArrowUp/Down move selection and focus through the visible rows (clamped, scrolled into view). All keys are handled on the row element.
+
+Commit message: `257: servers list — double-click joins (setting, default on), Enter joins, arrow keys move selection`
+
+Verification (narrow gate, run twice: before and after the review fixes): `npm run build:dev`, `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEAD` (183 files / 1610 tests) and `npm run ui:flows -- --affected scripts/flows/servers-double-click-join.mjs scripts/flows/servers-keyboard-nav.mjs scripts/flows/servers-scan-settings.mjs --parallel=4 --shard=1/2` and `2/2` (23/23 flows each) all green. Full gate not run (sprint's).
+AC -> test, all passed: AC1 servers-double-click-join flow + "double-click joins when the setting is on"; AC2 servers-scan-settings flow + ServersSettingsSection "the double-click switch is on by default…" + persisted "a scan block without doubleClickJoins reads as on"; AC3 servers-double-click-join (switch-off) + "double-click only selects when the setting is off"; AC4 servers-keyboard-nav + "ArrowDown selects the next visible row…"; AC5 servers-keyboard-nav + "arrow keys stop at the first and last row"; AC6 servers-keyboard-nav (Enter, setting off) + ServerRow "Enter on the selected row joins"; AC7 servers-keyboard-nav + "Enter in the search field does not join". No manual residue.
+Review (clean agent, default tier): PASS with test-quality findings, all fixed in one cycle — filtered-navigation test, AC6 flow now remounts the view so the setting is really off, settings-loaded awaits in tests, blocked-join-guard test, deduplicated `renderWithInstallation`, CHANGELOG formatter churn reverted and entry shortened. Deliverable ticks do not exist in this story (D list is bullets).
+
+Decisions:
+- `joinBlockedReason(row, hasInstallation)` is one guard shared by the action bar's Join and the double-click/Enter path; with Join disabled they only select.
+- Sibling tests `ServersView.actionbar.test.tsx` / `ServersView.watchlist.test.tsx` got a `getScanSettings` mock (ServersView now queries it).
+- New flows registered in the `servers-join` row of `scripts/flows/areas.json` (6 of 12).
+- "Server list" heading duplicates the `servers.tabs.list` value: added a justified `DUPLICATE_EXCEPTIONS` entry in `i18n/keys.test.ts` instead of changing the spec'd text.
+- `scroll-mt-9` on the focusable row so the sticky list header never covers a keyboard-scrolled row; `v1..v5-full.expected.json` state fixtures carry the new default.
+- Space keeps selecting only; Enter on an unselected row selects.
+
+tiers: D 4 / hard 0 · review default · cycles 1 · agents 9

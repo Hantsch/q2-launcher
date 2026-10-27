@@ -7,6 +7,7 @@ import type {
   ScanSnapshot,
   ServerDetail,
   ServerListEntry,
+  ServersScanSettings,
   ServersScanState,
   WatchlistSnapshot,
 } from '@shared/modules/servers'
@@ -81,6 +82,10 @@ vi.mock('./client', (importOriginal) =>
     onScanServer: onScanServerMock,
     listMasterSources: listMasterSourcesMock,
     getListSort: getListSortMock,
+    getScanSettings: async () => ({
+      ok: true as const,
+      value: { doubleClickJoins: true } as ServersScanSettings,
+    }),
     setListSort: setListSortMock,
     readServerDetail: readServerDetailMock,
     readWatchlist: readWatchlistMock,

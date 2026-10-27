@@ -1071,6 +1071,8 @@
     "flows": [
       "servers-join",
       "servers-actionbar-join",
+      "servers-double-click-join",
+      "servers-keyboard-nav",
       "servers-detail-local-content",
       "steam-handoff"
     ],

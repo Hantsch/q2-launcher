@@ -17,6 +17,7 @@ version section when a release actually ships.
 - **Config** — Your original config files are backed up on first assignment and can be restored.
 - **Config** — Assigning a profile asks before replacing a config file of yours with the same name.
 - **Footer** — Pick a map; Play starts a deathmatch in it.
+- **Servers** — Double-click or Enter joins a server; arrow keys move the selection.
 
 ### Changed
 - **Launch with** — applies only to Play now; servers and demos bring their own mod, no mod-mismatch prompt.

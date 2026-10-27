@@ -198,7 +198,11 @@
         "description": "Where the server list comes from and how servers are queried.",
         "sourcesHeading": "Server lists",
         "list": {
-          "label": "Master and list sources"
+          "label": "Master and list sources",
+          "heading": "Server list",
+          "doubleClickJoins": {
+            "label": "Double-click a server to join it"
+          }
         },
         "type": {
           "udp-master": "UDP master",

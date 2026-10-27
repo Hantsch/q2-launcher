@@ -23,8 +23,9 @@ import { usePrimaryActionContribution, type ContributedAction } from '../../lib/
 import { useFeatureUnlocked } from '../../components/features/FeatureGate'
 import { cn } from '../../lib/cn'
 import { useListSort } from '../../lib/useListSort'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { ROUTE_SETTINGS, useActiveInstallation, useLauncher } from '../../store/useLauncher'
-import { getListSort, setListSort } from './client'
+import { getListSort, getScanSettings, setListSort } from './client'
 import { deriveListState } from './list-state'
 import { JoinServerButton } from './join/JoinServerButton'
 import { useJoinFlow } from './join/useJoinFlow'
@@ -57,6 +58,16 @@ function detailSplit(detailOpen: boolean): string {
 
 const DETAIL_PANE =
   'min-h-0 overflow-y-auto border-t border-line bg-panel/40 @4xl:border-t-0 @4xl:border-l'
+
+/** Why a row cannot be joined right now, or `undefined` when it can. */
+function joinBlockedReason(
+  row: ServerListRow,
+  hasInstallation: boolean,
+): LocalizedMessage | undefined {
+  const parsed = parseServerAddress(row.address)
+  if (!parsed.ok) return { key: serverAddressRejectionKey(parsed.reason) }
+  return hasInstallation ? undefined : { key: 'servers.join.noInstallation' }
+}
 
 /**
  * The Servers module view: the server list (filter rail, toolbar, status panel, sortable rows and
@@ -97,6 +108,11 @@ export function ServersView() {
     setSelectedAddress(address)
   }
 
+  const handleRowActivated = (address: string): void => {
+    const row = resolveServer(address)
+    if (row) joinIfAllowed(row)
+  }
+
   const handleOpenSourceSettings = (): void => {
     setRoute(ROUTE_SETTINGS)
     scrollToSourceSettings()
@@ -114,25 +130,28 @@ export function ServersView() {
     startJoinRef.current = joinFlow.start
   })
   const hasInstallation = useActiveInstallation() !== null
+  // Not yet loaded counts as on: the default, so a fresh mount never swallows an early double-click.
+  const scanSettings = useModuleQuery(getScanSettings)
+  const doubleClickJoins = scanSettings.data?.doubleClickJoins ?? true
   const joinAddress = activeTab === 'watchlist' ? watchlistDetailAddress : selectedAddress
   const joinRow = joinAddress === null ? undefined : resolveServer(joinAddress)
+  // The one guard for every join from this view's list: the action bar's Join and a row's double-click.
+  const joinIfAllowed = (row: ServerListRow): void => {
+    if (joinBlockedReason(row, hasInstallation) === undefined) startJoinRef.current(row)
+  }
+  const joinIfAllowedRef = useRef(joinIfAllowed)
+  useLayoutEffect(() => {
+    joinIfAllowedRef.current = joinIfAllowed
+  })
   const joinAction = useMemo<ContributedAction>(() => {
-    const parsed = joinRow ? parseServerAddress(joinRow.address) : null
-    const reason: LocalizedMessage | undefined =
-      joinRow === undefined
-        ? undefined
-        : parsed && !parsed.ok
-          ? { key: serverAddressRejectionKey(parsed.reason) }
-          : !hasInstallation
-            ? { key: 'servers.join.noInstallation' }
-            : undefined
+    const reason = joinRow === undefined ? undefined : joinBlockedReason(joinRow, hasInstallation)
     return {
       id: 'join-server',
       labelKey: 'common.action.join',
       disabled: joinRow === undefined || reason !== undefined,
       ...(reason ? { reason } : {}),
       run: () => {
-        if (joinRow) startJoinRef.current(joinRow)
+        if (joinRow) joinIfAllowedRef.current(joinRow)
       },
     }
   }, [joinRow, hasInstallation])
@@ -163,6 +182,35 @@ export function ServersView() {
 
   const sortedRows = useMemo(() => sortServerRows(entries, sort), [entries, sort])
   const visible = useMemo(() => filterServers(sortedRows, filter), [sortedRows, filter])
+
+  const tableRef = useRef<HTMLDivElement>(null)
+  const focusSelectedRef = useRef(false)
+  const focusSelectedRow = (): void => {
+    const rowElement = tableRef.current?.querySelector<HTMLElement>('[data-selected="true"]')
+    rowElement?.focus()
+    // jsdom has no scrollIntoView.
+    rowElement?.scrollIntoView?.({ block: 'nearest' })
+  }
+
+  // Arrow keys stop at the first and last row; focus follows the selection so the next key press
+  // lands on the new row.
+  const handleRowNavigate = (address: string, step: 1 | -1): void => {
+    const index = visible.findIndex((row) => row.address === address)
+    if (index < 0) return
+    const target = visible[Math.min(Math.max(index + step, 0), visible.length - 1)]
+    if (target.address === selectedAddress) {
+      focusSelectedRow()
+      return
+    }
+    focusSelectedRef.current = true
+    setSelectedAddress(target.address)
+  }
+
+  useEffect(() => {
+    if (!focusSelectedRef.current) return
+    focusSelectedRef.current = false
+    focusSelectedRow()
+  }, [selectedAddress])
 
   // A selection the filter hides is dropped - it would keep driving "Refresh this server" against
   // an address the user can no longer see or pick again.
@@ -207,6 +255,9 @@ export function ServersView() {
             row={entry}
             selected={entry.address === selectedAddress}
             onSelect={handleRowSelected}
+            onJoin={handleRowActivated}
+            onNavigate={handleRowNavigate}
+            onActivate={doubleClickJoins ? handleRowActivated : undefined}
           />
         ))}
       </>
@@ -286,7 +337,12 @@ export function ServersView() {
                 sourceLabels={scan.sourceLabels}
                 onOpenSourceSettings={handleOpenSourceSettings}
               />
-              <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable">{table}</div>
+              <div
+                ref={tableRef}
+                className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable"
+              >
+                {table}
+              </div>
             </div>
             <div className={DETAIL_PANE}>
               <ServerDetailView

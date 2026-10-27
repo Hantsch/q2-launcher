@@ -15,6 +15,12 @@ export interface ServerRowProps {
   row: ServerListRow
   selected: boolean
   onSelect: (address: string) => void
+  /** Enter on the already-selected row. */
+  onJoin: (address: string) => void
+  /** Arrow Down (+1) / Arrow Up (-1): the list moves the selection and focus. */
+  onNavigate: (address: string, step: 1 | -1) => void
+  /** Fired by a double-click on the row; absent when double-click does nothing beyond selecting. */
+  onActivate?: (address: string) => void
 }
 
 const PIP_COUNT = 5
@@ -54,7 +60,14 @@ export function OccupancyPips({ row }: { row: ServerListRow }) {
  * colour-only). A favourite carries a star before its name; a waiting-for-opponent row also lights
  * its left edge, the selected row lights it in flame.
  */
-export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
+export function ServerRow({
+  row,
+  selected,
+  onSelect,
+  onJoin,
+  onNavigate,
+  onActivate,
+}: ServerRowProps) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
 
@@ -73,14 +86,31 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
     })
   }
 
+  // Handled on the row element itself, never on the window, so a focused filter input keeps its
+  // own Enter and arrow keys.
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key === ' ') {
+      event.preventDefault()
+      onSelect(row.address)
+    } else if (event.key === 'Enter') {
+      event.preventDefault()
+      if (selected) onJoin(row.address)
+      else onSelect(row.address)
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      onNavigate(row.address, event.key === 'ArrowDown' ? 1 : -1)
+    }
+  }
+
   // The copy-address button must not sit inside the row's own `role="button"` (axe
   // `nested-interactive`), so the outer div owns the grid, the row's look and the mouse click, and
   // the selectable row is a full-width subgrid inside it - the copy button is its sibling, laid
-  // over the row's empty second column. A click on the copy button stops propagation, so it never
-  // selects the row.
+  // over the row's empty second column. A click or double-click on the copy button stops propagation, so
+  // it never selects or joins the row.
   return (
     <div
       onClick={() => onSelect(row.address)}
+      onDoubleClick={() => onActivate?.(row.address)}
       className={cn(
         SERVER_LIST_GRID,
         'min-h-12 w-full cursor-default border-b border-b-line/60 text-xs text-ink-dim transition-colors duration-[--dur-fast]',
@@ -96,16 +126,11 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
       <div
         role="button"
         tabIndex={0}
-        onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            onSelect(row.address)
-          }
-        }}
+        onKeyDown={handleKeyDown}
         aria-pressed={selected}
         data-testid={`servers-row-${row.address}`}
         data-selected={selected}
-        className="col-span-full row-start-1 grid min-h-12 grid-cols-subgrid items-center py-1.5 text-left"
+        className="col-span-full row-start-1 grid min-h-12 scroll-mt-9 grid-cols-subgrid items-center py-1.5 text-left"
       >
         <div className="min-w-0">
           <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
@@ -173,6 +198,7 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
         variant="neutral"
         size="md"
         onClick={handleCopyAddress}
+        onDoubleClick={(event) => event.stopPropagation()}
         data-testid={`servers-row-copy-${row.address}`}
         className="col-start-2 row-start-1"
       >

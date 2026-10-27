@@ -24,7 +24,7 @@ accuracy stats.
 - [x] 254 — The first assignment backs up the original configs and I can restore them
 - [x] 255 — Assigning a profile never overwrites a foreign config silently
 - [x] 256 — Server details are always shown
-- [ ] 257 — I join a server with double-click or Enter and move through the list with arrow keys
+- [x] 257 — I join a server with double-click or Enter and move through the list with arrow keys
 - [ ] 258 — Server pings match what I get in game
 - [ ] 259 — Batch actions show from one selected demo
 - [ ] 260 — Demo details are always shown

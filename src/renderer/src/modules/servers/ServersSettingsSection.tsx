@@ -304,6 +304,19 @@ export function ServersSettingsSection() {
           </label>
         </div>
       </div>
+
+      <div className="space-y-3 border-t border-line pt-3">
+        <SectionLabel>{t('module.servers.settings.list.heading')}</SectionLabel>
+
+        <div data-testid="servers-list-settings-double-click-joins">
+          <Switch
+            label={t('module.servers.settings.list.doubleClickJoins.label')}
+            checked={scanSettings?.doubleClickJoins ?? true}
+            disabled={!scanSettings}
+            onChange={(doubleClickJoins) => void applyScanPatch({ doubleClickJoins })}
+          />
+        </div>
+      </div>
     </div>
   )
 }

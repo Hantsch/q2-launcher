@@ -124,6 +124,8 @@ export const DYNAMIC_KEY_PREFIXES: readonly string[] = [
 export const DUPLICATE_EXCEPTIONS: Record<string, string> = {
   Close: 'The titlebar button closes the window; the others dismiss a panel.',
   Scan: 'A section heading in the servers settings versus the button that starts a cleanup scan.',
+  'Server list':
+    'A section heading in the servers settings versus the servers view tab that shows the list.',
   Reset: 'A column header in the controls grid versus a name-template action button.',
   'Import from files':
     'A source choice in the config profile dialog versus the import dialog title.',

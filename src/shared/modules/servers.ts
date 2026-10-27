@@ -246,6 +246,7 @@ export const SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS = [
  * The scanner's budget knobs, user-facing settings. Beyond `concurrency`/`timeoutMs`/
  * `retries`/`minSpacingMs`:
  * - `autoScanOnOpen`: whether opening the Servers view kicks off a scan automatically.
+ * - `doubleClickJoins`: whether double-clicking a server row joins it.
  * - `autoRefreshEnabled`: whether the view keeps re-scanning on its own once open.
  * - `autoRefreshIntervalMs`: how often it does so while `autoRefreshEnabled` is on.
  */
@@ -255,6 +256,7 @@ export interface ServersScanSettings {
   retries: number
   minSpacingMs: number
   autoScanOnOpen: boolean
+  doubleClickJoins: boolean
   autoRefreshEnabled: boolean
   autoRefreshIntervalMs: number
 }
@@ -265,6 +267,7 @@ export const serversScanSettingsSchema = z.object({
   retries: z.number(),
   minSpacingMs: z.number(),
   autoScanOnOpen: z.boolean(),
+  doubleClickJoins: z.boolean(),
   autoRefreshEnabled: z.boolean(),
   autoRefreshIntervalMs: z.number(),
 })
@@ -490,6 +493,7 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
     retries: 1,
     minSpacingMs: 30_000,
     autoScanOnOpen: true,
+    doubleClickJoins: true,
     autoRefreshEnabled: false,
     autoRefreshIntervalMs: 60_000,
   },
@@ -850,6 +854,7 @@ export const scanPatchSettingsInputSchema = z
       .refine((value) => (SCAN_MIN_SPACING_CHOICES_MS as readonly number[]).includes(value))
       .optional(),
     autoScanOnOpen: z.boolean().optional(),
+    doubleClickJoins: z.boolean().optional(),
     autoRefreshEnabled: z.boolean().optional(),
     autoRefreshIntervalMs: z
       .number()

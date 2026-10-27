@@ -80,3 +80,22 @@
 - 2026-10-27 10:09 · 256 · review 1 · started
 - 2026-10-27 10:11 · 256 · review 1 · done
 - 2026-10-27 10:11 · 256 · story · done
+- 10:11:39 · 257 · build · started
+- 2026-10-27 10:12 · 257 · D1 doubleClickJoins setting · started
+- 2026-10-27 10:14 · 257 · D1 doubleClickJoins setting · done
+- 2026-10-27 10:14 · 257 · D2 settings switch · started
+- 2026-10-27 10:15 · 257 · D2 settings switch · done
+- 2026-10-27 10:15 · 257 · D3 double-click join · started
+- 2026-10-27 10:23 · 257 · D3 double-click join · done
+- 2026-10-27 10:23 · 257 · D4 arrow keys + Enter · started
+- 2026-10-27 10:27 · 257 · D3b fix sibling ServersView tests · started
+- 2026-10-27 10:28 · 257 · D3b fix sibling ServersView tests · done
+- 2026-10-27 10:28 · 257 · verify · started
+- 2026-10-27 10:37 · 257 · verify · done
+- 2026-10-27 10:37 · 257 · review 1 · started
+- 2026-10-27 10:40 · 257 · review 1 · done
+- 2026-10-27 10:40 · 257 · D5 review fixes · started
+- 2026-10-27 10:43 · 257 · D5 review fixes · done
+- 2026-10-27 10:43 · 257 · verify · started
+- 2026-10-27 10:54 · 257 · verify · done
+- 2026-10-27 10:54 · 257 · story · done

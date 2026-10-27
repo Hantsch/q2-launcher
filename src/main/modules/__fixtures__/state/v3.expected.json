@@ -246,6 +246,7 @@
       "retries": 1,
       "minSpacingMs": 30000,
       "autoScanOnOpen": true,
+      "doubleClickJoins": true,
       "autoRefreshEnabled": false,
       "autoRefreshIntervalMs": 60000
     },

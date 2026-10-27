@@ -2561,6 +2561,10 @@
           "start": "Edit source"
         },
         "list": {
+          "doubleClickJoins": {
+            "label": "Double-click a server to join it"
+          },
+          "heading": "Server list",
           "label": "Master and list sources"
         },
         "remove": {
