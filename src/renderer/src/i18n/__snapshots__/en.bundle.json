@@ -7,7 +7,9 @@
     "filesRemaining_one": "{{count}} file remaining",
     "filesRemaining_other": "{{count}} files remaining",
     "handedOff": "Handed off to Steam — not tracked",
-    "playWith": "Play with...",
+    "map": {
+      "none": "No map"
+    },
     "playable": "Playable",
     "running": "Quake II is running"
   },
@@ -2397,16 +2399,6 @@
     },
     "origin": {
       "manual": "Installed manually"
-    },
-    "playWith": {
-      "baseGame": "Base game",
-      "deathmatch": "Deathmatch",
-      "gameType": "Game type",
-      "loadingMaps": "Loading maps...",
-      "noMap": "No map",
-      "single": "Single player",
-      "start": "Start",
-      "title": "Play {{installation}} with..."
     },
     "reason": {
       "notPlayableLocally": "Not playable locally with {{engine}}: no matching build",

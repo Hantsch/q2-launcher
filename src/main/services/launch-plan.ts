@@ -95,7 +95,7 @@ export function buildLaunchArgs(
   installation: Installation,
   input: Pick<
     LaunchInput,
-    'gameDir' | 'connect' | 'extraArgs' | 'userinfo' | 'spectate' | 'map' | 'gameType' | 'engine'
+    'gameDir' | 'connect' | 'extraArgs' | 'userinfo' | 'spectate' | 'map' | 'engine'
   > = {},
 ): BuildLaunchArgsResult {
   const args: string[] = []
@@ -119,7 +119,7 @@ export function buildLaunchArgs(
   const map =
     input.map && isSafeGameName(input.map) && isSafeEarlyToken(input.map) ? input.map : null
   if (input.map && !map) dropped.push({ reason: 'unsafe-token', value: input.map })
-  if (map) args.push('+set', 'deathmatch', input.gameType === 'single' ? '0' : '1')
+  if (map) args.push('+set', 'deathmatch', '1')
 
   args.push(...installation.launchArgs)
   if (input.extraArgs) args.push(...input.extraArgs)

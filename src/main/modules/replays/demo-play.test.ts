@@ -43,6 +43,7 @@ function installation(overrides: Partial<Installation>): Installation {
     executablePath: 'unset',
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],
@@ -483,6 +484,18 @@ describe('demo.play (story 159 D2)', () => {
     for (const args of [ctfArgs, baseArgs]) {
       expect(args.some((a) => a.toLowerCase().includes('demomap'))).toBe(false)
     }
+  })
+
+  it('demo playback never passes the saved map', async () => {
+    const h = harness({ demos: [CTF_DEMO], files: ctfFiles() })
+    Object.assign(h.installations[0], { activeMap: 'q2dm1' })
+
+    await h.play('ctf', 'q2pro-a')
+
+    const args = buildLaunchArgs(h.installations[0], h.launch.start.mock.calls[0][0]).args
+    expect(args).toContain('+demo')
+    expect(args).not.toContain('+map')
+    expect(args).not.toContain('deathmatch')
   })
 
   it('the fake launch service receives exactly the eligible LaunchInput', async () => {

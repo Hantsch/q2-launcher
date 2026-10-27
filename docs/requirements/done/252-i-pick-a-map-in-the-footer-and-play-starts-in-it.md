@@ -1,7 +1,7 @@
 ---
 id: 252
 title: I pick a map in the footer and Play starts in it
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -19,16 +19,16 @@ Story 249 built this as the "Play with…" dialog, but it lives in the Mods modu
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — In a release build the footer shows a "Map" select next to "Launch with" on Home and Library.
-- [ ] **AC2** — The Map select is not shown on Servers and Demos.
-- [ ] **AC3** — The Map select lists "No map" first, then the maps available to the chosen mod (its own and
+- [x] **AC1** — In a release build the footer shows a "Map" select next to "Launch with" on Home and Library.
+- [x] **AC2** — The Map select is not shown on Servers and Demos.
+- [x] **AC3** — The Map select lists "No map" first, then the maps available to the chosen mod (its own and
       baseq2's, loose and in archives, as story 249 defined), sorted by name.
-- [ ] **AC4** — With a map chosen, Play launches with `+set deathmatch 1 +map <name>` and the chosen mod.
-- [ ] **AC5** — With "No map", Play starts at the menu exactly as today.
-- [ ] **AC6** — The map choice is remembered per installation across restarts, and Play from the Library card
+- [x] **AC4** — With a map chosen, Play launches with `+set deathmatch 1 +map <name>` and the chosen mod.
+- [x] **AC5** — With "No map", Play starts at the menu exactly as today.
+- [x] **AC6** — The map choice is remembered per installation across restarts, and Play from the Library card
       and the rail uses it too.
-- [ ] **AC7** — Changing "Launch with" to a mod that does not have the chosen map resets the map to "No map".
-- [ ] **AC8** — A server join and demo playback never pass the saved map.
+- [x] **AC7** — Changing "Launch with" to a mod that does not have the chosen map resets the map to "No map".
+- [x] **AC8** — A server join and demo playback never pass the saved map.
 
 ## Open Questions
 
@@ -220,7 +220,7 @@ Review: → default
 - AC6 → e2e `scripts/flows/footer-map.mjs` › step "AC6: the map is saved and the rail and Library card
   start in it" (`state.json` holds `activeMap: "ctf1"`; `library-play` and `rail-play` launching lines end
   `+map ctf1`); unit `src/main/services/installations.test.ts` › "update stores activeMap";
-  `src/main/lib/schemas.test.ts` › "a stored installation without activeMap reads as no map";
+  `src/main/lib/schemas.persisted-state.test.ts` › "a stored installation without activeMap reads as no map";
   `src/shared/ipc-schemas.test.ts` › "installation update accepts an empty or safe activeMap and refuses an
   unsafe one"
 - AC7 → e2e `scripts/flows/footer-map.mjs` › step "AC7: switching to a mod without the map resets it"
@@ -238,3 +238,31 @@ Coverage: AC1 D3+D5 · AC2 D3+D5 · AC3 D1+D3+D5 · AC4 D2+D3+D5 · AC5 D2+D3+D5
 · AC8 D2+D3+D5. D4 carries the cut decision to remove the dialog; no AC of its own.
 
 ## Done
+
+Core map listing moved out of the dev-only mods module (`installations:listMaps`, `src/main/services/map-list.ts`); the installation
+carries `activeMap`; the footer has a Map select beside "Launch with" (hidden on Servers/Demos); plain Play adds the saved map in the
+renderer store; a map launch is always `+set deathmatch 1`; the dev "Play with…" dialog, its `lastLaunch` storage and flow are gone.
+Flow `footer-map.mjs` proves AC1–AC8 end to end.
+
+Commit message: `252: footer Map select — Play starts a deathmatch in the saved map; Play with… dialog removed`
+
+Verification (narrow gate): build, lint, typecheck green; `npx vitest run --changed HEAD` green (320 files, 3838 tests); e2e
+`npm run ui:flows -- --affected scripts/flows/footer-map.mjs --parallel=4 --shard=1/2|2/2` ran 157 flows; the first pass was red on 15
+mods flows only because the verify agent's release `npm run build` replaced the dev bundle — after `build:dev` all 15 were green.
+After the review fix: typecheck, lint, vitest --changed and flows footer-map, launch-with-scope, servers-actionbar-join,
+action-bar-view green. AC → test mapping as verified: every AC1–AC8 test in `## Acceptance Tests` ran and passed (flow steps AC1–AC8
+printed by footer-map); the AC6 schema test lives in `src/main/lib/schemas.persisted-state.test.ts` (mapping corrected). Review 1
+(default): PASS. No manual residue.
+
+Decisions:
+- A failed mod-switch listing writes the new `activeGameDir` with `activeMap: ''` (never keep a map the new mod may lack).
+- Review finding fixed: MapSelect only clears a saved map from a listing read on a playable (`ok`/`warning`) installation, because
+  `listNames` turns an unreadable root into an empty successful list; `footer-map` and `launch-with-scope` added to the `shell-window`
+  area in `scripts/flows/areas.json`; `docs/DEV-MODULES.md` lost its Play-with lines.
+- Unfixed by choice: (1) the map list is fetched once per id + `activeGameDir`, not refreshed on root/engine change or newly installed
+  maps; (2) during a mod-switch listing the Map select still shows the previous mod's list — a pick there is re-filtered against the new
+  list after the await, so AC7 holds; (3) `footer-map.mjs` repeats the servers `scan` fixture block and responder helper like its siblings.
+- `PlayWithDialog` compile cast added in D3 vanished with D4; the "No map" i18n duplicate exception was added and removed again.
+- `docs/concepts/mods.md` / `demo-browser.md` still mention the old dialog (concept docs, left as history).
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 10

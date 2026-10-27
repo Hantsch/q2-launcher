@@ -110,6 +110,7 @@ function installation(overrides: Partial<Installation> = {}): Installation {
     engineKind: 'r1q2',
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],
@@ -438,6 +439,33 @@ describe('update', () => {
     expect(result.ok).toBe(true)
     expect(result.ok === true && result.value.steamClient).toBe(4)
     expect(installations.find(INSTALLATION_ID)?.steamClient).toBe(4)
+  })
+
+  it('update stores activeMap', async () => {
+    state.setInstallations([installation()])
+
+    const result = await installations.update({ id: INSTALLATION_ID, activeMap: 'q2dm1' })
+
+    expect(result.ok === true && result.value.activeMap).toBe('q2dm1')
+    expect(installations.find(INSTALLATION_ID)?.activeMap).toBe('q2dm1')
+  })
+
+  it('a revalidation that clears the game dir clears the map', async () => {
+    const root = join(dir, 'game', 'map-clear')
+    await writePlayableRoot(root)
+    state.setInstallations([
+      installation({
+        rootPath: root,
+        activeGameDir: 'vanished',
+        activeMap: 'q2dm1',
+        gameDirs: ['baseq2', 'vanished'],
+      }),
+    ])
+
+    const result = await installations.validate(INSTALLATION_ID)
+
+    expect(result.ok === true && result.value.activeGameDir).toBe('')
+    expect(result.ok === true && result.value.activeMap).toBe('')
   })
 
   it('relocating a Steam install to a non-Steam folder clears its stale steamAppId', async () => {

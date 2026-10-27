@@ -206,6 +206,8 @@ export interface Installation {
   launchArgs: string[]
   /** `fs_game` / `game` value. Empty string means the base game. */
   activeGameDir: string
+  /** Map the footer's Play starts in; empty string means no map. */
+  activeMap: string
   detectedVersion?: string
   source: InstallationSource
   status: InstallationStatus
@@ -258,6 +260,7 @@ export interface UpdateInstallationInput {
   writeDirPath?: string | null
   launchArgs?: string[]
   activeGameDir?: string
+  activeMap?: string
   favorite?: boolean
   /** Story 103: sets the runner choice (`RunnerChoice`) `installations:listRunners` offers. */
   runner?: RunnerChoice

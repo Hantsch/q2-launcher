@@ -14,3 +14,24 @@
 - 2026-10-27 07:45 · 251 · review-fix 1 · started
 - 2026-10-27 07:49 · 251 · review-fix 1 · done
 - 2026-10-27 07:49 · 251 · story · done
+- 07:49:35 · 252 · build · started
+- 2026-10-27 07:49 · 252 · D1 core map listing + IPC channel · started
+- 2026-10-27 07:51 · 252 · D1 core map listing + IPC channel · done
+- 2026-10-27 07:51 · 252 · D2 saved map + deathmatch launch · started
+- 2026-10-27 07:54 · 252 · D2 saved map + deathmatch launch · done
+- 2026-10-27 07:54 · 252 · D3 footer Map select + plain Play (hard) · started
+- 2026-10-27 07:59 · 252 · D3 footer Map select + plain Play (hard) · done
+- 2026-10-27 07:59 · 252 · D4 remove Play with dialog · started
+- 2026-10-27 08:01 · 252 · D4 remove Play with dialog · done
+- 2026-10-27 08:01 · 252 · D5 footer-map e2e flow + changelog · started
+- 2026-10-27 08:06 · 252 · D5 footer-map e2e flow + changelog · done
+- 2026-10-27 08:06 · 252 · verify · started
+- 2026-10-27 08:31 · 252 · verify · blocked: 15 mods flows red after release build overwrote the dev bundle, re-running on build:dev
+- 2026-10-27 08:34 · 252 · verify · done
+- 2026-10-27 08:34 · 252 · review 1 · started
+- 2026-10-27 08:37 · 252 · review 1 · done
+- 2026-10-27 08:37 · 252 · review-fix 1 · started
+- 2026-10-27 08:38 · 252 · review-fix 1 · done
+- 2026-10-27 08:38 · 252 · verify 2 · started
+- 2026-10-27 08:41 · 252 · verify 2 · done
+- 2026-10-27 08:41 · 252 · story · done

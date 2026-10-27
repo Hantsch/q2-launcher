@@ -346,3 +346,4 @@ second roadmap.
 - 248 — I filter servers by several mods at once · S34 · mod and map filters are multi-select (any-of), quick filters store the sets and legacy single-mod rows load as a set of one
 - 234 — release verification and CI rehearsals run before a merge to main · S34 · `npm run rehearse` runs verify:release, ci:local and ci:local:flows detached with a timed record; real run green, 20 Linux flows quarantined, ui-flows in 6 shards (<= 820 s)
 - 251 — Launch with applies only when I start the game · S35 · footer hides Launch with on Servers/Demos, a join passes no mod, mod-mismatch confirmation removed
+- 252 — I pick a map in the footer and Play starts in it · S35 · footer Map select saved per installation, plain Play starts a deathmatch in it, dev Play with… dialog removed

@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { isSafeGameName } from '@shared/mods/server-local-content'
 import type { ModMapPresence } from '@shared/modules/mods'
 import { isFile } from '../../lib/fs-utils'
-import { asciiLower, listNames, matching, matchingChildren } from './game-dir-fs'
+import { asciiLower, listNames, matching, matchingChildren } from '../../lib/game-dir-fs'
 import { readPakDirectory } from '../../lib/pak-directory'
 import { listZipEntries, type ZipDeps } from '../../lib/zip-entries'
 

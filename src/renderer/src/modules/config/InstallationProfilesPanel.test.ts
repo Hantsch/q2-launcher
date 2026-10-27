@@ -58,6 +58,7 @@ function installation(overrides: Partial<Installation> & { id: string }): Instal
     engineKind: 'r1q2' as EngineKind,
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],

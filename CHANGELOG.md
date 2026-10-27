@@ -12,6 +12,9 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Added
+- **Footer** — Pick a map; Play starts a deathmatch in it.
+
 ### Changed
 - **Launch with** — applies only to Play now; servers and demos bring their own mod, no mod-mismatch prompt.
 

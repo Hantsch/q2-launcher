@@ -2,7 +2,7 @@
 import { createTimeline } from '../../modules/replays/optimistic-timeline'
 import { makeJob } from '../../../../test-support/fixtures'
 import { createElement } from 'react'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Installation, Job } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
@@ -19,12 +19,21 @@ import { makeInstallation } from '../../../../test-support/fixtures'
  * module scope (via `vi.hoisted`) since `lib/bridge.ts` resolves it eagerly.
  */
 
-vi.hoisted(() => {
-  ;(globalThis as unknown as { q2: unknown }).q2 = {
-    invoke: vi.fn(async () => ({ ok: true })),
-    on: vi.fn(() => () => {}),
-  }
+const bridge = vi.hoisted(() => {
+  /** Per-channel answers; a channel without one resolves `{ ok: true }`. */
+  const answers: Record<string, (payload: unknown) => unknown> = {}
+  const invoke = vi.fn(async (channel: string, payload?: unknown) =>
+    answers[channel] ? answers[channel](payload) : { ok: true },
+  )
+  ;(globalThis as unknown as { q2: unknown }).q2 = { invoke, on: vi.fn(() => () => {}) }
+  return { answers, invoke }
 })
+
+// The footer's map choice is a release feature, not a dev-module one.
+vi.mock('@shared/dev-modules', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@shared/dev-modules')>()),
+  DEV_MODULES: false,
+}))
 
 function actionBarJob(overrides: Partial<Job> = {}): Job {
   return makeJob({ installationId: 'inst-1', ...overrides })
@@ -37,6 +46,7 @@ beforeAll(async () => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  for (const channel of Object.keys(bridge.answers)) delete bridge.answers[channel]
   usePlaybackStore.setState({ session: null })
   usePrimaryActionStore.setState({ owner: null, action: null })
   useLauncher.setState({
@@ -361,6 +371,152 @@ describe('ActionBar', () => {
         expect(await screen.findByLabelText('Launch with'), route).toBeTruthy()
         unmount()
       }
+    })
+  })
+
+  describe('Map select', () => {
+    const mapsByDir = (lists: Record<string, string[] | 'fail'>): void => {
+      bridge.answers['installations:listMaps'] = (payload) => {
+        const list = lists[(payload as { gameDir: string }).gameDir] ?? []
+        return list === 'fail'
+          ? { ok: false, error: { key: 'ipc.error.unreachable' } }
+          : { ok: true, value: { maps: list.map((name) => ({ name })) } }
+      }
+    }
+    const seed = (route: string, overrides: Partial<Installation> = {}): void => {
+      useLauncher.setState({
+        installations: [makeInstallation(overrides)],
+        settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+        jobs: [],
+        route,
+      })
+    }
+    const updates = (): unknown[] =>
+      bridge.invoke.mock.calls
+        .filter(([channel]) => channel === 'installations:update')
+        .map(([, payload]) => payload)
+    const loadedMapSelect = async (): Promise<HTMLSelectElement> => {
+      const select = (await screen.findByTestId('actionbar-map')) as HTMLSelectElement
+      await waitFor(() => expect(select.disabled).toBe(false))
+      return select
+    }
+
+    it('a release build shows the Map select', async () => {
+      bridge.answers['installations:listMaps'] = () => ({
+        ok: true,
+        value: { maps: [{ name: 'q2dm1', title: 'The Edge' }, { name: 'base1' }] },
+      })
+      seed('/home')
+      render(createElement(ActionBar))
+
+      const select = await loadedMapSelect()
+      expect([...select.options].map((option) => option.textContent)).toEqual([
+        'No map',
+        'q2dm1 — The Edge',
+        'base1',
+      ])
+      expect(screen.queryByTestId('actionbar-play-with')).toBeNull()
+    })
+
+    it('the Map select is hidden on Servers and Demos', async () => {
+      mapsByDir({ '': ['q2dm1'] })
+      for (const route of ['/servers', '/replays']) {
+        seed(route)
+        const { unmount } = render(createElement(ActionBar))
+        await screen.findByTestId('actionbar-play')
+        expect(screen.queryByTestId('actionbar-map'), route).toBeNull()
+        unmount()
+      }
+      for (const route of ['/home', '/config', '/settings']) {
+        seed(route)
+        const { unmount } = render(createElement(ActionBar))
+        expect(await screen.findByTestId('actionbar-map'), route).toBeTruthy()
+        unmount()
+      }
+    })
+
+    it('the Map select shows without mods', async () => {
+      mapsByDir({ '': ['q2dm1'] })
+      seed('/home', { gameDirs: ['baseq2'] })
+      render(createElement(ActionBar))
+
+      expect(await loadedMapSelect()).toBeTruthy()
+      expect(screen.queryByLabelText('Launch with')).toBeNull()
+    })
+
+    it('choosing a map saves it on the installation', async () => {
+      mapsByDir({ '': ['q2dm1'] })
+      seed('/home')
+      render(createElement(ActionBar))
+
+      fireEvent.change(await loadedMapSelect(), { target: { value: 'q2dm1' } })
+      await waitFor(() => expect(updates()).toEqual([{ id: 'inst-1', activeMap: 'q2dm1' }]))
+    })
+
+    it('switching Launch with to a mod without the map writes the game dir and No map in one update', async () => {
+      mapsByDir({ '': ['q2dm1'], ctf: ['ctf1'] })
+      seed('/home', { gameDirs: ['baseq2', 'ctf'], activeMap: 'q2dm1' })
+      render(createElement(ActionBar))
+      await loadedMapSelect()
+
+      fireEvent.change(screen.getByLabelText('Launch with'), { target: { value: 'ctf' } })
+
+      await waitFor(() => expect(updates()).toHaveLength(1))
+      expect(updates()).toEqual([{ id: 'inst-1', activeGameDir: 'ctf', activeMap: '' }])
+    })
+
+    it('switching Launch with to a mod that has the map keeps it', async () => {
+      mapsByDir({ '': ['q2dm1'], ctf: ['q2dm1', 'ctf1'] })
+      seed('/home', { gameDirs: ['baseq2', 'ctf'], activeMap: 'q2dm1' })
+      render(createElement(ActionBar))
+      await loadedMapSelect()
+
+      fireEvent.change(screen.getByLabelText('Launch with'), { target: { value: 'ctf' } })
+
+      await waitFor(() =>
+        expect(updates()).toEqual([{ id: 'inst-1', activeGameDir: 'ctf', activeMap: 'q2dm1' }]),
+      )
+    })
+
+    it('switching Launch with when the new mod cannot be listed writes the game dir and No map', async () => {
+      mapsByDir({ '': ['q2dm1'], ctf: 'fail' })
+      seed('/home', { gameDirs: ['baseq2', 'ctf'], activeMap: 'q2dm1' })
+      render(createElement(ActionBar))
+      await loadedMapSelect()
+
+      fireEvent.change(screen.getByLabelText('Launch with'), { target: { value: 'ctf' } })
+
+      await waitFor(() =>
+        expect(updates()).toEqual([{ id: 'inst-1', activeGameDir: 'ctf', activeMap: '' }]),
+      )
+    })
+
+    it('a loaded list without the saved map clears it', async () => {
+      mapsByDir({ '': ['q2dm1'] })
+      seed('/home', { activeMap: 'gone' })
+      render(createElement(ActionBar))
+
+      await waitFor(() => expect(updates()).toEqual([{ id: 'inst-1', activeMap: '' }]))
+    })
+
+    it('a list read on an installation that is not ready does not clear the saved map', async () => {
+      mapsByDir({ '': [] })
+      seed('/home', { activeMap: 'q2dm1', status: 'missing' })
+      render(createElement(ActionBar))
+
+      const select = await loadedMapSelect()
+      expect(select.value).toBe('q2dm1')
+      expect(updates()).toEqual([])
+    })
+
+    it('a failed list keeps the saved map', async () => {
+      mapsByDir({ '': 'fail' })
+      seed('/home', { activeMap: 'q2dm1' })
+      render(createElement(ActionBar))
+
+      const select = await loadedMapSelect()
+      expect(select.value).toBe('q2dm1')
+      expect(updates()).toEqual([])
     })
   })
 

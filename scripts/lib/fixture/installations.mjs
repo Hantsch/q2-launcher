@@ -940,7 +940,7 @@ function seedJoinStyleFixture({
   }
 }
 
-// --- the "Play with..." flow's own installation ---------------------------------------
+// --- the footer-map flows' installation (a mod, a loose map, a packed map, an unsafe name) ----
 
 export const PLAY_WITH_INSTALL_ID = 'fixture-play-with-install'
 
@@ -979,9 +979,10 @@ function buildPak(entries) {
 
 /**
  * One r1q2 installation with game dirs `baseq2` + `ctf`: loose `q2dm1` ("The Edge") and an unsafe
- * `bad name`, `base1` inside `baseq2/pak0.pak`, and `ctf1` in `ctf`.
+ * `bad name`, `base1` inside `baseq2/pak0.pak`, and `ctf1` in `ctf`. `servers` is the optional
+ * persisted servers slice, passed through verbatim.
  */
-export function writePlayWithFixture({ variant = 'play-with' } = {}) {
+export function writePlayWithFixture({ variant = 'footer-map', servers } = {}) {
   const install = writeJoinInstallRoot(PLAY_WITH_INSTALL_ID)
   const writeDeep = (relativePath, bytes) => {
     const path = join(install.root, relativePath)
@@ -998,6 +999,7 @@ export function writePlayWithFixture({ variant = 'play-with' } = {}) {
     id: PLAY_WITH_INSTALL_ID,
     name: 'Fixture Play With Install',
     gameDirs: ['baseq2', 'ctf'],
+    servers,
   })
 }
 

@@ -2,7 +2,7 @@
 
 `Mods` and `Assets` exist only in a dev build (`npm run dev`, `npm run build:dev`). A release build
 (`npm run build`, `npm run package:*`, the release workflow) leaves them out entirely: no nav entry,
-route, IPC handlers, Play with... button, Servers "local content" section or demo mod-install offer.
+route, IPC handlers, Servers "local content" section or demo mod-install offer.
 The switch is `DEV_MODULES` in [`src/shared/dev-modules.ts`](../src/shared/dev-modules.ts).
 
 When Mods ships, remove it from `DEV_MODULE_IDS` and move the lines below into `## Unreleased` in
@@ -10,7 +10,6 @@ When Mods ships, remove it from `DEV_MODULE_IDS` and move the lines below into `
 
 ## Changelog lines held back from `## Unreleased`
 
-- **Mods** — "Play with..." next to Play: pick a mod and a map to start.
 - **Mods** — Mods view shows every game directory of the selected installation.
 - **Mods** — Action Quake, OpenTDM and CTF appear as catalog tiles.
 - **Mods** — Install Action Quake, OpenTDM and CTF, also from a demo's mod warning.

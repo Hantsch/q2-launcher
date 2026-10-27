@@ -111,7 +111,7 @@ describe('registerAllIpc', () => {
       expect(registered.has(channel)).toBe(true)
     }
     // Update together with every added or removed invoke channel.
-    expect(registered.size).toBe(48)
+    expect(registered.size).toBe(49)
   })
 
   // Story 101 F3: the UI-verification harness's CI job drives a real packaged AppImage, where

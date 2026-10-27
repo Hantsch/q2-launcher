@@ -72,6 +72,7 @@ export function installation(overrides: Partial<Installation> = {}): Installatio
     engineKind: 'r1q2',
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],

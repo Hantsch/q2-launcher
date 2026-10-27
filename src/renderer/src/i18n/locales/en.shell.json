@@ -469,7 +469,9 @@
   },
   "actionbar": {
     "playable": "Playable",
-    "playWith": "Play with...",
+    "map": {
+      "none": "No map"
+    },
     "downloading": "Downloading {{done}}",
     "filesRemaining_one": "{{count}} file remaining",
     "filesRemaining_other": "{{count}} files remaining",

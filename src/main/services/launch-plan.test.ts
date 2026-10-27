@@ -17,6 +17,7 @@ function installation(overrides: Partial<Installation> = {}): Installation {
     executablePath: 'C:\\Quake2\\r1q2.exe',
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],
@@ -278,30 +279,25 @@ describe('previewCommand', () => {
 })
 
 describe('buildLaunchArgs with a map', () => {
-  it('a map launch sets deathmatch 1 by default and loads the map last', () => {
+  it('a map launch sets deathmatch 1 and loads the map last', () => {
     const args = buildLaunchArgs(installation({ activeGameDir: 'ctf' }), {
       map: 'q2dm1',
       extraArgs: ['+set', 'x', 'y'],
     }).args
-    const dm = args.indexOf('deathmatch')
-    expect(args.slice(dm - 1, dm + 2)).toEqual(['+set', 'deathmatch', '1'])
-    expect(args.indexOf('game')).toBeLessThan(dm)
+    const mapAt = args.indexOf('+map')
+    expect(args.join(' ')).toContain('+set game ctf +set deathmatch 1')
     expect(args.slice(-2)).toEqual(['+map', 'q2dm1'])
+    expect(args.indexOf('deathmatch')).toBeLessThan(mapAt)
   })
 
-  it('single player sets deathmatch 0', () => {
-    const args = buildLaunchArgs(installation(), { map: 'base1', gameType: 'single' }).args
-    expect(args).toEqual(['-nopathcheck', '+set', 'deathmatch', '0', '+map', 'base1'])
-  })
-
-  it('an unsafe map is dropped with its game type', () => {
-    const result = buildLaunchArgs(installation(), { map: 'a b', gameType: 'single' })
+  it('an unsafe map is dropped', () => {
+    const result = buildLaunchArgs(installation(), { map: 'a b' })
     expect(result.args).toEqual(['-nopathcheck'])
     expect(result.dropped).toEqual([{ reason: 'unsafe-token', value: 'a b' }])
   })
 
   it('without a map the command line is unchanged', () => {
-    const result = buildLaunchArgs(installation({ activeGameDir: 'ctf' }), { gameType: 'single' })
+    const result = buildLaunchArgs(installation({ activeGameDir: 'ctf' }))
     expect(result.args).toEqual(['-nopathcheck', '+set', 'game', 'ctf'])
     expect(result.dropped).toEqual([])
   })

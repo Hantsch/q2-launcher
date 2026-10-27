@@ -51,6 +51,8 @@
       "home-route-roundtrip",
       "tabs-keyboard",
       "action-bar-view",
+      "footer-map",
+      "launch-with-scope",
       "config-header-geometry",
       "replays-fullscreen",
       "replays-cinema-fullscreen",

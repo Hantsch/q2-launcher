@@ -100,6 +100,10 @@ export const updateInstallationInputSchema: z.ZodType<IpcInvokeMap['installation
       // A game dir is a single folder name, never a path - this blocks traversal.
       .refine((value) => value === '' || /^[A-Za-z0-9_.-]+$/.test(value), 'invalid game directory')
       .optional(),
+    activeMap: z
+      .string()
+      .refine((value) => value === '' || isSafeGameName(value), 'invalid map name')
+      .optional(),
     favorite: z.boolean().optional(),
     // Story 103: a `RunnerChoice` - `DetectedRunner.id` or `'native'` - a plain non-empty string,
     // same as the persisted schema (`src/main/lib/schemas.ts`); resolving whether it is usable is
@@ -134,6 +138,15 @@ export const idSchema: z.ZodType<IpcInvokeMap['installations:validate']['req']> 
 export const installationsListRunnersSchema: z.ZodType<
   IpcInvokeMap['installations:listRunners']['req']
 > = z.string().min(1)
+
+/** `gameDir` is `''` (baseq2 only) or a safe game name. */
+export const installationsListMapsSchema: z.ZodType<IpcInvokeMap['installations:listMaps']['req']> =
+  z
+    .object({
+      installationId: z.string().min(1),
+      gameDir: z.string().refine((name) => name === '' || isSafeGameName(name)),
+    })
+    .strict()
 
 /** Validate a folder the user is *considering*, without registering anything. */
 export const installationsInspectPathSchema: z.ZodType<
@@ -217,7 +230,6 @@ export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = 
     // `resolveEffectiveUserinfo` in `launch-plan.ts`.
     spectate: z.literal(true).optional(),
     map: z.string().refine(isSafeGameName, 'invalid map name').optional(),
-    gameType: z.enum(['deathmatch', 'single']).optional(),
   })
   .refine((input) => input.map === undefined || input.connect === undefined, {
     message: 'map and connect are mutually exclusive',

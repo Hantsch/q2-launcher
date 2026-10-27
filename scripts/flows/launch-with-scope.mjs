@@ -1,5 +1,5 @@
 // e2e: the footer's "Launch with" scopes to Play - it shows on Home and Library, never on Servers
-// or Demos. Fixture: the play-with install (r1q2, game dirs baseq2 + ctf, spawnable stand-in client).
+// or Demos. Fixture: the footer-map install (r1q2, game dirs baseq2 + ctf, spawnable stand-in client).
 import { writePlayWithFixture } from '../lib/fixture.mjs'
 import { invoke, launchLines, nextLaunchLine } from '../lib/flow-common.mjs'
 

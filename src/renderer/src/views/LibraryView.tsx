@@ -272,6 +272,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
           <Button
             variant={isPlayable(installation.status) ? 'primary' : 'neutral'}
             size="sm"
+            data-testid="library-play"
             disabled={!isPlayable(installation.status)}
             icon={<Play className="size-3.5" />}
             onClick={() => {

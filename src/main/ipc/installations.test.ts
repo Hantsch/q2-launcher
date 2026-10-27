@@ -1,5 +1,8 @@
 import type { IpcMainInvokeEvent } from 'electron'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { INVOKE_CHANNELS } from '@shared/ipc'
 import type { Installation } from '@shared/types'
 import type { AppContext } from '../context'
@@ -46,6 +49,7 @@ function fixtureInstallation(id: string): Installation {
     engineKind: 'r1q2',
     launchArgs: [],
     activeGameDir: '',
+    activeMap: '',
     source: 'manual',
     status: 'ok',
     checks: [],
@@ -60,15 +64,17 @@ function fixtureInstallation(id: string): Installation {
 
 async function setup(
   installations: Installation[],
+  channel = 'installations:listRunners',
 ): Promise<(event: unknown, payload: unknown) => unknown> {
   const { registerInstallationsIpc } = await import('./installations')
   const app = {
+    isPackaged: false,
     installations: {
       find: (id: string) => installations.find((installation) => installation.id === id),
     },
   } as unknown as AppContext
   registerInstallationsIpc(app)
-  return registered.get('installations:listRunners')!
+  return registered.get(channel)!
 }
 
 beforeEach(() => {
@@ -83,6 +89,43 @@ describe('installations channels', () => {
 
     expect((INVOKE_CHANNELS as readonly string[]).includes('installations:create')).toBe(false)
     expect(registered.has('installations:create')).toBe(false)
+  })
+})
+
+describe('installations:listMaps', () => {
+  let root: string
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'q2-launcher-list-maps-'))
+  })
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it("lists the maps of the installation's mod", async () => {
+    await mkdir(join(root, 'baseq2', 'maps'), { recursive: true })
+    await writeFile(join(root, 'baseq2', 'maps', 'q2dm1.bsp'), 'x')
+    await mkdir(join(root, 'ctf', 'maps'), { recursive: true })
+    await writeFile(join(root, 'ctf', 'maps', 'ctf1.bsp'), 'x')
+    const fn = await setup(
+      [{ ...fixtureInstallation('inst-1'), rootPath: root }],
+      'installations:listMaps',
+    )
+
+    const result = (await fn(fakeEvent, { installationId: 'inst-1', gameDir: 'ctf' })) as {
+      ok: boolean
+      value: { maps: Array<{ name: string }> }
+    }
+
+    expect(result.ok).toBe(true)
+    expect(result.value.maps.map((m) => m.name)).toEqual(['ctf1', 'q2dm1'])
+  })
+
+  it('refuses an unknown installation', async () => {
+    const fn = await setup([fixtureInstallation('inst-1')], 'installations:listMaps')
+
+    const result = await fn(fakeEvent, { installationId: 'nope', gameDir: '' })
+
+    expect(result).toMatchObject({ ok: false, error: { key: 'installations.error.notFound' } })
   })
 })
 
