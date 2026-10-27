@@ -53,6 +53,8 @@ export const CONFIG_HANDLERS = {
   cleanupApply: 'cleanup.apply',
   cleanupRestore: 'cleanup.restore',
   tidyUpApply: 'tidyUp.apply',
+  originalConfigsList: 'originalConfigs.list',
+  originalConfigsRestore: 'originalConfigs.restore',
 } as const
 
 /**
@@ -404,6 +406,11 @@ export interface AssignProfileInput {
 
 export interface UnassignProfileInput {
   profileId: string
+  installationId: string
+}
+
+/** `originalConfigs.restore`: puts the installation's original configs back and unassigns its profiles. */
+export interface RestoreOriginalConfigsInput {
   installationId: string
 }
 
@@ -1023,6 +1030,12 @@ export type ConfigContract = {
       res: CleanupRestoreResult
     }
     [CONFIG_HANDLERS.tidyUpApply]: { req: ConfigReq<'tidyUp.apply'>; res: TidyUpApplyResult }
+    /** Ids of the installations holding a valid original-config backup. */
+    [CONFIG_HANDLERS.originalConfigsList]: { req: ConfigReq<'originalConfigs.list'>; res: string[] }
+    [CONFIG_HANDLERS.originalConfigsRestore]: {
+      req: ConfigReq<'originalConfigs.restore'>
+      res: ConfigProfile[]
+    }
   }
   events: {}
 }

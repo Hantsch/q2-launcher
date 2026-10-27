@@ -13,6 +13,7 @@ import type {
   RawProfileFile,
   RefreshedProfileResult,
   RefreshFromFilesInput,
+  RestoreOriginalConfigsInput,
   RefreshFromFilesResult,
   SaveProfileInput,
   SaveProfileResult,
@@ -42,8 +43,9 @@ import type { configState } from './persisted'
 import type { ProfilesStore } from './profiles'
 import { detectSectionHeaderStyle, detectWriteUnbindall, recoverProfileName } from './rebuild'
 import { installationCopySource, syncProfile } from './sync'
+import { hasOriginalBackup, readManifest, restoreOriginals } from './original-backup'
 import { mergeWriteFailureChanges } from './write-failures'
-import { assignedProfilesFor, defaultProfileFor } from './write-plan'
+import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from './write-plan'
 import {
   BASE_GAME_DIR,
   ownedProfileIdFromContent,
@@ -125,6 +127,9 @@ export interface ProfileWrites {
   commitCvars(input: CommitProfileCvarsInput): Promise<Outcome<ConfigProfile>>
   assign(input: AssignProfileInput): Promise<Outcome<ConfigProfile[]>>
   unassign(input: UnassignProfileInput): Promise<Outcome<ConfigProfile[]>>
+  /** Ids of the registered installations whose root holds a valid original-config backup. */
+  listOriginalConfigs(): Promise<Outcome<string[]>>
+  restoreOriginalConfigs(input: RestoreOriginalConfigsInput): Promise<Outcome<ConfigProfile[]>>
   setDefault(input: SetDefaultProfileInput): Promise<Outcome<ConfigProfile[]>>
   write(input: WriteProfileInput): Promise<Outcome<WriteTargetResult[]>>
   setSwitchBind(input: SetSwitchBindInput): Promise<Outcome<Record<string, string>>>
@@ -152,6 +157,8 @@ export function createProfileWrites(deps: ProfileWritesDeps): ProfileWrites {
     commitCvars: (input) => commitCvars(deps, input),
     assign: (input) => assign(deps, input),
     unassign: (input) => unassign(deps, input),
+    listOriginalConfigs: () => listOriginalConfigs(deps),
+    restoreOriginalConfigs: (input) => restoreOriginalConfigs(deps, input),
     setDefault: (input) => setDefault(deps, input),
     write: (input) => write(deps, input),
     setSwitchBind: (input) => setSwitchBind(deps, input),
@@ -1154,6 +1161,72 @@ async function unassign(
     await syncAndPersist(deps, stillDefault, list)
   }
   return ok(list)
+}
+
+async function listOriginalConfigs(deps: ProfileWritesDeps): Promise<Outcome<string[]>> {
+  const withBackup: string[] = []
+  for (const installation of deps.installations.list()) {
+    try {
+      if (await hasOriginalBackup(installation.rootPath)) withBackup.push(installation.id)
+    } catch (error) {
+      deps.log.error(`failed to read the original-config backup of ${installation.id}`, error)
+    }
+  }
+  return ok(withBackup)
+}
+
+/**
+ * Gives an installation back the configs it had before the launcher wrote over them, and stops
+ * the launcher managing it: every profile assigned there is unassigned first, so nothing can write
+ * the files again behind the restore. The manifest is checked before any of that - an unreadable
+ * backup must touch nothing, assignments included. Refused while the installation runs, like
+ * `cleanup.ts`, since the files are replaced under the engine.
+ */
+async function restoreOriginalConfigs(
+  deps: ProfileWritesDeps,
+  input: RestoreOriginalConfigsInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  const { log, profiles } = deps
+  const installation = deps.installations.find(input.installationId)
+  if (!installation) return fail('installations.error.notFound')
+  if (isInstallationRunning(deps.launchState(), installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+
+  let manifest: Awaited<ReturnType<typeof readManifest>>
+  try {
+    manifest = await readManifest(installation.rootPath)
+  } catch (error) {
+    log.error(`failed to read the original-config backup of ${installation.id}`, error)
+    return fail('config.error.restoreOriginalsFailed')
+  }
+  if (manifest.status === 'missing') return fail('config.error.noOriginalBackup')
+  if (manifest.status === 'invalid') return fail('config.error.originalBackupInvalid')
+
+  for (const assigned of profiles.list()) {
+    if (!assigned.assignments.some((a) => a.installationId === installation.id)) continue
+    const list = withLiveAssignments(
+      deps,
+      profiles.unassign({ profileId: assigned.id, installationId: installation.id }),
+    )
+    // Nothing is assigned here any more, so this writes nothing into the installation.
+    await syncAndPersist(
+      deps,
+      list.find((p) => p.id === assigned.id)!,
+      list,
+    )
+  }
+
+  const restored = await restoreOriginals(installation.rootPath)
+  if (restored.status === 'invalid') return fail('config.error.originalBackupInvalid')
+  if (restored.status === 'missing') return fail('config.error.noOriginalBackup')
+  if (restored.status === 'failed') {
+    log.error(
+      `failed to restore the original configs of ${installation.id}: ${restored.failedPaths.join(', ')}`,
+    )
+    return fail('config.error.restoreOriginalsFailed')
+  }
+  return ok(withLiveAssignments(deps, profiles.list()))
 }
 
 async function setDefault(

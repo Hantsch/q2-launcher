@@ -59,6 +59,12 @@ export const assignProfileInputSchema = z.object({
 })
 
 export const unassignProfileInputSchema = assignProfileInputSchema
+
+export const originalConfigsListInputSchema = z.void()
+
+export const restoreOriginalConfigsInputSchema = z.object({
+  installationId: assignProfileInputSchema.shape.installationId,
+})
 export const setDefaultProfileInputSchema = assignProfileInputSchema
 
 /**
@@ -546,4 +552,6 @@ export const CONFIG_HANDLER_SCHEMAS = {
   [CONFIG_HANDLERS.cleanupApply]: cleanupApplyInputSchema,
   [CONFIG_HANDLERS.cleanupRestore]: cleanupRestoreInputSchema,
   [CONFIG_HANDLERS.tidyUpApply]: tidyUpApplyInputSchema,
+  [CONFIG_HANDLERS.originalConfigsList]: originalConfigsListInputSchema,
+  [CONFIG_HANDLERS.originalConfigsRestore]: restoreOriginalConfigsInputSchema,
 } satisfies Record<(typeof CONFIG_HANDLERS)[keyof typeof CONFIG_HANDLERS], z.ZodTypeAny>

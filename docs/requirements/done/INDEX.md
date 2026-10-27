@@ -348,3 +348,4 @@ second roadmap.
 - 251 — Launch with applies only when I start the game · S35 · footer hides Launch with on Servers/Demos, a join passes no mod, mod-mismatch confirmation removed
 - 252 — I pick a map in the footer and Play starts in it · S35 · footer Map select saved per installation, plain Play starts a deathmatch in it, dev Play with… dialog removed
 - 253 — An unassigned config profile tells me it is not used · S35 · warning banner with an Assign… action in the profile view plus a "Not assigned" marker on its list row, both cleared by assigning
+- 254 — The first assignment backs up the original configs and I can restore them · S35 · existing configs the launcher writes are copied to q2launcher-original-configs/ first; a Restore original configs action puts them back and unassigns the profiles

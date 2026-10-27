@@ -485,7 +485,8 @@
       "tabs-keyboard",
       "config-header-geometry",
       "external-edit-cascades",
-      "config-unassigned-warning"
+      "config-unassigned-warning",
+      "config-original-configs-restore"
     ],
     "why": "Config profiles, their assignments, care checks, the profile draft and the config view frame."
   },

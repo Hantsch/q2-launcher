@@ -45,3 +45,17 @@
 - 2026-10-27 08:59 · 253 · review 1 · started
 - 2026-10-27 09:01 · 253 · review 1 · done
 - 2026-10-27 09:02 · 253 · story · done
+- 09:02:13 · 254 · build · started
+- 2026-10-27 09:02 · 254 · D1 Original-config backup in the writer · started
+- 2026-10-27 09:10 · 254 · D1 Original-config backup in the writer · done
+- 2026-10-27 09:10 · 254 · D2 Restore and list over IPC · started
+- 2026-10-27 09:18 · 254 · D2 Restore and list over IPC · done
+- 2026-10-27 09:18 · 254 · D3 Restore original configs action · started
+- 2026-10-27 09:23 · 254 · D3 Restore original configs action · done
+- 2026-10-27 09:23 · 254 · verify · started
+- 2026-10-27 09:30 · 254 · verify · done
+- 2026-10-27 09:30 · 254 · review 1 · started
+- 2026-10-27 09:34 · 254 · review 1 · done
+- 2026-10-27 09:34 · 254 · review 1 fixes · started
+- 2026-10-27 09:36 · 254 · review 1 fixes · done
+- 2026-10-27 09:36 · 254 · story · done

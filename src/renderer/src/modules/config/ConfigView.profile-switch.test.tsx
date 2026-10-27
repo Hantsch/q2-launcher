@@ -26,6 +26,7 @@ vi.mock('./client', (importOriginal) =>
   mockClient<typeof import('./client')>(importOriginal, {
     listConfigProfiles: async () => ({ ok: true as const, value: PROFILES }),
     getSwitchBinds: async () => ({ ok: true as const, value: {} }),
+    listOriginalConfigs: async () => ({ ok: true as const, value: [] }),
   }),
 )
 vi.mock('./lib/use-drift-state', () => ({

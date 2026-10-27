@@ -571,6 +571,12 @@
       "label": "Assigned installations",
       "noInstallations": "No installations registered yet.",
       "noneAssigned": "No profiles assigned.",
+      "restoreOriginals": {
+        "action": "Restore original configs",
+        "body": "Your config files in this installation go back to what they were before the launcher first wrote to them. Every config profile is unassigned from it; the profiles themselves stay.",
+        "confirm": "Restore configs",
+        "title": "Restore the original configs of “{{name}}”?"
+      },
       "setDefault": "Set default",
       "summary": "{{count}} of {{total}} assigned",
       "unassignedBanner": {
@@ -1459,12 +1465,15 @@
       "fileNotFound": "That file could not be found on disk.",
       "installationRunning": "This installation is currently running. Close the game first.",
       "invalidLayerAlias": "One of the aliases you chose to import as a layer is not one this import found.",
+      "noOriginalBackup": "This installation has no backup of its original configs to restore.",
       "notAssigned": "This profile is not assigned to that installation.",
       "openFailed": "Could not open that file: {{message}}",
+      "originalBackupInvalid": "The backup folder of this installation's original configs is unreadable. Fix or delete the q2launcher-original-configs folder, then try again.",
       "pickedFileNotFound": "One of the files you picked is no longer available to this import. Choose the files again.",
       "profileNotFound": "That config profile no longer exists.",
       "rawTextNotLatin1": "This text contains characters a Quake II config file cannot hold. Only plain latin-1 text works.",
       "rawTextNotOwned": "This text no longer carries the profile header the launcher identifies this file by. Keep the header at the top of the file, or edit the file outside the launcher instead.",
+      "restoreOriginalsFailed": "Some original configs could not be restored. The backup folder is kept, so you can try again.",
       "unknownCategory": "That category no longer exists in this profile.",
       "writeFailed": "Could not write this profile's files to disk."
     },

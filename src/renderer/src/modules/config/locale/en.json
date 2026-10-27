@@ -180,6 +180,12 @@
       "setDefault": "Set default",
       "byInstallation": "By installation",
       "noneAssigned": "No profiles assigned.",
+      "restoreOriginals": {
+        "action": "Restore original configs",
+        "title": "Restore the original configs of “{{name}}”?",
+        "body": "Your config files in this installation go back to what they were before the launcher first wrote to them. Every config profile is unassigned from it; the profiles themselves stay.",
+        "confirm": "Restore configs"
+      },
       "unassignedBanner": {
         "title": "No installation uses this config",
         "body": "The game does not load it until you assign it to an installation.",
@@ -200,6 +206,9 @@
       "commitConflict": "This profile's file changed on disk since the launcher last read it. Open the profile in Config to resolve that first.",
       "commitNeedsSave": "This profile has unsaved changes the launcher cannot keep apart from the address. Save or discard them in Config first.",
       "installationRunning": "This installation is currently running. Close the game first.",
+      "noOriginalBackup": "This installation has no backup of its original configs to restore.",
+      "originalBackupInvalid": "The backup folder of this installation's original configs is unreadable. Fix or delete the q2launcher-original-configs folder, then try again.",
+      "restoreOriginalsFailed": "Some original configs could not be restored. The backup folder is kept, so you can try again.",
       "fileNotFound": "That file could not be found on disk.",
       "openFailed": "Could not open that file: {{message}}",
       "invalidLayerAlias": "One of the aliases you chose to import as a layer is not one this import found.",

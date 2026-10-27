@@ -1,7 +1,7 @@
 ---
 id: 254
 title: The first assignment backs up the original configs and I can restore them
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -19,17 +19,17 @@ restore.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Assigning a profile to an installation for the first time copies every existing file the
+- [x] **AC1** — Assigning a profile to an installation for the first time copies every existing file the
       launcher is about to write (`<profile>.cfg`, `autoexec.cfg` in baseq2 and mod folders) into a backup
       folder inside the installation, before anything is written.
-- [ ] **AC2** — Files that do not exist yet are not backed up, and files the launcher does not write are not
+- [x] **AC2** — Files that do not exist yet are not backed up, and files the launcher does not write are not
       touched.
-- [ ] **AC3** — Later writes to the same installation do not replace an already backed-up original.
-- [ ] **AC4** — The installation shows a "Restore original configs" action while a backup exists.
-- [ ] **AC5** — Restoring, after a confirmation, puts every backed-up file back byte-identical, removes the
+- [x] **AC3** — Later writes to the same installation do not replace an already backed-up original.
+- [x] **AC4** — The installation shows a "Restore original configs" action while a backup exists.
+- [x] **AC5** — Restoring, after a confirmation, puts every backed-up file back byte-identical, removes the
       launcher-written files that did not exist before, and unassigns the launcher's profiles from that
       installation.
-- [ ] **AC6** — After a restore, the action is gone and assigning again starts a fresh backup.
+- [x] **AC6** — After a restore, the action is gone and assigning again starts a fresh backup.
 
 ## Open Questions
 
@@ -198,3 +198,21 @@ Order D1 → D2 → D3; each D's tests ship with it.
   starts a fresh one"
 
 ## Done
+
+**Summary.** The launcher now copies every existing file it is about to write (`<profile>.cfg`, `autoexec.cfg`) into `<installation>/q2launcher-original-configs/` (manifest + root-relative copies) before the first write, first original wins. The config panel offers "Restore original configs" (with confirmation) while a backup exists; restore unassigns the installation's profiles, puts originals back byte-identical, removes stamped launcher-created files and drops the folder.
+
+**Commit message:** `254: back up original configs before first write, restore them from the installation's profiles panel`
+
+**Verification (narrow gate).** typecheck, lint, `build:dev` green; `npx vitest run --changed HEAD` green (223 files, 2774 tests); e2e via `ui:flows -- --affected scripts/flows/config-original-configs-restore.mjs --parallel=4 --shard=1/2` green 14/14 and `--shard=2/2` red only on pre-existing `unsaved-diff`; the story flow itself confirmed `OK` by a direct `ui:flows -- config-original-configs-restore` run (it sat in shard 1). After the review fixes the config unit/component suites, typecheck, lint and the flow were re-run green by the fix agent. Full gate not run (sprint's).
+AC -> test as verified: AC1 original-backup.test "backs up every existing target before the first write" + flow; AC2 "missing targets are recorded as created, not copied" / "files the launcher does not write are untouched"; AC3 "a later write never replaces a backed-up original" / "a later new target joins the existing backup"; AC4 flow + InstallationProfilesPanel.test "the restore action shows only for an installation with a backup"; AC5 flow + "restore puts originals back byte-identical and removes created files" + profile-writes.restore-originals.test "restore unassigns every profile from the installation" + panel "restore asks for confirmation before calling main"; AC6 flow + "after restore no backup exists and the next write starts a fresh one" — all passed. No manual residue.
+Review: default stage PASS with findings; fixed (ordering test on second-target failure, two-profile restore test, flow asserts the profile .cfg existed, per-root serialization of backup/restore, stale docs/comments, trailing story pointer). Unfixed by choice: writer.ts <-> original-backup.ts import cycle (lint and architecture test pass, uses are lazy); restore loop resembles `unassign` loop (different iteration, not worth an extraction).
+
+**Decisions.**
+- `writeTargetFile` keeps `backupOnce` for its non-installation callers (canonical dir, raw save in userData), which `canonical.test` depends on; installation writes go through `writeInstallationTarget` with no sibling backup, so no new `.q2l-backup` appears in game folders.
+- `backupOriginals` throws on an invalid manifest (writes to that installation refused rather than starting a fresh manifest over held originals); restore returns `config.error.originalBackupInvalid`; documented in docs/systems/config-module.md. The UI hides the action in that state (list requires a valid manifest) — a hint to delete the folder is not surfaced (open point).
+- A path recorded `created` that the user later replaces with their own file is overwritten without a copy by a later launcher write (first original wins, per spec).
+- Restore refusal while running reuses cleanup's key `config.error.installationRunning`; manifest is checked before unassigning, so an invalid manifest touches nothing.
+- Confirm label is "Restore configs" (a duplicate of `titlebar.restore` is rejected by `keys.test`); three ConfigView test files got one added `./client` mock line for the new list call.
+- Flow uses the plain unassigned fixture installation `INSTALL_REMOVE_STORE_ID`; no fixture change.
+
+tiers: D 3 / hard 1 · review default · cycles 1 · agents 6

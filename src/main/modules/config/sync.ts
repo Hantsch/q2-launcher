@@ -428,7 +428,7 @@ async function syncOneProfile(
     // show for it - attributed to `profile`'s own key since reconcile is not
     // scoped to one assigned profile. A failed reconcile does not necessarily
     // mean the write below will also fail (they are independent I/O passes,
-    // and `writeInstallationFiles`'s own diff-skip/backup-once stays safe even
+    // and `writeInstallationFiles`'s own diff-skip and originals-first backup stay safe even
     // if a file wasn't renamed to its expected name first), so this is not a
     // reason to skip attempting it.
     try {

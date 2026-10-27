@@ -26,6 +26,7 @@ import {
   type RefreshFromFilesInput,
   type RefreshFromFilesResult,
   type RemoveConfigProfileInput,
+  type RestoreOriginalConfigsInput,
   type RenameConfigProfileInput,
   type SaveProfileInput,
   type SaveProfileResult,
@@ -341,4 +342,20 @@ export function restoreCleanup(input: CleanupRestoreInput): Promise<Outcome<Clea
  */
 export function applyTidyUp(input: TidyUpApplyInput): Promise<Outcome<TidyUpApplyResult>> {
   return client.call(CONFIG_HANDLERS.tidyUpApply, input)
+}
+
+/** Ids of the installations that hold a backup of their original configs. */
+export function listOriginalConfigs(): Promise<Outcome<string[]>> {
+  return client.call(CONFIG_HANDLERS.originalConfigsList)
+}
+
+/**
+ * Puts the installation's original configs back and unassigns every profile there. Fails with
+ * `config.error.installationRunning` while it runs, `config.error.noOriginalBackup` with nothing to
+ * restore, and `config.error.originalBackupInvalid` when the backup folder is unreadable.
+ */
+export function restoreOriginalConfigs(
+  input: RestoreOriginalConfigsInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  return client.call(CONFIG_HANDLERS.originalConfigsRestore, input)
 }

@@ -223,6 +223,8 @@ export const configModule: MainModule = {
 
     handle(CONFIG_HANDLERS.assign, (input) => writes.assign(input))
     handle(CONFIG_HANDLERS.unassign, (input) => writes.unassign(input))
+    handle(CONFIG_HANDLERS.originalConfigsList, () => writes.listOriginalConfigs())
+    handle(CONFIG_HANDLERS.originalConfigsRestore, (input) => writes.restoreOriginalConfigs(input))
     handle(CONFIG_HANDLERS.setDefault, (input) => writes.setDefault(input))
     handle(CONFIG_HANDLERS.write, (input) => writes.write(input))
 
