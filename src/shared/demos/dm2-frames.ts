@@ -55,8 +55,9 @@
  *
  * ## Observing the walk
  *
- * An optional `Dm2FrameObserver` receives each `svc_serverdata` protocol, `svc_configstring` and
- * `svc_layout` the walk passes (so only what precedes a block's `svc_frame`). Observing decodes
+ * An optional `Dm2FrameObserver` receives each `svc_serverdata` protocol, `svc_configstring`,
+ * `svc_layout` and — when it implements `onPrint` — `svc_print` the walk passes (so only what
+ * precedes a block's `svc_frame`; a game's end-of-match prints arrive this way). Observing decodes
  * those payloads but never moves the cursor differently: the offsets are the skip path's own, so
  * the count is the same with or without an observer. A failed count may already have forwarded
  * messages from the failing block.
@@ -75,6 +76,8 @@ export interface Dm2FrameObserver {
   /** `value` is the NUL-less string, decoded byte-for-byte as latin1. */
   onConfigstring(index: number, value: string): void
   onLayout(text: string): void
+  /** `level` is the print level byte; `text` is decoded like `onConfigstring`'s value. */
+  onPrint?(level: number, text: string): void
 }
 
 const SVC_MUZZLEFLASH = 1
@@ -267,10 +270,17 @@ export function createDm2FrameCounter(observer?: Dm2FrameObserver): FrameCounter
           }
           break
         }
-        case SVC_PRINT:
+        case SVC_PRINT: {
+          const levelAt = p
           p = skipFixed(p, 1, end)
-          if (p !== OVERRUN) p = skipString(bytes, p, end)
+          if (p !== OVERRUN) {
+            const textAt = p
+            p = skipString(bytes, p, end)
+            if (observer?.onPrint !== undefined && p !== OVERRUN)
+              observer.onPrint(bytes[levelAt]!, decodeLatin1(bytes.subarray(textAt, p - 1)))
+          }
           break
+        }
         case SVC_STUFFTEXT:
         case SVC_CENTERPRINT:
           p = skipString(bytes, p, end)

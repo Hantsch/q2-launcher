@@ -164,6 +164,7 @@ export const DUPLICATE_EXCEPTIONS: Record<string, string> = {
     'The same words as a dialog title and as its submit button, which are different roles.',
   'Create alias':
     'The same words as a dialog title and as its submit button, which are different roles.',
+  Total: 'A caption of the demo stats totals versus the playtime tile status on the dashboard.',
 }
 
 // i18next resolves `t('x', { count })` to `x_one`/`x_other`/..., so the source names only `x`.

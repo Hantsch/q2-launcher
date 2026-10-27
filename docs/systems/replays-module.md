@@ -63,6 +63,7 @@ counts follow the scoped rows; the filter value survives an installation switch.
   comment controls in fullscreen or the cinema overlay. "Play from here" seeks a session on that demo, else plays it.
 - Start position: `beginSession(..., { id, archived, startAtS })` keeps `pendingSeekS`; the first position sample sends one
   `seekTo` and clears it (the engine takes no commands earlier).
+- `components/DemoStatsPanel.tsx` — the detail's OpenTDM accuracy table (one row per item, totals below), rendered from `row.stats` alone and absent when the row has none.
 - `components/DemoPlayersPanel.tsx` — players by side — two teams side by side, otherwise stacked; side colours from `--color-side-1/2`; `components/DemoStage.tsx`, `components/DemoTimeline.tsx` (takes the
   session's `demo` and `onRowPatched` for comments), `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `useDemoPlay.ts` — playback.
 - `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
@@ -72,6 +73,9 @@ counts follow the scoped rows; the filter value survives an installation switch.
 - Each index row carries `roster`: `{ teams: { name, players }[], spectators }`, or `null` when unknown, collected by
   `shared/demos/dm2-roster.ts` in the one existing frame-count pass (`readDemoFullPass` for a loose file, `zip-demos.ts` for an
   archive entry), never a second read.
+- A row also carries `stats` (the recording player's end-of-match accuracy table and totals) when the demo has one, otherwise the
+  key is omitted. `shared/demos/dm2-stats.ts` collects it in that same single pass, through `shared/demos/dm2-facts.ts` (roster
+  and stats collectors behind one observer); the last complete OpenTDM block wins and a map change does not reset it.
 - Teams: OpenTDM takes a team from the slot string `name (team)` while it names the slot's current player (the last scoreboard's
   `Spectators` section overrides); CTF uses `ctf_r` / `ctf_b` skins.
 - A change to the cached row shape bumps `REPLAYS_INDEX_CACHE_VERSION` (`index-cache.ts`).
@@ -142,5 +146,5 @@ volume, cinema availability, stage notice).
 - Playback needs Q2PRO; other clients are not eligible. An installation whose own engine is another one still plays when it has a
   detected, supported Q2PRO: the launch then runs that Q2PRO. A demo outside the Quake filesystem is played from a temporary copy;
   a `.gz` is not decompressed by the launcher.
-- Stage placement depends on the platform's window system; nested archives are not expanded. An `.mvd2` demo has no roster; an
-  OpenTDM 1v1 demo cut off before the match ends has no teams.
+- Stage placement depends on the platform's window system; nested archives are not expanded. An `.mvd2` demo has no roster and no
+  stats; an OpenTDM 1v1 demo cut off before the match ends has no teams. Only OpenTDM's "Stats for" format is read for stats.

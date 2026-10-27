@@ -157,6 +157,45 @@ describe('expandZip (fake listing/reader)', () => {
   })
 })
 
+describe('expandZip stats (fake listing/reader)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('a zipped example demo carries its stats', async () => {
+    const fixtures = resolve(__dirname, '../../../../docs/fixtures/demos')
+    const shad = new Uint8Array(
+      await readFile(join(fixtures, 'shad-maq_PFDE3_q2rdm2_20260922-161521.dm2')),
+    )
+    const plain = new Uint8Array(await readFile(join(fixtures, 'test.dm2')))
+    const bytesByPath: Record<string, Uint8Array> = { 'shad.dm2': shad, 'test.dm2': plain }
+    vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({
+      ok: true,
+      entries: Object.entries(bytesByPath).map(([path, bytes]) => ({
+        path,
+        isFolder: false,
+        size: bytes.length,
+        modified: null,
+        encrypted: false,
+      })),
+    })
+    vi.spyOn(zipEntries, 'readZipEntry').mockImplementation(async (_archive, entryPath) => ({
+      ok: true,
+      bytes: bytesByPath[entryPath]!,
+    }))
+
+    const result = await expandZip('C:/demos/pack.zip', SOURCE, 0, {} as ZipDeps)
+    const byName = new Map(result.rows.map((r) => [r.fileName, r]))
+
+    const stats = byName.get('shad.dm2')?.stats
+    expect(stats?.player).toBe('shad')
+    expect(stats?.total?.kills).toBe(10)
+    expect(stats?.total?.deaths).toBe(27)
+    expect('stats' in byName.get('test.dm2')!).toBe(false)
+    for (const row of result.rows) expect(discoveredDemoSchema.safeParse(row).success).toBe(true)
+  })
+})
+
 describe('expandZip (real 7za binary)', () => {
   const realBinary = resolveExtractorPath({ isPackaged: false })
   const dm2Fixture = resolve(__dirname, '../../../../docs/fixtures/demos/test.dm2')

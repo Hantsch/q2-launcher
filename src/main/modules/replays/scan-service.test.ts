@@ -661,6 +661,31 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
     expect(streamOpens.paths.filter((p) => p === path)).toHaveLength(1)
   })
 
+  it('readDemoFacts carries the stats from the one full pass', async () => {
+    const dir = join(root, 'demos')
+    await mkdir(dir, { recursive: true })
+    await writeFile(
+      join(dir, 'shad.dm2'),
+      await readFile(
+        join(process.cwd(), 'docs/fixtures/demos/shad-maq_PFDE3_q2rdm2_20260922-161521.dm2'),
+      ),
+    )
+    await utimes(join(dir, 'shad.dm2'), HOUR_AGO_S, HOUR_AGO_S)
+    const path = await canonicalizePath(join(dir, 'shad.dm2'))
+    streamOpens.paths.length = 0
+
+    const h = harness([dir], { parse: readDemoFacts })
+    h.service.start()
+    await h.waitIdle(1)
+    const [row] = await h.service.read()
+
+    expect(row?.stats?.player).toBe('shad')
+    expect(row?.stats?.total?.kills).toBe(10)
+    expect(row?.stats?.total?.deaths).toBe(27)
+    expect(discoveredDemoSchema.safeParse(row).success).toBe(true)
+    expect(streamOpens.paths.filter((p) => p === path)).toHaveLength(1)
+  })
+
   it('a cache hit keeps gameDir, pov, players and durationMs', async () => {
     const dir = await fixtureFolder()
 
@@ -686,6 +711,36 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
     const rows = await second.service.read()
     expect(rows).toHaveLength(1)
     expect(pickFacts(rows[0])).toEqual(EXPECTED)
+  })
+
+  it('a cache hit keeps the stats', async () => {
+    const dir = join(root, 'demos')
+    await mkdir(dir, { recursive: true })
+    await writeFile(
+      join(dir, 'shad.dm2'),
+      await readFile(
+        join(process.cwd(), 'docs/fixtures/demos/shad-maq_PFDE3_q2rdm2_20260922-161521.dm2'),
+      ),
+    )
+    await utimes(join(dir, 'shad.dm2'), HOUR_AGO_S, HOUR_AGO_S)
+
+    const first = harness([dir], { parse: readDemoFacts })
+    first.service.start()
+    await first.waitIdle(1)
+    const parsed = (await first.service.read())[0]?.stats
+    expect(parsed?.player).toBe('shad')
+
+    const parse = vi.fn(async (): Promise<DemoHeaderFacts> => {
+      throw new Error('a cache hit must not be re-parsed')
+    })
+    const second = harness([dir], { parse })
+    second.service.start()
+    await second.waitIdle(1)
+
+    expect(parse).not.toHaveBeenCalled()
+    const [row] = await second.service.read()
+    expect(row?.stats).toEqual(parsed)
+    expect(discoveredDemoSchema.safeParse(row).success).toBe(true)
   })
 
   it("a cache hit takes reachedBy from this scan's discovery, never the cached row", async () => {

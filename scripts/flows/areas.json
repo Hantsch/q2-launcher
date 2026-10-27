@@ -957,9 +957,10 @@
     "paths": [
       "src/renderer/src/modules/replays/components/DemoDetailPanel.tsx",
       "src/renderer/src/modules/replays/components/DemoPlayersPanel.tsx",
+      "src/renderer/src/modules/replays/components/DemoStatsPanel.tsx",
       "src/shared/replays/demo-detail.ts"
     ],
-    "flows": ["replays-demo-detail", "replays-detail-teams"],
+    "flows": ["replays-demo-detail", "replays-detail-teams", "replays-detail-stats"],
     "why": "The demo detail panel: facts and the players panel."
   },
   {

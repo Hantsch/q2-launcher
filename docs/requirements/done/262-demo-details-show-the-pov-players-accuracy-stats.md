@@ -1,7 +1,7 @@
 ---
 id: 262
 title: Demo details show the POV player's accuracy stats
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -33,17 +33,17 @@ Player |    10   27   1   0    0  3296  4791      0      0
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — For a `.dm2` containing an OpenTDM "Stats for <name>:" block, the demo detail shows a stats
+- [x] **AC1** — For a `.dm2` containing an OpenTDM "Stats for <name>:" block, the demo detail shows a stats
       table with one row per item and the columns Item, Acc., Kills, Deaths, Dealt, Recvd, Pick, Miss.
-- [ ] **AC2** — The Total line is shown below the table (kills, deaths, suicides, team kills, telefrags,
+- [x] **AC2** — The Total line is shown below the table (kills, deaths, suicides, team kills, telefrags,
       dealt, received, team dealt, team received).
-- [ ] **AC3** — `-` cells are shown as a dash, not as 0.
-- [ ] **AC4** — The table is titled with the player name from the block.
-- [ ] **AC5** — A demo without such a block shows no stats section at all.
-- [ ] **AC6** — A demo with several blocks (e.g. a restarted match) shows the last one.
-- [ ] **AC7** — Stats are part of the demo's indexed metadata, so reopening the detail does not re-read the
+- [x] **AC3** — `-` cells are shown as a dash, not as 0.
+- [x] **AC4** — The table is titled with the player name from the block.
+- [x] **AC5** — A demo without such a block shows no stats section at all.
+- [x] **AC6** — A demo with several blocks (e.g. a restarted match) shows the last one.
+- [x] **AC7** — Stats are part of the demo's indexed metadata, so reopening the detail does not re-read the
       file; existing index entries pick them up after a reindex.
-- [ ] **AC8** — Parsing is proven on the reference demo's values (Railgun 36 %, 3 kills, 11 deaths, 1000
+- [x] **AC8** — Parsing is proven on the reference demo's values (Railgun 36 %, 3 kills, 11 deaths, 1000
       dealt; Total 10 kills, 27 deaths).
 
 ## Open Questions
@@ -106,7 +106,7 @@ Order D1 → D2 → D3; each builds on the previous one's types.
 
 ## Deliverables
 
-- [ ] **D1 — Stats collector in the frame pass (shared).**
+- [x] **D1 — Stats collector in the frame pass (shared).**
   - `src/shared/demos/dm2-frames.ts`: `Dm2FrameObserver` gains optional
     `onPrint?(level: number, text: string): void`. In the `SVC_PRINT` case, when
     `observer?.onPrint` exists and the string ends inside the block, call it with the level byte and
@@ -163,7 +163,7 @@ Order D1 → D2 → D3; each builds on the previous one's types.
   - `src/shared/demos/dm2-frames.test.ts`: frame counts with and without the facts observer are equal on
     `docs/fixtures/demos/test.dm2` and on the example fixture.
 
-- [ ] **D2 — Stats in the index (main + shared schema).**
+- [x] **D2 — Stats in the index (main + shared schema).**
   - `src/shared/modules/replays.ts`: `discoveredDemoSchema` gains `stats: <schema>.optional()` next to
     `roster` (omitted = the demo has no stats block / not parsed), mirroring `DemoStats` from
     `src/shared/demos/dm2-stats.ts` (`z.number().int().nonnegative().nullable()` per value, `total`
@@ -188,7 +188,7 @@ Order D1 → D2 → D3; each builds on the previous one's types.
     version-6 cache is discarded"; `src/main/modules/replays/zip-demos.test.ts` › "a zipped example demo
     carries its stats".
 
-- [ ] **D3 — Stats table in the demo detail (renderer + e2e).**
+- [x] **D3 — Stats table in the demo detail (renderer + e2e).**
   - New `src/renderer/src/modules/replays/components/DemoStatsPanel.tsx`, props `{ stats: DemoStats }`
     (type from `@shared/demos/dm2-stats`). Mirror `DemoPlayersPanel.tsx` in the same folder: an `<h3
     className="stencil …">` with lucide `Crosshair` (`aria-hidden`) and `t('replays.detail.stats.title',
@@ -257,10 +257,38 @@ Order D1 → D2 → D3; each builds on the previous one's types.
   › "a malformed block does not replace an earlier good one".
 - AC7 → unit `src/main/modules/replays/scan-service.test.ts` › "readDemoFacts carries the stats from the
   one full pass"; `src/main/modules/replays/index-cache.test.ts` › "a row with stats reads back identical"
-  and › "a version-6 cache is discarded"; component `DemoDetailPanel.test.tsx` › "a row with stats
+  and › "a version-6 cache is discarded"; unit `scan-service.test.ts` › "a cache hit keeps the stats"; component `DemoDetailPanel.test.tsx` › "a row with stats
   renders the stats table" (rendered from the row alone, no client read).
 - AC8 → unit `src/shared/demos/dm2-stats.test.ts` › "the OpenTDM example yields shad's item rows and
   total" (reads `docs/fixtures/demos/shad-maq_PFDE3_q2rdm2_20260922-161521.dm2`: Railgun 36 %, 3, 11,
   1000; Total 10, 27).
 
 ## Done
+
+The demo detail now shows the POV player's OpenTDM accuracy stats: the frame pass collects the last complete
+"Stats for <name>:" block (shared `dm2-stats.ts`, combined with the roster in `dm2-facts.ts`), the index row
+carries it as optional `stats` (cache version 6 → 7, so existing entries pick it up after a rescan), and a new
+`DemoStatsPanel` renders the item table plus the Total list below the players panel — nothing without a block.
+
+Commit message: `262: demo details show the POV player's OpenTDM accuracy stats — print observer in the frame pass, dm2-stats/dm2-facts collectors, optional index stats (cache v7), DemoStatsPanel, flow replays-detail-stats`
+
+Verification (narrow gate, run twice — before and after the review fixes): `npm run typecheck`, `npm run lint` green;
+`npx vitest run --changed HEAD` + the story's explicit suites green (103 files, 1118 tests) except the
+pre-existing `systems-docs.test.ts` (servers-module.md extra heading, story 258, untouched here);
+`npm run build:dev` + `npm run ui:flows -- --affected scripts/flows/replays-detail-stats.mjs --parallel=4 --shard=1/2` and `2/2`
+green (22/22 each). Full gate not run (the sprint's). Review 1 (default, clean agent): PASS.
+AC → test, all ran and passed: AC1 flow + DemoStatsPanel "renders the eight columns…"; AC2 flow + panel "the total line…" + dm2-stats example;
+AC3 dm2-stats example + panel "a null cell…" + flow; AC4 flow + panel "the title carries…"; AC5 flow + dm2-stats "a demo without a stats block…" +
+DemoDetailPanel "a row without stats…"; AC6 dm2-stats "with several blocks…" / "a malformed block…"; AC7 scan-service "readDemoFacts carries…" and
+"a cache hit keeps the stats", index-cache "a row with stats…" / "a version-6 cache is discarded", DemoDetailPanel "a row with stats…";
+AC8 dm2-stats example on the real fixture. No manual residue.
+
+Decisions:
+- A non-row line after at least one item row ends the table, so a table truncated by a bad row is committed (plan text); only header/column mismatches and a bad first row discard a block.
+- After a Total header, a line that is not a valid `Player |` row keeps the block with `total: null`; `finish()` treats a leftover unterminated line as a final line.
+- `tsconfig.web.json` excludes `dm2-stats.test.ts` (reads fixtures with node:fs), like the sibling dm2 tests.
+- Review fix: the Total list reuses the column keys for Kills/Deaths/Dealt instead of keys.test.ts duplicate exceptions; only the genuine homonym `Total` (home playtime tile) stays an exception. Added "a cache hit keeps the stats" because the index-cache round trip alone does not exercise the schema.
+- "version-1 cache is discarded" now asserts the version is greater than 1 instead of pinning 6; the exact pin lives in the version-6 test.
+- Unfixed, low: no test for an unterminated print with the observer attached (guarded in code), nor for a table cut off by the next "Stats for" line.
+
+tiers: D 3 / hard 1 · review default · cycles 1 · agents 7

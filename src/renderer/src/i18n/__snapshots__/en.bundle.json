@@ -2798,6 +2798,28 @@
       "sides": {
         "edit": "Edit sides",
         "refused": "These sides were not saved. Fix them, or press Escape to discard them."
+      },
+      "stats": {
+        "col": {
+          "accuracy": "Acc.",
+          "dealt": "Dealt",
+          "deaths": "Deaths",
+          "item": "Item",
+          "kills": "Kills",
+          "missed": "Miss",
+          "pickups": "Pick",
+          "received": "Recvd"
+        },
+        "title": "Stats for {{name}}",
+        "total": {
+          "received": "Received",
+          "suicides": "Suicides",
+          "teamDealt": "Team dealt",
+          "teamKills": "Team kills",
+          "teamReceived": "Team received",
+          "telefrags": "Telefrags",
+          "title": "Total"
+        }
       }
     },
     "editor": {

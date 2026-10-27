@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { VALUE_SOURCES } from '../demos/effective-values'
+import type { DemoStats } from '../demos/dm2-stats'
 import { demoUnreadableSchema } from '../demos/readability'
 import { type DiscoveredFolder, type FolderRef } from '../replays/demo-folders'
 import { demoListFilterSchema, type DemoListFilter } from '../replays/list-filter'
@@ -269,6 +270,42 @@ export const nameFactsSchema = z.object({
   host: z.string().optional(),
 }) satisfies z.ZodType<NameFacts>
 
+const statValueSchema = z.number().int().nonnegative().nullable()
+
+const demoStatsSchema = z.object({
+  player: z.string(),
+  items: z.array(
+    z.object({
+      item: z.string(),
+      accuracy: statValueSchema,
+      kills: statValueSchema,
+      deaths: statValueSchema,
+      dealt: statValueSchema,
+      received: statValueSchema,
+      pickups: statValueSchema,
+      missed: statValueSchema,
+    }),
+  ),
+  total: z
+    .object({
+      kills: statValueSchema,
+      deaths: statValueSchema,
+      suicides: statValueSchema,
+      teamKills: statValueSchema,
+      telefrags: statValueSchema,
+      dealt: statValueSchema,
+      received: statValueSchema,
+      teamDealt: statValueSchema,
+      teamReceived: statValueSchema,
+    })
+    .nullable(),
+})
+
+// The schema's output type and `DemoStats` must be the same type, not merely assignable one way.
+type Assert<T extends true> = T
+type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
+export type DemoStatsSchemaMatchesType = Assert<Mutual<z.infer<typeof demoStatsSchema>, DemoStats>>
+
 /** A demo main found during a scan. */
 export const discoveredDemoSchema = z.object({
   id: z.string().regex(/^[0-9a-f]{16}$/),
@@ -303,6 +340,8 @@ export const discoveredDemoSchema = z.object({
       spectators: z.array(z.string()),
     })
     .nullable(),
+  /** The recording player's end-of-match stats; omitted when the demo has none or was not parsed. */
+  stats: demoStatsSchema.optional(),
   /** `fs.stat`'s own timestamps for this file - present whether the row is readable or not. */
   fileTime: fileTimeSchema,
   /** Folder segments between the source's root and this demo; for a zip entry, the zip's own

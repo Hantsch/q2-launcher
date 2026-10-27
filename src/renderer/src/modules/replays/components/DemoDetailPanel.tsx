@@ -20,6 +20,7 @@ import { sidecarRead } from '../client'
 import { formatDemoDate } from '../row-format'
 import { DemoCommentsList } from './DemoCommentsList'
 import { DemoFileActions } from './DemoFileActions'
+import { DemoStatsPanel } from './DemoStatsPanel'
 import { SidesField } from './SidesField'
 import { StarRating } from './StarRating'
 import { InPlaceField, type CommitResult } from './InPlaceField'
@@ -285,6 +286,7 @@ export function DemoDetailPanel({
               />
             </div>
           )}
+          {row.stats !== undefined && <DemoStatsPanel stats={row.stats} />}
           {(!archived || (values.description ?? '').trim() !== '') && (
             <div className="space-y-1" data-testid="replays-detail-field-description">
               <span className="text-sm text-ink-muted">

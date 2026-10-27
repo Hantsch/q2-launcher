@@ -158,3 +158,18 @@
 - 2026-10-27 12:57 · 261 · verify 2 · started
 - 2026-10-27 13:01 · 261 · verify 2 · done
 - 2026-10-27 13:02 · 261 · story · done
+- 13:02:36 · 262 · build · started
+- 2026-10-27 13:02 · 262 · D1 stats collector in frame pass · started
+- 2026-10-27 13:06 · 262 · D1 stats collector in frame pass · done
+- 2026-10-27 13:06 · 262 · D2 stats in the index · started
+- 2026-10-27 13:10 · 262 · D2 stats in the index · done
+- 2026-10-27 13:10 · 262 · D3 stats table in the demo detail · started
+- 2026-10-27 13:15 · 262 · D3 stats table in the demo detail · done
+- 2026-10-27 13:15 · 262 · verify · started
+- 2026-10-27 13:24 · 262 · verify · done
+- 2026-10-27 13:24 · 262 · review 1 · started
+- 2026-10-27 13:26 · 262 · review 1 · done
+- 2026-10-27 13:26 · 262 · D3 review fixes · started
+- 2026-10-27 13:28 · 262 · D3 review fixes · done
+- 2026-10-27 13:28 · 262 · verify 2 · started
+- 2026-10-27 13:36 · 262 · story · done

@@ -18,6 +18,7 @@ version section when a release actually ships.
 - **Config** — Assigning a profile asks before replacing a config file of yours with the same name.
 - **Footer** — Pick a map; Play starts a deathmatch in it.
 - **Servers** — Double-click or Enter joins a server; arrow keys move the selection.
+- **Demos** — Demo details show your OpenTDM accuracy stats as a table.
 
 ### Changed
 - **Replays** — Demo details show the two teams side by side, each in its own colour.

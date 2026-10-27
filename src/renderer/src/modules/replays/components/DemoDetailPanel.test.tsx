@@ -113,6 +113,41 @@ describe('DemoDetailPanel', () => {
     await waitFor(() => expect(sidecarRead).toHaveBeenCalledWith(BASE_ROW.id))
   })
 
+  it('a row without stats renders no stats section', async () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } })
+
+    renderPanel()
+
+    expect(screen.queryByTestId('replays-detail-stats')).toBeNull()
+    await waitFor(() => expect(sidecarRead).toHaveBeenCalledWith(BASE_ROW.id))
+  })
+
+  it('a row with stats renders the stats table', async () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } })
+    const stats = {
+      player: 'shad',
+      items: [
+        {
+          item: 'Railgun',
+          accuracy: 36,
+          kills: 3,
+          deaths: 11,
+          dealt: 1000,
+          received: 2000,
+          pickups: 6,
+          missed: 3,
+        },
+      ],
+      total: null,
+    }
+
+    renderPanel({ ...BASE_ROW, stats })
+
+    expect(screen.getByTestId('replays-detail-stats-title').textContent).toBe('Stats for shad')
+    expect(screen.getByTestId('replays-detail-stats-row').textContent).toContain('Railgun36%')
+    await waitFor(() => expect(sidecarRead).toHaveBeenCalledWith(BASE_ROW.id))
+  })
+
   it('the panel shows the name as its title and the facts without provenance', async () => {
     sidecarRead.mockResolvedValue({
       ok: true,

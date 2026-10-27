@@ -523,6 +523,28 @@
         "pov": "POV",
         "spectators": "Spectators ({{count}})"
       },
+      "stats": {
+        "title": "Stats for {{name}}",
+        "col": {
+          "item": "Item",
+          "accuracy": "Acc.",
+          "kills": "Kills",
+          "deaths": "Deaths",
+          "dealt": "Dealt",
+          "received": "Recvd",
+          "pickups": "Pick",
+          "missed": "Miss"
+        },
+        "total": {
+          "title": "Total",
+          "suicides": "Suicides",
+          "teamKills": "Team kills",
+          "telefrags": "Telefrags",
+          "received": "Received",
+          "teamDealt": "Team dealt",
+          "teamReceived": "Team received"
+        }
+      },
       "field": {
         "map": "Map",
         "mod": "Mod",
