@@ -206,6 +206,7 @@ Commit: `258: server pings are the median of 3–6 samples — per-send sockets,
 Verification (narrow gate; no e2e criteria, so no `e2e-story`): `npm run build:dev`, `npm run lint`,
 `npm run typecheck` green; `npx vitest run --changed HEAD` green (17 files, 199 tests) plus the whole
 `src/main/modules/servers` folder (29 files, 350 tests). Run twice: after D5 and after the review fix.
+
 - AC1 `scan-runner.test.ts` "a reachable server gets 3 info samples" — passed
 - AC2 "far-apart samples get 3 more", "close samples get no extra" + `ping-samples.test.ts` — passed
 - AC3 "the emitted ping is the median of the samples" + `scan-service.test.ts` "a status reply does not overwrite the
@@ -215,8 +216,8 @@ Verification (narrow gate; no e2e criteria, so no `e2e-story`): `npm run build:d
   "systemClock is monotonic and sub-millisecond" — passed (AC6 does not discriminate this regression, see Decisions)
 - AC6 / AC7 `scan-ping-accuracy.test.ts` — passed (41–43 ms vs 40; full-pass ratio ≈ 1.0); AC6 failed once under a
   parallel run (CPU contention), see Decisions. No manual residue.
-Review: clean agent, 1 cycle, PASS with findings; the LAN stage-2 overwrite was fixed and re-verified. Not fixed:
-`scan-integration.test.ts` empty-responder bound `retries + 6` is looser than strictly needed (upper bound, kept).
+  Review: clean agent, 1 cycle, PASS with findings; the LAN stage-2 overwrite was fixed and re-verified. Not fixed:
+  `scan-integration.test.ts` empty-responder bound `retries + 6` is looser than strictly needed (upper bound, kept).
 
 tiers: D 5 / hard 1 · review default · cycles 1 · agents 11
 

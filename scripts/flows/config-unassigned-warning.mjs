@@ -22,7 +22,9 @@ async function expectMarker(page, name, expected) {
   if (expected) {
     const text = (await marker.textContent()) ?? ''
     if (!text.includes(MARKER_TEXT)) {
-      throw new Error(`expected ${JSON.stringify(MARKER_TEXT)} on ${name}, got ${JSON.stringify(text)}`)
+      throw new Error(
+        `expected ${JSON.stringify(MARKER_TEXT)} on ${name}, got ${JSON.stringify(text)}`,
+      )
     }
   }
 }

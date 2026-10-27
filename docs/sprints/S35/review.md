@@ -6,22 +6,22 @@ Branch `sprint/S35`, 13/13 stories done, regression gate green after one fix com
 
 ## Overview
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 251 Launch with applies only when I start the game | done | e8516a2 footer hides it on Servers/Demos, joins pass no mod, mismatch prompt removed |
-| 252 I pick a map in the footer and Play starts in it | done | 5aa5c87 footer Map select; Play with… dialog removed |
-| 253 An unassigned config profile tells me it is not used | done | 8fe5b98 banner with Assign… + "Not assigned" marker |
-| 254 The first assignment backs up the original configs | done | 5671f61 backup folder + restore from the profiles panel |
-| 255 Assigning never overwrites a foreign config silently | done | 8c1b94d dialog; Write backs the file up first |
-| 256 Server details are always shown | done | 44d7e01 empty-state pane, click never deselects |
-| 257 Double-click or Enter joins; arrow keys move | done | 2bf6d4b setting (default on), Enter, arrows |
-| 258 Server pings match what I get in game | done | 20e1c70 median of 3–6 samples, per-send sockets |
-| 259 Batch actions show from one selected demo | done | 6cf73ef bar condition `selectedIds.length > 0` |
-| 260 Demo details are always shown | done | c19c2c0 empty-state pane, close button removed |
-| 261 The demo players are split by team | done | 93ec00e two columns, side colour tokens |
-| 262 Demo details show the POV player's accuracy stats | done | d016694 print observer, dm2-stats, cache v7 |
-| 263 I see where a server is and filter by region | done | 90258bd bundled DB-IP database, Location column, grouped filter |
-| gate fixes | done | f075eb6 252, 254, 256, 257, 258, 262 regressions from the sprint gate |
+| Story                                                    | Status | Commit                                                                               |
+| -------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------ |
+| 251 Launch with applies only when I start the game       | done   | e8516a2 footer hides it on Servers/Demos, joins pass no mod, mismatch prompt removed |
+| 252 I pick a map in the footer and Play starts in it     | done   | 5aa5c87 footer Map select; Play with… dialog removed                                 |
+| 253 An unassigned config profile tells me it is not used | done   | 8fe5b98 banner with Assign… + "Not assigned" marker                                  |
+| 254 The first assignment backs up the original configs   | done   | 5671f61 backup folder + restore from the profiles panel                              |
+| 255 Assigning never overwrites a foreign config silently | done   | 8c1b94d dialog; Write backs the file up first                                        |
+| 256 Server details are always shown                      | done   | 44d7e01 empty-state pane, click never deselects                                      |
+| 257 Double-click or Enter joins; arrow keys move         | done   | 2bf6d4b setting (default on), Enter, arrows                                          |
+| 258 Server pings match what I get in game                | done   | 20e1c70 median of 3–6 samples, per-send sockets                                      |
+| 259 Batch actions show from one selected demo            | done   | 6cf73ef bar condition `selectedIds.length > 0`                                       |
+| 260 Demo details are always shown                        | done   | c19c2c0 empty-state pane, close button removed                                       |
+| 261 The demo players are split by team                   | done   | 93ec00e two columns, side colour tokens                                              |
+| 262 Demo details show the POV player's accuracy stats    | done   | d016694 print observer, dm2-stats, cache v7                                          |
+| 263 I see where a server is and filter by region         | done   | 90258bd bundled DB-IP database, Location column, grouped filter                      |
+| gate fixes                                               | done   | f075eb6 252, 254, 256, 257, 258, 262 regressions from the sprint gate                |
 
 ## Implemented stories
 
@@ -56,22 +56,22 @@ Covered a level below the real surface: 252 AC1 ("release build") by a component
 
 ## Tier record
 
-| Story | Ds | hard Ds | review | cycles | agents | build min |
-| --- | --- | --- | --- | --- | --- | --- |
-| 251 | 3 | 0 | default | 1 | 6 | 46 |
-| 252 | 5 | 1 | default | 1 | 10 | 52 |
-| 253 | 2 | 0 | default | 1 | 5 | 21 |
-| 254 | 3 | 1 | default | 1 | 6 | 35 |
-| 255 | 2 | 0 | default | 0 | 4 | 21 |
-| 256 | 2 | 0 | default | 1 | 6 | 13 |
-| 257 | 4 | 0 | default | 1 | 9 | 43 |
-| 258 | 5 | 1 | default | 1 | 11 | 52 |
-| 259 | 1 | 0 | default | 1 | 3 | 16 |
-| 260 | 2 | 0 | default | 0 | 5 | 39 |
-| 261 | 2 | 0 | default | 1 | 7 | 21 |
-| 262 | 3 | 1 | default | 1 | 7 | 34 |
-| 263 | 8 | 1 | default | 1 | 12 | 68 |
-| **Total** | **42** | **5** | 0 hard reviews | 11 | 91 | 461 |
+| Story     | Ds     | hard Ds | review         | cycles | agents | build min |
+| --------- | ------ | ------- | -------------- | ------ | ------ | --------- |
+| 251       | 3      | 0       | default        | 1      | 6      | 46        |
+| 252       | 5      | 1       | default        | 1      | 10     | 52        |
+| 253       | 2      | 0       | default        | 1      | 5      | 21        |
+| 254       | 3      | 1       | default        | 1      | 6      | 35        |
+| 255       | 2      | 0       | default        | 0      | 4      | 21        |
+| 256       | 2      | 0       | default        | 1      | 6      | 13        |
+| 257       | 4      | 0       | default        | 1      | 9      | 43        |
+| 258       | 5      | 1       | default        | 1      | 11     | 52        |
+| 259       | 1      | 0       | default        | 1      | 3      | 16        |
+| 260       | 2      | 0       | default        | 0      | 5      | 39        |
+| 261       | 2      | 0       | default        | 1      | 7      | 21        |
+| 262       | 3      | 1       | default        | 1      | 7      | 34        |
+| 263       | 8      | 1       | default        | 1      | 12     | 68        |
+| **Total** | **42** | **5**   | 0 hard reviews | 11     | 91     | 461       |
 
 No hard review stage ran this sprint (all 13 stories were `Review: → default`), so the question whether it finds more than the default review does not arise; the cross-story breakage above was caught by the gate, not by any review.
 

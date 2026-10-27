@@ -52,10 +52,7 @@ interface StubSeam {
    * Hands a datagram to the query the way a socket would - on the latest socket unless `socket`
    * (0-based) names another, with the transport's receive stamp when `receivedAt` is given.
    */
-  deliver: (
-    bytes: Uint8Array,
-    at?: { socket?: number; receivedAt?: number; from?: string },
-  ) => void
+  deliver: (bytes: Uint8Array, at?: { socket?: number; receivedAt?: number; from?: string }) => void
   /** Reports a transport failure on the latest socket the way its 'error' event would. */
   fail: (error: Error) => void
   /** Lets a held open (`holdOpenAt`) complete. */

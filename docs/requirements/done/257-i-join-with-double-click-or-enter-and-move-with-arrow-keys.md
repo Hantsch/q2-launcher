@@ -97,7 +97,7 @@ Depends on story 256 (selection never clears, detail pane always shown) being bu
   Tests: `ServersSettingsSection.test.tsx` › "the double-click switch is on by default and patches
   doubleClickJoins"; extend `scripts/flows/servers-scan-settings.mjs` with a step that switches
   `servers-list-settings-double-click-joins` off, reads `state.json` for `scan.doubleClickJoins ===
-  false`, and switches it back on (the flow reverts what it changes).
+false`, and switches it back on (the flow reverts what it changes).
 - **D3 — Double-clicking a row joins it while the setting is on.** In
   `src/renderer/src/modules/servers/ServersView.tsx`: read the setting with
   `useModuleQuery(getScanSettings)` (from `../../lib/useModuleQuery`; not-yet-loaded counts as on);
@@ -174,6 +174,7 @@ AC -> test, all passed: AC1 servers-double-click-join flow + "double-click joins
 Review (clean agent, default tier): PASS with test-quality findings, all fixed in one cycle — filtered-navigation test, AC6 flow now remounts the view so the setting is really off, settings-loaded awaits in tests, blocked-join-guard test, deduplicated `renderWithInstallation`, CHANGELOG formatter churn reverted and entry shortened. Deliverable ticks do not exist in this story (D list is bullets).
 
 Decisions:
+
 - `joinBlockedReason(row, hasInstallation)` is one guard shared by the action bar's Join and the double-click/Enter path; with Join disabled they only select.
 - Sibling tests `ServersView.actionbar.test.tsx` / `ServersView.watchlist.test.tsx` got a `getScanSettings` mock (ServersView now queries it).
 - New flows registered in the `servers-join` row of `scripts/flows/areas.json` (6 of 12).

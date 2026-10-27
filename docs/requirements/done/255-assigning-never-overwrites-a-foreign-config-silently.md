@@ -81,10 +81,10 @@ Order: D1 before D2. Story 254 is built first; its backup-folder helper is reuse
 ## Deliverables
 
 - [x] **D1 — `assign` refuses to overwrite a foreign profile file without consent (contract + main).**
-  Files:
+      Files:
   - `src/shared/modules/config.ts`: `overwriteForeign?: boolean` on `AssignProfileInput`; new
     `AssignProfileResult = { status: 'assigned'; profiles: ConfigProfile[] } | { status: 'foreignFile';
-    fileName: string; installationId: string }` (shape like `DiscardProfileResult`); the `assign` row of
+fileName: string; installationId: string }` (shape like `DiscardProfileResult`); the `assign` row of
     the handler map answers it.
   - `src/shared/modules/config-schemas.ts`: `assignProfileInputSchema` gains
     `overwriteForeign: z.boolean().optional()`; `unassignProfileInputSchema`/`setDefaultProfileInputSchema`
@@ -96,26 +96,26 @@ Order: D1 before D2. Story 254 is built first; its backup-folder helper is reuse
     is not already assigned to that installation and `overwriteForeign !== true`, resolve the name with
     `resolveProfileFileNames(deps.profiles.list()).get(profileId)` and check
     `join(installation.rootPath, BASE_GAME_DIR, name)`. Foreign → `ok({ status: 'foreignFile', fileName,
-    installationId })` without calling `profiles.assign` or any sync. Read error →
+installationId })` without calling `profiles.assign` or any sync. Read error →
     `fail('config.error.writeFailed')`, nothing assigned. With `overwriteForeign: true` and a foreign file,
     first call story 254's "copy this file into the installation's backup folder, first original wins"
     helper (in `src/main/modules/config/backup.ts` after 254 — reuse it, do not write a copy routine),
     then the existing assign + `syncAndPersist`, answering `ok({ status: 'assigned', profiles })`.
     `index.ts`'s handler stays a pass-through.
   - `docs/systems/config-module.md`: assign's foreign-file check and the two-step consent.
-  Tests: new `src/main/modules/config/profile-writes.assign-foreign.test.ts` on
-  `profile-writes.test-helpers.ts`' harness with a real temp installation — "a foreign profile file stops
-  the assignment before anything is written" (answers `foreignFile` with the file name; no new assignment
-  in the store; `baseq2/<name>.cfg` and `baseq2/autoexec.cfg` exactly as before; backup folder empty),
-  "overwriteForeign backs the foreign file up and assigns" (backup folder holds the original bytes; the
-  file now carries the ownership stamp; assignment present), "a launcher-stamped file is assigned without
-  asking" (stamp with a different profile id), "an absent file is assigned without asking", "an
-  already-assigned installation is not re-checked". Extend `src/shared/modules/config-schemas.test.ts`:
-  `overwriteForeign` is accepted on assign and rejected (stripped/strict as the file's other cases do) on
-  unassign/setDefault.
+    Tests: new `src/main/modules/config/profile-writes.assign-foreign.test.ts` on
+    `profile-writes.test-helpers.ts`' harness with a real temp installation — "a foreign profile file stops
+    the assignment before anything is written" (answers `foreignFile` with the file name; no new assignment
+    in the store; `baseq2/<name>.cfg` and `baseq2/autoexec.cfg` exactly as before; backup folder empty),
+    "overwriteForeign backs the foreign file up and assigns" (backup folder holds the original bytes; the
+    file now carries the ownership stamp; assignment present), "a launcher-stamped file is assigned without
+    asking" (stamp with a different profile id), "an absent file is assigned without asking", "an
+    already-assigned installation is not re-checked". Extend `src/shared/modules/config-schemas.test.ts`:
+    `overwriteForeign` is accepted on assign and rejected (stripped/strict as the file's other cases do) on
+    unassign/setDefault.
 
 - [x] **D2 — the assignments popover asks before writing (renderer + flow).**
-  Files:
+      Files:
   - `src/renderer/src/modules/config/client.ts`: `assignConfigProfile` returns
     `Outcome<AssignProfileResult>`.
   - new `src/renderer/src/modules/config/components/ForeignConfigDialog.tsx`: wraps
@@ -132,14 +132,14 @@ Order: D1 before D2. Story 254 is built first; its backup-folder helper is reuse
     (update `src/renderer/src/i18n/__snapshots__/en.bundle.json` if the bundle snapshot test asks).
   - `CHANGELOG.md` `## Unreleased` › `### Added`: "Assigning a profile asks before replacing a config file
     of yours with the same name."
-  Tests: component `src/renderer/src/modules/config/ProfileAssignmentsPanel.foreign.test.tsx` — "a foreign
-  file answer opens the dialog instead of a toast", "Write re-sends with overwriteForeign". Flow
-  `scripts/flows/assign-foreign-config.mjs` with the three tests named in `## Acceptance Tests`; selectors
-  as in `scripts/flows/engine-badge-surfaces.mjs` ("N of M assigned" trigger, popover `ul > li` rows);
-  plant files with `installationConfigFilePath` from `scripts/lib/fixture.mjs` as
-  `scripts/flows/care-drift-sync-now.mjs` does. Use the unassigned fixture profile "Imported Profile"
-  (`scripts/lib/fixture/controls.mjs`) and hardcode its file name with a "mirrors
-  `sanitizeProfileFileBase`" comment.
+    Tests: component `src/renderer/src/modules/config/ProfileAssignmentsPanel.foreign.test.tsx` — "a foreign
+    file answer opens the dialog instead of a toast", "Write re-sends with overwriteForeign". Flow
+    `scripts/flows/assign-foreign-config.mjs` with the three tests named in `## Acceptance Tests`; selectors
+    as in `scripts/flows/engine-badge-surfaces.mjs` ("N of M assigned" trigger, popover `ul > li` rows);
+    plant files with `installationConfigFilePath` from `scripts/lib/fixture.mjs` as
+    `scripts/flows/care-drift-sync-now.mjs` does. Use the unassigned fixture profile "Imported Profile"
+    (`scripts/lib/fixture/controls.mjs`) and hardcode its file name with a "mirrors
+    `sanitizeProfileFileBase`" comment.
 
 ## Model Hints
 
@@ -196,6 +196,7 @@ No manual residue. Full gate not run (sprint's job). Pre-existing, not mine: `sc
 `CHANGELOG.md`/`InstallationProfilesPanel.tsx`.
 
 Decisions:
+
 - The backup helper is `backupOriginals` in `original-backup.ts` (254), not `backup.ts` as the plan says.
 - `unassign`/`setDefault` schemas are not strict: `overwriteForeign` is stripped there, not rejected.
 - `AssignmentsMenu.tsx` ignores outside-click/Escape while a `[role=dialog]` is open; the dialog is

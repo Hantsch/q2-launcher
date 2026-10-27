@@ -838,9 +838,7 @@ describe('ServersView - refresh the shown servers (story 250)', () => {
     await screen.findByTestId('servers-row-a:1')
 
     expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByTestId('servers-refresh-options') as HTMLButtonElement).disabled).toBe(
-      true,
-    )
+    expect((screen.getByTestId('servers-refresh-options') as HTMLButtonElement).disabled).toBe(true)
   })
 })
 
@@ -919,14 +917,12 @@ describe('ServersView - keyboard navigation', () => {
   })
 
   it('arrow keys skip rows hidden by the filter', async () => {
-    const [first, middle, last] = ADDRESSES.map(
-      (address, index): ServerListEntry => ({
-        ...entries[index],
-        address,
-        name: `Server ${index}`,
-        mod: index === 1 ? 'baseq2' : 'ctf',
-      }),
-    )
+    const [first, middle, last] = ADDRESSES.map((address, index): ServerListEntry => ({
+      ...entries[index],
+      address,
+      name: `Server ${index}`,
+      mod: index === 1 ? 'baseq2' : 'ctf',
+    }))
     await renderWithInstallation([first, middle, last])
     toggleMod('ctf')
     await waitFor(() => expect(screen.queryByTestId(`servers-row-${middle.address}`)).toBeNull())

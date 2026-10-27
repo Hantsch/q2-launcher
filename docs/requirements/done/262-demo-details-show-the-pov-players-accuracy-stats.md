@@ -63,10 +63,10 @@ Player |    10   27   1   0    0  3296  4791      0      0
   answered by that commit.
 - Verified in the fixture: the block arrives as two `svc_print` messages (level 2) before the block's
   `svc_frame` — `"Stats for shad:\n\n<header>\n<sep>\n<rows>\n"` then `"\n<Total header>\n<sep>\nPlayer |
-  …\n\n"` — with high-bit characters; so the parser reads all print text as one line stream, masks every
+…\n\n"` — with high-bit characters; so the parser reads all print text as one line stream, masks every
   byte with `& 0x7f`, and never assumes one message per block.
 - Columns are matched by the exact header tokens (`Acc. Kills Deaths Dealt Recvd Pick Miss`, `Kills Dths
-  Sui TKs Tele Dealt Recvd TDealt TRecvd`); a block whose header differs is ignored — a misread table is
+Sui TKs Tele Dealt Recvd TDealt TRecvd`); a block whose header differs is ignored — a misread table is
   worse than none, and only the verified format is in scope.
 - A malformed or header-mismatched block never replaces an earlier complete one; among complete blocks
   the last in the file wins (AC6).
@@ -116,14 +116,32 @@ Order D1 → D2 → D3; each builds on the previous one's types.
   - New `src/shared/demos/dm2-stats.ts` (pure; no node/DOM): exports
     ```ts
     export type DemoStatValue = number | null // null = the game's '-' cell
-    export type DemoStatsItem = { item: string; accuracy: DemoStatValue; kills: DemoStatValue;
-      deaths: DemoStatValue; dealt: DemoStatValue; received: DemoStatValue; pickups: DemoStatValue;
-      missed: DemoStatValue }
-    export type DemoStatsTotal = { kills: DemoStatValue; deaths: DemoStatValue; suicides: DemoStatValue;
-      teamKills: DemoStatValue; telefrags: DemoStatValue; dealt: DemoStatValue; received: DemoStatValue;
-      teamDealt: DemoStatValue; teamReceived: DemoStatValue }
+    export type DemoStatsItem = {
+      item: string
+      accuracy: DemoStatValue
+      kills: DemoStatValue
+      deaths: DemoStatValue
+      dealt: DemoStatValue
+      received: DemoStatValue
+      pickups: DemoStatValue
+      missed: DemoStatValue
+    }
+    export type DemoStatsTotal = {
+      kills: DemoStatValue
+      deaths: DemoStatValue
+      suicides: DemoStatValue
+      teamKills: DemoStatValue
+      telefrags: DemoStatValue
+      dealt: DemoStatValue
+      received: DemoStatValue
+      teamDealt: DemoStatValue
+      teamReceived: DemoStatValue
+    }
     export type DemoStats = { player: string; items: DemoStatsItem[]; total: DemoStatsTotal | null }
-    export interface Dm2StatsCollector { onPrint(level: number, text: string): void; finish(): DemoStats | null }
+    export interface Dm2StatsCollector {
+      onPrint(level: number, text: string): void
+      finish(): DemoStats | null
+    }
     export function createDm2StatsCollector(): Dm2StatsCollector
     ```
     Rules: concatenate every print's text (any level) into one stream; map each char code `c` to
@@ -146,16 +164,16 @@ Order D1 → D2 → D3; each builds on the previous one's types.
       mismatched block never replaces an earlier one. `svc_serverdata` does not reset anything.
     - `finish()` commits a still-open complete block and returns the result or `null`.
   - New `src/shared/demos/dm2-facts.ts`: `createDm2FactsCollector(): Dm2FrameObserver & { finish(): {
-    roster: DemoRoster | null; stats: DemoStats | null } }`, forwarding `onServerdata`/`onConfigstring`/
+roster: DemoRoster | null; stats: DemoStats | null } }`, forwarding `onServerdata`/`onConfigstring`/
     `onLayout` to `createDm2RosterCollector()` (`./dm2-roster.ts`) and `onPrint` to
     `createDm2StatsCollector()`.
   - Tests in new `src/shared/demos/dm2-stats.test.ts`:
     - real fixture `docs/fixtures/demos/shad-maq_PFDE3_q2rdm2_20260922-161521.dm2` run through
       `createDm2FrameCounter(createDm2FactsCollector())` (AC8, AC4, AC1, AC2, AC3): player `shad`; 10 item
       rows in file order Blaster … MegaHealth; Railgun `{ accuracy: 36, kills: 3, deaths: 11, dealt: 1000,
-      received: 2000, pickups: 6, missed: 3 }`; Grenade Launcher `accuracy`, `kills`, `dealt` are `null`
+received: 2000, pickups: 6, missed: 3 }`; Grenade Launcher `accuracy`, `kills`, `dealt` are `null`
       while `deaths` is 0; total `{ kills: 10, deaths: 27, suicides: 1, teamKills: 0, telefrags: 0, dealt:
-      3296, received: 4791, teamDealt: 0, teamReceived: 0 }`.
+3296, received: 4791, teamDealt: 0, teamReceived: 0 }`.
     - synthetic demos built with `buildDm2Stream` / `print(...)` from `src/shared/demos/dm2-frames-writer.ts`:
       no block → `null` (AC5); two blocks with different values → the last (AC6); a block split mid-line
       over two prints parses; a block with an unknown header column is ignored and an earlier good block
@@ -191,21 +209,21 @@ Order D1 → D2 → D3; each builds on the previous one's types.
 - [x] **D3 — Stats table in the demo detail (renderer + e2e).**
   - New `src/renderer/src/modules/replays/components/DemoStatsPanel.tsx`, props `{ stats: DemoStats }`
     (type from `@shared/demos/dm2-stats`). Mirror `DemoPlayersPanel.tsx` in the same folder: an `<h3
-    className="stencil …">` with lucide `Crosshair` (`aria-hidden`) and `t('replays.detail.stats.title',
-    { name: stats.player })` ("Stats for {{name}}", `data-testid="replays-detail-stats-title"`); a
+className="stencil …">` with lucide `Crosshair` (`aria-hidden`) and `t('replays.detail.stats.title',
+{ name: stats.player })` ("Stats for {{name}}", `data-testid="replays-detail-stats-title"`); a
     `table w-full border-collapse text-left text-xs text-ink-dim` inside `overflow-x-auto`, `thead` with
     `th scope="col" className="stencil …"` for Item, Acc., Kills, Deaths, Dealt, Recvd, Pick, Miss
     (`replays.detail.stats.col.{item,accuracy,kills,deaths,dealt,received,pickups,missed}`), one row per
     item (`data-testid="replays-detail-stats-row"`, `border-b border-line/60`, item name verbatim as `th
-    scope="row"`, numbers right-aligned with `numeric`). A cell is `-` for `null`, `${n}%` for accuracy,
+scope="row"`, numbers right-aligned with `numeric`). A cell is `-` for `null`, `${n}%` for accuracy,
     else the number. When `stats.total` is non-null, below the table a `<dl
-    data-testid="replays-detail-stats-total">` in a wrapping grid of label/value pairs with keys
+data-testid="replays-detail-stats-total">` in a wrapping grid of label/value pairs with keys
     `replays.detail.stats.total.{kills,deaths,suicides,teamKills,telefrags,dealt,received,teamDealt,teamReceived}`
     (Kills, Deaths, Suicides, Team kills, Telefrags, Dealt, Received, Team dealt, Team received) and a
     `stencil` caption `replays.detail.stats.total.title` ("Total"). Root wrapper
     `data-testid="replays-detail-stats"`. Design tokens only (no raw palette classes).
   - `src/renderer/src/modules/replays/components/DemoDetailPanel.tsx`: render `<DemoStatsPanel
-    stats={row.stats} />` right after the `replays-detail-field-sides` block only when `row.stats` is
+stats={row.stats} />` right after the `replays-detail-field-sides` block only when `row.stats` is
     present — nothing at all otherwise (AC5). Reads only the row: no client call.
   - Keys in `src/renderer/src/modules/replays/locale/en.json`; refresh
     `src/renderer/src/i18n/__snapshots__/en.bundle.json` via the bundle test.
@@ -223,7 +241,7 @@ Order D1 → D2 → D3; each builds on the previous one's types.
     count 0. Add the flow to the `replays-detail` area in `scripts/flows/areas.json` and add
     `DemoStatsPanel.tsx` to that area's `paths`.
   - `CHANGELOG.md` under `## Unreleased` › `### Added`: `- **Demos** — Demo details show your OpenTDM
-    accuracy stats as a table.` (merge into an existing `### Added` heading if a sibling story created
+accuracy stats as a table.` (merge into an existing `### Added` heading if a sibling story created
     one).
 
 ## Model Hints
@@ -284,6 +302,7 @@ DemoDetailPanel "a row without stats…"; AC6 dm2-stats "with several blocks…"
 AC8 dm2-stats example on the real fixture. No manual residue.
 
 Decisions:
+
 - A non-row line after at least one item row ends the table, so a table truncated by a bad row is committed (plan text); only header/column mismatches and a bad first row discard a block.
 - After a Total header, a line that is not a valid `Player |` row keeps the block with `total: null`; `finish()` treats a leftover unterminated line as a final line.
 - `tsconfig.web.json` excludes `dm2-stats.test.ts` (reads fixtures with node:fs), like the sibling dm2 tests.

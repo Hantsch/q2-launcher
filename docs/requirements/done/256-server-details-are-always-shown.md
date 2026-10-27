@@ -71,7 +71,7 @@ Order: D1 (behaviour + unit tests), then D2 (the flows D1's removed close button
 - **D1 — The list tab's detail pane is always present and a click never deselects.**
   Files: `src/renderer/src/modules/servers/ServersView.tsx`, `ServerDetailView.tsx`, `locale/en.json`
   (same folder), `src/renderer/src/i18n/__snapshots__/en.bundle.json` (regenerate with `npx vitest run
-  -u` on the bundle test), `ServersView.test.tsx`, `ServerDetailView.test.tsx`,
+-u` on the bundle test), `ServersView.test.tsx`, `ServerDetailView.test.tsx`,
   `docs/systems/servers-module.md`, `CHANGELOG.md`.
   - `ServersView`: the list tab's grid always gets the split classes (`detailSplit(true)`); the
     watchlist tab keeps `detailSplit(watchlistDetailAddress !== null)`. The list's `DETAIL_PANE` div
@@ -155,11 +155,13 @@ Commit message: `256: server details always shown — empty-state pane, click ne
 Verification (narrow gate): typecheck, lint, `build:dev` green; `npx vitest run --changed HEAD` green (155 files, 1253 tests);
 `npm run ui:flows -- --affected scripts/flows/servers-detail.mjs scripts/flows/servers-lan-mode.mjs --parallel=4 --shard=1/2` and `2/2`
 green after one fix (below); 18 other servers-* flows and footer-map re-run green. Review 1 (default tier): PASS.
+
 - AC1-AC5 -> `servers-detail.mjs` steps + `ServersView.test.tsx` / `ServerDetailView.test.tsx` tests as named under Acceptance Tests: passed.
 - AC6 -> `servers-lan-mode.mjs` step "story 256: on LAN the pane is always shown and a re-click keeps the details": passed.
 - No manual residue.
 
 Decisions:
+
 - `servers-filter-search.mjs` re-clicked row C to deselect it; that is now impossible, so the re-click and its wait were removed
   (C stays selected; later filters that hide it clear the selection).
 - "a filtered-out selected row is deselected" now asserts `servers-detail-empty` instead of `servers-detail` gone, since the pane is always present.

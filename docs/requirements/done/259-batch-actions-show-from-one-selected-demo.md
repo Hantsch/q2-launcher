@@ -89,12 +89,12 @@ Order note: 260 edits the same `ReplaysView` layout afterwards (sprint order 259
      does); `replays-bulk-bar` count 0.
   7. "one selected zip demo disables the actions with the zip reason" — click the `test.dm2` row alone; the three
      buttons are disabled; `replays-bulk-zip-skip` says "1 zip entry is skipped".
-  Register the flow in the `replays-bulk` entry's `flows` in `scripts/flows/areas.json`; in
-  `scripts/flows/replays-bulk-delete.mjs` line 10 change "shown at two or more selected" to "shown at one or more
-  selected". Docs: `docs/systems/replays-module.md` renderer map gets a bullet "`components/BulkActionBar.tsx`,
-  `components/SelectionSummary.tsx`, `useBulkActions.ts` — the Delete/Tag/Move bar shows from one selected demo (and
-  while an outcome is shown); the selection summary replaces the detail from two". `CHANGELOG.md` under
-  `## Unreleased` → `### Changed`: "- **Replays** — Delete, Tag and Move show as soon as one demo is selected."
+     Register the flow in the `replays-bulk` entry's `flows` in `scripts/flows/areas.json`; in
+     `scripts/flows/replays-bulk-delete.mjs` line 10 change "shown at two or more selected" to "shown at one or more
+     selected". Docs: `docs/systems/replays-module.md` renderer map gets a bullet "`components/BulkActionBar.tsx`,
+     `components/SelectionSummary.tsx`, `useBulkActions.ts` — the Delete/Tag/Move bar shows from one selected demo (and
+     while an outcome is shown); the selection summary replaces the detail from two". `CHANGELOG.md` under
+     `## Unreleased` → `### Changed`: "- **Replays** — Delete, Tag and Move show as soon as one demo is selected."
 
 ## Model Hints
 
@@ -119,6 +119,7 @@ Summary: `BulkActionBar` in `ReplaysView` now renders for one or more selected d
 Commit message: `259: Delete/Tag/Move bar shows from one selected demo — condition selectedIds.length > 0, flow replays-bulk-one-selected`
 
 Decisions:
+
 - Review findings left unfixed: `waitForTimeout(600)` (filter-debounce reset) and the `setup()` on-disk fixture in the new flow, plus `expectText`/harness-trash/extractor-guard shapes duplicated from `replays-bulk-delete.mjs`. All mirror the sibling bulk flows as the plan demands; a shared helper in `scripts/lib/replays-copy-in.mjs` would be a separate refactor.
 - The unit test for AC4 would pass without the view change (component already handled count 1); the view wiring is proven by the e2e step, as mapped.
 - Tag-input selector in the flow is scoped to the "Tag 1 demo" dialog, because the detail pane's tag input shares the test id with one demo selected.

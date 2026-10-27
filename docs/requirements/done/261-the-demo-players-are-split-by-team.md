@@ -93,8 +93,8 @@ Order: D1 → D2 (D2 uses the tokens and the helper).
     `npm run ui:flow -- replays-date-filter` stay green.
 
 - [x] **D2 — The player table splits by team.** File: `src/renderer/src/modules/replays/components/DemoPlayersPanel.tsx`
-  (+ its test, the flow, CHANGELOG, systems doc). Input unchanged: `DemoDetail['playerGroups']` from
-  `src/shared/replays/demo-detail.ts` (`groups[].heading` is `null` only for a single team-less side).
+      (+ its test, the flow, CHANGELOG, systems doc). Input unchanged: `DemoDetail['playerGroups']` from
+      `src/shared/replays/demo-detail.ts` (`groups[].heading` is `null` only for a single team-less side).
   - Layout: `teams = groups.filter(g => g.heading !== null)`. No teams → `single` (today's ungrouped list, no
     heading); exactly 2 → `split` (CSS grid, two equal columns, `min-w-0`, names `truncate`, two columns at
     every width); 1 or > 2 → `stacked` (one block per team, vertical). Wrapper
@@ -154,6 +154,7 @@ meet 4.5:1 on base, panel and raised. The flow axe idiom is now the shared `scri
 **Verification (narrow gate, run twice: after D2 and after the review fixes).** typecheck, lint, `npx vitest run --changed HEAD`
 (12 files, 164 tests), `npm run build:dev`, `npm run ui:flows -- --affected <replays-detail-teams, home-tile-states,
 replays-date-filter> --parallel=4 --shard=1/2` and `2/2` (8/8 and 7/7 flows) — all green. Full gate: the sprint's.
+
 - AC1 → flow step "Home and Away sit side by side" + unit "two teams sit side by side, left side 1 and right side 2" — passed
 - AC2 → flow step "each team heading carries its own side colour" (inequality plus token equality) — passed
 - AC3 → unit "the heading shows the team name and its result" — passed
@@ -164,6 +165,7 @@ replays-date-filter> --parallel=4 --shard=1/2` and `2/2` (8/8 and 7/7 flows) —
 - Review: stage 1 (default) PASS WITH FINDINGS, fixed in one cycle, re-verified. No manual residue.
 
 **Decisions.**
+
 - `side-tokens.test.ts` reads `index.css` with node:fs, so it follows the repo precedent for node-only renderer tests: excluded from `tsconfig.web.json`, included in `tsconfig.node.json`, and listed in the pinned exclude list of `src/architecture.test.ts`.
 - Review fixes: CHANGELOG reset to one new line (a prettier run had reflowed released sections); unit tests tie each heading to its block's side colour and a one-named-team case was added; the flow ties headings to the resolved tokens; player cells got the heading's left padding so names align with it.
 - The axe step reopens the example demo first (earlier steps leave the sidecar demo selected); team tables use `table-fixed` so names truncate.

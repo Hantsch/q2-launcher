@@ -208,6 +208,7 @@ AC -> test as verified: AC1 original-backup.test "backs up every existing target
 Review: default stage PASS with findings; fixed (ordering test on second-target failure, two-profile restore test, flow asserts the profile .cfg existed, per-root serialization of backup/restore, stale docs/comments, trailing story pointer). Unfixed by choice: writer.ts <-> original-backup.ts import cycle (lint and architecture test pass, uses are lazy); restore loop resembles `unassign` loop (different iteration, not worth an extraction).
 
 **Decisions.**
+
 - `writeTargetFile` keeps `backupOnce` for its non-installation callers (canonical dir, raw save in userData), which `canonical.test` depends on; installation writes go through `writeInstallationTarget` with no sibling backup, so no new `.q2l-backup` appears in game folders.
 - `backupOriginals` throws on an invalid manifest (writes to that installation refused rather than starting a fresh manifest over held originals); restore returns `config.error.originalBackupInvalid`; documented in docs/systems/config-module.md. The UI hides the action in that state (list requires a valid manifest) — a hint to delete the folder is not surfaced (open point).
 - A path recorded `created` that the user later replaces with their own file is overwritten without a copy by a later launcher write (first original wins, per spec).

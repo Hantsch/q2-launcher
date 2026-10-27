@@ -841,6 +841,8 @@ export const SCREENS = [
   },
   {
     id: 'mods',
+    // Dev-only module: release builds (a packaged `--app=` run) have no `nav-mods`.
+    devOnly: true,
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
     navigate: async (page) => {
@@ -849,6 +851,8 @@ export const SCREENS = [
   },
   {
     id: 'assets',
+    // Dev-only module: release builds (a packaged `--app=` run) have no `nav-assets`.
+    devOnly: true,
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
     navigate: async (page) => {

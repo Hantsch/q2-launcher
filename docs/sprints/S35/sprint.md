@@ -55,11 +55,11 @@ accuracy stats.
 
 Ran on `sprint/S35` HEAD `90258bd`, then `f075eb6` after the fix commit.
 
-| Command | Result | Minutes |
-| --- | --- | --- |
-| `npm run build` | green | 1 |
-| `npm test` | red on 90258bd (12 tests, 9 files); on f075eb6 only check-docs/tech-debt and the scan-ping-accuracy flake | 1.1 |
-| `npm run ui:verify` | red on 90258bd (4 screens unreachable, 4 serious axe); green on f075eb6 (0 serious) | 4.1 |
+| Command                                      | Result                                                                                                      | Minutes     |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------- |
+| `npm run build`                              | green                                                                                                       | 1           |
+| `npm test`                                   | red on 90258bd (12 tests, 9 files); on f075eb6 only check-docs/tech-debt and the scan-ping-accuracy flake   | 1.1         |
+| `npm run ui:verify`                          | red on 90258bd (4 screens unreachable, 4 serious axe); green on f075eb6 (0 serious)                         | 4.1         |
 | `npm run ui:flows -- --parallel=4` (e2e-all) | 90258bd: 178/179, red `unsaved-diff`; f075eb6: 177/179, red `news-feed`, `unlock-code` (flaky, quarantined) | 22.5 / 23.5 |
 
 Failures and outcomes:

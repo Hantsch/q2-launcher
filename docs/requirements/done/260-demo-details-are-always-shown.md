@@ -78,7 +78,7 @@ tests stay green between the two.
   mode `grid-rows-1`; update its doc comment (it says "one slot until a demo is selected"). Replace the two
   conditional pane blocks (`multiSelected && ...`, `selected && ...`) with one always-rendered wrapper
   `<div className={cn(DETAIL_PANE, stageMode ? 'border-l' : 'border-t @4xl:border-t-0 @4xl:border-l')}
-  data-testid="replays-detail-pane">` whose child is: `multiSelected` → the existing
+data-testid="replays-detail-pane">` whose child is: `multiSelected` → the existing
   `data-testid="replays-multi-selection"` div with `SelectionSummary`; else `selected` → `DemoDetailPanel`
   (unchanged props); else `<EmptyState title={t('replays.detail.empty')} />` from
   `src/renderer/src/components/ui/primitives.tsx`, wrapped in `data-testid="replays-detail-empty"`.
@@ -152,6 +152,7 @@ its empty state. Stage mode is unchanged.
 i18n bundle snapshot (one new key); `npm run build:dev`; `npm run ui:flows -- --affected <both flow files>
 --parallel=4 --shard=1/2` and `2/2` green except `replays-demo-file-actions` (fixed, see Decisions; re-run
 green together with the four story flows, 5/5); release `npm run build` green. Full gate: the sprint's.
+
 - AC1 → flow `replays-detail-always-shown` + `ReplaysView.test.tsx` "with no demo selected the detail pane shows the empty state" — passed
 - AC2 → flow `replays-detail-always-shown` (step 2) — passed
 - AC3 → flow `replays-multi-select` + `ReplaysView.test.tsx` "two selected demos show the selection summary in the pane" — passed
@@ -161,6 +162,7 @@ green together with the four story flows, 5/5); release `npm run build` green. F
 - Review: stage 1 (default) PASS, no fix cycle needed. No manual residue.
 
 **Decisions.**
+
 - `ReplaysView.test.tsx` contains NUL bytes (pre-existing, git shows it as binary); edited through a latin1 node round-trip, bytes preserved. Its `afterEach` now resets the demo editor store so a selection cannot leak between tests.
 - The always-present pane made selecting a demo scroll the virtualized list, so `replays-demo-file-actions` lost its folder rows; the flow now scrolls the list to the top before opening `pack.zip` (assertion untouched; passes on HEAD without it). Why HEAD did not scroll the same way is not investigated; AC6 is about list width only.
 - AC6's width check relies on the container being at least `@4xl` in the flow window (default 1280px); not asserted explicitly. Reviewer finding left unfixed: low risk, flow passes the real layout.

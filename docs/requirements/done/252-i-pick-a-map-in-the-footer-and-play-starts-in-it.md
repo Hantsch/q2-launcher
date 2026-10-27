@@ -110,7 +110,7 @@ the feature (the r1q2 `.pkz` skip is an engine rule, not a platform one).
   `src/shared/modules/mods.ts` into `src/shared/types/launch.ts` as
   `MapList = { maps: Array<{ name: string; title?: string }> }` (re-point the mods file's remaining users to
   it; D4 deletes them). Add channel `'installations:listMaps': { req: { installationId: string; gameDir:
-  string }; res: Outcome<MapList> }` to `src/shared/ipc.ts` (map + invoke list), schema
+string }; res: Outcome<MapList> }` to `src/shared/ipc.ts` (map + invoke list), schema
   `installationsListMapsSchema` in `src/shared/ipc-schemas.ts` (`installationId` non-empty string;
   `gameDir` `''` or `isSafeGameName` from `@shared/mods/server-local-content`), handler in
   `src/main/ipc/installations.ts` mirroring the mods module's `mapsList` handler
@@ -255,6 +255,7 @@ printed by footer-map); the AC6 schema test lives in `src/main/lib/schemas.persi
 (default): PASS. No manual residue.
 
 Decisions:
+
 - A failed mod-switch listing writes the new `activeGameDir` with `activeMap: ''` (never keep a map the new mod may lack).
 - Review finding fixed: MapSelect only clears a saved map from a listing read on a playable (`ok`/`warning`) installation, because
   `listNames` turns an unreadable root into an empty successful list; `footer-map` and `launch-with-scope` added to the `shell-window`

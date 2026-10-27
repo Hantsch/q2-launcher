@@ -328,6 +328,7 @@ AC to test (all passed): AC1 ServerRow/list-sort tests + flow AC1; AC2 country-l
 Still red in the tree, not from this story: architecture purity/tsconfig (dm2-stats), comments.test (258/252), systems-docs, flow-select (game-dir-fs, original-backup, ping-samples, map-list, 12-flow cap on shell-window/config-profiles), repo-hygiene CRLF, check-docs/tech-debt links, renderer-health (ServersView 350 lines, cancellation flags), flow-helper-duplication `fail`; scan-ping-accuracy "within 5 ms under load" is a timing flake (passes alone).
 
 **Decisions.**
+
 - `geoOverrides` dep is a getter (flows set `Q2L_UI_GEO_ADDRESSES` after boot); `fromAddress` is optional on the shared `ScanQueryResult` (LAN discovery/fixtures omit it); no `locate` dep means rows stay unchanged.
 - "Unknown" and "Location" reuse `common.label.unknown` / `common.label.location` (keys.test.ts forbids duplicate values); the downloads wizard's `locationLabel` key was folded into the common one; `servers.location.region.*` is a registered dynamic key prefix.
 - Detail-pane test lives in `ServerDetailHeader.test.tsx` (ServerDetailView.test.tsx stubs the header with a throwing component); mapping updated.

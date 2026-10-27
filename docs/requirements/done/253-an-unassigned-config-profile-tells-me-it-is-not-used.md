@@ -84,60 +84,47 @@ Order: D1 → D2. Stories 254/255 may touch the assignment surfaces; this story 
       `src/renderer/src/modules/config/ConfigView.tsx`, `src/renderer/src/modules/config/locale/en.json`,
       the `src/renderer/src/i18n/__snapshots__/en.bundle.json` snapshot (`vitest -u`), new
       `src/renderer/src/modules/config/components/UnassignedProfileBanner.test.tsx`, new
-      `scripts/flows/config-unassigned-warning.mjs`.
-      - `ProfileBanner({ tone: 'warning' | 'danger', title, body?, children? (actions row), testId? })`:
-        the layout `ProfileFileBanners` hand-rolls twice today (`rounded-sm border border-<tone>/35
-        bg-<tone>/8 p-3`, `TriangleAlert` icon in the tone, title `text-sm font-medium text-<tone>`, body
-        `text-xs leading-relaxed text-ink-dim`, actions in a `flex gap-2` row). Rewrite both existing
-        banners (missing file, diagnostic) on it with no visual change. Tokens only, no hex.
-      - `UnassignedProfileBanner({ profile, onAssign })`: renders nothing when
-        `profile.assignments.length > 0`; otherwise a warning `ProfileBanner` with
-        `data-testid="config-unassigned-banner"`, title `config.assignment.unassignedBanner.title`
-        "No installation uses this config", body `config.assignment.unassignedBanner.body` "The game does
-        not load it until you assign it to an installation.", and a `Button variant="neutral" size="sm"`
-        with a `Link2` icon, `data-testid="config-unassigned-assign"`, label
-        `config.assignment.unassignedBanner.assign` "Assign…", `onClick={onAssign}`.
-      - `AssignmentsMenu({ open, onOpenChange })`: controlled. The trigger calls `onOpenChange(!open)`;
-        Escape and an outside pointerdown call `onOpenChange(false)`. The placement is computed in a
-        `useLayoutEffect` when `open` turns true (same anchor math as today, cleared when it turns false),
-        so an open request from outside the header lands at the header trigger. `ConfigDetailHeader`
-        takes `assignmentsOpen` / `onAssignmentsOpenChange` and forwards them.
-      - `ConfigView`: `const [assignmentsOpen, setAssignmentsOpen] = useState(false)`, reset to false when
-        the selected profile id changes; render `<UnassignedProfileBanner profile={selected}
-        onAssign={() => setAssignmentsOpen(true)} />` directly after `ProfileFileBanners`. `selected` is
-        read from the store, so an assignment removes the banner without a reload.
-      - Component test (`@testing-library/react`, plain props, no provider): "a profile with no assignments
-        shows the not-used warning", "Assign… calls onAssign", "an assigned profile renders no banner".
-      - e2e flow `config-unassigned-warning.mjs`, shaped like `scripts/flows/engine-badge-surfaces.mjs`
-        (open a profile via `config-profile-row` filtered by name; the popover is the `panel-raised`
-        ancestor of an installation row; `step`/`shot` helpers as there). Steps: (1) open
-        `Imported Profile` (fixture `assignments: []`, `scripts/lib/fixture/controls.mjs`) →
-        `config-unassigned-banner` visible, contains "No installation uses this config"; (2) click
-        `config-unassigned-assign` → the assignments popover is visible; (3) tick the first installation's
-        checkbox in the popover → `config-unassigned-banner` detaches with no navigation or reload;
-        (4) back to the list, open `Plain Profile` (assigned) → `config-unassigned-banner` count is 0.
+      `scripts/flows/config-unassigned-warning.mjs`. - `ProfileBanner({ tone: 'warning' | 'danger', title, body?, children? (actions row), testId? })`:
+      the layout `ProfileFileBanners` hand-rolls twice today (`rounded-sm border border-<tone>/35 bg-<tone>/8 p-3`, `TriangleAlert` icon in the tone, title `text-sm font-medium text-<tone>`, body
+      `text-xs leading-relaxed text-ink-dim`, actions in a `flex gap-2` row). Rewrite both existing
+      banners (missing file, diagnostic) on it with no visual change. Tokens only, no hex. - `UnassignedProfileBanner({ profile, onAssign })`: renders nothing when
+      `profile.assignments.length > 0`; otherwise a warning `ProfileBanner` with
+      `data-testid="config-unassigned-banner"`, title `config.assignment.unassignedBanner.title`
+      "No installation uses this config", body `config.assignment.unassignedBanner.body` "The game does
+      not load it until you assign it to an installation.", and a `Button variant="neutral" size="sm"`
+      with a `Link2` icon, `data-testid="config-unassigned-assign"`, label
+      `config.assignment.unassignedBanner.assign` "Assign…", `onClick={onAssign}`. - `AssignmentsMenu({ open, onOpenChange })`: controlled. The trigger calls `onOpenChange(!open)`;
+      Escape and an outside pointerdown call `onOpenChange(false)`. The placement is computed in a
+      `useLayoutEffect` when `open` turns true (same anchor math as today, cleared when it turns false),
+      so an open request from outside the header lands at the header trigger. `ConfigDetailHeader`
+      takes `assignmentsOpen` / `onAssignmentsOpenChange` and forwards them. - `ConfigView`: `const [assignmentsOpen, setAssignmentsOpen] = useState(false)`, reset to false when
+      the selected profile id changes; render `<UnassignedProfileBanner profile={selected} onAssign={() => setAssignmentsOpen(true)} />` directly after `ProfileFileBanners`. `selected` is
+      read from the store, so an assignment removes the banner without a reload. - Component test (`@testing-library/react`, plain props, no provider): "a profile with no assignments
+      shows the not-used warning", "Assign… calls onAssign", "an assigned profile renders no banner". - e2e flow `config-unassigned-warning.mjs`, shaped like `scripts/flows/engine-badge-surfaces.mjs`
+      (open a profile via `config-profile-row` filtered by name; the popover is the `panel-raised`
+      ancestor of an installation row; `step`/`shot` helpers as there). Steps: (1) open
+      `Imported Profile` (fixture `assignments: []`, `scripts/lib/fixture/controls.mjs`) →
+      `config-unassigned-banner` visible, contains "No installation uses this config"; (2) click
+      `config-unassigned-assign` → the assignments popover is visible; (3) tick the first installation's
+      checkbox in the popover → `config-unassigned-banner` detaches with no navigation or reload;
+      (4) back to the list, open `Plain Profile` (assigned) → `config-unassigned-banner` count is 0.
 
 - [x] **D2 — "Not assigned" marker in the profile list, flow completion, docs and changelog.**
       Files: `src/renderer/src/modules/config/components/ConfigListScreen.tsx`,
       `src/renderer/src/modules/config/locale/en.json`, the
       `src/renderer/src/i18n/__snapshots__/en.bundle.json` snapshot, new
       `src/renderer/src/modules/config/components/ConfigListScreen.test.tsx`,
-      `scripts/flows/config-unassigned-warning.mjs`, `docs/systems/config-module.md`, `CHANGELOG.md`.
-      - In each `config-profile-row`, when `profile.assignments.length === 0`, render
-        `<Badge tone="warning" data-testid="config-profile-unassigned">` (`Badge` from
-        `src/renderer/src/components/ui/primitives.tsx`) with `config.list.notAssigned` "Not assigned",
-        between the name block and the chevron, `shrink-0`; the name keeps `truncate`. Text, never colour
-        only. The list reads `useConfigProfiles`, so the marker follows the store without a reload.
-      - Component test (seed `useConfigProfiles` the way `ConfigView.profilesStore.test.tsx` does): "an
-        unassigned profile's row carries a Not assigned text marker", "an assigned profile's row has no
-        marker".
-      - Flow: extend `config-unassigned-warning.mjs` — before step 1, on the list, the `Imported Profile`
-        row contains `config-profile-unassigned` with text "Not assigned" and the `Plain Profile` row does
-        not; after step 3, go back to the list → the `Imported Profile` row no longer contains it.
-      - `docs/systems/config-module.md`, Renderer section: name `ProfileBanner.tsx`,
-        `UnassignedProfileBanner.tsx` and the list's "Not assigned" marker beside the assignment surfaces.
-      - `CHANGELOG.md` under `## Unreleased` → `### Added`: "Config profiles no installation uses now say
-        so, with a one-click Assign."
+      `scripts/flows/config-unassigned-warning.mjs`, `docs/systems/config-module.md`, `CHANGELOG.md`. - In each `config-profile-row`, when `profile.assignments.length === 0`, render
+      `<Badge tone="warning" data-testid="config-profile-unassigned">` (`Badge` from
+      `src/renderer/src/components/ui/primitives.tsx`) with `config.list.notAssigned` "Not assigned",
+      between the name block and the chevron, `shrink-0`; the name keeps `truncate`. Text, never colour
+      only. The list reads `useConfigProfiles`, so the marker follows the store without a reload. - Component test (seed `useConfigProfiles` the way `ConfigView.profilesStore.test.tsx` does): "an
+      unassigned profile's row carries a Not assigned text marker", "an assigned profile's row has no
+      marker". - Flow: extend `config-unassigned-warning.mjs` — before step 1, on the list, the `Imported Profile`
+      row contains `config-profile-unassigned` with text "Not assigned" and the `Plain Profile` row does
+      not; after step 3, go back to the list → the `Imported Profile` row no longer contains it. - `docs/systems/config-module.md`, Renderer section: name `ProfileBanner.tsx`,
+      `UnassignedProfileBanner.tsx` and the list's "Not assigned" marker beside the assignment surfaces. - `CHANGELOG.md` under `## Unreleased` → `### Added`: "Config profiles no installation uses now say
+      so, with a one-click Assign."
 
 ## Model Hints
 
@@ -173,11 +160,13 @@ Coverage: AC1 D1 · AC2 D1 · AC3 D2 · AC4 D1 (banner) + D2 (marker) · AC5 D1 
 **Commit message:** `253: unassigned config profile warns — banner with Assign… action + "Not assigned" list marker`
 
 **Verification (narrow gate).** `npm run lint`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (154 files, 1246 tests); `npm run build:dev` then `ui:flows -- --affected scripts/flows/config-unassigned-warning.mjs --parallel=4 --shard=1/2` green (16/16, flow ran there) and `--shard=2/2` 15/16 — red `unsaved-diff` is pre-existing (see below). Full gate not run (sprint's).
+
 - AC1 flow step 1 + "a profile with no assignments shows the not-used warning" — passed. AC2 flow step 2 + "Assign… calls onAssign" — passed. AC3 flow list step + "an unassigned profile's row carries a Not assigned text marker" — passed. AC4 flow step 3 + return-to-list — passed. AC5 flow step 4 + Plain Profile list check + "an assigned profile renders no banner" + "an assigned profile's row has no marker" — passed. No manual residue.
 - Review (default tier, 1 cycle): PASS, no blocking findings.
 - Pre-existing reds, not this story: `unsaved-diff` flow (bare `locator('select')` now resolves to the footer Map select from 252; red on stashed HEAD too); `scripts/flow-select.test.mjs` (game-dir-fs.ts / map-list.ts uncovered, shell-window row 14 > 12); `comments.test.ts` (useLauncher.ts, 252); repo-hygiene CRLF (ActionBar files, requirement 260); check-docs/tech-debt (ROADMAP links to missing S34 files).
 
 **Decisions.**
+
 - `ProfileBanner` also takes an optional `hint` prop — the diagnostic banner has a third muted line; needed for "no visual change".
 - `ConfigView` closes the assignments popover in `backToList`, otherwise reopening the same profile id would pop it open (reset effect only fires on id change).
 - `scripts/flows/areas.json`: registered the flow and the two new banner paths in the `config-profiles` row; dropped `home-dashboard-arrange` from that row to stay at the 12-flow cap (still in its Home rows).

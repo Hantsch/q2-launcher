@@ -115,7 +115,7 @@ Order: D1 → D2 → D3 (D3's flow edit assumes D2 already removed the dialog st
   goes straight to the password prompt" (password prompt visible, `servers-join-mismatch` count 0).
 - **D3 — A server join launches without the saved mod.** Files: `src/main/services/launch-plan.ts`
   (in `buildLaunchArgs`: `const gameDir = (input.gameDir ?? (input.connect ? '' :
-  installation.activeGameDir)).trim()`, trailing comment: a join takes the server's mod, the game
+installation.activeGameDir)).trim()`, trailing comment: a join takes the server's mod, the game
   switches on connect `(story 251)`; an explicit `input.gameDir` still wins),
   `src/main/services/launch-plan.test.ts`, `src/main/modules/replays/demo-play.test.ts`,
   `scripts/lib/fixture/installations.mjs` (`writeJoinFixture` gains optional `activeGameDir = ''` and
@@ -183,6 +183,7 @@ Open point: the two e2e slices selected 76 flows each (`--affected` pulls in eve
 so it was load flakiness; not caused by this story.
 
 Decisions:
+
 - Hide implemented purely as the manifest flag, shell looks it up by route (no module ids in `ActionBar.tsx`), as the plan says.
 - Existing launch-plan test "puts +connect last…" moved the saved mod to an explicit `gameDir: 'ctf'` input so it still checks ordering.
 - `demo-play.test.ts` mutates the harness installation (`activeGameDir: 'ctf'`, `gameDirs` incl. `opentdm`) since the harness has no override.
