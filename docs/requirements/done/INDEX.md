@@ -350,3 +350,4 @@ second roadmap.
 - 253 — An unassigned config profile tells me it is not used · S35 · warning banner with an Assign… action in the profile view plus a "Not assigned" marker on its list row, both cleared by assigning
 - 254 — The first assignment backs up the original configs and I can restore them · S35 · existing configs the launcher writes are copied to q2launcher-original-configs/ first; a Restore original configs action puts them back and unassigns the profiles
 - 255 — Assigning a profile never overwrites a foreign config silently · S35 · assign asks (Write backs the existing file up first, Cancel leaves it) before replacing a config the launcher did not write
+- 256 — Server details are always shown · S35 · the list tab's detail pane is always present (empty state until a server is chosen), a click never deselects and the close button is gone

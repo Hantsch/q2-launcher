@@ -89,8 +89,7 @@
         "map": "Map",
         "players": "Players",
         "ping": "Ping"
-      },
-      "selectedHint": "Select a server to see who's playing and join."
+      }
     },
     "gamemode": {
       "ctf": "CTF",
@@ -106,7 +105,7 @@
     },
     "detail": {
       "title": "Server details",
-      "close": "Close server details",
+      "empty": "Select a server to see who's playing and join.",
       "favourite": {
         "add": "Mark as favourite"
       },

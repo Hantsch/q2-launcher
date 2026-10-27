@@ -1,7 +1,7 @@
 ---
 id: 256
 title: Server details are always shown
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -18,12 +18,12 @@ renders `ServerDetailView` when something is selected; the pane has a close butt
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With no server selected, the Servers view shows the detail pane with an empty-state text.
-- [ ] **AC2** — Clicking a server shows its details in the pane.
-- [ ] **AC3** — Clicking the selected server again keeps it selected and its details shown.
-- [ ] **AC4** — The detail pane has no close button.
-- [ ] **AC5** — The list keeps its width whether or not a server is selected (no layout jump).
-- [ ] **AC6** — The same holds in Online and LAN mode.
+- [x] **AC1** — With no server selected, the Servers view shows the detail pane with an empty-state text.
+- [x] **AC2** — Clicking a server shows its details in the pane.
+- [x] **AC3** — Clicking the selected server again keeps it selected and its details shown.
+- [x] **AC4** — The detail pane has no close button.
+- [x] **AC5** — The list keeps its width whether or not a server is selected (no layout jump).
+- [x] **AC6** — The same holds in Online and LAN mode.
 
 ## Open Questions
 
@@ -145,3 +145,27 @@ Review: → default
   a re-click keeps the details"; Online is the `servers-detail.mjs` steps above.
 
 ## Done
+
+The Servers list tab always shows the detail pane next to the list: an empty state until a server is chosen,
+a click selects and never deselects, and the pane has no close button. The list grid keeps its split classes,
+so the width does not jump. The Online and LAN flows prove it on the real app.
+
+Commit message: `256: server details always shown — empty-state pane, click never deselects, close button removed`
+
+Verification (narrow gate): typecheck, lint, `build:dev` green; `npx vitest run --changed HEAD` green (155 files, 1253 tests);
+`npm run ui:flows -- --affected scripts/flows/servers-detail.mjs scripts/flows/servers-lan-mode.mjs --parallel=4 --shard=1/2` and `2/2`
+green after one fix (below); 18 other servers-* flows and footer-map re-run green. Review 1 (default tier): PASS.
+- AC1-AC5 -> `servers-detail.mjs` steps + `ServersView.test.tsx` / `ServerDetailView.test.tsx` tests as named under Acceptance Tests: passed.
+- AC6 -> `servers-lan-mode.mjs` step "story 256: on LAN the pane is always shown and a re-click keeps the details": passed.
+- No manual residue.
+
+Decisions:
+- `servers-filter-search.mjs` re-clicked row C to deselect it; that is now impossible, so the re-click and its wait were removed
+  (C stays selected; later filters that hide it clear the selection).
+- "a filtered-out selected row is deselected" now asserts `servers-detail-empty` instead of `servers-detail` gone, since the pane is always present.
+- `handleToggleRowSelected` renamed `handleRowSelected`.
+- Review LOW findings left unfixed: AC2 unit asserts the read call plus empty state gone, not a rendered field; AC4 checks (unit role/name, e2e testid) cannot see a close
+  button added under a different name; AC5 is proven on Online only; no unit test for `address=null` skipping the read effects; `ServerDetailView` docblock
+  line about `null` is slightly ambiguous.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 6

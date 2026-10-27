@@ -47,6 +47,8 @@ This document describes the module as built. `servers` is a registered module; i
   the list.
 - `ServerDetailView.tsx` and its `ServerDetailSection.tsx`, `ServerPlayersPanel.tsx`,
   `ServerRulesPanel.tsx` sections.
+  The list tab's detail pane is always present (empty state until a server is chosen); a click
+  selects, never deselects.
 - `join/useJoinFlow.tsx`, `join/join-flow.ts`, `join/JoinServerButton.tsx` — joining.
 - `watchlist/WatchlistPanel.tsx` with `watchlist/useWatchlist.ts`; `useServerScan.ts`,
   `useQuickFilters.ts`, `client.ts`, `list-state.ts`, `list-grid.ts`, `locale/en.json`.

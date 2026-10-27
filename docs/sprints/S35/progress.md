@@ -69,3 +69,14 @@
 - 2026-10-27 09:55 · 255 · review 1 · started
 - 2026-10-27 09:57 · 255 · review 1 · done
 - 2026-10-27 09:58 · 255 · story · done
+- 09:58:13 · 256 · build · started
+- 2026-10-27 09:58 · 256 · D1 Detail pane always present · started
+- 2026-10-27 10:00 · 256 · D1 Detail pane always present · done
+- 2026-10-27 10:00 · 256 · D2 Flows prove always-present pane · started
+- 2026-10-27 10:02 · 256 · D2 Flows prove always-present pane · done
+- 2026-10-27 10:02 · 256 · verify · started
+- 2026-10-27 10:06 · 256 · verify · blocked: servers-filter-search red (re-click deselect no longer possible), fixed in flow, re-running
+- 2026-10-27 10:09 · 256 · verify · done
+- 2026-10-27 10:09 · 256 · review 1 · started
+- 2026-10-27 10:11 · 256 · review 1 · done
+- 2026-10-27 10:11 · 256 · story · done

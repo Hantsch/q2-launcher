@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ServerOff, X } from 'lucide-react'
+import { Server, ServerOff } from 'lucide-react'
 import type { ServerDetail } from '@shared/modules/servers'
-import { IconButton } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/primitives'
 import { onScanChanged, readServerDetail } from './client'
 import { ServerDetailHeader } from './ServerDetailHeader'
@@ -12,8 +11,8 @@ import { ServerReachabilitySection } from './ServerReachabilitySection'
 import { ServerRulesPanel } from './ServerRulesPanel'
 
 export interface ServerDetailViewProps {
-  address: string
-  onClose: () => void
+  /** `null` while no server is chosen - the pane shows its empty state. */
+  address: string | null
   /** Passed through to `ServerDetailHeader` - see its props. */
   onRefresh: () => void
   refreshDisabled: boolean
@@ -38,7 +37,6 @@ type DetailState =
  */
 export function ServerDetailView({
   address,
-  onClose,
   onRefresh,
   refreshDisabled,
   refreshing,
@@ -50,6 +48,7 @@ export function ServerDetailView({
   const lastFinishedAtRef = useRef<string | null>(null)
 
   useEffect(() => {
+    if (address === null) return
     const requestId = ++requestIdRef.current
     setState({ status: 'loading' })
 
@@ -60,6 +59,7 @@ export function ServerDetailView({
   }, [address])
 
   useEffect(() => {
+    if (address === null) return
     const unsubscribe = onScanChanged((scanState) => {
       if (scanState.running) return
       if (scanState.finishedAt === lastFinishedAtRef.current) return
@@ -76,6 +76,7 @@ export function ServerDetailView({
 
   // A re-read after a favourite toggle keeps the loaded content on screen (no 'loading' flash).
   const handleFavouriteChanged = (): void => {
+    if (address === null) return
     const requestId = ++requestIdRef.current
     void readServerDetail(address).then((result) => {
       if (requestIdRef.current !== requestId) return
@@ -90,32 +91,31 @@ export function ServerDetailView({
         <h2 id="servers-detail-title" className="stencil">
           {t('servers.detail.title')}
         </h2>
-        <IconButton
-          label={t('servers.detail.close')}
-          size="sm"
-          onClick={onClose}
-          data-testid="servers-detail-close"
-        >
-          <X className="size-3.5" aria-hidden="true" />
-        </IconButton>
       </div>
 
-      {state.status === 'loading' && null}
+      {address === null && (
+        <div data-testid="servers-detail-empty">
+          <EmptyState
+            icon={<Server className="size-6" aria-hidden="true" />}
+            title={t('servers.detail.empty')}
+          />
+        </div>
+      )}
 
-      {state.status === 'error' && (
+      {address !== null && state.status === 'error' && (
         <p className="px-4 py-3 text-xs text-danger" data-testid="servers-detail-read-error">
           {t('servers.detail.readError')}
         </p>
       )}
 
-      {state.status === 'loaded' && state.detail === null && (
+      {address !== null && state.status === 'loaded' && state.detail === null && (
         <EmptyState
           icon={<ServerOff className="size-6" aria-hidden="true" />}
           title={t('servers.detail.gone')}
         />
       )}
 
-      {state.status === 'loaded' && state.detail !== null && (
+      {address !== null && state.status === 'loaded' && state.detail !== null && (
         <div className="divide-y divide-line">
           <div className="px-4 py-4">
             <ServerDetailSection id="header">

@@ -38,7 +38,8 @@
 //
 // `nav-servers` (TitleBar.tsx), `servers-refresh` (ServersView.tsx), `servers-row-<address>` (click
 // to select/open detail), `servers-detail` (the pane itself), `servers-detail-field-<key>`
-// (ServerDetailHeader.tsx, story 122 D3), `servers-detail-close`.
+// (ServerDetailHeader.tsx, story 122 D3), `servers-detail-empty`, `servers-list-column`,
+// `servers-detail-close` (asserted absent, story 256).
 import { SERVERS_DISABLED_SOURCES, writePopulatedFixture } from '../lib/fixture.mjs'
 import { makeResponderBinder, closeResponder } from '../lib/servers-stub.mjs'
 import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
@@ -125,6 +126,14 @@ export default async function serversDetail({ page, step, shot }) {
   await refreshAll.click({ timeout: TIMEOUT_MS })
   await waitForFinishedAtChange(page, finishedAtBefore, SCAN_SETTLE_TIMEOUT_MS)
   await shot('servers-scanned')
+
+  step('AC1: the detail pane shows its empty state before any server is chosen')
+  await page.getByTestId('servers-detail').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('servers-detail-empty').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const listColumn = page.getByTestId('servers-list-column')
+  const listWidthBefore = (await listColumn.boundingBox())?.width
+  if (listWidthBefore === undefined) throw new Error('servers-list-column has no bounding box')
+  await shot('detail-empty-state')
 
   step('clicking server A opens the detail pane with its header fields')
   await page.getByTestId(`servers-row-${serverA.address}`).click({ timeout: TIMEOUT_MS })
@@ -244,18 +253,38 @@ export default async function serversDetail({ page, step, shot }) {
   }
   await shot('detail-server-b-players-empty')
 
-  step('closing the pane')
-  await page.getByTestId('servers-detail-close').click({ timeout: TIMEOUT_MS })
-  await page.waitForSelector('[data-testid="servers-detail"]', {
-    state: 'detached',
-    timeout: TIMEOUT_MS,
-  })
-  await shot('detail-closed')
+  step('AC3: clicking the selected server again keeps its details')
+  const rowB = page.getByTestId(`servers-row-${serverB.address}`)
+  await rowB.click({ timeout: TIMEOUT_MS })
+  const selectedB = await rowB.getAttribute('data-selected')
+  if (selectedB !== 'true') {
+    throw new Error(
+      `expected server B to stay selected, data-selected is ${JSON.stringify(selectedB)}`,
+    )
+  }
+  const nameB = await fieldText(page, 'name')
+  if (nameB !== 'Fixture Server B') {
+    throw new Error(
+      `expected the pane to still read "Fixture Server B", got ${JSON.stringify(nameB)}`,
+    )
+  }
+
+  step('AC4: the detail pane has no close button')
+  const closeButtons = await page.getByTestId('servers-detail-close').count()
+  if (closeButtons !== 0) throw new Error(`expected no close button, found ${closeButtons}`)
+
+  step('AC5: the list keeps its width with a server selected')
+  const listWidthAfter = (await listColumn.boundingBox())?.width
+  if (listWidthAfter === undefined || Math.abs(listWidthAfter - listWidthBefore) > 1) {
+    throw new Error(`expected the list width to stay ${listWidthBefore}px, got ${listWidthAfter}px`)
+  }
+  await shot('detail-reselected')
 
   console.log(
-    'servers-detail: selecting a row opens the detail pane and shows its header fields - engine ' +
+    'servers-detail: the detail pane shows an empty state first, then the header fields of a selected row - engine ' +
       '"R1Q2"/protocol 35/gamemode "Deathmatch"/occupancy "3/16"/password marker/a real ping for a ' +
       'well-formed server, and a dash for engine/protocol/mod (while name/map/address still render) ' +
-      'for a malformed one - and the close button dismisses the pane.',
+      'for a malformed one - and the pane is there from the start, keeps a re-clicked selection, ' +
+      'has no close button and leaves the list width unchanged.',
   )
 }

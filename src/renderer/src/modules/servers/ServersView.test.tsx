@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type {
   MasterSource,
@@ -458,8 +458,8 @@ describe('ServersView - list filter (story 120 D2)', () => {
 
     await screen.findAllByRole('button', { name: /Bravo/ })
     expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
-    // Selection cleared - the detail pane (and its "Refresh this server") is gone.
-    expect(screen.queryByTestId('servers-detail')).toBeNull()
+    // Selection cleared - the pane is back to its empty state.
+    expect(screen.getByTestId('servers-detail-empty')).toBeTruthy()
   })
 
   it('a filter that matches nothing shows the no-match line, not the empty state', async () => {
@@ -489,12 +489,14 @@ describe('ServersView - list filter (story 120 D2)', () => {
 })
 
 describe('ServersView - detail pane (story 122 D3)', () => {
-  it('selecting a row opens its detail and the close button closes it', async () => {
+  const ADDRESS = '1.2.3.4:27910'
+
+  async function renderWithOneServer(): Promise<void> {
     readServerDetailMock.mockResolvedValue({
       ok: true,
       value: {
         row: {
-          address: '1.2.3.4:27910',
+          address: ADDRESS,
           origins: ['manual'],
           status: 'online',
           lastSeenAt: 'x',
@@ -503,23 +505,54 @@ describe('ServersView - detail pane (story 122 D3)', () => {
         serverinfo: null,
       },
     })
-
     await renderView(
       snapshot({
-        entries: [
-          { address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
-        ],
+        entries: [{ address: ADDRESS, origins: ['manual'], status: 'online', lastSeenAt: 'x' }],
       }),
     )
+  }
 
-    const row = await screen.findByTestId('servers-row-1.2.3.4:27910')
+  it('with no server selected the detail pane shows its empty state', async () => {
+    await renderWithOneServer()
+    await screen.findByTestId(`servers-row-${ADDRESS}`)
+
+    expect(screen.getByTestId('servers-detail')).toBeTruthy()
+    expect(screen.getByTestId('servers-detail-empty').textContent).toContain(
+      "Select a server to see who's playing and join.",
+    )
+  })
+
+  it('selecting a row shows its details in the pane', async () => {
+    await renderWithOneServer()
+
+    fireEvent.click(await screen.findByTestId(`servers-row-${ADDRESS}`))
+
+    await waitFor(() => expect(readServerDetailMock).toHaveBeenCalledWith(ADDRESS))
+    expect(screen.queryByTestId('servers-detail-empty')).toBeNull()
+  })
+
+  it('clicking the selected row again keeps it selected and its details shown', async () => {
+    await renderWithOneServer()
+
+    const row = await screen.findByTestId(`servers-row-${ADDRESS}`)
+    fireEvent.click(row)
+    await waitFor(() => expect(readServerDetailMock).toHaveBeenCalledWith(ADDRESS))
     fireEvent.click(row)
 
-    await screen.findByTestId('servers-detail')
-    expect(readServerDetailMock).toHaveBeenCalledWith('1.2.3.4:27910')
+    expect(screen.getByTestId(`servers-row-${ADDRESS}`).getAttribute('data-selected')).toBe('true')
+    expect(screen.queryByTestId('servers-detail-empty')).toBeNull()
+  })
 
-    fireEvent.click(screen.getByTestId('servers-detail-close'))
-    expect(screen.queryByTestId('servers-detail')).toBeNull()
+  it('the list grid keeps its classes whether or not a server is selected', async () => {
+    await renderWithOneServer()
+
+    const grid = (await screen.findByTestId('servers-list-column')).parentElement
+    const before = grid?.className
+    fireEvent.click(await screen.findByTestId(`servers-row-${ADDRESS}`))
+    await waitFor(() => expect(readServerDetailMock).toHaveBeenCalledWith(ADDRESS))
+
+    expect(before).toBeTruthy()
+    expect(screen.getByTestId('servers-list-column').parentElement?.className).toBe(before)
   })
 })
 

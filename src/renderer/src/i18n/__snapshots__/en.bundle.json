@@ -3252,10 +3252,10 @@
       "title": "Add to address book"
     },
     "detail": {
-      "close": "Close server details",
       "copyAddress": "Copy IP address",
       "copyAddressError": "Could not copy the server address",
       "copyAddressSuccess": "Server address copied to clipboard",
+      "empty": "Select a server to see who's playing and join.",
       "favourite": {
         "add": "Mark as favourite"
       },
@@ -3417,7 +3417,6 @@
         "stage2": "Fetching players: {{done}} of {{total}}"
       },
       "openSourceSettings": "Open source settings",
-      "selectedHint": "Select a server to see who's playing and join.",
       "sourceFailed": "{{source}}: {{reason}}"
     },
     "mode": {

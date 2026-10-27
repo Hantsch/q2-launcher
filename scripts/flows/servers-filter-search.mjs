@@ -154,13 +154,6 @@ export default async function serversFilterSearch({ page, step, shot }) {
   const finishedAtBeforeSelected = await readFinishedAt(page)
   await refreshAll.click({ timeout: TIMEOUT_MS })
   await waitForFinishedAtChange(page, finishedAtBeforeSelected, SCAN_SETTLE_TIMEOUT_MS)
-  await rowC.click({ timeout: TIMEOUT_MS })
-  await page.waitForFunction(
-    (testId) =>
-      document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('aria-pressed') === 'false',
-    `servers-row-${serverC.address}`,
-    { timeout: TIMEOUT_MS },
-  )
 
   step('AC3: with no filter, all four rows are visible, including the empty (0 player) server C')
   assertSet(await visibleLabels(page), ['A', 'B', 'C', 'D'], 'no filter')

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ServerDetail, ServersScanState } from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
@@ -105,17 +105,15 @@ describe('ServerDetailView (story 122 D3)', () => {
     render(
       createElement(ServerDetailView, {
         address: DETAIL.row.address,
-        onClose: () => {},
         ...PANE_PROPS,
       }),
     )
     await flush()
 
     // `ServerDetailHeader` is mocked (above) to throw - its `ServerDetailSection` wrapper must
-    // catch it and render the fallback, while the pane itself (close button, title) still renders
+    // catch it and render the fallback, while the pane itself (title) still renders
     // around it rather than the whole view crashing.
     expect(await screen.findByTestId('servers-detail-section-error-header')).toBeTruthy()
-    expect(screen.getByTestId('servers-detail-close')).toBeTruthy()
   })
 
   it('re-reads when a scan round finishes', async () => {
@@ -129,7 +127,6 @@ describe('ServerDetailView (story 122 D3)', () => {
     render(
       createElement(ServerDetailView, {
         address: DETAIL.row.address,
-        onClose: () => {},
         ...PANE_PROPS,
       }),
     )
@@ -156,7 +153,7 @@ describe('ServerDetailView (story 122 D3)', () => {
   it('renders the empty state for a null detail (server no longer in the list)', async () => {
     readServerDetailMock.mockResolvedValue({ ok: true, value: null })
 
-    render(createElement(ServerDetailView, { address: 'gone:1', onClose: () => {}, ...PANE_PROPS }))
+    render(createElement(ServerDetailView, { address: 'gone:1', ...PANE_PROPS }))
     await flush()
 
     expect(screen.getByText('This server is no longer in the list')).toBeTruthy()
@@ -165,20 +162,18 @@ describe('ServerDetailView (story 122 D3)', () => {
   it('renders one error line for a rejected read, without throwing', async () => {
     readServerDetailMock.mockResolvedValue({ ok: false, error: { kind: 'internal' } })
 
-    render(createElement(ServerDetailView, { address: 'bad:1', onClose: () => {}, ...PANE_PROPS }))
+    render(createElement(ServerDetailView, { address: 'bad:1', ...PANE_PROPS }))
     await flush()
 
     expect(await screen.findByTestId('servers-detail-read-error')).toBeTruthy()
   })
 
-  it('the close button calls onClose', async () => {
+  it('the pane has no close button', async () => {
     readServerDetailMock.mockResolvedValue({ ok: true, value: DETAIL })
-    const onClose = vi.fn()
 
-    render(createElement(ServerDetailView, { address: DETAIL.row.address, onClose, ...PANE_PROPS }))
+    render(createElement(ServerDetailView, { address: DETAIL.row.address, ...PANE_PROPS }))
     await flush()
 
-    fireEvent.click(screen.getByTestId('servers-detail-close'))
-    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: /close/i })).toBeNull()
   })
 })

@@ -43,8 +43,9 @@ import { useQuickFilters } from './useQuickFilters'
 import { useServerScan } from './useServerScan'
 import { WatchlistPanel } from './watchlist/WatchlistPanel'
 
-/** The list-beside-detail grid both tabs share: one slot until a server is open, then the detail
- * pane sits beside the first slot (a fixed 32rem) or, below the `@4xl` container width, under it. */
+/** The list-beside-detail grid both tabs share: one slot until a server is open (the list tab is
+ * always open), then the detail pane sits beside the first slot (a fixed 32rem) or, below the `@4xl`
+ * container width, under it. */
 function detailSplit(detailOpen: boolean): string {
   return cn(
     'grid h-full',
@@ -92,8 +93,8 @@ export function ServersView() {
     scan.changeMode(next)
   }
 
-  const handleToggleRowSelected = (address: string): void => {
-    setSelectedAddress((current) => (current === address ? null : address))
+  const handleRowSelected = (address: string): void => {
+    setSelectedAddress(address)
   }
 
   const handleOpenSourceSettings = (): void => {
@@ -205,16 +206,13 @@ export function ServersView() {
             key={entry.address}
             row={entry}
             selected={entry.address === selectedAddress}
-            onSelect={handleToggleRowSelected}
+            onSelect={handleRowSelected}
           />
         ))}
-        {visible.length > 0 && selectedAddress === null && (
-          <p className="px-5 py-3 text-xs text-ink-muted">{t('servers.list.selectedHint')}</p>
-        )}
       </>
     )
 
-  // The grid never swaps out - only its classes and the second slot change - so a selected row's
+  // The grid never swaps out - the list tab always shows both slots - so a selected row's
   // DOM node survives a selection change instead of being recreated.
   const listAndDetail = (
     <div className="flex h-full min-h-0">
@@ -279,8 +277,8 @@ export function ServersView() {
           onRefreshFavourites={scan.refreshFavourites}
         />
         <div className="@container min-h-0 flex-1">
-          <div className={detailSplit(selectedAddress !== null)}>
-            <div className="flex min-h-0 flex-col">
+          <div className={detailSplit(true)}>
+            <div className="flex min-h-0 flex-col" data-testid="servers-list-column">
               <ServersListStatus
                 listState={deriveListState(scanState, entries.length, mode, lan.lastFinishedAt)}
                 mode={mode}
@@ -290,18 +288,17 @@ export function ServersView() {
               />
               <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable">{table}</div>
             </div>
-            {selectedAddress !== null && (
-              <div className={DETAIL_PANE}>
-                <ServerDetailView
-                  address={selectedAddress}
-                  onClose={() => setSelectedAddress(null)}
-                  onRefresh={() => scan.refreshServer(selectedAddress)}
-                  refreshDisabled={isRefreshDisabled}
-                  refreshing={isBusy}
-                  onFavouriteChanged={scan.rereadEntries}
-                />
-              </div>
-            )}
+            <div className={DETAIL_PANE}>
+              <ServerDetailView
+                address={selectedAddress}
+                onRefresh={() => {
+                  if (selectedAddress !== null) scan.refreshServer(selectedAddress)
+                }}
+                refreshDisabled={isRefreshDisabled}
+                refreshing={isBusy}
+                onFavouriteChanged={scan.rereadEntries}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -324,7 +321,6 @@ export function ServersView() {
           <div className={DETAIL_PANE}>
             <ServerDetailView
               address={watchlistDetailAddress}
-              onClose={() => setWatchlistDetailAddress(null)}
               onRefresh={() => scan.refreshServer(watchlistDetailAddress)}
               refreshDisabled={isRefreshDisabled}
               refreshing={isBusy}
