@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyVersion, deriveBump, isPrerelease, nextVersion } from './version.mjs'
+import { applyReadmeVersion, applyVersion, deriveBump, isPrerelease, nextVersion } from './version.mjs'
 
 /**
  * Story 096 D1: direct unit coverage of the pure semver helpers, so `plan.test.mjs`'s tests
@@ -103,5 +103,22 @@ describe('applyVersion', () => {
   test('does not touch an unrelated dependency\'s own version field', () => {
     const { lockText: result } = applyVersion(pkgText, lockText, '1.0.0-beta.1')
     expect(result).toContain('"node_modules/some-dep": {\n      "version": "0.1.0"')
+  })
+})
+
+describe('applyReadmeVersion', () => {
+  const readmeText = `# Q2 Launcher
+
+> **Status: pre-release (0.7.0).** Library, installs, launching - see 0.7.0 notes (0.7.0).
+`
+
+  test("replaces the Status line's version and nothing else", () => {
+    expect(applyReadmeVersion(readmeText, '0.8.0')).toBe(
+      readmeText.replace('pre-release (0.7.0)', 'pre-release (0.8.0)'),
+    )
+  })
+
+  test('throws when README has no Status line to bump', () => {
+    expect(() => applyReadmeVersion('# Q2 Launcher\n', '0.8.0')).toThrow(/Status/)
   })
 })

@@ -42,6 +42,8 @@ const LOCK_TEXT =
     null,
     2,
   ) + '\n'
+const README_TEXT =
+  '# Q2 Launcher\n\n> **Status: pre-release (1.0.0-beta.1).** Library and installs.\n'
 
 const POPULATED_CHANGELOG = `# Changelog
 
@@ -82,6 +84,7 @@ function createDeps({ env = { CI: 'true' }, changelogText = POPULATED_CHANGELOG 
     'CHANGELOG.md': changelogText,
     'package.json': PKG_TEXT,
     'package-lock.json': LOCK_TEXT,
+    'README.md': README_TEXT,
   }
   return {
     readFile: vi.fn((path) => {
@@ -137,8 +140,8 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
     expect(deps.collectAssets).toHaveBeenCalledWith('release/1.0.0-beta.2', '1.0.0-beta.2', 'all')
     expect(result.assets).toEqual(ASSETS)
 
-    // The bump (CHANGELOG.md, package.json, package-lock.json) is written BEFORE the build runs
-    // and the asset check follows it, then - because this is a dry run - the same three files are
+    // The bump (CHANGELOG.md, package.json, package-lock.json, README.md) is written BEFORE the
+    // build runs and the asset check follows it, then - because this is a dry run - the same files are
     // written AGAIN, this time with their ORIGINAL content, after the asset check succeeds. Order
     // is exactly the bug that broke this before: write (bump) -> build -> collectAssets -> write
     // (revert).
@@ -147,25 +150,29 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
       'CHANGELOG.md',
       'package.json',
       'package-lock.json',
+      'README.md',
       'CHANGELOG.md',
       'package.json',
       'package-lock.json',
+      'README.md',
     ])
     // The bump writes carry the promoted/bumped content ...
     expect(writeCalls[0][1]).not.toBe(POPULATED_CHANGELOG)
     expect(writeCalls[1][1]).not.toBe(PKG_TEXT)
     expect(writeCalls[2][1]).not.toBe(LOCK_TEXT)
+    expect(writeCalls[3][1]).not.toBe(README_TEXT)
     // ... and the revert writes restore the exact text that was read at the start of the run.
-    expect(writeCalls[3][1]).toBe(POPULATED_CHANGELOG)
-    expect(writeCalls[4][1]).toBe(PKG_TEXT)
-    expect(writeCalls[5][1]).toBe(LOCK_TEXT)
+    expect(writeCalls[4][1]).toBe(POPULATED_CHANGELOG)
+    expect(writeCalls[5][1]).toBe(PKG_TEXT)
+    expect(writeCalls[6][1]).toBe(LOCK_TEXT)
+    expect(writeCalls[7][1]).toBe(README_TEXT)
 
     const writeOrder = deps.writeFile.mock.invocationCallOrder
     const buildOrder = deps.runBuild.mock.invocationCallOrder[0]
     const assetsOrder = deps.collectAssets.mock.invocationCallOrder[0]
-    expect(Math.max(writeOrder[0], writeOrder[1], writeOrder[2])).toBeLessThan(buildOrder)
+    expect(Math.max(...writeOrder.slice(0, 4))).toBeLessThan(buildOrder)
     expect(buildOrder).toBeLessThan(assetsOrder)
-    expect(assetsOrder).toBeLessThan(Math.min(writeOrder[3], writeOrder[4], writeOrder[5]))
+    expect(assetsOrder).toBeLessThan(Math.min(...writeOrder.slice(4)))
 
     // ... and nothing is ever committed, tagged or published.
     expect(deps.writeNotesFile).not.toHaveBeenCalled()
@@ -182,12 +189,13 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
     expect(deps.collectAssets).toHaveBeenCalledWith('release/1.2.3', '1.2.3', 'all')
     expect(deps.stageExtraAssets).toHaveBeenCalledWith('release/1.2.3', '1.2.3')
 
-    // Bumped, then reverted back to the original three files - same shape as the test above.
+    // Bumped, then reverted back to the original four files - same shape as the test above.
     const writeCalls = deps.writeFile.mock.calls
-    expect(writeCalls).toHaveLength(6)
-    expect(writeCalls[3][1]).toBe(POPULATED_CHANGELOG)
-    expect(writeCalls[4][1]).toBe(PKG_TEXT)
-    expect(writeCalls[5][1]).toBe(LOCK_TEXT)
+    expect(writeCalls).toHaveLength(8)
+    expect(writeCalls[4][1]).toBe(POPULATED_CHANGELOG)
+    expect(writeCalls[5][1]).toBe(PKG_TEXT)
+    expect(writeCalls[6][1]).toBe(LOCK_TEXT)
+    expect(writeCalls[7][1]).toBe(README_TEXT)
     expect(deps.writeNotesFile).not.toHaveBeenCalled()
     expect(deps.run).not.toHaveBeenCalled()
   })
@@ -201,20 +209,23 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
 
     expect(() => runRelease({ dryRun: true }, deps)).toThrow(buildError)
 
-    // The revert still happened - same three files, same original content, even though runBuild
+    // The revert still happened - same four files, same original content, even though runBuild
     // never let collectAssets run at all.
     const writeCalls = deps.writeFile.mock.calls
     expect(writeCalls.map(([path]) => path)).toEqual([
       'CHANGELOG.md',
       'package.json',
       'package-lock.json',
+      'README.md',
       'CHANGELOG.md',
       'package.json',
       'package-lock.json',
+      'README.md',
     ])
-    expect(writeCalls[3][1]).toBe(POPULATED_CHANGELOG)
-    expect(writeCalls[4][1]).toBe(PKG_TEXT)
-    expect(writeCalls[5][1]).toBe(LOCK_TEXT)
+    expect(writeCalls[4][1]).toBe(POPULATED_CHANGELOG)
+    expect(writeCalls[5][1]).toBe(PKG_TEXT)
+    expect(writeCalls[6][1]).toBe(LOCK_TEXT)
+    expect(writeCalls[7][1]).toBe(README_TEXT)
 
     // Nothing downstream of the build ever ran - staging included.
     expect(deps.stageExtraAssets).not.toHaveBeenCalled()
@@ -239,13 +250,16 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
       'CHANGELOG.md',
       'package.json',
       'package-lock.json',
+      'README.md',
       'CHANGELOG.md',
       'package.json',
       'package-lock.json',
+      'README.md',
     ])
-    expect(writeCalls[3][1]).toBe(POPULATED_CHANGELOG)
-    expect(writeCalls[4][1]).toBe(PKG_TEXT)
-    expect(writeCalls[5][1]).toBe(LOCK_TEXT)
+    expect(writeCalls[4][1]).toBe(POPULATED_CHANGELOG)
+    expect(writeCalls[5][1]).toBe(PKG_TEXT)
+    expect(writeCalls[6][1]).toBe(LOCK_TEXT)
+    expect(writeCalls[7][1]).toBe(README_TEXT)
 
     expect(deps.writeNotesFile).not.toHaveBeenCalled()
     expect(deps.run).not.toHaveBeenCalled()
@@ -361,6 +375,7 @@ describe('runRelease - --promote-changelog writes only the promoted CHANGELOG.md
       changelogText: POPULATED_CHANGELOG,
       pkgText: PKG_TEXT,
       lockText: LOCK_TEXT,
+      readmeText: README_TEXT,
       tags: TAGS,
       requestedVersion: '1.0.0-beta.2',
       dryRun: false,
@@ -451,6 +466,7 @@ describe('runRelease - the git/gh command list matches what plan.mjs produced', 
       changelogText: POPULATED_CHANGELOG,
       pkgText: PKG_TEXT,
       lockText: LOCK_TEXT,
+      readmeText: README_TEXT,
       tags: TAGS,
       dryRun: false,
       isCi: true,

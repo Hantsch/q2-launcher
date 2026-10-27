@@ -141,3 +141,20 @@ export function applyVersion(pkgText, lockText, version) {
 
   return { pkgText: newPkgText, lockText: newLockText }
 }
+
+/**
+ * Replaces the version in README's `**Status: ... (x.y.z) ...**` line - the line
+ * `scripts/check-docs.mjs` fails CI on when it disagrees with package.json. The release commit is
+ * `[skip ci]`, so a release that bumped package.json alone would only fail on the next PR.
+ *
+ * @param {string} readmeText
+ * @param {string} version - the new version, no leading `v`.
+ * @returns {string}
+ */
+export function applyReadmeVersion(readmeText, version) {
+  const statusVersionPattern = /(\*\*Status:[^\n]*?\()\d+\.\d+\.\d+[^)\s]*(\))/
+  if (!statusVersionPattern.test(readmeText)) {
+    throw new Error('applyReadmeVersion: no "**Status: ... (x.y.z)" line found in README.md text')
+  }
+  return readmeText.replace(statusVersionPattern, `$1${version}$2`)
+}

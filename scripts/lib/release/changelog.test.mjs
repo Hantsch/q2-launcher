@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { format, resolveConfig } from 'prettier'
 import { describe, expect, test } from 'vitest'
 import {
   notesFor,
@@ -223,6 +224,24 @@ describe('promote', () => {
 
     for (const line of lines) {
       expect(result).toContain(/^\s+\S/.test(line) ? `\n${line}` : line)
+    }
+  })
+
+  // The release commit is `[skip ci]`, so `format:check` never sees it on main - the first PR
+  // rebased onto it does, and fails for a file it never touched (release 0.8.0).
+  test('a prettier-formatted changelog stays prettier-formatted after promotion', async () => {
+    const realChangelogPath = fileURLToPath(new URL('../../../CHANGELOG.md', import.meta.url))
+    const options = { ...(await resolveConfig(realChangelogPath)), filepath: realChangelogPath }
+    // Right after a release the real Unreleased is empty, which promote() is never called on.
+    const realWithEntry = readFileSync(realChangelogPath, 'utf-8').replace(
+      UNRELEASED_PLACEHOLDER,
+      `${UNRELEASED_PLACEHOLDER}\n\n### Fixed\n\n- an injected entry`,
+    )
+
+    for (const fixture of [POPULATED, MULTILINE_BULLET, realWithEntry]) {
+      const input = await format(fixture, options)
+      const result = promote(input, '9.9.9', '2026-01-01')
+      expect(result).toBe(await format(result, options))
     }
   })
 })

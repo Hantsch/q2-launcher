@@ -186,6 +186,7 @@ describe('release pipeline wiring', () => {
         changelogText: changelog,
         pkgText,
         lockText,
+        readmeText: readFileSync(README_PATH, 'utf8'),
         tags: [],
         requestedVersion: undefined,
         bump: 'patch',
@@ -197,6 +198,10 @@ describe('release pipeline wiring', () => {
       const commitCommand = plan.commands.find((command) => command.kind === 'git-commit')
       expect(commitCommand).toBeDefined()
       expect(commitCommand.argv).toContain('release: 1.0.1 [skip ci]')
+      // Skipping CI means the real README's Status line has to be bumped here, or check-docs
+      // fails the next PR instead.
+      const readmeWrite = plan.writes.find((write) => write.path === 'README.md')
+      expect(readmeWrite.content).toMatch(/\*\*Status:[^\n]*\(1\.0\.1\)/)
 
       // (b) the workflow's own guard references that same marker.
       const workflow = readWorkflow()
