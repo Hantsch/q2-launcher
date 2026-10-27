@@ -9,6 +9,7 @@ import {
   REPLAYS_TEAMS_VARIANT,
   writeReplaysTeamsFixture,
 } from '../lib/fixture.mjs'
+import { assertNoAxeViolations } from '../lib/flow-axe.mjs'
 import { openDemosRoot, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
@@ -69,6 +70,59 @@ export default async function replaysDetailTeams({ page, step, shot }) {
   if (JSON.stringify(players('Away')) !== '["shad"]')
     fail(`Away must be exactly shad: ${JSON.stringify(teams)}`)
 
+  step('Home and Away sit side by side')
+  const layout = await panel.getByTestId('replays-detail-teams').getAttribute('data-layout')
+  if (layout !== 'split') fail(`expected data-layout=split, got ${layout}`)
+  const boxes = await panel.evaluate((root) => {
+    const boxOf = (team) => {
+      const block = Array.from(root.querySelectorAll('tbody'))
+        .find(
+          (body) =>
+            body.querySelector('[data-testid="replays-detail-team"]')?.textContent?.trim() === team,
+        )
+        ?.closest('table')
+      const { left, right, top, bottom } = block.getBoundingClientRect()
+      return { left, right, top, bottom }
+    }
+    return { home: boxOf('Home'), away: boxOf('Away') }
+  })
+  const { home, away } = boxes
+  if (home.right > away.left + 1 || home.top >= away.bottom || away.top >= home.bottom) {
+    fail(`Home must sit left of Away on the same rows: ${JSON.stringify(boxes)}`)
+  }
+
+  step('each team heading carries its own side colour')
+  const colours = await panel.evaluate((root) => {
+    const colourOf = (el) => getComputedStyle(el).color
+    const headings = Array.from(root.querySelectorAll('[data-testid="replays-detail-team"] th'))
+    const row = root.querySelector('[data-testid="replays-detail-player-row"] td')
+    const tokenColour = (token) => {
+      const probe = document.createElement('span')
+      probe.style.color = `var(${token})`
+      root.appendChild(probe)
+      const colour = getComputedStyle(probe).color
+      probe.remove()
+      return colour
+    }
+    return {
+      first: colourOf(headings[0]),
+      second: colourOf(headings[1]),
+      player: colourOf(row),
+      side1: tokenColour('--color-side-1'),
+      side2: tokenColour('--color-side-2'),
+    }
+  })
+  if (colours.first !== colours.side1 || colours.second !== colours.side2) {
+    fail(`expected headings in --color-side-1 then --color-side-2, got ${JSON.stringify(colours)}`)
+  }
+  if (
+    colours.first === colours.second ||
+    colours.first === colours.player ||
+    colours.second === colours.player
+  ) {
+    fail(`expected distinct heading and player colours, got ${JSON.stringify(colours)}`)
+  }
+
   step('the point-of-view player carries the POV marker')
   const shadRow = panel.getByTestId('replays-detail-player-row').filter({ hasText: 'shad' })
   const pov = shadRow.getByTestId('replays-detail-player-pov')
@@ -95,6 +149,10 @@ export default async function replaysDetailTeams({ page, step, shot }) {
   if (!sidecarTeams.some((g) => g.team === 'Wolves' && g.players.includes('maq'))) {
     fail(`expected Wolves with maq, got ${JSON.stringify(sidecarTeams)}`)
   }
+
+  step('the players panel passes axe')
+  panel = await openRow(page, REPLAYS_TEAMS_EXAMPLE_DEMO)
+  await assertNoAxeViolations(page, 'players panel', '[data-testid="replays-detail-field-sides"]')
 
   console.log('replays-detail-teams: players by team, POV marked, spectators closed then listed')
 }

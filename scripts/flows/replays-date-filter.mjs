@@ -18,12 +18,9 @@
 // Chromium/ICU-driven formatting (the picker's `Intl.DateTimeFormat(undefined, ...)` trigger text,
 // and the native `<input type="date">`'s keyboard segment order) since the app ships only an `en`
 // i18next locale - every other assertion below still exercises real UI/keyboard behaviour.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
 import { waitForStateJson } from '../lib/state-json.mjs'
-import { REPO_ROOT } from '../lib/paths.mjs'
-import { AXE_RUN_OPTIONS } from '../lib/session.mjs'
+import { assertNoAxeViolations } from '../lib/flow-axe.mjs'
 import {
   REPLAYS_DATE_FILTER_OLD_DEMO,
   REPLAYS_DATE_FILTER_RECENT_DEMO,
@@ -111,36 +108,6 @@ function isoDate(date) {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
-}
-
-// --- axe idiom, copied from `home-tile-states.mjs` verbatim (not exported anywhere) -------------
-const AXE_SOURCE_PATH = join(REPO_ROOT, 'node_modules', 'axe-core', 'axe.min.js')
-const axeSource = readFileSync(AXE_SOURCE_PATH, 'utf8')
-
-async function ensureAxe(page) {
-  const present = await page.evaluate(() => typeof window.axe !== 'undefined')
-  if (!present) await page.evaluate(axeSource)
-}
-
-async function assertNoAxeViolations(page, label) {
-  await ensureAxe(page)
-  const results = await page.evaluate(
-    async (options) => await window.axe.run(options),
-    AXE_RUN_OPTIONS,
-  )
-  if (!Array.isArray(results?.violations)) {
-    throw new Error(
-      `axe.run() returned no violations array during '${label}' (got ${typeof results})`,
-    )
-  }
-  if (results.violations.length !== 0) {
-    const ids = results.violations
-      .map((violation) => `${violation.id} (${violation.impact})`)
-      .join(', ')
-    throw new Error(
-      `expected zero axe violations during '${label}', got ${results.violations.length}: ${ids}`,
-    )
-  }
 }
 
 const ALL_NAMES = [

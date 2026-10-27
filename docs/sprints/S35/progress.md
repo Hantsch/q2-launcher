@@ -142,3 +142,19 @@
 - 2026-10-27 12:39 · 260 · review 1 · started
 - 2026-10-27 12:41 · 260 · review 1 · done
 - 2026-10-27 12:41 · 260 · story · done
+- 12:41:49 · 261 · build · started
+- 2026-10-27 12:42 · 261 · D1 side tokens + flow axe helper · started
+- 2026-10-27 12:46 · 261 · D1 side tokens + flow axe helper · done
+- 2026-10-27 12:46 · 261 · D2 player table splits by team · started
+- 2026-10-27 12:48 · 261 · D2 player table splits by team · done
+- 2026-10-27 12:48 · 261 · D1 fix typecheck of token test · started
+- 2026-10-27 12:49 · 261 · D1 fix typecheck of token test · done
+- 2026-10-27 12:49 · 261 · verify · started
+- 2026-10-27 12:54 · 261 · verify · done
+- 2026-10-27 12:54 · 261 · review 1 · started
+- 2026-10-27 12:55 · 261 · review 1 · done
+- 2026-10-27 12:55 · 261 · D2 review fixes · started
+- 2026-10-27 12:57 · 261 · D2 review fixes · done
+- 2026-10-27 12:57 · 261 · verify 2 · started
+- 2026-10-27 13:01 · 261 · verify 2 · done
+- 2026-10-27 13:02 · 261 · story · done

@@ -355,3 +355,4 @@ second roadmap.
 - 258 — Server pings match what I get in game · S35 · pings are the median of 3–6 samples timed per send on a monotonic arrival stamp, and stage 2 never overwrites them
 - 259 — Batch actions show from one selected demo · S35 · the Delete/Tag/Move bar shows as soon as one demo is selected; actions act on that demo only and a lone zip demo disables them with the zip reason
 - 260 — Demo details are always shown · S35 · the Demos view always shows the detail pane beside the list, empty until a demo is picked, with no close button and a stable list width
+- 261 — The demo players are split by team · S35 · two teams sit side by side in side-1/side-2 colours, one or more than two stack, no teams is a plain list; side tokens meet contrast and flow axe is a shared helper

@@ -457,6 +457,7 @@ describe('architecture', () => {
       'src/renderer/src/i18n/reason-templates.test.ts',
       'src/renderer/src/i18n/keys.test.ts',
       'src/renderer/src/i18n/bundle.test.ts',
+      'src/renderer/src/styles/side-tokens.test.ts',
       'src/test-support/source-files.ts',
     ])
     expect(readTsconfig('tsconfig.node.json').include).not.toContain(

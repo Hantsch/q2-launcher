@@ -17,6 +17,7 @@
   // too. `modules/config/config-structure.test.ts` and `i18n/keys.test.ts` do the same through
   // `src/test-support/source-tree.ts`. `demos/dm2-frames.test.ts` and `demos/dm2-roster.test.ts`
   // read the real demo fixtures with `node:fs` (story 245).
+  // `styles/side-tokens.test.ts` reads `index.css` with `node:fs` (story 261).
   "exclude": [
     "src/shared/demos/dm2-frames.test.ts",
     "src/shared/demos/dm2-roster.test.ts",
@@ -28,6 +29,7 @@
     "src/renderer/src/i18n/reason-templates.test.ts",
     "src/renderer/src/i18n/keys.test.ts",
     "src/renderer/src/i18n/bundle.test.ts",
+    "src/renderer/src/styles/side-tokens.test.ts",
     "src/test-support/source-files.ts"
   ],
   "compilerOptions": {

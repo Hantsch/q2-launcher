@@ -63,7 +63,7 @@ counts follow the scoped rows; the filter value survives an installation switch.
   comment controls in fullscreen or the cinema overlay. "Play from here" seeks a session on that demo, else plays it.
 - Start position: `beginSession(..., { id, archived, startAtS })` keeps `pendingSeekS`; the first position sample sends one
   `seekTo` and clears it (the engine takes no commands earlier).
-- `components/DemoPlayersPanel.tsx` — players by side; `components/DemoStage.tsx`, `components/DemoTimeline.tsx` (takes the
+- `components/DemoPlayersPanel.tsx` — players by side — two teams side by side, otherwise stacked; side colours from `--color-side-1/2`; `components/DemoStage.tsx`, `components/DemoTimeline.tsx` (takes the
   session's `demo` and `onRowPatched` for comments), `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `useDemoPlay.ts` — playback.
 - `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
 

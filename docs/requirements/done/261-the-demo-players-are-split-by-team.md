@@ -1,7 +1,7 @@
 ---
 id: 261
 title: The demo players are split by team
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -18,15 +18,15 @@ Today `DemoPlayersPanel.tsx` renders one Name column with one `<tbody>` per side
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A demo with exactly two teams shows them side by side, one column per team, each listing its
+- [x] **AC1** — A demo with exactly two teams shows them side by side, one column per team, each listing its
       players.
-- [ ] **AC2** — The left team's heading uses the first side colour and the right team's the second, both
+- [x] **AC2** — The left team's heading uses the first side colour and the right team's the second, both
       distinct from player rows.
-- [ ] **AC3** — The team heading shows the team name and, when set, its result.
-- [ ] **AC4** — A demo without teams shows a single player list.
-- [ ] **AC5** — A demo with more than two teams shows the teams stacked, each heading highlighted.
-- [ ] **AC6** — The POV marker and the spectators section remain as today.
-- [ ] **AC7** — Side colours come from design tokens and meet contrast in light and dark theme.
+- [x] **AC3** — The team heading shows the team name and, when set, its result.
+- [x] **AC4** — A demo without teams shows a single player list.
+- [x] **AC5** — A demo with more than two teams shows the teams stacked, each heading highlighted.
+- [x] **AC6** — The POV marker and the spectators section remain as today.
+- [x] **AC7** — Side colours come from design tokens and meet contrast in light and dark theme.
 
 ## Open Questions
 
@@ -73,7 +73,7 @@ Order: D1 → D2 (D2 uses the tokens and the helper).
 
 ## Deliverables
 
-- [ ] **D1 — Side-colour tokens and a shared flow axe helper.**
+- [x] **D1 — Side-colour tokens and a shared flow axe helper.**
   - `src/renderer/src/styles/index.css`: in `@theme`, under the status colours, add `--color-side-1` (a red,
     around `#ff6a5f`) and `--color-side-2` (a blue, around `#62b0ff`), each with a short comment and its
     contrast ratio like the neighbouring tokens. Both must reach ≥ 4.5:1 against `--color-base`,
@@ -92,7 +92,7 @@ Order: D1 → D2 (D2 uses the tokens and the helper).
   - Acceptance: the token test is green; `npm run ui:flow -- home-tile-states` and
     `npm run ui:flow -- replays-date-filter` stay green.
 
-- [ ] **D2 — The player table splits by team.** File: `src/renderer/src/modules/replays/components/DemoPlayersPanel.tsx`
+- [x] **D2 — The player table splits by team.** File: `src/renderer/src/modules/replays/components/DemoPlayersPanel.tsx`
   (+ its test, the flow, CHANGELOG, systems doc). Input unchanged: `DemoDetail['playerGroups']` from
   `src/shared/replays/demo-detail.ts` (`groups[].heading` is `null` only for a single team-less side).
   - Layout: `teams = groups.filter(g => g.heading !== null)`. No teams → `single` (today's ungrouped list, no
@@ -132,7 +132,7 @@ Order: D1 → D2 (D2 uses the tokens and the helper).
 
 - AC1 → e2e `scripts/flows/replays-detail-teams.mjs` › "Home and Away sit side by side"; unit
   `src/renderer/src/modules/replays/components/DemoPlayersPanel.test.tsx` › "two teams sit side by side, left side 1 and right side 2"
-- AC2 → e2e `scripts/flows/replays-detail-teams.mjs` › "each team heading carries its own side colour"
+- AC2 → e2e `scripts/flows/replays-detail-teams.mjs` › "each team heading carries its own side colour" (also ties heading 1/2 to the resolved `--color-side-1/2`)
 - AC3 → unit `src/renderer/src/modules/replays/components/DemoPlayersPanel.test.tsx` › "the heading shows the team name and its result"
 - AC4 → unit `src/renderer/src/modules/replays/components/DemoPlayersPanel.test.tsx` › "a demo without teams shows one list without headings"
 - AC5 → unit `src/renderer/src/modules/replays/components/DemoPlayersPanel.test.tsx` › "more than two teams stack, each heading highlighted"
@@ -143,3 +143,30 @@ Order: D1 → D2 (D2 uses the tokens and the helper).
   e2e `scripts/flows/replays-detail-teams.mjs` › "the players panel passes axe"
 
 ## Done
+
+**Summary.** The demo player table now picks a layout from its team groups: two teams sit side by side (one table per
+team, 2px side-coloured left border, heading in the side colour), one or more than two stack with alternating side
+colours, no teams is a plain list. Two new semantic tokens `--color-side-1` (#ff6a5f) / `--color-side-2` (#62b0ff)
+meet 4.5:1 on base, panel and raised. The flow axe idiom is now the shared `scripts/lib/flow-axe.mjs`.
+
+**Commit message:** `261: demo players split by team — two teams side by side, side-1/2 colour tokens, stacked otherwise, shared flow axe helper`
+
+**Verification (narrow gate, run twice: after D2 and after the review fixes).** typecheck, lint, `npx vitest run --changed HEAD`
+(12 files, 164 tests), `npm run build:dev`, `npm run ui:flows -- --affected <replays-detail-teams, home-tile-states,
+replays-date-filter> --parallel=4 --shard=1/2` and `2/2` (8/8 and 7/7 flows) — all green. Full gate: the sprint's.
+- AC1 → flow step "Home and Away sit side by side" + unit "two teams sit side by side, left side 1 and right side 2" — passed
+- AC2 → flow step "each team heading carries its own side colour" (inequality plus token equality) — passed
+- AC3 → unit "the heading shows the team name and its result" — passed
+- AC4 → unit "a demo without teams shows one list without headings" — passed
+- AC5 → unit "more than two teams stack, each heading highlighted" — passed
+- AC6 → flow steps "the point-of-view player carries the POV marker", "spectators stay closed until opened, then list HIMMO" + the two existing unit tests — passed
+- AC7 → unit `side-tokens.test.ts` "the side colours meet text contrast on every surface" + flow step "the players panel passes axe" — passed
+- Review: stage 1 (default) PASS WITH FINDINGS, fixed in one cycle, re-verified. No manual residue.
+
+**Decisions.**
+- `side-tokens.test.ts` reads `index.css` with node:fs, so it follows the repo precedent for node-only renderer tests: excluded from `tsconfig.web.json`, included in `tsconfig.node.json`, and listed in the pinned exclude list of `src/architecture.test.ts`.
+- Review fixes: CHANGELOG reset to one new line (a prettier run had reflowed released sections); unit tests tie each heading to its block's side colour and a one-named-team case was added; the flow ties headings to the resolved tokens; player cells got the heading's left padding so names align with it.
+- The axe step reopens the example demo first (earlier steps leave the sidecar demo selected); team tables use `table-fixed` so names truncate.
+- Unfixed, low: the contrast maths in `side-tokens.test.ts` duplicates an in-browser `luminance` in `scripts/flows/config-header-geometry.mjs` — that one runs inside the page, so it cannot be shared.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 7
