@@ -271,11 +271,6 @@
     },
     "join": {
       "noInstallation": "Choose an active installation to join a server.",
-      "mismatch": {
-        "title": "Different mod",
-        "body": "This server runs \"{{server}}\", but the active installation is set to \"{{installation}}\". Join anyway?",
-        "confirm": "Join anyway"
-      },
       "password": {
         "title": "Server password"
       }

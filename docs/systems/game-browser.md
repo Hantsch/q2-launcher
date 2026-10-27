@@ -37,8 +37,8 @@ event-push precedents, and the module seam described in
 - **The detail view shows everything the server tells us:** players with score and ping, the full
   serverinfo rule table (known keys formatted, mod-specific keys raw), `dmflags` decoded, a ping
   history, and whether the map and mod exist locally.
-- **Joining** uses the active installation with `+connect`, warns before a mod mismatch, and asks
-  for a password up front. A server can also be **written into a config profile's address book**
+- **Joining** uses the active installation with `+connect` (no mod is passed; the game switches on connect)
+  and asks for a password up front. A server can also be **written into a config profile's address book**
   (`adr0`–`adr8`) through a dialog that names the profile and the slot.
 - **The watchlist** is its own list: per entry a name and a match mode (exact / substring / regex);
   it shows `offline` or the server, score and ping, with a Join action. **Spectator vs. player is
@@ -105,7 +105,7 @@ not things it asks of you. The default state is: open it, look at it, join somet
   a "waiting for an opponent" marker, sorting, filters and search.
 - The **server detail view**: player list (name, score, ping), the full serverinfo rule table,
   decoded `dmflags`, ping history for the session, and map/mod availability locally.
-- **Join** with the active installation, mod-mismatch warning, password prompt.
+- **Join** with the active installation, no mod passed, password prompt.
 - **Spectator launch** — join the real game as a spectator in one action.
 - **Write to address book** — a dialog that writes the server into a chosen config profile's chosen
   `adr0`–`adr8` slot.
@@ -178,7 +178,7 @@ not things it asks of you. The default state is: open it, look at it, join somet
 | List row                                                     | Name, mod, players/slots, map, measured ping                                                                                              | The four asked for, plus map and ping which cost nothing                                                         |
 | "Waiting for an opponent"                                    | A first-class marker on servers with exactly one player                                                                                   | "wo wartet wer auf einen gegner"                                                                                 |
 | Detail content                                               | Players; **full serverinfo rule table**; **decoded dmflags**; **ping history**; **map/mod availability locally**                          | All four picked                                                                                                  |
-| Join                                                         | Active installation + `+connect`, **warning on mod mismatch**, password asked up front                                                    | Fails loudly instead of silently                                                                                 |
+| Join                                                         | Active installation + `+connect`, **no mod passed**, password asked up front                                                              | Fails loudly instead of silently                                                                                 |
 | Address book                                                 | Dialog with **profile choice and slot choice** (`adr0`–`adr8`, occupied slots show their value)                                           | Full control over nine slots                                                                                     |
 | v1 extras                                                    | Favourites, manual `ip:port`, history, filters & search, address-book write                                                               | All five picked                                                                                                  |
 | Watchlist shape                                              | **Its own list UI**: per entry either `offline` or the server, with score and ping, and an action menu with Join                          | "watchlist ist eine eigene liste wo der name steht"                                                              |
@@ -289,23 +289,23 @@ The `status` reply's shape:
 The key set is **open-ended**: a cvar appears here only if it carries the `CVAR_SERVERINFO` flag, so
 every mod contributes its own. Keys seen in practice:
 
-| Key                                      | Meaning                                                      | Used by us for                       |
-| ---------------------------------------- | ------------------------------------------------------------ | ------------------------------------ |
-| `hostname`                               | Server name                                                  | List row                             |
-| `mapname`                                | Current map                                                  | List row, local-availability check   |
-| `gamename` / `gamedir` / `game`          | Mod directory                                                | List row (mod), mod-mismatch warning |
-| `maxclients`                             | Slot count                                                   | Occupancy                            |
-| `protocol`                               | 34 vanilla, 35 r1q2, 36 Q2PRO                                | Engine hint, query compatibility     |
-| `version`                                | Engine build string                                          | Detail                               |
-| `port`                                   | UDP port                                                     | Detail                               |
-| `needpass`                               | Bit 0 = password, bit 1 = spectator password                 | Password marker, join flow           |
-| `deathmatch`, `coop`, `ctf`, `teamplay`  | Gamemode flags                                               | Derived gamemode                     |
-| `dmflags`                                | Bitfield of rule switches                                    | Decoded rule list                    |
-| `fraglimit`, `timelimit`, `capturelimit` | Match limits                                                 | Detail                               |
-| `cheats`                                 | Cheats enabled                                               | Detail                               |
-| `maptime`, `uptime`                      | How long the map / server has run                            | Detail                               |
-| `gamedate`                               | Mod build date                                               | Detail                               |
-| anything else                            | Mod-specific (`actionversion`, `matchmode`, `roundlimit`, …) | Shown raw in the rule table          |
+| Key                                      | Meaning                                                      | Used by us for                     |
+| ---------------------------------------- | ------------------------------------------------------------ | ---------------------------------- |
+| `hostname`                               | Server name                                                  | List row                           |
+| `mapname`                                | Current map                                                  | List row, local-availability check |
+| `gamename` / `gamedir` / `game`          | Mod directory                                                | List row (mod)                     |
+| `maxclients`                             | Slot count                                                   | Occupancy                          |
+| `protocol`                               | 34 vanilla, 35 r1q2, 36 Q2PRO                                | Engine hint, query compatibility   |
+| `version`                                | Engine build string                                          | Detail                             |
+| `port`                                   | UDP port                                                     | Detail                             |
+| `needpass`                               | Bit 0 = password, bit 1 = spectator password                 | Password marker, join flow         |
+| `deathmatch`, `coop`, `ctf`, `teamplay`  | Gamemode flags                                               | Derived gamemode                   |
+| `dmflags`                                | Bitfield of rule switches                                    | Decoded rule list                  |
+| `fraglimit`, `timelimit`, `capturelimit` | Match limits                                                 | Detail                             |
+| `cheats`                                 | Cheats enabled                                               | Detail                             |
+| `maptime`, `uptime`                      | How long the map / server has run                            | Detail                             |
+| `gamedate`                               | Mod build date                                               | Detail                             |
+| anything else                            | Mod-specific (`actionversion`, `matchmode`, `roundlimit`, …) | Shown raw in the rule table        |
 
 **Every key is optional.** `gamename` is frequently absent on plain baseq2 servers, `version` is not
 guaranteed. The parser treats the whole set as optional and degrades per field.
@@ -449,8 +449,7 @@ Uses the existing launch path: `launch:start` with `{ installationId, connect: '
 which `buildLaunchArgs` already turns into a trailing `+connect` argument.
 
 - The **active installation** is used.
-- If the server reports a mod the active installation does not have, the launcher **warns before
-  launching** and lets the user continue anyway.
+- A join passes no mod to the game, not even the saved one; the game switches mod on connect.
 - If `needpass` indicates a password, the launcher asks for it before launching rather than letting
   the game fail at the connect.
 - The join is recorded in the history.
@@ -781,8 +780,7 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
 - **GB-J1** — Join starts the active installation with `+connect <host>:<port>`.
 - **GB-J2** — An address is validated strictly as host/IPv4 plus port in main before it enters an
   argument vector; anything else is refused.
-- **GB-J3** — A mod the active installation does not have produces a warning before launching, which
-  the user can override.
+- **GB-J3** — A join passes no mod to the game; the game switches mod on connect.
 - **GB-J4** — When `needpass` indicates a password, it is asked for before launching.
 - **GB-J5** — Spectate launches the game in spectator mode, asking for the spectator password when
   one is required.

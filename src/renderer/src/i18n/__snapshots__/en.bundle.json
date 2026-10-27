@@ -3376,11 +3376,6 @@
       "team": "Team"
     },
     "join": {
-      "mismatch": {
-        "body": "This server runs \"{{server}}\", but the active installation is set to \"{{installation}}\". Join anyway?",
-        "confirm": "Join anyway",
-        "title": "Different mod"
-      },
       "noInstallation": "Choose an active installation to join a server.",
       "password": {
         "title": "Server password"

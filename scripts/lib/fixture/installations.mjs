@@ -863,19 +863,37 @@ export function writeJoinInstallRoot(dirName = JOIN_INSTALL_DIR) {
  * gets - e.g. `servers-watchlist.mjs` passes its own name so the two flows' fixtures never share a
  * directory, defaulting to `'servers-join'` so the original caller is unaffected.
  */
-export function writeJoinFixture({ servers, variant = 'servers-join' }) {
+export function writeJoinFixture({
+  servers,
+  variant = 'servers-join',
+  activeGameDir = '',
+  gameDirs = ['baseq2'],
+}) {
   return seedJoinStyleFixture({
     variant,
     install: writeJoinInstallRoot(),
     id: JOIN_INSTALL_ID,
     name: 'Fixture Join Install',
-    gameDirs: ['baseq2'],
+    activeGameDir,
+    gameDirs,
     servers,
   })
 }
 
-/** Seeds `install` as the sole, active installation of a fresh `variant` userDataDir. */
-function seedJoinStyleFixture({ variant, install, id, name, gameDirs, servers }) {
+/** Seeds `install` as the sole, active installation of a fresh `variant` userDataDir. Every
+ * non-baseq2 entry of `gameDirs` gets a folder on disk, or startup revalidation drops it. */
+function seedJoinStyleFixture({
+  variant,
+  install,
+  id,
+  name,
+  activeGameDir = '',
+  gameDirs,
+  servers,
+}) {
+  for (const dir of gameDirs) {
+    if (dir !== 'baseq2') mkdirSync(join(install.root, dir), { recursive: true })
+  }
   const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
@@ -891,7 +909,7 @@ function seedJoinStyleFixture({ variant, install, id, name, gameDirs, servers })
         engineKind: 'r1q2',
         executablePath: install.executablePath,
         launchArgs: [],
-        activeGameDir: '',
+        activeGameDir,
         detectedVersion: undefined,
         source: 'manual',
         status: 'ok',

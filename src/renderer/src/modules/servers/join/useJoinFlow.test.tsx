@@ -61,16 +61,27 @@ afterEach(() => {
 })
 
 describe('useJoinFlow', () => {
-  it('start() with a mismatching, password-protected row asks both before play()', async () => {
-    render(createElement(Harness, { rows: [makeRow({ mod: 'ctf', needpass: true })] }))
+  it('a server with a different mod joins without a confirmation', async () => {
+    useLauncher.setState({ installations: [makeInstallation({ activeGameDir: 'baseq2' })] })
+    render(createElement(Harness, { rows: [makeRow({ mod: 'ctf' })] }))
 
     fireEvent.click(screen.getByTestId('go-0'))
 
-    expect(screen.getByTestId('servers-join-mismatch')).toBeTruthy()
-    expect(screen.queryByTestId('servers-join-password')).toBeNull()
-    expect(invokeMock).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await vi.waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('launch:start', {
+        installationId: 'inst-1',
+        connect: '1.2.3.4:27910',
+        userinfo: undefined,
+      })
+    })
+  })
 
-    fireEvent.click(screen.getByTestId('servers-join-mismatch-confirm'))
+  it('a password-protected server with a different mod goes straight to the password prompt', async () => {
+    useLauncher.setState({ installations: [makeInstallation({ activeGameDir: 'baseq2' })] })
+    render(createElement(Harness, { rows: [makeRow({ mod: 'ctf', needpass: true })] }))
+
+    fireEvent.click(screen.getByTestId('go-0'))
 
     expect(screen.getByTestId('servers-join-password')).toBeTruthy()
     expect(invokeMock).not.toHaveBeenCalled()

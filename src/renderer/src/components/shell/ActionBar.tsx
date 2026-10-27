@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Import, Play, Wrench, X } from 'lucide-react'
 import { DEV_MODULES } from '@shared/dev-modules'
+import { MODULE_MANIFESTS } from '@shared/types/module'
 import type { Installation, Job, LaunchState } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { isDemoData } from '../../lib/demo-data'
@@ -47,6 +48,8 @@ export function ActionBar() {
   const demo = useDemoStop()
 
   const route = useLauncher((state) => state.route)
+  const launchDecidedByContent =
+    MODULE_MANIFESTS.find((m) => m.route === route)?.launchDecidedByContent === true
   const contribution = usePrimaryActionStore((state) =>
     state.owner === route ? state.action : null,
   )
@@ -133,12 +136,14 @@ export function ActionBar() {
                 </span>
               </div>
 
-              <GameDirSelect
-                installation={installation}
-                onChange={(activeGameDir) =>
-                  void updateInstallation({ id: installation.id, activeGameDir })
-                }
-              />
+              {!launchDecidedByContent && (
+                <GameDirSelect
+                  installation={installation}
+                  onChange={(activeGameDir) =>
+                    void updateInstallation({ id: installation.id, activeGameDir })
+                  }
+                />
+              )}
             </>
           ) : (
             <p className="text-[11px] text-ink-muted">{t('empty.body')}</p>

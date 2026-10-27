@@ -106,7 +106,8 @@ export function buildLaunchArgs(
   args.push(...(engine?.defaultArgs ?? []))
 
   // Mod / mission pack. `baseq2` is the default and must never be set.
-  const gameDir = (input.gameDir ?? installation.activeGameDir).trim()
+  // A join takes the server's mod: the game switches on connect (story 251).
+  const gameDir = (input.gameDir ?? (input.connect ? '' : installation.activeGameDir)).trim()
   if (gameDir && gameDir.toLowerCase() !== BASE_GAME_DIR) {
     if (isSafeEarlyToken(gameDir)) {
       args.push('+set', 'game', gameDir)

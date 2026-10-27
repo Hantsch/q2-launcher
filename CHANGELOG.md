@@ -12,6 +12,8 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Changed
+- **Launch with** — applies only to Play now; servers and demos bring their own mod, no mod-mismatch prompt.
 
 ## 0.7.0 — 2026-10-07
 

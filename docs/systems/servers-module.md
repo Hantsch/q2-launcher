@@ -109,7 +109,7 @@ Events: `SERVERS_EVENTS` pushes `scanChanged`, `scanServer` (one row per result)
   to each game server; UDP broadcast on every usable IPv4 interface (port 27910) in LAN mode.
 - Files: state.json (the `servers` slot) only.
 - Engine processes: none read; joining hands `+connect <address>` to the game launch, with the
-  address re-validated in main.
+  address re-validated in main. A join passes no mod, never the saved one: the game switches mod on connect.
 
 ## Limitations
 

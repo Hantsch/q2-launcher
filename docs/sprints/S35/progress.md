@@ -1,1 +1,16 @@
 - 06:55:37 · refine · 251 252 253 254 255 256 257 258 259 260 261 262 263 · started
+- 07:03:49 · refine · done
+- 07:03:49 · 251 · build · started
+- 2026-10-27 07:04 · 251 · D1 footer hides Launch with · started
+- 2026-10-27 07:06 · 251 · D1 footer hides Launch with · done
+- 2026-10-27 07:06 · 251 · D2 no mismatch confirmation · started
+- 2026-10-27 07:09 · 251 · D2 no mismatch confirmation · done
+- 2026-10-27 07:09 · 251 · D3 join launches without saved mod · started
+- 2026-10-27 07:13 · 251 · D3 join launches without saved mod · done
+- 2026-10-27 07:13 · 251 · verify · started
+- 2026-10-27 07:42 · 251 · verify · done
+- 2026-10-27 07:42 · 251 · review 1 · started
+- 2026-10-27 07:45 · 251 · review 1 · done
+- 2026-10-27 07:45 · 251 · review-fix 1 · started
+- 2026-10-27 07:49 · 251 · review-fix 1 · done
+- 2026-10-27 07:49 · 251 · story · done

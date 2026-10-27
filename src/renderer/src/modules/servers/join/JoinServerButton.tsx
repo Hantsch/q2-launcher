@@ -6,8 +6,8 @@ import { useActiveInstallation } from '../../../store/useLauncher'
 import { useJoinFlow } from './useJoinFlow'
 
 /**
- * Story 125: a single button over `useJoinFlow` (address check, mod-mismatch warning, password
- * prompt, then `play()` with `+connect`/`userinfo`).
+ * Story 125: a single button over `useJoinFlow` (address check, password prompt,
+ * then `play()` with `+connect`/`userinfo`).
  *
  * `prominent` renders the button as the action bar's `PlayButton` (same look, label "Join") for
  * the one place it is the primary action - the server detail pane. Everywhere else (the watchlist's

@@ -1,7 +1,7 @@
 ---
 id: 251
 title: Launch with applies only when I start the game
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -19,13 +19,13 @@ already ignores it (it passes the demo's own game dir), but a server join silent
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On the Servers view the footer shows no "Launch with" select.
-- [ ] **AC2** — On the Demos view the footer shows no "Launch with" select.
-- [ ] **AC3** — On Home and Library the "Launch with" select is shown as today (when the installation has mods).
-- [ ] **AC4** — Joining a server launches without `+set game`, whatever "Launch with" is set to.
-- [ ] **AC5** — Joining a server whose mod differs from the "Launch with" choice shows no confirmation and joins directly.
-- [ ] **AC6** — Demo playback keeps launching with the demo's own mod (unchanged).
-- [ ] **AC7** — Plain Play keeps launching with the saved "Launch with" mod (unchanged).
+- [x] **AC1** — On the Servers view the footer shows no "Launch with" select.
+- [x] **AC2** — On the Demos view the footer shows no "Launch with" select.
+- [x] **AC3** — On Home and Library the "Launch with" select is shown as today (when the installation has mods).
+- [x] **AC4** — Joining a server launches without `+set game`, whatever "Launch with" is set to.
+- [x] **AC5** — Joining a server whose mod differs from the "Launch with" choice shows no confirmation and joins directly.
+- [x] **AC6** — Demo playback keeps launching with the demo's own mod (unchanged).
+- [x] **AC7** — Plain Play keeps launching with the saved "Launch with" mod (unchanged).
 
 ## Open Questions
 
@@ -162,3 +162,31 @@ Review: → default
   unit `src/main/services/launch-plan.test.ts` › "plain play applies the saved mod"
 
 ## Done
+
+Launch with is now a Play-only choice: the footer hides it where a server or demo decides mod and map (manifest flag
+`launchDecidedByContent` on `servers` and `replays`), a join passes no mod (`buildLaunchArgs` skips the saved
+`activeGameDir` when `connect` is set), and the mod-mismatch confirmation with its dialog, test ids and i18n keys is deleted.
+
+Commit message: `251: Launch with applies only to Play — footer hides it on Servers/Demos, joins pass no mod, mismatch prompt removed`
+
+Verification (narrow gate): `npm run build`, `typecheck`, `lint` green; `npx vitest run --changed HEAD` 3729 passed / 0 failed; e2e via
+`ui:flows -- --affected <3 story flows> --parallel=4 --shard=1/2` and `2/2`. All three story flows (`launch-with-scope`, `servers-join`,
+`replays-play-mvd2`) passed. AC → test as verified: AC1/AC2 launch-with-scope steps + ActionBar.test "not rendered on the servers and replays
+routes"; AC3 step + ActionBar.test "rendered on home and library…"; AC4 servers-join "joins launch without the saved mod" + launch-plan.test "a join
+does not apply the saved mod"; AC5 servers-join "server A with a different mod goes straight to the password prompt" + useJoinFlow.test; AC6
+demo-play.test + replays-play-mvd2; AC7 launch-with-scope step + launch-plan.test "plain play applies the saved mod". No manual residue.
+Review: default stage PASS, 7/7 AC; four low findings fixed (comment wrap, changelog wording, flow positive control + helper reuse, shared
+`launchLines`/`nextLaunchLine` in `scripts/lib/flow-common.mjs`, view-wait in launch-with-scope); fix re-verified with lint, typecheck, vitest on
+servers/shell/launch-plan and `ui:flows -- launch-with-scope servers-join play-with servers-actionbar-join` 4/4.
+Open point: the two e2e slices selected 76 flows each (`--affected` pulls in everything the diff can reach) and 16 mod/play-with flows were red
+(8s `nav-mods` / dialog timeouts) — not reproducible: the same 16 flows re-run through `ui:flows ... --parallel=4` passed 16/16 on the changed build,
+so it was load flakiness; not caused by this story.
+
+Decisions:
+- Hide implemented purely as the manifest flag, shell looks it up by route (no module ids in `ActionBar.tsx`), as the plan says.
+- Existing launch-plan test "puts +connect last…" moved the saved mod to an explicit `gameDir: 'ctf'` input so it still checks ordering.
+- `demo-play.test.ts` mutates the harness installation (`activeGameDir: 'ctf'`, `gameDirs` incl. `opentdm`) since the harness has no override.
+- `launchLines`/`nextLaunchLine` extracted to `flow-common.mjs` (was copied in play-with) rather than duplicated into the new flow.
+- `docs/systems/game-browser.md` re-flowed by prettier, so its diff is wider than the content change.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 6

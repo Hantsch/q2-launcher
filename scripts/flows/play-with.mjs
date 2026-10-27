@@ -2,34 +2,17 @@
 // Fixture: one r1q2 installation with game dirs baseq2 + ctf - baseq2/maps/q2dm1.bsp ("The Edge"),
 // an unsafe-named baseq2/maps/bad name.bsp, base1 inside baseq2/pak0.pak, and ctf/maps/ctf1.bsp.
 import { writePlayWithFixture } from '../lib/fixture.mjs'
-import { invoke, readLog, sleep } from '../lib/flow-common.mjs'
+import { invoke, launchLines, nextLaunchLine } from '../lib/flow-common.mjs'
 
 export const variant = 'play-with'
 
 const TIMEOUT_MS = 8_000
-const LAUNCH_TIMEOUT_MS = 10_000
 
 let spawnable = true
 
 export async function setup() {
   spawnable = writePlayWithFixture({ variant }).spawnable
   return {}
-}
-
-const launchLines = (logPath) =>
-  readLog(logPath)
-    .split(/\r?\n/)
-    .filter((line) => line.includes('launching'))
-
-/** Waits for a "launching" line beyond the `before` already seen and returns the newest. */
-async function nextLaunchLine(logPath, before) {
-  const deadline = Date.now() + LAUNCH_TIMEOUT_MS
-  for (;;) {
-    const lines = launchLines(logPath)
-    if (lines.length > before) return lines[lines.length - 1]
-    if (Date.now() >= deadline) throw new Error('timed out waiting for a new "launching" line')
-    await sleep(150)
-  }
 }
 
 export default async function playWith({ page, step, shot }) {

@@ -82,11 +82,43 @@ describe('buildLaunchArgs', () => {
     }
   })
 
+  it('a join does not apply the saved mod', () => {
+    const result = buildLaunchArgs(installation({ activeGameDir: 'ctf' }), {
+      connect: '1.2.3.4:27910',
+    })
+    expect(result.args).toEqual(['-nopathcheck', '+connect', '1.2.3.4:27910'])
+  })
+
+  it('an explicit game dir still applies on a join', () => {
+    const result = buildLaunchArgs(installation({ activeGameDir: 'ctf' }), {
+      gameDir: 'rogue',
+      connect: '1.2.3.4:27910',
+    })
+    expect(result.args).toEqual([
+      '-nopathcheck',
+      '+set',
+      'game',
+      'rogue',
+      '+connect',
+      '1.2.3.4:27910',
+    ])
+  })
+
+  it('plain play applies the saved mod', () => {
+    expect(buildLaunchArgs(installation({ activeGameDir: 'ctf' })).args).toEqual([
+      '-nopathcheck',
+      '+set',
+      'game',
+      'ctf',
+    ])
+  })
+
   it('puts +connect last so it runs after the config is applied', () => {
-    const result = buildLaunchArgs(
-      installation({ activeGameDir: 'ctf', launchArgs: ['+set', 'cl_maxfps', '125'] }),
-      { connect: '1.2.3.4:27910', extraArgs: ['+exec', 'match.cfg'] },
-    )
+    const result = buildLaunchArgs(installation({ launchArgs: ['+set', 'cl_maxfps', '125'] }), {
+      gameDir: 'ctf',
+      connect: '1.2.3.4:27910',
+      extraArgs: ['+exec', 'match.cfg'],
+    })
     expect(result.args).toEqual([
       '-nopathcheck',
       '+set',

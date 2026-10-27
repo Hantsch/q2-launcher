@@ -18,7 +18,7 @@ accuracy stats.
 
 ## Stories (in build order)
 
-- [ ] 251 — Launch with applies only when I start the game
+- [x] 251 — Launch with applies only when I start the game
 - [ ] 252 — I pick a map in the footer and Play starts in it
 - [ ] 253 — An unassigned config profile tells me it is not used
 - [ ] 254 — The first assignment backs up the original configs and I can restore them

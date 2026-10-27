@@ -334,6 +334,36 @@ describe('ActionBar', () => {
     })
   })
 
+  describe('Launch with select', () => {
+    const seedWithMods = (route: string): void => {
+      useLauncher.setState({
+        installations: [makeInstallation({ gameDirs: ['baseq2', 'ctf'] })],
+        settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+        jobs: [],
+        route,
+      })
+    }
+
+    it('the Launch with select is not rendered on the servers and replays routes', async () => {
+      for (const route of ['/servers', '/replays']) {
+        seedWithMods(route)
+        const { unmount } = render(createElement(ActionBar))
+        await screen.findByTestId('actionbar-play')
+        expect(screen.queryByLabelText('Launch with'), route).toBeNull()
+        unmount()
+      }
+    })
+
+    it('the Launch with select is rendered on home and library when the installation has mods', async () => {
+      for (const route of ['/home', '/library']) {
+        seedWithMods(route)
+        const { unmount } = render(createElement(ActionBar))
+        expect(await screen.findByLabelText('Launch with'), route).toBeTruthy()
+        unmount()
+      }
+    })
+  })
+
   it('a normal running game still shows a disabled Running', async () => {
     useLauncher.setState({
       installations: [makeInstallation()],

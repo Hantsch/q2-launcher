@@ -270,6 +270,40 @@ describe('demo.play with a mod the installation does not list', () => {
   })
 })
 
+describe('demo.play with a saved mod', () => {
+  it('a demo launches with its own mod when the saved mod differs', async () => {
+    await mkdir(join(q2proRoot, 'opentdm', 'demos'), { recursive: true })
+    await writeFile(join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), 'demo')
+    const tdm = demo({
+      id: 'tdm',
+      fileName: 'o.dm2',
+      gameDir: 'opentdm',
+      source: {
+        kind: 'installation',
+        installationId: 'q2pro-a',
+        installationName: 'Q2PRO',
+        gameDir: 'opentdm',
+      },
+    })
+    const h = harness({
+      demos: [tdm],
+      files: {
+        tdm: { absolutePath: join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), archiveEntry: null },
+      },
+    })
+    Object.assign(h.installations[0], {
+      activeGameDir: 'ctf',
+      gameDirs: ['baseq2', 'ctf', 'opentdm'],
+    })
+
+    expect(await h.play('tdm', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
+    expect(h.launch.start).toHaveBeenCalledWith(
+      { installationId: 'q2pro-a', gameDir: 'opentdm', extraArgs: ['+demo', 'o.dm2'] },
+      { demo: true },
+    )
+  })
+})
+
 describe('demo.play with a trusted mod (story 182 D1)', () => {
   it('a mod-missing play without acknowledgement is refused even when the mod is trusted', async () => {
     // The trust list is renderer-side convenience: main never reads it, so a stored trust entry
