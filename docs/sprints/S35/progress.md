@@ -99,3 +99,25 @@
 - 2026-10-27 10:43 · 257 · verify · started
 - 2026-10-27 10:54 · 257 · verify · done
 - 2026-10-27 10:54 · 257 · story · done
+- 10:54:28 · 258 · build · started
+- 2026-10-27 10:54 · 258 · D1 Ping sample maths · started
+- 2026-10-27 10:55 · 258 · D1 Ping sample maths · done
+- 2026-10-27 10:55 · 258 · D2 Per-send timing monotonic clock · started
+- 2026-10-27 11:00 · 258 · D2 Per-send timing monotonic clock · done
+- 2026-10-27 11:00 · 258 · D3 Stage 1 samples · started
+- 2026-10-27 11:04 · 258 · D3 Stage 1 samples · done
+- 2026-10-27 11:04 · 258 · D4 Stage 2 keeps median · started
+- 2026-10-27 11:05 · 258 · D4 Stage 2 keeps median · done
+- 2026-10-27 11:05 · 258 · D5 Real-socket accuracy proof · started
+- 2026-10-27 11:22 · 258 · D5 discriminating load test · started
+- 2026-10-27 11:32 · 258 · D5 discriminating load test · blocked: not stably achievable on real sockets, third test dropped
+- 2026-10-27 11:33 · 258 · D5 Real-socket accuracy proof · done
+- 2026-10-27 11:33 · 258 · verify · started
+- 2026-10-27 11:34 · 258 · verify · done
+- 2026-10-27 11:34 · 258 · review 1 · started
+- 2026-10-27 11:40 · 258 · review 1 · done
+- 2026-10-27 11:40 · 258 · review 1 fix (LAN keeps median) · started
+- 2026-10-27 11:41 · 258 · review 1 fix (LAN keeps median) · done
+- 2026-10-27 11:41 · 258 · verify 2 · started
+- 2026-10-27 11:46 · 258 · verify 2 · done
+- 2026-10-27 11:46 · 258 · story · done

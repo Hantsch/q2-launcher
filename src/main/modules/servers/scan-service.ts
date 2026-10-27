@@ -108,6 +108,8 @@ export interface ScanServiceDeps {
   udpImpl?: MasterUdpImpl
   clock?: Clock
   queryServer?: QueryServerFn
+  /** `runScan`'s `pingSamples`; tests set 1 to keep one query per server. */
+  pingSamples?: number
   /** The LAN discovery round, defaulting to `discoverLanServers` - same injection
    * style as `queryServer`. The UI harness wraps the real one with its `targetsOverride`. */
   lanDiscovery?: LanDiscoveryFn
@@ -248,12 +250,15 @@ function readGamemode(
 
 /** Builds the refreshed `ServerListEntry` for one successful reply. `players` is the numeric count
  * while only `info` has answered, and is replaced by the full roster the moment a `status` reply
- * lands (same field, never two) - see `ServerListEntry`'s own doc comment. */
+ * lands (same field, never two) - see `ServerListEntry`'s own doc comment. `keepPing` leaves the
+ * entry's ping and history untouched: a stage-2 `status` reply is one sample against stage 1's
+ * median, so it must neither replace it nor add a second history sample for the scan (story 258). */
 function mergeSuccessfulReply(
   existing: ServerListEntry | undefined,
   target: ScanTarget,
   result: Extract<ServerQueryResult, { ok: true }>,
   now: string,
+  keepPing = false,
 ): ServerListEntry {
   const fields = readServerInfoFields(result.reply.serverinfo, existing)
   const players =
@@ -264,10 +269,14 @@ function mergeSuccessfulReply(
     origins: target.origins,
     status: 'online',
     ...fields,
-    rttMs: result.rttMs,
     // Session history of measured round trips, oldest first - the single `rttMs`
-    // field above still tracks only the latest value (story 124)
-    rttHistory: appendRttSample(existing?.rttHistory, { at: now, rttMs: result.rttMs }),
+    // field still tracks only the latest value (story 124)
+    ...(keepPing && existing !== undefined
+      ? { rttMs: existing.rttMs, rttHistory: existing.rttHistory }
+      : {
+          rttMs: result.rttMs,
+          rttHistory: appendRttSample(existing?.rttHistory, { at: now, rttMs: result.rttMs }),
+        }),
     players,
     lastSeenAt: now,
   }
@@ -318,11 +327,12 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     list: ScanList,
     target: ScanTarget,
     result: Extract<ScanQueryResult, { ok: true }>,
+    keepPing = false,
   ): void {
     const now = new Date().toISOString()
     list.entries.set(
       target.address,
-      mergeSuccessfulReply(list.entries.get(target.address), target, result, now),
+      mergeSuccessfulReply(list.entries.get(target.address), target, result, now, keepPing),
     )
     if (result.kind === 'status')
       list.statusInfo.set(target.address, { ...result.reply.serverinfo })
@@ -375,6 +385,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
             : undefined
 
     const answeredOnline = new Set<string>()
+    const pingedInStage1 = new Set<string>()
 
     const outcome = await runScan({
       targets: runTargets,
@@ -382,14 +393,17 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       selectedAddress: runSelectedAddress,
       signal,
       deps: { queryServer: deps.queryServer },
+      pingSamples: deps.pingSamples,
       onServer: (row) => {
         const now = new Date().toISOString()
         if (row.result.ok) {
           answeredOnline.add(row.target.address)
+          if (row.stage === 'stage1') pingedInStage1.add(row.target.address)
           const existing = list.entries.get(row.target.address)
+          const keepPing = row.result.kind === 'status' && pingedInStage1.has(row.target.address)
           list.entries.set(
             row.target.address,
-            mergeSuccessfulReply(existing, row.target, row.result, now),
+            mergeSuccessfulReply(existing, row.target, row.result, now, keepPing),
           )
           if (row.result.kind === 'status') {
             list.statusInfo.set(row.target.address, { ...row.result.reply.serverinfo })
@@ -454,10 +468,16 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   ): Promise<void> {
     // Only broadcast answers ever enter the LAN list: a reply for an address not already in it is
     // neither stored nor pushed, so a scoped refresh can never add a non-LAN row.
+    const pingedInStage1 = new Set<string>()
     const onServer = (row: ScanServerPush): void => {
       if (!list.entries.has(row.target.address)) return
       const target: ScanTarget = { address: row.target.address, origins: ['lan'] }
-      if (row.result.ok) storeReply(list, target, row.result)
+      if (row.result.ok) {
+        if (row.stage === 'stage1') pingedInStage1.add(row.target.address)
+        // Same rule as the online round: a stage-2 status keeps the stage-1 median (story 258)
+        const keepPing = row.result.kind === 'status' && pingedInStage1.has(row.target.address)
+        storeReply(list, target, row.result, keepPing)
+      }
       emit(SERVERS_EVENTS.scanServer, { ...row, target })
     }
     const onProgress = (progress: Partial<ServersScanState>): void => {
@@ -472,6 +492,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         selectedAddress: scope.address,
         signal,
         deps: { queryServer: deps.queryServer },
+        pingSamples: deps.pingSamples,
         onServer,
         onProgress,
       })
@@ -488,6 +509,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         selectedAddress: selectedInScope(selectedAddress, targets),
         signal,
         deps: { queryServer: deps.queryServer },
+        pingSamples: deps.pingSamples,
         onServer,
         onProgress,
       })
@@ -532,6 +554,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         : undefined,
       signal,
       deps: { queryServer: deps.queryServer },
+      pingSamples: deps.pingSamples,
       onServer,
       onProgress,
     })

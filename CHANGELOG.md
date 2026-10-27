@@ -23,6 +23,9 @@ version section when a release actually ships.
 - **Launch with** — applies only to Play now; servers and demos bring their own mod, no mod-mismatch prompt.
 - **Servers** — Server details stay on screen; clicking a server no longer hides them.
 
+### Fixed
+- **Servers** — Server pings are the median of several samples and match the ping you get in game.
+
 ## 0.7.0 — 2026-10-07
 
 ### Added

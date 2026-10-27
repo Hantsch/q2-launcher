@@ -370,7 +370,7 @@ describe('createScanService - online and LAN lists', () => {
       getServersState: onlineState,
       emit: recorder().emit,
       launch: fakeLaunch().host,
-      deps: { queryServer: deferred.fn, lanDiscovery: lan.fn },
+      deps: { queryServer: deferred.fn, pingSamples: 1, lanDiscovery: lan.fn },
     })
     online.start()
     await tick()
@@ -481,6 +481,37 @@ describe('createScanService - online and LAN lists', () => {
     ).toEqual([LAN_A, LAN_B].sort())
     expect(service.readDetail(LAN_A)?.serverinfo).toEqual({ hostname: 'Status' })
     expect(onStage2Row).not.toHaveBeenCalled()
+  })
+
+  it('a LAN status reply does not overwrite the stage-1 median ping', async () => {
+    const queryServer: QueryServerFn = async (_target, options) =>
+      options.kind === 'status'
+        ? {
+            ok: true,
+            kind: 'status',
+            reply: { ok: true, serverinfo: { hostname: 'Status' }, players: [] },
+            rttMs: 300,
+          }
+        : {
+            ok: true,
+            kind: 'info',
+            reply: { ok: true, serverinfo: { hostname: LAN_A }, clients: 2 },
+            rttMs: 25,
+          }
+    const service = createScanService({
+      getServersState: onlineState,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer, lanDiscovery: fakeLan([LAN_A]).fn },
+    })
+    service.setMode('lan')
+    service.start()
+    await waitForIdle(service)
+
+    const entry = service.read().entries.find((e) => e.address === LAN_A)
+    expect(entry?.rttMs).toBe(25)
+    expect(entry?.rttHistory?.map((sample) => sample.rttMs)).not.toContain(300)
+    expect(service.readDetail(LAN_A)?.serverinfo).toEqual({ hostname: 'Status' })
   })
 
   it('a LAN single-server refresh never adds a row the broadcast did not find', async () => {

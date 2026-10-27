@@ -27,7 +27,8 @@ This document describes the module as built. `servers` is a registered module; i
   a scan covers, auto-refresh timing while the view is active, address-set assembly.
 - `master-sources.ts` / `udp-master-source.ts` / `http-list-source.ts` — master source list
   handling and the two transports.
-- `server-query.ts` / `lan-discovery.ts` — one-server UDP queries and LAN broadcast discovery.
+- `server-query.ts` / `ping-samples.ts` / `lan-discovery.ts` — one-server UDP queries, ping sample
+  maths, LAN broadcast discovery.
 - `favourites.ts` / `history-log.ts` / `quick-filter-entries.ts` — the persisted collections.
 - `watchlist-service.ts` / `watchlist-entries.ts` / `watchlist-matcher.ts` /
   `watchlist-regex-host.ts` — watchlist entries and name matching (regex runs isolated).
@@ -119,6 +120,14 @@ Events: `SERVERS_EVENTS` pushes `scanChanged`, `scanServer` (one row per result)
 - Files: state.json (the `servers` slot) only.
 - Engine processes: none read; joining hands `+connect <address>` to the game launch, with the
   address re-validated in main. A join passes no mod, never the saved one: the game switches mod on connect.
+
+## How a scan measures ping
+
+Stage 1 sends every reachable server 3 `info` queries, one after another. If the samples are far
+apart (max − min > max(20 ms, 25% of the median)), 3 more follow. The row carries the median,
+rounded to whole ms; a failed extra sample is dropped, an unreachable server is not sampled. Stage 2
+(`status`) does not override the ping. A server queried only in stage 2 (a single-server refresh)
+takes the `status` ping; LAN rounds follow the same rule once discovery has found the server.
 
 ## Limitations
 

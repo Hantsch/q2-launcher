@@ -114,7 +114,7 @@ describe('createScanService', () => {
       getServersState: () => state,
       emit,
       launch: fakeLaunch().host,
-      deps: { queryServer },
+      deps: { queryServer, pingSamples: 1 },
     })
 
     // First scan: the server answers and gets a normal 'online' row.
@@ -149,7 +149,7 @@ describe('createScanService', () => {
       getServersState: () => state,
       emit,
       launch: fakeLaunch().host,
-      deps: { queryServer },
+      deps: { queryServer, pingSamples: 1 },
     })
 
     expect(service.start()).toEqual({ ok: true })
@@ -464,6 +464,71 @@ describe('createScanService', () => {
     expect(row?.status).toBe('stale')
     expect(row?.rttHistory).toHaveLength(3)
     expect(row?.rttHistory?.at(-1)).toEqual({ at: expect.any(String), rttMs: null })
+  })
+
+  it('a status reply does not overwrite the stage-1 median ping', async () => {
+    const address = '20.0.0.10:27910'
+    const state = baseState({ manualServers: [manualEntry(address)] })
+    const queryServer: QueryServerFn = async (_target, opts) =>
+      opts.kind === 'info'
+        ? {
+            ok: true,
+            kind: 'info',
+            reply: { ok: true, serverinfo: { hostname: 'Arena' }, clients: 1 },
+            rttMs: 25,
+          }
+        : {
+            ok: true,
+            kind: 'status',
+            reply: { ok: true, serverinfo: { hostname: 'Arena' }, players: [] },
+            rttMs: 300,
+          }
+    const service = createScanService({
+      getServersState: () => state,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
+
+    service.start()
+    await waitForIdle(service)
+
+    const row = service.read().entries.find((entry) => entry.address === address)
+    expect(row?.rttMs).toBe(25)
+    expect(row?.rttHistory).toEqual([{ at: expect.any(String), rttMs: 25 }])
+  })
+
+  it('a server only queried in stage 2 takes the status ping', async () => {
+    const listed = '20.0.0.11:27910'
+    const outside = '20.0.0.12:27910'
+    const state = baseState({ manualServers: [manualEntry(listed)] })
+    const queryServer: QueryServerFn = async (_target, opts) =>
+      opts.kind === 'info'
+        ? {
+            ok: true,
+            kind: 'info',
+            reply: { ok: true, serverinfo: { hostname: 'Listed' }, clients: 0 },
+            rttMs: 25,
+          }
+        : {
+            ok: true,
+            kind: 'status',
+            reply: { ok: true, serverinfo: { hostname: 'Outside' }, players: [] },
+            rttMs: 300,
+          }
+    const service = createScanService({
+      getServersState: () => state,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
+
+    service.start({ selectedAddress: outside })
+    await waitForIdle(service)
+
+    const row = service.read().entries.find((entry) => entry.address === outside)
+    expect(row?.rttMs).toBe(300)
+    expect(row?.rttHistory).toEqual([{ at: expect.any(String), rttMs: 300 }])
   })
 
   it('read lists a never-answered favourite or manual server as a pending placeholder, and no master-only address', async () => {

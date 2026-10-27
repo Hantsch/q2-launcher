@@ -684,7 +684,7 @@ describe('addresses scope (story 250)', () => {
       getServersState: () => state,
       emit: recorder().emit,
       launch: fakeLaunch().host,
-      deps: { queryServer: query.fn, fetchImpl },
+      deps: { queryServer: query.fn, pingSamples: 1, fetchImpl },
     })
     const entryOf = (address: string) => service.read().entries.find((e) => e.address === address)
 
@@ -741,7 +741,7 @@ describe('addresses scope (story 250)', () => {
       getServersState: () => state,
       emit: recorder().emit,
       launch: fakeLaunch().host,
-      deps: { queryServer: query.fn },
+      deps: { queryServer: query.fn, pingSamples: 1 },
     })
     expect(service.read().entries.find((e) => e.address === FAV)).toMatchObject({
       status: 'pending',
@@ -804,7 +804,7 @@ describe('addresses scope (story 250)', () => {
       getServersState: onlineState,
       emit: recorder().emit,
       launch: fakeLaunch().host,
-      deps: { queryServer: query.fn, lanDiscovery: lan.fn },
+      deps: { queryServer: query.fn, pingSamples: 1, lanDiscovery: lan.fn },
     })
     service.setMode('lan')
     const entryOf = (address: string) => service.read().entries.find((e) => e.address === address)

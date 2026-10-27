@@ -4,6 +4,7 @@ import { buildInfoQuery } from '@shared/servers/protocol'
 import { SAMPLE_INFO_REPLY } from '@shared/servers/reply-fixtures'
 import {
   queryServer,
+  systemClock,
   type Clock,
   type QueryServerOptions,
   type ServerQueryResult,
@@ -13,61 +14,105 @@ import {
 } from './server-query'
 
 /**
- * Story 114 D2. `queryServer` is a much smaller state machine than `resolveUdpMasterSource` - one
- * datagram is the whole reply, so there is no quiet period - but the same three failure modes
- * still have to be proven against fake timers rather than trusted by inspection: a retry that fires
- * exactly on schedule and stops at `retries + 1` sends, a settle that is reached exactly once even
- * when a stray datagram arrives afterwards, and an abort that closes the socket instead of leaving
- * it (and a timer) dangling.
+ * `queryServer` is a much smaller state machine than `resolveUdpMasterSource` - one datagram is the
+ * whole reply, so there is no quiet period - but its failure modes still have to be proven against
+ * fake timers rather than trusted by inspection: a retry that fires exactly on schedule and stops at
+ * `retries + 1` sends (each on its own socket), a settle that is reached exactly once even when a
+ * stray datagram arrives afterwards or while the first reply is still being processed, and every
+ * settle path closing every socket the query opened instead of leaving one (and a timer) dangling.
  *
- * A `fakeClock` (not vitest's faked `Date`) drives both the retry timers and the RTT measurement in
- * lockstep, so "37 ms passed" is asserted against a number this file controls end to end rather than
- * against however vitest happens to fake `Date.now()`.
+ * A `fakeClock` (not vitest's faked `Date`) drives the retry timers, the RTT measurement and the
+ * deferred reply processing in lockstep, so "37 ms passed" is asserted against a number this file
+ * controls end to end.
  *
- * One test at the bottom drives the real `node:dgram` default against a loopback responder on
+ * Two tests at the bottom drive the real `node:dgram` default against a loopback responder on
  * `127.0.0.1`, mirroring `udp-master-source.test.ts`'s own such block. No test in this file
  * addresses a real game server (GB-A5).
  */
+
+/** One socket the query opened through the seam. */
+interface StubSocket {
+  handlers: ServerUdpHandlers
+  sent: Uint8Array[]
+  closes: number
+}
 
 interface StubSeam {
   impl: ServerUdpImpl
   /** Targets the query asked to open, in order. */
   targets: ServerUdpTarget[]
-  /** Datagrams the query sent, in order - one per send/resend. */
+  /** Every socket the query opened, in order - one per send. */
+  sockets: StubSocket[]
+  /** Datagrams the query sent across all its sockets, in order. */
   sent: Uint8Array[]
   opens: number
+  /** `close()` calls across all sockets. */
   closes: number
-  /** Hands a datagram to the query the way a socket would. */
-  deliver: (bytes: Uint8Array) => void
-  /** Reports a transport failure the way a socket's 'error' event would. */
+  /**
+   * Hands a datagram to the query the way a socket would - on the latest socket unless `socket`
+   * (0-based) names another, with the transport's receive stamp when `receivedAt` is given.
+   */
+  deliver: (bytes: Uint8Array, at?: { socket?: number; receivedAt?: number }) => void
+  /** Reports a transport failure on the latest socket the way its 'error' event would. */
   fail: (error: Error) => void
+  /** Lets a held open (`holdOpenAt`) complete. */
+  release: () => void
 }
 
-function stubSeam(behaviour: { openError?: Error; sendError?: Error } = {}): StubSeam {
-  let handlers: ServerUdpHandlers | null = null
+interface StubBehaviour {
+  openError?: Error
+  /** 1-based open that rejects with `openError`; every open when omitted. */
+  openErrorAt?: number
+  sendError?: Error
+  /** 1-based socket whose send throws `sendError`; every socket when omitted. */
+  sendErrorAt?: number
+  /** 1-based open that does not complete until `release()`. */
+  holdOpenAt?: number
+}
+
+function stubSeam(behaviour: StubBehaviour = {}): StubSeam {
+  let releaseHeld: () => void = () => undefined
+  const held = new Promise<void>((resolve) => {
+    releaseHeld = resolve
+  })
+  const hits = (at: number | undefined, n: number): boolean => at === undefined || at === n
 
   const seam: StubSeam = {
     targets: [],
+    sockets: [],
     sent: [],
     opens: 0,
     closes: 0,
-    impl: async (target, given) => {
+    impl: async (target, handlers) => {
       seam.opens += 1
+      const n = seam.opens
       seam.targets.push(target)
-      handlers = given
-      if (behaviour.openError !== undefined) throw behaviour.openError
+      if (behaviour.holdOpenAt === n) await held
+      if (behaviour.openError !== undefined && hits(behaviour.openErrorAt, n)) {
+        throw behaviour.openError
+      }
+      const socket: StubSocket = { handlers, sent: [], closes: 0 }
+      seam.sockets.push(socket)
       return {
         send: (datagram) => {
-          if (behaviour.sendError !== undefined) throw behaviour.sendError
+          if (behaviour.sendError !== undefined && hits(behaviour.sendErrorAt, n)) {
+            throw behaviour.sendError
+          }
+          socket.sent.push(datagram)
           seam.sent.push(datagram)
         },
         close: () => {
+          socket.closes += 1
           seam.closes += 1
         },
       }
     },
-    deliver: (bytes) => handlers?.onMessage(bytes),
-    fail: (error) => handlers?.onError(error),
+    deliver: (bytes, at = {}) => {
+      const socket = seam.sockets[at.socket ?? seam.sockets.length - 1]
+      socket?.handlers.onMessage(bytes, at.receivedAt)
+    },
+    fail: (error) => seam.sockets.at(-1)?.handlers.onError(error),
+    release: () => releaseHeld(),
   }
 
   return seam
@@ -91,19 +136,25 @@ function track(promise: Promise<ServerQueryResult>): {
 
 /**
  * A `Clock` whose `now()` is a virtual counter this file advances itself, in lockstep with the fake
- * timers, rather than relying on vitest's own `Date` faking - so an RTT assertion checks exactly the
- * number of milliseconds this test told the clock to advance by.
+ * timers. Deferred reply processing is queued, not run: `advance` moves the clock first, then runs
+ * what was deferred, then the timers due - so a test can prove the RTT does not depend on how long
+ * the deferred processing waited.
  */
 function fakeClock(): { clock: Clock; advance: (ms: number) => Promise<void> } {
   let virtualNow = 0
+  const deferred: (() => void)[] = []
   return {
     clock: {
       setTimeout: (callback, ms) => setTimeout(callback, ms),
       clearTimeout: (handle) => clearTimeout(handle),
       now: () => virtualNow,
+      defer: (fn) => {
+        deferred.push(fn)
+      },
     },
     advance: async (ms: number) => {
       virtualNow += ms
+      for (const fn of deferred.splice(0)) fn()
       await vi.advanceTimersByTimeAsync(ms)
     },
   }
@@ -111,6 +162,7 @@ function fakeClock(): { clock: Clock; advance: (ms: number) => Promise<void> } {
 
 const TARGET: ServerUdpTarget = { host: '127.0.0.1', port: 27910 }
 const TIMINGS = { timeoutMs: 500, retries: 2 }
+const MALFORMED_INFO = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x69, 0x6e, 0x66, 0x6f, 0x0a])
 
 describe('queryServer (stub seam, fake timers)', () => {
   beforeEach(() => {
@@ -160,18 +212,85 @@ describe('queryServer (stub seam, fake timers)', () => {
     const { clock, advance } = fakeClock()
     const pending = await start(seam, clock)
 
-    // First send times out with no reply at all - a retry goes out.
+    // First send times out with no reply at all - a retry goes out on a second socket.
     await advance(500)
     expect(seam.sent).toHaveLength(2)
+    expect(seam.sockets).toHaveLength(2)
 
     // The retry gets an answer 42 ms later: RTT must be measured from *this* send, not the first.
     await advance(42)
-    seam.deliver(SAMPLE_INFO_REPLY)
+    seam.deliver(SAMPLE_INFO_REPLY, { socket: 1 })
     await advance(0)
 
     expect(pending.result?.ok).toBe(true)
     if (pending.result?.ok === true) {
       expect(pending.result.rttMs).toBe(42)
+    }
+  })
+
+  it('a late reply to the first send is timed against the first send, not the retry', async () => {
+    const seam = stubSeam()
+    const { clock, advance } = fakeClock()
+    const pending = await start(seam, clock)
+
+    await advance(500)
+    expect(seam.sockets).toHaveLength(2)
+    expect(seam.sockets[1]?.sent).toHaveLength(1)
+
+    // The first send's answer only lands 30 ms after the retry went out - on the first socket.
+    await advance(30)
+    seam.deliver(SAMPLE_INFO_REPLY, { socket: 0 })
+    await advance(0)
+
+    expect(pending.result?.ok).toBe(true)
+    if (pending.result?.ok === true) {
+      expect(pending.result.rttMs).toBe(530)
+    }
+  })
+
+  it('the receive stamp is taken at arrival, not when the reply is processed', async () => {
+    const seam = stubSeam()
+    const { clock, advance } = fakeClock()
+    const pending = await start(seam, clock)
+
+    await advance(37)
+    seam.deliver(SAMPLE_INFO_REPLY, { receivedAt: 37 })
+    expect(pending.settled).toBe(false)
+
+    // The deferred processing only runs after the clock moved on by 300 ms.
+    await advance(300)
+
+    expect(pending.result?.ok).toBe(true)
+    if (pending.result?.ok === true) {
+      expect(pending.result.rttMs).toBe(37)
+    }
+    expect(seam.sent).toHaveLength(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('every socket of a query is closed when it settles', async () => {
+    const settleBy: ((seam: StubSeam, controller: AbortController) => void)[] = [
+      (seam) => seam.deliver(SAMPLE_INFO_REPLY, { socket: 0 }),
+      (seam) => seam.deliver(MALFORMED_INFO, { socket: 1 }),
+      (_seam, controller) => controller.abort(),
+      (seam) => seam.fail(new Error('ECONNREFUSED')),
+    ]
+
+    for (const trigger of settleBy) {
+      const seam = stubSeam()
+      const { clock, advance } = fakeClock()
+      const controller = new AbortController()
+      const pending = await start(seam, clock, { signal: controller.signal })
+      await advance(500)
+      await advance(500)
+      expect(seam.sockets).toHaveLength(3)
+
+      trigger(seam, controller)
+      await advance(0)
+
+      expect(pending.settled).toBe(true)
+      expect(seam.sockets.map((socket) => socket.closes)).toEqual([1, 1, 1])
+      expect(vi.getTimerCount()).toBe(0)
     }
   })
 
@@ -194,9 +313,10 @@ describe('queryServer (stub seam, fake timers)', () => {
     await advance(500)
     expect(pending.settled).toBe(true)
     expect(pending.result).toEqual({ ok: false, reason: 'no-reply' })
-    // retries: 2 -> exactly 3 sends total, never a fourth.
+    // retries: 2 -> exactly 3 sends total, one per socket, never a fourth.
     expect(seam.sent).toHaveLength(3)
-    expect(seam.closes).toBe(1)
+    expect(seam.sockets.map((socket) => socket.sent.length)).toEqual([1, 1, 1])
+    expect(seam.sockets.map((socket) => socket.closes)).toEqual([1, 1, 1])
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -211,10 +331,48 @@ describe('queryServer (stub seam, fake timers)', () => {
     const resolved = pending.result
 
     // The socket close and a datagram already in flight race by construction.
-    seam.deliver(new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x69, 0x6e, 0x66, 0x6f, 0x0a]))
+    seam.deliver(MALFORMED_INFO)
     await advance(1000)
 
     expect(pending.result).toBe(resolved)
+    expect(seam.closes).toBe(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('a second reply arriving before the first is processed is ignored', async () => {
+    const seam = stubSeam()
+    const { clock, advance } = fakeClock()
+    const pending = await start(seam, clock)
+
+    await advance(500)
+    await advance(20)
+    // Both sockets answer in the same turn; the first arrival decides, the malformed one is dropped.
+    seam.deliver(SAMPLE_INFO_REPLY, { socket: 0 })
+    seam.deliver(MALFORMED_INFO, { socket: 1 })
+    await advance(0)
+
+    expect(pending.result?.ok).toBe(true)
+    if (pending.result?.ok === true) {
+      expect(pending.result.rttMs).toBe(520)
+    }
+    expect(seam.sockets.map((socket) => socket.closes)).toEqual([1, 1])
+    // A reply in hand stops the retry schedule even before it is processed.
+    expect(seam.sent).toHaveLength(2)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('an abort before a received reply is processed still settles no-reply', async () => {
+    const seam = stubSeam()
+    const { clock, advance } = fakeClock()
+    const controller = new AbortController()
+    const pending = await start(seam, clock, { signal: controller.signal })
+
+    await advance(10)
+    seam.deliver(SAMPLE_INFO_REPLY)
+    controller.abort()
+    await advance(0)
+
+    expect(pending.result).toEqual({ ok: false, reason: 'no-reply' })
     expect(seam.closes).toBe(1)
     expect(vi.getTimerCount()).toBe(0)
   })
@@ -239,6 +397,28 @@ describe('queryServer (stub seam, fake timers)', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('a retry socket that finishes opening after an abort is closed without sending', async () => {
+    const seam = stubSeam({ holdOpenAt: 2 })
+    const { clock, advance } = fakeClock()
+    const controller = new AbortController()
+    const pending = await start(seam, clock, { signal: controller.signal })
+
+    await advance(500)
+    expect(seam.opens).toBe(2)
+
+    controller.abort()
+    await advance(0)
+    expect(pending.result).toEqual({ ok: false, reason: 'no-reply' })
+
+    seam.release()
+    await advance(0)
+
+    expect(seam.sockets).toHaveLength(2)
+    expect(seam.sockets[1]?.sent).toHaveLength(0)
+    expect(seam.sockets.map((socket) => socket.closes)).toEqual([1, 1])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('a signal already aborted opens no socket at all', async () => {
     const seam = stubSeam()
     const { clock } = fakeClock()
@@ -255,7 +435,7 @@ describe('queryServer (stub seam, fake timers)', () => {
     const pending = await start(seam, clock)
 
     // Well-formed envelope, empty body: `parseInfoReply` rejects this as malformed-infostring.
-    seam.deliver(new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x69, 0x6e, 0x66, 0x6f, 0x0a]))
+    seam.deliver(MALFORMED_INFO)
     await advance(0)
 
     expect(pending.result).toEqual({ ok: false, reason: 'malformed' })
@@ -283,6 +463,31 @@ describe('queryServer (stub seam, fake timers)', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('a retry whose socket fails to open yields transport-error and closes the first socket', async () => {
+    const seam = stubSeam({ openError: new Error('EMFILE'), openErrorAt: 2 })
+    const { clock, advance } = fakeClock()
+    const pending = await start(seam, clock)
+
+    await advance(500)
+
+    expect(pending.result).toEqual({ ok: false, reason: 'transport-error' })
+    expect(seam.opens).toBe(2)
+    expect(seam.sockets.map((socket) => socket.closes)).toEqual([1])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('a retry whose send throws yields transport-error and closes both sockets', async () => {
+    const seam = stubSeam({ sendError: new Error('ENETUNREACH'), sendErrorAt: 2 })
+    const { clock, advance } = fakeClock()
+    const pending = await start(seam, clock)
+
+    await advance(500)
+
+    expect(pending.result).toEqual({ ok: false, reason: 'transport-error' })
+    expect(seam.sockets.map((socket) => socket.closes)).toEqual([1, 1])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('the UDP transport is driven entirely through its injectable seam', async () => {
     const seam = stubSeam()
     const { clock, advance } = fakeClock()
@@ -295,6 +500,24 @@ describe('queryServer (stub seam, fake timers)', () => {
     expect(seam.targets).toEqual([TARGET])
     expect(seam.sent).toHaveLength(1)
     expect(pending.result).toEqual({ ok: false, reason: 'malformed' })
+  })
+})
+
+describe('systemClock', () => {
+  it('systemClock is monotonic and sub-millisecond', () => {
+    const spy = vi.spyOn(performance, 'now').mockReturnValue(1234.567)
+    try {
+      expect(systemClock.now()).toBe(1234.567)
+    } finally {
+      spy.mockRestore()
+    }
+
+    let previous = systemClock.now()
+    for (let i = 0; i < 1000; i += 1) {
+      const next = systemClock.now()
+      expect(next).toBeGreaterThanOrEqual(previous)
+      previous = next
+    }
   })
 })
 
@@ -333,5 +556,23 @@ describe('queryServer (real node:dgram default, loopback responder)', () => {
       expect(result.reply.hostname).toBe('Test Server')
       expect(result.rttMs).toBeGreaterThanOrEqual(0)
     }
+  })
+
+  it("the real socket stamps a reply's arrival with the query's own clock", async () => {
+    // Every reading is 10 ms after the last: the send stamp is the first, the arrival the second.
+    let ticks = 0
+    const countingClock: Clock = {
+      setTimeout: (callback, ms) => setTimeout(callback, ms),
+      clearTimeout: (handle) => clearTimeout(handle),
+      now: () => (ticks += 10),
+    }
+
+    const result = await queryServer(
+      { host: '127.0.0.1', port },
+      { kind: 'info', timeoutMs: 2000, retries: 0, clock: countingClock },
+    )
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.rttMs).toBe(10)
   })
 })

@@ -1,7 +1,7 @@
 ---
 id: 258
 title: Server pings match what I get in game
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -20,16 +20,16 @@ aggregates samples; the filter compares the single latest `rttMs`.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A scan takes 3 ping samples per reachable server.
-- [ ] **AC2** — When the 3 samples are far apart (threshold in Decisions), 3 more are taken.
-- [ ] **AC3** — The ping shown, sorted on and filtered on is the median of the samples of the latest scan.
-- [ ] **AC4** — Each sample is timed against its own send (a late reply to an earlier send is not measured
+- [x] **AC1** — A scan takes 3 ping samples per reachable server.
+- [x] **AC2** — When the 3 samples are far apart (threshold in Decisions), 3 more are taken.
+- [x] **AC3** — The ping shown, sorted on and filtered on is the median of the samples of the latest scan.
+- [x] **AC4** — Each sample is timed against its own send (a late reply to an earlier send is not measured
       against a retry).
-- [ ] **AC5** — Sample timing uses a monotonic high-resolution clock and is not inflated by the processing of
+- [x] **AC5** — Sample timing uses a monotonic high-resolution clock and is not inflated by the processing of
       other servers' replies (proved with a fake socket that delays processing, not the send/receive).
-- [ ] **AC6** — Against a local test server with a fixed delay, the shown ping stays within ±5 ms of that
+- [x] **AC6** — Against a local test server with a fixed delay, the shown ping stays within ±5 ms of that
       delay over 10 consecutive scans.
-- [ ] **AC7** — A full scan with the extra samples takes no more than 1.5× the time of today's scan over the
+- [x] **AC7** — A full scan with the extra samples takes no more than 1.5× the time of today's scan over the
       same fixture servers.
 
 ## Open Questions
@@ -68,6 +68,18 @@ aggregates samples; the filter compares the single latest `rttMs`.
   Windows can drift by the 15.6 ms timer tick and would make a ±5 ms assertion flaky.
 - AC6 runs under load (30-responder population plus an `onServer` that busy-waits), so a receive stamp taken
   after processing instead of at arrival fails a test rather than needing a hard review to spot.
+  **Not reached (build):** measured, that regression still passes AC6 (the 2 ms/row load is short and the median
+  of 3 hides one late stamp). A discriminating variant (`pingSamples: 1`, 8 same-delay workers, busy `onServer`)
+  was tried and dropped: even correct code reads replies of one burst up to 20 ms late when the loop polls them
+  in a later turn, so it was flaky. AC5's fake-socket unit test is the proof for the arrival stamp; AC6 proves
+  end-to-end accuracy only.
+- (Build) `ScanServiceDeps.pingSamples` passes through to `runScan` so existing call-counting service tests can
+  pin `pingSamples: 1`; production never sets it.
+- (Build) LAN rounds run the same `runScan` stages after discovery, so a LAN stage-2 `status` reply also keeps the
+  stage-1 median (review finding); the broadcast discovery reply itself is unchanged.
+- (Build) AC6 reads 41-43 ms against 40 in isolation; under a parallel full-suite run it failed once (48 ms) in
+  review from CPU contention with the busy-spin worker. Tolerance is not widened; a red here in the sprint gate
+  is contention, re-run the file alone.
 
 ## Plan
 
@@ -183,3 +195,27 @@ read (`server-format.ts`, `list-sort.ts`, `list-filter.ts` need no change). No I
   1.5x of a single-sample scan" (D5)
 
 ## Done
+
+Servers now take 3 `info` ping samples per reachable server (3 more when max − min > max(20 ms, 25 % of the median))
+and show the rounded median. Each send has its own socket and send stamp, the receive time is stamped on a
+monotonic `performance.now()` first thing in the socket listener with processing deferred, and stage 2 (online and
+LAN) no longer overwrites the stage-1 median. Real-socket tests prove fixed-delay accuracy and the time budget.
+
+Commit: `258: server pings are the median of 3–6 samples — per-send sockets, monotonic arrival stamp, stage 2 keeps the median`
+
+Verification (narrow gate; no e2e criteria, so no `e2e-story`): `npm run build:dev`, `npm run lint`,
+`npm run typecheck` green; `npx vitest run --changed HEAD` green (17 files, 199 tests) plus the whole
+`src/main/modules/servers` folder (29 files, 350 tests). Run twice: after D5 and after the review fix.
+- AC1 `scan-runner.test.ts` "a reachable server gets 3 info samples" — passed
+- AC2 "far-apart samples get 3 more", "close samples get no extra" + `ping-samples.test.ts` — passed
+- AC3 "the emitted ping is the median of the samples" + `scan-service.test.ts` "a status reply does not overwrite the
+  stage-1 median ping" (+ LAN twin in `scan-service.lan-mode.test.ts`) — passed
+- AC4 `server-query.test.ts` "a late reply to the first send is timed against the first send, not the retry" — passed
+- AC5 `server-query.test.ts` "the receive stamp is taken at arrival, not when the reply is processed",
+  "systemClock is monotonic and sub-millisecond" — passed (AC6 does not discriminate this regression, see Decisions)
+- AC6 / AC7 `scan-ping-accuracy.test.ts` — passed (41–43 ms vs 40; full-pass ratio ≈ 1.0); AC6 failed once under a
+  parallel run (CPU contention), see Decisions. No manual residue.
+Review: clean agent, 1 cycle, PASS with findings; the LAN stage-2 overwrite was fixed and re-verified. Not fixed:
+`scan-integration.test.ts` empty-responder bound `retries + 6` is looser than strictly needed (upper bound, kept).
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 11

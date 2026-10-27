@@ -25,6 +25,7 @@ import { serversState } from './persisted'
 import { MainModuleRegistry } from '../registry'
 import { serversModule } from './index'
 import type { ScanServerResult } from './scan-runner'
+import { PING_SAMPLES_EXTRA, PING_SAMPLES_FIRST } from './ping-samples'
 
 /**
  * Story 114 D8: the real-socket integration proof. D1-D7 (address-set merge, `queryServer`,
@@ -252,8 +253,10 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       // --- AC2: an empty server is not asked a second time -----------------------------------
       expect(emptyReceivedKinds).toContain('info')
       expect(emptyReceivedKinds).not.toContain('status')
-      // At most `retries + 1` info sends for the empty responder's own stage-1 query.
-      expect(emptyReceivedKinds.length).toBeLessThanOrEqual(SCAN_SETTINGS.retries + 1)
+      // The first query may retry; the ping samples that follow do not.
+      expect(emptyReceivedKinds.length).toBeLessThanOrEqual(
+        SCAN_SETTINGS.retries + PING_SAMPLES_FIRST + PING_SAMPLES_EXTRA,
+      )
 
       // The dead target got queried (proving it's part of the swept set) but never held up the
       // rest of the sweep or crashed it - the scan still finished (`waitForScanToFinish` above).
@@ -261,13 +264,15 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
 
       // --- AC6: the union is deduped -----------------------------------------------------------
       // The populated address was listed as both a favourite and a manual server; it must appear
-      // exactly once in the final entries, and its responder must only ever have seen exactly one
-      // `info` query (not two, one per origin).
+      // exactly once in the final entries, and its responder must only ever have seen one
+      // sampling round of `info` queries (not two, one per origin); loopback samples are never far apart.
       const populatedEntries = snapshot.entries.filter(
         (entry) => entry.address === populatedAddress,
       )
       expect(populatedEntries).toHaveLength(1)
-      expect(populatedReceivedKinds.filter((kind) => kind === 'info')).toHaveLength(1)
+      expect(populatedReceivedKinds.filter((kind) => kind === 'info')).toHaveLength(
+        PING_SAMPLES_FIRST,
+      )
 
       // --- AC4: the favourite is queried although every source is disabled --------------------
       const populatedEntry = populatedEntries[0]!

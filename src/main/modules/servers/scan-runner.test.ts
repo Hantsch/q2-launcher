@@ -159,6 +159,7 @@ describe('runScan', () => {
     const done = runScan({
       targets: targets(1, 2, 3, 4),
       settings: SETTINGS,
+      pingSamples: 1,
       deps: { queryServer: fake.fn },
       onServer: (row) => seen.rows.push(row),
       onProgress: (p) => seen.progress.push(p),
@@ -219,6 +220,7 @@ describe('runScan', () => {
       targets: [...targets(1, 2, 3, 4, 5), { address: addr(1), origins: ['favourite'] }],
       settings: { ...SETTINGS, concurrency: 2 },
       selectedAddress: addr(2),
+      pingSamples: 1,
       deps: { queryServer: fake.fn },
       onServer: (row) => seen.rows.push(row),
       onProgress: (p) => seen.progress.push(p),
@@ -262,6 +264,7 @@ describe('runScan', () => {
     await runScan({
       targets: targets(1, 2),
       settings: SETTINGS,
+      pingSamples: 1,
       deps: { queryServer: plain.fn },
       onServer: () => {},
     })
@@ -273,6 +276,7 @@ describe('runScan', () => {
       targets: targets(1, 2),
       settings: SETTINGS,
       selectedAddress: '10.0.0.9:27910',
+      pingSamples: 1,
       deps: { queryServer: outside.fn },
       onServer: (row) => rows.push(row),
     })
@@ -304,6 +308,7 @@ describe('runScan', () => {
     const result = await runScan({
       targets: targets(1, 2, 3, 4),
       settings: { ...SETTINGS, concurrency: 1 },
+      pingSamples: 1,
       deps: { queryServer: fake.fn },
       onServer: (row) => rows.push(row),
     })
@@ -330,6 +335,7 @@ describe('runScan', () => {
       settings: { ...SETTINGS, concurrency: 2 },
       selectedAddress: addr(1),
       signal: controller.signal,
+      pingSamples: 1,
       deps: { queryServer: fake.fn },
       onServer: (row) => rows.push(row),
     })
@@ -361,6 +367,7 @@ describe('runScan', () => {
       targets: targets(1, 2, 3, 4),
       settings: { ...SETTINGS, concurrency: 2 },
       signal: controller.signal,
+      pingSamples: 1,
       deps: { queryServer: fake.fn },
       onServer: (row) => rows.push(row),
     })
@@ -388,6 +395,7 @@ describe('runScan', () => {
       targets: targets(1),
       settings: SETTINGS,
       signal: AbortSignal.abort(),
+      pingSamples: 1,
       deps: { queryServer: idle.fn },
       onServer,
     })
@@ -400,6 +408,7 @@ describe('runScan', () => {
     const done = runScan({
       targets: targets(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
       settings: { ...SETTINGS, concurrency: 3 },
+      pingSamples: 1,
       deps: { queryServer: fake.fn },
       onServer: () => {},
     })
@@ -428,6 +437,7 @@ describe('runScan', () => {
     const done = runScan({
       targets: targets(1, 2, 3),
       settings: { ...SETTINGS, concurrency: 2 },
+      pingSamples: 1,
       deps: { queryServer: fake.fn },
       onServer: () => {
         throw failure
@@ -439,5 +449,107 @@ describe('runScan', () => {
     await expect(done).rejects.toBe(failure)
     expect(fake.calls.map((c) => c.address)).toEqual([addr(1), addr(2)])
     expect(fake.calls[1]?.signal?.aborted).toBe(true)
+  })
+
+  describe('ping sampling', () => {
+    function infoRtt(rttMs: number): ServerQueryResult {
+      return { ...info(0), rttMs } as ServerQueryResult
+    }
+
+    /** Answers the n-th `info` query of each address with `rtts[n]` (the last value repeats). */
+    function sampled(rtts: number[], failFrom?: number): FakeQuery {
+      const seen = new Map<string, number>()
+      return fakeQuery({
+        auto: (address) => {
+          const n = seen.get(address) ?? 0
+          seen.set(address, n + 1)
+          if (failFrom !== undefined && n >= failFrom) return NO_REPLY
+          return infoRtt(rtts[Math.min(n, rtts.length - 1)] as number)
+        },
+      })
+    }
+
+    async function scanOne(fake: FakeQuery): Promise<ScanServerResult[]> {
+      const seen = recorder()
+      await runScan({
+        targets: targets(1),
+        settings: SETTINGS,
+        deps: { queryServer: fake.fn },
+        onServer: (row) => seen.rows.push(row),
+      })
+      return seen.rows
+    }
+
+    it('a reachable server gets 3 info samples', async () => {
+      const fake = sampled([20, 21, 22])
+      const rows = await scanOne(fake)
+      expect(fake.calls.map((c) => c.kind)).toEqual(['info', 'info', 'info'])
+      expect(rows).toHaveLength(1)
+    })
+
+    it('far-apart samples get 3 more', async () => {
+      const fake = sampled([20, 70, 400, 25, 30, 35])
+      const rows = await scanOne(fake)
+      expect(fake.calls).toHaveLength(6)
+      // sorted: 20 25 30 35 70 400 -> (30 + 35) / 2 = 32.5 -> 33
+      expect(rows[0]?.result).toMatchObject({ ok: true, rttMs: 33 })
+    })
+
+    it('close samples get no extra', async () => {
+      const fake = sampled([20, 24, 31])
+      await scanOne(fake)
+      expect(fake.calls).toHaveLength(3)
+    })
+
+    it('the emitted ping is the median of the samples', async () => {
+      const fake = sampled([30, 90, 31])
+      const rows = await scanOne(fake)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]?.result).toMatchObject({ ok: true, rttMs: 31 })
+    })
+
+    it('samples are taken one at a time', async () => {
+      const fake = sampled([20, 21, 22])
+      await scanOne(fake)
+      expect(fake.maxInFlight).toBe(1)
+    })
+
+    it('a failed extra sample is dropped and the row stays a success', async () => {
+      const fake = sampled([20, 40], 1)
+      const rows = await scanOne(fake)
+      expect(fake.calls).toHaveLength(3)
+      expect(rows[0]?.result).toMatchObject({ ok: true, rttMs: 20 })
+    })
+
+    it('an unreachable server is not sampled further', async () => {
+      const fake = fakeQuery({ auto: () => NO_REPLY })
+      const rows = await scanOne(fake)
+      expect(fake.calls).toHaveLength(1)
+      expect(rows[0]?.result).toEqual(NO_REPLY)
+    })
+
+    it('abort stops sampling', async () => {
+      const fake = fakeQuery({ honourAbort: true })
+      const controller = new AbortController()
+      const seen = recorder()
+      const done = runScan({
+        targets: targets(1),
+        settings: SETTINGS,
+        signal: controller.signal,
+        deps: { queryServer: fake.fn },
+        onServer: (row) => seen.rows.push(row),
+      })
+      await flush()
+      fake.resolve(addr(1), 'info', infoRtt(20))
+      await flush()
+      expect(fake.calls).toHaveLength(2)
+
+      controller.abort()
+      const result = await done
+      await flush()
+      expect(fake.calls).toHaveLength(2)
+      expect(seen.rows).toEqual([])
+      expect(result.aborted).toBe(true)
+    })
   })
 })
