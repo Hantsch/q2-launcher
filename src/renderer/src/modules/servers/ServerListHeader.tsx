@@ -42,7 +42,7 @@ export function ServerListHeader({ sort, onSort }: ServerListHeaderProps) {
             data-testid={`servers-sort-${column}`}
             className={cn(
               'stencil flex h-9 items-center gap-1 transition-colors duration-[--dur-fast] hover:text-ink',
-              index === 0 ? 'justify-start' : 'justify-end',
+              index === 0 || column === 'location' ? 'justify-start' : 'justify-end',
               isActive && 'text-flame-300',
             )}
           >

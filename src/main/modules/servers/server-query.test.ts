@@ -52,7 +52,10 @@ interface StubSeam {
    * Hands a datagram to the query the way a socket would - on the latest socket unless `socket`
    * (0-based) names another, with the transport's receive stamp when `receivedAt` is given.
    */
-  deliver: (bytes: Uint8Array, at?: { socket?: number; receivedAt?: number }) => void
+  deliver: (
+    bytes: Uint8Array,
+    at?: { socket?: number; receivedAt?: number; from?: string },
+  ) => void
   /** Reports a transport failure on the latest socket the way its 'error' event would. */
   fail: (error: Error) => void
   /** Lets a held open (`holdOpenAt`) complete. */
@@ -109,7 +112,7 @@ function stubSeam(behaviour: StubBehaviour = {}): StubSeam {
     },
     deliver: (bytes, at = {}) => {
       const socket = seam.sockets[at.socket ?? seam.sockets.length - 1]
-      socket?.handlers.onMessage(bytes, at.receivedAt)
+      socket?.handlers.onMessage(bytes, at.from ?? '127.0.0.1', at.receivedAt)
     },
     fail: (error) => seam.sockets.at(-1)?.handlers.onError(error),
     release: () => releaseHeld(),
@@ -201,6 +204,7 @@ describe('queryServer (stub seam, fake timers)', () => {
     if (result?.ok === true && result.kind === 'info') {
       expect(result.reply.hostname).toBe('Test Server')
       expect(result.rttMs).toBe(37)
+      expect(result.fromAddress).toBe('127.0.0.1')
     }
     expect(seam.sent).toHaveLength(1)
     expect(seam.closes).toBe(1)
@@ -555,6 +559,7 @@ describe('queryServer (real node:dgram default, loopback responder)', () => {
     if (result.ok && result.kind === 'info') {
       expect(result.reply.hostname).toBe('Test Server')
       expect(result.rttMs).toBeGreaterThanOrEqual(0)
+      expect(result.fromAddress).toBe('127.0.0.1')
     }
   })
 

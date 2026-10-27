@@ -29,6 +29,7 @@ export function criteriaOf(f: ServerListFilter): QuickFilterCriteria {
     empty: f.empty,
     hideBotsOnly: f.hideBotsOnly,
     waitingForOpponent: f.waitingForOpponent,
+    location: [...f.location],
   }
 }
 
@@ -41,7 +42,8 @@ export function hasCriteria(c: QuickFilterCriteria): boolean {
     c.maxPingMs !== null ||
     c.empty ||
     c.hideBotsOnly ||
-    c.waitingForOpponent
+    c.waitingForOpponent ||
+    c.location.length > 0
   )
 }
 
@@ -51,7 +53,7 @@ function sameSet(a: readonly string[], b: readonly string[]): boolean {
   return x.size === y.size && [...x].every((s) => y.has(s))
 }
 
-/** Field-wise equality; mod and map compare as case-insensitive sets, like the filter's own matching. */
+/** Field-wise equality; mod and map compare as case-insensitive sets, like the filter's own matching; location as a set. */
 export function sameCriteria(a: QuickFilterCriteria, b: QuickFilterCriteria): boolean {
   return (
     sameSet(a.mod, b.mod) &&
@@ -60,13 +62,14 @@ export function sameCriteria(a: QuickFilterCriteria, b: QuickFilterCriteria): bo
     a.maxPingMs === b.maxPingMs &&
     a.empty === b.empty &&
     a.hideBotsOnly === b.hideBotsOnly &&
-    a.waitingForOpponent === b.waitingForOpponent
+    a.waitingForOpponent === b.waitingForOpponent &&
+    sameSet(a.location, b.location)
   )
 }
 
 /** `c` replaces every criterion of `f`; the search is kept. */
 export function applyCriteria(f: ServerListFilter, c: QuickFilterCriteria): ServerListFilter {
-  return { ...c, mod: [...c.mod], map: [...c.map], search: f.search }
+  return { ...c, mod: [...c.mod], map: [...c.map], location: [...c.location], search: f.search }
 }
 
 /** Clears every criterion of `f`; the search is kept. */

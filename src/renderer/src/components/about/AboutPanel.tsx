@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, FolderOpen } from 'lucide-react'
-import { APP_CHANGELOG_URL, APP_REPO_URL } from '@shared/constants'
+import {
+  APP_CHANGELOG_URL,
+  APP_REPO_URL,
+  GEOIP_LICENCE_URL,
+  GEOIP_PROVIDER_URL,
+} from '@shared/constants'
 import { ok } from '@shared/types'
 import { invoke } from '../../lib/bridge'
 import { useModuleQuery } from '../../lib/useModuleQuery'
@@ -63,6 +68,32 @@ export function AboutPanel() {
         >
           {t('settings.changelog')}
         </Button>
+      </div>
+
+      <Divider className="my-1" />
+
+      <div className="space-y-1.5" data-testid="about-geoip-attribution">
+        <SectionLabel>{t('settings.about.thirdPartyData')}</SectionLabel>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="link"
+            size="sm"
+            icon={<ExternalLink className="size-3.5" />}
+            data-testid="about-link-geoip-provider"
+            onClick={() => void invoke('app:openExternal', GEOIP_PROVIDER_URL)}
+          >
+            {t('settings.about.geoipProvider')}
+          </Button>
+          <Button
+            variant="link"
+            size="sm"
+            icon={<ExternalLink className="size-3.5" />}
+            data-testid="about-link-geoip-licence"
+            onClick={() => void invoke('app:openExternal', GEOIP_LICENCE_URL)}
+          >
+            {t('settings.about.geoipLicence')}
+          </Button>
+        </div>
       </div>
 
       <Divider className="my-1" />

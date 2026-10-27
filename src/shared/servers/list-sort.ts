@@ -7,17 +7,19 @@
  */
 import { knownPlayerCount } from './row-markers'
 import type { ServerGamemode } from './row-markers'
+import { countryName } from './location'
 import { compareFavouriteFirst, compareStrings, createColumnSorter } from '../list/sort'
 import type { ListSort, SortDirection } from '../list/sort'
 import type { ServerListRow } from '../modules/servers'
 
-export type ServerSortColumn = 'name' | 'mod' | 'players' | 'map' | 'ping'
+export type ServerSortColumn = 'name' | 'location' | 'mod' | 'players' | 'map' | 'ping'
 export type ServerSortDirection = SortDirection
 export type ServerListSort = ListSort<ServerSortColumn>
 
 /** The columns the servers list can be sorted by, in the order they appear in the header. */
 export const SERVER_SORT_COLUMNS: readonly ServerSortColumn[] = [
   'name',
+  'location',
   'mod',
   'players',
   'map',
@@ -28,6 +30,7 @@ export const SERVER_SORT_COLUMNS: readonly ServerSortColumn[] = [
  * clicked, and reverses from on the second click. */
 export const NATURAL_DIRECTION: Record<ServerSortColumn, ServerSortDirection> = {
   name: 'asc',
+  location: 'asc',
   mod: 'asc',
   players: 'desc',
   map: 'asc',
@@ -82,6 +85,19 @@ const SORTER = createColumnSorter<ServerListRow, ServerSortColumn>({
     name: {
       isUnknown: () => false,
       compareKnownAscending: (a, b) => compareStrings(displayName(a), displayName(b)),
+    },
+    location: {
+      isUnknown: (row) => row.location?.kind !== 'country',
+      compareKnownAscending: (a, b) => {
+        if (a.location?.kind !== 'country' || b.location?.kind !== 'country') return 0
+        return (
+          compareStrings(a.location.continent, b.location.continent) ||
+          compareStrings(
+            countryName(a.location.country, 'en'),
+            countryName(b.location.country, 'en'),
+          )
+        )
+      },
     },
     mod: {
       isUnknown: (row) => row.mod === undefined,

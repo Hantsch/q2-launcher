@@ -156,6 +156,7 @@
     "area": "archives",
     "paths": [
       "src/main/lib/archive/**",
+      "src/main/lib/resource-path.ts",
       "src/main/lib/zip-entries.ts",
       "src/main/lib/pak-directory.ts",
       "src/main/lib/content-repo.ts"
@@ -1029,12 +1030,15 @@
       "src/main/modules/servers/watchlist-*.ts",
       "src/main/modules/servers/quick-filter-entries.ts",
       "src/renderer/src/modules/servers/useQuickFilters.ts",
+      "src/renderer/src/modules/servers/location-label.ts",
+      "src/main/lib/geoip/**",
       "src/renderer/src/modules/servers/lib/**",
       "src/renderer/src/modules/servers/watchlist/**"
     ],
     "flows": [
       "servers-watchlist",
       "servers-quick-filters",
+      "servers-location-filter",
       "servers-address-book",
       "servers-row-markers",
       "servers-module-shell",

@@ -69,6 +69,24 @@ describe('AboutPanel', () => {
     expect(screen.queryByTestId('about-release-notes')).toBeNull()
   })
 
+  it('About shows the DB-IP attribution and licence link', async () => {
+    invoke.mockResolvedValueOnce(null)
+    render(createElement(AboutPanel))
+
+    const attribution = await screen.findByTestId('about-geoip-attribution')
+    expect(attribution.textContent).toContain('Third-party data')
+    invoke.mockClear()
+
+    fireEvent.click(screen.getByText('IP geolocation by DB-IP'))
+    expect(invoke).toHaveBeenLastCalledWith('app:openExternal', 'https://db-ip.com')
+
+    fireEvent.click(screen.getByText('CC BY 4.0'))
+    expect(invoke).toHaveBeenLastCalledWith(
+      'app:openExternal',
+      'https://creativecommons.org/licenses/by/4.0/',
+    )
+  })
+
   it('the repository link invokes app:openExternal with APP_REPO_URL', async () => {
     invoke.mockResolvedValueOnce(null)
     render(createElement(AboutPanel))

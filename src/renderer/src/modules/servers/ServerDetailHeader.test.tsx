@@ -96,6 +96,14 @@ describe('ServerDetailHeader (story 122 D3)', () => {
     expect(screen.getByTestId('servers-detail-field-protocol').textContent).toBe('35')
   })
 
+  it('the detail pane shows country and region in full', () => {
+    const detail = favouriteDetail(false)
+    detail.row.location = { kind: 'country', country: 'DE', continent: 'EU' }
+    renderHeader(detail)
+
+    expect(screen.getByTestId('servers-detail-field-location').textContent).toBe('Germany, Europe')
+  })
+
   it('renders the Join button (story 125 D5)', () => {
     const detail: ServerDetail = {
       row: {

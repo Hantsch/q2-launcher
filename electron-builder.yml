@@ -40,6 +40,10 @@ extraResources:
     to: licenses/r1q2
     filter:
       - 'GPL-3.0.txt'
+  # DB-IP country database (refreshed by scripts/update-geoip.mjs), platform-neutral; resolved at
+  # runtime through resolveResourcePath() in src/main/lib/resource-path.ts.
+  - from: resources/geoip
+    to: geoip
 
 asar: true
 electronLanguages:

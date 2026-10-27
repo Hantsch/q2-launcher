@@ -9,6 +9,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { Badge } from '../../components/ui/primitives'
 import { IconButton } from '../../components/ui/Button'
 import { SERVER_LIST_GRID } from './list-grid'
+import { fullLocation, shortLocation } from './location-label'
 import { displayName, formatOccupancy, formatPing, orDash } from './server-format'
 
 export interface ServerRowProps {
@@ -53,7 +54,7 @@ export function OccupancyPips({ row }: { row: ServerListRow }) {
 }
 
 /**
- * Story 118: one row of the real servers list - name/address, mod, map, players and ping on the
+ * Story 118: one row of the real servers list - name/address, location, mod, map, players and ping on the
  * shared `SERVER_LIST_GRID` template (so every cell lines up under `ServerListHeader`'s labels),
  * plus a set of status markers (password/gamemode/favourite/stale/waiting/pending) rendered on the
  * name cell's second line, each a visible `Badge` with an icon and i18n text (status is never
@@ -68,7 +69,7 @@ export function ServerRow({
   onNavigate,
   onActivate,
 }: ServerRowProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
 
   const name = displayName(row)
@@ -184,6 +185,13 @@ export function ServerRow({
 
         {/* The copy-address column's slot - the button itself is the outer div's child below. */}
         <span aria-hidden="true" />
+        <span
+          className="truncate"
+          title={fullLocation(row.location, t, i18n.language)}
+          data-testid="servers-row-location"
+        >
+          {shortLocation(row.location, t, i18n.language)}
+        </span>
         <span className="truncate text-right">{orDash(row.mod)}</span>
         <span className="flex flex-col items-end gap-1">
           <span className="numeric text-ink">{formatOccupancy(row)}</span>

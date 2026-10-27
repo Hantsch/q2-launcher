@@ -105,7 +105,27 @@ describe('parseServersState (story 110 D2)', () => {
     }
     const parsed = parseServersState({ quickFilters: [{ id: 'a', name: 'Old', criteria }] })
     expect(parsed.quickFilters).toEqual([
-      { id: 'a', name: 'Old', criteria: { ...criteria, mod: ['ctf'], map: [], maxPingMs: null } },
+      {
+        id: 'a',
+        name: 'Old',
+        criteria: { ...criteria, mod: ['ctf'], map: [], maxPingMs: null, location: [] },
+      },
+    ])
+  })
+
+  it('a quick filter saved before story 263 loads with location Any', () => {
+    const criteria = {
+      mod: ['ctf'],
+      gamemode: null,
+      map: [],
+      maxPingMs: null,
+      empty: false,
+      hideBotsOnly: false,
+      waitingForOpponent: false,
+    }
+    const parsed = parseServersState({ quickFilters: [{ id: 'a', name: 'Old', criteria }] })
+    expect(parsed.quickFilters).toEqual([
+      { id: 'a', name: 'Old', criteria: { ...criteria, location: [] } },
     ])
   })
 

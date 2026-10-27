@@ -21,6 +21,7 @@ import {
   type ServersState,
 } from '@shared/modules/servers'
 import { parseServerAddress, type ParsedServerAddress } from '@shared/servers/address'
+import { isIPv4, type ServerLocation } from '@shared/servers/location'
 import { readIntKey } from '@shared/servers/infostring'
 import { deriveGamemode } from '@shared/servers/row-markers'
 import type { LaunchHost } from '../../services/write-guard'
@@ -113,6 +114,10 @@ export interface ScanServiceDeps {
   /** The LAN discovery round, defaulting to `discoverLanServers` - same injection
    * style as `queryServer`. The UI harness wraps the real one with its `targetsOverride`. */
   lanDiscovery?: LanDiscoveryFn
+  /** Country lookup for a server's IP (never the user's own). Without it rows carry no location. */
+  locate?: (ip: string) => ServerLocation
+  /** The UI harness's address-to-IP stand-ins, read per `read()` because flows set them after boot. */
+  geoOverrides?: () => ReadonlyMap<string, string>
 }
 
 export type LanDiscoveryFn = typeof discoverLanServers
@@ -188,11 +193,18 @@ function initialScanState(): ServersScanState {
 interface ScanList {
   entries: Map<string, ServerListEntry>
   statusInfo: Map<string, Record<string, string>>
+  /** The IP each address's last reply came from - the only way to locate a hostname server. */
+  replyIps: Map<string, string>
   lastScanAt: string | null
 }
 
 function emptyList(): ScanList {
-  return { entries: new Map(), statusInfo: new Map(), lastScanAt: null }
+  return { entries: new Map(), statusInfo: new Map(), replyIps: new Map(), lastScanAt: null }
+}
+
+/** The host part of a normalized `host:port` address. */
+function hostOf(address: string): string {
+  return address.slice(0, address.lastIndexOf(':'))
 }
 
 /** The well-known `serverinfo` keys this module reads out of a reply's raw record, shared by both
@@ -336,6 +348,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     )
     if (result.kind === 'status')
       list.statusInfo.set(target.address, { ...result.reply.serverinfo })
+    if (result.fromAddress !== undefined) list.replyIps.set(target.address, result.fromAddress)
   }
 
   async function runOnlineRound(
@@ -407,6 +420,9 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
           )
           if (row.result.kind === 'status') {
             list.statusInfo.set(row.target.address, { ...row.result.reply.serverinfo })
+          }
+          if (row.result.fromAddress !== undefined) {
+            list.replyIps.set(row.target.address, row.result.fromAddress)
           }
         }
         // A failed reply never creates or overwrites an entry here - it is left exactly as it
@@ -519,6 +535,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     // The round replaces the list - a server that stopped answering is gone, not stale.
     list.entries.clear()
     list.statusInfo.clear()
+    list.replyIps.clear()
     lanFailureKey = null
     const discovered: ScanTarget[] = []
     const discovery = await (deps.lanDiscovery ?? discoverLanServers)({
@@ -650,6 +667,18 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     return { ok: true }
   }
 
+  /** Every row read goes through here, whatever its status: the lookup IP is the harness override,
+   * else the host when it is an IPv4 literal, else the IP its last reply came from. */
+  function withLocation<T extends ServerListEntry>(list: ScanList, row: T): T {
+    if (deps.locate === undefined) return row
+    const host = hostOf(row.address)
+    const ip =
+      deps.geoOverrides?.().get(row.address) ??
+      (isIPv4(host) ? host : undefined) ??
+      list.replyIps.get(row.address)
+    return { ...row, location: ip === undefined ? { kind: 'unknown' } : deps.locate(ip) }
+  }
+
   function read(listMode: ServersBrowseMode = mode): ScanSnapshot {
     // `favourite` is derived fresh from the live state on every `read()` (never
     // cached alongside `entries`), same "read live at call time" rule `getServersState` itself
@@ -660,7 +689,8 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     const manualAddresses = new Set(current.manualServers.map((m) => m.address))
     // The active mode's list only - never a mix of online and LAN rows (story 196)
     const activeMode = listMode
-    const entries = lists[activeMode].entries
+    const list = lists[activeMode]
+    const entries = list.entries
 
     const rows = [...entries.values()].map((entry) => ({
       ...entry,
@@ -690,7 +720,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
 
     return {
       state: { ...scanState },
-      entries: rows,
+      entries: rows.map((row) => withLocation(list, row)),
       mode: activeMode,
       lan: { lastFinishedAt: lists.lan.lastScanAt, failureKey: lanFailureKey },
     }

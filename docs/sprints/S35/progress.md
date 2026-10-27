@@ -173,3 +173,30 @@
 - 2026-10-27 13:28 · 262 · D3 review fixes · done
 - 2026-10-27 13:28 · 262 · verify 2 · started
 - 2026-10-27 13:36 · 262 · story · done
+- 13:37:02 · 263 · build · started
+- 2026-10-27 13:37 · 263 · D1 GeoIP database ships · started
+- 2026-10-27 13:41 · 263 · D1 GeoIP database ships · done
+- 2026-10-27 13:41 · 263 · D2 location model and lookup · started
+- 2026-10-27 13:41 · 263 · D5 MultiSelect grouped options · started
+- 2026-10-27 13:44 · 263 · D2 location model and lookup · done
+- 2026-10-27 13:44 · 263 · D5 MultiSelect grouped options · done
+- 2026-10-27 13:44 · 263 · D3 rows carry location · started
+- 2026-10-27 13:51 · 263 · D3 rows carry location · done
+- 2026-10-27 13:51 · 263 · D4 filter sort quick-filter model · started
+- 2026-10-27 13:57 · 263 · D4 filter sort quick-filter model · done
+- 2026-10-27 13:57 · 263 · D6 list and detail pane location · started
+- 2026-10-27 13:59 · 263 · D6 list and detail pane location · done
+- 2026-10-27 13:59 · 263 · D7 location filter and About attribution · started
+- 2026-10-27 14:02 · 263 · D7 location filter and About attribution · done
+- 2026-10-27 14:02 · 263 · D8 flow, systems doc, changelog · started
+- 2026-10-27 14:16 · 263 · D8 flow, systems doc, changelog · done
+- 2026-10-27 14:16 · 263 · verify · started
+- 2026-10-27 14:33 · 263 · verify · blocked: red in renderer-health, scan-ping-accuracy to attribute
+- 2026-10-27 14:34 · 263 · verify · done
+- 2026-10-27 14:34 · 263 · review 1 · started
+- 2026-10-27 14:39 · 263 · review 1 · done
+- 2026-10-27 14:39 · 263 · review fixes 1 · started
+- 2026-10-27 14:41 · 263 · review fixes 1 · done
+- 2026-10-27 14:41 · 263 · verify 2 · started
+- 2026-10-27 14:44 · 263 · verify 2 · done
+- 2026-10-27 14:45 · 263 · story · done

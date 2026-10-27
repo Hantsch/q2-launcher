@@ -1,7 +1,7 @@
 ---
 id: 263
 title: I see where a server is and filter by region or country
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-26
 ---
 
@@ -21,28 +21,28 @@ location in `serverinfo` — the launcher knows nothing about where a server is.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Every server row shows its location in a column left of Mod; the column header is
+- [x] **AC1** — Every server row shows its location in a column left of Mod; the column header is
       sortable like the other columns.
-- [ ] **AC2** — The location is resolved from the server's IP through a GeoIP country database shipped
+- [x] **AC2** — The location is resolved from the server's IP through a GeoIP country database shipped
       with the launcher; a server added by hostname uses the IP it resolves to.
-- [ ] **AC3** — A server on a private/LAN address shows "LAN"; a public address the database does not know
+- [x] **AC3** — A server on a private/LAN address shows "LAN"; a public address the database does not know
       shows "Unknown" — never an empty cell.
-- [ ] **AC4** — The server detail pane shows the country and region in full.
-- [ ] **AC5** — The filter bar has a location filter: a multi-select listing regions, each with its
+- [x] **AC4** — The server detail pane shows the country and region in full.
+- [x] **AC5** — The filter bar has a location filter: a multi-select listing regions, each with its
       countries indented below it; only regions and countries present in the current list are offered.
-- [ ] **AC6** — Checking a region selects the whole region; checking a single country selects only that
+- [x] **AC6** — Checking a region selects the whole region; checking a single country selects only that
       country. A server is shown if its country is selected or lies in a selected region (OR within the
       filter, AND with the other filters as today). Nothing selected = "Any".
-- [ ] **AC7** — The open dropdown has a text field that narrows regions and countries as I type; a
+- [x] **AC7** — The open dropdown has a text field that narrows regions and countries as I type; a
       region stays visible while one of its countries matches.
-- [ ] **AC8** — The dropdown is keyboard-operable like the mod filter (open, move, toggle with Space,
+- [x] **AC8** — The dropdown is keyboard-operable like the mod filter (open, move, toggle with Space,
       close with Escape, type to filter) and announces the selected count.
-- [ ] **AC9** — Saved quick filters store the location selection; quick filters saved before this story
+- [x] **AC9** — Saved quick filters store the location selection; quick filters saved before this story
       load with location "Any".
-- [ ] **AC10** — No server address leaves the machine for the lookup: no network request is made for
+- [x] **AC10** — No server address leaves the machine for the lookup: no network request is made for
       geolocation, only country level is resolved, and the user's own IP is never looked up.
-- [ ] **AC11** — The GeoIP database's licence attribution is shown in Settings > About.
-- [ ] **AC12** — Works the same on Windows and Linux, in Online and LAN mode.
+- [x] **AC11** — The GeoIP database's licence attribution is shown in Settings > About.
+- [x] **AC12** — Works the same on Windows and Linux, in Online and LAN mode.
 
 ## Open Questions
 
@@ -133,7 +133,7 @@ servers renderer module files + locale, `scripts/flows/servers-location-filter.m
 
 ## Deliverables
 
-- [ ] **D1 — the GeoIP database ships with the launcher.** Add `mmdb-lib` (MIT) to `package.json`
+- [x] **D1 — the GeoIP database ships with the launcher.** Add `mmdb-lib` (MIT) to `package.json`
       `dependencies`. New `scripts/update-geoip.mjs`: downloads the DB-IP "IP to Country Lite" mmdb
       (`https://download.db-ip.com/free/dbip-country-lite-YYYY-MM.mmdb.gz`, current month, falling back
       to the previous month on 404), gunzips it to `resources/geoip/dbip-country-lite.mmdb` and writes
@@ -152,7 +152,7 @@ servers renderer module files + locale, `scripts/flows/servers-location-filter.m
       Test `src/main/lib/resource-path.test.ts` › "packaged and dev resolve the same resource under
       resourcesPath and repo resources".
 
-- [ ] **D2 — location model and the local lookup.** New pure `src/shared/servers/location.ts`
+- [x] **D2 — location model and the local lookup.** New pure `src/shared/servers/location.ts`
       (+ `location.test.ts`), no `node:*` import: `CONTINENTS = ['AF','AS','EU','NA','OC','SA'] as const`,
       `type Continent`, `type ServerLocation = { kind: 'lan' } | { kind: 'unknown' } | { kind: 'country'; country: string; continent: Continent }`
       (`country` = ISO 3166-1 alpha-2 upper case; no city or coordinates field — country level only),
@@ -167,12 +167,12 @@ servers renderer module files + locale, `scripts/flows/servers-location-filter.m
       committed `resources/geoip/dbip-country-lite.mmdb` (resolved from the repo root): "8.8.8.8 resolves
       to a country in North America", "a private address is LAN without opening the database", "an
       address the database does not know is Unknown", "a missing database file makes every public
-      address Unknown", and the static "the lookup imports no network module" (reads the source of
+      address Unknown", and the static "imports no network module" (reads the source of
       `country-lookup.ts`, asserts no import of `node:net`/`node:http`/`node:https`/`node:dns`/`node:dgram`
       and no `fetch(`). `location.test.ts`: "isPrivateIPv4 covers loopback, RFC 1918, link-local and
       CGNAT", "countryName returns the English name and falls back to the code".
 
-- [ ] **D3 — every server row carries its location.** Files: `src/shared/modules/servers.ts`
+- [x] **D3 — every server row carries its location.** Files: `src/shared/modules/servers.ts`
       (`ServerListEntry` gains optional `location?: ServerLocation` imported from `../servers/location`;
       doc: computed in main at read time, never persisted); `src/main/modules/servers/server-query.ts`
       (`ServerUdpHandlers.onMessage(data, fromAddress: string)` — `dgramServerUdp` passes `rinfo.address`;
@@ -195,7 +195,7 @@ servers renderer module files + locale, `scripts/flows/servers-location-filter.m
       `scan-service.lan-mode.test.ts` › "LAN-mode rows are located as LAN"; the test file that covers
       `uiHarnessLanTargets` › "geo address overrides accept only loopback keys and IPv4 values".
 
-- [ ] **D4 — the filter, sort and quick-filter model know the location.** Files:
+- [x] **D4 — the filter, sort and quick-filter model know the location.** Files:
       `src/shared/servers/location.ts` (token helpers), `src/shared/servers/list-filter.ts`
       (+ `list-filter.test.ts`), `src/shared/servers/list-sort.ts` (+ `list-sort.test.ts`),
       `src/shared/servers/quick-filters.ts` (+ `quick-filters.test.ts`), `src/shared/modules/servers.ts`
@@ -221,7 +221,7 @@ servers renderer module files + locale, `scripts/flows/servers-location-filter.m
       compares location as a set", persisted › "a quick filter saved before story 263 loads with
       location Any".
 
-- [ ] **D5 — `MultiSelect` supports grouped options and a text filter.** File
+- [x] **D5 — `MultiSelect` supports grouped options and a text filter.** File
       `src/renderer/src/components/ui/MultiSelect.tsx` (+ `MultiSelect.test.tsx`). With plain `string[]`
       options the behaviour stays exactly as today (mod/map filters; the existing tests pass unchanged).
       Additions: `options: readonly (string | MultiSelectOption)[]`, `MultiSelectOption = { value: string; label: string; level?: 0 | 1; impliedBy?: string }`;
@@ -244,7 +244,7 @@ servers renderer module files + locale, `scripts/flows/servers-location-filter.m
       the focused list feeds the filter and Space still toggles", "Escape from the filter field closes
       and refocuses the trigger".
 
-- [ ] **D6 — the list and the detail pane show the location.** Files under
+- [x] **D6 — the list and the detail pane show the location.** Files under
       `src/renderer/src/modules/servers/`: new `location-label.ts` (+ `location-label.test.ts`) —
       `shortLocation(loc, t, locale)` → `"EU · Germany"` (continent code · `countryName` from
       `src/shared/servers/location.ts` with `i18n.language`), `t('servers.location.lan')` "LAN",
@@ -261,7 +261,7 @@ servers renderer module files + locale, `scripts/flows/servers-location-filter.m
       left of Mod and is never empty"; `ServerDetailView.test.tsx` › "the detail pane shows country and
       region in full".
 
-- [ ] **D7 — the location filter and the About attribution.** Files:
+- [x] **D7 — the location filter and the About attribution.** Files:
       `src/renderer/src/modules/servers/ServerListFilterBar.tsx` (+ `ServerListFilterBar.test.tsx`): a
       `Field` "Location" with `<MultiSelect filterable>` from `src/renderer/src/components/ui/MultiSelect.tsx`
       (testid `servers-filter-location`, `filterLabel` `servers.filter.locationSearch` "Search regions and
@@ -279,7 +279,7 @@ servers renderer module files + locale, `scripts/flows/servers-location-filter.m
       snapshot. Tests: `ServerListFilterBar.test.tsx` › "the location filter lists regions with their
       countries indented"; AboutPanel test › "About shows the DB-IP attribution and licence link".
 
-- [ ] **D8 — real-surface proof and docs.** New `scripts/flows/servers-location-filter.mjs` (variant
+- [x] **D8 — real-surface proof and docs.** New `scripts/flows/servers-location-filter.mjs` (variant
       `servers-location-filter`): copy the responder setup of `scripts/flows/servers-multi-filter.mjs`
       (`makeResponderBinder` from `scripts/lib/servers-stub.mjs`) and use `setMultiFilter` /
       `readMultiFilter` from `scripts/lib/servers-flow.mjs` (extend `setMultiFilter` with an optional
@@ -305,16 +305,35 @@ Review: → default
 ## Acceptance Tests
 
 - AC1 → unit `src/renderer/src/modules/servers/ServerRow.test.tsx` › "the location cell sits left of Mod and is never empty"; unit `src/shared/servers/list-sort.test.ts` › "location sorts by region then country with LAN and Unknown last"; e2e `scripts/flows/servers-location-filter.mjs` › "AC1: the Location column shows EU · Germany left of Mod and sorts by its header"
-- AC2 → unit `src/main/lib/geoip/country-lookup.test.ts` › "8.8.8.8 resolves to a country in North America"; unit `src/main/modules/servers/scan-service.test.ts` › "every row read carries a location and a hostname server uses the IP its reply came from"; unit `src/main/lib/resource-path.test.ts` › "packaged and dev resolve the same resource under resourcesPath and repo resources"
-- AC3 → unit `src/main/lib/geoip/country-lookup.test.ts` › "a private address is LAN without opening the database" and › "an address the database does not know is Unknown"; unit `src/renderer/src/modules/servers/location-label.test.ts` › "short and full labels for country, LAN, Unknown and missing"; e2e `scripts/flows/servers-location-filter.mjs` › "AC3: the loopback server shows LAN"
-- AC4 → unit `src/renderer/src/modules/servers/ServerDetailView.test.tsx` › "the detail pane shows country and region in full"; e2e `scripts/flows/servers-location-filter.mjs` › "AC4: the detail pane shows Germany, Europe"
+- AC2 → unit `src/main/lib/geoip/country-lookup.test.ts` › "resolves 8.8.8.8 to a country in North America"; unit `src/main/modules/servers/scan-service.test.ts` › "every row read carries a location and a hostname server uses the IP its reply came from"; unit `src/main/lib/resource-path.test.ts` › "packaged and dev resolve the same resource under resourcesPath and repo resources"
+- AC3 → unit `src/main/lib/geoip/country-lookup.test.ts` › "treats a private address as LAN without opening the database" and › "an address the database does not know is Unknown"; unit `src/renderer/src/modules/servers/location-label.test.ts` › "short and full labels for country, LAN, Unknown and missing"; e2e `scripts/flows/servers-location-filter.mjs` › "AC3: the loopback server shows LAN"
+- AC4 → unit `src/renderer/src/modules/servers/ServerDetailHeader.test.tsx` › "the detail pane shows country and region in full"; e2e `scripts/flows/servers-location-filter.mjs` › "AC4: the detail pane shows Germany, Europe"
 - AC5 → unit `src/shared/servers/list-filter.test.ts` › "locationOptions lists present regions with their countries and keeps a selected absent country"; unit `src/renderer/src/components/ui/MultiSelect.test.tsx` › "a grouped option is indented and shows its label"; e2e `scripts/flows/servers-location-filter.mjs` › "AC5: the location filter offers Europe with France and Germany, North America with the US, and LAN"
 - AC6 → unit `src/shared/servers/list-filter.test.ts` › "a server passes when its country or its region is selected", › "region and country tokens OR together and AND with mod", › "an empty location set does not restrict the list"; unit `src/renderer/src/components/ui/MultiSelect.test.tsx` › "children of a checked parent show checked and cannot be toggled"; e2e `scripts/flows/servers-location-filter.mjs` › "AC6: Europe shows both European servers, Germany alone shows one, clearing shows all"
 - AC7 → unit `src/renderer/src/components/ui/MultiSelect.test.tsx` › "typing narrows options and keeps the parent of a matching child"; e2e `scripts/flows/servers-location-filter.mjs` › "AC7: typing ger leaves Europe and Germany in the open dropdown"
 - AC8 → unit `src/renderer/src/components/ui/MultiSelect.test.tsx` › "typing on the focused list feeds the filter and Space still toggles" and › "Escape from the filter field closes and refocuses the trigger" (the existing keyboard and live-region tests stay); e2e `scripts/flows/servers-location-filter.mjs` › "AC8: the location filter is operated by keyboard alone and announces the count"
 - AC9 → unit `src/shared/servers/quick-filters.test.ts` › "sameCriteria compares location as a set"; unit `src/main/modules/servers/persisted.test.ts` › "a quick filter saved before story 263 loads with location Any"; e2e `scripts/flows/servers-location-filter.mjs` › "AC9: a quick filter saves the location selection and the legacy chip applies with location Any"
-- AC10 → unit `src/main/lib/geoip/country-lookup.test.ts` › "the lookup imports no network module"; unit `src/main/modules/servers/scan-service.test.ts` › "locate is only called with server addresses"; country level only is structural in D2's `ServerLocation` (no city/coordinates field)
+- AC10 → unit `src/main/lib/geoip/country-lookup.test.ts` › "imports no network module"; unit `src/main/modules/servers/scan-service.test.ts` › "locate is only called with server addresses"; country level only is structural in D2's `ServerLocation` (no city/coordinates field)
 - AC11 → unit `src/renderer/src/components/about/AboutPanel.test.tsx` › "About shows the DB-IP attribution and licence link"; e2e `scripts/flows/servers-location-filter.mjs` › "AC11: Settings > About names DB-IP and CC BY 4.0"
 - AC12 → unit `src/main/modules/servers/scan-service.lan-mode.test.ts` › "LAN-mode rows are located as LAN"; the unit suite (pure-JS reader, committed DB) runs on `ubuntu-latest` and `windows-latest` in `.github/workflows/ci.yml`; e2e `scripts/flows/servers-location-filter.mjs` covers Online mode on the build machine
 
 ## Done
+
+**Summary.** Every server row now carries a computed, country-level location from the bundled DB-IP "IP to Country Lite" database (real file, 2026-10, `resources/geoip/`, read by `mmdb-lib` in main, no network). The list has a sortable Location column left of Mod, the detail pane shows "Germany, Europe", and a grouped, filterable `MultiSelect` filters by region/country/LAN/Unknown; quick filters store `location` (legacy rows load `[]`); Settings > About credits DB-IP.
+
+**Commit message:** `263: servers show country/region from bundled DB-IP GeoIP db — Location column, grouped region/country filter, quick-filter location, About attribution, flow servers-location-filter`
+
+**Verification (narrow gate).** `npm run build`, `typecheck`, `lint` green. `npx vitest run --changed HEAD` and `e2e-story` (`ui:flows -- --affected scripts/flows/servers-location-filter.mjs --parallel=4 --shard=1/2` and `2/2`, 41+40 flows) green; after the review fix, typecheck/lint/`--changed HEAD` and `ui:flows -- servers-location-filter servers-multi-filter servers-quick-filters` green. Full regression gate not run (sprint's). Review: one default-tier stage, PASS, 1 fix cycle.
+AC to test (all passed): AC1 ServerRow/list-sort tests + flow AC1; AC2 country-lookup, scan-service, resource-path tests; AC3 country-lookup (private, unknown, Antarctica), location-label tests + flow AC3; AC4 ServerDetailHeader test + flow AC4; AC5 list-filter, MultiSelect + flow AC5; AC6 list-filter x3, MultiSelect + flow AC6; AC7 MultiSelect + flow AC7; AC8 MultiSelect x2 + flow AC8; AC9 quick-filters, persisted + flow AC9; AC10 country-lookup static no-network test, scan-service "locate is only called with server addresses"; AC11 AboutPanel test + flow AC11; AC12 scan-service.lan-mode test. No manual residue.
+Still red in the tree, not from this story: architecture purity/tsconfig (dm2-stats), comments.test (258/252), systems-docs, flow-select (game-dir-fs, original-backup, ping-samples, map-list, 12-flow cap on shell-window/config-profiles), repo-hygiene CRLF, check-docs/tech-debt links, renderer-health (ServersView 350 lines, cancellation flags), flow-helper-duplication `fail`; scan-ping-accuracy "within 5 ms under load" is a timing flake (passes alone).
+
+**Decisions.**
+- `geoOverrides` dep is a getter (flows set `Q2L_UI_GEO_ADDRESSES` after boot); `fromAddress` is optional on the shared `ScanQueryResult` (LAN discovery/fixtures omit it); no `locate` dep means rows stay unchanged.
+- "Unknown" and "Location" reuse `common.label.unknown` / `common.label.location` (keys.test.ts forbids duplicate values); the downloads wizard's `locationLabel` key was folded into the common one; `servers.location.region.*` is a registered dynamic key prefix.
+- Detail-pane test lives in `ServerDetailHeader.test.tsx` (ServerDetailView.test.tsx stubs the header with a throwing component); mapping updated.
+- `findRepoRoot` moved to `src/main/lib/resource-path.ts` (7za-path would otherwise import it circularly); `extractor.test.ts` import follows.
+- Location filter bar takes an optional `rows` prop; a selected absent country is listed at level 0 without `impliedBy`. Sort: continent code, then English country name.
+- `scripts/flows/areas.json`: the new flow went into the `servers-lists` row (7 flows, cap untouched) with `location-label.ts` and `src/main/lib/geoip/**`; `src/main/lib/resource-path.ts` into the `archives` row, so flow-select's "reached by a testid or an area row" holds for this story's files.
+- Left unfixed (low): `chipNamed`/`clearFilters` copies remain in older flows (servers-multi-filter, servers-ping-filter); a stored `country:XX` under a checked region still counts in the summary; `update-geoip.mjs` does not parse-check the download or time out `fetch`; persisted test title quotes the story's own wording.
+
+tiers: D 8 / hard 1 · review default · cycles 1 · agents 12

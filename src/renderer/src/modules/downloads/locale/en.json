@@ -162,7 +162,6 @@
     "target": {
       "placeholder": "Choose a folder…",
       "pickTitle": "Choose where to install",
-      "locationLabel": "Location",
       "folderNameLabel": "Folder name",
       "finalPathLabel": "Installs into",
       "installHere": "Installs directly into this empty folder",

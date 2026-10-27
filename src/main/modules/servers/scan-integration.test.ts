@@ -20,6 +20,7 @@ import {
 import { IDLE_LAUNCH_STATE } from '@shared/types'
 import type { AppContext } from '../../context'
 import { createFeatureGate } from '../../features/gate'
+import { resolveUiHarness } from '../../lib/ui-harness'
 import { StateStore } from '../../services/state'
 import { serversState } from './persisted'
 import { MainModuleRegistry } from '../registry'
@@ -185,6 +186,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       // whether to construct the (locked-by-default, out of scope for this integration test) watchlist
       // service/worker.
       features: createFeatureGate([]),
+      harness: resolveUiHarness({}),
     } as unknown as AppContext
 
     registry = new MainModuleRegistry()

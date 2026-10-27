@@ -1,5 +1,6 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { SERVERS_EVENTS } from '@shared/modules/servers'
+import type { ServerLocation } from '@shared/servers/location'
 import type { ScanServerResult, QueryServerFn } from './scan-runner'
 import type { ServerQueryResult } from './server-query'
 import { createScanService, SCAN_ALREADY_RUNNING_REASON_KEY } from './scan-service'
@@ -634,5 +635,96 @@ describe('createScanService', () => {
     // Only called for the stage2 row, exactly once, and it did not stop the scan from finishing.
     expect(hookCalls).toEqual(['stage2'])
     expect(service.read().state.running).toBe(false)
+  })
+})
+
+describe('createScanService - server location', () => {
+  const DE: ServerLocation = { kind: 'country', country: 'DE', continent: 'EU' }
+  const US: ServerLocation = { kind: 'country', country: 'US', continent: 'NA' }
+  const FR: ServerLocation = { kind: 'country', country: 'FR', continent: 'EU' }
+  const byIp: Record<string, ServerLocation> = { '1.1.1.1': US, '5.5.5.5': DE, '9.9.9.9': FR }
+  const locate = vi.fn((ip: string): ServerLocation => byIp[ip] ?? { kind: 'unknown' })
+
+  it('every row read carries a location and a hostname server uses the IP its reply came from', async () => {
+    locate.mockClear()
+    const state = baseState({
+      manualServers: [
+        manualEntry('1.1.1.1:27910'),
+        manualEntry('game.example.org:27910'),
+        manualEntry('127.0.0.1:27911'),
+      ],
+    })
+    let round = 0
+    const queryServer: QueryServerFn = async (target) => {
+      const address = `${target.host}:${target.port}`
+      if (round > 0 && address === '1.1.1.1:27910') return noReply
+      return infoOk('Host', target.host.startsWith('game.') ? '5.5.5.5' : target.host)
+    }
+    const service = createScanService({
+      getServersState: () => state,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer, locate, geoOverrides: () => new Map([['127.0.0.1:27911', '9.9.9.9']]) },
+    })
+    const locationOf = (address: string) =>
+      service.read().entries.find((entry) => entry.address === address)?.location
+
+    expect(locationOf('game.example.org:27910')).toEqual({ kind: 'unknown' })
+
+    service.start()
+    await waitForIdle(service)
+    expect(locationOf('1.1.1.1:27910')).toEqual(US)
+    expect(locationOf('game.example.org:27910')).toEqual(DE)
+    expect(locationOf('127.0.0.1:27911')).toEqual(FR)
+
+    round += 1
+    service.start()
+    await waitForIdle(service)
+    const stale = service.read().entries.find((entry) => entry.address === '1.1.1.1:27910')
+    expect(stale?.status).toBe('stale')
+    expect(stale?.location).toEqual(US)
+  })
+
+  it('a placeholder favourite on a public IPv4 is located before it answers', () => {
+    const state = baseState({
+      favourites: [{ address: '5.5.5.5:27910', addedAt: new Date().toISOString() }],
+    })
+    const service = createScanService({
+      getServersState: () => state,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: async () => noReply, locate },
+    })
+
+    const row = service.read().entries[0]
+    expect(row?.status).toBe('pending')
+    expect(row?.location).toEqual(DE)
+  })
+
+  it('locate is only called with server addresses', async () => {
+    locate.mockClear()
+    const state = baseState({
+      favourites: [{ address: 'pending.example.org:27910', addedAt: new Date().toISOString() }],
+      manualServers: [manualEntry('1.1.1.1:27910'), manualEntry('game.example.org:27910')],
+    })
+    const service = createScanService({
+      getServersState: () => state,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: {
+        queryServer: async (target) =>
+          target.host === 'pending.example.org' ? noReply : infoOk('Host', '5.5.5.5'),
+        locate,
+      },
+    })
+
+    service.read()
+    service.start()
+    await waitForIdle(service)
+    service.read()
+
+    const called = new Set(locate.mock.calls.map(([ip]) => ip))
+    expect(called.size).toBeGreaterThan(0)
+    expect([...called].every((ip) => ip === '1.1.1.1' || ip === '5.5.5.5')).toBe(true)
   })
 })

@@ -275,6 +275,7 @@ export function ServersView() {
           filter={filter}
           onChange={setFilter}
           options={filterOptions(entries)}
+          rows={entries}
           shown={visible.length}
           total={entries.length}
           quickFilters={quickFilters.list}

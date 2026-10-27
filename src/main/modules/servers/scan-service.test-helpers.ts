@@ -75,12 +75,13 @@ export function manualEntry(address: string): ServersState['manualServers'][numb
 /** A well-formed `info` reply reporting zero clients, so `runScan` never queues a stage 2 query for
  * it (a *known* empty reply, per `scan-runner.ts`'s `isWorthStage2`) - keeps every test below to a
  * single stage1-only row per target. */
-export function infoOk(hostname = 'Host'): ServerQueryResult {
+export function infoOk(hostname = 'Host', fromAddress?: string): ServerQueryResult {
   return {
     ok: true,
     kind: 'info',
     reply: { ok: true, serverinfo: { hostname }, clients: 0 },
     rttMs: 7,
+    ...(fromAddress === undefined ? {} : { fromAddress }),
   }
 }
 

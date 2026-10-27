@@ -157,7 +157,6 @@
       "finalPathLabel": "Installs into",
       "folderNameLabel": "Folder name",
       "installHere": "Installs directly into this empty folder",
-      "locationLabel": "Location",
       "nonEmpty": {
         "acknowledge": "Continue anyway",
         "body": "This folder is not empty. It already contains:"
@@ -254,6 +253,7 @@
       "layerTrigger": "Layer trigger",
       "library": "Library",
       "loading": "Loading…",
+      "location": "Location",
       "map": "Map",
       "missing": "Missing",
       "mod": "Mod",
@@ -3396,6 +3396,9 @@
     },
     "filter": {
       "hideBotsOnly": "Hide bot-only servers",
+      "locationSearch": "Search regions and countries",
+      "locationsCount_one": "{{count}} location",
+      "locationsCount_other": "{{count}} locations",
       "mapsCount_one": "{{count}} map",
       "mapsCount_other": "{{count}} maps",
       "maxPing": "Max ping",
@@ -3429,6 +3432,7 @@
     },
     "list": {
       "column": {
+        "location": "Location",
         "map": "Map",
         "mod": "Mod",
         "name": "Server",
@@ -3445,6 +3449,17 @@
       },
       "openSourceSettings": "Open source settings",
       "sourceFailed": "{{source}}: {{reason}}"
+    },
+    "location": {
+      "lan": "LAN",
+      "region": {
+        "AF": "Africa",
+        "AS": "Asia",
+        "EU": "Europe",
+        "NA": "North America",
+        "OC": "Oceania",
+        "SA": "South America"
+      }
     },
     "mode": {
       "label": "Browse",
@@ -3492,6 +3507,7 @@
     },
     "sort": {
       "column": {
+        "location": "Location",
         "map": "Map",
         "mod": "Mod",
         "name": "Name",
@@ -3582,11 +3598,14 @@
       "checkUpToDate": "You're up to date.",
       "checking": "Checking for updates…",
       "currentVersion": "Launcher version",
+      "geoipLicence": "CC BY 4.0",
+      "geoipProvider": "IP geolocation by DB-IP",
       "lastChecked": "Last checked {{time}}",
       "neverChecked": "Never checked for updates",
       "notInstalled": "Not yet installed",
       "notesEmpty": "This version has no release notes.",
       "technical": "Technical details",
+      "thirdPartyData": "Third-party data",
       "whatsNew": "What's new in this version"
     },
     "changelog": "Full changelog",

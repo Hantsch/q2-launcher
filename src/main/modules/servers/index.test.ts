@@ -658,6 +658,7 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
     hideBotsOnly: true,
     waitingForOpponent: false,
     maxPingMs: null,
+    location: [],
   }
 
   it('quick filter handlers persist to servers state', async () => {

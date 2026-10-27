@@ -89,6 +89,7 @@
       "layerTrigger": "Layer trigger",
       "library": "Library",
       "loading": "Loading…",
+      "location": "Location",
       "map": "Map",
       "missing": "Missing",
       "mod": "Mod",
@@ -615,6 +616,9 @@
       "currentVersion": "Launcher version",
       "whatsNew": "What's new in this version",
       "technical": "Technical details",
+      "thirdPartyData": "Third-party data",
+      "geoipProvider": "IP geolocation by DB-IP",
+      "geoipLicence": "CC BY 4.0",
       "checkUpToDate": "You're up to date.",
       "checkAvailable": "Version {{version}} found."
     },

@@ -52,6 +52,37 @@ function renderRow(
   )
 }
 
+describe('ServerRow location cell', () => {
+  it('the location cell sits left of Mod and is never empty', () => {
+    const locations: ServerListRow['location'][] = [
+      { kind: 'country', country: 'DE', continent: 'EU' },
+      { kind: 'lan' },
+      { kind: 'unknown' },
+      undefined,
+    ]
+    for (const location of locations) {
+      renderRow({ ...BASE_ROW, status: 'online', mod: 'baseq2', location })
+      const cell = screen.getByTestId('servers-row-location')
+      const modCell = screen.getByText('baseq2')
+
+      expect(cell.textContent).not.toBe('')
+      expect(cell.compareDocumentPosition(modCell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      cleanup()
+    }
+  })
+
+  it('shows the country with its continent, and the full name and region on hover', () => {
+    renderRow({
+      ...BASE_ROW,
+      location: { kind: 'country', country: 'DE', continent: 'EU' },
+    })
+
+    const cell = screen.getByTestId('servers-row-location')
+    expect(cell.textContent).toBe('EU · Germany')
+    expect(cell.getAttribute('title')).toBe('Germany, Europe')
+  })
+})
+
 describe('ServerRow (story 118 D3)', () => {
   it('shows name, mod, players/slots, map and ping when known (AC1)', () => {
     const row: ServerListRow = {

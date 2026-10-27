@@ -8,6 +8,7 @@ import type { ServerListSort, ServerSortColumn } from '../servers/list-sort'
 import type { MasterSourceAddressRejection } from '../servers/master-source-address'
 import { QUICK_FILTER_NAME_MAX, hasCriteria } from '../servers/quick-filters'
 import type { QuickFilter } from '../servers/quick-filters'
+import type { ServerLocation } from '../servers/location'
 import type { ServerGamemode } from '../servers/row-markers'
 import type { ServerPlayer, StatusReplySuccess } from '../servers/status-reply'
 
@@ -449,6 +450,7 @@ export const quickFilterCriteriaSchema = z
     empty: z.boolean(),
     hideBotsOnly: z.boolean(),
     waitingForOpponent: z.boolean(),
+    location: z.array(z.string()).default([]),
   })
   .strict()
 
@@ -617,8 +619,8 @@ export interface ScanTarget {
  * hand-declaring a structurally-identical copy that nothing keeps in sync if either side changes.
  */
 export type ScanQueryResult =
-  | { ok: true; kind: 'info'; reply: InfoReplySuccess; rttMs: number }
-  | { ok: true; kind: 'status'; reply: StatusReplySuccess; rttMs: number }
+  | { ok: true; kind: 'info'; reply: InfoReplySuccess; rttMs: number; fromAddress?: string }
+  | { ok: true; kind: 'status'; reply: StatusReplySuccess; rttMs: number; fromAddress?: string }
   | { ok: false; reason: 'no-reply' | 'transport-error' | 'malformed' }
 
 /** One row as delivered through the `scan.server` push (D-C) - `scan-runner.ts`'s `ScanServerResult`
@@ -657,6 +659,8 @@ export interface ServerListEntry {
   rttHistory?: RttSample[]
   players?: number | ServerPlayer[]
   gamemode?: ServerGamemode
+  /** Computed in main at read time from the server's IP, never persisted. */
+  location?: ServerLocation
   /** ISO timestamp of the last reply. */
   lastSeenAt: string | null
 }

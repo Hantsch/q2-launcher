@@ -42,6 +42,8 @@ export const DYNAMIC_KEY_PREFIXES: readonly string[] = [
   'servers.sort.column.',
   // t(`servers.sort.direction.${sort.direction}`) in src/renderer/src/modules/servers/ServersView.tsx
   'servers.sort.direction.',
+  // t(`servers.location.region.${location.continent}`) in src/renderer/src/modules/servers/location-label.ts
+  'servers.location.region.',
   // t(`servers.mode.${m}`) in src/renderer/src/modules/servers/ServersModeToggle.tsx
   'servers.mode.',
   // t(`servers.engine.${value.engine}`) in src/renderer/src/modules/servers/ServerRulesPanel.tsx

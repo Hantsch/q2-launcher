@@ -30,7 +30,7 @@ accuracy stats.
 - [x] 260 — Demo details are always shown
 - [x] 261 — The demo players are split by team
 - [x] 262 — Demo details show the POV player's accuracy stats
-- [ ] 263 — I see where a server is and filter by region or country
+- [x] 263 — I see where a server is and filter by region or country
 
 ## Notes
 

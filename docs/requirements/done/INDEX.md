@@ -357,3 +357,4 @@ second roadmap.
 - 260 — Demo details are always shown · S35 · the Demos view always shows the detail pane beside the list, empty until a demo is picked, with no close button and a stable list width
 - 261 — The demo players are split by team · S35 · two teams sit side by side in side-1/side-2 colours, one or more than two stack, no teams is a plain list; side tokens meet contrast and flow axe is a shared helper
 - 262 — Demo details show the POV player's accuracy stats · S35 · the demo detail shows the recording player's OpenTDM weapon accuracy table and Total line, read from the demo and indexed (cache v7); no block, no section
+- 263 — I see where a server is and filter by region or country · S35 · server rows show a country/region from the bundled DB-IP database in a sortable Location column and detail field, filterable by region/country/LAN/Unknown, saved in quick filters, credited in About

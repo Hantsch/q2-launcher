@@ -72,6 +72,17 @@
       "copySuccess": "Server address copied",
       "copyError": "Couldn't copy the server address"
     },
+    "location": {
+      "lan": "LAN",
+      "region": {
+        "AF": "Africa",
+        "AS": "Asia",
+        "EU": "Europe",
+        "NA": "North America",
+        "OC": "Oceania",
+        "SA": "South America"
+      }
+    },
     "list": {
       "loading": {
         "sources": "Asking the server lists…",
@@ -85,6 +96,7 @@
       "sourceFailed": "{{source}}: {{reason}}",
       "column": {
         "name": "Server",
+        "location": "Location",
         "mod": "Mod",
         "map": "Map",
         "players": "Players",
@@ -225,6 +237,9 @@
       "modsCount_other": "{{count}} mods",
       "mapsCount_one": "{{count}} map",
       "mapsCount_other": "{{count}} maps",
+      "locationsCount_one": "{{count}} location",
+      "locationsCount_other": "{{count}} locations",
+      "locationSearch": "Search regions and countries",
       "noMatch": "No servers match your filters."
     },
     "source": {
@@ -241,6 +256,7 @@
     "sort": {
       "column": {
         "name": "Name",
+        "location": "Location",
         "mod": "Mod",
         "players": "Players",
         "map": "Map",

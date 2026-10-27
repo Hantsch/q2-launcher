@@ -50,9 +50,10 @@ export interface ServerUdpTarget {
  * same reasoning as `MasterUdpHandlers`.
  */
 export interface ServerUdpHandlers {
-  /** `receivedAt` is the transport's `Clock.now()` reading taken on arrival; when a seam omits it,
+  /** `fromAddress` is the IP the datagram came from - a hostname target is only located by it.
+   * `receivedAt` is the transport's `Clock.now()` reading taken on arrival; when a seam omits it,
    * the query reads its own clock instead. */
-  onMessage: (data: Uint8Array, receivedAt?: number) => void
+  onMessage: (data: Uint8Array, fromAddress: string, receivedAt?: number) => void
   /** Transport-level failure (bind/send/socket error). May fire after `close()`; ignored then. */
   onError: (error: Error) => void
 }
@@ -119,10 +120,10 @@ export const dgramServerUdp = async (
   const socket = createSocket('udp4')
   let closed = false
 
-  socket.on('message', (data) => {
+  socket.on('message', (data, rinfo) => {
     // Stamped before anything else runs in this listener - see the file doc comment.
     const receivedAt = clock.now()
-    handlers.onMessage(data, receivedAt)
+    handlers.onMessage(data, rinfo.address, receivedAt)
   })
   // Kept attached past close(): an unhandled 'error' event on a dgram socket throws, and a send
   // still in flight when we close can emit one. The query ignores errors after it settled.
@@ -238,7 +239,7 @@ export async function queryServer(
   // `resolveUdpMasterSource` uses for an already-aborted signal.
   const onAbort = (): void => settle({ ok: false, reason: 'no-reply' })
 
-  const processReply = (data: Uint8Array, rttMs: number): void => {
+  const processReply = (data: Uint8Array, rttMs: number, fromAddress: string): void => {
     if (settled) return
 
     if (kind === 'info') {
@@ -247,7 +248,7 @@ export async function queryServer(
         settle({ ok: false, reason: 'malformed' })
         return
       }
-      settle({ ok: true, kind: 'info', reply: parsed, rttMs })
+      settle({ ok: true, kind: 'info', reply: parsed, rttMs, fromAddress })
       return
     }
 
@@ -256,15 +257,20 @@ export async function queryServer(
       settle({ ok: false, reason: 'malformed' })
       return
     }
-    settle({ ok: true, kind: 'status', reply: parsed, rttMs })
+    settle({ ok: true, kind: 'status', reply: parsed, rttMs, fromAddress })
   }
 
-  const onReply = (data: Uint8Array, receivedAt: number, sentAt: number): void => {
+  const onReply = (
+    data: Uint8Array,
+    fromAddress: string,
+    receivedAt: number,
+    sentAt: number,
+  ): void => {
     if (settled || replyInHand) return
     replyInHand = true
     clearRetryTimer()
     const rttMs = receivedAt - sentAt
-    defer(() => processReply(data, rttMs))
+    defer(() => processReply(data, rttMs, fromAddress))
   }
 
   const onError = (_error: Error): void => {
@@ -281,10 +287,10 @@ export async function queryServer(
     let socket: ServerUdpSocket
     try {
       socket = await udpImpl(target, {
-        onMessage: (data, receivedAt) => {
+        onMessage: (data, fromAddress, receivedAt) => {
           const stamp = receivedAt ?? clock.now()
           if (sentAt === null) return
-          onReply(data, stamp, sentAt)
+          onReply(data, fromAddress, stamp, sentAt)
         },
         onError,
       })

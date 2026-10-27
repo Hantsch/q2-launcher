@@ -28,6 +28,7 @@
 *.wal binary
 *.bsp binary
 *.tga binary
+*.mmdb binary
 
 # Vendored 7-Zip binaries (7za, 7za.exe).
 resources/bin/7za* binary

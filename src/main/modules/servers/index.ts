@@ -18,7 +18,9 @@ import {
   saveQuickFilter,
   type QuickFilterMutationResult,
 } from './quick-filter-entries'
-import { uiHarnessLanTargets } from '../../lib/ui-harness'
+import { createCountryLookup } from '../../lib/geoip/country-lookup'
+import { resolveResourcePath } from '../../lib/resource-path'
+import { uiHarnessGeoAddresses, uiHarnessLanTargets } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { addFavourite, removeFavourite } from './favourites'
 import { readServerHistory, recordServerVisit } from './history-log'
@@ -104,12 +106,23 @@ export const serversModule: MainModule = {
       onDispose(() => createdWatchlist.dispose())
     }
 
+    const countryLookup = createCountryLookup(
+      resolveResourcePath(
+        { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath },
+        'geoip',
+        'dbip-country-lite.mmdb',
+      ),
+      log,
+    )
+
     const scanService = createScanService({
       getServersState: () => servers.get(),
       emit,
       launch: app.launch,
       onStage2Row: watchlistService?.onStage2Row,
       deps: {
+        locate: (ip) => countryLookup.locate(ip),
+        geoOverrides: () => uiHarnessGeoAddresses(app.harness),
         // Story 196: the real discovery, except that the UI harness (and only it) may name the
         // loopback fixture servers to query instead of enumerating interfaces. Read per round.
         lanDiscovery: (options) =>

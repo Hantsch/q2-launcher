@@ -1,7 +1,7 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { isWindows } from '../../../lib/platform'
 import { join } from 'node:path'
-import { findRepoRoot } from '../../../lib/archive/7za-path'
+import { resolveResourcePath } from '../../../lib/resource-path'
 import type { BootstrapLog } from './ports'
 
 /**
@@ -82,8 +82,8 @@ export async function seedR1glConfig(targetRoot: string): Promise<void> {
  * exist on any other checkout, packaged build, or CI, so `installR1q2Notices` threw ENOENT
  * everywhere else and the license notice was silently never installed for a real user.
  *
- * Dev: `resources/licenses/r1q2/GPL-3.0.txt`, found by the same repo-root walk-up
- * `resolveExtractorPath` uses (`findRepoRoot`). Packaged: `process.resourcesPath/licenses/r1q2/
+ * Dev: `resources/licenses/r1q2/GPL-3.0.txt`, found by the same `resolveResourcePath` convention
+ * `resolveExtractorPath` uses. Packaged: `process.resourcesPath/licenses/r1q2/
  * GPL-3.0.txt`, matching this module's `electron-builder.yml` `extraResources` entry
  * (`resources/licenses/r1q2` -> `licenses/r1q2`).
  *
@@ -102,12 +102,8 @@ export interface R1q2LicensePathInput {
 
 const LICENSE_RELATIVE_PATH = ['licenses', 'r1q2', 'GPL-3.0.txt']
 
-const DEFAULT_REPO_ROOT = findRepoRoot(__dirname)
-
 export function resolveR1q2LicensePath(input: R1q2LicensePathInput): string {
-  return input.isPackaged
-    ? join(input.resourcesPath ?? '', ...LICENSE_RELATIVE_PATH)
-    : join(input.repoRoot ?? DEFAULT_REPO_ROOT, 'resources', ...LICENSE_RELATIVE_PATH)
+  return resolveResourcePath(input, ...LICENSE_RELATIVE_PATH)
 }
 
 /**

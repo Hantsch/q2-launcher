@@ -7,6 +7,7 @@ import {
   type ServersScanState,
   type ServersState,
 } from '@shared/modules/servers'
+import { createCountryLookup } from '../../lib/geoip/country-lookup'
 import type { FetchImpl } from '../../lib/net/fetcher'
 import type { LanDiscoveryOptions, LanReply } from './lan-discovery'
 import type { QueryServerFn } from './scan-runner'
@@ -142,6 +143,27 @@ describe('createScanService - online and LAN lists', () => {
         .entries.map((e) => e.address)
         .sort(),
     ).toEqual([FAV, NET].sort())
+  })
+
+  it('LAN-mode rows are located as LAN', async () => {
+    const lookup = createCountryLookup('unused.mmdb')
+    const service = createScanService({
+      getServersState: onlineState,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      deps: {
+        queryServer: recordingQuery().fn,
+        lanDiscovery: fakeLan([LAN_A, LAN_B]).fn,
+        locate: (ip) => lookup.locate(ip),
+      },
+    })
+    service.setMode('lan')
+    service.start()
+    await waitForIdle(service)
+
+    const rows = service.read().entries
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => row.location)).toEqual([{ kind: 'lan' }, { kind: 'lan' }])
   })
 
   it('an online scan never runs LAN discovery', async () => {

@@ -54,6 +54,22 @@ describe('quick filter criteria', () => {
     expect(sameCriteria({ ...none, map: ['a'] }, { ...none, map: [] })).toBe(false)
   })
 
+  it('sameCriteria compares location as a set', () => {
+    expect(
+      sameCriteria(
+        { ...none, location: ['region:EU', 'lan', 'lan'] },
+        { ...none, location: ['lan', 'region:EU'] },
+      ),
+    ).toBe(true)
+    expect(sameCriteria({ ...none, location: ['lan'] }, { ...none, location: ['unknown'] })).toBe(
+      false,
+    )
+    expect(sameCriteria({ ...none, location: ['lan'] }, none)).toBe(false)
+    expect(hasCriteria({ ...none, location: ['lan'] })).toBe(true)
+    const f = { ...EMPTY_SERVER_LIST_FILTER, location: ['country:DE'] }
+    expect(applyCriteria(EMPTY_SERVER_LIST_FILTER, criteriaOf(f)).location).toEqual(['country:DE'])
+  })
+
   it('sameCriteria compares mod and map case-insensitively and the rest exactly', () => {
     expect(
       sameCriteria(
