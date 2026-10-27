@@ -1,7 +1,7 @@
 ---
 sprint: S35
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S35
 milestone: 11.4 — user feedback 2026-10-26
 ---
 
