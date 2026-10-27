@@ -13,7 +13,7 @@ Built around the [r1q2](https://www.r1ch.net/projects/r1q2) client, with Q2PRO
 and vanilla 3.20 as first-class citizens. Ships no game content — you bring your
 own Quake II, or start from the freely downloadable demo.
 
-> **Status: pre-release (0.6.0).** Library, installs, launching, the config
+> **Status: pre-release (0.7.0).** Library, installs, launching, the config
 > editor, the home screen, the server browser, demo replays, mod installs and
 > self-updates work on Windows; Linux is experimental and untested (see
 > [Compatibility](#compatibility)). The Linux runners (wine, umu-run, Steam)

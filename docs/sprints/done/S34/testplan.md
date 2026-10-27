@@ -53,7 +53,7 @@ coalesced `s_volume` lines, the restore and the remembered level, not that anyth
 - Step 3: after the session the installation's `s_volume` is back at the value you noted.
 - Step 4: the second demo starts at the level last set on the slider.
 - Linux: repeat once on a Linux host; its `q2config.cfg` path is not exercised by any test on the Windows runner
-  ([TD-044](../../TECH-DEBT.md)).
+  ([TD-044](../../../TECH-DEBT.md)).
 
 ## 3. Story 234 AC3, GitHub half — real-runner shard times and `windows-verify`
 

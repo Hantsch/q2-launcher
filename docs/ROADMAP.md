@@ -2,10 +2,10 @@
 
 ## Where we stand
 
-_As of 2026-10-06._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31). Current: Phase 11, codebase health.
-S32, S33 and S34 are finished: S34 (health drafts 232–236, demo/install/server stories 237–250) is 19/19 on `sprint/S34` ([S34 review](sprints/S34/review.md)). Next: [S35](sprints/S35/sprint.md) (stories 251–263, user feedback 2026-10-26), planned with all questions answered — `/sprint S35`.
-Waiting on the user: 234 AC3 GitHub half (a PR or dispatch for real-runner shard times and `windows-verify`), merging `sprint/S32`, `S33`, `S34` into `dev` in order,
-the manual residue in the S28–S30, [S32](sprints/done/S32/testplan.md), [S33](sprints/done/S33/testplan.md) and [S34](sprints/S34/testplan.md) testplans, and 102's Q1–Q4.
+_As of 2026-10-27._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31). Current: Phase 11, codebase health and user feedback.
+S35 is finished: all 13 stories (251–263, user feedback 2026-10-26) are done on `sprint/S35`, gate green ([S35 review](sprints/S35/review.md)). Next: plan 11.5 or Mods 5.2 with `/roadmap plan`.
+Waiting on the user: 234 AC3 GitHub half (a PR or dispatch for real-runner shard times and `windows-verify`), merging `sprint/S32`, `S33`, `S34`, `S35` into `dev` in order,
+the manual residue in the S28–S30, [S32](sprints/done/S32/testplan.md), [S33](sprints/done/S33/testplan.md) and [S34](sprints/done/S34/testplan.md) testplans, and 102's Q1–Q4.
 
 ## Phase overview
 
@@ -31,8 +31,8 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 | ---- | ---------------------------------------------------------- | --------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | 11.1 | A green gate, safe foundations, one module bus             | done 2026-10-02 | [S32](sprints/done/S32/review.md) | 18 stories, main side and infra; merge into `dev` waits on the user.                                 |
 | 11.2 | Config module and renderer on shared layers, docs as built | done 2026-10-03 | [S33](sprints/done/S33/review.md) | 16 stories incl. X11 stage story 198; merge into `dev` waits on the user.                            |
-| 11.3 | Health drafts closed, demo/install/server user stories     | done 2026-10-06 | [S34](sprints/S34/review.md)      | 19 stories incl. the 234 rehearsal (20 Linux flows quarantined); merge into `dev` waits on the user. |
-| 11.4 | User feedback 2026-10-26: launch, config safety, browsing  | planned         | [S35](sprints/S35/sprint.md)      | 13 stories 251–263; questions answered at the cut.                                                   |
+| 11.3 | Health drafts closed, demo/install/server user stories     | done 2026-10-06 | [S34](sprints/done/S34/review.md)      | 19 stories incl. the 234 rehearsal (20 Linux flows quarantined); merge into `dev` waits on the user. |
+| 11.4 | User feedback 2026-10-26: launch, config safety, browsing  | done 2026-10-27 | [S35](sprints/S35/review.md)      | 13 stories 251–263; merge into `dev` waits on the user.                                              |
 
 ## Open / unprioritised
 
@@ -55,8 +55,8 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - Crash detection: a non-zero exit shortly after start is worth surfacing.
 - Make `ci.yml`'s `npm audit` step blocking (drop `continue-on-error`) on 2026-10-09, after S33. (story 226)
 - Upstream the tech-debt ageing rule (docs/README.md, `.claude/ai-scrum.md` Notes) into the ai-scrum plugin — for the user. [story 229]
-- Register the six S34 flows in `scripts/flows/areas.json` and make `--affected` selective when `scripts/lib` changes (TD-042, TD-043). [S34 review](sprints/S34/review.md)
-- Promote or delete the nine TECH-DEBT rows older than three sprints (TD-008, 009, 010, 011, 015, 016, 019, 029, 030). [S34 review](sprints/S34/review.md)
+- Register the six S34 flows in `scripts/flows/areas.json` and make `--affected` selective when `scripts/lib` changes (TD-042, TD-043). [S34 review](sprints/done/S34/review.md)
+- Promote or delete the nine TECH-DEBT rows older than three sprints (TD-008, 009, 010, 011, 015, 016, 019, 029, 030). [S34 review](sprints/done/S34/review.md)
 
 ## History
 

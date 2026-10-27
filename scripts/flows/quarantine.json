@@ -138,5 +138,17 @@
     "story": "234",
     "since": "S34",
     "platform": "linux"
+  },
+  {
+    "flow": "news-feed",
+    "reason": "flaky under four parallel shards: a background manifest refresh lands in the second launch window (passes alone)",
+    "story": "unattributed",
+    "since": "S35"
+  },
+  {
+    "flow": "unlock-code",
+    "reason": "flaky under four parallel shards: the Settings installation id is read before it renders (passes alone)",
+    "story": "unattributed",
+    "since": "S35"
   }
 ]
