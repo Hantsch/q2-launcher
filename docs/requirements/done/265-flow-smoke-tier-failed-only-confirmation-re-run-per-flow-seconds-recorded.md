@@ -222,7 +222,7 @@ Review (clean agent, 1 cycle): AC1-AC6 PASS; fixed a stale first-pass shard repo
 a garbled doc sentence. Unfixed: the flows-all.mjs wiring (children --no-confirm, repeat>1 skip, pinned-before-confirm) has no
 unit test because it needs Electron; the sprint gate run exercises it.
 AC -> test: AC1/AC2 flow-select.test.mjs, AC3/AC4/AC6 + per-flow timing flow-gate.test.mjs, AC5 flow-parallel.test.mjs - all passed.
-AC7 measurement: taken by the S36 regression gate run (D4 not run here; orchestrator records minutes, slowest 10, longest shard).
+AC7 measurement (S36 gate, `a808298`): `ui:flows --parallel=4` 180/180 in 20.9 min; shards 17.1, 17.5, 18.2, 18.8 min — the longest is over 15 min, a follow-up. Slowest: home-hero-carousel 62.8 s, servers-no-scan-while-playing 53 s, replays-timeline-optimistic 48 s, footer-map 44.2 s, replays-timeline 42.3 s, replays-cinema 39.4 s, unlock-code 34.9 s, replays-demo-comments 33.5 s, servers-double-click-join 32.5 s, replays-copy-in 32.2 s.
 
 Decisions: --tier with names/--affected is a usage error; `--repeat>1` skips the confirmation pass; a child's non-zero exit
 alone no longer forces exit 1 (a child with no report counts all its flows failed); summary `passed` subtracts flaky; fixed the

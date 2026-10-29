@@ -2,9 +2,9 @@
 
 ## Where we stand
 
-_As of 2026-10-27._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31). Current: Phase 11, codebase health and user feedback.
-S35 is finished: all 13 stories (251–263, user feedback 2026-10-26) are done on `sprint/S35`, gate green ([S35 review](sprints/S35/review.md)). S36 is planned: all nine tests-review stories (264–272) plus three user-feedback stories (273–275) in one sprint ([S36](sprints/S36/sprint.md)). Next: `/sprint S36`.
-Waiting on the user: 234 AC3 GitHub half (a PR or dispatch for real-runner shard times and `windows-verify`), merging `sprint/S32`, `S33`, `S34`, `S35` into `dev` in order,
+_As of 2026-10-29._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31). Current: Phase 11, codebase health and user feedback.
+S36 is finished on `dev` (no sprint branch): all 12 stories (264–275) done, gate green incl. `verify:release` on Node 22.22.2 ([S36 review](sprints/S36/review.md)). Next: plan S37 — story draft 276 (Linux leaves the GitHub pipeline) and the overdue TECH-DEBT rows.
+Waiting on the user: pushing `dev` and the S36 manual residue ([testplan](sprints/S36/testplan.md)), 234 AC3 GitHub half, merging `sprint/S32`–`S35` into `dev` in order,
 the manual residue in the S28–S30, [S32](sprints/done/S32/testplan.md), [S33](sprints/done/S33/testplan.md) and [S34](sprints/done/S34/testplan.md) testplans, and 102's Q1–Q4.
 
 ## Phase overview
@@ -33,7 +33,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 | 11.2 | Config module and renderer on shared layers, docs as built | done 2026-10-03 | [S33](sprints/done/S33/review.md) | 16 stories incl. X11 stage story 198; merge into `dev` waits on the user.                            |
 | 11.3 | Health drafts closed, demo/install/server user stories     | done 2026-10-06 | [S34](sprints/done/S34/review.md) | 19 stories incl. the 234 rehearsal (20 Linux flows quarantined); merge into `dev` waits on the user. |
 | 11.4 | User feedback 2026-10-26: launch, config safety, browsing  | done 2026-10-27 | [S35](sprints/S35/review.md)      | 13 stories 251–263; merge into `dev` waits on the user.                                              |
-| 11.5 | Tests review 2026-10-27: blocking lanes, cheaper gate      | planned         | [S36](sprints/S36/sprint.md)      | 12 stories: 264–272 plus user feedback 273–275, all in one sprint.                                   |
+| 11.5 | Tests review 2026-10-27: blocking lanes, cheaper gate      | done 2026-10-29 | [S36](sprints/S36/review.md)      |                                                                                                      |
 
 ## Open / unprioritised
 
@@ -49,6 +49,8 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 
 ## Follow-ups worth doing
 
+- Split the longest flow shard: the S36 gate's was 18.8 min, over the 15-min mark. [S36 review](sprints/S36/review.md)
+- R1Q2 demo pause/speed via a control channel (r1q2 has `pause`/`timescale`). [S36 review](sprints/S36/review.md)
 - Measure the Linux channel's control latency / stdout buffering on a real Linux Q2PRO; no Linux lever was applied in 185. [S30 review](sprints/done/S30/review.md)
 - Story 157's AC6 (rename while playing) can now get its real-playback e2e. [S28 review](sprints/done/S28/review.md)
 - Run `scripts/fetch-7za.mjs` once end-to-end with network access, then un-skip its three `it.skipIf` tests. [S16 review](sprints/done/S16/review.md)

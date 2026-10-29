@@ -1,6 +1,6 @@
 ---
 sprint: S36
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: dev # no sprint branch, by the user's call
 milestone: 11.5 — tests review 2026-10-27
 ---

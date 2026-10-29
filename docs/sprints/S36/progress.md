@@ -166,3 +166,4 @@
 - 2026-10-29 13:17 · gate · fix 266 verify-release · done
 - 2026-10-29 13:17 · gate · verify:release · relaunch after fixes
 - 2026-10-29 13:36 · gate · verify:release · relaunch on 22.22.2
+- 2026-10-29 14:01 · sprint · S36 · done
