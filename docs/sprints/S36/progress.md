@@ -164,3 +164,4 @@
 - 2026-10-29 12:59 · gate · verify:release · started
 - 2026-10-29 13:15 · gate · fix 266 verify-release · started
 - 2026-10-29 13:17 · gate · fix 266 verify-release · done
+- 2026-10-29 13:17 · gate · verify:release · relaunch after fixes

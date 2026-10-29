@@ -99,8 +99,8 @@ describe('no patched dependencies', () => {
     expect(existsSync(fileURLToPath(new URL('../patches', import.meta.url)))).toBe(false)
     expect(pkg.scripts.postinstall).toBeUndefined()
     expect(JSON.stringify(pkg)).not.toContain('patch-package')
-    // markAsUncloneable exists from Node 22.10; 22.12 is the first LTS-line release with require(esm).
-    expect(pkg.engines.node).toBe('>=22.12.0')
+    // jsdom 30 and undici 8 (dev) need Node >=22.19; CI pins 22.22.2 in .node-version (story 271).
+    expect(pkg.engines.node).toBe('>=22.22.2')
   })
 })
 

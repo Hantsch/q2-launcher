@@ -56,6 +56,7 @@ expiry before the gate blocks; a gate must not go blocking while red.
 
 ## Decisions (Sprint)
 
+- **(User)** Pin changed to 22.22.2 with `engines` raised to `>=22.22.2`: under verify:release on 22.12.0 vitest workers failed to start (jsdom 30 / undici 8 need >=22.19).
 - **(User)** Pin exactly 22.12.0; the audit is a blocking step in the PR lane; no pin assertion in workflows.test.mjs; no scheduled audit job.
 - No dated-comment scanner; the seeded-defect test on the audit step's `continue-on-error` is the
   only new assertion — AC3 asks for exactly that, the scanner is an optional P3 outside the ACs.
