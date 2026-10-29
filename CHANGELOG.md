@@ -12,6 +12,8 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+## 0.9.0 — 2026-10-29
+
 ### Added
 
 - Demos play in R1Q2 installations — Stop only; seeking, pause and the position need Q2PRO.
