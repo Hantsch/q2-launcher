@@ -80,13 +80,33 @@ jobs:
         shell: bash
         run: npm run ui:verify
 
-      - name: About release notes flow
+      - name: "Core journey on Windows: add installation, edit config, Play, exited"
         shell: bash
-        run: npm run ui:flow -- about-release-notes
+        run: npm run ui:flow -- linux-user-journey
+
+      - name: Bootstrap wizard flow
+        shell: bash
+        run: npm run ui:flow -- bootstrap-wizard
+
+      - name: Servers join flow
+        shell: bash
+        run: npm run ui:flow -- servers-join
+
+      - name: Replays play Q2PRO flow
+        shell: bash
+        run: npm run ui:flow -- replays-play-q2pro
+
+      - name: Mods install flow
+        shell: bash
+        run: npm run ui:flow -- mods-install
 
       - name: Steam handoff flow
         shell: bash
         run: npm run ui:flow -- steam-handoff
+
+      - name: About release notes flow
+        shell: bash
+        run: npm run ui:flow -- about-release-notes
 
       - name: Open keycap dialog flow
         shell: bash

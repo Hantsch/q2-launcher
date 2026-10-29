@@ -198,6 +198,28 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Built outside release/<version>/ so release.mjs never collects it as a release asset.
+      - name: Package the unpacked Windows app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run package:dir -- -c.directories.output=release/smoke
+
+      - name: Resolve the unpacked app path
+        id: smoke-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="release/smoke/win-unpacked/Q2 Launcher.exe"
+          if [ ! -f "$APP_PATH" ]; then echo "no $APP_PATH after package:dir" >&2; exit 1; fi
+          echo "Resolved unpacked app: $APP_PATH"
+          echo "path=$APP_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Packaged launch smoke
+        shell: bash
+        # Advisory until the tripwire in scripts/workflows.test.mjs removes this after two releases past 0.8.0.
+        continue-on-error: true
+        run: npm run ui:flow -- about-release-notes --app="${{ steps.smoke-app.outputs.path }}"
+
       - name: Download the Linux artifacts
         uses: actions/download-artifact@v4
         with:

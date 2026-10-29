@@ -138,3 +138,15 @@
 - 2026-10-29 12:00 · 265 · review 1 · done
 - 2026-10-29 12:00 · 265 · D5 review-fix 1 · started
 - 2026-10-29 12:02 · 265 · story · done
+- 2026-10-29 12:02 · 264 · build · started
+- 2026-10-29 12:03 · 264 · D1 Windows PR lane · started
+- 2026-10-29 12:07 · 264 · D1 Windows PR lane · done
+- 2026-10-29 12:07 · 264 · D2 release packaged smoke · started
+- 2026-10-29 12:09 · 264 · D2 release packaged smoke · done
+- 2026-10-29 12:09 · 264 · D3 docs · started
+- 2026-10-29 12:10 · 264 · D3 docs · done
+- 2026-10-29 12:10 · 264 · verify · started
+- 2026-10-29 12:14 · 264 · verify · done
+- 2026-10-29 12:14 · 264 · review 1 · started
+- 2026-10-29 12:15 · 264 · review 1 · done
+- 2026-10-29 12:15 · 264 · story · done

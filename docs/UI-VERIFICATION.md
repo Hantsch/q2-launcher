@@ -1619,8 +1619,17 @@ two jobs:
 - `ui-flows` — every flow on `ubuntu-latest` under xvfb, split into 6 shards
   (`npm run ui:flows -- --shard=<i>/6`).
 - `windows-verify` — on `windows-latest`: build, `npm run ui:verify`
-  (screenshots + axe-core) and three flows (`about-release-notes`,
-  `steam-handoff`, `open-keycap-dialog`).
+  (screenshots + axe-core), then eight blocking flows on a `build:dev` build
+  (no `continue-on-error`): `linux-user-journey`, `bootstrap-wizard`,
+  `servers-join`, `replays-play-q2pro`, `mods-install`, `steam-handoff`,
+  `about-release-notes`, `open-keycap-dialog`.
+
+`.github/workflows/release.yml` runs `about-release-notes` against the
+unpacked packaged app (`package:dir` into `release/smoke`) before publishing.
+It is non-blocking until two releases after 0.8.0 and blocking from then on
+(tripwire test in `scripts/workflows.test.mjs`). Story 223's claim "the
+packaged path is already proven by release.yml" is superseded: the packaged
+launch is the release step, the PR lane stays on `build:dev` (story 264).
 
 Both trigger on pull requests into `main` and on `workflow_dispatch` only; a
 push or schedule run would re-verify a tree that only changes through PRs.

@@ -212,6 +212,11 @@ export default async function linuxUserJourney({ page, step, shot }) {
   await shot('installation-active')
 
   if (!spawnable) {
+    if (process.env.CI) {
+      throw new Error(
+        'linux-user-journey: resources/bin/7za.exe is missing, so there is no spawnable stand-in client - run `npm run fetch:7za`.',
+      )
+    }
     console.warn(
       "SKIPPING the Play/launch assertions (AC9's launch half): resources/bin/7za.exe is not " +
         'vendored locally on this Windows machine, so the fixture install root only carries a ' +

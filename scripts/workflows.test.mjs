@@ -3,6 +3,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import yaml from 'js-yaml'
 import { describe, expect, test } from 'vitest'
+import { tierFlows } from './lib/flow-select.mjs'
+import { loadFlowTree } from './lib/flow-tree.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const WORKFLOWS_DIR = join(ROOT, '.github/workflows')
@@ -27,6 +29,18 @@ export function allSteps(workflows = loadWorkflows()) {
       (def.steps ?? []).map((step) => ({ file, job, step })),
     ),
   )
+}
+
+/** True once at least two released `## x.y.z` headings are newer than `baseline`; `## Unreleased` never counts. */
+export function packagedSmokeMustBlock(changelogText, baseline = '0.8.0') {
+  const num = (v) => v.split('.').map(Number)
+  const newer = (a, b) => {
+    const [x, y] = [num(a), num(b)]
+    for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]
+    return false
+  }
+  const released = [...changelogText.matchAll(/^## \[?(\d+\.\d+\.\d+)\]?/gm)].map((m) => m[1])
+  return released.filter((v) => newer(v, baseline)).length >= 2
 }
 
 const UI_FLOWS = join(WORKFLOWS_DIR, 'ui-flows.yml')
@@ -56,19 +70,40 @@ describe('ui-flows workflow', () => {
     expect(upload.with.path).toContain('.ui-verify/screenshots/**')
   })
 
-  test('windows-verify runs build, ui:verify and three flows on windows-latest and uploads screenshots', () => {
+  test('windows-verify blocks on the core-journey flows on windows-latest', () => {
     const job = loadYaml(UI_FLOWS).jobs['windows-verify']
     expect(job['runs-on']).toBe('windows-latest')
     expect(job['timeout-minutes']).toBe(30)
+    expect(job['continue-on-error']).toBeUndefined()
+    for (const step of job.steps) expect(step['continue-on-error']).toBeUndefined()
     const runs = job.steps.filter((s) => s.run).map((s) => s.run)
+    const flows = [
+      'linux-user-journey',
+      'bootstrap-wizard',
+      'servers-join',
+      'replays-play-q2pro',
+      'mods-install',
+      'steam-handoff',
+      'about-release-notes',
+      'open-keycap-dialog',
+    ]
     expect(runs).toEqual([
       'npm run fetch:7za',
       'npm run build:dev',
       'npm run ui:verify',
-      'npm run ui:flow -- about-release-notes',
-      'npm run ui:flow -- steam-handoff',
-      'npm run ui:flow -- open-keycap-dialog',
+      ...flows.map((f) => `npm run ui:flow -- ${f}`),
     ])
+    const run = runs.filter((r) => r.startsWith('npm run ui:flow -- ')).map((r) => r.slice(19))
+    expect(run.length).toBeGreaterThanOrEqual(4)
+    expect(run.length).toBeLessThanOrEqual(8)
+    expect(run).toContain('linux-user-journey')
+    const tree = loadFlowTree()
+    const smoke = tierFlows(
+      tree.tiers,
+      'smoke',
+      tree.flows.map((f) => f.name),
+    )
+    for (const f of run) expect(smoke, f).toContain(f)
     const upload = job.steps.find((s) => String(s.uses ?? '').startsWith('actions/upload-artifact'))
     expect(upload.if).toBe('always()')
     for (const p of ['.ui-verify/screenshots/**', '.ui-verify/a11y.json', '.ui-verify/a11y.md'])
@@ -199,5 +234,37 @@ describe('release workflow', () => {
     const runs = release().jobs.release.steps.map((s) => String(s.run ?? ''))
     expect(runs).toContain('npm test')
     expect(runs).toContain('npm run typecheck')
+  })
+})
+
+describe('release packaged launch smoke', () => {
+  const steps = () => loadYaml(join(WORKFLOWS_DIR, 'release.yml')).jobs.release.steps
+  const smokeStep = () => steps().find((s) => /\bui:flow\b/.test(String(s.run ?? '')) && /--app=/.test(s.run))
+
+  test('the release job launches the unpacked app before it publishes', () => {
+    const all = steps()
+    const smoke = all.findIndex((s) => /\bui:flow\b/.test(String(s.run ?? '')) && /--app=/.test(s.run))
+    const publish = all.findIndex((s) => String(s.run ?? '').includes('scripts/release.mjs'))
+    expect(smoke).toBeGreaterThanOrEqual(0)
+    expect(smoke).toBeLessThan(publish)
+    const runs = all.slice(0, smoke).map((s) => String(s.run ?? ''))
+    expect(runs.some((r) => /\bpackage:dir\b/.test(r))).toBe(true)
+    expect(runs.some((r) => /\bpackage:win\b/.test(r))).toBe(false)
+  })
+
+  test('the packaged smoke turns blocking after two releases past 0.8.0', () => {
+    const h = (...v) => ['## Unreleased', ...v.map((x) => `## ${x} - 2026-11-01`)].join('\n\n')
+    expect(packagedSmokeMustBlock(h())).toBe(false)
+    expect(packagedSmokeMustBlock(h('0.8.0'))).toBe(false)
+    expect(packagedSmokeMustBlock(h('0.8.1', '0.8.0'))).toBe(false)
+    expect(packagedSmokeMustBlock(h('0.10.0', '0.8.1', '0.8.0'))).toBe(true)
+    expect(packagedSmokeMustBlock('## [0.9.0]\n## [0.8.1]')).toBe(true)
+  })
+
+  test("the packaged smoke step's continue-on-error matches the released count", () => {
+    const must = packagedSmokeMustBlock(readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf-8'))
+    const flag = smokeStep()['continue-on-error']
+    if (must) expect(flag).toBeUndefined()
+    else expect(flag).toBe(true)
   })
 })

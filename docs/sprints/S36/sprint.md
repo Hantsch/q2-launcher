@@ -25,7 +25,7 @@ The Windows PR lane fails when a core journey breaks, the release publishes only
 - [x] 268 — Recorded-flaky flows wait on conditions, not sleeps
 - [x] 269 — Linux fixture engine clears the quarantine
 - [x] 265 — Flow smoke tier, failed-only confirmation re-run, per-flow seconds recorded
-- [ ] 264 — Windows PR lane blocks on core-journey flows and the release launches the packaged app
+- [x] 264 — Windows PR lane blocks on core-journey flows and the release launches the packaged app
 - [ ] 270 — Test lane map in CLAUDE.md, Linux advisory exit condition, one meaning of e2e
 
 ## Notes

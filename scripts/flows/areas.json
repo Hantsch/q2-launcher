@@ -13,7 +13,8 @@
     "servers-join": "smoke",
     "replays-demo-rows": "smoke",
     "replays-play-q2pro": "smoke",
-    "about-release-notes": "smoke"
+    "about-release-notes": "smoke",
+    "steam-handoff": "smoke"
   },
   "areas": [
     {
