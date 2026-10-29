@@ -139,11 +139,11 @@ them; the bleeding-edge update is D4.
       chip; it becomes checked; the preview contains `q2pro.exe` and not `q2pro64.exe`).
 - [x] **D4 — engine update and repair replace the build the installation launches.** Files:
       `src/main/modules/downloads/bootstrap/assemble.ts` (`BuildAssemblePlanInput.engineExecutable?:
-      string`; `buildQ2proEngineEntries`/`buildR1q2EngineEntries` use it as the engine entry's `to`
+string`; `buildQ2proEngineEntries`/`buildR1q2EngineEntries` use it as the engine entry's `to`
       only when it equals, case-insensitively, one of that definition's `executables`, else the
       default — never a path, never an unknown name; `assembleInstallation` forwards it);
       `src/main/modules/downloads/engine/update-job.ts` (`engineAllowlistFor(engine,
-      engineExecutable?)`; the call at :368 passes `basename(installation.executablePath)` when set);
+engineExecutable?)`; the call at :368 passes `basename(installation.executablePath)` when set);
       `src/main/modules/downloads/repair/job.ts` (the `assembleInstallation` call at :392 for an
       engine step passes the same basename); `docs/systems/install-module.md` (one line: update and
       repair overwrite the executable the installation launches, in place). Tests:

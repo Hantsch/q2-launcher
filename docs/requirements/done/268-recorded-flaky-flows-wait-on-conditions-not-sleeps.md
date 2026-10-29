@@ -156,8 +156,8 @@ the 16 other sleeping flows and `scripts/lib/servers-lan-flow.mjs` (allowlisted,
       sentence: `scripts/repo-hygiene.test.mjs` enforces this; its legacy allowlist only shrinks, and
       a legacy flow that is touched is fixed and leaves it. Touches only these two files.
 - [x] D4 — **Stability record.** Run `npm run ui:flows -- controls-drag-reorder
-      servers-master-sources replays-detail-quick-edit replays-extra-folders --repeat=10
-      --parallel=4` and record the command and per-flow result (10/10 each) in Done. A red run is
+servers-master-sources replays-detail-quick-edit replays-extra-folders --repeat=10
+--parallel=4` and record the command and per-flow result (10/10 each) in Done. A red run is
       root-caused and fixed in its flow with a condition wait, then the whole command is repeated —
       never a partial re-run. Also record in Done: `git diff --stat` of the story (neither
       `src/main/services/launch.test.ts` nor `DemoDragZone.test.tsx`) and the `launch.test.ts` audit
@@ -199,6 +199,7 @@ Both sleeping drag flows now wait on dnd-kit state (preview attached/detached, o
 Commit: `268: drag-reorder and servers-sources flows wait on dnd-kit state, sleep ratchet in repo-hygiene`
 
 Verification (narrow gate): `npx vitest run scripts/repo-hygiene.test.mjs` 14/14; lint, typecheck, build green.
+
 - AC1 -> hygiene "no flow outside the legacy allowlist sleeps on a fixed timeout" passed; grep of the four flows: 0 hits.
 - AC2 -> `npm run ui:flows -- controls-drag-reorder servers-master-sources replays-detail-quick-edit replays-extra-folders --repeat=10 --parallel=4`: 40/40 (10/10 each). First run was 39/40 (replays-extra-folders, `openDemosView` clicked a breadcrumb that vanished); fixed with a condition loop, whole command repeated green.
 - AC3 -> seeded defects: drag-start selector that never appears fails at "drag to start" (8000ms); skipping the first Space in servers-master-sources fails at "picked up" wait.
@@ -208,6 +209,7 @@ Verification (narrow gate): `npx vitest run scripts/repo-hygiene.test.mjs` 14/14
 - Review (default, 1 cycle): PASS; unfixed notes: `.catch(() => {})` in `openDemosView` is broad, one long doc line.
 
 Decisions:
+
 - servers-master-sources: the wait after the first Space accepts "Picked up item" or "was moved into position" because dnd-kit's onDragOver overwrites the pickup text before a poll sees it; skipping Space still fails.
 - Row-target over-state waits on "position N of" with the target's own N, since the drag start already announces the dragged row's position.
 - `realDrag` takes a required `dropped` option (state, predicate, arg).

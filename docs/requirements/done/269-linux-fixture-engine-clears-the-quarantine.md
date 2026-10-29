@@ -32,22 +32,22 @@ Cut by the binding user decision under `## Decisions (Sprint)` (Linux is a manua
 qualification target, not a pipeline platform): AC1–AC3 are struck, AC6–AC7 replace them.
 
 - [ ] ~~**AC1** — The flow fixture offers a Linux engine package selected by platform; the Windows
-  package and the Windows flows that use it are unchanged (the Windows re-run of the flows that
-  touch the fixture exits 0).~~ cut → Decisions (Sprint)
+      package and the Windows flows that use it are unchanged (the Windows re-run of the flows that
+      touch the fixture exits 0).~~ cut → Decisions (Sprint)
 - [ ] ~~**AC2** — On Linux, `npm run ui:flows -- add-installation-one-flow bootstrap-existing-folder`
-  exits 0 with both flows removed from quarantine and `--repeat` showing no flake.~~ cut → Decisions (Sprint)
+      exits 0 with both flows removed from quarantine and `--repeat` showing no flake.~~ cut → Decisions (Sprint)
 - [ ] ~~**AC3** — `grep -c "Windows Q2PRO" scripts/flows/quarantine.json` returns 0: none of the 20
-  story-234 entries remain (any remaining Linux entry names a different story and a different reason).~~ cut → Decisions (Sprint)
+      story-234 entries remain (any remaining Linux entry names a different story and a different reason).~~ cut → Decisions (Sprint)
 - [x] **AC4** — `grep -n unattributed scripts/flows/quarantine.json` returns nothing; the `news-feed`
-  and `unlock-code` entries are gone because both flows are fixed (AC7).
+      and `unlock-code` entries are gone because both flows are fixed (AC7).
 - [x] **AC5** — A test fails when a quarantine entry has an empty or `unattributed` `story` (seeded
-  defect: set `"story": "unattributed"` and the named test goes red).
+      defect: set `"story": "unattributed"` and the named test goes red).
 - [x] **AC6** — An entry scoped `"platform": "linux"` is not subject to the three-sprint age rule, so
-  the 20 story-234 entries (since S34) do not turn the Windows or the manual Linux run red at S38; an
-  unscoped or `win32` entry older than three sprints still fails the run.
+      the 20 story-234 entries (since S34) do not turn the Windows or the manual Linux run red at S38; an
+      unscoped or `win32` entry older than three sprints still fails the run.
 - [x] **AC7** — On Windows, `npm run ui:flows -- news-feed unlock-code home-tile-states
-  settings-downloads-section --repeat=10 --parallel=4` exits 0 with `news-feed` and `unlock-code`
-  no longer in `scripts/flows/quarantine.json` (command and result recorded in `## Done
+settings-downloads-section --repeat=10 --parallel=4` exits 0 with `news-feed` and `unlock-code`
+      no longer in `scripts/flows/quarantine.json` (command and result recorded in `## Done
 
 Quarantine entries must now name a real story or TD id (`unattributed` is a config error); `linux`-scoped entries are exempt from the three-sprint age rule. The two Windows shard races are fixed in the flows (unlock-code waits for the rendered installation id; news-feed waits for the failed refresh to settle via `news.get` before its no-toast/no-dialog checks), both quarantine entries and TD-047/TD-052 removed. Docs updated (`docs/UI-VERIFICATION.md`).
 

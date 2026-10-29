@@ -74,7 +74,7 @@ no perf lane. Windows has a 15.6 ms timer tick.
 
 1. **Perf lane plumbing + split (D1).** `vitest.config.ts` gains
    `exclude: [...configDefaults.exclude, '**/*.perf.test.*']`. New `vitest.perf.config.ts` spreads
-   the base config and *replaces* `test.include`/`test.exclude`, with `fileParallelism: false` (no
+   the base config and _replaces_ `test.include`/`test.exclude`, with `fileParallelism: false` (no
    `mergeConfig`: it concatenates arrays, so the perf lane would run the whole suite).
    `package.json` gets `test:perf`; `tsconfig.node.json` includes the new config.
    `scan-ping-accuracy.test.ts` → `scan-ping-accuracy.perf.test.ts` (`git mv`);
@@ -97,75 +97,57 @@ under its new name `scan-ping-accuracy.perf.test.ts`.
       `vitest.perf.config.ts`, `tsconfig.node.json`, `package.json`, and in
       `src/main/modules/servers/`: `scan-ping-accuracy.test.ts` → `scan-ping-accuracy.perf.test.ts`
       (`git mv`; content unchanged except the header comment's pointer to the measurement file),
-      `scan-measurement.test.ts` → `scan-measurement.perf.test.ts`, new `scan-runner-loopback.test.ts`.
-      - `vitest.config.ts`: add `exclude: [...configDefaults.exclude, '**/*.perf.test.*']` (import
-        `configDefaults` from `vitest/config`) with a one-line comment that perf files run only via
-        `npm run test:perf`.
-      - `vitest.perf.config.ts`: import the base config and build a new one by object spread,
-        replacing `test.include` with `['src/**/*.perf.test.ts']` and `test.exclude` with
-        `configDefaults.exclude`, adding `fileParallelism: false`. Do **not** use `mergeConfig` (it
-        concatenates `include`/`exclude`). Aliases, `setupFiles`, `define`, `testTimeout` carry over.
-      - `package.json`: `"test:perf": "vitest run --config vitest.perf.config.ts"` next to `test`.
-      - `tsconfig.node.json`: list `vitest.perf.config.ts` beside `vitest.config.ts`.
-      - `scan-measurement.perf.test.ts`: today's file reduced to the budget — population setup,
-        `runScan`, `result.aborted === false`, `stage1Done === POPULATION_SIZE`,
-        `fullPassMs < RECORDED_FULL_PASS_BUDGET_MS`. Keep the budget comment; drop the
-        `expect(RECORDED_FULL_PASS_BUDGET_MS).toBeGreaterThan(0)` constant echo.
-      - `scan-runner-loopback.test.ts` (unit lane, no `performance.now`/`Date.now`): the same
-        30-responder population (`scan-fixture-responders.ts`) through the real `runScan` with
-        `DEFAULT_SERVERS_STATE.scan`, asserting the functional shape the measurement file asserts
-        today: unaborted, `stage1Done`, `stage1Ok`/`stage2Ok`/`stage2Total` against the
-        answering/non-empty profiles, every responder `received.info >= 1`, `received.status > 0`
-        exactly for the non-empty ones. Test name: "a full two-stage pass over the loopback
-        population answers every live server and queries status only for non-empty ones".
-      - No tolerance or budget constant changes value.
-      - Acceptance: `npx vitest list` prints no path containing `scan-ping-accuracy` or
-        `scan-measurement` and does print `scan-runner-loopback.test.ts`;
-        `npx vitest list --config vitest.perf.config.ts` prints exactly the two `.perf.test.ts`
-        files; `npm test`, `npm run test:perf`, `npm run typecheck`, `npm run lint` exit 0.
-      - AC4 seeded defect, recorded in Done and reverted: slow the ping path 3x (e.g. multiply the
-        round trip where `server-query.ts` computes it by 3) and show `npm run test:perf` exits
-        non-zero.
+      `scan-measurement.test.ts` → `scan-measurement.perf.test.ts`, new `scan-runner-loopback.test.ts`. - `vitest.config.ts`: add `exclude: [...configDefaults.exclude, '**/*.perf.test.*']` (import
+      `configDefaults` from `vitest/config`) with a one-line comment that perf files run only via
+      `npm run test:perf`. - `vitest.perf.config.ts`: import the base config and build a new one by object spread,
+      replacing `test.include` with `['src/**/*.perf.test.ts']` and `test.exclude` with
+      `configDefaults.exclude`, adding `fileParallelism: false`. Do **not** use `mergeConfig` (it
+      concatenates `include`/`exclude`). Aliases, `setupFiles`, `define`, `testTimeout` carry over. - `package.json`: `"test:perf": "vitest run --config vitest.perf.config.ts"` next to `test`. - `tsconfig.node.json`: list `vitest.perf.config.ts` beside `vitest.config.ts`. - `scan-measurement.perf.test.ts`: today's file reduced to the budget — population setup,
+      `runScan`, `result.aborted === false`, `stage1Done === POPULATION_SIZE`,
+      `fullPassMs < RECORDED_FULL_PASS_BUDGET_MS`. Keep the budget comment; drop the
+      `expect(RECORDED_FULL_PASS_BUDGET_MS).toBeGreaterThan(0)` constant echo. - `scan-runner-loopback.test.ts` (unit lane, no `performance.now`/`Date.now`): the same
+      30-responder population (`scan-fixture-responders.ts`) through the real `runScan` with
+      `DEFAULT_SERVERS_STATE.scan`, asserting the functional shape the measurement file asserts
+      today: unaborted, `stage1Done`, `stage1Ok`/`stage2Ok`/`stage2Total` against the
+      answering/non-empty profiles, every responder `received.info >= 1`, `received.status > 0`
+      exactly for the non-empty ones. Test name: "a full two-stage pass over the loopback
+      population answers every live server and queries status only for non-empty ones". - No tolerance or budget constant changes value. - Acceptance: `npx vitest list` prints no path containing `scan-ping-accuracy` or
+      `scan-measurement` and does print `scan-runner-loopback.test.ts`;
+      `npx vitest list --config vitest.perf.config.ts` prints exactly the two `.perf.test.ts`
+      files; `npm test`, `npm run test:perf`, `npm run typecheck`, `npm run lint` exit 0. - AC4 seeded defect, recorded in Done and reverted: slow the ping path 3x (e.g. multiply the
+      round trip where `server-query.ts` computes it by 3) and show `npm run test:perf` exits
+      non-zero.
 - [x] D2 — **Manual trigger, its guard, and the docs.** Touches new `.github/workflows/perf.yml`,
-      `scripts/workflows.test.mjs`, `CLAUDE.md`, `docs/TECH-DEBT.md`, `docs/systems/servers-module.md`.
-      - `perf.yml`: `name: perf`, `on: workflow_dispatch:` only (no `schedule`, `push`,
-        `pull_request`); one job `perf`, `runs-on: windows-latest`, `timeout-minutes: 15`; steps
-        `actions/checkout` (same pin style as `ci.yml`), `./.github/actions/setup-node-electron`
-        with `electron: 'false'`, `run: npm run test:perf`. Header comment: manual-only by the
-        maintainer's call (story 267); a red run blocks nothing. It must pass every existing check
-        in `scripts/workflows.test.mjs` and `scripts/repo-hygiene.test.mjs` at build time (no own
-        `setup-node`/`npm ci`, whatever pin or Node-version rules exist by then).
-      - `scripts/workflows.test.mjs`: a `describe('perf lane', …)` with one test "the perf lane runs
-        only on manual dispatch and no push or pull-request workflow runs it": perf.yml's `on` keys
-        equal `['workflow_dispatch']`; its job has a step running `npm run test:perf`; across
-        `loadWorkflows()`, no workflow whose `on` has `push` or `pull_request` has a step whose
-        `run` contains `test:perf` or `vitest.perf.config`. Reuse `loadWorkflows`/`allSteps`.
-      - `CLAUDE.md` `## Deviations` table: one row, skill `/test-gates` (perf lane). Deviation: the
-        perf lane (`npm run test:perf`, `perf.yml`) runs on manual dispatch only, not as an advisory
-        PR job, and a budget overrun fails the run instead of warning. Reason: the maintainer made
-        the lane manual-only (story 267); a manual run is read by its exit code and blocks no merge
-        or release. Keep the table prettier-aligned.
-      - `docs/TECH-DEBT.md` TD-049: rewrite the item — the ping-accuracy test runs only in the
-        manual perf lane (story 267); over real sockets it still cannot tell a late receive stamp
-        from an arrival stamp (story 258 AC5's fake-socket test is the proof). Keep id, `since`,
-        source and the table alignment.
-      - `docs/systems/servers-module.md`: one line under `## Map`, near `server-query.ts` /
-        `ping-samples.ts`: scan timing (ping accuracy, full-pass budget) is checked only by the
-        manual perf lane `npm run test:perf`; the unit lane checks the scan's shape.
-      - Acceptance: the new test passes and fails with a seeded `pull_request:` in perf.yml
-        (recorded in Done, reverted); `grep -n "267" docs/TECH-DEBT.md` hits the TD-049 row;
-        `npm test`, `npm run lint`, `npm run format:check` clean for the touched files.
+      `scripts/workflows.test.mjs`, `CLAUDE.md`, `docs/TECH-DEBT.md`, `docs/systems/servers-module.md`. - `perf.yml`: `name: perf`, `on: workflow_dispatch:` only (no `schedule`, `push`,
+      `pull_request`); one job `perf`, `runs-on: windows-latest`, `timeout-minutes: 15`; steps
+      `actions/checkout` (same pin style as `ci.yml`), `./.github/actions/setup-node-electron`
+      with `electron: 'false'`, `run: npm run test:perf`. Header comment: manual-only by the
+      maintainer's call (story 267); a red run blocks nothing. It must pass every existing check
+      in `scripts/workflows.test.mjs` and `scripts/repo-hygiene.test.mjs` at build time (no own
+      `setup-node`/`npm ci`, whatever pin or Node-version rules exist by then). - `scripts/workflows.test.mjs`: a `describe('perf lane', …)` with one test "the perf lane runs
+      only on manual dispatch and no push or pull-request workflow runs it": perf.yml's `on` keys
+      equal `['workflow_dispatch']`; its job has a step running `npm run test:perf`; across
+      `loadWorkflows()`, no workflow whose `on` has `push` or `pull_request` has a step whose
+      `run` contains `test:perf` or `vitest.perf.config`. Reuse `loadWorkflows`/`allSteps`. - `CLAUDE.md` `## Deviations` table: one row, skill `/test-gates` (perf lane). Deviation: the
+      perf lane (`npm run test:perf`, `perf.yml`) runs on manual dispatch only, not as an advisory
+      PR job, and a budget overrun fails the run instead of warning. Reason: the maintainer made
+      the lane manual-only (story 267); a manual run is read by its exit code and blocks no merge
+      or release. Keep the table prettier-aligned. - `docs/TECH-DEBT.md` TD-049: rewrite the item — the ping-accuracy test runs only in the
+      manual perf lane (story 267); over real sockets it still cannot tell a late receive stamp
+      from an arrival stamp (story 258 AC5's fake-socket test is the proof). Keep id, `since`,
+      source and the table alignment. - `docs/systems/servers-module.md`: one line under `## Map`, near `server-query.ts` /
+      `ping-samples.ts`: scan timing (ping accuracy, full-pass budget) is checked only by the
+      manual perf lane `npm run test:perf`; the unit lane checks the scan's shape. - Acceptance: the new test passes and fails with a seeded `pull_request:` in perf.yml
+      (recorded in Done, reverted); `grep -n "267" docs/TECH-DEBT.md` hits the TD-049 row;
+      `npm test`, `npm run lint`, `npm run format:check` clean for the touched files.
 - [x] D3 — **The folder-scale flow logs navigation time instead of failing on it.** Touches only
-      `scripts/flows/replays-folders-scale.mjs`.
-      - Delete `MAX_NAVIGATION_MS` and both `expect(openMs <= …)` / `expect(backMs <= …)` lines;
-        the crumb-return `poll` drops its third argument and uses the default timeout. The existing
-        `measured: open … ms, crumb … ms` step line stays as the log; reword the
-        step "each render within a second" and the header's "navigates fast" so neither promises a
-        time.
-      - `MAX_MOUNTED_ROWS` and `assertFewRows` stay byte-identical.
-      - Acceptance: `grep -n MAX_NAVIGATION_MS scripts/flows/replays-folders-scale.mjs` is empty;
-        `npm run ui:flow -- replays-folders-scale` passes and prints the `measured:` line; a seeded
-        `MAX_MOUNTED_ROWS = 1` makes it fail (recorded in Done, reverted).
+      `scripts/flows/replays-folders-scale.mjs`. - Delete `MAX_NAVIGATION_MS` and both `expect(openMs <= …)` / `expect(backMs <= …)` lines;
+      the crumb-return `poll` drops its third argument and uses the default timeout. The existing
+      `measured: open … ms, crumb … ms` step line stays as the log; reword the
+      step "each render within a second" and the header's "navigates fast" so neither promises a
+      time. - `MAX_MOUNTED_ROWS` and `assertFewRows` stay byte-identical. - Acceptance: `grep -n MAX_NAVIGATION_MS scripts/flows/replays-folders-scale.mjs` is empty;
+      `npm run ui:flow -- replays-folders-scale` passes and prints the `measured:` line; a seeded
+      `MAX_MOUNTED_ROWS = 1` makes it fail (recorded in Done, reverted).
 
 ## Model Hints
 
@@ -201,6 +183,7 @@ The two wall-clock timing tests (ping accuracy, full-pass budget) moved to a man
 Commit message: `267: timing tests to manual perf lane, flow stops failing on navigation time`
 
 Verification (narrow gate: `npx vitest run --changed HEAD`, `npm run ui:flows -- --affected scripts/flows/replays-folders-scale.mjs --parallel=4 --shard=1/2` and `2/2`): build, typecheck, lint green; unit 7630 passed; `test:perf` green (2 files, 3 tests); flow passed and printed `measured: open 64 ms, crumb 32 ms`.
+
 - AC1 `npx vitest list` shows no scan-ping-accuracy*/scan-measurement*, perf config lists exactly the two `.perf.test.ts` files: passed.
 - AC2 `scan-runner-loopback.test.ts` + `ping-samples.test.ts` named tests: passed.
 - AC3 flow `replays-folders-scale` passed; `grep MAX_NAVIGATION_MS` empty; seeded `MAX_MOUNTED_ROWS = 1` failed the flow ("1 rows mounted, expected fewer than 1"), reverted.

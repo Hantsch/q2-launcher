@@ -99,9 +99,7 @@ async function openSettings(page) {
   await page.waitForFunction(
     () =>
       /^[A-Z2-7]{4}-[A-Z2-7]{4}-[A-Z2-7]{4}$/.test(
-        document
-          .querySelector('[data-testid="unlock-installation-id"]')
-          ?.textContent?.trim() ?? '',
+        document.querySelector('[data-testid="unlock-installation-id"]')?.textContent?.trim() ?? '',
       ),
     undefined,
     { timeout: TIMEOUT_MS },

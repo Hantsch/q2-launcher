@@ -6,7 +6,8 @@ import { decideCiGuard, resolveGuardTarget } from './lib/release/ci-guard.mjs'
 
 function run(cmd, args) {
   const res = spawnSync(cmd, args, { encoding: 'utf8' })
-  if (res.status !== 0) throw new Error(`${cmd} ${args.join(' ')} failed: ${res.stderr || res.error}`)
+  if (res.status !== 0)
+    throw new Error(`${cmd} ${args.join(' ')} failed: ${res.stderr || res.error}`)
   return res.stdout.trim()
 }
 

@@ -80,7 +80,7 @@ jobs:
         shell: bash
         run: npm run ui:verify
 
-      - name: "Core journey on Windows: add installation, edit config, Play, exited"
+      - name: 'Core journey on Windows: add installation, edit config, Play, exited'
         shell: bash
         run: npm run ui:flow -- linux-user-journey
 

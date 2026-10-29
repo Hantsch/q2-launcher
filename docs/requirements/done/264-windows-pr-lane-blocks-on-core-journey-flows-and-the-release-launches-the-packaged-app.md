@@ -111,57 +111,49 @@ state, do not revert them.
 ## Deliverables
 
 - [x] **D1 — Windows PR lane blocks on core journeys.** Files: `.github/workflows/ui-flows.yml`,
-      `scripts/workflows.test.mjs`, `scripts/flows/linux-user-journey.mjs`, `scripts/flows/areas.json`.
-      - In job `windows-verify` (runs-on `windows-latest`, `timeout-minutes: 30` unchanged, steps use
-        `shell: bash` like the existing ones), after `npm run ui:verify`, one named step per flow,
-        `run: npm run ui:flow -- <name>`, no `continue-on-error` on step or job, in this order:
-        `linux-user-journey`, `bootstrap-wizard`, `servers-join`, `replays-play-q2pro`,
-        `mods-install`, `steam-handoff`, `about-release-notes`, `open-keycap-dialog`. Name the
-        journey step "Core journey on Windows: add installation, edit config, Play, exited".
-      - `scripts/flows/areas.json`: add `steam-handoff` as `"smoke"` to the `tiers` map story 265
-        introduced (15 smoke flows, inside 265's 10–15 cap; its tier test must stay green).
-      - Update the existing test `windows-verify runs build, ui:verify and three flows ...` in
-        `scripts/workflows.test.mjs` and rename it "windows-verify blocks on the core-journey flows
-        on windows-latest": `runs` equals the exact ordered list (removing one flow fails it), no
-        step and not the job has `continue-on-error`, `timeout-minutes` is 30, the flow count is
-        4–8, `linux-user-journey` is one of them, and every flow is in the smoke tier — read through
-        265's `loadFlowTree().tiers` + `tierFlows(...)` (`scripts/lib/flow-tree.mjs`,
-        `scripts/lib/flow-select.mjs`), not a second parse of `areas.json`.
-      - `linux-user-journey.mjs`: where it skips the Play half because `7za.exe` is not vendored,
-        throw under `process.env.CI` instead — the same rule, and if story 272 extracted one the
-        same helper, as `launch-with-scope.mjs`; outside CI the loud skip stays.
-      - Acceptance: `npx vitest run scripts/workflows.test.mjs scripts/flow-select.test.mjs` green;
-        after `npm run build:dev` each of the 8 flows passes locally via `npm run ui:flow -- <name>`
-        on this Windows machine; record the per-flow seconds in Done (AC3 estimate).
+      `scripts/workflows.test.mjs`, `scripts/flows/linux-user-journey.mjs`, `scripts/flows/areas.json`. - In job `windows-verify` (runs-on `windows-latest`, `timeout-minutes: 30` unchanged, steps use
+      `shell: bash` like the existing ones), after `npm run ui:verify`, one named step per flow,
+      `run: npm run ui:flow -- <name>`, no `continue-on-error` on step or job, in this order:
+      `linux-user-journey`, `bootstrap-wizard`, `servers-join`, `replays-play-q2pro`,
+      `mods-install`, `steam-handoff`, `about-release-notes`, `open-keycap-dialog`. Name the
+      journey step "Core journey on Windows: add installation, edit config, Play, exited". - `scripts/flows/areas.json`: add `steam-handoff` as `"smoke"` to the `tiers` map story 265
+      introduced (15 smoke flows, inside 265's 10–15 cap; its tier test must stay green). - Update the existing test `windows-verify runs build, ui:verify and three flows ...` in
+      `scripts/workflows.test.mjs` and rename it "windows-verify blocks on the core-journey flows
+      on windows-latest": `runs` equals the exact ordered list (removing one flow fails it), no
+      step and not the job has `continue-on-error`, `timeout-minutes` is 30, the flow count is
+      4–8, `linux-user-journey` is one of them, and every flow is in the smoke tier — read through
+      265's `loadFlowTree().tiers` + `tierFlows(...)` (`scripts/lib/flow-tree.mjs`,
+      `scripts/lib/flow-select.mjs`), not a second parse of `areas.json`. - `linux-user-journey.mjs`: where it skips the Play half because `7za.exe` is not vendored,
+      throw under `process.env.CI` instead — the same rule, and if story 272 extracted one the
+      same helper, as `launch-with-scope.mjs`; outside CI the loud skip stays. - Acceptance: `npx vitest run scripts/workflows.test.mjs scripts/flow-select.test.mjs` green;
+      after `npm run build:dev` each of the 8 flows passes locally via `npm run ui:flow -- <name>`
+      on this Windows machine; record the per-flow seconds in Done (AC3 estimate).
 - [x] **D2 — Release launches the unpacked Windows app before publishing, staged.** Files:
-      `.github/workflows/release.yml`, `scripts/workflows.test.mjs`.
-      - In job `release`, between the `Typecheck` step and the step named `Release` (the one running
-        `node scripts/release.mjs`, which builds the installer and publishes), three steps:
-        (a) "Package the unpacked Windows app" — `npm run package:dir -- -c.directories.output=release/smoke`
-        with env `CSC_IDENTITY_AUTO_DISCOVERY: 'false'`, so nothing lands in `release/<version>/`
-        where `release.mjs` collects assets (`/release/` is gitignored);
-        (b) resolve the exe path `release/smoke/win-unpacked/Q2 Launcher.exe` into a step output and
-        fail the step if it is missing — mirror the shape of `linux-verify.yml`'s "Resolve the built
-        AppImage path" step;
-        (c) "Packaged launch smoke" — `npm run ui:flow -- about-release-notes --app="<path>"` (quoted:
-        the name has a space), `shell: bash`, `continue-on-error: true` with a one-line comment that
-        the tripwire in `scripts/workflows.test.mjs` removes it after two releases past 0.8.0.
-        This job's setup step passes `electron: 'false'`; verify `package:dir` and `ui:flow --app=`
-        work without that binary (the packaged exe carries its own), and change the input only if not.
-      - `scripts/workflows.test.mjs`, new `describe('release packaged launch smoke')`:
-        test "the release job launches the unpacked app before it publishes" — in job `release` a
-        step runs `ui:flow` with `--app=`, its index is lower than that of the step running
-        `scripts/release.mjs`, and a step before it runs `package:dir` (never `package:win`);
-        export a pure `packagedSmokeMustBlock(changelogText, baseline = '0.8.0')` → true when the
-        text has at least 2 released `## x.y.z` headings newer than the baseline (`## Unreleased`
-        never counts); test "the packaged smoke turns blocking after two releases past 0.8.0" —
-        cases: Unreleased only → false, 1 newer → false, 2 newer → true; test "the packaged smoke
-        step's continue-on-error matches the released count" — against the real `CHANGELOG.md` and
-        `release.yml`: must-block ⇒ the step has no `continue-on-error`; otherwise it has
-        `continue-on-error: true`.
-      - Local proof (record in Done): run the (a) command, then the (c) command → exit 0; then seed a
-        crash (delete `release/smoke/win-unpacked/resources/app.asar`) → the same (c) command exits
-        non-zero. Delete `release/smoke/` afterwards.
+      `.github/workflows/release.yml`, `scripts/workflows.test.mjs`. - In job `release`, between the `Typecheck` step and the step named `Release` (the one running
+      `node scripts/release.mjs`, which builds the installer and publishes), three steps:
+      (a) "Package the unpacked Windows app" — `npm run package:dir -- -c.directories.output=release/smoke`
+      with env `CSC_IDENTITY_AUTO_DISCOVERY: 'false'`, so nothing lands in `release/<version>/`
+      where `release.mjs` collects assets (`/release/` is gitignored);
+      (b) resolve the exe path `release/smoke/win-unpacked/Q2 Launcher.exe` into a step output and
+      fail the step if it is missing — mirror the shape of `linux-verify.yml`'s "Resolve the built
+      AppImage path" step;
+      (c) "Packaged launch smoke" — `npm run ui:flow -- about-release-notes --app="<path>"` (quoted:
+      the name has a space), `shell: bash`, `continue-on-error: true` with a one-line comment that
+      the tripwire in `scripts/workflows.test.mjs` removes it after two releases past 0.8.0.
+      This job's setup step passes `electron: 'false'`; verify `package:dir` and `ui:flow --app=`
+      work without that binary (the packaged exe carries its own), and change the input only if not. - `scripts/workflows.test.mjs`, new `describe('release packaged launch smoke')`:
+      test "the release job launches the unpacked app before it publishes" — in job `release` a
+      step runs `ui:flow` with `--app=`, its index is lower than that of the step running
+      `scripts/release.mjs`, and a step before it runs `package:dir` (never `package:win`);
+      export a pure `packagedSmokeMustBlock(changelogText, baseline = '0.8.0')` → true when the
+      text has at least 2 released `## x.y.z` headings newer than the baseline (`## Unreleased`
+      never counts); test "the packaged smoke turns blocking after two releases past 0.8.0" —
+      cases: Unreleased only → false, 1 newer → false, 2 newer → true; test "the packaged smoke
+      step's continue-on-error matches the released count" — against the real `CHANGELOG.md` and
+      `release.yml`: must-block ⇒ the step has no `continue-on-error`; otherwise it has
+      `continue-on-error: true`. - Local proof (record in Done): run the (a) command, then the (c) command → exit 0; then seed a
+      crash (delete `release/smoke/win-unpacked/resources/app.asar`) → the same (c) command exits
+      non-zero. Delete `release/smoke/` afterwards.
 - [x] **D3 — Docs record the new lanes and supersede 223.** File: `docs/UI-VERIFICATION.md`.
       In the section starting "CI runs the harness through `.github/workflows/ui-flows.yml`": the
       `windows-verify` bullet lists the 8 flows and says they block; add that `release.yml` runs

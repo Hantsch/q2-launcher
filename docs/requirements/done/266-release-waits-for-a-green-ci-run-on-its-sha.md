@@ -82,8 +82,8 @@ post-merge failure would not stop publishing either. The release commit itself i
 Gate the release on a green `ci` run for the commit being released, inside the existing `plan` job.
 
 1. **Pure decision** `scripts/lib/release/ci-guard.mjs`: `resolveGuardTarget({ headSha,
-   headMessage, parentSha })` (release commit → parent) and `decideCiGuard({ dryRun, override,
-   targetSha, runs })` → `{ pass, reason }`. Unit-tested over fixtures, no network. The
+headMessage, parentSha })` (release commit → parent) and `decideCiGuard({ dryRun, override,
+targetSha, runs })` → `{ pass, reason }`. Unit-tested over fixtures, no network. The
    release-commit template moves into an exported helper in `plan.mjs` so it is not retyped.
 2. **CLI** `scripts/release-ci-guard.mjs`: reads HEAD/HEAD^ via git, fetches
    `gh api repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=<sha>&per_page=100`,

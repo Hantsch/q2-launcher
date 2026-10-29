@@ -87,12 +87,7 @@
         "src/main/services/map-list.ts",
         "src/main/modules/mods/map-presence.ts"
       ],
-      "flows": [
-        "footer-map",
-        "launch-with-scope",
-        "action-bar-view",
-        "mods-view"
-      ],
+      "flows": ["footer-map", "launch-with-scope", "action-bar-view", "mods-view"],
       "why": "The footer Map select and Play: the map list read from the game directory and the launch that starts in the saved map."
     },
     {
@@ -135,9 +130,7 @@
     },
     {
       "area": "fixture-constants",
-      "paths": [
-        "src/shared/fixture-constants.json"
-      ],
+      "paths": ["src/shared/fixture-constants.json"],
       "flows": [
         "bootstrap-wizard",
         "mods-catalog",
@@ -243,10 +236,7 @@
         "src/shared/release-notes.ts",
         "src/renderer/src/components/about/**"
       ],
-      "flows": [
-        "app-update",
-        "about-release-notes"
-      ],
+      "flows": ["app-update", "about-release-notes"],
       "why": "App update checks and the release notes shown under Settings > About."
     },
     {
@@ -416,10 +406,7 @@
     },
     {
       "area": "list-search",
-      "paths": [
-        "src/shared/list/**",
-        "src/renderer/src/lib/useListSort.ts"
-      ],
+      "paths": ["src/shared/list/**", "src/renderer/src/lib/useListSort.ts"],
       "flows": [
         "replays-filter-search",
         "replays-quoted-search",
@@ -658,10 +645,7 @@
         "src/main/modules/downloads/bootstrap/**",
         "src/renderer/src/modules/downloads/bootstrap/**"
       ],
-      "flows": [
-        "bootstrap-*",
-        "downloads-tab"
-      ],
+      "flows": ["bootstrap-*", "downloads-tab"],
       "why": "The first-run bootstrap: package choice, existing folders, retail import and failure recovery."
     },
     {
@@ -670,10 +654,7 @@
         "src/main/modules/downloads/bootstrap/**",
         "src/renderer/src/modules/downloads/bootstrap/**"
       ],
-      "flows": [
-        "linux-user-journey",
-        "windows-build-on-linux"
-      ],
+      "flows": ["linux-user-journey", "windows-build-on-linux"],
       "why": "The first-run bootstrap seen end to end: the Linux user journey and the Windows build reached from Linux."
     },
     {
@@ -700,12 +681,7 @@
         "src/main/modules/downloads/repair/**",
         "src/renderer/src/modules/downloads/repair/**"
       ],
-      "flows": [
-        "repair",
-        "care-fix-item",
-        "care-drift-sync-now",
-        "downloads-tab"
-      ],
+      "flows": ["repair", "care-fix-item", "care-drift-sync-now", "downloads-tab"],
       "why": "Installation repair and the care items that offer it."
     },
     {
@@ -714,12 +690,7 @@
         "src/main/modules/downloads/retail/**",
         "src/renderer/src/modules/downloads/retail/**"
       ],
-      "flows": [
-        "retail-upgrade",
-        "bootstrap-retail-import",
-        "steam-handoff",
-        "downloads-tab"
-      ],
+      "flows": ["retail-upgrade", "bootstrap-retail-import", "steam-handoff", "downloads-tab"],
       "why": "Retail data import and upgrade, including the Steam path."
     },
     {
@@ -777,11 +748,7 @@
         "src/shared/mods/**",
         "src/renderer/src/modules/mods/**"
       ],
-      "flows": [
-        "mods-*",
-        "mod-update",
-        "replays-mod-install"
-      ],
+      "flows": ["mods-*", "mod-update", "replays-mod-install"],
       "why": "The mods module end to end: catalog, install, update and removal."
     },
     {
@@ -1035,11 +1002,7 @@
         "src/renderer/src/modules/replays/components/DemoStatsPanel.tsx",
         "src/shared/replays/demo-detail.ts"
       ],
-      "flows": [
-        "replays-demo-detail",
-        "replays-detail-teams",
-        "replays-detail-stats"
-      ],
+      "flows": ["replays-demo-detail", "replays-detail-teams", "replays-detail-stats"],
       "why": "The demo detail panel: facts and the players panel."
     },
     {
@@ -1098,13 +1061,8 @@
     },
     {
       "area": "servers-lan",
-      "paths": [
-        "src/main/modules/servers/lan-discovery.ts"
-      ],
-      "flows": [
-        "servers-lan-*",
-        "servers-list-states"
-      ],
+      "paths": ["src/main/modules/servers/lan-discovery.ts"],
+      "flows": ["servers-lan-*", "servers-list-states"],
       "why": "LAN discovery and its unavailable state."
     },
     {

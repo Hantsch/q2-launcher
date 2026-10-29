@@ -121,13 +121,7 @@ export function writeEngineChoiceFixture(variant = 'engine-choice') {
         engineExecutable(missingRoot, 'r1q2'),
         1,
       ),
-      installation(
-        ENGINE_CHOICE_Q2PRO64_ID,
-        ENGINE_CHOICE_Q2PRO64_NAME,
-        q2pro64Root,
-        undefined,
-        2,
-      ),
+      installation(ENGINE_CHOICE_Q2PRO64_ID, ENGINE_CHOICE_Q2PRO64_NAME, q2pro64Root, undefined, 2),
       installation(
         ENGINE_CHOICE_TWO_BUILDS_ID,
         ENGINE_CHOICE_TWO_BUILDS_NAME,

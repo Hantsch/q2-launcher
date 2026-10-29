@@ -104,7 +104,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
 ## Deliverables
 
 - [x] **D1 — A readable `.dm2` row carries its wire protocol.** Add `protocol: z.number().int()
-    .nullable().optional()` to `discoveredDemoSchema` (`src/shared/modules/replays.ts`, doc
+.nullable().optional()` to `discoveredDemoSchema` (`src/shared/modules/replays.ts`, doc
       comment: the header's wire protocol for a readable `.dm2`, null for `.mvd2` and unreadable
       rows — an unreadable row's protocol stays in `unreadable.protocol`). Fill it where rows are
       built: `DemoHeaderFacts` + `toRow` + `readDemoFacts` in

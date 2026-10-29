@@ -158,3 +158,7 @@
 - 2026-10-29 12:19 · 270 · review 1 · started
 - 2026-10-29 12:20 · 270 · review 1 · done
 - 2026-10-29 12:20 · 270 · story · done
+- 2026-10-29 12:20 · gate · short suites · started
+- 2026-10-29 12:26 · gate · e2e-all · started
+- 2026-10-29 12:37 · gate · e2e-all · relaunch (build older than sources)
+- 2026-10-29 12:59 · gate · verify:release · started

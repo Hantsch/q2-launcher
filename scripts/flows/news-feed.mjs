@@ -193,11 +193,7 @@ async function waitForFailedRefresh(page) {
   let last
   while (Date.now() < deadline) {
     last = await getNews(page)
-    if (
-      last?.ok &&
-      last.value.lastRefreshFailed &&
-      server.requested.includes('/news/index.json')
-    ) {
+    if (last?.ok && last.value.lastRefreshFailed && server.requested.includes('/news/index.json')) {
       await page.evaluate(
         () =>
           new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),

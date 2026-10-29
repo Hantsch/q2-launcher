@@ -163,4 +163,3 @@ Review 1 (default): FAIL on two cells, fixed: pr-ui command now `ui:flow -- <nam
 Decisions: table written from the workflows as on HEAD; 269 left linux-verify/linux-update PR/push triggers, so the table lists them as advisory rather than claiming Linux is purely manual. Prettier re-wrapped 4 unrelated lines in workflows.test.mjs (formatting only). No changelog entry.
 
 tiers: D 1 / hard 0 · review default · cycles 1 · agents 3
-
