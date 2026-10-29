@@ -3,7 +3,7 @@
 ## Where we stand
 
 _As of 2026-10-29._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31). Current: Phase 11, codebase health and user feedback.
-S36 is finished on `dev` (no sprint branch): all 12 stories (264–275) done, gate green incl. `verify:release` on Node 22.22.2 ([S36 review](sprints/S36/review.md)). Next: plan S37 — story draft 276 (Linux leaves the GitHub pipeline) and the overdue TECH-DEBT rows.
+S36 is finished on `dev` (no sprint branch): all 12 stories (264–275) done, gate green incl. `verify:release` on Node 22.22.2 ([S36 review](sprints/S36/review.md)). Next: plan S37 — story drafts [276](requirements/276-linux-checks-leave-the-github-pipeline.md)–[280](requirements/280-the-packaged-smoke-switch-is-a-decision-not-a-tripwire.md) (PR and release path: Linux out and never red, pushed = tested, release after ci, doc tests out of the gate, no tripwire) and the overdue TECH-DEBT rows.
 Waiting on the user: pushing `dev` and the S36 manual residue ([testplan](sprints/S36/testplan.md)), 234 AC3 GitHub half, merging `sprint/S32`–`S35` into `dev` in order,
 the manual residue in the S28–S30, [S32](sprints/done/S32/testplan.md), [S33](sprints/done/S33/testplan.md) and [S34](sprints/done/S34/testplan.md) testplans, and 102's Q1–Q4.
 
