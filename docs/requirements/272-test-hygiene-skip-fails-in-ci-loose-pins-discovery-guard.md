@@ -1,7 +1,7 @@
 ---
 id: 272
-title: "Test hygiene: skipped launch flow fails in CI, loose workflow pins, discovery guard, constant echoes"
-status: draft # draft -> ready -> in-progress -> done
+title: 'Test hygiene: skipped launch flow fails in CI, loose workflow pins, discovery guard, constant echoes'
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -34,84 +34,143 @@ Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F12, F11, F15
 ## Acceptance Criteria
 
 - [ ] **AC1** — With `CI` set and `resources/bin/7za.exe` absent, `launch-with-scope` fails; with
-  `CI` unset it still logs and returns. A seeded defect (removing the CI branch) fails the named check.
+      `CI` unset it still logs and returns. A seeded defect (removing the CI branch) fails the named check.
 - [ ] **AC2** — Every workflow job that runs flows including `launch-with-scope` runs
-  `npm run fetch:7za` first (asserted in `scripts/workflows.test.mjs`).
+      `npm run fetch:7za` first (asserted in `scripts/workflows.test.mjs`).
 - [ ] **AC3** — `scripts/flows/windows-build-on-linux.mjs` is unchanged (`git diff` empty for it).
 - [ ] **AC4** — `scripts/workflows.test.mjs` no longer contains the xvfb-run regexp; it asserts that
-  a step runs `ui:flows` with `--shard` and the matrix shard. The `fetch:7za`,
-  `ELECTRON_DISABLE_SANDBOX`, `build:dev` and windows-verify `runs` assertions remain.
+      a step runs `ui:flows` with `--shard` and the matrix shard. The `fetch:7za`,
+      `ELECTRON_DISABLE_SANDBOX`, `build:dev` and windows-verify `runs` assertions remain.
 - [ ] **AC5** — A `scripts/repo-hygiene.test.mjs` case takes `git ls-files` filtered by
-  `/\.(test|spec)\.[cm]?[jt]sx?$/` and fails for any file outside the two include globs (seeded
-  defect: a `foo.test.cjs` makes it red; `.snap` files and `node_modules` are ignored).
+      `/\.(test|spec)\.[cm]?[jt]sx?$/` and fails for any file outside the two include globs (seeded
+      defect: a `foo.test.cjs` makes it red; `.snap` files and `node_modules` are ignored).
 - [ ] **AC6** — `grep -rn "expect(LIVE_WRITE_WINDOW_MS).toBe\|expect(MAX_FLOWS_PER_AREA).toBe" src
-  scripts` returns nothing.
+scripts` returns nothing.
 - [ ] **AC7** — The CSP pins still fail on a relaxed directive: `renderer-source.test.ts` keeps
-  `PRODUCTION_CSP` verbatim and `layering.test.ts` keeps its `toContain` checks.
+      `PRODUCTION_CSP` verbatim and `layering.test.ts` keeps its `toContain` checks.
 - [ ] **AC8** — `npm test` and `npm run lint` exit 0.
 
 ## Open Questions
 
-- F16 scope: only the two named echoes, deleted while those files are touched anyway (judge), or the
-  full 15–20 list (refuter's count) after a per-hit check? Not a campaign over all 33 hits.
-- CSP: the judge proposes keeping one verbatim pin and reducing `layering.test.ts` to `toContain`;
-  the refuter notes both pins are deliberate. Reduce, or leave all three and drop this item?
-- F15: import the include globs from `vitest.config.ts` or repeat the patterns in the test?
-- F12: throw in the flow under `process.env.CI`, or rely on the workflow `fetch:7za` step failing
-  (already true) and leave the flow alone?
+- ~~F16 scope: only the two named echoes, deleted while those files are touched anyway (judge), or the
+  full 15–20 list (refuter's count) after a per-hit check? Not a campaign over all 33 hits.~~
+  answered → Decisions (Sprint)
+- ~~CSP: the judge proposes keeping one verbatim pin and reducing `layering.test.ts` to `toContain`;
+  the refuter notes both pins are deliberate. Reduce, or leave all three and drop this item?~~
+  answered → Decisions (Sprint)
+- ~~F15: import the include globs from `vitest.config.ts` or repeat the patterns in the test?~~
+  answered → Decisions (Sprint)
+- ~~F12: throw in the flow under `process.env.CI`, or rely on the workflow `fetch:7za` step failing
+  (already true) and leave the flow alone?~~ answered → Decisions (Sprint)
 
 ## Decisions (Sprint)
 
 - **(User)** F16: only the two named echoes. CSP: keep all pins. F15: import the include globs from vitest.config.ts. F12: the flow throws under process.env.CI.
-
-<Leave empty. Filled by `/sprint`'s clarification round and by `/refine <id>` when it runs
-inside a sprint: one line per decision the user made, with the answer and why. Empty outside
-a sprint.>
+- AC1's test lives in a new `scripts/flow-ci-skip.test.mjs`, not under `scripts/flows/`, because
+  every `.mjs` there is loaded as a flow (`scripts/lib/flow-tree.mjs:18`).
+- The other eight "SKIPPING LOUDLY" sites (`footer-map`, `replays-*`, `servers-*`) stay untouched and no
+  shared helper is extracted, because the story scopes F12 to `launch-with-scope` only.
+- AC3 is proven by a diff check in `/build`'s verification, not a suite test, because "this file is
+  unchanged" is a property of the diff, not of the code.
 
 ## Plan
 
-<Leave empty. Filled by `/refine <id>`: a short, precise overview — max. ~50 lines.
-Concrete steps, affected files, order. No essay.>
+1. `launch-with-scope.mjs`: in the `!spawnable` branch, throw when `process.env.CI` is set; keep the
+   loud log + return otherwise. A unit test imports the flow with its two lib imports mocked
+   (spawnable false) and calls `setup()` + the default export.
+2. `workflows.test.mjs`: replace the xvfb-run regexp with a structural shard assertion; add a
+   cross-workflow check that every job running all flows (`ui:flows`) or
+   `ui:flow -- launch-with-scope` has an `npm run fetch:7za` step before it. The existing
+   fetch:7za / sandbox / build:dev / windows-verify assertions stay.
+3. `repo-hygiene.test.mjs`: discovery guard — `git ls-files` filtered by the test-file regexp; every
+   hit must match one of `vitest.config.ts`'s `test.include` globs (imported, never repeated).
+4. Delete the two constant echoes (`incremental-scan.test.ts:244-246`, `flow-select.test.mjs:55`).
+5. Untouched: CSP pins, `windows-build-on-linux.mjs`, the other skip sites.
+
+Files: `scripts/flows/launch-with-scope.mjs`, `scripts/flow-ci-skip.test.mjs` (new),
+`scripts/workflows.test.mjs`, `scripts/repo-hygiene.test.mjs`,
+`src/main/modules/replays/incremental-scan.test.ts`, `scripts/flow-select.test.mjs`.
+No user-visible change: no CHANGELOG entry, no systems doc.
 
 ## Deliverables
 
-<Leave empty. Filled by `/refine <id>`: small pieces, each with its own acceptance
-(scrum-like) and the files it touches. `/build` implements them in order, in one go.
-Every acceptance criterion above must be covered by at least one deliverable **and** by the
-test named for it in `## Acceptance Tests` — the test is part of the deliverable that
-implements the behaviour, never a clean-up afterwards. Refine checks both before
-`status: ready`, build refuses to start without them.>
-
-- [ ] D1 — <smallest useful, individually acceptable result; names the files it touches>
-- [ ] D2 — ...
+- [ ] D1 — **launch-with-scope fails in CI without 7za.** In `scripts/flows/launch-with-scope.mjs`'s
+      `!spawnable` branch (lines ~18-24): if `process.env.CI` is truthy, throw an `Error` naming the
+      missing `resources/bin/7za.exe` and `npm run fetch:7za`; otherwise keep today's `console.log` +
+      `return` unchanged. Touch no other flow — the other "SKIPPING LOUDLY" sites stay, and
+      `scripts/flows/windows-build-on-linux.mjs` must show an empty `git diff`. Test: new
+      `scripts/flow-ci-skip.test.mjs` (NOT under `scripts/flows/` — every `.mjs` there is loaded as a
+      flow by `scripts/lib/flow-tree.mjs`). It `vi.mock`s `./lib/fixture.mjs`
+      (`writePlayWithFixture` → `{ spawnable: false }`) and `./lib/flow-common.mjs` (inert `invoke`,
+      `launchLines`, `nextLaunchLine`), imports `./flows/launch-with-scope.mjs`, awaits `setup()`,
+      then calls the default export with `{ page: {}, step() {}, shot() {} }`. Use
+      `vi.stubEnv('CI', …)` + `vi.unstubAllEnvs()` so the runner's own `CI` cannot leak in. Tests:
+      "launch-with-scope fails under CI when the stand-in client is missing" (rejects, message
+      mentions 7za) and "launch-with-scope logs and returns locally when the stand-in client is
+      missing" (`CI` stubbed to `''`, resolves, a `console.log` spy saw "SKIPPING LOUDLY"). Seeded
+      defect: removing the CI branch must turn the first test red.
+- [ ] D2 — **Workflow pins loosened, fetch:7za ordering asserted.** In `scripts/workflows.test.mjs`
+      › "ui-flows runs six shards on PRs into main and on dispatch only": replace the xvfb-run regexp
+      (lines ~48-54) with an assertion that some step's `run` matches `/\bnpm run ui:flows\b/` and
+      contains `--shard=${{ matrix.shard }}/` (the matrix `[1..6]` assertion stays as the shard-count
+      invariant). Keep the `npm run fetch:7za`, `npm run build:dev`, `ELECTRON_DISABLE_SANDBOX` and
+      windows-verify `runs` toEqual assertions unchanged. Add a test in the same file using the
+      existing `loadWorkflows()` helper, "every job that runs launch-with-scope fetches 7za first":
+      for every job, the steps whose `run` matches `/\bui:flows\b/` (all flows) or
+      `/\bui:flow\b.*\blaunch-with-scope\b/` must each have a step with `run === 'npm run fetch:7za'`
+      at a lower index; also assert at least one such job exists (today `ui-flows.yml` › `ui-flows`).
+      `ci.yml` › `linux-journey` runs named flows only and is correctly not selected. Mind the
+      `ui:flow` / `ui:flows` prefix overlap in the regexps.
+- [ ] D3 — **Test-discovery guard.** In `scripts/repo-hygiene.test.mjs` add a
+      `describe('test discovery', …)`. Import the include globs from the real config
+      (`import vitestConfig from '../vitest.config.ts'`, read `vitestConfig.test.include`) — never
+      repeat the glob literals; if that import cannot load in the test runtime, export the array as a
+      named const from `vitest.config.ts` and import that. A small pure function in the test file,
+      `orphanTestFiles(paths, include)`, returns the paths matching `/\.(test|spec)\.[cm]?[jt]sx?$/`,
+      not under `node_modules/`, that match none of `include` (`matchesGlob` from `node:path`; engines
+      is node ≥22.12). Tests: "every tracked test file is inside a vitest include glob"
+      (`test.skipIf(!IS_WORK_TREE_ROOT)`, input from the file's existing `git(['ls-files'])` helper,
+      expects `[]`) and "a test file outside the include globs is reported" (seeded list:
+      `scripts/foo.test.cjs` reported; `src/a.test.ts`, `scripts/b.test.mjs`,
+      `src/__snapshots__/a.test.ts.snap` and `node_modules/x/y.test.js` not reported).
+- [ ] D4 — **Two constant echoes removed.** Delete the `it('exposes the live-write window constant', …)`
+      block in `src/main/modules/replays/incremental-scan.test.ts` (~244-246) and drop
+      `LIVE_WRITE_WINDOW_MS` from its import if nothing else uses it; delete the
+      `expect(MAX_FLOWS_PER_AREA).toBe(12)` line in `scripts/flow-select.test.mjs` (~55) — the
+      `toBeLessThanOrEqual(MAX_FLOWS_PER_AREA)` loop stays. Touch no other `expect(CONSTANT)` hit and
+      leave both CSP pins (`src/main/layering.test.ts`, `src/main/lib/renderer-source.test.ts`)
+      unchanged. Then `npm test` and `npm run lint` exit 0.
 
 ## Model Hints
 
-<Agent tier per deliverable. Default is the cheap tier with `/build`'s effort — leave
-unmarked. If a step needs more brainpower: "D3 (balancing formula) → deliverable-hard" (Opus +
-high effort, agent in `.claude/agents/`) plus a one-sentence risk justification.
-Plus one line for the code review, default: "Review: → default".>
+All Ds default tier.
+
+Review: → default
 
 ## Acceptance Tests
 
-<Leave empty. Filled by `/refine <id>`: one line per acceptance criterion above, naming the
-automated test that proves it — level, file, and the test name it will carry. The tests are
-written by the deliverables, not afterwards; `/build` re-checks this mapping and that the
-tests pass before `status: done`. This section replaces the manual test plan: acceptance is
-the suite, not a click list.
-
-Example paths below; your real test layout and the commands that run it are in
-`.claude/ai-scrum.md` (`e2e-story`, `test-story`).
-
-- AC1 → e2e `tests/e2e/<flow>.spec.ts` › "<test name>" (real surface, per
-  `ui-acceptance-required`)
-- AC2 → unit `tests/core/<module>.test.ts` › "<test name>"
-- AC3 → **manual residue:** <the real reason it cannot be automated — an OS dialog, a
-  specific machine, a paid external service>. Goes into the sprint review; blocks nothing.>
+- AC1 → unit `scripts/flow-ci-skip.test.mjs` › "launch-with-scope fails under CI when the stand-in
+  client is missing" and › "launch-with-scope logs and returns locally when the stand-in client is
+  missing" (D1)
+- AC2 → unit `scripts/workflows.test.mjs` › "every job that runs launch-with-scope fetches 7za
+  first" (D2)
+- AC3 → diff check `git diff --exit-code dev -- scripts/flows/windows-build-on-linux.mjs` in
+  `/build`'s verification — a file-unchanged claim is a property of the diff, not of the code (D1)
+- AC4 → unit `scripts/workflows.test.mjs` › "ui-flows runs six shards on PRs into main and on
+  dispatch only" (rewritten shard assertion plus the kept fetch:7za/sandbox/build:dev asserts) and ›
+  "windows-verify runs build, ui:verify and three flows on windows-latest and uploads screenshots" (D2)
+- AC5 → unit `scripts/repo-hygiene.test.mjs` › "every tracked test file is inside a vitest include
+  glob" and › "a test file outside the include globs is reported" (D3)
+- AC6 → the AC's own grep, run in `/build`'s verification after D4 (a deletion has no suite test) (D4)
+- AC7 → unit `src/main/lib/renderer-source.test.ts` › "the production CSP is unchanged" and
+  `src/main/layering.test.ts` › "leaves the production CSP unchanged (connect-src 'self')" —
+  existing, unchanged (D4)
+- AC8 → `npm test` and `npm run lint` exit 0 (D4, after all Ds)
 
 ## Done
 
 <Leave empty. Filled by `/build <id>` after implementation:
+
 - Short summary (2–5 lines): what was done.
 - Commit message (1–2 lines, keywords are enough).
 - Verification: build/test/lint result + review outcome; open points/blockers, if any.>

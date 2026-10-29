@@ -1,7 +1,7 @@
 ---
 id: 269
 title: Linux fixture engine clears the quarantine; unattributed entries get an owner
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -28,78 +28,138 @@ older than three sprints" is a config error). The S34 review sets the fix deadli
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The flow fixture offers a Linux engine package selected by platform; the Windows
+Cut by the binding user decision under `## Decisions (Sprint)` (Linux is a manually-run
+qualification target, not a pipeline platform): AC1–AC3 are struck, AC6–AC7 replace them.
+
+- [ ] ~~**AC1** — The flow fixture offers a Linux engine package selected by platform; the Windows
   package and the Windows flows that use it are unchanged (the Windows re-run of the flows that
-  touch the fixture exits 0).
-- [ ] **AC2** — On Linux, `npm run ui:flows -- add-installation-one-flow bootstrap-existing-folder`
-  exits 0 with both flows removed from quarantine and `--repeat` showing no flake.
-- [ ] **AC3** — `grep -c "Windows Q2PRO" scripts/flows/quarantine.json` returns 0: none of the 20
-  story-234 entries remain (any remaining Linux entry names a different story and a different reason).
+  touch the fixture exits 0).~~ cut → Decisions (Sprint)
+- [ ] ~~**AC2** — On Linux, `npm run ui:flows -- add-installation-one-flow bootstrap-existing-folder`
+  exits 0 with both flows removed from quarantine and `--repeat` showing no flake.~~ cut → Decisions (Sprint)
+- [ ] ~~**AC3** — `grep -c "Windows Q2PRO" scripts/flows/quarantine.json` returns 0: none of the 20
+  story-234 entries remain (any remaining Linux entry names a different story and a different reason).~~ cut → Decisions (Sprint)
 - [ ] **AC4** — `grep -n unattributed scripts/flows/quarantine.json` returns nothing; the `news-feed`
-  and `unlock-code` entries carry a real story or TD id (TD-052) in `story`.
+  and `unlock-code` entries are gone because both flows are fixed (AC7).
 - [ ] **AC5** — A test fails when a quarantine entry has an empty or `unattributed` `story` (seeded
   defect: set `"story": "unattributed"` and the named test goes red).
+- [ ] **AC6** — An entry scoped `"platform": "linux"` is not subject to the three-sprint age rule, so
+  the 20 story-234 entries (since S34) do not turn the Windows or the manual Linux run red at S38; an
+  unscoped or `win32` entry older than three sprints still fails the run.
+- [ ] **AC7** — On Windows, `npm run ui:flows -- news-feed unlock-code home-tile-states
+  settings-downloads-section --repeat=10 --parallel=4` exits 0 with `news-feed` and `unlock-code`
+  no longer in `scripts/flows/quarantine.json` (command and result recorded in `## Done`).
 
 ## Open Questions
 
-- The 2 shard races: fix them here (wait for explicit element readiness in both flows, the judge's
-  preference over serialising shards) or only give them an owner and leave the repair to TD-052?
-- Expiry: entries carry only `since`, and `flow-gate` already enforces three sprints. Is an extra
-  `expires` field worth the ~10 lines the judge allowed, or is the existing rule enough once the
-  story field is real?
-- The Linux engine package: build it from story 102's Linux Q2PRO, or a minimal stub engine that
-  only satisfies the wizard's package shape?
-- Remove entries only after `--repeat` (story 233) shows green, so un-quarantined flows do not turn
-  the Linux rehearsal red; is that the exit rule?
+- ~~The 2 shard races: fix them here or only give them an owner and leave the repair to TD-052?~~
+  answered → Decisions (Sprint)
+- ~~Expiry: is an extra `expires` field worth it, or is the existing rule enough once the story field
+  is real?~~ answered → Decisions (Sprint)
+- ~~The Linux engine package: build it from story 102's Linux Q2PRO, or a minimal stub engine?~~
+  answered → Decisions (Sprint)
+- ~~Remove entries only after `--repeat` (story 233) shows green; is that the exit rule?~~ answered →
+  Decisions (Sprint)
 
 ## Decisions (Sprint)
 
 - **(User)** Linux is not supported; it is qualified as an additional target and its tests run manually only, never in the pipeline. Refine must cut the story to that: no CI/quarantine machinery for Linux beyond what the manual run needs; fix the two shard races only if they also hit Windows, otherwise give them an owner.
-
-<Leave empty. Filled by `/sprint`'s clarification round and by `/refine <id>` when it runs
-inside a sprint: one line per decision the user made, with the answer and why. Empty outside
-a sprint.>
+- No Linux engine package (AC1–AC3 cut): it exists only to verify Linux onboarding, which the user decision takes out of scope; TD-047, whose fix it was, is deleted.
+- Linux-scoped entries are exempt from the age rule: they are the manual qualification run's list of known Linux differences, not temporary debt, and without the exemption all 20 fail every run (Windows included, since `staleEntries` checks all entries) at S38.
+- The two shard races are fixed here: both were recorded by the S35 gate on Windows (`docs/sprints/S35/sprint.md:63,71`), so per the user decision they hit Windows; TD-052 is deleted with them.
+- No `expires` field: `flow-gate`'s three-sprint rule already is the expiry once `story` must be real.
+- Exit rule for removing an entry: the `--repeat=10 --parallel=4` run of AC7 under load, matching story 233's `--repeat` purpose.
 
 ## Plan
 
-<Leave empty. Filled by `/refine <id>`: a short, precise overview — max. ~50 lines.
-Concrete steps, affected files, order. No essay.>
+Three small pieces, all in the flow gate and two flows. No product code changes.
+
+1. **Gate rules** (`scripts/lib/flow-gate.mjs`): `validateQuarantine` rejects a `story` of
+   `unattributed` (case-insensitive, trimmed) like an empty one; `staleEntries` skips entries with
+   `platform: 'linux'`. Tests in `scripts/flow-gate.test.mjs`. Doc paragraph in
+   `docs/UI-VERIFICATION.md` (~1563–1586). Delete TD-047 from `docs/TECH-DEBT.md`.
+   Order matters: until D2/D3 land, the two `unattributed` entries would make the list invalid,
+   so D1 retags them `"story": "TD-052"` in the same change.
+2. **unlock-code race**: the `<code data-testid="unlock-installation-id">` renders empty until
+   the unlock state arrives (`UnlockCodePanel.tsx:83`); `openSettings` waits for "visible" only.
+   Wait until it holds the formatted id, then remove the quarantine entry.
+3. **news-feed race**: a background manifest refresh lands in the phase-2 launch window. Reproduce
+   under load, find which phase-2 assertion it trips, replace it with a wait on the state it
+   needs (without weakening "only news/* was requested" or "no toast/dialog" for the news
+   refresh itself), then remove the entry and TD-052.
+
+Verification: `npx vitest run scripts/flow-gate.test.mjs`, then AC7's run on Windows. Linux is
+not run (manual-only per decision).
 
 ## Deliverables
 
-<Leave empty. Filled by `/refine <id>`: small pieces, each with its own acceptance
-(scrum-like) and the files it touches. `/build` implements them in order, in one go.
-Every acceptance criterion above must be covered by at least one deliverable **and** by the
-test named for it in `## Acceptance Tests` — the test is part of the deliverable that
-implements the behaviour, never a clean-up afterwards. Refine checks both before
-`status: ready`, build refuses to start without them.>
-
-- [ ] D1 — <smallest useful, individually acceptable result; names the files it touches>
-- [ ] D2 — ...
+- [ ] D1 — **Quarantine rules: a real owner, and Linux entries do not age out.** In
+  `scripts/lib/flow-gate.mjs`: (a) `validateQuarantine` adds a problem
+  `${label}: "story" must name a story or TD id, got "unattributed"` when `entry.story.trim()`
+  lower-cases to `unattributed` (an empty `story` is already rejected by the missing-field
+  check); (b) `staleEntries` ignores entries whose `platform` is `'linux'` — Linux is a
+  manually-run qualification target, its entries list known platform differences (add that
+  reason as a one-line comment). In `scripts/flows/quarantine.json` change both
+  `"story": "unattributed"` to `"story": "TD-052"` (keeps the list valid until D2/D3 remove
+  them). Tests in `scripts/flow-gate.test.mjs` (`describe('flow gate quarantine')`, use the
+  existing `entry()`/`gate()` helpers): "an unattributed or empty story is a config error"
+  (`validateQuarantine([entry({ story: 'unattributed' })], ['flaky'])` and `' Unattributed '`
+  each yield one problem naming `story`; a gate run with it has `ok === false`); "a linux-scoped
+  entry does not age out" (`entry({ since: 'S28', platform: 'linux' })` at `current: 32` →
+  `ok === true` on both `platform: 'linux'` and `'win32'` with a failing/passing flow
+  respectively, no `configErrors`); extend nothing else — the existing "an entry older than
+  three sprints fails the run" test keeps proving the unscoped case, add one `platform:
+  'win32'`, `since: 'S28'` assertion to it. Update `docs/UI-VERIFICATION.md`'s quarantine
+  paragraphs (~lines 1563–1586): `story` names the owning story or TD id, `unattributed` is
+  rejected; the age rule does not apply to `linux` entries and why. Delete the TD-047 row from
+  `docs/TECH-DEBT.md` (rows are removed when done). Files: `scripts/lib/flow-gate.mjs`,
+  `scripts/flow-gate.test.mjs`, `scripts/flows/quarantine.json`, `docs/UI-VERIFICATION.md`,
+  `docs/TECH-DEBT.md`.
+- [ ] D2 — **unlock-code reads the installation id only once it has rendered.** In
+  `scripts/flows/unlock-code.mjs`, `openSettings` (used by both launches) waits until
+  `getByTestId('unlock-installation-id')` holds text matching
+  `/^[A-Z2-7]{4}-[A-Z2-7]{4}-[A-Z2-7]{4}$/` (a `page.waitForFunction` on the element's
+  `textContent`, or Playwright's locator polling, with `TIMEOUT_MS`) instead of only `visible` —
+  the `<code>` renders empty until the unlock state arrives
+  (`src/renderer/src/components/unlock/UnlockCodePanel.tsx:83`). No `waitForTimeout`. Keep the
+  existing format assertion in the flow body. Remove the `unlock-code` entry from
+  `scripts/flows/quarantine.json`. Files: `scripts/flows/unlock-code.mjs`,
+  `scripts/flows/quarantine.json`.
+- [ ] D3 — **news-feed waits out the background refresh instead of racing it.** First reproduce
+  on Windows: `npm run ui:flows -- news-feed home-tile-states settings-downloads-section
+  unlock-code --repeat=10 --parallel=4` (S35 recorded: passes alone, fails under four shards; a
+  background manifest refresh lands in the second launch window). Read the failing step from the
+  output and fix it in `scripts/flows/news-feed.mjs` by waiting on the state that step needs
+  (a test id, a `waitForFunction` predicate or an `expect` on a locator; no `waitForTimeout`).
+  The flow must keep proving its criteria: phase 2 still asserts that the second app requested
+  nothing but `news/*` from the fixture server and that a failed news refresh shows no toast and
+  no dialog — if the manifest refresh's own request or notice is what trips it, scope the
+  assertion to news (e.g. wait for the refresh to settle, or distinguish its request path), do
+  not delete it. If the race turns out to be in product code, stop and report it instead of
+  changing `src/`. Remove the `news-feed` entry from `scripts/flows/quarantine.json` and the
+  TD-052 row from `docs/TECH-DEBT.md`. Then run AC7's command (all four named flows,
+  `--repeat=10 --parallel=4`) and record command + result in `## Done`. Files:
+  `scripts/flows/news-feed.mjs`, `scripts/flows/quarantine.json`, `docs/TECH-DEBT.md`.
 
 ## Model Hints
 
-<Agent tier per deliverable. Default is the cheap tier with `/build`'s effort — leave
-unmarked. If a step needs more brainpower: "D3 (balancing formula) → deliverable-hard" (Opus +
-high effort, agent in `.claude/agents/`) plus a one-sentence risk justification.
-Plus one line for the code review, default: "Review: → default".>
+All deliverables default tier.
+
+Review: → default
 
 ## Acceptance Tests
 
-<Leave empty. Filled by `/refine <id>`: one line per acceptance criterion above, naming the
-automated test that proves it — level, file, and the test name it will carry. The tests are
-written by the deliverables, not afterwards; `/build` re-checks this mapping and that the
-tests pass before `status: done`. This section replaces the manual test plan: acceptance is
-the suite, not a click list.
-
-Example paths below; your real test layout and the commands that run it are in
-`.claude/ai-scrum.md` (`e2e-story`, `test-story`).
-
-- AC1 → e2e `tests/e2e/<flow>.spec.ts` › "<test name>" (real surface, per
-  `ui-acceptance-required`)
-- AC2 → unit `tests/core/<module>.test.ts` › "<test name>"
-- AC3 → **manual residue:** <the real reason it cannot be automated — an OS dialog, a
-  specific machine, a paid external service>. Goes into the sprint review; blocks nothing.>
+- AC1 → cut by Decisions (Sprint), no test.
+- AC2 → cut by Decisions (Sprint), no test.
+- AC3 → cut by Decisions (Sprint), no test.
+- AC4 → unit `scripts/flow-gate.test.mjs` › "an unattributed or empty story is a config error"
+  (the real list stays valid only without `unattributed`, checked by the gate on every flow run),
+  plus D2/D3 removing both entries.
+- AC5 → unit `scripts/flow-gate.test.mjs` › "an unattributed or empty story is a config error"
+- AC6 → unit `scripts/flow-gate.test.mjs` › "a linux-scoped entry does not age out" and
+  › "an entry older than three sprints fails the run" (extended with a `win32` entry).
+- AC7 → e2e `scripts/flows/news-feed.mjs` › "news-feed" and `scripts/flows/unlock-code.mjs` ›
+  "unlock-code", run as `npm run ui:flows -- news-feed unlock-code home-tile-states
+  settings-downloads-section --repeat=10 --parallel=4` (D3 records the result in `## Done`).
 
 ## Done
 

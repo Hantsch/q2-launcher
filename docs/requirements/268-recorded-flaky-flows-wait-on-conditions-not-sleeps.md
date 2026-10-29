@@ -1,7 +1,7 @@
 ---
 id: 268
 title: Recorded-flaky flows wait on conditions, not sleeps
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -46,63 +46,151 @@ wait on; they are out of scope.
 
 ## Open Questions
 
-- Scope of the unit tests: the finding also lists `upgrade-job.test.ts:167,623` and other positive
+- ~~Scope of the unit tests: the finding also lists `upgrade-job.test.ts:167,623` and other positive
   waits; the judge would take `launch.test.ts` and `upgrade-job.test.ts` after the flows, the refuter
-  says several are negative assertions. Include `upgrade-job.test.ts` here or a follow-up?
-- Check mechanism for AC5: a hygiene test with an allowlist (above) or an ESLint rule over
-  `scripts/flows/`; the lint rule holds a shrinking allowlist less easily.
-- Remaining 14 flows with sleeps: fix opportunistically when touched (judge: P3), with the allowlist
-  as the ratchet?
-- Not bundled with story 265: this story reduces the cause of re-runs, 265 their cost.
+  says several are negative assertions. Include `upgrade-job.test.ts` here or a follow-up?~~
+  answered → Decisions (Sprint)
+- ~~Check mechanism for AC5: a hygiene test with an allowlist (above) or an ESLint rule over
+  `scripts/flows/`; the lint rule holds a shrinking allowlist less easily.~~ answered → Decisions
+  (Sprint)
+- ~~Remaining 14 flows with sleeps: fix opportunistically when touched (judge: P3), with the allowlist
+  as the ratchet?~~ answered → Decisions (Sprint)
+- ~~Not bundled with story 265: this story reduces the cause of re-runs, 265 their cost.~~ answered →
+  Decisions (Sprint)
 
 ## Decisions (Sprint)
 
 - **(User)** Linux is not a supported platform: it is an additional, manually-run qualification, never part of a pipeline. Scope: flows and launch.test.ts only; hygiene test with a shrinking allowlist; other flows fixed when touched.
-
-<Leave empty. Filled by `/sprint`'s clarification round and by `/refine 268` when it runs
-inside a sprint: one line per decision the user made, with the answer and why. Empty outside
-a sprint.>
+- `launch.test.ts` is in scope as an audit, not an edit: its four `setTimeout(…, 25)` sleeps
+  (`:529,532,546,615`) are negative assertions ("the cfg is still there after the loop turned") with
+  no state to wait on and its positive waits already use `vi.waitFor`, so AC6 stands and the audit
+  result goes into Done — converting them would weaken the guard, not de-flake it.
+- `upgrade-job.test.ts` gets no follow-up story: the user's scope excludes it, and its remaining
+  sleep (`:623`) is a negative assertion too.
+- The hygiene test scans `scripts/flows/**/*.mjs` and `scripts/lib/**/*.mjs`, because flow helpers
+  in `scripts/lib/` (e.g. `servers-lan-flow.mjs:98`) sleep on behalf of the flows that call them.
+- "Shrink only" is enforced by a stale-entry check (an allowlisted file without a sleep fails the
+  test), so a fixed flow must leave the list; growing the list is a visible diff for review.
+- Not bundled with story 265: confirmed — this story removes a cause of re-runs, 265 their cost,
+  and they share no file.
+- A red run of `replays-detail-quick-edit` or `replays-extra-folders` (no sleeps today) during
+  AC2's runs is root-caused and fixed in that flow with a condition wait inside this story, never
+  re-run until green, because AC2 is the story's stability proof.
 
 ## Plan
 
-<Leave empty. Filled by `/refine 268`: a short, precise overview — max. ~50 lines.
-Concrete steps, affected files, order. No essay.>
+Two flows still sleep (`controls-drag-reorder` 4×, `servers-master-sources` 3×); both drive
+dnd-kit, which already exposes the state the sleeps stand in for:
+
+- **Drag in flight:** the Controls preview `.ctrl-drag-preview` (`ControlsDragZone.tsx:371`) exists
+  only while a drag is active; the servers list renders a second `servers-source-row-<id>` (the
+  `DragOverlay` copy) while an item is picked up.
+- **Over a target:** a category chip gets `ctrl-chip-drop-over` (`ControlsDragZone.tsx:206`);
+  dnd-kit's live region (`role="status"`) announces "Item … was moved into position N of M."
+  (`en.shell.json:751`, `SortableList.tsx:342`).
+- **Dropped:** the preview/overlay copy is gone **and** the DOM row order changed — both, since the
+  order alone is not a drop signal.
+
+Steps, in order:
+
+1. `controls-drag-reorder.mjs` — `realDrag` waits on started / over-target / dropped instead of
+   50/30/200/300 ms; seeded-defect and no-drop runs prove the waits are not vacuous (AC3, AC4).
+2. `servers-master-sources.mjs` — `keyboardReorder` waits on "picked up", one announcement per arrow
+   press and "dropped" instead of 150/150/300 ms.
+3. `scripts/repo-hygiene.test.mjs` — the sleep ratchet (fixture case, repo case, stale-entry case)
+   with the 17 remaining legacy files; `docs/UI-VERIFICATION.md:626` says the rule is enforced.
+4. Stability: the four flows ×10 under `--parallel=4`, recorded in Done with the AC6 diff check and
+   the `launch.test.ts` audit line.
+
+Not touched: unit-test sleeps (`launch.test.ts`, `DemoDragZone.test.tsx`, `upgrade-job.test.ts`),
+the 16 other sleeping flows and `scripts/lib/servers-lan-flow.mjs` (allowlisted, fixed when touched).
 
 ## Deliverables
 
-<Leave empty. Filled by `/refine 268`: small pieces, each with its own acceptance
-(scrum-like) and the files it touches. `/build` implements them in order, in one go.
-Every acceptance criterion above must be covered by at least one deliverable **and** by the
-test named for it in `## Acceptance Tests` — the test is part of the deliverable that
-implements the behaviour, never a clean-up afterwards. Refine checks both before
-`status: ready`, build refuses to start without them.>
-
-- [ ] D1 — <smallest useful, individually acceptable result; names the files it touches>
-- [ ] D2 — ...
+- [ ] D1 — **`scripts/flows/controls-drag-reorder.mjs` waits on dnd-kit state, not sleeps.**
+      Replace all four `page.waitForTimeout` in `realDrag` (`:87,94,98,101`). After the first move
+      past the 8px activation distance, wait until `.ctrl-drag-preview` is attached (drag started).
+      Drop the per-step 30 ms sleeps. Before `mouse.up()`, after the final
+      `mouse.move(…, { steps: 5 })`, wait for the target's over-state: for a category chip
+      (`[data-drop-category=…]`) its class `ctrl-chip-drop-over`; for a row target the dnd-kit live
+      region (`[role="status"][aria-live]`) reading "was moved into position". After `mouse.up()`
+      wait until `.ctrl-drag-preview` is detached, then until the post-drop DOM holds via
+      `page.waitForFunction` over `[role="rowgroup"][data-row-id]` — the caller passes that
+      predicate as a `realDrag` option (reorder: Multi Bind's index differs from `orderBefore`;
+      chip drop: `fixture-action-attack` absent). Every wait uses `CLICK_TIMEOUT_MS` and an error
+      message naming the state. Rewrite the module doc comment's last paragraph (the "settles for
+      300ms" rationale) to name the conditions; keep the order assertions after each drag as they
+      are. Proof, recorded in Done: (a) `npm run ui:flow -- controls-drag-reorder` passes;
+      (b) seeded defect — temporarily point the drag-started wait at a selector that never appears →
+      the flow fails at that wait's timeout; (c) temporarily delete `await page.mouse.up()` → the
+      flow fails. Revert both seeds. Touches only this file.
+- [ ] D2 — **`scripts/flows/servers-master-sources.mjs` keyboard reorder waits on state.** Replace
+      the three `page.waitForTimeout` in `keyboardReorder` (`:162,165,168`): after `Space`, wait
+      until the dnd-kit live region (`[role="status"][aria-live]`) reads "Picked up item"; after each
+      arrow press, wait until it reads "was moved into position <n>" with the expected 1-based
+      position (add a `startPosition` parameter; `ArrowUp` counts down from it, the one caller at
+      `:261` starts at `DEFAULT_SOURCES.length + 1`); after the final `Space`, wait until the
+      overlay copy is gone (`[data-testid="servers-source-row-<id>"]` count back to 1). The caller's
+      `waitForRowOrder` (`:262`) stays the final order assertion. Mirror `waitForRowOrder`'s
+      `page.waitForFunction` + `TIMEOUT_MS` shape; error messages name the state. Proof, recorded in
+      Done: `npm run ui:flow -- servers-master-sources` passes; seeded defect — temporarily skip the
+      first `Space` → the flow fails at the "picked up" wait's timeout. Revert the seed. Touches only
+      this file.
+- [ ] D3 — **Sleep ratchet in `scripts/repo-hygiene.test.mjs`, plus the rule doc.** Add
+      `describe('flows wait on conditions')` with a pure helper in the test file,
+      `filesWithFixedSleeps(root)` → sorted repo-relative paths (forward slashes) of every `.mjs`
+      under `<root>/scripts/flows/` and `<root>/scripts/lib/` whose source contains `waitForTimeout`
+      (recursive `readdirSync`, no new dependency). A frozen `LEGACY_SLEEP_ALLOWLIST` of exactly the
+      17 files that still sleep after D1/D2 — in `scripts/flows/`: controls-extra-keys,
+      drop-message-checkbox, grenade-rows-take-a-key, home-dashboard-arrange, home-hero-carousel,
+      news-cover-template, replays-bulk-delete, replays-bulk-one-selected, replays-demo-context-menu,
+      replays-demo-file-actions, replays-detail-always-shown, replays-folder-drag-move,
+      replays-multi-select, replays-name-templates, servers-lan-no-scan-while-playing,
+      servers-no-scan-while-playing (all `.mjs`); plus `scripts/lib/servers-lan-flow.mjs` — with a
+      one-line comment: shrink only, a flow leaves the list when it is fixed. Three tests:
+      "a flow with one fixed sleep is reported" (writes `scripts/flows/fixture-flow.mjs` with one
+      `await page.waitForTimeout(100)` into a `mkdtempSync` root, expects the helper to return it);
+      "no flow outside the legacy allowlist sleeps on a fixed timeout" (repo root; result minus
+      allowlist is `[]`); "every legacy allowlist entry still sleeps" (allowlist minus result is
+      `[]`). In `docs/UI-VERIFICATION.md` (`:626`, "New flows do not use `waitForTimeout`…") add one
+      sentence: `scripts/repo-hygiene.test.mjs` enforces this; its legacy allowlist only shrinks, and
+      a legacy flow that is touched is fixed and leaves it. Touches only these two files.
+- [ ] D4 — **Stability record.** Run `npm run ui:flows -- controls-drag-reorder
+      servers-master-sources replays-detail-quick-edit replays-extra-folders --repeat=10
+      --parallel=4` and record the command and per-flow result (10/10 each) in Done. A red run is
+      root-caused and fixed in its flow with a condition wait, then the whole command is repeated —
+      never a partial re-run. Also record in Done: `git diff --stat` of the story (neither
+      `src/main/services/launch.test.ts` nor `DemoDragZone.test.tsx`) and the `launch.test.ts` audit
+      line (four negative-assertion sleeps at `:529,532,546,615`, left by decision). Touches no file
+      unless a run is red.
 
 ## Model Hints
 
-<Agent tier per deliverable. Default is the cheap tier with `/build`'s effort — leave
-unmarked. If a step needs more brainpower: "D3 (balancing formula) → deliverable-hard" (Opus +
-high effort, agent in `.claude/agents/`) plus a one-sentence risk justification.
-Plus one line for the code review, default: "Review: → default".>
+- D1 → deliverable-hard: the drag sleeps were found by trial against dnd-kit's pointer sensor (an
+  immediate read once saw the pre-drop order), and the conditions must be neither vacuous (row
+  order alone can be read mid-drag) nor racing the drop's async persist, under a 10-run × 4-worker
+  stability bar.
+- Review: → default
 
 ## Acceptance Tests
 
-<Leave empty. Filled by `/refine 268`: one line per acceptance criterion above, naming the
-automated test that proves it — level, file, and the test name it will carry. The tests are
-written by the deliverables, not afterwards; `/build` re-checks this mapping and that the
-tests pass before `status: done`. This section replaces the manual test plan: acceptance is
-the suite, not a click list.
-
-Example paths below; your real test layout and the commands that run it are in
-`.claude/ai-scrum.md` (`e2e-story`, `test-story`).
-
-- AC1 → e2e `tests/e2e/<flow>.spec.ts` › "<test name>" (real surface, per
-  `ui-acceptance-required`)
-- AC2 → unit `tests/core/<module>.test.ts` › "<test name>"
-- AC3 → **manual residue:** <the real reason it cannot be automated — an OS dialog, a
-  specific machine, a paid external service>. Goes into the sprint review; blocks nothing.>
+- AC1 → unit `scripts/repo-hygiene.test.mjs` › "no flow outside the legacy allowlist sleeps on a
+  fixed timeout" (none of the four flows is on the allowlist) — D3, after D1/D2.
+- AC2 → e2e `scripts/flows/controls-drag-reorder.mjs`, `scripts/flows/servers-master-sources.mjs`,
+  `scripts/flows/replays-detail-quick-edit.mjs`, `scripts/flows/replays-extra-folders.mjs` › flows
+  "controls-drag-reorder", "servers-master-sources", "replays-detail-quick-edit",
+  "replays-extra-folders", run with `--repeat=10 --parallel=4`; command and counts in Done — D4.
+- AC3 → e2e `scripts/flows/controls-drag-reorder.mjs` › "controls-drag-reorder" (D1) and
+  `scripts/flows/servers-master-sources.mjs` › "servers-master-sources" (D2), each plus its
+  seeded-defect run failing at the named wait's timeout, recorded once per flow in Done. The two
+  replays flows replace no wait, so AC3 has nothing to show for them.
+- AC4 → e2e `scripts/flows/controls-drag-reorder.mjs` › "controls-drag-reorder" — order assertions
+  kept; the run without `mouse.up()` fails, recorded in Done — D1.
+- AC5 → unit `scripts/repo-hygiene.test.mjs` › "a flow with one fixed sleep is reported", "no flow
+  outside the legacy allowlist sleeps on a fixed timeout", "every legacy allowlist entry still
+  sleeps" — D3.
+- AC6 → review check: `git diff --stat` in Done shows neither file — D4; a negative property of the
+  diff that the default review re-checks against the commit.
 
 ## Done
 

@@ -1,7 +1,7 @@
 ---
 id: 264
 title: Windows PR lane blocks on core-journey flows and the release launches the packaged app
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -40,69 +40,170 @@ launch, so that claim has no check behind it. Full Windows flow runs exist only 
 - [ ] **AC6** — A search for "264" in `docs/UI-VERIFICATION.md` or in
       `docs/requirements/done/223-the-flow-gate-is-green-or-says-why.md` matches, where a note records
       that the dev-build decision of story 223 is superseded for the packaged launch.
+- [ ] **AC7** — The flip: the AC4 step carries `continue-on-error: true` while `CHANGELOG.md` holds
+      fewer than 2 released `## x.y.z` sections newer than 0.8.0; from the second such release on, a
+      test in `scripts/workflows.test.mjs` fails until `continue-on-error` is removed from that step.
+      A unit test over the decision function covers 1 newer release (non-blocking allowed), 2 newer
+      while non-blocking (fails) and 2 newer while blocking (passes).
 
 ## Open Questions
 
-- Blocking at once, or non-blocking for 2 releases? The judge proposes gating the packaged step as
-  non-blocking for 2 releases, then blocking, so a runner quirk cannot stop a publish unreviewed.
-  AC4 as written is silent on this; decide in refine, and if staged, add the flip as its own AC.
-- Which flows? The judge says take proven-stable flows from the smoke tier of story 265, not
-  wholesale. Order against 265: either 265 names the tier first, or 264 picks a provisional list that
-  265 later replaces.
-- Does the fake game runner work on Windows for the Play step? If not, the journey flow in AC2 is out
-  of scope and a smaller set (launch, config edit, one list view) replaces it.
-- Dev build vs production build for the PR flows: only the release step needs the packaged build;
-  should the PR lane also move to `npm run build`? The judge leaves this out; confirm.
+- ~~Blocking at once, or non-blocking for 2 releases?~~ answered → Decisions (Sprint)
+- ~~Which flows? Smoke tier of story 265 first, or a provisional list 265 replaces?~~ answered →
+  Decisions (Sprint)
+- ~~Does the fake game runner work on Windows for the Play step?~~ answered → Decisions (Sprint)
+- ~~Dev build vs production build for the PR flows?~~ answered → Decisions (Sprint)
 - Out of scope: running all flows on Windows; any Linux lane change (story 270).
 
 ## Decisions (Sprint)
 
 - **(User)** Staged: the packaged-launch step is non-blocking for 2 releases, then blocking (add the flip as its own AC).
-
-<Leave empty. Filled by `/sprint`'s clarification round and by `/refine 264` when it runs
-inside a sprint: one line per decision the user made, with the answer and why. Empty outside
-a sprint.>
+- The flip is a tripwire test, not a reminder: the step stays `continue-on-error: true` until
+  `CHANGELOG.md` shows 2 releases newer than 0.8.0, then `workflows.test.mjs` goes red until it is
+  removed (AC7) — a calendar note would be forgotten, a red test cannot be.
+- Flows: 265 builds first (sprint order) and its smoke tier is the one source of "core"; the
+  Windows set is 7 of its smoke flows plus `steam-handoff`, which joins the tier (15, inside its
+  cap) because it is the one flow with a Windows-only branch already blocking today.
+- The fake game runner works on Windows: `linux-user-journey` is platform-agnostic and spawns a copy
+  of the vendored `7za.exe` as `q2pro.exe` (`scripts/lib/fixture/installations.mjs`), which the job's
+  `fetch:7za` step provides — so it is the AC2 "Windows variant", run unchanged; renaming it would
+  touch `ci.yml`, `areas.json` and three flows other S36 stories edit, for no behaviour.
+- Its Play half must not be skipped in CI: under `process.env.CI` the journey's "7za not vendored"
+  skip throws, the same rule story 272 sets for `launch-with-scope`.
+- The PR lane stays on `build:dev`: dev-only modules (`mods`, `assets`) are what several flows drive,
+  and the packaged path is now proven where it ships, in the release step (AC4).
+- Packaged smoke flow is `about-release-notes`: it already passes against a packaged build in
+  `linux-verify.yml` and reads the `CHANGELOG.md` bundled into the app's resources, a packaging path
+  the dev build never exercises.
+- The unpacked build goes to `release/smoke/` (`-c.directories.output`), never `release/<version>/`,
+  so `scripts/release.mjs`'s asset collection cannot pick up or collide with it.
+- AC2's three CI runs, AC3's job duration and AC5's red run need pushed branches and GitHub runners;
+  push is the user's call (managed settings), so they are manual residue recorded in Done, each with a
+  local proof the build runs itself.
 
 ## Plan
 
-<Leave empty. Filled by `/refine 264`: a short, precise overview — max. ~50 lines.
-Concrete steps, affected files, order. No essay.>
+1. **PR lane (D1).** `windows-verify` in `.github/workflows/ui-flows.yml` keeps fetch:7za, `build:dev`
+   and `ui:verify`, then runs 8 core-journey flows, one named step each, no `continue-on-error`:
+   `linux-user-journey` (add installation, config edit, Play, exited), `bootstrap-wizard` (first-run
+   install; quarantined on Linux, so no blocking lane runs it today), `servers-join`,
+   `replays-play-q2pro`, `mods-install`, `steam-handoff` (Windows-only branch), `about-release-notes`,
+   `open-keycap-dialog`. All are in story 265's smoke tier except `steam-handoff`, which D1 adds
+   (265's tier goes 14 → 15, its cap). `workflows.test.mjs` pins the exact list and checks each is
+   smoke. The journey flow's "7za not vendored" skip throws under `CI`.
+2. **Release (D2).** In `release.yml`'s `release` job, after Typecheck and before the `Release` step
+   (which builds and publishes through `scripts/release.mjs`): package the unpacked app into
+   `release/smoke/`, resolve `release/smoke/win-unpacked/Q2 Launcher.exe`, run
+   `npm run ui:flow -- about-release-notes --app=<path>` with `continue-on-error: true` (staged).
+   `workflows.test.mjs` asserts the order and the flip tripwire (AC7).
+3. **Docs (D3).** `docs/UI-VERIFICATION.md` CI section: the new Windows set, the release smoke, the
+   staged flip, and a "(story 264)" note that 223's dev-build decision is superseded for the packaged
+   launch.
+4. **Evidence (Done, by the build).** Local: every D1 flow and the D2 flow pass on this Windows
+   machine; a seeded crash makes the D2 command exit non-zero. CI (manual residue): 3 green
+   `windows-verify` runs, the job duration, the red release-step run link.
+
+No product code changes, no CHANGELOG entry (nothing user-visible), no `docs/systems/` doc applies.
+Story 265 (smoke tier, `areas.json` shape), 266 (`release.yml` `plan` job) and 272
+(`workflows.test.mjs`, `launch-with-scope` CI throw) build before this one — build on their committed
+state, do not revert them.
 
 ## Deliverables
 
-<Leave empty. Filled by `/refine 264`: small pieces, each with its own acceptance
-(scrum-like) and the files it touches. `/build` implements them in order, in one go.
-Every acceptance criterion above must be covered by at least one deliverable **and** by the
-test named for it in `## Acceptance Tests` — the test is part of the deliverable that
-implements the behaviour, never a clean-up afterwards. Refine checks both before
-`status: ready`, build refuses to start without them.>
-
-- [ ] D1 — <smallest useful, individually acceptable result; names the files it touches>
-- [ ] D2 — ...
+- [ ] **D1 — Windows PR lane blocks on core journeys.** Files: `.github/workflows/ui-flows.yml`,
+      `scripts/workflows.test.mjs`, `scripts/flows/linux-user-journey.mjs`, `scripts/flows/areas.json`.
+      - In job `windows-verify` (runs-on `windows-latest`, `timeout-minutes: 30` unchanged, steps use
+        `shell: bash` like the existing ones), after `npm run ui:verify`, one named step per flow,
+        `run: npm run ui:flow -- <name>`, no `continue-on-error` on step or job, in this order:
+        `linux-user-journey`, `bootstrap-wizard`, `servers-join`, `replays-play-q2pro`,
+        `mods-install`, `steam-handoff`, `about-release-notes`, `open-keycap-dialog`. Name the
+        journey step "Core journey on Windows: add installation, edit config, Play, exited".
+      - `scripts/flows/areas.json`: add `steam-handoff` as `"smoke"` to the `tiers` map story 265
+        introduced (15 smoke flows, inside 265's 10–15 cap; its tier test must stay green).
+      - Update the existing test `windows-verify runs build, ui:verify and three flows ...` in
+        `scripts/workflows.test.mjs` and rename it "windows-verify blocks on the core-journey flows
+        on windows-latest": `runs` equals the exact ordered list (removing one flow fails it), no
+        step and not the job has `continue-on-error`, `timeout-minutes` is 30, the flow count is
+        4–8, `linux-user-journey` is one of them, and every flow is in the smoke tier — read through
+        265's `loadFlowTree().tiers` + `tierFlows(...)` (`scripts/lib/flow-tree.mjs`,
+        `scripts/lib/flow-select.mjs`), not a second parse of `areas.json`.
+      - `linux-user-journey.mjs`: where it skips the Play half because `7za.exe` is not vendored,
+        throw under `process.env.CI` instead — the same rule, and if story 272 extracted one the
+        same helper, as `launch-with-scope.mjs`; outside CI the loud skip stays.
+      - Acceptance: `npx vitest run scripts/workflows.test.mjs scripts/flow-select.test.mjs` green;
+        after `npm run build:dev` each of the 8 flows passes locally via `npm run ui:flow -- <name>`
+        on this Windows machine; record the per-flow seconds in Done (AC3 estimate).
+- [ ] **D2 — Release launches the unpacked Windows app before publishing, staged.** Files:
+      `.github/workflows/release.yml`, `scripts/workflows.test.mjs`.
+      - In job `release`, between the `Typecheck` step and the step named `Release` (the one running
+        `node scripts/release.mjs`, which builds the installer and publishes), three steps:
+        (a) "Package the unpacked Windows app" — `npm run package:dir -- -c.directories.output=release/smoke`
+        with env `CSC_IDENTITY_AUTO_DISCOVERY: 'false'`, so nothing lands in `release/<version>/`
+        where `release.mjs` collects assets (`/release/` is gitignored);
+        (b) resolve the exe path `release/smoke/win-unpacked/Q2 Launcher.exe` into a step output and
+        fail the step if it is missing — mirror the shape of `linux-verify.yml`'s "Resolve the built
+        AppImage path" step;
+        (c) "Packaged launch smoke" — `npm run ui:flow -- about-release-notes --app="<path>"` (quoted:
+        the name has a space), `shell: bash`, `continue-on-error: true` with a one-line comment that
+        the tripwire in `scripts/workflows.test.mjs` removes it after two releases past 0.8.0.
+        This job's setup step passes `electron: 'false'`; verify `package:dir` and `ui:flow --app=`
+        work without that binary (the packaged exe carries its own), and change the input only if not.
+      - `scripts/workflows.test.mjs`, new `describe('release packaged launch smoke')`:
+        test "the release job launches the unpacked app before it publishes" — in job `release` a
+        step runs `ui:flow` with `--app=`, its index is lower than that of the step running
+        `scripts/release.mjs`, and a step before it runs `package:dir` (never `package:win`);
+        export a pure `packagedSmokeMustBlock(changelogText, baseline = '0.8.0')` → true when the
+        text has at least 2 released `## x.y.z` headings newer than the baseline (`## Unreleased`
+        never counts); test "the packaged smoke turns blocking after two releases past 0.8.0" —
+        cases: Unreleased only → false, 1 newer → false, 2 newer → true; test "the packaged smoke
+        step's continue-on-error matches the released count" — against the real `CHANGELOG.md` and
+        `release.yml`: must-block ⇒ the step has no `continue-on-error`; otherwise it has
+        `continue-on-error: true`.
+      - Local proof (record in Done): run the (a) command, then the (c) command → exit 0; then seed a
+        crash (delete `release/smoke/win-unpacked/resources/app.asar`) → the same (c) command exits
+        non-zero. Delete `release/smoke/` afterwards.
+- [ ] **D3 — Docs record the new lanes and supersede 223.** File: `docs/UI-VERIFICATION.md`.
+      In the section starting "CI runs the harness through `.github/workflows/ui-flows.yml`": the
+      `windows-verify` bullet lists the 8 flows and says they block; add that `release.yml` runs
+      `about-release-notes` against the unpacked packaged app before publishing, non-blocking until
+      two releases after 0.8.0 and blocking from then on (the tripwire test in
+      `scripts/workflows.test.mjs`); add a note ending "(story 264)" that story 223's claim
+      "the packaged path is already proven by release.yml" is superseded — the packaged launch is the
+      release step, the PR lane stays on `build:dev`. Acceptance:
+      `grep -n "264" docs/UI-VERIFICATION.md` matches that note.
 
 ## Model Hints
 
-<Agent tier per deliverable. Default is the cheap tier with `/build`'s effort — leave
-unmarked. If a step needs more brainpower: "D3 (balancing formula) → deliverable-hard" (Opus +
-high effort, agent in `.claude/agents/`) plus a one-sentence risk justification.
-Plus one line for the code review, default: "Review: → default".>
+All Ds default tier: D1 and D2 are workflow YAML plus pinning tests, and their failure modes are loud
+(a red flow or a red step), not silent.
+
+Review: → default
 
 ## Acceptance Tests
 
-<Leave empty. Filled by `/refine 264`: one line per acceptance criterion above, naming the
-automated test that proves it — level, file, and the test name it will carry. The tests are
-written by the deliverables, not afterwards; `/build` re-checks this mapping and that the
-tests pass before `status: done`. This section replaces the manual test plan: acceptance is
-the suite, not a click list.
-
-Example paths below; your real test layout and the commands that run it are in
-`.claude/ai-scrum.md` (`e2e-story`, `test-story`).
-
-- AC1 → e2e `tests/e2e/<flow>.spec.ts` › "<test name>" (real surface, per
-  `ui-acceptance-required`)
-- AC2 → unit `tests/core/<module>.test.ts` › "<test name>"
-- AC3 → **manual residue:** <the real reason it cannot be automated — an OS dialog, a
-  specific machine, a paid external service>. Goes into the sprint review; blocks nothing.>
+- AC1 → unit `scripts/workflows.test.mjs` › "windows-verify blocks on the core-journey flows on
+  windows-latest" (D1).
+- AC2 → e2e `scripts/flows/linux-user-journey.mjs` › "linux-user-journey",
+  `scripts/flows/bootstrap-wizard.mjs` › "bootstrap-wizard", `scripts/flows/servers-join.mjs` ›
+  "servers-join", `scripts/flows/replays-play-q2pro.mjs` › "replays-play-q2pro",
+  `scripts/flows/mods-install.mjs` › "mods-install", `scripts/flows/steam-handoff.mjs` ›
+  "steam-handoff", `scripts/flows/about-release-notes.mjs` › "about-release-notes",
+  `scripts/flows/open-keycap-dialog.mjs` › "open-keycap-dialog" — each green locally on Windows; the
+  "set includes the journey" half is asserted by the AC1 test (D1). **Manual residue:** 3
+  consecutive green `windows-verify` runs on `windows-latest` need pushed branches and GitHub-hosted
+  runners, and push is the user's decision (managed settings); run links go into Done.
+- AC3 → unit `scripts/workflows.test.mjs` › "windows-verify blocks on the core-journey flows on
+  windows-latest" (keeps `timeout-minutes: 30`) (D1). **Manual residue:** the job duration ≤ 15 min
+  needs a GitHub run (same reason as AC2); the local per-flow seconds in Done are the estimate.
+- AC4 → unit `scripts/workflows.test.mjs` › "the release job launches the unpacked app before it
+  publishes" (D2).
+- AC5 → local proof in D2 (missing `app.asar` → the smoke command exits non-zero), recorded in Done.
+  **Manual residue:** the red step on a `dry_run` release dispatch from a test branch, with its run
+  link — needs a push and a GitHub run (same reason as AC2).
+- AC6 → doc check `grep -n "264" docs/UI-VERIFICATION.md` matches the superseding note (D3); the
+  build's reviewer runs it — a doc sentence has no behaviour to test.
+- AC7 → unit `scripts/workflows.test.mjs` › "the packaged smoke turns blocking after two releases past
+  0.8.0" and › "the packaged smoke step's continue-on-error matches the released count" (D2).
 
 ## Done
 

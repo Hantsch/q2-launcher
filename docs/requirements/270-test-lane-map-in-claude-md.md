@@ -1,7 +1,7 @@
 ---
 id: 270
 title: Test lane map in CLAUDE.md, Linux advisory exit condition, one meaning of e2e
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -35,81 +35,126 @@ to the act list (about +1400 s on a ~1000 s gate, against story 234's split).
 ## Acceptance Criteria
 
 - [ ] **AC1** — `CLAUDE.md` contains a `## Test lanes` section with a table of 6–8 rows and the
-  columns lane, trigger, command, OS, blocking/advisory (`grep -n '^## Test lanes' CLAUDE.md`
-  returns one match).
+      columns lane, trigger, command, OS, blocking/advisory (`grep -n '^## Test lanes' CLAUDE.md`
+      returns one match).
 - [ ] **AC2** — A test in `scripts/workflows.test.mjs` (or `repo-hygiene.test.mjs`) fails when a
-  workflow file name or npm script named in the table no longer exists (seeded defect: rename
-  `ui-flows.yml` in the table).
+      workflow file name or npm script named in the table no longer exists (seeded defect: rename
+      `ui-flows.yml` in the table).
 - [ ] **AC3** — `CLAUDE.md` defines "e2e" once, naming both `ui:verify` and `ui:flows`;
-  `.claude/ai-scrum.md` links to that definition next to its `e2e:` line and does not duplicate the table.
-- [ ] **AC4** — The Linux advisory policy appears in `CLAUDE.md` with a written exit condition and
-  names the one job to flip first.
+      `.claude/ai-scrum.md` links to that definition next to its `e2e:` line and does not duplicate the table.
+- [ ] **AC4** — The Linux policy appears in the `CLAUDE.md` lane table only: the Linux lane is listed
+      as manual / additional target (run by hand, never a PR or release gate), and the table states that
+      the maintainer owns any change to that policy; no "N green runs" exit condition and no job named
+      to flip. _(Reworded per the (User) decision below, which dropped the original "exit condition +
+      first job to flip".)_
 - [ ] **AC5** — The header of `scripts/verify-release.mjs` states that `ui-flows.yml` is advisory
-  on GitHub and rehearsed via `npm run rehearse` / `ci:local:flows`; `grep -n "ui-flows"
-  scripts/verify-release.mjs` returns a match within the first 45 lines.
+      on GitHub and rehearsed via `npm run rehearse` / `ci:local:flows`; `grep -n "ui-flows"
+scripts/verify-release.mjs` returns a match within the first 45 lines.
 - [ ] **AC6** — `npm run lint` and `npm test` exit 0.
 
 ## Open Questions
 
-- Exit condition: "N consecutive green runs of `linux-verify`" (judge: make only the packaged
+- ~~Exit condition: "N consecutive green runs of `linux-verify`" (judge: make only the packaged
   AppImage job blocking after a stability window) or "quarantine set below M" (story 269)? Who owns
-  the flip decision, given the owner reversed the policy recently (586ea43)?
-- The refuter notes the platform-parity rule concerns UI controls, not CI; does the policy belong
-  in the lane table alone rather than under that rule?
-- Keep the drift test (AC2) at all? The judge allows it only as a small existence check.
+  the flip decision, given the owner reversed the policy recently (586ea43)?~~ answered → Decisions (Sprint)
+- ~~The refuter notes the platform-parity rule concerns UI controls, not CI; does the policy belong
+  in the lane table alone rather than under that rule?~~ answered → Decisions (Sprint)
+- ~~Keep the drift test (AC2) at all? The judge allows it only as a small existence check.~~ answered → Decisions (Sprint)
 
 ## Decisions (Sprint)
 
 - **(User)** Linux checks run manually only, not in the pipeline (see 269): the lane map lists Linux as manual/additional. Drop the 'N green linux-verify runs flips the AppImage job' exit condition accordingly; the user owns any later change. Keep a small existence-check drift test; the policy lives in the lane table only.
 
-<Leave empty. Filled by `/sprint`'s clarification round and by `/refine <id>` when it runs
-inside a sprint: one line per decision the user made, with the answer and why. Empty outside
-a sprint.>
+- The table is written from the workflows and `package.json` as they stand when 270 is built (last
+  in S36, after 264/265/267/269/271), not copied from the plan's row sketch, because concurrent
+  stories (269 above all) still change which Linux jobs exist; the drift test keeps it honest.
+- AC3/AC4/AC5 are prose-presence criteria and are proven by the literal `grep` checks the ACs
+  already name, run by `/build`, because unit tests pinning doc wording would be padding.
+- `CONTRIBUTING.md` and `docs/UI-VERIFICATION.md` stay untouched, because the ACs require one table
+  in `CLAUDE.md` and no second one only in `.claude/ai-scrum.md`.
+- No `CHANGELOG.md` entry, because nothing user-visible changes.
 
 ## Plan
 
-<Leave empty. Filled by `/refine <id>`: a short, precise overview — max. ~50 lines.
-Concrete steps, affected files, order. No essay.>
+Docs plus one guard test; built last in S36 so the table carries the final values of 264/265/267/269/271.
+
+1. `CLAUDE.md`: new `## Test lanes` section right after `## House rules` (whose last paragraph
+   already points at it). One table, columns **Lane | Trigger | Command | OS | Blocks**, 6–8 rows.
+   Expected shape — verify every cell against the workflow files and `package.json` at build time:
+   - pr-unit — `ci.yml` on PR/push — lint, typecheck, `npm test`, audit (271) — Windows + Ubuntu — blocks merge
+   - pr-ui — `ui-flows.yml` job `windows-verify`, PR into main — `npm run ui:verify` + core-journey flows (264) — Windows — blocks merge
+   - release — `release.yml` on push to main / dispatch — green-`ci` guard (266), `npm test`, typecheck, packaged launch (264, advisory for 2 releases) — Windows — blocks publish
+   - release-prep — local, `/release-prep` — `npm run verify:release`, `npm run rehearse` — Windows host + act — blocks the release decision
+   - sprint gate — local, `/sprint` — `npm run ui:flows` (`--tier=smoke` / full, 265) — Windows — blocks the sprint
+   - perf — manual — `npm run test:perf` (267) — any — advisory
+   - linux — manual, additional target — `npm run ci:local:*` and any Linux workflow 269 leaves, on dispatch — Ubuntu — never a gate; maintainer owns any change
+2. Under the table: one paragraph, the only definition of **e2e** — `ui:verify` (screens + axe) and
+   `ui:flows` (journey flows; sharded in CI, `--affected` per story, full at the sprint gate).
+3. `.claude/ai-scrum.md`: HTML comment next to `e2e: npm run ui:verify` linking `CLAUDE.md#test-lanes`.
+4. `scripts/verify-release.mjs` header (first 45 lines): `ui-flows.yml` is advisory on GitHub and
+   not acted here; rehearsed by `npm run rehearse` / `npm run ci:local:flows` (story 234).
+5. `scripts/workflows.test.mjs`: `describe('lane map in CLAUDE.md')` — table shape + every named
+   workflow file and npm script exists.
+6. `npx prettier --write CLAUDE.md`, then lint + test + format:check.
 
 ## Deliverables
 
-<Leave empty. Filled by `/refine <id>`: small pieces, each with its own acceptance
-(scrum-like) and the files it touches. `/build` implements them in order, in one go.
-Every acceptance criterion above must be covered by at least one deliverable **and** by the
-test named for it in `## Acceptance Tests` — the test is part of the deliverable that
-implements the behaviour, never a clean-up afterwards. Refine checks both before
-`status: ready`, build refuses to start without them.>
-
-- [ ] D1 — <smallest useful, individually acceptable result; names the files it touches>
-- [ ] D2 — ...
+- [ ] D1 — **Lane map, e2e definition and its drift guard.** Touches `CLAUDE.md`,
+      `.claude/ai-scrum.md`, `scripts/verify-release.mjs`, `scripts/workflows.test.mjs`.
+  - `CLAUDE.md`: add `## Test lanes` (exactly that heading, so the anchor is `#test-lanes`) directly
+    after `## House rules`, whose last paragraph already says "Which command is which lane is this
+    project's `## Test lanes` table". One markdown table with header
+    `| Lane | Trigger | Command | OS | Blocks |` and 6–8 rows: pr-unit (`ci.yml`), pr-ui
+    (`ui-flows.yml` job `windows-verify`), release (`release.yml`), release-prep (local:
+    `npm run verify:release`, `npm run rehearse`), sprint gate (local: `npm run ui:flows`), perf
+    (manual: `npm run test:perf`), linux (manual / additional target: `npm run ci:local:verify` and
+    the other `ci:local:*` scripts). Fill trigger, command, OS and blocking from the actual
+    `.github/workflows/*.yml` and `package.json` scripts at build time — a job with
+    `continue-on-error` is advisory, one without blocks; never name a workflow file or `npm run`
+    script that does not exist. The linux row says: Linux is an additional target, its checks run by
+    hand and never gate a PR or release; the maintainer owns any change to that policy (no "N green
+    runs" exit condition, no job to flip). Under the table one short paragraph that is the only
+    definition of **e2e** in the file: both `npm run ui:verify` (screenshots + axe report) and
+    `npm run ui:flows` (journey flows; sharded in CI, `--affected` per story, full at the sprint
+    gate). Keep it short — every agent reads this file. Run `npx prettier --write CLAUDE.md`.
+  - `.claude/ai-scrum.md`: next to the `e2e: npm run ui:verify` line add an HTML comment such as
+    `<!-- what "e2e" means across lanes, and which lane blocks what: CLAUDE.md#test-lanes -->`.
+    Do not copy the table; change nothing else in the profile.
+  - `scripts/verify-release.mjs`: in the header comment, within the first 45 lines and next to the
+    `linux (every PR workflow, through act …)` bullet, state that `ui-flows.yml` is advisory on
+    GitHub and deliberately not acted here; it is rehearsed by `npm run rehearse` /
+    `npm run ci:local:flows` (story 234). Comment only, no code change.
+  - `scripts/workflows.test.mjs`: new `describe('lane map in CLAUDE.md', …)` reusing the file's
+    `ROOT` and `WORKFLOWS_DIR`. Take the lines between `## Test lanes` and the next `## ` heading;
+    table rows are lines starting with `|`, minus header and separator. Two tests:
+    `"the lane map is one table with lane, trigger, command, OS and blocking columns"` — exactly one
+    `^## Test lanes` line in `CLAUDE.md`, header cells Lane/Trigger/Command/OS/Blocks, 6–8 data rows;
+    `"every workflow and npm script the lane map names exists"` — every backticked token ending in
+    `.yml` exists in `.github/workflows/`, and every `npm run <name>` (name = the token after
+    `run`, args dropped) is a key of `package.json` `scripts`. Seeded defect before finishing:
+    rename `ui-flows.yml` in the table → the second test goes red; restore.
+  - Acceptance: both tests green; `grep -c '^## Test lanes' CLAUDE.md` = 1;
+    `head -45 scripts/verify-release.mjs | grep -n ui-flows` matches; `npm run lint`, `npm test`
+    and `npm run format:check` exit 0.
 
 ## Model Hints
 
-<Agent tier per deliverable. Default is the cheap tier with `/build`'s effort — leave
-unmarked. If a step needs more brainpower: "D3 (balancing formula) → deliverable-hard" (Opus +
-high effort, agent in `.claude/agents/`) plus a one-sentence risk justification.
-Plus one line for the code review, default: "Review: → default".>
+- D1 → default (docs plus a small parse-and-exists test; no runtime path).
+- Review: → default
 
 ## Acceptance Tests
 
-<Leave empty. Filled by `/refine <id>`: one line per acceptance criterion above, naming the
-automated test that proves it — level, file, and the test name it will carry. The tests are
-written by the deliverables, not afterwards; `/build` re-checks this mapping and that the
-tests pass before `status: done`. This section replaces the manual test plan: acceptance is
-the suite, not a click list.
-
-Example paths below; your real test layout and the commands that run it are in
-`.claude/ai-scrum.md` (`e2e-story`, `test-story`).
-
-- AC1 → e2e `tests/e2e/<flow>.spec.ts` › "<test name>" (real surface, per
-  `ui-acceptance-required`)
-- AC2 → unit `tests/core/<module>.test.ts` › "<test name>"
-- AC3 → **manual residue:** <the real reason it cannot be automated — an OS dialog, a
-  specific machine, a paid external service>. Goes into the sprint review; blocks nothing.>
+- AC1 → unit `scripts/workflows.test.mjs` › "the lane map is one table with lane, trigger, command, OS and blocking columns"
+- AC2 → unit `scripts/workflows.test.mjs` › "every workflow and npm script the lane map names exists" (seeded defect: rename `ui-flows.yml` in the table)
+- AC3 → check run by `/build`: `grep -c '^## Test lanes' CLAUDE.md` = 1 and the e2e paragraph under it names `ui:verify` and `ui:flows`; `grep -n 'CLAUDE.md#test-lanes' .claude/ai-scrum.md` matches and `grep -c '^|' .claude/ai-scrum.md` = 0
+- AC4 → check run by `/build`: `sed -n '/^## Test lanes/,/^## [^T]/p' CLAUDE.md | grep -i linux` shows the row as manual / additional target, never a gate, maintainer-owned
+- AC5 → check run by `/build`: `head -45 scripts/verify-release.mjs | grep -n ui-flows` matches
+- AC6 → `npm run lint` and `npm test` exit 0 (the `/build` verify gate)
 
 ## Done
 
 <Leave empty. Filled by `/build <id>` after implementation:
+
 - Short summary (2–5 lines): what was done.
 - Commit message (1–2 lines, keywords are enough).
 - Verification: build/test/lint result + review outcome; open points/blockers, if any.>

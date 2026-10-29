@@ -1,7 +1,7 @@
 ---
 id: 266
 title: Release waits for a green CI run on its SHA
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -40,64 +40,154 @@ post-merge failure would not stop publishing either. The release commit itself i
 
 ## Open Questions
 
-- Guard mechanism: a `plan`-step check of the head SHA's `ci` run (judge's choice, `gh api` on
+- ~~Guard mechanism: a `plan`-step check of the head SHA's `ci` run (judge's choice, `gh api` on
   check-runs) versus a `workflow_run` trigger. `workflow_run` changes the trigger model and the
-  `[skip ci]` handling; decide in refine.
-- Wait or fail? If the push-to-main `ci` run is still in progress when release starts, does the guard
-  poll up to N minutes or fail at once? Failing at once means every normal merge needs a re-dispatch.
-- Dropping the repeated windows test and typecheck (about 300 s saved) is a later cut that waits for
-  the packaged smoke of story 264 (judge); AC7 holds them until then.
-- Override input name and who may use it; it must be visible in the release run log.
-- Verifying the guard is only possible through a dry-run dispatch; is that acceptable for AC5?
+  `[skip ci]` handling; decide in refine.~~ answered → Decisions (Sprint)
+- ~~Wait or fail? If the push-to-main `ci` run is still in progress when release starts, does the
+  guard poll up to N minutes or fail at once? Failing at once means every normal merge needs a
+  re-dispatch.~~ answered → Decisions (Sprint)
+- ~~Dropping the repeated windows test and typecheck (about 300 s saved) is a later cut that waits
+  for the packaged smoke of story 264 (judge); AC7 holds them until then.~~ answered → Decisions
+  (Sprint)
+- ~~Override input name and who may use it; it must be visible in the release run log.~~ answered →
+  Decisions (Sprint)
+- ~~Verifying the guard is only possible through a dry-run dispatch; is that acceptable for AC5?~~
+  answered → Decisions (Sprint)
 
 ## Decisions (Sprint)
 
 - **(User)** Guard is a plan-step check of the head SHA's ci run that fails at once (no polling, no workflow_run).
-
-<Leave empty. Filled by `/sprint`'s clarification round and by `/refine 266` when it runs
-inside a sprint: one line per decision the user made, with the answer and why. Empty outside
-a sprint.>
+- The guard reads the Actions runs of `ci.yml` filtered by `head_sha` (any event: push,
+  pull_request, dispatch) and passes only on a completed run with `conclusion: success`; an
+  in-progress run fails at once with a "dispatch release again once ci is green" message — reason:
+  the binding user decision, and a per-workflow run filter is exact where a check-runs listing mixes
+  in other workflows.
+- A head that is the release commit (`release: <v> [skip ci]`) is judged by its first parent —
+  reason: AC2 wants the feature commit checked, and the release commit never has a `ci` run.
+- The override input is `skip_ci_guard` (boolean, default false), usable by anyone who may dispatch
+  the workflow, and logged as a `::warning::` naming `github.actor` and the SHA — reason: dispatch
+  already requires write access, and an extra actor allowlist would be a policy nobody asked for.
+- The windows `npm test`/typecheck steps stay (AC7); dropping them waits for story 264's packaged
+  smoke — reason: the review's judge tied that cut to 264.
+- AC5 is manual residue on a real dispatch with `dry_run: false` (a dry run passes the guard by AC3)
+  on a throwaway branch whose `## Unreleased` is empty, so a broken guard would still be stopped by
+  the plan's own refusal one step later — reason: only a real GitHub run with the repo token
+  exercises the `gh api` call, and the empty changelog makes that run unable to publish.
+- `build-linux` and `release` fail when their checkout of `github.ref_name` is not the SHA `plan`
+  guarded — reason: those jobs check the branch out again, and a push landing between jobs would
+  otherwise ship a commit the guard never saw.
 
 ## Plan
 
-<Leave empty. Filled by `/refine 266`: a short, precise overview — max. ~50 lines.
-Concrete steps, affected files, order. No essay.>
+Gate the release on a green `ci` run for the commit being released, inside the existing `plan` job.
+
+1. **Pure decision** `scripts/lib/release/ci-guard.mjs`: `resolveGuardTarget({ headSha,
+   headMessage, parentSha })` (release commit → parent) and `decideCiGuard({ dryRun, override,
+   targetSha, runs })` → `{ pass, reason }`. Unit-tested over fixtures, no network. The
+   release-commit template moves into an exported helper in `plan.mjs` so it is not retyped.
+2. **CLI** `scripts/release-ci-guard.mjs`: reads HEAD/HEAD^ via git, fetches
+   `gh api repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=<sha>&per_page=100`,
+   calls the decision, prints the reason (`::warning::` on override), exits 0/1, writes
+   `sha=<HEAD>` to `$GITHUB_OUTPUT`.
+3. **Wiring** in `.github/workflows/release.yml`: `permissions` gains `actions: read`; dispatch
+   input `skip_ci_guard`; step `id: ci-guard` in `plan` after setup-node and before the
+   `id: plan` step; `plan` outputs `sha`; `build-linux` and `release` get a step right after
+   checkout that fails when `git rev-parse HEAD` ≠ `needs.plan.outputs.sha`. The windows test +
+   typecheck steps stay untouched.
+4. **Tests**: `scripts/workflows.test.mjs` asserts the guard's placement, the same-commit checks
+   and the kept windows steps; `scripts/lib/release/wiring.test.mjs` learns the new input and that
+   CLAUDE.md states the rule.
+5. **CLAUDE.md**: one Key-rules bullet — a release needs a green `ci` run on its SHA; recovery
+   (dispatch release again once `ci` is green) and the logged override.
+
+Order D1 → D2. No product code, no IPC, no CHANGELOG entry (nothing user-visible), no systems doc.
+`verify:release` calls `release.mjs --print-plan` directly and is unaffected.
 
 ## Deliverables
 
-<Leave empty. Filled by `/refine 266`: small pieces, each with its own acceptance
-(scrum-like) and the files it touches. `/build` implements them in order, in one go.
-Every acceptance criterion above must be covered by at least one deliverable **and** by the
-test named for it in `## Acceptance Tests` — the test is part of the deliverable that
-implements the behaviour, never a clean-up afterwards. Refine checks both before
-`status: ready`, build refuses to start without them.>
-
-- [ ] D1 — <smallest useful, individually acceptable result; names the files it touches>
-- [ ] D2 — ...
+- [ ] D1 — **Guard decision + CLI.** New `scripts/lib/release/ci-guard.mjs` exporting
+      `resolveGuardTarget({ headSha, headMessage, parentSha })` → the SHA to judge (the parent
+      when the first line of `headMessage` is a release commit, else `headSha`) and
+      `decideCiGuard({ dryRun, override, targetSha, runs })` → `{ pass: boolean, reason: string }`:
+      `dryRun` → pass ("dry run, guard not applied"); `override` → pass with a reason saying the
+      guard was skipped; otherwise pass iff some item of `runs` (GitHub `workflow_runs` items:
+      `head_sha`, `status`, `conclusion`) has `head_sha === targetSha`, `status === 'completed'`
+      and `conclusion === 'success'`; a matching run not yet completed fails with a reason telling
+      the maintainer to dispatch release again once `ci` is green; no run fails with
+      "no successful ci run for <sha>". Release-commit recognition must not retype the template:
+      in `scripts/lib/release/plan.mjs` move the message built at line ~140
+      (`release: ${version} [skip ci]`) into an exported `releaseCommitMessage(version)` used
+      there, plus an exported `isReleaseCommitMessage(message)`; `ci-guard.mjs` imports the latter.
+      New CLI `scripts/release-ci-guard.mjs`: reads env `RELEASE_DRY_RUN_INPUT` and
+      `RELEASE_SKIP_CI_GUARD_INPUT` (`'true'` = on; both empty on a push), `GITHUB_REPOSITORY`,
+      `GITHUB_ACTOR`; gets HEAD, HEAD^ and HEAD's message via `git`; calls `gh api` (spawnSync,
+      argv array, no shell) only when neither dry run nor override; prints the reason, and on
+      override prints `::warning::ci guard skipped by <actor> for <sha>`; appends `sha=<HEAD>` to
+      `$GITHUB_OUTPUT` when set; exits 0 on pass, 1 on fail (also 1 when `gh` fails or returns
+      unparsable JSON).
+      Test: `scripts/lib/release/ci-guard.test.mjs` over the pure functions only (the release head
+      message is built with `releaseCommitMessage('1.0.1')`), test names as in Acceptance Tests
+      below. Mirror the existing pure-module + test pairs in `scripts/lib/release/`
+      (`version.mjs` / `version.test.mjs`).
+      Files: `scripts/lib/release/ci-guard.mjs`, `scripts/lib/release/ci-guard.test.mjs`,
+      `scripts/lib/release/plan.mjs`, `scripts/release-ci-guard.mjs`.
+- [ ] D2 — **Workflow wiring, its tests, CLAUDE.md.** In `.github/workflows/release.yml`:
+      top-level `permissions` adds `actions: read` (keep `contents: write`); `workflow_dispatch`
+      gains input `skip_ci_guard` (boolean, default false, description: skips the green-`ci` check,
+      logged in the run); in `plan`, a step `name: Require a green ci run`, `id: ci-guard`, after
+      `./.github/actions/setup-node-electron` and before the `id: plan` step, `shell: bash`, env
+      `GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`, `RELEASE_DRY_RUN_INPUT: ${{ inputs.dry_run }}`,
+      `RELEASE_SKIP_CI_GUARD_INPUT: ${{ inputs.skip_ci_guard }}`, run
+      `node scripts/release-ci-guard.mjs`; `plan.outputs` gains `sha: ${{ steps.ci-guard.outputs.sha }}`;
+      `build-linux` and `release` each get, directly after their `actions/checkout` step, a bash step
+      that fails with a clear message when `git rev-parse HEAD` differs from
+      `${{ needs.plan.outputs.sha }}` (passed through `env`, not inlined in `run`). Leave the windows
+      `Test` / `Typecheck` steps and everything else unchanged; the header comment gains one line
+      for the guard.
+      Tests: in `scripts/workflows.test.mjs` a new `describe('release workflow')` with
+      "the release plan requires a green ci run before any build job" (a `plan` step has
+      `id: ci-guard` and runs `scripts/release-ci-guard.mjs`, its index is lower than the `id: plan`
+      step's, and `build-linux` and `release` both list `plan` in `needs`), "later release jobs
+      refuse a commit the guard did not see" (in `build-linux` and `release` the step after checkout
+      references `needs.plan.outputs.sha`; `permissions.actions` is `read`) and "the release job
+      still runs unit tests and typecheck on windows" (`release` step `run`s include `npm test` and
+      `npm run typecheck`). In `scripts/lib/release/wiring.test.mjs` update the dispatch-inputs
+      assertion (line ~132) to include `skip_ci_guard`, and add "CLAUDE.md states that a release
+      needs a green ci run on its SHA" (reads `CLAUDE.md`; some line contains `green`, `ci` and
+      `SHA`). In `CLAUDE.md` add one bullet under `## Key rules`: **A release needs a green `ci` run
+      on its SHA** — the release `plan` job refuses otherwise, also right after a merge while `ci`
+      is still running (dispatch release again once it is green); `skip_ci_guard` overrides and is
+      logged; dry runs are not guarded.
+      Files: `.github/workflows/release.yml`, `scripts/workflows.test.mjs`,
+      `scripts/lib/release/wiring.test.mjs`, `CLAUDE.md`.
 
 ## Model Hints
 
-<Agent tier per deliverable. Default is the cheap tier with `/build`'s effort — leave
-unmarked. If a step needs more brainpower: "D3 (balancing formula) → deliverable-hard" (Opus +
-high effort, agent in `.claude/agents/`) plus a one-sentence risk justification.
-Plus one line for the code review, default: "Review: → default".>
+Both deliverables on the default tier: a pure function over fixtures and a YAML wiring change,
+each pinned by tests.
+
+Review: → default
 
 ## Acceptance Tests
 
-<Leave empty. Filled by `/refine 266`: one line per acceptance criterion above, naming the
-automated test that proves it — level, file, and the test name it will carry. The tests are
-written by the deliverables, not afterwards; `/build` re-checks this mapping and that the
-tests pass before `status: done`. This section replaces the manual test plan: acceptance is
-the suite, not a click list.
-
-Example paths below; your real test layout and the commands that run it are in
-`.claude/ai-scrum.md` (`e2e-story`, `test-story`).
-
-- AC1 → e2e `tests/e2e/<flow>.spec.ts` › "<test name>" (real surface, per
-  `ui-acceptance-required`)
-- AC2 → unit `tests/core/<module>.test.ts` › "<test name>"
-- AC3 → **manual residue:** <the real reason it cannot be automated — an OS dialog, a
-  specific machine, a paid external service>. Goes into the sprint review; blocks nothing.>
+- AC1 → unit `scripts/lib/release/ci-guard.test.mjs` › "a feature commit without a successful ci
+  run is refused" and › "an in-progress ci run is refused at once", with unit
+  `scripts/workflows.test.mjs` › "the release plan requires a green ci run before any build job"
+  proving the decision is wired into `plan`; the live run is AC5's residue.
+- AC2 → unit `scripts/lib/release/ci-guard.test.mjs` › "a release commit is judged by its parent's
+  ci run" and › "a feature commit without a successful ci run is refused".
+- AC3 → unit `scripts/lib/release/ci-guard.test.mjs` › "a dry run passes without any ci run" and ›
+  "the override passes without any ci run and says the guard was skipped".
+- AC4 → unit `scripts/workflows.test.mjs` › "the release plan requires a green ci run before any
+  build job".
+- AC5 → **manual residue:** needs a real GitHub Actions run (repo token, `gh api` against the live
+  Actions API). The maintainer dispatches `release` with `dry_run: false` on a throwaway branch with
+  no `ci` run and an empty `## Unreleased`; the run must fail at "Require a green ci run"; the run
+  link goes into Done.
+- AC6 → unit `scripts/lib/release/wiring.test.mjs` › "CLAUDE.md states that a release needs a green
+  ci run on its SHA".
+- AC7 → unit `scripts/workflows.test.mjs` › "the release job still runs unit tests and typecheck on
+  windows".
 
 ## Done
 
