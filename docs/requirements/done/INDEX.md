@@ -362,3 +362,4 @@ second roadmap.
 - 272 — Test hygiene: skipped launch flow fails in CI, loose pins, discovery guard · S36 · launch-with-scope throws under CI without 7za, xvfb pin loosened, orphaned test files are caught, two constant echoes removed
 - 266 — Release waits for a green CI run on its SHA · S36 · release plan fails without a successful ci run on the released commit (override and dry run exempt).
 - 273 — An installation with q2pro64.exe is recognised as Q2PRO · S36 · q2pro64.exe detected as Q2PRO, per-build chip choice, update/repair replace the launched build
+- 274 — The server ping is the best sample in whole milliseconds · S36 · scan ping is the rounded best of 3 samples, rounded at the source so every surface shows whole ms

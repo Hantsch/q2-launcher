@@ -28,10 +28,9 @@ This document describes the module as built. `servers` is a registered module; i
 - `master-sources.ts` / `udp-master-source.ts` / `http-list-source.ts` — master source list
   handling and the two transports.
 - `server-query.ts` / `ping-samples.ts` / `lan-discovery.ts` — one-server UDP queries, ping sample
-  maths, LAN broadcast discovery. Ping is the median of 3 `info` samples per server (3 more if the spread
-  exceeds max(20 ms, 25% of the median)), rounded to whole ms; a failed extra sample is dropped. Stage 2
-  (`status`) never overrides it; a server queried only in stage 2 (single-server refresh) takes the
-  `status` ping, and LAN rounds follow the same rule.
+  maths, LAN broadcast discovery. Ping is the lowest of 3 `info` samples per server, whole ms (rounded at
+  measurement), no extra samples. Stage 2 (`status`) never overrides it; a single-server refresh and LAN
+  rounds take their one sample, also whole ms.
 - Scan timing (ping accuracy, full-pass budget) is checked only by the manual perf lane `npm run test:perf`; the unit lane checks the scan's shape.
 - `favourites.ts` / `history-log.ts` / `quick-filter-entries.ts` — the persisted collections.
 - `watchlist-service.ts` / `watchlist-entries.ts` / `watchlist-matcher.ts` /

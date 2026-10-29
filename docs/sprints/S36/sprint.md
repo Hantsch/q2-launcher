@@ -20,7 +20,7 @@ The Windows PR lane fails when a core journey breaks, the release publishes only
 - [x] 272 — Test hygiene: skipped launch flow fails in CI, loose workflow pins, discovery guard, constant echoes
 - [x] 266 — Release waits for a green CI run on its SHA
 - [x] 273 — An installation with q2pro64.exe is recognised as Q2PRO
-- [ ] 274 — The server ping is the best sample in whole milliseconds
+- [x] 274 — The server ping is the best sample in whole milliseconds
 - [ ] 275 — Demos play in an R1Q2 installation, with the controls it cannot offer disabled
 - [ ] 268 — Recorded-flaky flows wait on conditions, not sleeps
 - [ ] 269 — Linux fixture engine clears the quarantine

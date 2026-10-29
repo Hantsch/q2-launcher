@@ -16,6 +16,10 @@ version section when a release actually ships.
 
 - Q2PRO's 64-bit `q2pro64.exe` is recognised — pick which build Play starts.
 
+### Fixed
+
+- Server ping shows whole milliseconds, the best of three round trips.
+
 ### Security
 
 - Electron updated for a certificate-trust security advisory.

@@ -496,7 +496,7 @@ describe('createScanService - online and LAN lists', () => {
     expect(onStage2Row).not.toHaveBeenCalled()
   })
 
-  it('a LAN status reply does not overwrite the stage-1 median ping', async () => {
+  it('a LAN status reply does not overwrite the stage-1 best ping', async () => {
     const queryServer: QueryServerFn = async (_target, options) =>
       options.kind === 'status'
         ? {

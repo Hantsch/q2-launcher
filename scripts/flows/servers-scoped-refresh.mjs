@@ -310,6 +310,25 @@ export default async function serversScopedRefresh({ page, step, shot }) {
   )
   await shot('selected-server-refreshed')
 
+  step("the refreshed server's ping reads whole milliseconds")
+  const rowText = await page
+    .getByTestId(`servers-row-${selected.address}`)
+    .innerText({ timeout: TIMEOUT_MS })
+  if (!/\b\d+ ms\b/.test(rowText) || /\d\.\d+ ms/.test(rowText)) {
+    throw new Error(
+      `expected the refreshed row ${selected.address} to show whole-millisecond ping, got ${JSON.stringify(rowText)}`,
+    )
+  }
+  for (const entry of afterSelected.value.entries) {
+    const history = Array.isArray(entry.rttHistory) ? entry.rttHistory : []
+    const samples = [entry.rttMs, ...history.map((sample) => sample?.rttMs)]
+    for (const rtt of samples) {
+      if (typeof rtt === 'number' && !Number.isInteger(rtt)) {
+        throw new Error(`expected whole-millisecond rtt for ${entry.address}, got ${rtt}`)
+      }
+    }
+  }
+
   console.log(
     'servers-scoped-refresh: "Refresh servers" swept all three addresses through both stages ' +
       '(AC1), "Refresh favourites" queried only the favourite and left the other two rows byte-' +

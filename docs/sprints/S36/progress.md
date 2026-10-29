@@ -63,3 +63,15 @@
 - 2026-10-29 09:56 · 273 · review fix · started
 - 2026-10-29 09:58 · 273 · review fix · done
 - 2026-10-29 09:58 · 273 · story · done
+- 2026-10-29 09:58 · 274 · build · started
+- 2026-10-29 09:59 · 274 · D1 best-of-3 ping · started
+- 2026-10-29 09:59 · 274 · D1 best-of-3 ping · done
+- 2026-10-29 09:59 · 274 · D2 whole ms at source · started
+- 2026-10-29 10:02 · 274 · D2 whole ms at source · done
+- 2026-10-29 10:02 · 274 · D3 flow whole-ms step · started
+- 2026-10-29 10:03 · 274 · D3 flow whole-ms step · done
+- 2026-10-29 10:03 · 274 · verify · started
+- 2026-10-29 10:10 · 274 · verify · done
+- 2026-10-29 10:10 · 274 · review 1 · started
+- 2026-10-29 10:10 · 274 · review 1 · done
+- 2026-10-29 10:11 · 274 · story · done

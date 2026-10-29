@@ -258,7 +258,7 @@ function readGamemode(
  * while only `info` has answered, and is replaced by the full roster the moment a `status` reply
  * lands (same field, never two) - see `ServerListEntry`'s own doc comment. `keepPing` leaves the
  * entry's ping and history untouched: a stage-2 `status` reply is one sample against stage 1's
- * median, so it must neither replace it nor add a second history sample for the scan (story 258) */
+ * best sample, so it must neither replace it nor add a second history sample for the scan (story 258) */
 function mergeSuccessfulReply(
   existing: ServerListEntry | undefined,
   target: ScanTarget,
@@ -484,7 +484,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       const target: ScanTarget = { address: row.target.address, origins: ['lan'] }
       if (row.result.ok) {
         if (row.stage === 'stage1') pingedInStage1.add(row.target.address)
-        // Same rule as the online round: a stage-2 status keeps the stage-1 median (story 258)
+        // Same rule as the online round: a stage-2 status keeps the stage-1 best ping (story 258)
         const keepPing = row.result.kind === 'status' && pingedInStage1.has(row.target.address)
         storeReply(list, target, row.result, keepPing)
       }

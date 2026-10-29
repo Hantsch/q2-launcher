@@ -22,7 +22,7 @@ import { runScan } from './scan-runner'
  *
  * End-to-end accuracy is what this file proves. That the receive stamp is taken at arrival and not
  * when a reply is processed is proved by `server-query.test.ts` (fake socket that delays
- * processing): over real sockets the median of three samples hides a single late stamp.
+ * processing): over real sockets the best of three samples hides a single late stamp.
  */
 
 const POPULATION_SIZE = 30

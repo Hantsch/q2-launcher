@@ -1,7 +1,7 @@
 ---
 id: 274
 title: The server ping is the best sample in whole milliseconds
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-29
 ---
 
@@ -20,12 +20,12 @@ reports the median of 3–6 samples (`src/main/modules/servers/ping-samples.ts`,
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The ping a scan stores for a server is the minimum of its successful samples, not
+- [x] **AC1** — The ping a scan stores for a server is the minimum of its successful samples, not
       the median.
-- [ ] **AC2** — Every ping value that reaches the renderer (list row, detail header, reachability
+- [x] **AC2** — Every ping value that reaches the renderer (list row, detail header, reachability
       history, LAN rows, single-server refresh) is a whole number of ms.
-- [ ] **AC3** — After refreshing a server, the server list shows its ping without a decimal point.
-- [ ] **AC4** — Max-ping filter and ping sort use the same best-sample value the row shows.
+- [x] **AC3** — After refreshing a server, the server list shows its ping without a decimal point.
+- [x] **AC4** — Max-ping filter and ping sort use the same best-sample value the row shows.
 
 ## Open Questions
 
@@ -71,7 +71,7 @@ AC4 needs no code: `src/shared/servers/list-filter.ts:119` and `list-sort.ts:115
 
 ## Deliverables
 
-- [ ] **D1 — The scan's ping is the best of 3 samples.** In
+- [x] **D1 — The scan's ping is the best of 3 samples.** In
       `src/main/modules/servers/ping-samples.ts` replace `medianPing` with
       `bestPing(samples: readonly number[]): number` = `Math.round(Math.min(...samples))`; delete
       `samplesFarApart`, `rawMedian` and `PING_SAMPLES_EXTRA`; rewrite the file doc (best sample,
@@ -90,7 +90,7 @@ AC4 needs no code: `src/shared/servers/list-filter.ts:119` and `list-sort.ts:115
       and the "never far apart" remark ~line 270; `src/main/modules/servers/scan-ping-accuracy.test.ts`
       header comment "the median of three samples hides a single late stamp" → "the best of three
       samples …" (comment only).
-- [ ] **D2 — Every ping is whole milliseconds at the source.** In
+- [x] **D2 — Every ping is whole milliseconds at the source.** In
       `src/main/modules/servers/server-query.ts` `onReply` (~line 272) set
       `const rttMs = Math.round(receivedAt - sentAt)` with a one-line why (the UI shows whole ms;
       rounding here covers stage 1, stage 2 and the single-server refresh alike). In
@@ -105,7 +105,7 @@ AC4 needs no code: `src/shared/servers/list-filter.ts:119` and `list-sort.ts:115
       it; single-server refresh and LAN rounds take their one sample, also whole ms. `CHANGELOG.md`
       under `## Unreleased` add a `### Fixed` heading with one line: "Server ping shows whole
       milliseconds, the best of three round trips."
-- [ ] **D3 — The refreshed row shows its ping without decimals (real surface).** In
+- [x] **D3 — The refreshed row shows its ping without decimals (real surface).** In
       `scripts/flows/servers-scoped-refresh.mjs`, after the existing "select a non-favourite row,
       then "Refresh this server" touches only it" phase (~line 264, once the round has finished),
       add a step "the refreshed server's ping reads whole milliseconds": the text of
@@ -128,8 +128,13 @@ AC4 needs no code: `src/shared/servers/list-filter.ts:119` and `list-sort.ts:115
 
 ## Done
 
-<Leave empty. Filled by `/build 274` after implementation:
+Scan ping is now `bestPing` = rounded minimum of exactly 3 `info` samples (median, spread rule and extra samples removed). `server-query.ts` and `lan-discovery.ts` round the round trip at the source, so row, detail header, history, LAN rows, single-server refresh, filter and sort all see whole ms. Flow `servers-scoped-refresh` asserts the refreshed row and every `scan.read` rtt are integers. Systems doc and CHANGELOG (`### Fixed`) updated.
 
-- Short summary (2–5 lines): what was done.
-- Commit message (1–2 lines, keywords are enough).
-- Verification: build/test/lint result + review outcome; open points/blockers, if any.>
+Commit message: `274: server ping = best of 3 samples, whole ms rounded at the source`
+
+Verification (narrow gate): build, lint, typecheck green; `npx vitest run --changed HEAD` green (26 files); `npm run test:perf` green; `ui:flows --affected scripts/flows/servers-scoped-refresh.mjs --parallel=4` shards 1/2 and 2/2 green (8/8 each). The selection did not list `servers-scoped-refresh` / `servers-ping-filter`, so both were run directly with `npm run ui:flow -- <name>`: OK. Clean-agent review (default tier): PASS; its one finding (constant-echo "sample count" test) was removed, plus a clumsy doc line in `scan-runner.ts` reflowed.
+AC -> test: AC1 scan-runner 'a scan stores the lowest of its three ping samples' + ping-samples 'the best sample is the lowest regardless of order' (passed); AC2 server-query 'a fractional round trip is reported in whole milliseconds', lan-discovery "a LAN reply's round trip is whole milliseconds", flow step (passed); AC3 flow step "the refreshed server's ping reads whole milliseconds" (OK); AC4 list-filter 'a limit shows only online rows below it', list-sort 'an unknown column value sorts last in both directions' (passed), flow servers-ping-filter (OK). No manual residue.
+
+Decisions: plan's `scan-ping-accuracy.test.ts` is `scan-ping-accuracy.perf.test.ts` since story 267 (comment-only edit there); stale "median" wording in `scan-service.ts` comments and two test titles renamed to "best"; `rttHistory` needs no read-time rounding (in-memory, rounded at source); the "sample count" constant-echo test dropped.
+
+tiers: D 3 / hard 0 � review default � cycles 1 � agents 5

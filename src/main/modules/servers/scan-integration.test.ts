@@ -26,7 +26,7 @@ import { serversState } from './persisted'
 import { MainModuleRegistry } from '../registry'
 import { serversModule } from './index'
 import type { ScanServerResult } from './scan-runner'
-import { PING_SAMPLES_EXTRA, PING_SAMPLES_FIRST } from './ping-samples'
+import { PING_SAMPLES_FIRST } from './ping-samples'
 
 /**
  * Story 114 D8: the real-socket integration proof. D1-D7 (address-set merge, `queryServer`,
@@ -257,7 +257,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       expect(emptyReceivedKinds).not.toContain('status')
       // The first query may retry; the ping samples that follow do not.
       expect(emptyReceivedKinds.length).toBeLessThanOrEqual(
-        SCAN_SETTINGS.retries + PING_SAMPLES_FIRST + PING_SAMPLES_EXTRA,
+        SCAN_SETTINGS.retries + PING_SAMPLES_FIRST,
       )
 
       // The dead target got queried (proving it's part of the swept set) but never held up the
@@ -267,7 +267,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       // --- AC6: the union is deduped -----------------------------------------------------------
       // The populated address was listed as both a favourite and a manual server; it must appear
       // exactly once in the final entries, and its responder must only ever have seen one
-      // sampling round of `info` queries (not two, one per origin); loopback samples are never far apart.
+      // sampling round of `info` queries (not two, one per origin).
       const populatedEntries = snapshot.entries.filter(
         (entry) => entry.address === populatedAddress,
       )
