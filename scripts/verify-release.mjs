@@ -21,6 +21,8 @@
 //         npm ci, typecheck, test, release plan, ui:verify (screens + axe), package:win|linux
 //   linux (every PR workflow, through act + Docker, from the Linux snapshot):
 //         ci.yml, linux-verify.yml, linux-update.yml
+//         (ui-flows.yml's Linux job is advisory on GitHub and deliberately not acted here; `npm run
+//         rehearse` / `npm run ci:local:flows` rehearse it - story 234)
 // What is verified is the working tree as `git add -A` would commit it (HEAD plus uncommitted and
 // untracked, non-ignored files), captured through a throwaway index into an unreferenced snapshot
 // object - no branch, ref or index of yours is touched. When that differs from HEAD a warning says

@@ -150,3 +150,11 @@
 - 2026-10-29 12:14 · 264 · review 1 · started
 - 2026-10-29 12:15 · 264 · review 1 · done
 - 2026-10-29 12:15 · 264 · story · done
+- 2026-10-29 12:15 · 270 · build · started
+- 2026-10-29 12:16 · 270 · D1 Lane map, e2e definition, drift guard · started
+- 2026-10-29 12:18 · 270 · D1 Lane map, e2e definition, drift guard · done
+- 2026-10-29 12:18 · 270 · verify · started
+- 2026-10-29 12:19 · 270 · verify · done
+- 2026-10-29 12:19 · 270 · review 1 · started
+- 2026-10-29 12:20 · 270 · review 1 · done
+- 2026-10-29 12:20 · 270 · story · done

@@ -59,7 +59,9 @@ describe('ui-flows workflow', () => {
     expect(job.strategy.matrix.shard).toEqual([1, 2, 3, 4, 5, 6])
     const runs = job.steps.map((s) => String(s.run ?? ''))
     expect(
-      runs.some((r) => /\bnpm run ui:flows\b/.test(r) && r.includes('--shard=${{ matrix.shard }}/')),
+      runs.some(
+        (r) => /\bnpm run ui:flows\b/.test(r) && r.includes('--shard=${{ matrix.shard }}/'),
+      ),
     ).toBe(true)
     expect(runs).toContain('npm run fetch:7za')
     expect(runs).toContain('npm run build:dev')
@@ -224,7 +226,8 @@ describe('release workflow', () => {
     const doc = release()
     for (const job of ['build-linux', 'release']) {
       const steps = doc.jobs[job].steps
-      const after = steps[steps.findIndex((s) => String(s.uses ?? '').startsWith('actions/checkout')) + 1]
+      const after =
+        steps[steps.findIndex((s) => String(s.uses ?? '').startsWith('actions/checkout')) + 1]
       expect(JSON.stringify(after), job).toContain('needs.plan.outputs.sha')
     }
     expect(doc.permissions.actions).toBe('read')
@@ -239,11 +242,14 @@ describe('release workflow', () => {
 
 describe('release packaged launch smoke', () => {
   const steps = () => loadYaml(join(WORKFLOWS_DIR, 'release.yml')).jobs.release.steps
-  const smokeStep = () => steps().find((s) => /\bui:flow\b/.test(String(s.run ?? '')) && /--app=/.test(s.run))
+  const smokeStep = () =>
+    steps().find((s) => /\bui:flow\b/.test(String(s.run ?? '')) && /--app=/.test(s.run))
 
   test('the release job launches the unpacked app before it publishes', () => {
     const all = steps()
-    const smoke = all.findIndex((s) => /\bui:flow\b/.test(String(s.run ?? '')) && /--app=/.test(s.run))
+    const smoke = all.findIndex(
+      (s) => /\bui:flow\b/.test(String(s.run ?? '')) && /--app=/.test(s.run),
+    )
     const publish = all.findIndex((s) => String(s.run ?? '').includes('scripts/release.mjs'))
     expect(smoke).toBeGreaterThanOrEqual(0)
     expect(smoke).toBeLessThan(publish)
@@ -266,5 +272,37 @@ describe('release packaged launch smoke', () => {
     const flag = smokeStep()['continue-on-error']
     if (must) expect(flag).toBeUndefined()
     else expect(flag).toBe(true)
+  })
+})
+
+describe('lane map in CLAUDE.md', () => {
+  const lines = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf-8').split(/\r?\n/)
+  const start = lines.findIndex((l) => /^## Test lanes/.test(l))
+  const section = start < 0 ? [] : lines.slice(start + 1)
+  const end = section.findIndex((l) => l.startsWith('## '))
+  const body = end < 0 ? section : section.slice(0, end)
+  const rows = body.filter((l) => l.startsWith('|'))
+  const cells = (l) =>
+    l
+      .split('|')
+      .slice(1, -1)
+      .map((c) => c.trim())
+
+  test('the lane map is one table with lane, trigger, command, OS and blocking columns', () => {
+    expect(lines.filter((l) => /^## Test lanes/.test(l))).toHaveLength(1)
+    expect(cells(rows[0])).toEqual(['Lane', 'Trigger', 'Command', 'OS', 'Blocks'])
+    const data = rows.slice(2)
+    expect(data.length).toBeGreaterThanOrEqual(6)
+    expect(data.length).toBeLessThanOrEqual(8)
+  })
+
+  test('every workflow and npm script the lane map names exists', () => {
+    const text = body.join('\n')
+    const workflows = new Set(readdirSync(WORKFLOWS_DIR))
+    const scripts = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8')).scripts
+    for (const [, file] of text.matchAll(/`([^`\s]+\.yml)`/g))
+      expect(workflows.has(file)).toBe(true)
+    for (const [, name] of text.matchAll(/npm run ([\w:.-]+)/g))
+      expect(scripts).toHaveProperty([name])
   })
 })

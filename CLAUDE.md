@@ -89,6 +89,25 @@ reason, and wins over the skill — one row per rule deviated from, listing the 
 row per control; a deviation without a reason is a violation that has been written down.
 <!-- tech-rules:managed:end -->
 
+## Test lanes
+
+| Lane         | Trigger                                                            | Command                                                                         | OS                  | Blocks                                                                 |
+| ------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------- |
+| pr-unit      | PR into main, push to main (`ci.yml`)                              | format, typecheck, lint, unit tests, audit; `linux-journey` job                 | Windows, Linux      | Yes for `test` incl. Audit; `linux-journey` is advisory                |
+| pr-ui        | PR into main (`ui-flows.yml`)                                      | `windows-verify`: `ui:verify` + 8 core-journey flows (`ui:flow -- <name>` each) | Windows             | Yes for `windows-verify`; the sharded Linux `ui-flows` job is advisory |
+| release      | push to main, manual (`release.yml`)                               | `ci-guard` in `plan`, `build-linux`, `release`, packaged launch smoke           | Linux, Windows      | Yes; the packaged smoke is non-blocking for the first 2 releases       |
+| release-prep | local, before a release                                            | `npm run verify:release`, `npm run rehearse`                                    | Windows host + act  | Maintainer's call; nothing enforces it                                 |
+| sprint gate  | local, after the last story of a sprint                            | `npm run ui:flows` (full), `npm run ui:flows -- --tier=smoke`                   | Windows             | Blocks the sprint review                                               |
+| perf         | manual (`perf.yml`)                                                | `npm run test:perf`                                                             | Windows             | No                                                                     |
+| linux        | manual, additional target (`linux-verify.yml`, `linux-update.yml`) | `npm run ci:local:verify` and the other `ci:local:*` scripts                    | Linux (act, Docker) | No                                                                     |
+
+Linux is an additional target: its checks are run by hand and never gate a PR or release. Linux
+jobs that still trigger on GitHub (`linux-verify.yml`, `linux-update.yml`, `linux-journey`, the
+`ui-flows.yml` Linux job) are advisory only. The maintainer owns any change to that policy.
+
+**e2e** means both `npm run ui:verify` (screenshots + axe report) and `npm run ui:flows` (journey
+flows; sharded in CI, `--affected` per story, full at the sprint gate).
+
 ## Deviations
 
 | Skill                                             | Deviation                                                                                                                                                                                                                                                                                                                                                          | Reason                                                                                                                                                                                                                                                                                                                                                                                                              |

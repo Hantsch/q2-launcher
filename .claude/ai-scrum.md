@@ -27,6 +27,7 @@ test: npm test
 lint: npm run lint
 typecheck: npm run typecheck
 e2e: npm run ui:verify
+<!-- what "e2e" means across lanes, and which lane blocks what: CLAUDE.md#test-lanes -->
 <!--
   `e2e` is the acceptance gate for user-facing stories: an acceptance criterion that
   describes something the user does is proven here, through the real surface. It is a
