@@ -58,7 +58,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import yaml from 'js-yaml'
+import { buildLinuxWorkflowText } from './lib/build-linux-workflow.mjs'
 import { dockerRunning, removeStaleActContainers, resolveAct } from './lib/act.mjs'
 import { REPO_ROOT } from './lib/paths.mjs'
 
@@ -137,20 +137,12 @@ function runnerEnv() {
  * snapshot already is the tree that lands on main. act's copy carries no .git, so an empty repo
  * stands in for the one checkout leaves (no tags either: `--promote-changelog` lists them).
  */
-function writeBuildLinuxWorkflow(version) {
-  const release = yaml.load(readFileSync(join(LINUX_DIR, '.github/workflows/release.yml'), 'utf-8'))
-  const { needs: _plan, ...job } = release.jobs['build-linux']
-  const checkout = job.steps.findIndex((step) => step.uses?.startsWith('actions/checkout@'))
-  delete job.steps[checkout].with?.ref
-  job.steps.splice(checkout + 1, 0, { run: 'git init --quiet' })
-  const text = yaml
-    .dump({
-      name: 'verify-release build-linux',
-      on: { workflow_dispatch: null },
-      jobs: { 'build-linux': job },
-    })
-    .replaceAll('${{ needs.plan.outputs.version }}', version)
-  if (text.includes('needs.')) throw new Error('build-linux uses a job output besides the version')
+function writeBuildLinuxWorkflow(version, sha) {
+  const text = buildLinuxWorkflowText(
+    readFileSync(join(LINUX_DIR, '.github/workflows/release.yml'), 'utf-8'),
+    version,
+    sha,
+  )
   const file = join(LINUX_DIR, '.verify-release-build-linux.yml')
   writeFileSync(file, text)
   return file
@@ -408,7 +400,7 @@ function main() {
                     [
                       'workflow_dispatch',
                       '-W',
-                      writeBuildLinuxWorkflow(plannedVersion),
+                      writeBuildLinuxWorkflow(plannedVersion, subject),
                       '--artifact-server-path',
                       RELEASE_ARTIFACT_DIR,
                       '--container-options',

@@ -162,3 +162,5 @@
 - 2026-10-29 12:26 · gate · e2e-all · started
 - 2026-10-29 12:37 · gate · e2e-all · relaunch (build older than sources)
 - 2026-10-29 12:59 · gate · verify:release · started
+- 2026-10-29 13:15 · gate · fix 266 verify-release · started
+- 2026-10-29 13:17 · gate · fix 266 verify-release · done

@@ -212,3 +212,5 @@ have no direct test; the check step is pasted into two jobs as the plan specifie
 CLAUDE.md lines left unwrapped. Fixed: story pointers made trailing.
 
 tiers: D 2 / hard 0 · review default · cycles 1 · agents 4
+
+Sprint gate: verify:release crashed on the new `needs.plan.outputs.sha` in build-linux; verify-release.mjs now substitutes it (fix commit: see S36 gate).
