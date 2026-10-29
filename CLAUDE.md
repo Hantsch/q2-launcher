@@ -62,7 +62,7 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
   words of detail. A feature is one entry, not one per story: refinements, polish and fixes of
   something still under `## Unreleased` are folded into its entry, never listed separately. No
   internals, no "where did this come from" explanations. A release section should fit on one screen.
-- **A release needs a green `ci` run on its SHA.** The release `plan` job refuses otherwise, also right after a merge while `ci` still runs (dispatch release again once green); `skip_ci_guard` overrides and is logged; dry runs are not guarded.
+- **A release needs a green `ci` run on its SHA.** The release `plan` job waits for a `ci` run that is still running (up to 60 min) and refuses a failed or missing one; `skip_ci_guard` overrides and is logged; dry runs are not guarded.
 - **Layering is enforced, not conventional.** `shared/` is pure, the renderer imports no node/electron,
   modules don't import each other, and the shell doesn't import module internals — enforced by
   `src/architecture.test.ts` and `npm run lint`. An exception is an allowlist entry with a story number.
@@ -91,15 +91,15 @@ row per control; a deviation without a reason is a violation that has been writt
 
 ## Test lanes
 
-| Lane         | Trigger                                                            | Command                                                                         | OS                  | Blocks                                                                 |
-| ------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------- |
-| pr-unit      | PR into main, push to main (`ci.yml`)                              | format, typecheck, lint, unit tests, audit; `linux-journey` job                 | Windows, Linux      | Yes for `test` incl. Audit; `linux-journey` is advisory                |
-| pr-ui        | PR into main (`ui-flows.yml`)                                      | `windows-verify`: `ui:verify` + 8 core-journey flows (`ui:flow -- <name>` each) | Windows             | Yes for `windows-verify`; the sharded Linux `ui-flows` job is advisory |
-| release      | push to main, manual (`release.yml`)                               | `ci-guard` in `plan`, `build-linux`, `release`, packaged launch smoke           | Linux, Windows      | Yes; the packaged smoke is non-blocking for the first 2 releases       |
-| release-prep | local, before a release                                            | `npm run verify:release`, `npm run rehearse`                                    | Windows host + act  | Maintainer's call; nothing enforces it                                 |
-| sprint gate  | local, after the last story of a sprint                            | `npm run ui:flows` (full), `npm run ui:flows -- --tier=smoke`                   | Windows             | Blocks the sprint review                                               |
-| perf         | manual (`perf.yml`)                                                | `npm run test:perf`                                                             | Windows             | No                                                                     |
-| linux        | manual, additional target (`linux-verify.yml`, `linux-update.yml`) | `npm run ci:local:verify` and the other `ci:local:*` scripts                    | Linux (act, Docker) | No                                                                     |
+| Lane         | Trigger                                                                                              | Command                                                                         | OS                  | Blocks                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------- |
+| pr-unit      | PR into main, push to main (`ci.yml`)                                                                | format, typecheck, lint, unit tests, audit; `linux-journey` job                 | Windows, Linux      | Yes for `test` incl. Audit; `linux-journey` is advisory                                        |
+| pr-ui        | PR into main (`ui-flows.yml`)                                                                        | `windows-verify`: `ui:verify` + 8 core-journey flows (`ui:flow -- <name>` each) | Windows             | Yes for `windows-verify`; the sharded Linux `ui-flows` job is advisory                         |
+| release      | push to main, manual (`release.yml`)                                                                 | `ci-guard` in `plan`, `build-linux`, `release`, packaged launch smoke           | Linux, Windows      | Yes; the packaged smoke is non-blocking for the first 2 releases                               |
+| release-prep | local, last step of every sprint, after `/roadmap check` (`release-verify` in `.claude/ai-scrum.md`) | `npm run verify:release`                                                        | Windows host + act  | Yes: a sprint is releasable only when its final commit is green; nothing is committed after it |
+| sprint gate  | local, after the last story of a sprint                                                              | `npm run ui:flows` (full), `npm run ui:flows -- --tier=smoke`                   | Windows             | Blocks the sprint review                                                                       |
+| perf         | manual (`perf.yml`)                                                                                  | `npm run test:perf`                                                             | Windows             | No                                                                                             |
+| linux        | manual, additional target (`linux-verify.yml`, `linux-update.yml`)                                   | `npm run ci:local:verify` and the other `ci:local:*` scripts                    | Linux (act, Docker) | No                                                                                             |
 
 Linux is an additional target: its checks are run by hand and never gate a PR or release. Linux
 jobs that still trigger on GitHub (`linux-verify.yml`, `linux-update.yml`, `linux-journey`, the

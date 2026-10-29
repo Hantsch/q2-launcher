@@ -202,7 +202,7 @@ jobs:
       - name: Package the unpacked Windows app
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run package:dir -- -c.directories.output=release/smoke
+        run: npm run package:dir:smoke
 
       - name: Resolve the unpacked app path
         id: smoke-app

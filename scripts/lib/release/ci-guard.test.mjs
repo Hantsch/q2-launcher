@@ -19,11 +19,12 @@ describe('release ci guard', () => {
     })
     expect(targetSha).toBe('feat1')
     expect(failed.pass).toBe(false)
+    expect(failed.pending).toBeUndefined()
     expect(failed.reason).toBe('no successful ci run for feat1')
     expect(decideCiGuard({ dryRun: false, override: false, targetSha, runs: [] }).pass).toBe(false)
   })
 
-  test('an in-progress ci run is refused at once', () => {
+  test('an in-progress ci run is pending, not refused', () => {
     const decision = decideCiGuard({
       dryRun: false,
       override: false,
@@ -31,7 +32,7 @@ describe('release ci guard', () => {
       runs: [run('abc', 'in_progress', null)],
     })
     expect(decision.pass).toBe(false)
-    expect(decision.reason).toContain('dispatch release again')
+    expect(decision.pending).toBe(true)
   })
 
   test('a release commit is judged by its parent\'s ci run', () => {

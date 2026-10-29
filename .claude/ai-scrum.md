@@ -42,6 +42,7 @@ e2e-story: npm run ui:flows -- --affected {files} --parallel=4 --shard={shard}
 e2e-story-slices: 2 <!-- /build runs e2e-story once per slice, {shard} = 1/2 and 2/2, so a selection of most of the suite still fits two ten-minute calls at 4 workers -->
 e2e-all: npm run ui:flows -- --parallel=4
 e2e-cleanup: none <!-- e.g. taskkill /F /IM electron.exe | pkill -f electron | none -->
+release-verify: npm run verify:release <!-- /sprint phase 4 (ai-scrum 4.8.0): last step of every sprint, on the final commit. Needs Docker until story 276. Refuses when origin/main has commits the branch lacks — that is releasable: NO, and merging origin/main is the user's call. -->
 <!--
   Narrow gates /build runs per-story instead of the full `test`/`e2e` above.
   `/sprint` still runs full `test`, full `e2e` and `e2e-all` once after the last story.
@@ -166,3 +167,10 @@ Regression gate attribution and the sprint review judge a red flow against docs/
 The sprint review (phase 3) checks that every story touching `src/main/modules/<id>/` or `src/renderer/src/modules/<id>/` also touched that module's doc under `docs/systems/`, and lists a miss as a finding.
 
 Unfixed review findings and ageing: in `/sprint` phase 3, an unfixed review finding that is a defect or debt goes into `docs/TECH-DEBT.md` as a row (next id, `since` = this sprint, source = this review) — not into a follow-up line and not into the review alone. `/roadmap check` step 4 runs `node scripts/check-docs.mjs --overdue` and lists every overdue row in its report for the maintainer to promote or delete (it does not delete rows itself). The plugin's follow-up ageing (older than three sprints -> draft or delete) applies unchanged. Overdue means current sprint minus `since` > 3.
+
+Sprint end — the sprint ends releasable (user decision 2026-10-29: after every sprint the project is releasable; opening a PR or starting a release must not fail; nothing runs by itself, the process runs every check). ai-scrum 4.8.0 does this as `/sprint` phase 4 with `release-verify` above. **Until `.claude/commands/sprint.md` has that phase** (`/ai-scrum:setup` after the plugin release — then delete this paragraph and its list), run it by hand after phase 3 step 6, before `## Closing the run`:
+
+1. **Roadmap check.** ONE fresh `Agent` (`model: "sonnet"`, `run_in_background: false`) reads `.claude/commands/roadmap.md` and runs its mode `check` (step 4 includes `node scripts/check-docs.mjs --overdue`). It asks nothing — a step that needs the user, like an older-shape rebuild, is reported, not done — commits nothing and returns its report in at most 15 lines. Commit what it changed as `$1: roadmap check`.
+2. **Release verification, last.** `release-verify` on the final commit, from your session like `e2e-all` in phase 2b step 1b: one background `Bash`, `2>&1 | tee <sprints>/$1/gate-release-verify.log`, end the turn, read the summary when it returns. A refusal for a reason outside the code (Docker not running, `origin/main` ahead of the work branch) is reported with the action that unblocks it, never fixed by a merge — merging is the user's job.
+3. **Red** → per failing step ONE fresh fix agent (fix the cause, never the test), commit `$1: fix from release verification`, run step 2 again. Two rounds without green → the sprint is **not releasable**: a blocker, first and loud in the final report.
+4. **Nothing is committed after a green run.** The verdict is the final report's first line — `releasable: yes · <sha> · npm run verify:release`, or `releasable: NO — <step>: <reason> · <what unblocks it>` — never a file: a commit after the verification is an unverified commit, the cause of the red PR of 2026-10-29. The final report also carries the roadmap check's report.

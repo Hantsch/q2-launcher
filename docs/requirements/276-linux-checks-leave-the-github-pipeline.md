@@ -42,7 +42,8 @@ The release `plan` job runs on an Ubuntu runner but checks nothing about Linux; 
       `release.mjs` accepts a release without Linux assets.
 - [ ] **AC6** — After the regression gate, `/sprint` runs `npm run verify:linux` once and the
       review records it as advisory (green / yellow with the failing checks); a Linux finding
-      becomes a TECH-DEBT row or a follow-up, never a gate fix or a merge blocker. Recorded in
+      becomes a TECH-DEBT row or a follow-up, never a gate fix or a merge blocker. It has
+      finished before `verify:release` starts (no two Docker/Electron runs at once). Recorded in
       `.claude/ai-scrum.md` `## Notes` (`sprint.md` is plugin-managed).
 - [ ] **AC7** — `CLAUDE.md` `## Test lanes`: the `linux` row reads local, after the sprint gate,
       `npm run verify:linux`, advisory; the `pr-unit`, `pr-ui` and `release` rows and the text
