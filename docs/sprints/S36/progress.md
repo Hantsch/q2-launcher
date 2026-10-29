@@ -37,3 +37,13 @@
 - 2026-10-29 08:57 · 272 · review 1 · started
 - 2026-10-29 08:57 · 272 · review 1 · done
 - 2026-10-29 08:59 · 272 · story · done
+- 2026-10-29 08:59 · 266 · build · started
+- 2026-10-29 09:00 · 266 · D1 Guard decision + CLI · started
+- 2026-10-29 09:00 · 266 · D1 Guard decision + CLI · done
+- 2026-10-29 09:00 · 266 · D2 Workflow wiring, tests, CLAUDE.md · started
+- 2026-10-29 09:02 · 266 · D2 Workflow wiring, tests, CLAUDE.md · done
+- 2026-10-29 09:02 · 266 · verify · started
+- 2026-10-29 09:03 · 266 · verify · done
+- 2026-10-29 09:03 · 266 · review 1 · started
+- 2026-10-29 09:04 · 266 · review 1 · done
+- 2026-10-29 09:07 · 266 · story · done

@@ -103,6 +103,12 @@ describe('release pipeline wiring', () => {
     expect(resolved).toBe('Q2-Launcher-1.0.0-beta.1-linux-x86_64.AppImage')
   })
 
+  test('CLAUDE.md states that a release needs a green ci run on its SHA', () => {
+    const claude = readFileSync(fileURLToPath(new URL('../../../CLAUDE.md', import.meta.url)), 'utf8')
+    const lines = claude.split(/\r?\n/)
+    expect(lines.some((l) => /green/.test(l) && /\bci\b/.test(l) && /SHA/.test(l))).toBe(true)
+  })
+
   describe("D5: .github/workflows/release.yml", () => {
     /** @returns {any} the parsed workflow, re-read per test so no test can leak a mutation. */
     function readWorkflow() {
@@ -122,14 +128,14 @@ describe('release pipeline wiring', () => {
       expect(workflow.jobs.release['runs-on']).toBe('windows-latest')
     })
 
-    test('workflow_dispatch exposes exactly version, bump and dry_run as inputs', () => {
+    test('workflow_dispatch exposes exactly version, bump, dry_run and skip_ci_guard as inputs', () => {
       const workflow = readWorkflow()
       // js-yaml parses the `on:` key as the boolean `true` (YAML 1.1 quirk), never as the string
       // "on" - read it back the same way.
       const on = workflow.on ?? workflow[true]
       const inputs = on.workflow_dispatch.inputs
 
-      expect(Object.keys(inputs).sort()).toEqual(['bump', 'dry_run', 'version'].sort())
+      expect(Object.keys(inputs).sort()).toEqual(['bump', 'dry_run', 'skip_ci_guard', 'version'].sort())
     })
 
     test('the job carries a guard that skips a push carrying [skip ci]', () => {

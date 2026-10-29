@@ -62,6 +62,7 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
   words of detail. A feature is one entry, not one per story: refinements, polish and fixes of
   something still under `## Unreleased` are folded into its entry, never listed separately. No
   internals, no "where did this come from" explanations. A release section should fit on one screen.
+- **A release needs a green `ci` run on its SHA.** The release `plan` job refuses otherwise, also right after a merge while `ci` still runs (dispatch release again once green); `skip_ci_guard` overrides and is logged; dry runs are not guarded.
 - **Layering is enforced, not conventional.** `shared/` is pure, the renderer imports no node/electron,
   modules don't import each other, and the shell doesn't import module internals — enforced by
   `src/architecture.test.ts` and `npm run lint`. An exception is an allowlist entry with a story number.

@@ -11,7 +11,7 @@ As a maintainer, I want wall-clock budget assertions out of the blocking unit la
 pass/fail, so a scheduler hiccup on a CI runner cannot turn the gate red while the timing checks stay
 available.
 
-Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F06; TD-049): both OS legs run
+Today ([review 2026-10-27](../../reviews/2026-10-27-tests-review.md), F06; TD-049): both OS legs run
 `src/main/modules/servers/scan-ping-accuracy.test.ts` (median within `TOLERANCE_MS = 5` on loopback
 sockets with a busy-spinning worker, constants at :30-36; commit 6b7318e already widened it after a
 flake) and `scan-measurement.test.ts` (`RECORDED_FULL_PASS_BUDGET_MS = 7527`, documented with about

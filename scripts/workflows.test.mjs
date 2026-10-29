@@ -171,3 +171,33 @@ describe('workflow setup', () => {
     for (const s of steps.filter((x) => x.run)) expect(s.shell).toBe('bash')
   })
 })
+
+describe('release workflow', () => {
+  const release = () => loadYaml(join(WORKFLOWS_DIR, 'release.yml'))
+
+  test('the release plan requires a green ci run before any build job', () => {
+    const { jobs } = release()
+    const steps = jobs.plan.steps
+    const guard = steps.findIndex((s) => s.id === 'ci-guard')
+    expect(guard).toBeGreaterThanOrEqual(0)
+    expect(steps[guard].run).toContain('scripts/release-ci-guard.mjs')
+    expect(guard).toBeLessThan(steps.findIndex((s) => s.id === 'plan'))
+    for (const job of ['build-linux', 'release']) expect([jobs[job].needs].flat()).toContain('plan')
+  })
+
+  test('later release jobs refuse a commit the guard did not see', () => {
+    const doc = release()
+    for (const job of ['build-linux', 'release']) {
+      const steps = doc.jobs[job].steps
+      const after = steps[steps.findIndex((s) => String(s.uses ?? '').startsWith('actions/checkout')) + 1]
+      expect(JSON.stringify(after), job).toContain('needs.plan.outputs.sha')
+    }
+    expect(doc.permissions.actions).toBe('read')
+  })
+
+  test('the release job still runs unit tests and typecheck on windows', () => {
+    const runs = release().jobs.release.steps.map((s) => String(s.run ?? ''))
+    expect(runs).toContain('npm test')
+    expect(runs).toContain('npm run typecheck')
+  })
+})

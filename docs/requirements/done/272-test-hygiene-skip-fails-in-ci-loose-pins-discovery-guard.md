@@ -12,7 +12,7 @@ binary turns CI red instead of green, workflow edits stop costing matching liter
 a mistyped test filename cannot silently never run, and a tuning constant can change without a test
 that only echoes it.
 
-Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F12, F11, F15, F16; all P3):
+Today ([review 2026-10-27](../../reviews/2026-10-27-tests-review.md), F12, F11, F15, F16; all P3):
 
 - F12: `scripts/flows/launch-with-scope.mjs:20-23` logs "SKIPPING LOUDLY - resources/bin/7za.exe was
   not vendored locally" and returns, so the flow exits green. CI fetches 7za today (`ci.yml:53`,

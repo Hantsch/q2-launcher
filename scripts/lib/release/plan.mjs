@@ -116,6 +116,22 @@ export function planRelease({
   return { version, tag, notes, writes, commands }
 }
 
+/** @param {string} version @returns {string} */
+export function releaseCommitMessage(version) {
+  return `release: ${version} [skip ci]`
+}
+
+/** @param {string} message - first line is judged, so a full commit message is fine. */
+export function isReleaseCommitMessage(message) {
+  const firstLine = message.split('\n', 1)[0].trim()
+  const [prefix, suffix] = releaseCommitMessage('\0').split('\0')
+  return (
+    firstLine.startsWith(prefix) &&
+    firstLine.endsWith(suffix) &&
+    firstLine.length > prefix.length + suffix.length
+  )
+}
+
 /** @param {string} pkgText @returns {string} */
 function readPackageVersion(pkgText) {
   const match = /"version":\s*"([^"]*)"/.exec(pkgText)
@@ -137,7 +153,7 @@ function unreleasedBumpArgs(changelogText) {
  * @returns {ReleaseCommand[]}
  */
 function buildCommands(version, tag) {
-  const commitMessage = `release: ${version} [skip ci]`
+  const commitMessage = releaseCommitMessage(version)
   /** @type {ReleaseCommand[]} */
   const commands = [
     { kind: 'git-add', argv: [

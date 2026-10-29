@@ -360,3 +360,4 @@ second roadmap.
 - 263 — I see where a server is and filter by region or country · S35 · server rows show a country/region from the bundled DB-IP database in a sortable Location column and detail field, filterable by region/country/LAN/Unknown, saved in quick filters, credited in About
 - 267 — Timing-ratio tests leave the blocking unit lane · S36 · ping-accuracy and full-pass budget tests run only in the manual `npm run test:perf` lane, the scan's shape stays in the unit lane, and the folder-scale flow logs navigation time instead of failing on it
 - 272 — Test hygiene: skipped launch flow fails in CI, loose pins, discovery guard · S36 · launch-with-scope throws under CI without 7za, xvfb pin loosened, orphaned test files are caught, two constant echoes removed
+- 266 — Release waits for a green CI run on its SHA · S36 · release plan fails without a successful ci run on the released commit (override and dry run exempt).

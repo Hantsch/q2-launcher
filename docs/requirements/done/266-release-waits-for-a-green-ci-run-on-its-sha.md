@@ -1,7 +1,7 @@
 ---
 id: 266
 title: Release waits for a green CI run on its SHA
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -10,7 +10,7 @@ created: 2026-10-27
 As a maintainer, I want the release to refuse to publish a commit on which the PR lane has not
 passed, so a direct push, an admin merge or a dispatch cannot ship untested code.
 
-Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F01): `release.yml:3-6` triggers
+Today ([review 2026-10-27](../../reviews/2026-10-27-tests-review.md), F01): `release.yml:3-6` triggers
 on push to `main` and `workflow_dispatch`, independent of `ci.yml:3-8`; there is no `workflow_run`,
 `needs` or check-status guard. `plan` skips only on `[skip ci]` (`release.yml:53`), and the checkout
 uses `ref: github.ref_name` (:61/94/150). The release job repeats `npm test` and typecheck on
@@ -22,20 +22,20 @@ post-merge failure would not stop publishing either. The release commit itself i
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The `plan` job in `.github/workflows/release.yml` fails when no successful `ci`
+- [x] **AC1** — The `plan` job in `.github/workflows/release.yml` fails when no successful `ci`
       workflow run exists for the head SHA being released.
-- [ ] **AC2** — The guard checks the feature-commit SHA, never the `[skip ci]` release commit: a
+- [x] **AC2** — The guard checks the feature-commit SHA, never the `[skip ci]` release commit: a
       unit test over the guard's decision function passes a run on a `[skip ci]` release commit
       without a `ci` run and rejects a feature commit without one.
-- [ ] **AC3** — A `workflow_dispatch` with `dry_run: true` passes without a `ci` run, and an
+- [x] **AC3** — A `workflow_dispatch` with `dry_run: true` passes without a `ci` run, and an
       explicit override input skips the guard; both are covered by the same unit test.
-- [ ] **AC4** — `scripts/workflows.test.mjs` asserts the guard step exists in `plan` and precedes
+- [x] **AC4** — `scripts/workflows.test.mjs` asserts the guard step exists in `plan` and precedes
       the build jobs; deleting the step fails that test.
 - [ ] **AC5** — A dispatch on a test branch SHA with no `ci` run exits non-zero at the guard step,
       recorded once in the Done section with the run link.
-- [ ] **AC6** — `CLAUDE.md` names the checks a release requires: `grep -n "green" CLAUDE.md` matches
+- [x] **AC6** — `CLAUDE.md` names the checks a release requires: `grep -n "green" CLAUDE.md` matches
       a line stating that release needs a green `ci` run on its SHA.
-- [ ] **AC7** — The windows `npm test` and typecheck steps in `release.yml:157-161` are still present
+- [x] **AC7** — The windows `npm test` and typecheck steps in `release.yml:157-161` are still present
       after this story (a search for `npm run typecheck` in `release.yml` matches).
 
 ## Open Questions
@@ -105,7 +105,7 @@ Order D1 → D2. No product code, no IPC, no CHANGELOG entry (nothing user-visib
 
 ## Deliverables
 
-- [ ] D1 — **Guard decision + CLI.** New `scripts/lib/release/ci-guard.mjs` exporting
+- [x] D1 — **Guard decision + CLI.** New `scripts/lib/release/ci-guard.mjs` exporting
       `resolveGuardTarget({ headSha, headMessage, parentSha })` → the SHA to judge (the parent
       when the first line of `headMessage` is a release commit, else `headSha`) and
       `decideCiGuard({ dryRun, override, targetSha, runs })` → `{ pass: boolean, reason: string }`:
@@ -131,7 +131,7 @@ Order D1 → D2. No product code, no IPC, no CHANGELOG entry (nothing user-visib
       (`version.mjs` / `version.test.mjs`).
       Files: `scripts/lib/release/ci-guard.mjs`, `scripts/lib/release/ci-guard.test.mjs`,
       `scripts/lib/release/plan.mjs`, `scripts/release-ci-guard.mjs`.
-- [ ] D2 — **Workflow wiring, its tests, CLAUDE.md.** In `.github/workflows/release.yml`:
+- [x] D2 — **Workflow wiring, its tests, CLAUDE.md.** In `.github/workflows/release.yml`:
       top-level `permissions` adds `actions: read` (keep `contents: write`); `workflow_dispatch`
       gains input `skip_ci_guard` (boolean, default false, description: skips the green-`ci` check,
       logged in the run); in `plan`, a step `name: Require a green ci run`, `id: ci-guard`, after
@@ -191,7 +191,24 @@ Review: → default
 
 ## Done
 
-<Leave empty. Filled by `/build 266` after implementation:
-- Short summary (2–5 lines): what was done.
-- Commit message (1–2 lines, keywords are enough).
-- Verification: build/test/lint result + review outcome; open points/blockers, if any.>
+Release `plan` now runs a guard step that fails unless a completed, successful `ci` run exists for
+the commit being released (a `[skip ci]` release head is judged by its parent). Dry runs pass,
+`skip_ci_guard` overrides with a logged warning; `build-linux` and `release` refuse a checkout that
+differs from the guarded SHA. Windows test and typecheck stay. CLAUDE.md names the rule.
+
+Commit message: `266: release plan requires a green ci run on its SHA (guard step, skip_ci_guard override)`
+
+Verification: narrow gate (`npm run build`, `lint`, `typecheck`, `npx vitest run --changed HEAD`,
+then `npx vitest run scripts`); no criterion maps to e2e. Green after fixing stale `../reviews/`
+links in done/267 and done/272 (broken by their move into done/ in earlier S36 stories). Review 1
+(default): PASS. AC1-4, AC6, AC7 pass via the named tests in `ci-guard.test.mjs`,
+`workflows.test.mjs`, `wiring.test.mjs`. AC5 is **manual residue**: needs a live dispatch with
+`dry_run: false` on a throwaway branch (empty Unreleased, no ci run); run link still to be recorded
+by the maintainer.
+
+Decisions: unfixed review findings, deliberate: the SHA-check step is only asserted to reference the
+plan sha, not to compare/fail; the guard step's env wiring and `isReleaseCommitMessage` edge cases
+have no direct test; the check step is pasted into two jobs as the plan specifies; long header and
+CLAUDE.md lines left unwrapped. Fixed: story pointers made trailing.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 4
