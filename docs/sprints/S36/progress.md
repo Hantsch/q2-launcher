@@ -23,3 +23,17 @@
 - 2026-10-29 08:50 · 267 · review 1 · started
 - 2026-10-29 08:53 · 267 · review 1 · done
 - 2026-10-29 08:53 · 267 · story · done
+- 2026-10-29 08:53 · 272 · build · started
+- 2026-10-29 08:53 · 272 · D1 launch-with-scope CI fail · started
+- 2026-10-29 08:54 · 272 · D1 launch-with-scope CI fail · done
+- 2026-10-29 08:54 · 272 · D2 workflow pins · started
+- 2026-10-29 08:54 · 272 · D2 workflow pins · done
+- 2026-10-29 08:54 · 272 · D3 discovery guard · started
+- 2026-10-29 08:55 · 272 · D3 discovery guard · done
+- 2026-10-29 08:55 · 272 · D4 constant echoes · started
+- 2026-10-29 08:56 · 272 · D4 constant echoes · done
+- 2026-10-29 08:56 · 272 · verify · started
+- 2026-10-29 08:57 · 272 · verify · done
+- 2026-10-29 08:57 · 272 · review 1 · started
+- 2026-10-29 08:57 · 272 · review 1 · done
+- 2026-10-29 08:59 · 272 · story · done

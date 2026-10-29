@@ -52,7 +52,6 @@ describe('flow selection on the real tree', () => {
   })
 
   test('every area row names existing flows and selects at most 12', () => {
-    expect(MAX_FLOWS_PER_AREA).toBe(12)
     expect(unless(validateAreas(tree.areas, flowNames))).toBe('')
     for (const row of tree.areas) {
       const count = areaFlows(row, flowNames).length

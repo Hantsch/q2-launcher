@@ -1,8 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
+import { matchesGlob } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import yaml from 'js-yaml'
+import vitestConfig from '../vitest.config.ts'
 
 /**
  * Repo-wide line-ending and formatting invariants, read from the real repo (story 226): every
@@ -135,5 +137,36 @@ describe('dependency automation', () => {
 
   test('the roadmap carries no Vite pin follow-up', () => {
     expect(readRepo('../docs/ROADMAP.md')).not.toContain('Vite is pinned to 7.x')
+  })
+})
+
+describe('test discovery', () => {
+  const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/
+
+  // A test file no include glob matches is silently never run.
+  const orphanTestFiles = (paths, include) =>
+    paths.filter(
+      (path) =>
+        TEST_FILE.test(path) &&
+        !path.split('/').includes('node_modules') &&
+        !include.some((glob) => matchesGlob(path, glob)),
+    )
+
+  test.skipIf(!IS_WORK_TREE_ROOT)('every tracked test file is inside a vitest include glob', () => {
+    const tracked = git(['ls-files']).split('\n').filter(Boolean)
+
+    expect(orphanTestFiles(tracked, vitestConfig.test.include)).toEqual([])
+  })
+
+  test('a test file outside the include globs is reported', () => {
+    const paths = [
+      'scripts/foo.test.cjs',
+      'src/a.test.ts',
+      'scripts/b.test.mjs',
+      'src/__snapshots__/a.test.ts.snap',
+      'node_modules/x/y.test.js',
+    ]
+
+    expect(orphanTestFiles(paths, vitestConfig.test.include)).toEqual(['scripts/foo.test.cjs'])
   })
 })

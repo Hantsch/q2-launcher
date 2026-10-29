@@ -45,11 +45,7 @@ describe('ui-flows workflow', () => {
     expect(job.strategy.matrix.shard).toEqual([1, 2, 3, 4, 5, 6])
     const runs = job.steps.map((s) => String(s.run ?? ''))
     expect(
-      runs.some((r) =>
-        /xvfb-run --auto-servernum npm run ui:flows -- --shard=\$\{\{ matrix\.shard \}\}\/6/.test(
-          r,
-        ),
-      ),
+      runs.some((r) => /\bnpm run ui:flows\b/.test(r) && r.includes('--shard=${{ matrix.shard }}/')),
     ).toBe(true)
     expect(runs).toContain('npm run fetch:7za')
     expect(runs).toContain('npm run build:dev')
@@ -77,6 +73,27 @@ describe('ui-flows workflow', () => {
     expect(upload.if).toBe('always()')
     for (const p of ['.ui-verify/screenshots/**', '.ui-verify/a11y.json', '.ui-verify/a11y.md'])
       expect(upload.with.path).toContain(p)
+  })
+})
+
+describe('7za fetch ordering', () => {
+  test('every job that runs launch-with-scope fetches 7za first', () => {
+    // `\b` after `ui:flow` does not match `ui:flows`, so the two patterns stay distinct.
+    const runsScope = (run) =>
+      /\bui:flows\b/.test(run) || /\bui:flow\b.*\blaunch-with-scope\b/.test(run)
+    let checked = 0
+    for (const { file, doc } of loadWorkflows()) {
+      for (const [name, def] of Object.entries(doc.jobs ?? {})) {
+        const runs = (def.steps ?? []).map((s) => String(s.run ?? ''))
+        runs.forEach((run, i) => {
+          if (!runsScope(run)) return
+          checked++
+          expect(runs.indexOf('npm run fetch:7za'), `${file} › ${name}`).toBeGreaterThanOrEqual(0)
+          expect(runs.indexOf('npm run fetch:7za'), `${file} › ${name}`).toBeLessThan(i)
+        })
+      }
+    }
+    expect(checked).toBeGreaterThan(0)
   })
 })
 

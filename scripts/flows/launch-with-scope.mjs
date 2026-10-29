@@ -16,6 +16,11 @@ export async function setup() {
 
 export default async function launchWithScope({ page, step, shot }) {
   if (!spawnable) {
+    if (process.env.CI) {
+      throw new Error(
+        'launch-with-scope: resources/bin/7za.exe is missing, so there is no spawnable stand-in client - run `npm run fetch:7za`.',
+      )
+    }
     console.log(
       'launch-with-scope: SKIPPING LOUDLY - resources/bin/7za.exe was not vendored locally ' +
         '(`npm run fetch:7za` never ran), so there is no spawnable stand-in client.',

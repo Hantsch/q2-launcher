@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CachedDemo } from './index-cache'
 import {
-  LIVE_WRITE_WINDOW_MS,
   runIncrementalScan,
   type IncrementalScanFile,
   type RunIncrementalScanInput,
@@ -239,9 +238,5 @@ describe('runIncrementalScan', () => {
     expect(calls).toContainEqual(['s-big', 60, 60])
     expect(calls).toContainEqual(['s-small', 3, 3])
     expect(calls).toContainEqual(['s-other', 10, 10])
-  })
-
-  it('exposes the live-write window constant', () => {
-    expect(LIVE_WRITE_WINDOW_MS).toBe(30_000)
   })
 })

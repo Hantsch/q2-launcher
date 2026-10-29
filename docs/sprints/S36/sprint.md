@@ -17,7 +17,7 @@ The Windows PR lane fails when a core journey breaks, the release publishes only
 
 - [ ] 271 — CI pins Node via a version file and the audit gate blocks (blocked: Node 22.12.0 pin unobserved — verify:release exceeded 10 min; resolve at the gate)
 - [x] 267 — Timing-ratio tests leave the blocking unit lane
-- [ ] 272 — Test hygiene: skipped launch flow fails in CI, loose workflow pins, discovery guard, constant echoes
+- [x] 272 — Test hygiene: skipped launch flow fails in CI, loose workflow pins, discovery guard, constant echoes
 - [ ] 266 — Release waits for a green CI run on its SHA
 - [ ] 273 — An installation with q2pro64.exe is recognised as Q2PRO
 - [ ] 274 — The server ping is the best sample in whole milliseconds
