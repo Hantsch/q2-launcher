@@ -30,6 +30,6 @@ export function loadFlowTree() {
   const rendererFiles = srcFiles
     .filter((path) => path.startsWith('src/renderer/') && /\.tsx?$/.test(path))
     .map((path) => ({ path, source: read(path) }))
-  const areas = JSON.parse(read('scripts/flows/areas.json'))
-  return { scripts, flows, srcFiles, rendererFiles, areas }
+  const { areas, tiers } = JSON.parse(read('scripts/flows/areas.json'))
+  return { scripts, flows, srcFiles, rendererFiles, areas, tiers }
 }

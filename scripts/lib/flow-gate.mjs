@@ -52,7 +52,8 @@ export function flowNameOf(arg) {
 /**
  * Parses the gate's arguments against the known flow names. `errors` is non-empty on any
  * malformed flag or unknown flow; `affected` is `null` without `--affected`, else `{ ref }`
- * (`ref` is `null` for the bare flag, meaning HEAD); `parallel` is `null` without `--parallel`.
+ * (`ref` is `null` for the bare flag, meaning HEAD); `parallel` is `null` without `--parallel`;
+ * `tier` is `null` without `--tier`, else `smoke` or `full`.
  */
 export function parseFlowArgs(args, known, defaultTimeoutSeconds = 300) {
   const errors = []
@@ -62,7 +63,13 @@ export function parseFlowArgs(args, known, defaultTimeoutSeconds = 300) {
   let timeoutSeconds = defaultTimeoutSeconds
   let repeat = 1
   let parallel = null
+  let tier = null
+  let confirm = true
   for (const arg of args) {
+    if (arg === '--no-confirm') {
+      confirm = false
+      continue
+    }
     if (!arg.startsWith('--')) {
       const name = flowNameOf(arg)
       if (!known.includes(name)) errors.push(`unknown flow: ${arg}`)
@@ -84,21 +91,29 @@ export function parseFlowArgs(args, known, defaultTimeoutSeconds = 300) {
     } else if (key === '--parallel') {
       parallel = parseCount(value)
       if (parallel === null) errors.push(`malformed ${arg}`)
+    } else if (key === '--tier') {
+      if (value === 'smoke' || value === 'full') tier = value
+      else errors.push(`malformed ${arg}`)
     } else if (key === '--affected' && (eq === -1 || value !== '')) {
       affected = { ref: eq === -1 ? null : value }
     } else {
       errors.push(`unknown option: ${arg}`)
     }
   }
-  return { errors, named, affected, shard, timeoutSeconds, repeat, parallel }
+  if (tier !== null && (named.length > 0 || affected !== null)) {
+    errors.push('--tier cannot be combined with flow names or --affected')
+  }
+  return { errors, named, affected, shard, timeoutSeconds, repeat, parallel, tier, confirm }
 }
 
 /**
  * The flows to run: the named ones, then those `--affected` adds (`picks` from selectAffected),
  * each once. Without `--affected` and without names that is every known flow; with `--affected`
- * and nothing named or picked it is empty, because nothing a change can break was found.
+ * and nothing named or picked it is empty, because nothing a change can break was found. With a
+ * `tier` the flows are exactly `tierNames`.
  */
-export function planFlows({ named, affected, picks = [], known }) {
+export function planFlows({ named, affected, picks = [], known, tier = null, tierNames = [] }) {
+  if (tier) return { names: tierNames, added: [] }
   const added = affected ? picks.filter((pick) => !named.includes(pick.flow)) : []
   const names = affected || named.length > 0 ? [...named, ...added.map((pick) => pick.flow)] : known
   return { names, added }
@@ -180,6 +195,7 @@ export async function runGate({
   platform = process.platform,
   current = null,
   knownFlows = names,
+  now = Date.now,
 }) {
   const configErrors = [...validateQuarantine(entries, knownFlows)]
   if (configErrors.length === 0) configErrors.push(...staleEntries(entries, current))
@@ -192,16 +208,23 @@ export async function runGate({
   const unexpectedPasses = []
   const flaky = []
   const notes = []
+  const flows = []
+  const timed = async (name, index) => {
+    const start = now()
+    const ok = await runFlow(name, index)
+    flows.push({ name, seconds: Math.round((now() - start) / 100) / 10, ok })
+    return ok
+  }
 
   for (const [index, name] of names.entries()) {
     const entry = quarantined.get(name)
-    const passed = await runFlow(name, index)
+    const passed = await timed(name, index)
     if (!entry) {
       if (!passed) failed.push(name)
     } else if (!passed) {
       expectedFails.push(name)
       notes.push(`expected fail: ${name} (${entry.reason}, story ${entry.story})`)
-    } else if (await runFlow(name, index)) {
+    } else if (await timed(name, index)) {
       unexpectedPasses.push(name)
       notes.push(`unexpected pass twice: ${name} — remove it from quarantine`)
     } else {
@@ -211,15 +234,52 @@ export async function runGate({
   }
 
   const ok = failed.length === 0 && unexpectedPasses.length === 0 && configErrors.length === 0
-  return { ok, failed, expectedFails, unexpectedPasses, flaky, configErrors, notes }
+  return { ok, failed, expectedFails, unexpectedPasses, flaky, configErrors, notes, flows }
+}
+
+/**
+ * Re-runs only the flows that failed. `runPass(names)` returns a gate result over exactly those
+ * names. A flow that then passes is flaky, which is reported but does not fail the run; one that
+ * fails twice stays failed. Quarantined outcomes are never re-run.
+ */
+export async function confirmFailures(first, runPass) {
+  if (first.failed.length === 0) return first
+  const second = await runPass(first.failed)
+  const failed = first.failed.filter((name) => second.failed.includes(name))
+  const recovered = first.failed.filter((name) => !failed.includes(name))
+  return {
+    ...first,
+    ok:
+      failed.length === 0 && first.unexpectedPasses.length === 0 && first.configErrors.length === 0,
+    failed,
+    flaky: [...first.flaky, ...recovered],
+    flows: [...(first.flows ?? []), ...(second.flows ?? [])],
+  }
+}
+
+/** Process exit status of a (confirmed) gate result. */
+export const exitStatus = (result) => (result.ok ? 0 : 1)
+
+/** The `count` slowest flow runs, slowest first; runs without a measured time are skipped. */
+export function slowestLines(flows, count = 10) {
+  const timed = flows.filter((flow) => flow.seconds !== null)
+  if (timed.length === 0) return []
+  timed.sort((a, b) => b.seconds - a.seconds)
+  return ['slowest:', ...timed.slice(0, count).map((flow) => `  ${flow.name} ${flow.seconds}s`)]
 }
 
 export function summaryLines(result, total, seconds) {
   const passed =
-    total - result.failed.length - result.expectedFails.length - result.unexpectedPasses.length
+    total -
+    result.failed.length -
+    result.expectedFails.length -
+    result.unexpectedPasses.length -
+    (result.flaky?.length ?? 0)
   const lines = [`${passed}/${total} flows passed in ${seconds}s`]
   if (result.failed.length > 0) lines.push(`failed: ${result.failed.join(', ')}`)
+  if ((result.flaky?.length ?? 0) > 0) lines.push(`flaky: ${result.flaky.join(', ')}`)
   lines.push(...result.notes)
   lines.push(...result.configErrors)
+  if (result.flows?.length > 0) lines.push(...slowestLines(result.flows))
   return lines
 }

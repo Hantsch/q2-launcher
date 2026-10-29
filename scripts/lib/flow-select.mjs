@@ -258,6 +258,32 @@ export function areaFlows(row, flowNames) {
   return flowNames.filter((name) => patterns.some((pattern) => matchesGlob(name, pattern)))
 }
 
+const TIER_VALUES = ['smoke', 'full']
+
+/** Problems with the tier table (flow name -> "smoke" | "full"), each naming the offending entry. */
+export function validateTiers(tiers, flowNames) {
+  if (tiers === null || typeof tiers !== 'object' || Array.isArray(tiers)) {
+    return ['tier table: expected an object mapping flow names to "smoke" or "full"']
+  }
+  const problems = []
+  for (const [name, value] of Object.entries(tiers)) {
+    if (!TIER_VALUES.includes(value)) {
+      problems.push(
+        `tier entry ${name}: must be one of ${TIER_VALUES.join(', ')}, got ${JSON.stringify(value)}`,
+      )
+    }
+    if (!flowNames.includes(name))
+      problems.push(`tier entry ${name}: no flow named "${name}" in scripts/flows/`)
+  }
+  return problems
+}
+
+/** The flows of a tier, sorted: `full` is every flow, `smoke` the ones the table marks smoke. */
+export function tierFlows(tiers, tier, flowNames) {
+  const names = tier === 'full' ? flowNames : flowNames.filter((name) => tiers?.[name] === tier)
+  return [...names].sort()
+}
+
 /** Problems with the area table itself, each message naming the offending row. */
 export function validateAreas(areas, flowNames) {
   if (!Array.isArray(areas)) return ['area table: expected an array of rows']

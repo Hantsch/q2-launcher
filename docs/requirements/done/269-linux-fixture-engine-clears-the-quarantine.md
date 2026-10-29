@@ -12,7 +12,7 @@ wizard) instead of quarantining it, and wants every quarantine entry to name a s
 so that a quarantined flow is a visible, temporary debt and not silent coverage loss on the platform
 CLAUDE.md says must reach parity.
 
-Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F05, priority P2, TD-047 and
+Today ([review 2026-10-27](../../reviews/2026-10-27-tests-review.md), F05, priority P2, TD-047 and
 TD-052): `scripts/flows/quarantine.json` holds 22 entries, about 12% of 179 flow files. 20 of them
 (`"platform": "linux"`, story 234, since S34) share one cause, stated in the entries themselves: the
 fixture's engine package is a Windows Q2PRO (`q2pro64.exe`), so the Linux wizard shows no engine

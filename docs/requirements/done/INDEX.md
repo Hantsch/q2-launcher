@@ -366,3 +366,4 @@ second roadmap.
 - 275 — Demos play in an R1Q2 installation · S36 · R1Q2 plays via +demomap, Stop only, other controls disabled with reason, whole config restored, protocol on rows
 - 268 — Recorded-flaky flows wait on conditions, not sleeps · S36 · drag and servers-source flows wait on dnd-kit state; hygiene ratchet with shrink-only allowlist
 - 269 — Quarantine entries get a real owner; Linux entries do not age out; two shard races fixed · S36 · unattributed quarantine entries are rejected, linux entries skip the age rule, news-feed and unlock-code races fixed.
+- 265 — Flow smoke tier, failed-only confirmation re-run, per-flow seconds recorded · S36 · 14-flow smoke tier (--tier=smoke), confirmation re-runs only failures (flaky reported), per-flow seconds + ten slowest in the report.

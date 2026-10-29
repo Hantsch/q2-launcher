@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import {
+  confirmFailures,
   currentSprint,
+  exitStatus,
   flowNameOf,
   parseFlowArgs,
   parseRepeat,
@@ -9,6 +11,7 @@ import {
   repeatFlows,
   runGate,
   selectShard,
+  summaryLines,
   validateQuarantine,
 } from './lib/flow-gate.mjs'
 
@@ -132,6 +135,56 @@ describe('flow gate quarantine', () => {
   })
 })
 
+describe('flow timing', () => {
+  test('each flow run is timed on its own', async () => {
+    const ticks = [0, 1000, 1000, 3040, 3040, 3100]
+    const result = await gate({ solid: [true], flaky: [true, true] }, [entry()], {
+      now: () => ticks.shift(),
+    })
+    expect(result.flows).toEqual([
+      { name: 'solid', seconds: 1, ok: true },
+      { name: 'flaky', seconds: 2, ok: true },
+      { name: 'flaky', seconds: 0.1, ok: true },
+    ])
+  })
+
+  test('the summary lists the ten slowest flow runs, slowest first', async () => {
+    const flows = Array.from({ length: 11 }, (_, k) => ({ name: `f${k}`, seconds: k, ok: true }))
+    flows.push({ name: 'gone', seconds: null, ok: false })
+    const result = {
+      failed: [],
+      expectedFails: [],
+      unexpectedPasses: [],
+      notes: [],
+      configErrors: [],
+      flows,
+    }
+    const lines = summaryLines(result, 12, 1)
+    const at = lines.indexOf('slowest:')
+    expect(lines.slice(at + 1)).toEqual(
+      Array.from({ length: 10 }, (_, k) => `  f${10 - k} ${10 - k}s`),
+    )
+  })
+})
+
+describe('slowest lines', () => {
+  test('no timed flows print no slowest header', () => {
+    const lines = summaryLines(
+      {
+        failed: [],
+        expectedFails: [],
+        unexpectedPasses: [],
+        notes: [],
+        configErrors: [],
+        flows: [{ name: 'gone', seconds: null, ok: false }],
+      },
+      1,
+      1,
+    )
+    expect(lines).not.toContain('slowest:')
+  })
+})
+
 describe('flow repeat', () => {
   test('--repeat runs each selected flow n times in a row', async () => {
     expect(repeatFlows(['a', 'b'], 3)).toEqual(['a', 'a', 'a', 'b', 'b', 'b'])
@@ -171,6 +224,21 @@ describe('flow sharding', () => {
 
 describe('flow arguments', () => {
   const known = ['a', 'b', 'c']
+
+  test('--no-confirm switches the confirmation pass off', () => {
+    expect(parseFlowArgs([], known).confirm).toBe(true)
+    const off = parseFlowArgs(['--no-confirm'], known)
+    expect(off.errors).toEqual([])
+    expect(off.confirm).toBe(false)
+  })
+
+  test('--tier takes smoke or full and refuses names, --affected and other values', () => {
+    expect(parseFlowArgs(['--tier=smoke'], known).tier).toBe('smoke')
+    expect(parseFlowArgs(['--tier=full', '--shard=1/2'], known).errors).toEqual([])
+    expect(parseFlowArgs(['--tier=smoke', 'a'], known).errors).toHaveLength(1)
+    expect(parseFlowArgs(['--tier=smoke', '--affected'], known).errors).toHaveLength(1)
+    expect(parseFlowArgs(['--tier=fast'], known).errors).toHaveLength(1)
+  })
 
   test('flow file paths and --affected are parsed into flow names', () => {
     for (const arg of [
@@ -228,5 +296,48 @@ describe('flow arguments', () => {
       'b',
     ])
     expect(repeatFlows(selectShard(plan.names, 1, 2), 2)).toEqual(['b', 'b', 'c', 'c'])
+  })
+})
+
+describe('confirmation pass', () => {
+  const names = ['a', 'b', 'c', 'd', 'e']
+  const result = (failed) => ({
+    ok: failed.length === 0,
+    failed,
+    expectedFails: [],
+    unexpectedPasses: [],
+    flaky: [],
+    configErrors: [],
+    notes: [],
+    flows: names.map((name) => ({ name, seconds: 1, ok: !failed.includes(name) })),
+    total: names.length,
+  })
+
+  test('the confirmation pass re-runs only the failed flows', async () => {
+    const seen = []
+    await confirmFailures(result(['c']), async (n) => {
+      seen.push(n)
+      return result([])
+    })
+    expect(seen).toEqual([['c']])
+    const green = result([])
+    const never = async () => {
+      throw new Error('must not run')
+    }
+    expect(await confirmFailures(green, never)).toBe(green)
+  })
+
+  test('a flow that fails then passes is flaky, one failing twice fails the run', async () => {
+    const flaky = await confirmFailures(result(['c']), async () => result([]))
+    const lines = summaryLines(flaky, flaky.total, 5)
+    expect(lines).toContain('4/5 flows passed in 5s')
+    expect(lines).toContain('flaky: c')
+    expect(flaky.ok).toBe(true)
+    expect(exitStatus(flaky)).toBe(0)
+
+    const broken = await confirmFailures(result(['c']), async () => result(['c']))
+    expect(broken.ok).toBe(false)
+    expect(summaryLines(broken, broken.total, 5)).toContain('failed: c')
+    expect(exitStatus(broken)).toBe(1)
   })
 })

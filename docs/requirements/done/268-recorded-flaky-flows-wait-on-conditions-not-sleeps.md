@@ -11,7 +11,7 @@ As a maintainer, I want the flows that have flaked to wait on a condition instea
 a red result means a regression and not a slow machine, and nobody re-runs a 50-minute suite to find
 out.
 
-Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F07): 35 `waitForTimeout` calls sit
+Today ([review 2026-10-27](../../reviews/2026-10-27-tests-review.md), F07): 35 `waitForTimeout` calls sit
 in 18 flow files, plus one in `scripts/lib/servers-lan-flow.mjs:98`. Sprint reviews name the flaky
 ones: controls-drag-reorder (S14 `review.md:73`), replays-extra-folders and servers-master-sources
 (S26 `review.md:121`), replays-detail-quick-edit failing 40-50% of runs (S33 `review.md:167`). In

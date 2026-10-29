@@ -125,3 +125,16 @@
 - 2026-10-29 11:47 · 269 · review fix 500ms sleep · started
 - 2026-10-29 11:53 · 269 · review fix 500ms sleep · done
 - 2026-10-29 11:53 · 269 · story · done
+- 2026-10-29 11:53 · 265 · build · started
+- 2026-10-29 11:54 · 265 · D1 smoke tier · started
+- 2026-10-29 11:55 · 265 · D1 smoke tier · done
+- 2026-10-29 11:55 · 265 · D2 per-flow seconds · started
+- 2026-10-29 11:56 · 265 · D2 per-flow seconds · done
+- 2026-10-29 11:56 · 265 · D3 failed-only confirmation · started
+- 2026-10-29 11:58 · 265 · D3 failed-only confirmation · done
+- 2026-10-29 11:58 · 265 · verify · started
+- 2026-10-29 11:59 · 265 · verify · done
+- 2026-10-29 11:59 · 265 · review 1 · started
+- 2026-10-29 12:00 · 265 · review 1 · done
+- 2026-10-29 12:00 · 265 · D5 review-fix 1 · started
+- 2026-10-29 12:02 · 265 · story · done
