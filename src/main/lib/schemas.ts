@@ -72,7 +72,7 @@ const installationSchema = z.object({
   executableKind: z.enum(['pe', 'elf', 'script', 'unknown']).optional().catch(undefined),
   // Every engine client the last inspection found. Same additive/forgiving convention as
   // `executableKind` right above: a record predating this field lacks the key until the startup
-  // revalidation fills it, and a mangled value degrades to "not inspected yet" (story 246).
+  // revalidation fills it, and a mangled value degrades to "not inspected yet" (story 246)
   // An item written before engines listed all their clients lacks `executablePaths`; its one
   // known client is the whole list (story 273)
   detectedEngines: z
