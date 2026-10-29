@@ -56,6 +56,8 @@ expiry before the gate blocks; a gate must not go blocking while red.
 
 ## Decisions (Sprint)
 
+- **(User)** Pin exactly 22.12.0; the audit is a blocking step in the PR lane; no pin assertion in workflows.test.mjs; no scheduled audit job.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine <id>` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

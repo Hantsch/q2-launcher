@@ -61,6 +61,8 @@ no per-flow seconds are persisted. `--affected`, `--shard`, `--parallel` and `--
 
 ## Decisions (Sprint)
 
+- **(User)** Smoke tier and failed-only confirmation re-run stay one story.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine 265` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

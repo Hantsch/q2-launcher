@@ -57,6 +57,8 @@ wait on; they are out of scope.
 
 ## Decisions (Sprint)
 
+- **(User)** Linux is not a supported platform: it is an additional, manually-run qualification, never part of a pipeline. Scope: flows and launch.test.ts only; hygiene test with a shrinking allowlist; other flows fixed when touched.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine 268` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

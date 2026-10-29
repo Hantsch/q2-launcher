@@ -52,6 +52,8 @@ post-merge failure would not stop publishing either. The release commit itself i
 
 ## Decisions (Sprint)
 
+- **(User)** Guard is a plan-step check of the head SHA's ci run that fails at once (no polling, no workflow_run).
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine 266` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

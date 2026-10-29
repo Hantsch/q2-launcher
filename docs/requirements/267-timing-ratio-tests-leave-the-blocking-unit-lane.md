@@ -51,6 +51,8 @@ no perf lane. Windows has a 15.6 ms timer tick.
 
 ## Decisions (Sprint)
 
+- **(User)** No nightly runs: the perf lane is manual-only (no scheduled workflow). Move both scan-ping-accuracy and scan-measurement out of the blocking lane.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine 267` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

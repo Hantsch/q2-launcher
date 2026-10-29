@@ -36,6 +36,8 @@ reports the median of 3–6 samples (`src/main/modules/servers/ping-samples.ts`,
 
 ## Decisions (Sprint)
 
+- **(User)** Ping: `Math.round` of the best sample, fixed 3 samples (spread rule dropped), persisted fractional `rttHistory` rounded on read.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine 274` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

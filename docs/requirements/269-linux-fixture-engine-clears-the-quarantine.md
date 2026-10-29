@@ -54,6 +54,8 @@ older than three sprints" is a config error). The S34 review sets the fix deadli
 
 ## Decisions (Sprint)
 
+- **(User)** Linux is not supported; it is qualified as an additional target and its tests run manually only, never in the pipeline. Refine must cut the story to that: no CI/quarantine machinery for Linux beyond what the manual run needs; fix the two shard races only if they also hit Windows, otherwise give them an owner.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine <id>` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

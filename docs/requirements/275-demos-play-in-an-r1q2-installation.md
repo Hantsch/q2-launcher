@@ -43,6 +43,8 @@ with its reason as visible text (an i18n key), not only a tooltip.
 
 ## Decisions (Sprint)
 
+- **(User)** Refine probes r1q2's console to decide which controls survive; unavailable ones stay visible, disabled, with reason text. Linux follows the Windows rule. Protocols 34/35 only.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine 275` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

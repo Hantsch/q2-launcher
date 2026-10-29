@@ -60,6 +60,8 @@ to the act list (about +1400 s on a ~1000 s gate, against story 234's split).
 
 ## Decisions (Sprint)
 
+- **(User)** Linux checks run manually only, not in the pipeline (see 269): the lane map lists Linux as manual/additional. Drop the 'N green linux-verify runs flips the AppImage job' exit condition accordingly; the user owns any later change. Keep a small existence-check drift test; the policy lives in the lane table only.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine <id>` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

@@ -62,6 +62,8 @@ Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F12, F11, F15
 
 ## Decisions (Sprint)
 
+- **(User)** F16: only the two named echoes. CSP: keep all pins. F15: import the include globs from vitest.config.ts. F12: the flow throws under process.env.CI.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine <id>` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

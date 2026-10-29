@@ -36,6 +36,8 @@ source and renames it (`src/main/modules/downloads/bootstrap/assemble.ts:228`) â
 
 ## Decisions (Sprint)
 
+- **(User)** Both binaries present: q2pro64.exe is the default; when an installation holds more than one executable the user can always choose which one launches. Update/repair overwrites the chosen/default binary in place. Other 64-bit names stay out of scope unless refine finds them in the wild.
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine 273` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>

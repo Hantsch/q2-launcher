@@ -57,6 +57,8 @@ launch, so that claim has no check behind it. Full Windows flow runs exist only 
 
 ## Decisions (Sprint)
 
+- **(User)** Staged: the packaged-launch step is non-blocking for 2 releases, then blocking (add the flip as its own AC).
+
 <Leave empty. Filled by `/sprint`'s clarification round and by `/refine 264` when it runs
 inside a sprint: one line per decision the user made, with the answer and why. Empty outside
 a sprint.>
