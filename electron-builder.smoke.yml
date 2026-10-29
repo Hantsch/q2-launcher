@@ -1,0 +1,6 @@
+# Unpacked build for the release packaged-launch smoke. Lives outside release/<version>/ so
+# scripts/release.mjs never collects it as a release asset.
+extends: ./electron-builder.yml
+
+directories:
+  output: release/smoke
