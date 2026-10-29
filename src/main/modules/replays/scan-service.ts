@@ -68,6 +68,8 @@ export interface DemoHeaderFacts {
   unparsableReason: DemoUnparsableReason | null
   readable: boolean
   unreadable: DemoUnreadable | null
+  /** The header's wire protocol for a readable dm2; null for mvd2 and unreadable rows. */
+  protocol?: number | null
   /** An ok header's game dir / POV / players (null/null/[] otherwise), and the frame
    * count's duration (null when it could not be counted, or the header was unreadable). Same
    * shape as the row's fields, so a cached row (`entry.parsed`) satisfies this type as-is (story 150) */
@@ -207,6 +209,7 @@ function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
     unparsableReason: facts.unparsableReason,
     readable: facts.readable,
     unreadable: facts.unreadable,
+    protocol: facts.protocol ?? null,
     // Picked from `facts` on every path: a fresh parse's `DemoHeaderFacts`, or - on a cache hit -
     // the cached row itself (`runScan`'s `toRow(entry.file, entry.parsed)`), never from `file`,
     // whose loose-file values are discovery's null/[] placeholders.
@@ -315,6 +318,7 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
       unparsableReason: file.unparsableReason,
       readable: file.readable,
       unreadable: file.unreadable,
+      protocol: file.protocol ?? null,
       gameDir: file.gameDir,
       pov: file.pov,
       players: file.players,
@@ -334,6 +338,7 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
       unparsableReason: header.reason as DemoUnparsableReason,
       readable: false,
       unreadable: readability.unreadable,
+      protocol: null,
       gameDir: null,
       pov: null,
       players: [],
@@ -347,6 +352,7 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
     unparsableReason: null,
     readable: true,
     unreadable: null,
+    protocol: header.format === 'dm2' ? header.protocol : null,
     gameDir: header.gameDir,
     pov: header.pov,
     players: header.players,

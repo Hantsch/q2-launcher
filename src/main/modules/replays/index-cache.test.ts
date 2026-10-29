@@ -131,7 +131,7 @@ describe('ReplaysIndexCache', () => {
 
   it('a version-6 cache is discarded', async () => {
     // Version-6 rows predate stats - reusing them would leave every existing demo without any.
-    expect(REPLAYS_INDEX_CACHE_VERSION).toBe(7)
+    expect(REPLAYS_INDEX_CACHE_VERSION).toBe(8)
     await writeRawCacheFile(JSON.stringify({ cacheVersion: 6, entries: { 'entry-1': demoA } }))
     await expect(new ReplaysIndexCache().read()).resolves.toEqual(new Map())
   })

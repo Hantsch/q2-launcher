@@ -14,6 +14,7 @@ version section when a release actually ships.
 
 ### Added
 
+- Demos play in R1Q2 installations — Stop only; seeking, pause and the position need Q2PRO.
 - Q2PRO's 64-bit `q2pro64.exe` is recognised — pick which build Play starts.
 
 ### Fixed

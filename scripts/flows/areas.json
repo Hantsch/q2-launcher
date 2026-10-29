@@ -885,7 +885,8 @@
       "replays-timeline",
       "replays-timeline-burst",
       "replays-timeline-optimistic",
-      "replays-volume"
+      "replays-volume",
+      "replays-play-r1q2"
     ],
     "why": "Demo playback: staging, the playback channel, console, timeline, volume and stop."
   },

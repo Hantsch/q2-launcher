@@ -230,6 +230,7 @@ export async function expandZip(
       unparsableReason: null,
       readable: true,
       unreadable: null,
+      protocol: header.format === 'dm2' ? header.protocol : null,
       gameDir: header.gameDir,
       pov: header.pov,
       players: header.players,

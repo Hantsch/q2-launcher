@@ -175,14 +175,9 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
     expect(result.current.error).toBeNull()
   })
 
-  it('linux without a Q2PRO refuses with the reason as text', () => {
-    setStore({ platform: 'linux', installations: [inst('r', 'r1q2')], active: 'r' })
-    expect(reasonText(demo())).toContain('Not available on Linux')
-  })
-
-  it('a non-Q2PRO active installation refuses with the notQ2pro reason', () => {
-    setStore({ installations: [inst('q', 'q2pro'), inst('r', 'r1q2')], active: 'r' })
-    expect(reasonText(demo())).toContain('is not Q2PRO')
+  it('an active installation with neither Q2PRO nor R1Q2 refuses with the reason as text', () => {
+    setStore({ installations: [inst('q', 'q2pro'), inst('r', 'q2')], active: 'r' })
+    expect(reasonText(demo())).toContain('has neither')
   })
 
   it('a mod the installation does not list is an acknowledgeable warning; play(true) plays anyway', async () => {

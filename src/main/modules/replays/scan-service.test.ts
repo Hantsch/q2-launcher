@@ -649,6 +649,22 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
     expect(discoveredDemoSchema.safeParse(rows[0]).success).toBe(true)
   })
 
+  it("a readable dm2 row carries its header's protocol, an mvd2 row carries null", async () => {
+    const dir = await fixtureFolder()
+    await writeFile(
+      join(dir, 'm.mvd2'),
+      await readFile(join(process.cwd(), 'docs/fixtures/demos/PFAU_20221127-053327_q2dm1.mvd2')),
+    )
+    const h = harness([dir], { parse: readDemoFacts })
+
+    h.service.start()
+    await h.waitIdle(1)
+    const rows = await h.service.read()
+
+    expect(rows.find((r) => r.fileName === 'good.dm2')!.protocol).toBe(34)
+    expect(rows.find((r) => r.fileName === 'm.mvd2')!.protocol).toBeNull()
+  })
+
   it('a loose demo is read for one full pass, not two', async () => {
     const dir = await fixtureFolder()
     const path = await canonicalizePath(join(dir, 'good.dm2'))

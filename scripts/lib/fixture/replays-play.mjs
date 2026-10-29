@@ -1,4 +1,12 @@
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { REPO_ROOT, UI_VERIFY_ROOT } from '../paths.mjs'
 import { variantUserDataDir } from '../harness.mjs'
@@ -82,9 +90,31 @@ function copyFileRetrying(src, dest) {
  * `stub-engine.json` carries the demo length and how long the stub lives when nobody quits it
  * (400 ms by default - the old stand-in's "exits by itself" behaviour the 159-162 flows rely on).
  */
-function writeStubEngine(root, executablePath, { lifetimeMs = 400 } = {}) {
+function writeStubEngine(root, executablePath, { lifetimeMs = 400, engine } = {}) {
   const script = join(REPO_ROOT, 'scripts', 'lib', 'stub-engine.cjs')
-  writeJson(join(root, 'stub-engine.json'), { demoMs: REPLAYS_PLAY_DEMO_MS, lifetimeMs })
+  writeJson(join(root, 'stub-engine.json'), {
+    demoMs: REPLAYS_PLAY_DEMO_MS,
+    lifetimeMs,
+    ...(engine ? { engine } : {}),
+  })
+  if (process.platform === 'win32' && engine === 'r1q2') {
+    // R1Q2's argv starts with `-nopathcheck`, which node.exe rejects as its own option, so the
+    // `+set.js` trick cannot run it: a compiled wrapper hands the raw command line to node instead.
+    const target = join(root, 'stub-engine.cjs')
+    copyFileSync(script, target)
+    const csc = r1q2WrapperCompiler()
+    if (!csc) throw new Error('csc.exe not found')
+    const source = readFileSync(join(REPO_ROOT, 'scripts', 'lib', 'stub-engine-wrapper.cs'), 'utf8')
+      .replaceAll('__NODE__', process.execPath.replaceAll('\\', '\\\\'))
+      .replaceAll('__SCRIPT__', target.replaceAll('\\', '\\\\'))
+    const sourcePath = join(root, 'stub-engine-wrapper.cs')
+    writeFileSync(sourcePath, source)
+    rmSync(executablePath, { force: true })
+    execFileSync(csc, ['/nologo', '/target:exe', `/out:${executablePath}`, sourcePath], {
+      windowsHide: true,
+    })
+    return
+  }
   if (process.platform === 'win32') {
     copyFileRetrying(script, join(root, '+set.js'))
     copyFileRetrying(process.execPath, executablePath)
@@ -102,13 +132,28 @@ function writeStubEngine(root, executablePath, { lifetimeMs = 400 } = {}) {
 
 // Story 180 D4: an optional third installation that lacks pak0.pak (status `invalid`), so the
 // action bar's installation-level Repair state can be reached from the Demos tab.
+/** The .NET Framework compiler (ships with Windows and windows-latest); null elsewhere or when absent. */
+export function r1q2WrapperCompiler() {
+  if (process.platform !== 'win32') return null
+  const csc = join(
+    process.env.WINDIR ?? 'C:\\Windows',
+    'Microsoft.NET',
+    'Framework64',
+    'v4.0.30319',
+    'csc.exe',
+  )
+  return existsSync(csc) ? csc : null
+}
+
+export const REPLAYS_PLAY_R1Q2_SEEDED_CONFIG = 'seta name "q2l-fixture"\nseta s_volume "0.5"\n'
+
 export const REPLAYS_PLAY_BROKEN_ID = 'fixture-replays-play-broken'
 
 export const REPLAYS_PLAY_BROKEN_NAME = 'Fixture Play Broken'
 
 export function writeReplaysPlayFixture(
   variant = 'replays-play',
-  { engineLifetimeMs, brokenInstallation = false } = {},
+  { engineLifetimeMs, brokenInstallation = false, r1q2Stub = false } = {},
 ) {
   const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
@@ -141,7 +186,21 @@ export function writeReplaysPlayFixture(
   mkdirSync(join(r1q2Root, 'baseq2'), { recursive: true })
   writeFileSync(join(r1q2Root, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
   const r1q2Exe = join(r1q2Root, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2')
-  writeFileSync(r1q2Exe, 'placeholder - never launched by this flow')
+  if (r1q2Stub) {
+    writeStubEngine(r1q2Root, r1q2Exe, { engine: 'r1q2', lifetimeMs: 60_000 })
+    writeFileSync(join(r1q2Root, 'baseq2', 'q2config.cfg'), REPLAYS_PLAY_R1Q2_SEEDED_CONFIG)
+    mkdirSync(join(r1q2Root, 'baseq2', 'demos'), { recursive: true })
+    writeFileSync(
+      join(r1q2Root, 'baseq2', 'demos', REPLAYS_PLAY_BASE_DEMO),
+      demoBytesWithGameDir('baseq2'),
+    )
+    writeFileSync(
+      join(r1q2Root, 'baseq2', 'demos', REPLAYS_PLAY_MVD2_DEMO),
+      readFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')),
+    )
+  } else {
+    writeFileSync(r1q2Exe, 'placeholder - never launched by this flow')
+  }
 
   const brokenRoot = join(gameRoot(), 'fixture-replays-play-broken-install')
   if (brokenInstallation) {
@@ -180,7 +239,7 @@ export function writeReplaysPlayFixture(
     settings: {
       ...DEFAULT_SETTINGS,
       scanOnFirstRun: false,
-      activeInstallationId: REPLAYS_PLAY_Q2PRO_ID,
+      activeInstallationId: r1q2Stub ? REPLAYS_PLAY_R1Q2_ID : REPLAYS_PLAY_Q2PRO_ID,
     },
     installations: [
       installation(
@@ -221,7 +280,13 @@ export function writeReplaysPlayFixture(
   })
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
 
-  return { userDataDir, installRoot: root, executablePath, spawnable }
+  return {
+    userDataDir,
+    installRoot: root,
+    r1q2Root,
+    executablePath,
+    spawnable,
+  }
 }
 
 // Story 165 D4: `replays-timeline` - the `replays-play` install, but its stub engine stays up (two

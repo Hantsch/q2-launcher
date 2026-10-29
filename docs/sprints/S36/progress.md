@@ -75,3 +75,24 @@
 - 2026-10-29 10:10 · 274 · review 1 · started
 - 2026-10-29 10:10 · 274 · review 1 · done
 - 2026-10-29 10:11 · 274 · story · done
+- 2026-10-29 10:11 · 275 · build · started
+- 2026-10-29 10:11 · 275 · D1 protocol on rows · started
+- 2026-10-29 10:12 · 275 · D1 protocol on rows · done
+- 2026-10-29 10:12 · 275 · D2 eligibility · started
+- 2026-10-29 10:17 · 275 · D2 eligibility · done
+- 2026-10-29 10:17 · 275 · D3 engine-less session · started
+- 2026-10-29 10:18 · 275 · D3 engine-less session · done
+- 2026-10-29 10:18 · 275 · D4 R1Q2 launch + config restore · started
+- 2026-10-29 10:25 · 275 · D4 R1Q2 launch + config restore · done
+- 2026-10-29 10:25 · 275 · D5 renderer · started
+- 2026-10-29 10:27 · 275 · D5 renderer · done
+- 2026-10-29 10:27 · 275 · D6 e2e · started
+- 2026-10-29 10:34 · 275 · D6 e2e · done
+- 2026-10-29 10:34 · 275 · verify · started
+- 2026-10-29 10:56 · 275 · verify · blocked: 2 unit reds fixed, e2e mods-* reds under investigation
+- 2026-10-29 11:04 · 275 · verify · done
+- 2026-10-29 11:04 · 275 · review 1 · started
+- 2026-10-29 11:06 · 275 · review 1 · done
+- 2026-10-29 11:06 · 275 · review fix 1 · started
+- 2026-10-29 11:08 · 275 · review fix 1 · done
+- 2026-10-29 11:08 · 275 · story · done

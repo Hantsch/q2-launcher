@@ -1,7 +1,7 @@
 ---
 id: 275
 title: Demos play in an R1Q2 installation, with the controls it cannot offer disabled
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-29
 ---
 
@@ -22,16 +22,16 @@ with its reason as visible text (an i18n key), not only a tooltip.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With an R1Q2-only active installation, Play on a demo launches R1Q2 with the demo
+- [x] **AC1** — With an R1Q2-only active installation, Play on a demo launches R1Q2 with the demo
       (in place or via the temporary copy) and the game opens playing it.
-- [ ] **AC2** — An installation that has Q2PRO keeps playing through Q2PRO, unchanged.
-- [ ] **AC3** — During an R1Q2 playback, every playback control R1Q2 cannot support is visible,
+- [x] **AC2** — An installation that has Q2PRO keeps playing through Q2PRO, unchanged.
+- [x] **AC3** — During an R1Q2 playback, every playback control R1Q2 cannot support is visible,
       disabled, and shows its reason as visible text.
-- [ ] **AC4** — The mod-missing warning, the game-running refusal and the Steam-runner refusal apply
+- [x] **AC4** — The mod-missing warning, the game-running refusal and the Steam-runner refusal apply
       to R1Q2 playback as they do to Q2PRO.
-- [ ] **AC5** — A demo R1Q2 cannot play (protocol it does not read) is refused before launch with
+- [x] **AC5** — A demo R1Q2 cannot play (protocol it does not read) is refused before launch with
       its own reason.
-- [ ] **AC6** — R1Q2 playback leaves the user's `config.cfg` settings as they were before the demo.
+- [x] **AC6** — R1Q2 playback leaves the user's `config.cfg` settings as they were before the demo.
 
 ## Open Questions
 
@@ -103,8 +103,8 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
 
 ## Deliverables
 
-- [ ] **D1 — A readable `.dm2` row carries its wire protocol.** Add `protocol: z.number().int()
-      .nullable().optional()` to `discoveredDemoSchema` (`src/shared/modules/replays.ts`, doc
+- [x] **D1 — A readable `.dm2` row carries its wire protocol.** Add `protocol: z.number().int()
+    .nullable().optional()` to `discoveredDemoSchema` (`src/shared/modules/replays.ts`, doc
       comment: the header's wire protocol for a readable `.dm2`, null for `.mvd2` and unreadable
       rows — an unreadable row's protocol stays in `unreadable.protocol`). Fill it where rows are
       built: `DemoHeaderFacts` + `toRow` + `readDemoFacts` in
@@ -117,7 +117,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
       carries its header's protocol" (use the existing fixture demos, protocol 34).
       Files: `src/shared/modules/replays.ts`, `scan-service.ts`, `zip-demos.ts`, `discovery.ts`,
       `index-cache.ts`, their two tests.
-- [ ] **D2 — Eligibility plays R1Q2 and refuses what R1Q2 cannot play.** In
+- [x] **D2 — Eligibility plays R1Q2 and refuses what R1Q2 cannot play.** In
       `src/shared/replays/demo-play.ts`:
   - Engine: Q2PRO-capable active installation → exactly today's result (incl. `engine: 'q2pro'`
     override for an R1Q2 installation with a detected Q2PRO). Otherwise R1Q2-capable
@@ -153,7 +153,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
     `src/main/modules/replays/demo-play.test.ts` narrow 161's "a non-Q2PRO installation never gets a
     demo launch" loop to engine kinds that are neither Q2PRO- nor R1Q2-capable (key
     `unsupportedEngine`), and "the real builder never emits demomap" to Q2PRO launches.
-- [ ] **D3 — An R1Q2 session has no control channel and says why.** In
+- [x] **D3 — An R1Q2 session has no control channel and says why.** In
       `src/main/modules/replays/playback-control.ts`, `prepare` takes `engine: 'q2pro' | 'r1q2'`
       (default `'q2pro'`). For `'r1q2'` it uses a new
       `src/main/modules/replays/playback-channel/engine-less-channel.ts` implementing
@@ -171,10 +171,10 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
       (the refused `quit` terminates without the 5 s wait — existing behaviour, pinned for r1q2).
       Files: `playback-control.ts`, new `engine-less-channel.ts`, `src/shared/modules/replays.ts`,
       `playback-control.test.ts`, `playback-stop.test.ts`.
-- [ ] **D4 — Main launches R1Q2 with the demo and puts `config.cfg` back.** In
+- [x] **D4 — Main launches R1Q2 with the demo and puts `config.cfg` back.** In
       `src/main/modules/replays/demo-play.ts`, for `eligibility.playEngine === 'r1q2'`:
   - In place: `extraArgs` from eligibility (`+demomap <file>`); staged: `['+demomap',
-    staged.value.relativePath]` (use `demoPlayCommand` for both engines — never a literal).
+staged.value.relativePath]` (use `demoPlayCommand` for both engines — never a literal).
     Pass the eligibility's `engine` override as today.
   - `deps.playback.prepare({ …, engine: 'r1q2' })` (D3); no `s_volume` `+set`
     (`startVolumePercent` not consulted); a stage rect gets `stage: refuse('replays.stage.unavailable.r1q2')`
@@ -187,7 +187,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
     optional field), `restore()`/`applyPending()` write them back through the existing
     `writeAtomic`/`serial` — one restore implementation, no second copy. Make `sessionConfigPath`
     take the playing engine: R1Q2 → `<root>/<gameDir>/config.cfg` (`limitsFor('r1q2')
-    .writtenConfigName`, never a write dir); Q2PRO unchanged. Q2PRO launches keep the line-wise
+.writtenConfigName`, never a write dir); Q2PRO unchanged. Q2PRO launches keep the line-wise
     restore and byte-identical args.
   - Tests in `src/main/modules/replays/demo-play.test.ts`: "an r1q2 demo in place launches r1q2
     with exactly +demomap and the file", "an r1q2 demo from elsewhere plays its staged copy with
@@ -200,7 +200,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
     `+demomap` with an engine-less session (Stop only), what R1Q2 refuses, whole-file config
     restore and why (stufftext), protocol on rows.
     Files: `demo-play.ts`, `session-cvar-restore.ts`, their tests, `docs/systems/replays-module.md`.
-- [ ] **D5 — The timeline shows R1Q2's unavailable controls disabled with their reason.** The
+- [x] **D5 — The timeline shows R1Q2's unavailable controls disabled with their reason.** The
       renderer reads `controlsUnavailable` from `playback.display` into the session in
       `src/renderer/src/modules/replays/playback-store.ts`. When set, in
       `components/DemoTimeline.tsx` the pause toggle (`replays-timeline-toggle`), back/forward,
@@ -219,10 +219,10 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
       into the session".
       Files: `playback-store.ts`, `DemoTimeline.tsx`, `ConsoleCommandField.tsx`, (`VolumeControl.tsx`
       only if its `disabled` lacks a describedby hook), their tests.
-- [ ] **D6 — The R1Q2 path end to end.**
+- [x] **D6 — The R1Q2 path end to end.**
   - Fixture: `scripts/lib/fixture/replays-play.mjs` gets an option `r1q2Stub: true` that installs a
     **runnable** stand-in as the R1Q2 installation's executable via `writeStubEngine(root, exe,
-    { engine: 'r1q2', lifetimeMs: 60000 })` (writes `engine` into `stub-engine.json`), seeds
+{ engine: 'r1q2', lifetimeMs: 60000 })` (writes `engine` into `stub-engine.json`), seeds
     `baseq2/demos/play-base.dm2`, an `.mvd2` (reuse the mvd2 variant's copy, ~:288-310) and a
     `baseq2/config.cfg` with known content, and makes the R1Q2 installation active.
     **Windows obstacle:** R1Q2's launch argv starts with `-nopathcheck`, which `node.exe` rejects as
@@ -234,7 +234,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
     existing `#!/bin/sh` wrapper already works.
   - `scripts/lib/stub-engine.cjs`: in `engine: 'r1q2'` mode accept `+demomap <file>` (not `+demo`),
     speak no control protocol, append a `set` line to `<game>/config.cfg` at start (models stufftext
-    + R1Q2 archiving), live `lifetimeMs` or until killed.
+    - R1Q2 archiving), live `lifetimeMs` or until killed.
   - New flow `scripts/flows/replays-play-r1q2.mjs` (template `replays-play-q2pro.mjs`): Play on
     `play-base.dm2` → main.log `launching … r1q2…` with `+demomap play-base.dm2` and no `+demo`,
     `logfile`, `q2l_` or `s_volume` arg; phase `running` (AC1). While running: pause toggle, back,
@@ -284,8 +284,17 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. Files per D are named in the D.
 
 ## Done
 
-<Leave empty. Filled by `/build 275` after implementation:
+R1Q2-only installations now play demos through `+demomap` with an engine-less session: Stop only, every channel control visible and disabled with one visible reason line. Q2PRO keeps today's path. R1Q2 refuses `.mvd2`, `.gz` and protocols other than 34/35 before launch; the whole R1Q2 config file is restored after each session.
 
-- Short summary (2–5 lines): what was done.
-- Commit message (1–2 lines, keywords are enough).
-- Verification: build/test/lint result + review outcome; open points/blockers, if any.>
+Commit message: `275: demos play in R1Q2 (+demomap, Stop only, controls disabled with reason, whole-config restore, protocol on rows)`
+
+Decisions:
+
+- R1Q2's written config is `q2config.cfg` (`limitsFor('r1q2').writtenConfigName`), not `config.cfg` as the plan said; restore, fixture seed and flow all use it. The AC6 wording "config.cfg" means that file.
+- Flow asserts launch `+demomap _launcher/<id>.dm2` (main stages a copy), not the bare file name; it uses a scoped Demos view of the active installation.
+- `replays-play-r1q2` skips loudly when `csc.exe` (wrapper build) is absent; AC1/AC6 keep unit cover. docs/systems/replays-module.md kept at 150 lines by rewrapping one line.
+- Review fixes (1 cycle): flow now proves the config changed while running and polls for the restore; redundant stop test deleted; add-comment asserted; story-pointer comments fixed.
+
+Verification (narrow gate): build, lint, typecheck green; `npx vitest run --changed HEAD` 192 files / 1741 tests green. e2e `replays-play-r1q2` and `replays-play-q2pro` green. The `--affected` e2e slices showed 15 mods-_/replays-mod-_ reds; rerun singly after a rebuild all pass except `mods-view` (step "favorite installation has no extra game directories"), which is red identically on bare HEAD (pre-existing, not 275).
+AC -> test: AC1 flow r1q2 + demo-play.test.ts in-place/staged; AC2 flow q2pro + shared/main Q2PRO tests; AC3 flow r1q2 + DemoTimeline.test.tsx; AC4 shared demo-play.test.ts; AC5 flow r1q2 (.mvd2) + shared refusal test; AC6 flow r1q2 + session-cvar-restore.test.ts. All passed. No manual residue.
+tiers: D 6 / hard 1 · review default · cycles 1 · agents 9

@@ -94,6 +94,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
   const waitingId = useId()
   const cinemaReasonId = useId()
   const commentReasonId = useId()
+  const engineReasonId = useId()
   const [composing, setComposing] = useState<{ demoId: string; atMs: number } | null>(null)
   const addCommentRef = useRef<HTMLButtonElement>(null)
   const optimistic = session?.optimistic
@@ -104,6 +105,9 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
 
   if (session === null) return null
 
+  const engineReason = session.controlsUnavailable
+  const locked = engineReason !== null
+  const lock = locked ? { 'aria-disabled': true as const, 'aria-describedby': engineReasonId } : {}
   const view = session.view
   const durationMs = view?.durationMs ?? session.knownDurationMs
   const hasDuration = durationMs !== null && durationMs > 0
@@ -117,8 +121,10 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
     : session.cinemaAvailability.reason
   const ended = view?.ended ?? false
   // Leaving cinema is always possible; entering needs availability and a demo that has not ended.
-  const cinemaBlocked = !inCinema && (cinemaReason !== null || ended)
-  const positionText = formatPlaybackPosition(positionMs)
+  const cinemaBlocked = locked || (!inCinema && (cinemaReason !== null || ended))
+  const positionText = locked
+    ? t('replays.timeline.durationUnknown')
+    : formatPlaybackPosition(positionMs)
   const durationText = hasDuration
     ? formatPlaybackPosition(durationMs)
     : t('replays.timeline.durationUnknown')
@@ -127,6 +133,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
   const fraction = hasDuration ? Math.min(1, positionMs / durationMs) : 0
 
   async function send(action: TimelineAction): Promise<boolean> {
+    if (locked) return false
     setError(null)
     const refusal = await sendTimeline(action)
     if (refusal) setError(refusal)
@@ -156,7 +163,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
   const showMarks = canComment && hasDuration && !fullscreen && comments.length > 0
 
   async function startComment(): Promise<void> {
-    if (!canComment || fullscreen || commentReason !== null) return
+    if (!canComment || fullscreen || locked || commentReason !== null) return
     // Pinned to what the strip shows at the click, before the pause round-trip moves the clock.
     const clicked = hasDuration ? Math.min(durationMs, displayedMs) : displayedMs
     const atMs = Math.max(0, Math.round(clicked))
@@ -195,14 +202,14 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
   }
 
   function handleSeekClick(event: MouseEvent<HTMLDivElement>): void {
-    if (!hasDuration || fullscreen) return
+    if (!hasDuration || fullscreen || locked) return
     const rect = event.currentTarget.getBoundingClientRect()
     const clickFraction = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0
     void send({ kind: 'seekTo', seconds: seekSecondsForFraction(clickFraction, durationMs) })
   }
 
   function handleSeekKey(event: KeyboardEvent<HTMLDivElement>): void {
-    if (!hasDuration || fullscreen) return
+    if (!hasDuration || fullscreen || locked) return
     let action: TimelineAction | null = null
     switch (event.key) {
       case 'ArrowLeft':
@@ -255,17 +262,20 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
             position: positionText,
             duration: durationText,
           })}
-          aria-disabled={!hasDuration || fullscreen}
+          aria-disabled={!hasDuration || fullscreen || locked}
           onClick={handleSeekClick}
           onKeyDown={handleSeekKey}
           className={cn(
             'group relative flex h-5 items-center rounded-sm',
-            hasDuration && !fullscreen ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
+            hasDuration && !fullscreen && !locked
+              ? 'cursor-pointer'
+              : 'cursor-not-allowed opacity-60',
             FOCUS_RING,
           )}
           data-testid="replays-timeline-seek"
           data-position-ms={Math.round(displayedMs)}
           {...busy('seek')}
+          {...lock}
         >
           <div className="pointer-events-none relative h-1.5 w-full rounded-full bg-line-strong transition-[height] group-hover:h-2.5">
             <div
@@ -306,6 +316,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
           className={FOCUS_RING}
           data-testid="replays-timeline-toggle"
           {...busy('pause')}
+          {...lock}
         >
           {paused ? <Play className="size-7" /> : <Pause className="size-7" />}
         </IconButton>
@@ -317,6 +328,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
           className={FOCUS_RING}
           data-testid="replays-timeline-back"
           {...busy('seek')}
+          {...lock}
         >
           <RotateCcw className="size-6" />
         </IconButton>
@@ -328,6 +340,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
           className={FOCUS_RING}
           data-testid="replays-timeline-forward"
           {...busy('seek')}
+          {...lock}
         >
           <RotateCw className="size-6" />
         </IconButton>
@@ -359,7 +372,8 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
         )}
         <VolumeControl
           volume={session.volume}
-          disabled={fullscreen}
+          disabled={fullscreen || locked}
+          describedBy={locked ? engineReasonId : undefined}
           focusRing={FOCUS_RING}
           onChange={(volume) => void changeVolume(volume)}
         />
@@ -385,6 +399,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
           className={cn('h-11! w-24', FOCUS_RING)}
           data-testid="replays-timeline-speed"
           {...busy('speed')}
+          {...lock}
         />
         {canComment && (
           <IconButton
@@ -393,10 +408,15 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
             label={t('replays.comments.add')}
             disabled={fullscreen}
             // Stays focusable when refused so its reason is reachable.
-            aria-disabled={commentReason !== null || undefined}
-            aria-describedby={commentReason !== null ? commentReasonId : undefined}
+            aria-disabled={commentReason !== null || locked || undefined}
+            aria-describedby={
+              locked ? engineReasonId : commentReason !== null ? commentReasonId : undefined
+            }
             onClick={() => void startComment()}
-            className={cn(FOCUS_RING, commentReason !== null && 'cursor-not-allowed opacity-45')}
+            className={cn(
+              FOCUS_RING,
+              (commentReason !== null || locked) && 'cursor-not-allowed opacity-45',
+            )}
             data-testid="replays-timeline-add-comment"
           >
             <MessageSquarePlus className="size-6" />
@@ -412,7 +432,13 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
               }
               // Stays focusable when unavailable so its reason is reachable.
               aria-disabled={cinemaBlocked || undefined}
-              aria-describedby={cinemaReason !== null && !inCinema ? cinemaReasonId : undefined}
+              aria-describedby={
+                locked
+                  ? engineReasonId
+                  : cinemaReason !== null && !inCinema
+                    ? cinemaReasonId
+                    : undefined
+              }
               onClick={() => void toggleCinema()}
               className={cn(FOCUS_RING, cinemaBlocked && 'cursor-not-allowed opacity-45')}
               data-testid="replays-timeline-cinema"
@@ -427,6 +453,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
               label={t('common.label.fullscreen')}
               disabled={ended}
               onClick={() => void enterFullscreen()}
+              {...lock}
               className={FOCUS_RING}
               data-testid="replays-timeline-fullscreen"
             >
@@ -450,7 +477,16 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
           {t('replays.timeline.fullscreenKeys')}
         </p>
       )}
-      {cinemaReason !== null && !fullscreen && !inCinema && (
+      {locked && (
+        <p
+          id={engineReasonId}
+          className="text-xs text-ink-muted"
+          data-testid="replays-playback-engine-reason"
+        >
+          {t(engineReason.key)}
+        </p>
+      )}
+      {!locked && cinemaReason !== null && !fullscreen && !inCinema && (
         <p
           id={cinemaReasonId}
           className="text-xs text-ink-muted"
@@ -459,7 +495,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
           {t(cinemaReason.key)}
         </p>
       )}
-      {canComment && commentReason !== null && !fullscreen && (
+      {!locked && canComment && commentReason !== null && !fullscreen && (
         <p
           id={commentReasonId}
           className="text-xs text-ink-muted"
@@ -468,7 +504,7 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
           {t(commentReason)}
         </p>
       )}
-      {!hasDuration && !fullscreen && (
+      {!locked && !hasDuration && !fullscreen && (
         <p className="text-xs text-ink-muted" data-testid="replays-timeline-seek-reason">
           {t('replays.timeline.seekNeedsDuration')}
         </p>

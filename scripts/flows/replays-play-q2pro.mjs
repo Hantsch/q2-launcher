@@ -11,7 +11,6 @@
 // `actionbar-action-reason`, `replays-mod-missing-*` (`ModMissingConfirmDialog.tsx`), and the rail's installation entries by their fixture names.
 import { existsSync, readFileSync } from 'node:fs'
 import {
-  REPLAYS_PLAY_BASE_DEMO,
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_PLAY_MISSING_MOD,
   REPLAYS_PLAY_MISSING_MOD_DEMO,
@@ -178,22 +177,4 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
     undefined,
     { timeout: LAUNCH_TIMEOUT_MS },
   )
-
-  step('selecting the r1q2 installation disables View with the notQ2pro reason')
-  // The rail lists installations by sortOrder: q2pro first, r1q2 second. Switching it returns the
-  // list to its root, so the demo is picked again from the q2pro folder (story 238).
-  await page.getByTestId('installation-tile').nth(1).click({ timeout: TIMEOUT_MS })
-  await openFolder(page, 'Fixture Play Q2PRO · baseq2')
-  await selectDemo(page, REPLAYS_PLAY_BASE_DEMO)
-  await page
-    .getByTestId('actionbar-action-reason')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (!(await play.isDisabled())) {
-    throw new Error('replays-play-q2pro: View must be disabled with the r1q2 installation active')
-  }
-  const reason = (await page.getByTestId('actionbar-action-reason').textContent()) ?? ''
-  if (!reason.includes('is not Q2PRO')) {
-    throw new Error(`replays-play-q2pro: expected the notQ2pro text, got ${JSON.stringify(reason)}`)
-  }
-  await shot('play-not-q2pro')
 }

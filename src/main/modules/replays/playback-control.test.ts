@@ -286,6 +286,7 @@ describe('playback control', () => {
       volume: { percent: 70, muted: false },
       cinemaAvailability: { available: true },
       stageNotice: null,
+      controlsUnavailable: null,
     })
     await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach()
@@ -303,6 +304,7 @@ describe('playback control', () => {
       volume: { percent: 70, muted: false },
       cinemaAvailability: { available: true },
       stageNotice: null,
+      controlsUnavailable: null,
     })
 
     // Fullscreen wins over an open overlay; availability is read at push time.
@@ -321,6 +323,7 @@ describe('playback control', () => {
         reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
       },
       stageNotice: null,
+      controlsUnavailable: null,
     })
     expect(t.control.display()).toEqual(displays().at(-1))
 
@@ -456,5 +459,43 @@ describe('playback control dispose', () => {
     await t.control.prepare(PREPARE)
 
     expect(t.fl.liveListeners()).toEqual({ state: 0, release: 0 })
+  })
+
+  it('an r1q2 session plays and ends without a channel and reports its controls unavailable', async () => {
+    const t = setup('win32')
+    const prepared = await t.control.prepare({
+      gameDirPath: 'g',
+      durationMs: 1000,
+      format: 'dm2',
+      engine: 'r1q2',
+    })
+    await t.control.attach()
+
+    expect(prepared).toEqual({ argsBeforeDemo: [], argsAfterDemo: [] })
+    expect(t.makeWindows).not.toHaveBeenCalled()
+    expect(t.makeLinux).not.toHaveBeenCalled()
+    expect(t.events.some((e) => (e.payload as { state?: string }).state === 'playing')).toBe(true)
+    vi.advanceTimersByTime(10_000)
+    expect(positions(t.events)).toEqual([])
+    const key = 'replays.playback.unavailable.r1q2'
+    expect(t.control.display().controlsUnavailable).toEqual({ key })
+    expect(t.control.display().cinemaAvailability).toEqual({ available: false, reason: { key } })
+
+    t.fl.exit()
+    await vi.runAllTimersAsync()
+    expect(endedCount(t.events)).toBe(1)
+    expect(t.control.display().controlsUnavailable).toBeNull()
+  })
+
+  it('a console line to an r1q2 session is refused with the r1q2 reason', async () => {
+    const t = setup('win32')
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2', engine: 'r1q2' })
+    await t.control.attach()
+
+    expect(t.control.send('pause')).toEqual({
+      ok: false,
+      error: { key: 'replays.playback.unavailable.r1q2' },
+    })
+    await expect(t.control.settled()).resolves.toBeUndefined()
   })
 })
