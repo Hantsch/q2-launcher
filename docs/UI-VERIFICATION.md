@@ -624,7 +624,8 @@ surface. It never asserts:
   that geometry.
 
 New flows do not use `waitForTimeout`; they wait on a state (a testid
-appearing, text changing, a value settling). All fixture data comes from the
+appearing, text changing, a value settling). `scripts/repo-hygiene.test.mjs` enforces this; its legacy allowlist
+only shrinks, and a legacy flow that is touched is fixed and leaves it. All fixture data comes from the
 one deterministic builder `scripts/lib/fixture/populated.mjs`, seeded by
 `scripts/seed.mjs`; a flow does not invent its own data on disk.
 
@@ -1497,7 +1498,7 @@ Each screen's `navigate()` opens the Servers view and waits for `servers-scan-st
 
 ### The flow gate: quarantine, shards, timeout
 
-`npm run ui:flows [-- <flow>... --affected[=<ref>] --shard=i/n --timeout=<seconds> --repeat=<n> --parallel=<n>]`
+`npm run ui:flows [-- <flow>... --affected[=<ref>] --tier=smoke|full --shard=i/n --timeout=<seconds> --repeat=<n> --parallel=<n> --no-confirm]`
 (`scripts/flows-all.mjs`, decisions in `scripts/lib/flow-gate.mjs` and
 `scripts/lib/flow-parallel.mjs`) reseeds and runs every flow, or only the
 named ones.
@@ -1510,6 +1511,10 @@ named ones.
   prints each added flow with its reason first. With `--affected`, only named
   and affected flows run; if there are none the run says so and exits 0,
   because no changed file reaches a flow.
+- `--tier=smoke|full` runs the smoke flows listed in `scripts/flows/areas.json`
+  (`tiers`), or every flow; any other value, or `--tier` together with flow
+  names or `--affected`, is a usage error. `--shard`, `--parallel` and
+  `--repeat` compose with it.
 - `--repeat=<n>` (n >= 1) runs each selected flow n times in a row, each on a
   fresh seed, to expose a flaky flow.
 
@@ -1521,9 +1526,20 @@ named ones.
 - `--parallel=<n>` (n >= 1) runs the selected flows in n child processes at
   once instead of one after another; see below. Without it the run is serial
   and behaves exactly as before.
-- Exit code 0 when the gate is ok, 1 when any non-quarantined flow failed, a
-  quarantined flow passed twice, the quarantine list is invalid or stale, the
-  arguments are malformed, or (with `--parallel`) any child exited non-zero.
+- `--no-confirm` skips the confirmation pass described below.
+- Exit code 0 when the gate is ok, 1 when any non-quarantined flow failed
+  twice, a quarantined flow passed twice, the quarantine list is invalid or
+  stale, or the arguments are malformed. A child that exits without a report
+  counts all its flows as failed.
+
+**Confirmation pass.** After the first pass, only the flows that failed are
+run once more (`confirmFailures`) on a fresh seed, through the same serial or
+parallel path; children never confirm, the parent does once, after the pinned
+flows. A flow that passes the second time is reported as `flaky: <name>` and
+is not counted as passed, but it does not fail the run: a run with only
+flaky flows exits 0 and still lists them under `flaky:`. A flow failing twice stays failed. Quarantined
+outcomes are never re-run, and `--repeat` greater than 1 or `--no-confirm`
+turns the pass off.
 
 **Parallel runs.** A flow takes ~22 s on this machine (seed, Electron launch,
 the steps), so the full suite of 169 flows is ~65 min serially; four workers
@@ -1538,7 +1554,8 @@ output root `Q2L_UI_VERIFY_ROOT=<root>/shard-<i>` (so
 and screenshots, and the per-userData Electron single-instance lock never
 collides). Every line a child prints is forwarded with `[<i>]` in front; the
 children's results are merged (`mergeResults`) into the one final summary,
-in the same format as a serial run. A child that ends without writing its
+in the same format as a serial run. The report holds `flows: [{ name, seconds, ok }]`,
+one entry per flow run, and the summary ends with the ten slowest. A child that ends without writing its
 report counts all of its flows as failed and says so.
 
 Five flows are **pinned** (`PINNED_FLOWS` in `scripts/lib/flow-parallel.mjs`)
@@ -1561,8 +1578,8 @@ same root at once: the pinned flows and the parent's own `.ui-verify/` are
 not shared-safe.
 
 `scripts/flows/quarantine.json` lists flows that are known broken. Each entry
-has `flow` (a name in `scripts/flows/`), `reason`, `story` (the story that
-wrote the entry) and `since` (a sprint like `S32`), plus an optional `platform`
+has `flow` (a name in `scripts/flows/`), `reason`, `story` (the owning story or TD id;
+`unattributed` is rejected) and `since` (a sprint like `S32`), plus an optional `platform`
 (`win32` or `linux`) to limit it to one OS. Outcomes for a quarantined flow:
 
 - fails: an expected fail, noted but not counted against the run;
@@ -1571,7 +1588,9 @@ wrote the entry) and `since` (a sprint like `S32`), plus an optional `platform`
 - passes once, then fails on the re-run: reported as flaky only, the run is
   not failed.
 
-`scripts/flows/areas.json` maps source areas to flows for changes no testid
+`scripts/flows/areas.json` is `{ tiers, areas }`. `tiers` maps a flow name to
+`smoke` or `full` (an unlisted flow is `full`; a name with no flow file or any
+other value is an error); `areas` maps source areas to flows for changes no testid
 reveals. A flow is also picked by its own file, a helper it imports, and a
 changed renderer file declaring one of its testids. A row is
 `{ area, paths: [globs], flows: [...] }` and selects at most 12 flows. A new
@@ -1583,7 +1602,9 @@ Entries are validated: missing fields, a malformed `since`, an unknown
 `platform` or an unknown flow name are errors, and while the list is invalid
 nothing is treated as quarantined. An entry also fails the run when the
 current sprint minus `since` is greater than 3 — fix the flow or make it a
-story.
+story. The age rule does not apply to `linux` entries: Linux is a manually-run
+qualification target and its entries list known platform differences, not
+forgotten breakage.
 
 ## Baselines and CI
 
@@ -1598,8 +1619,17 @@ two jobs:
 - `ui-flows` — every flow on `ubuntu-latest` under xvfb, split into 6 shards
   (`npm run ui:flows -- --shard=<i>/6`).
 - `windows-verify` — on `windows-latest`: build, `npm run ui:verify`
-  (screenshots + axe-core) and three flows (`about-release-notes`,
-  `steam-handoff`, `open-keycap-dialog`).
+  (screenshots + axe-core), then eight blocking flows on a `build:dev` build
+  (no `continue-on-error`): `linux-user-journey`, `bootstrap-wizard`,
+  `servers-join`, `replays-play-q2pro`, `mods-install`, `steam-handoff`,
+  `about-release-notes`, `open-keycap-dialog`.
+
+`.github/workflows/release.yml` runs `about-release-notes` against the
+unpacked packaged app (`package:dir` into `release/smoke`) before publishing.
+It is non-blocking until two releases after 0.8.0 and blocking from then on
+(tripwire test in `scripts/workflows.test.mjs`). Story 223's claim "the
+packaged path is already proven by release.yml" is superseded: the packaged
+launch is the release step, the PR lane stays on `build:dev` (story 264).
 
 Both trigger on pull requests into `main` and on `workflow_dispatch` only; a
 push or schedule run would re-verify a tree that only changes through PRs.

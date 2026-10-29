@@ -269,7 +269,8 @@ export async function queryServer(
     if (settled || replyInHand) return
     replyInHand = true
     clearRetryTimer()
-    const rttMs = receivedAt - sentAt
+    // The UI shows whole ms; rounding at the source covers both stages and the single-server refresh.
+    const rttMs = Math.round(receivedAt - sentAt)
     defer(() => processReply(data, rttMs, fromAddress))
   }
 

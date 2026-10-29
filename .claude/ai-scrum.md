@@ -14,7 +14,7 @@
   update those files (`/ai-scrum:setup`). Hashes of the managed copies: .claude/ai-scrum.lock
 -->
 
-ai-scrum-version: 4.5.0
+ai-scrum-version: 4.7.0
 project: Q2 Launcher
 
 ## Verify
@@ -27,6 +27,7 @@ test: npm test
 lint: npm run lint
 typecheck: npm run typecheck
 e2e: npm run ui:verify
+<!-- what "e2e" means across lanes, and which lane blocks what: CLAUDE.md#test-lanes -->
 <!--
   `e2e` is the acceptance gate for user-facing stories: an acceptance criterion that
   describes something the user does is proven here, through the real surface. It is a
@@ -88,6 +89,7 @@ changelog-path: CHANGELOG.md
 ## Branching
 
 branch-base: dev <!-- branch a sprint is cut from -->
+sprint-branch: true <!-- true = cut a sprint branch, commit there, you merge it; false = commit every story directly on branch-base -->
 sprint-branch-pattern: sprint/{id}
 auto-commit-per-story: true <!-- /sprint commits once per story ON THE SPRINT BRANCH only -->
 protected-branches: main, dev <!-- never commit here, never push, never merge -->

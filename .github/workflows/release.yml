@@ -20,9 +20,15 @@ on:
         required: false
         type: boolean
         default: false
+      skip_ci_guard:
+        description: 'Skip the green-ci check on this commit (logged in the run)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -32,7 +38,7 @@ concurrency:
 # cannot be built on Windows and building the Windows half under Wine on Linux would replace the
 # one configuration that is proven to produce a working `latest.yml`:
 #
-#   plan (ubuntu)         decides the version ONCE, up front, and refuses early (an empty
+#   plan (ubuntu)         requires a green `ci` run on HEAD (scripts/release-ci-guard.mjs), decides the version ONCE, up front, and refuses early (an empty
 #                         `## Unreleased`, an existing tag) so a refusal costs no build at all.
 #   build-linux (ubuntu)  builds the AppImage AT THAT VERSION and uploads it as a workflow
 #                         artifact.
@@ -53,6 +59,7 @@ jobs:
     if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
     outputs:
       version: ${{ steps.plan.outputs.version }}
+      sha: ${{ steps.ci-guard.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,6 +70,15 @@ jobs:
       - uses: ./.github/actions/setup-node-electron
         with:
           electron: 'false'
+
+      - name: Require a green ci run
+        id: ci-guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_DRY_RUN_INPUT: ${{ inputs.dry_run }}
+          RELEASE_SKIP_CI_GUARD_INPUT: ${{ inputs.skip_ci_guard }}
+        run: node scripts/release-ci-guard.mjs
 
       - name: Resolve the version to release
         id: plan
@@ -92,6 +108,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
+
+      - name: Refuse a commit the ci guard did not see
+        shell: bash
+        env:
+          GUARDED_SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [ "$HEAD_SHA" != "$GUARDED_SHA" ]; then
+            echo "::error::checked out $HEAD_SHA but the ci guard approved $GUARDED_SHA" >&2
+            exit 1
+          fi
 
       - uses: ./.github/actions/setup-node-electron
         with:
@@ -149,6 +176,17 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
 
+      - name: Refuse a commit the ci guard did not see
+        shell: bash
+        env:
+          GUARDED_SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [ "$HEAD_SHA" != "$GUARDED_SHA" ]; then
+            echo "::error::checked out $HEAD_SHA but the ci guard approved $GUARDED_SHA" >&2
+            exit 1
+          fi
+
       - uses: ./.github/actions/setup-node-electron
         with:
           # Unit tests resolve `electron` to a stub (vitest.config.ts) and never need the binary.
@@ -159,6 +197,28 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      # Built outside release/<version>/ so release.mjs never collects it as a release asset.
+      - name: Package the unpacked Windows app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run package:dir -- -c.directories.output=release/smoke
+
+      - name: Resolve the unpacked app path
+        id: smoke-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="release/smoke/win-unpacked/Q2 Launcher.exe"
+          if [ ! -f "$APP_PATH" ]; then echo "no $APP_PATH after package:dir" >&2; exit 1; fi
+          echo "Resolved unpacked app: $APP_PATH"
+          echo "path=$APP_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Packaged launch smoke
+        shell: bash
+        # Advisory until the tripwire in scripts/workflows.test.mjs removes this after two releases past 0.8.0.
+        continue-on-error: true
+        run: npm run ui:flow -- about-release-notes --app="${{ steps.smoke-app.outputs.path }}"
 
       - name: Download the Linux artifacts
         uses: actions/download-artifact@v4

@@ -157,6 +157,28 @@ describe('expandZip (fake listing/reader)', () => {
   })
 })
 
+describe('expandZip protocol (fake listing/reader)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("a zipped dm2 row carries its header's protocol", async () => {
+    const fixtures = resolve(__dirname, '../../../../docs/fixtures/demos')
+    const dm2 = new Uint8Array(await readFile(join(fixtures, 'test.dm2')))
+    vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({
+      ok: true,
+      entries: [
+        { path: 'test.dm2', isFolder: false, size: dm2.length, modified: null, encrypted: false },
+      ],
+    })
+    vi.spyOn(zipEntries, 'readZipEntry').mockResolvedValue({ ok: true, bytes: dm2 })
+
+    const result = await expandZip('C:/demos/pack.zip', SOURCE, 0, {} as ZipDeps)
+
+    expect(result.rows[0]!.protocol).toBe(34)
+  })
+})
+
 describe('expandZip stats (fake listing/reader)', () => {
   afterEach(() => {
     vi.restoreAllMocks()

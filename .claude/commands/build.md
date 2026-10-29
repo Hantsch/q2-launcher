@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.5.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.7.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Implement the story with ID **$1**. If **$2** is `--full`, the full regression gate runs
@@ -69,8 +69,9 @@ finishes or quietly stops with nothing in the working tree to show for it.
   lock against every later run of the suite (measured: one orphaned Electron instance from a
   gate agent failed 25 of 55 flows of the next run and all of the one after that). So: never
   start a command here that may need longer than ten minutes — `e2e-all` is the sprint's gate,
-  not yours, and a `test-story` / `e2e-story` selection that could take that long is a plan gap
-  to report, not a command to run. Spell `timeout: 600000` on every verify call so a slow run
+  not yours, and a `test-story` / `e2e-story` selection that could take that long is run in
+  slices (step 5, `e2e-story-slices`), each its own call under the ceiling — never as one
+  call that then ends "inconclusive". Spell `timeout: 600000` on every verify call so a slow run
   at least gets the whole ceiling. If a command is moved to the background anyway, `TaskStop`
   it **immediately** with the id from that message and record the step as
   `INCONCLUSIVE: <command> exceeded the 10-minute call limit — stopped, not observed` — no
@@ -173,6 +174,9 @@ finishes or quietly stops with nothing in the working tree to show for it.
        (`describe('story 045')` is rejected too); a file that does not exist yet is created
        next to the project's existing ones, in their shape. Fixtures, builders and fakes come
        from `test-support` first; when it is `none` or nothing there fits, the return says so.
+       A test in `test` never compares elapsed time against a number, never lowers a timeout
+       and never reads the real clock or zone: cost is counted (bytes, calls), and speed goes to
+       the perf lane's file or category, which `test` excludes.
      - the profile's `test-support` paths from `.claude/ai-scrum.md`, verbatim (`none`
        included),
      - for `deliverable-hard`, the risk justification from `## Model Hints`,
@@ -241,6 +245,14 @@ finishes or quietly stops with nothing in the working tree to show for it.
        `{test}` = one run per line, with that line's file and test name. Nothing else is
        invented: the lines carry the target, the profile carries the invocation.
      - `e2e-story` missing or `none`: run the full `e2e`, as before.
+     - **Slices, when the profile sets `e2e-story-slices: <n>` above 1:** the template carries
+       `{shard}`; run it n times, `{shard}` = `1/n` … `n/n`, one `Bash` call each with the
+       full timeout, in sequence, and read the n outputs as one run. A changed-files
+       selection (`--affected` and relatives) grows with the diff, and a story that touches a
+       shared helper can select most of the suite — more than one call can observe. Measured
+       before this rule: six of nineteen stories in one sprint ended their e2e gate
+       `INCONCLUSIVE` at the ceiling, and the sprint gate then found eight regressions, every
+       one caused by a story of that sprint.
      That run *is* the acceptance of those criteria — there is no manual round behind it, so a
      skipped or red e2e test is a blocker, not a note for the user. If the harness cannot run
      here (no display, missing dependency), say exactly that and treat it as a blocker: leave
@@ -256,13 +268,26 @@ finishes or quietly stops with nothing in the working tree to show for it.
    - **Run each command once.** A green result stays valid until something changes — do not
      re-run a suite "to be sure" while the tree is untouched. The deliverable agents already
      verified their own work; this pass is the story-level gate, not a repeat of theirs.
+   - **A red test in this gate is this story's.** Do not label it "pre-existing" or "not
+     ours": the tree under test already contains every earlier story of the sprint, so a red
+     that "was there before" belongs to the sprint and must surface now, while a story that
+     can fix it is still open. `INCONCLUSIVE` is red, not grey. What is genuinely
+     pre-existing is red at the sprint's branch base, and the only agent that checks that is
+     the sprint gate's attribution agent (`sprint.md`, phase 2b) — a story runs no suite on
+     another commit. Measured before this rule: four stories of one sprint reported reds as
+     "pre-existing, not ours"; every one was caused by an earlier story of the same sprint,
+     and the sprint gate paid for them with a full run and a full re-run.
    - **Then walk `## Acceptance Tests` line by line** and confirm that each named test exists,
      ran, and passed in this verification. A `manual residue` line needs no run; it is carried
      into the Done section as-is.
    - Report the result honestly — name failing tests, gloss over nothing.
 
    Back with you: a criterion whose test was never written is not done — send that D back
-   rather than ticking the criterion. Trail `<id> · verify · done` or
+   rather than ticking the criterion. A red test is fixed here when its cause is in reach —
+   this story's own change, or a test or flow an earlier story of this sprint left stale
+   (fix the flow against the product as it now is, never weaken it; the Done section names
+   the story that caused it). Out of reach → blocker naming the test and the suspected
+   cause, never a Done-section note. Trail `<id> · verify · done` or
    `<id> · verify · blocked: <tests>`.
 6. **Code review (clean agent):** the review is NOT done by this session — whoever
    implemented does not verify. Trail `<id> · review <n> · started` (progress file named),
@@ -298,7 +323,13 @@ finishes or quietly stops with nothing in the working tree to show for it.
            produce), that mocks away the very thing under test, that is skipped or
            conditionally skipped, or that covers a narrower case than the criterion claims.
            This item exists because whoever implements also wrote the test, and a green
-           tautology looks exactly like acceptance from the outside.
+           tautology looks exactly like acceptance from the outside. **The reverse is a
+           finding too:** a test the diff adds that proves nothing a neighbouring test does
+           not already prove — same path and assertion, a constant or locale string pinned,
+           a mock's own return asserted, a "registered / reachable" wiring check — is
+           reported with the recommendation to delete or merge it and the name of the test
+           that keeps the coverage. Without this a suite only grows: measured in one
+           repository, test files accreted one `describe` per story and nobody ever pruned.
        (b) weakened or deleted tests, disabled assertions, suppressed warnings, silenced
            null checks or commented-out validations without a justifying comment on the
            same line,
@@ -307,6 +338,8 @@ finishes or quietly stops with nothing in the working tree to show for it.
        (d) correctness bugs, removed validation or error handling, violations of the
            guardrails in `CLAUDE.md`, comments that narrate story or review history instead
            of stating an invariant, tests named after a story instead of a behaviour,
+           a test in a blocking lane that asserts elapsed time, lowers a timeout, retries, or
+           depends on the real clock, zone, temp path or a file a clean checkout lacks,
        (e) copied shapes: a block the diff adds that already exists elsewhere in the tree
            (search for its distinctive line) is a finding, with the existing location,
      - the agent proposes no fixes and changes no files — it returns a verdict
@@ -326,8 +359,11 @@ finishes or quietly stops with nothing in the working tree to show for it.
     user the start time and the log path, end the turn with only that task in flight, and when
     its notification arrives read `tail -n 40` of the log, then delete it. A red result:
     - **Caused by this story** — the failing test touches what the story changed, or the
-      failure is gone without the story's changes: fix it like a review finding, re-run the
-      failing tests, then the full gate once more. Still red → blocker, as in step 10.
+      failure is gone without the story's changes: fix it like a review finding, then re-run
+      the failing tests and the narrow gate of step 5 on the fix. The full gate is not
+      launched a second time — the fix was checked where it can break something, and a
+      full re-run has never caught what the narrow one missed. Still red → blocker, as in
+      step 10.
     - **Not caused by this story** — to check, `git stash push -u`, run only the failing
       tests, `git stash pop` immediately. Red on the bare `HEAD` as well means the failure
       predates the story: record it in the Done section as pre-existing, with the test names.

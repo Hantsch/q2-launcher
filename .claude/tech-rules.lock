@@ -1,12 +1,15 @@
 {
-  "tech-rules-version": "2.3.0",
+  "tech-rules-version": "2.4.0",
   "groups": ["all", "react", "electron"],
   "files": {
-    ".claude/skills/karpathy/SKILL.md": "31461247fc12bbbf42449eed959bef40d92baf6e",
-    ".claude/skills/design-tokens/SKILL.md": "3e300a8f3649d91b197fc938b4640b1b541c32ff",
-    ".claude/skills/electron-arch/SKILL.md": "1be484cb4f9be287cf94b14144c1dd2a4187b2a2",
-    ".claude/skills/typed-ipc/SKILL.md": "31c0e4d1aebccfa77780c41e7a25bc9073c6c1e5",
-    ".claude/skills/ui-verify/SKILL.md": "c69b73f5b7a3de9aee2ad8677f87308c31ee4212",
-    ".claude/skills/renderer-guidelines/SKILL.md": "aa98bb7818f49d64270eeb8682bcea22d31ff4b5"
+    ".claude/skills/karpathy/SKILL.md": "d33b4a23832f848cf4c62904aff6527046758d9f",
+    ".claude/skills/test-gates/SKILL.md": "8112d20e1fd580de71ad2dab9ddc9433f5381e85",
+    ".claude/skills/test-review/SKILL.md": "5043bc78869a43a79f8d32ee840f53bdb211b977",
+    ".claude/skills/release-prep/SKILL.md": "cc50533be45ae13cbc4baaaf3fb77f5a14db0886",
+    ".claude/skills/design-tokens/SKILL.md": "2bb77bcb671e62d7c3eb1fcfe8b37d3cba2708d8",
+    ".claude/skills/electron-arch/SKILL.md": "773e3b74c23a68b29f4999d9aecfe3a2c74f50f0",
+    ".claude/skills/typed-ipc/SKILL.md": "e01b48cca83bd27b8f429f6a6811aa72a2bbd152",
+    ".claude/skills/ui-verify/SKILL.md": "76f4dc8d90ef266353c6c046f9bf47f4eac42cfe",
+    ".claude/skills/renderer-guidelines/SKILL.md": "6fd76b3764aa180cd0305f7adb8aa01350d294a9"
   }
 }

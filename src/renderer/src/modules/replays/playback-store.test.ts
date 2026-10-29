@@ -58,6 +58,15 @@ describe('playback store (story 165 D3)', () => {
     })
   })
 
+  it('a display push carries controlsUnavailable into the session', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    expect(usePlaybackStore.getState().session?.controlsUnavailable).toBeNull()
+    handlers.display?.({ fullscreen: false, controlsUnavailable: { key: 'x.y' } })
+    expect(usePlaybackStore.getState().session?.controlsUnavailable).toEqual({ key: 'x.y' })
+    handlers.display?.({ fullscreen: false, controlsUnavailable: null })
+    expect(usePlaybackStore.getState().session?.controlsUnavailable).toBeNull()
+  })
+
   it('applyDisplay flips the session fullscreen flag', () => {
     usePlaybackStore.getState().beginSession('a.dm2', 90_000)
     handlers.display?.({ fullscreen: true })

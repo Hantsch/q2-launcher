@@ -66,6 +66,7 @@ function readConfig() {
 const config = readConfig()
 const DEMO_MS = Number(config.demoMs) > 0 ? Number(config.demoMs) : 41000
 const LIFETIME_MS = Number(config.lifetimeMs) > 0 ? Number(config.lifetimeMs) : 400
+const R1Q2 = config.engine === 'r1q2'
 const COMMAND_LOG = process.env.Q2L_UI_ENGINE_COMMAND_LOG || ''
 const QUIT_FILE = process.env.Q2L_UI_ENGINE_QUIT_FILE || ''
 const IGNORE_QUIT_FILE = process.env.Q2L_UI_ENGINE_IGNORE_QUIT_FILE || ''
@@ -417,6 +418,17 @@ function archiveCvars() {
   }
 }
 
+/** R1Q2 mode: appends a `set` line to `<game>/q2config.cfg`, the file R1Q2 writes its config to. */
+function writeSessionCvar() {
+  try {
+    const file = path.join(gameDir(), 'q2config.cfg')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.appendFileSync(file, 'set q2l_stub_session 1\n')
+  } catch {
+    // a lost write only fails the flow that asserts the restore
+  }
+}
+
 function quit() {
   archiveCvars()
   process.exit(0)
@@ -452,7 +464,12 @@ function execLine(raw) {
     case 'if':
       runIf(args)
       return
+    case 'demomap':
+      // R1Q2 has no control protocol: it plays the demo and archives a cvar the way stufftext does.
+      if (R1Q2) writeSessionCvar()
+      return
     case 'demo':
+      if (R1Q2) return
       demoStarted = true
       startDemo(args[0])
       return

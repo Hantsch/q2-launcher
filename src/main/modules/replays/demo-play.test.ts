@@ -18,10 +18,11 @@ import {
   type DemoPlayLaunch,
 } from './demo-play'
 import type { PlaybackControl } from './playback-control'
-import type { StageAvailability } from './stage'
+import { stageLaunchArgs, type StageAvailability } from './stage'
 import { LAUNCHER_DIR_NAME } from './demo-staging'
 import { replaysState } from './persisted'
 import { createCvarRestore } from './session-cvar-restore'
+import { limitsFor } from '@shared/config/syntax/engine-limits'
 
 /**
  * Story 159 D2: `demo.play` in main. Real temp folders on disk (containment is a realpath question,
@@ -131,7 +132,10 @@ interface Setup {
   stageAvail?: StageAvailability
   geometry?: string | null
   /** Story 170 D3 */
-  cvarRestore?: { snapshot: (configPath: string) => Promise<void>; restore: () => Promise<void> }
+  cvarRestore?: {
+    snapshot: (configPath: string, options?: { wholeFile?: true }) => Promise<void>
+    restore: () => Promise<void>
+  }
   /** Story 171 D2 */
   onStageSession?: (start: {
     geometry: string
@@ -351,8 +355,8 @@ describe('demo.play with a trusted mod (story 182 D1)', () => {
 })
 
 describe('demo.play engine guard (story 161 D1)', () => {
-  it('a non-Q2PRO installation never gets a demo launch', async () => {
-    const others = engineKindSchema.options.filter((kind) => kind !== 'q2pro')
+  it('an installation with neither Q2PRO nor R1Q2 never gets a demo launch', async () => {
+    const others = engineKindSchema.options.filter((kind) => kind !== 'q2pro' && kind !== 'r1q2')
     expect(others.length).toBeGreaterThan(0)
     for (const engineKind of others) {
       // In place, and a demo from elsewhere (which would otherwise be copied into `_launcher`).
@@ -372,7 +376,7 @@ describe('demo.play engine guard (story 161 D1)', () => {
         const result = await h.play(id, 'q2pro-a')
         expect(result, engineKind).toEqual({
           ok: false,
-          error: { key: 'replays.play.unavailable.notQ2pro' },
+          error: { key: 'replays.play.unavailable.unsupportedEngine' },
         })
       }
       expect(h.launch.start, engineKind).not.toHaveBeenCalled()
@@ -405,15 +409,22 @@ describe('demo.play engine guard (story 161 D1)', () => {
           },
         },
         activeEngine: 'r1q2',
-        activeDetectedEngines: [{ kind: 'q2pro', executablePath: 'q2pro.exe', supported: true }],
+        activeDetectedEngines: [
+          {
+            kind: 'q2pro',
+            executablePath: 'q2pro.exe',
+            executablePaths: ['q2pro.exe'],
+            supported: true,
+          },
+        ],
       })
       expect((await h.play(id, 'q2pro-a')).ok, id).toBe(true)
       expect(h.launch.start.mock.calls[0][0].engine, id).toBe('q2pro')
     }
   })
 
-  it('demo launch args never contain demomap', async () => {
-    for (const engineKind of engineKindSchema.options) {
+  it('a Q2PRO-played demo launch never gets demomap', async () => {
+    for (const engineKind of engineKindSchema.options.filter((kind) => kind !== 'r1q2')) {
       const gz = demo({ id: 'gz', fileName: 'run.dm2.gz', gzip: true })
       const h = harness({
         demos: [BASE_DEMO, gz],
@@ -438,7 +449,7 @@ describe('demo.play engine guard (story 161 D1)', () => {
     }
   })
 
-  it('the real builder never emits demomap for any engine kind, plain or gz demo', async () => {
+  it('the real builder never emits demomap for a Q2PRO launch, plain or gz demo', async () => {
     const gz = demo({ id: 'gz', fileName: 'run.dm2.gz', gzip: true })
     const h = harness({
       demos: [BASE_DEMO, gz],
@@ -453,7 +464,7 @@ describe('demo.play engine guard (story 161 D1)', () => {
     }
     const inputs = h.launch.start.mock.calls.map(([input]) => input)
     expect(inputs).toHaveLength(2)
-    for (const engineKind of engineKindSchema.options) {
+    for (const engineKind of ['q2pro' as const]) {
       const installation = { ...h.installations[0], engineKind }
       for (const input of inputs) {
         const args = buildLaunchArgs(installation, input).args
@@ -581,31 +592,6 @@ describe('demo.play (story 159 D2)', () => {
     expect((await archiveFile.play('base', 'q2pro-a')).ok).toBe(false)
     expect(archiveFile.launch.start).not.toHaveBeenCalled()
 
-    // An r1q2 installation's id sent directly (active, so the only thing refusing it is the engine).
-    const r1q2 = harness({
-      demos: [
-        demo({
-          id: 'r',
-          fileName: 'r.dm2',
-          source: {
-            kind: 'installation',
-            installationId: 'r1q2-b',
-            installationName: 'R1Q2',
-            gameDir: 'baseq2',
-          },
-        }),
-      ],
-      files: {
-        r: { absolutePath: join(r1q2Root, 'baseq2', 'demos', 'r.dm2'), archiveEntry: null },
-      },
-      active: 'r1q2-b',
-    })
-    expect(await r1q2.play('r', 'r1q2-b')).toEqual({
-      ok: false,
-      error: { key: 'replays.play.unavailable.notQ2pro' },
-    })
-    expect(r1q2.launch.start).not.toHaveBeenCalled()
-
     // A game already running - main's own launch state, not anything the renderer said.
     const running = harness({ demos: [CTF_DEMO], files: ctfFiles(), running: true })
     expect(await running.play('ctf', 'q2pro-a')).toEqual({
@@ -614,7 +600,7 @@ describe('demo.play (story 159 D2)', () => {
     })
     expect(running.launch.start).not.toHaveBeenCalled()
 
-    for (const h of [otherId, archiveRow, archiveFile, r1q2, running]) {
+    for (const h of [otherId, archiveRow, archiveFile, running]) {
       expect(h.sessions.begin).not.toHaveBeenCalled()
     }
   })
@@ -1317,5 +1303,170 @@ describe('demo.play session volume', () => {
       await restored
       expect(await readFile(configPath(), 'latin1'), c.path).toBe(c.before)
     }
+  })
+})
+
+describe('demo.play in an R1Q2 installation', () => {
+  const STAGE = { x: 1, y: 2, width: 640, height: 360 }
+  const R1Q2_DEMO = demo({
+    id: 'r',
+    fileName: 'r.dm2',
+    protocol: 34,
+    source: {
+      kind: 'installation',
+      installationId: 'r1q2-b',
+      installationName: 'R1Q2',
+      gameDir: 'baseq2',
+    },
+  })
+  const r1q2Files = (): Setup['files'] => ({
+    ...ctfFiles(),
+    r: { absolutePath: join(r1q2Root, 'baseq2', 'demos', 'r.dm2'), archiveEntry: null },
+  })
+  const r1q2Config = (): string =>
+    join(r1q2Root, 'baseq2', limitsFor('r1q2')?.writtenConfigName ?? 'unknown')
+  const restorer = () => ({
+    snapshot: vi.fn(async (_configPath: string, _options?: { wholeFile?: true }) => undefined),
+    restore: vi.fn(async () => undefined),
+  })
+  const startOf = (h: ReturnType<typeof harness>): [LaunchInput, unknown] =>
+    h.launch.start.mock.calls[0] as unknown as [LaunchInput, unknown]
+  const ORIGINAL = Buffer.from('bind x "say hi"\r\nset name "me"', 'latin1')
+
+  it('an r1q2 demo in place launches r1q2 with exactly +demomap and the file', async () => {
+    for (const platform of ['win32', 'linux']) {
+      const h = harness({ demos: [R1Q2_DEMO], files: r1q2Files(), active: 'r1q2-b', platform })
+      expect(await h.play('r', 'r1q2-b'), platform).toEqual({ ok: true, value: { stage: null } })
+      const [input, options] = startOf(h)
+      expect(input, platform).toEqual({
+        installationId: 'r1q2-b',
+        gameDir: 'baseq2',
+        extraArgs: ['+demomap', 'r.dm2'],
+      })
+      expect(options, platform).toEqual({ demo: true })
+      expect(h.sessions.begin, platform).toHaveBeenCalledWith('r')
+    }
+  })
+
+  it('an r1q2 demo from elsewhere plays its staged copy with +demomap', async () => {
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), active: 'r1q2-b' })
+    expect((await h.play('base', 'r1q2-b')).ok).toBe(true)
+    const [input] = startOf(h)
+    const args = input.extraArgs ?? []
+    expect(args).toHaveLength(2)
+    expect(args[0]).toBe('+demomap')
+    expect(args[1]?.startsWith(`${LAUNCHER_DIR_NAME}/`)).toBe(true)
+    const copy = join(r1q2Root, 'baseq2', 'demos', args[1] ?? '')
+    expect(existsSync(copy)).toBe(true)
+    h.emit({ phase: 'exited', installationId: 'r1q2-b' })
+    await vi.waitFor(() => expect(existsSync(copy)).toBe(false))
+  })
+
+  it('an r1q2 launch carries no channel, volume or stage args and refuses the stage with the r1q2 reason', async () => {
+    for (const platform of ['win32', 'linux']) {
+      const playback = fakeControl()
+      const onStageSession = vi.fn(() => () => undefined)
+      const h = harness({
+        demos: [R1Q2_DEMO],
+        files: r1q2Files(),
+        active: 'r1q2-b',
+        platform,
+        playback,
+        onStageSession,
+        demoVolume: 40,
+      })
+      expect(await h.play('r', 'r1q2-b', { stage: STAGE }), platform).toEqual({
+        ok: true,
+        value: { stage: { ok: false, reasonKey: 'replays.stage.unavailable.r1q2' } },
+      })
+      expect(playback.prepare, platform).toHaveBeenCalledWith({
+        gameDirPath: join(r1q2Root, 'baseq2'),
+        durationMs: R1Q2_DEMO.durationMs,
+        format: 'dm2',
+        engine: 'r1q2',
+      })
+      const [input, options] = startOf(h)
+      expect(input.extraArgs, platform).toEqual(['+demomap', 'r.dm2'])
+      // Never piped: the engine-less session has nothing to read or write.
+      expect(options, platform).toEqual({ demo: true })
+      expect(playback.attach, platform).toHaveBeenCalledWith(undefined)
+      expect(onStageSession, platform).not.toHaveBeenCalled()
+    }
+  })
+
+  it('an r1q2 launch snapshots the whole config before spawn and restores it once the game ends', async () => {
+    const cvarRestore = restorer()
+    const h = harness({ demos: [R1Q2_DEMO], files: r1q2Files(), active: 'r1q2-b', cvarRestore })
+    expect((await h.play('r', 'r1q2-b')).ok).toBe(true)
+    expect(cvarRestore.snapshot.mock.calls).toEqual([[r1q2Config(), { wholeFile: true }]])
+    expect(cvarRestore.snapshot.mock.invocationCallOrder[0]).toBeLessThan(
+      h.launch.start.mock.invocationCallOrder[0] ?? 0,
+    )
+    expect(cvarRestore.restore).not.toHaveBeenCalled()
+    h.emit({ phase: 'exited', installationId: 'q2pro-other' })
+    expect(cvarRestore.restore).not.toHaveBeenCalled()
+    h.emit({ phase: 'exited', installationId: 'r1q2-b' })
+    h.emit({ phase: 'exited', installationId: 'r1q2-b' })
+    expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
+  })
+
+  it('an r1q2 launch that never starts or throws still puts the config back', async () => {
+    for (const failure of ['refused', 'thrown'] as const) {
+      await writeFile(r1q2Config(), ORIGINAL)
+      const pendingPath = join(tmp, 'userData', `${failure}.pending.json`)
+      const cvarRestore = createCvarRestore({ names: [], pendingPath })
+      const h = harness({ demos: [R1Q2_DEMO], files: r1q2Files(), active: 'r1q2-b', cvarRestore })
+      h.launch.start.mockImplementationOnce(async () => {
+        // The process got far enough to rewrite its config before the launch gave up.
+        await writeFile(r1q2Config(), 'bind x "kill"\n')
+        if (failure === 'thrown') throw new Error('spawn failed')
+        return { ok: false, error: { key: 'launch.error.x' } } as never
+      })
+      if (failure === 'thrown') await expect(h.play('r', 'r1q2-b')).rejects.toThrow('spawn failed')
+      else expect((await h.play('r', 'r1q2-b')).ok, failure).toBe(false)
+      expect((await readFile(r1q2Config())).equals(ORIGINAL), failure).toBe(true)
+      expect(existsSync(pendingPath), failure).toBe(false)
+    }
+  })
+
+  it('a crashed r1q2 session puts the config back byte for byte', async () => {
+    await writeFile(r1q2Config(), ORIGINAL)
+    const pendingPath = join(tmp, 'userData', 'crash.pending.json')
+    const cvarRestore = createCvarRestore({ names: [], pendingPath })
+    const h = harness({ demos: [R1Q2_DEMO], files: r1q2Files(), active: 'r1q2-b', cvarRestore })
+    expect((await h.play('r', 'r1q2-b')).ok).toBe(true)
+    expect(existsSync(pendingPath)).toBe(true)
+    await writeFile(r1q2Config(), 'bind x "kill"\nset cl_maxfps "999"\n')
+    h.emit({ phase: 'failed', installationId: 'r1q2-b', error: { key: 'launch.error.x' } } as never)
+    await vi.waitFor(() => expect(existsSync(pendingPath)).toBe(false))
+    expect((await readFile(r1q2Config())).equals(ORIGINAL)).toBe(true)
+  })
+
+  it('a Q2PRO launch is unchanged', async () => {
+    const playback = fakeControl()
+    const cvarRestore = restorer()
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback, cvarRestore })
+    expect((await h.play('base', 'q2pro-a', { stage: STAGE })).ok).toBe(true)
+    expect(playback.prepare).toHaveBeenCalledWith({
+      gameDirPath: join(q2proRoot, 'baseq2'),
+      durationMs: BASE_DEMO.durationMs,
+      format: 'dm2',
+      volumePercent: 70,
+    })
+    const [input, options] = startOf(h)
+    expect(input.extraArgs).toEqual([
+      '+before',
+      '+set',
+      's_volume',
+      '0.7',
+      ...stageLaunchArgs('800x600+10+20'),
+      '+demo',
+      'b.dm2',
+      '+exec',
+      'after.cfg',
+    ])
+    expect(options).toEqual({ demo: true })
+    // Line-wise: the snapshot carries no whole-file option.
+    expect(cvarRestore.snapshot.mock.calls).toEqual([[join(q2proRoot, 'baseq2', 'q2config.cfg')]])
   })
 })

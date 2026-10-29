@@ -101,6 +101,31 @@ async function settle(): Promise<void> {
 }
 
 describe('discoverLanServers', () => {
+  it("a LAN reply's round trip is whole milliseconds", async () => {
+    const net = fakeNet()
+    const { clock, advance } = fakeClock()
+    const replies: LanReply[] = []
+    const run = discoverLanServers({
+      settings: SETTINGS,
+      onReply: (r) => replies.push(r),
+      deps: {
+        networkInterfaces: () => ({ a: [iface('192.168.1.10', '255.255.255.0')] }),
+        udpImpl: net.impl,
+        clock,
+      },
+    })
+    await settle()
+    await advance(12.6)
+    net.handlers
+      .get('192.168.1.10')!
+      .onMessage(SAMPLE_INFO_REPLY, { address: '192.168.1.77', port: 27910 })
+    await advance(300)
+    await run
+    expect(replies).toHaveLength(1)
+    expect(Number.isInteger(replies[0]!.rttMs)).toBe(true)
+    expect(replies[0]!.rttMs).toBe(13)
+  })
+
   it('a server answering twice or on two interfaces is reported once', async () => {
     const net = fakeNet()
     const { clock, advance } = fakeClock()

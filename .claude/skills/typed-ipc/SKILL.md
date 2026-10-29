@@ -3,7 +3,7 @@ name: typed-ipc
 description: "Contract-first, end-to-end typed IPC for Electron: one map of channels in the shared layer from which main handlers, the preload allowlist and renderer types all derive, with boot-time and compile-time exhaustiveness checks plus an IPC coverage test. Use when: adding, renaming or removing an IPC channel; adding a main-to-renderer event; writing or reviewing a preload bridge; adding an ipcMain handler; typing window.<bridge> in the renderer; seeing 'no handler registered for channel' at runtime; setting up IPC in a new Electron app; adding a handler or event to a module:invoke bus; typing a module client; seeing Outcome<Outcome<T>> or a cast callModule<T>. DO NOT USE FOR: Electron layering and security questions (use electron-arch); non-Electron IPC."
 ---
 
-<!-- tech-rules:managed 2.3.0 -->
+<!-- tech-rules:managed 2.4.0 -->
 
 # Contract-First Typed IPC
 

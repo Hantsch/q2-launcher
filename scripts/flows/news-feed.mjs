@@ -185,6 +185,30 @@ async function waitForSlideCount(page, count) {
   )
 }
 
+/** Waits until the main process reports the failed refresh (`lastRefreshFailed`), then flushes the
+ * renderer (two animation frames plus an IPC round-trip) so any toast or dialog it would raise has
+ * been rendered before the absence checks run. */
+async function waitForFailedRefresh(page) {
+  const deadline = Date.now() + POLL_TIMEOUT_MS
+  let last
+  while (Date.now() < deadline) {
+    last = await getNews(page)
+    if (last?.ok && last.value.lastRefreshFailed && server.requested.includes('/news/index.json')) {
+      await page.evaluate(
+        () =>
+          new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),
+      )
+      await getNews(page)
+      return
+    }
+    await new Promise((done) => setTimeout(done, POLL_INTERVAL_MS))
+  }
+  throw new Error(
+    `the failing refresh never reported lastRefreshFailed within ${POLL_TIMEOUT_MS}ms; last ` +
+      `outcome: ${JSON.stringify(last)}; requested: ${JSON.stringify(server.requested)}`,
+  )
+}
+
 function assertSlidesMatchExpected(slides, label) {
   const actual = slides.map((slide) => ({
     id: slide.id,
@@ -308,6 +332,10 @@ export default async function newsFeed({ page, shot, step, variant }) {
             `phase 2 reports ${secondFeed.retrievedAt}`,
         )
       }
+
+      // The cached feed is delivered before the failing refresh has finished; the no-toast and
+      // no-dialog checks only mean something once the refresh has failed.
+      await waitForFailedRefresh(secondPage)
 
       const toastCount = await secondPage.locator('[role="status"]').count()
       if (toastCount > 0) {

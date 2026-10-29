@@ -608,6 +608,7 @@ function blankFacts(file: ScannedFile): Omit<DiscoveredDemo, 'id' | 'fileName' |
     unparsableReason: null,
     readable: true,
     unreadable: null,
+    protocol: null,
     gameDir: null,
     pov: null,
     players: [],

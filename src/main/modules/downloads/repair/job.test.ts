@@ -1,8 +1,10 @@
+import { existsSync } from 'node:fs'
 import {
   chmod,
   mkdir,
   mkdtemp,
   readdir,
+  readFile,
   realpath,
   rm,
   stat,
@@ -352,6 +354,42 @@ describe('the repair job', () => {
       'r1q2.exe',
       'ref_r1gl.dll',
     ])
+  })
+
+  it('reinstalling the engine of a q2pro64.exe installation writes q2pro64.exe', async () => {
+    await createEngineMissingInstallation()
+    await rm(join(installRoot, 'r1q2ded.exe'))
+    await writeFile(join(installRoot, 'q2pro64.exe'), 'old q2pro binary')
+    await writeFile(join(installRoot, BASE_GAME_DIR, 'gamex86_64.dll'), 'old game module')
+    const q2proPackage: ManifestPackage = {
+      ...ENGINE_PACKAGE,
+      engine: 'q2pro',
+      id: 'q2pro-client',
+      url: 'https://example.test/builds/q2pro-client.zip',
+    }
+    const test = await harness({
+      executablePath: join(installRoot, 'q2pro64.exe'),
+      manifest: { engine: q2proPackage },
+      archive: () => ({
+        'q2pro.exe': 'new q2pro binary',
+        'baseq2/gamex86_64.dll': 'new game module',
+      }),
+    })
+    expect(test.installation.recordedEngineKind).toBe('q2pro')
+    await rm(join(installRoot, 'q2pro64.exe'))
+    const revalidated = await test.installations.validate(test.installation.id)
+    if (!revalidated.ok) throw new Error(`revalidation was rejected: ${revalidated.error.key}`)
+
+    const started = await startRepair(test.deps, {
+      installationId: test.installation.id,
+      offers: ['reinstall-engine'],
+    })
+
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await expect(started.value.settled).resolves.toMatchObject({ status: 'succeeded' })
+    expect(await readFile(join(installRoot, 'q2pro64.exe'), 'utf8')).toBe('new q2pro binary')
+    expect(existsSync(join(installRoot, 'q2pro.exe'))).toBe(false)
   })
 
   /**

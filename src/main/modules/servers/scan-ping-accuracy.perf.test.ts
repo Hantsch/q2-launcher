@@ -18,11 +18,11 @@ import { runScan } from './scan-runner'
  * The ping a scan reports is the server's real round trip, even while the launcher is
  * busy, and sampling it costs next to nothing. Real `runScan`, real `queryServer`, real
  * `127.0.0.1` sockets, the shipped `DEFAULT_SERVERS_STATE.scan` settings, scanned together with
- * the same 30-responder population `scan-measurement.test.ts` uses.
+ * the same 30-responder population `scan-measurement.perf.test.ts` uses.
  *
  * End-to-end accuracy is what this file proves. That the receive stamp is taken at arrival and not
  * when a reply is processed is proved by `server-query.test.ts` (fake socket that delays
- * processing): over real sockets the median of three samples hides a single late stamp.
+ * processing): over real sockets the best of three samples hides a single late stamp.
  */
 
 const POPULATION_SIZE = 30

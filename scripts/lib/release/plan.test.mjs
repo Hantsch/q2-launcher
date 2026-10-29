@@ -20,6 +20,7 @@ const LOCK_TEXT =
     null,
     2,
   ) + '\n'
+const README_TEXT = '# Q2 Launcher\n\n> **Status: pre-release (1.0.0-beta.1).** Library and installs.\n'
 
 const POPULATED_CHANGELOG = `# Changelog
 
@@ -55,6 +56,7 @@ function baseInput(overrides = {}) {
     changelogText: POPULATED_CHANGELOG,
     pkgText: PKG_TEXT,
     lockText: LOCK_TEXT,
+    readmeText: README_TEXT,
     tags: [],
     requestedVersion: undefined,
     bump: undefined,
@@ -120,6 +122,12 @@ describe('planRelease — AC3: a release promotes Unreleased, writes version fil
 
     const lockWrite = result.writes.find((w) => w.path === 'package-lock.json')
     expect(lockWrite.content).toContain('"version": "1.0.0-beta.2"')
+
+    // check-docs fails CI on a README/package.json mismatch, and the release commit skips CI.
+    const readmeWrite = result.writes.find((w) => w.path === 'README.md')
+    expect(readmeWrite.content).toContain('**Status: pre-release (1.0.0-beta.2).**')
+    const addCommand = result.commands.find((c) => c.kind === 'git-add')
+    expect(addCommand.argv).toContain('README.md')
 
     const commitCommands = result.commands.filter((c) => c.kind === 'git-commit')
     const tagCommands = result.commands.filter((c) => c.kind === 'git-tag')

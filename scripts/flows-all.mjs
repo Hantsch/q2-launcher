@@ -12,7 +12,12 @@
 //                     files can break; with nothing named and nothing affected, nothing runs
 //   --shard=i/n      run the i-th of n round-robin slices of the (selected) flows
 //   --timeout=<s>    kill a flow that runs longer than s seconds (default 300) and count it failed
+//   --tier=smoke|full run the smoke flows of scripts/flows/areas.json, or every flow; not with
+//                    flow names or --affected, composes with the flags below
 //   --repeat=<n>     run every selected flow n times in a row (default 1), each on a fresh seed
+//   --no-confirm     skip the confirmation pass that re-runs only the failed flows once; a flow
+//                    that then passes is reported as flaky and does not fail the run (the pass
+//                    is also skipped with --repeat > 1)
 //   --parallel=<n>   split the selected flows over n child runs of this script, each with its own
 //                    output root (<UI_VERIFY_ROOT>/shard-<i>), then run the pinned flows
 //                    (lib/flow-parallel.mjs: fixed ports, window focus) serially here; the
@@ -21,11 +26,13 @@
 // Seam for the parallel runner, never set by hand: with Q2L_UI_FLOWS_REPORT=<file> the gate result
 // is also written to that file as JSON, which is how a parent reads its children's outcomes.
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import {
+  confirmFailures,
   currentSprint,
+  exitStatus,
   parseFlowArgs,
   planFlows,
   repeatFlows,
@@ -40,7 +47,7 @@ import {
   shardRootName,
   unreportedResult,
 } from './lib/flow-parallel.mjs'
-import { selectAffected } from './lib/flow-select.mjs'
+import { selectAffected, tierFlows, validateTiers } from './lib/flow-select.mjs'
 import { loadFlowTree } from './lib/flow-tree.mjs'
 import { REPO_ROOT, UI_VERIFY_ROOT } from './lib/paths.mjs'
 
@@ -53,7 +60,7 @@ function run(script, args) {
 
 const DEFAULT_TIMEOUT_SECONDS = 300
 const USAGE =
-  'usage: npm run ui:flows [-- <flow|scripts/flows/<flow>.mjs>... --affected[=<ref>] --shard=i/n --timeout=<seconds> --repeat=<n> --parallel=<n>]  (1 <= i <= n, timeout > 0, n >= 1)'
+  'usage: npm run ui:flows [-- <flow|scripts/flows/<flow>.mjs>... --affected[=<ref>] --tier=smoke|full --shard=i/n --timeout=<seconds> --repeat=<n> --parallel=<n> --no-confirm]  (1 <= i <= n, timeout > 0, n >= 1)'
 
 // A surviving Electron would make the next flow fail with "another instance is already running",
 // so the whole tree goes, and the caller awaits it.
@@ -119,10 +126,13 @@ function listDirs(dir) {
  * child's gate result (read from its report) and exit status. Every output line is forwarded
  * with the shard index in front, so concurrent children stay tellable apart.
  */
-function runChild(index, names, { timeoutSeconds, repeat }) {
-  const root = join(UI_VERIFY_ROOT, shardRootName(index))
+function runChild(index, names, { timeoutSeconds, repeat }, suffix = '') {
+  // Each pass has its own root and starts without a report, so a child that dies silently can
+  // never be read as an earlier pass's result.
+  const root = join(UI_VERIFY_ROOT, `${shardRootName(index)}${suffix}`)
   const report = join(root, 'flows-report.json')
   mkdirSync(root, { recursive: true })
+  rmSync(report, { force: true })
   const label = `shard ${index}`
   return new Promise((resolve) => {
     const child = spawn(
@@ -132,6 +142,7 @@ function runChild(index, names, { timeoutSeconds, repeat }) {
         ...names,
         `--timeout=${timeoutSeconds}`,
         `--repeat=${repeat}`,
+        '--no-confirm',
       ],
       {
         cwd: REPO_ROOT,
@@ -175,6 +186,13 @@ async function main() {
   if (parsed.errors.length > 0) usageError(parsed.errors)
   const { timeoutSeconds, repeat, shard, parallel } = parsed
   let picks = []
+  let tierNames = []
+  if (parsed.tier) {
+    const { tiers } = loadFlowTree()
+    const problems = validateTiers(tiers, known)
+    if (problems.length > 0) usageError(problems)
+    tierNames = tierFlows(tiers, parsed.tier, known)
+  }
   if (parsed.affected) {
     const ref = parsed.affected.ref ?? 'HEAD'
     const changedFiles = [
@@ -189,7 +207,14 @@ async function main() {
       areas: tree.areas,
     })
   }
-  const plan = planFlows({ named: parsed.named, affected: parsed.affected, picks, known })
+  const plan = planFlows({
+    named: parsed.named,
+    affected: parsed.affected,
+    picks,
+    known,
+    tier: parsed.tier,
+    tierNames,
+  })
   for (const pick of plan.added) {
     console.log(`affected: ${pick.flow} (${pick.reasons.join('; ')})`)
   }
@@ -230,26 +255,35 @@ async function main() {
     })
 
   const startedAt = Date.now()
-  let result
-  let childFailed = false
-  if (parallel === null) {
-    const names = repeatFlows(selected, repeat)
-    result = { ...(await runSerially(names)), total: names.length }
-  } else {
-    const partition = partitionFlows(selected, parallel)
+  /** One pass over `names`: serially here, or in children plus the pinned flows here. */
+  const runPass = async (names, suffix = '') => {
+    if (parallel === null) {
+      const flowNames = repeatFlows(names, repeat)
+      return { ...(await runSerially(flowNames)), total: flowNames.length }
+    }
+    const partition = partitionFlows(names, parallel)
     for (const line of planLines(partition, parallel)) console.log(line)
     const children = await Promise.all(
-      partition.groups.map((names, k) => runChild(k + 1, names, { timeoutSeconds, repeat })),
+      partition.groups.map((group, k) =>
+        runChild(k + 1, group, { timeoutSeconds, repeat }, suffix),
+      ),
     )
-    childFailed = children.some((child) => child.status !== 0)
     const results = children.map((child) => child.result)
     if (partition.pinned.length > 0) {
       console.log(`
 pinned flows, serially in the parent (${partition.pinned.length}):`)
-      const names = repeatFlows(partition.pinned, repeat)
-      results.push({ ...(await runSerially(names)), total: names.length })
+      const flowNames = repeatFlows(partition.pinned, repeat)
+      results.push({ ...(await runSerially(flowNames)), total: flowNames.length })
     }
-    result = mergeResults(results)
+    return mergeResults(results)
+  }
+  let result = await runPass(selected)
+  if (parsed.confirm && repeat === 1) {
+    result = await confirmFailures(result, (names) => {
+      console.log(`
+confirmation run of ${names.length} failed flow(s): ${names.join(', ')}`)
+      return runPass(names, '-confirm')
+    })
   }
 
   const seconds = Math.round((Date.now() - startedAt) / 1000)
@@ -260,7 +294,7 @@ pinned flows, serially in the parent (${partition.pinned.length}):`)
     mkdirSync(dirname(report), { recursive: true })
     writeFileSync(report, `${JSON.stringify({ ...result, seconds }, null, 2)}\n`)
   }
-  if (!result.ok || childFailed) process.exitCode = 1
+  process.exitCode = exitStatus(result)
 }
 
 await main()

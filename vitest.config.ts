@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [react()],
@@ -28,6 +28,8 @@ export default defineConfig({
     // per-file with a `// @vitest-environment jsdom` docblock so plain .ts tests stay on the
     // faster `node` environment.
     include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.mjs'],
+    // Perf files run only via `npm run test:perf`.
+    exclude: [...configDefaults.exclude, '**/*.perf.test.*'],
     // Default 5000ms is too tight for a dynamic `import()` under load: on a full run (~316 files),
     // transform/import contention can push a single test's first import past it, most reliably on
     // constrained CI runners (see docs/requirements/done/111-master-sources-are-a-list-i-edit.md's

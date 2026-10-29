@@ -22,6 +22,7 @@ export function ConsoleCommandField() {
   const live = usePlaybackStore(
     (state) => state.session !== null && state.session.view?.ended !== true,
   )
+  const unavailable = usePlaybackStore((state) => state.session?.controlsUnavailable ?? null)
   const platform = useLauncher((state) => state.appInfo?.platform ?? '')
   const showStageHint = usePlaybackStore(
     (state) =>
@@ -38,12 +39,14 @@ export function ConsoleCommandField() {
   const localReason = !validation.ok && validation.reason !== 'empty' ? validation.reason : null
   const reason = !live
     ? null
-    : localReason !== null
-      ? t(`replays.console.error.${localReason}`)
-      : serverError
-        ? t(serverError.key, serverError.params)
-        : null
-  const canSend = live && validation.ok && !submitting
+    : unavailable !== null
+      ? t(unavailable.key)
+      : localReason !== null
+        ? t(`replays.console.error.${localReason}`)
+        : serverError
+          ? t(serverError.key, serverError.params)
+          : null
+  const canSend = live && unavailable === null && validation.ok && !submitting
 
   async function submit(): Promise<void> {
     if (!canSend) return
@@ -71,7 +74,7 @@ export function ConsoleCommandField() {
         <div className="flex items-center gap-2">
           <Input
             value={line}
-            disabled={!live}
+            disabled={!live || unavailable !== null}
             placeholder={t('replays.console.placeholder')}
             autoComplete="off"
             spellCheck={false}
@@ -106,8 +109,8 @@ export function ConsoleCommandField() {
       {reason !== null && (
         <p
           id={reasonId}
-          className="min-h-4 text-xs text-danger"
-          role="alert"
+          className={`min-h-4 text-xs ${unavailable !== null ? 'text-ink-muted' : 'text-danger'}`}
+          role={unavailable !== null ? undefined : 'alert'}
           data-testid="replays-console-reason"
         >
           {reason}

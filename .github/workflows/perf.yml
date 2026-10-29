@@ -1,0 +1,20 @@
+# Manual-only by the maintainer's call: timing budgets are read by a person, never gated. A red
+# run blocks nothing (story 267).
+name: perf
+
+on:
+  workflow_dispatch:
+
+jobs:
+  perf:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-node-electron
+        with:
+          electron: 'false'
+
+      - name: Perf lane
+        run: npm run test:perf

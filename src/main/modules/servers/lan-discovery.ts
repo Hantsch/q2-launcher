@@ -190,7 +190,7 @@ export async function discoverLanServers(
     const parsed = parseInfoReply(data)
     if (!parsed.ok) return
     seen.add(key)
-    onReply({ address: key, reply: parsed, rttMs: clock.now() - lastSendAt })
+    onReply({ address: key, reply: parsed, rttMs: Math.round(clock.now() - lastSendAt) })
   }
 
   // One failing interface must not stop the others: each open settles on its own.

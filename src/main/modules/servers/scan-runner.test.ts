@@ -487,25 +487,11 @@ describe('runScan', () => {
       expect(rows).toHaveLength(1)
     })
 
-    it('far-apart samples get 3 more', async () => {
-      const fake = sampled([20, 70, 400, 25, 30, 35])
+    it('a scan stores the lowest of its three ping samples', async () => {
+      const fake = sampled([95, 12, 80])
       const rows = await scanOne(fake)
-      expect(fake.calls).toHaveLength(6)
-      // sorted: 20 25 30 35 70 400 -> (30 + 35) / 2 = 32.5 -> 33
-      expect(rows[0]?.result).toMatchObject({ ok: true, rttMs: 33 })
-    })
-
-    it('close samples get no extra', async () => {
-      const fake = sampled([20, 24, 31])
-      await scanOne(fake)
-      expect(fake.calls).toHaveLength(3)
-    })
-
-    it('the emitted ping is the median of the samples', async () => {
-      const fake = sampled([30, 90, 31])
-      const rows = await scanOne(fake)
-      expect(rows).toHaveLength(1)
-      expect(rows[0]?.result).toMatchObject({ ok: true, rttMs: 31 })
+      expect(fake.calls.filter((c) => c.kind === 'info' && c.address === addr(1))).toHaveLength(3)
+      expect(rows[0]?.result).toMatchObject({ ok: true, rttMs: 12 })
     })
 
     it('samples are taken one at a time', async () => {

@@ -467,7 +467,7 @@ describe('createScanService', () => {
     expect(row?.rttHistory?.at(-1)).toEqual({ at: expect.any(String), rttMs: null })
   })
 
-  it('a status reply does not overwrite the stage-1 median ping', async () => {
+  it('a status reply does not overwrite the stage-1 best ping', async () => {
     const address = '20.0.0.10:27910'
     const state = baseState({ manualServers: [manualEntry(address)] })
     const queryServer: QueryServerFn = async (_target, opts) =>

@@ -1,5 +1,5 @@
 import { cp, mkdir, rm, stat } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import type {
   DownloadsErrorKey,
   EngineBackupInfo,
@@ -259,9 +259,14 @@ interface PlannedSwap {
  * Q2PRO/R1Q2), which is exactly "this launcher cannot say what this installation's engine files
  * are" - and therefore must not go replacing any.
  */
-export function engineAllowlistFor(engine: EngineKind): AssembleFileEntry[] {
+export function engineAllowlistFor(
+  engine: EngineKind,
+  engineExecutable?: string,
+): AssembleFileEntry[] {
   try {
-    return buildAssemblePlan({ engine, scope: 'core' }).filter((entry) => entry.role === 'engine')
+    return buildAssemblePlan({ engine, scope: 'core', engineExecutable }).filter(
+      (entry) => entry.role === 'engine',
+    )
   } catch {
     return []
   }
@@ -365,7 +370,10 @@ export async function startEngineUpdate(
 
   // The allowlist has to exist *before* the job does: an engine whose files this launcher cannot
   // enumerate is one whose files it must not start moving.
-  const allowlist = engineAllowlistFor(installation.engineKind)
+  const allowlist = engineAllowlistFor(
+    installation.engineKind,
+    installation.executablePath ? basename(installation.executablePath) : undefined,
+  )
   if (allowlist.length === 0) {
     log?.warn(
       `no engine file allowlist for ${installation.engineKind}; ${installation.name} cannot be updated`,

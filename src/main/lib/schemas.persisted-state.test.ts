@@ -149,8 +149,18 @@ describe('installationSchema - detectedEngines', () => {
 
   it('detected engines round-trip and a mangled list drops only the field', () => {
     const detectedEngines = [
-      { kind: 'r1q2', executablePath: 'C:\\Games\\Quake2\\r1q2.exe', supported: true },
-      { kind: 'q2pro', executablePath: 'C:\\Games\\Quake2\\q2pro.exe', supported: true },
+      {
+        kind: 'r1q2',
+        executablePath: 'C:\\Games\\Quake2\\r1q2.exe',
+        executablePaths: ['C:\\Games\\Quake2\\r1q2.exe'],
+        supported: true,
+      },
+      {
+        kind: 'q2pro',
+        executablePath: 'C:\\Games\\Quake2\\q2pro64.exe',
+        executablePaths: ['C:\\Games\\Quake2\\q2pro64.exe', 'C:\\Games\\Quake2\\q2pro.exe'],
+        supported: true,
+      },
     ]
 
     expect(parseInstallation({ ...baseRow, detectedEngines })?.detectedEngines).toEqual(
@@ -159,6 +169,17 @@ describe('installationSchema - detectedEngines', () => {
     const mangled = parseInstallation({ ...baseRow, detectedEngines: 'nope' })
     expect(mangled?.id).toBe('install-1')
     expect(mangled?.detectedEngines).toBeUndefined()
+  })
+
+  it('a detected engine stored without its client list has its one client as the list', () => {
+    const q2pro = 'C:\\Games\\Quake2\\q2pro.exe'
+
+    const parsed = parseInstallation({
+      ...baseRow,
+      detectedEngines: [{ kind: 'q2pro', executablePath: q2pro, supported: true }],
+    })
+
+    expect(parsed?.detectedEngines?.[0]?.executablePaths).toEqual([q2pro])
   })
 
   it('keeps a choose-engine check rather than dropping the whole checks array', () => {

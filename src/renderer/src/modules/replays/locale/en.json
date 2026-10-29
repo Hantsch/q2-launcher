@@ -68,6 +68,7 @@
     "stage": {
       "label": "The demo plays here",
       "unavailable": {
+        "r1q2": "Not available in R1Q2: the launcher cannot place the game window, so the demo plays in its own window",
         "wayland": "Not available on Wayland: the launcher cannot place the game window, so the demo plays in its own window"
       },
       "notOnTop": {
@@ -143,9 +144,9 @@
       },
       "withInstallationQ2pro": "Plays with this installation's Q2PRO.",
       "unavailable": {
-        "notQ2pro": "The selected installation is not Q2PRO — demo playback needs Q2PRO. Pick a Q2PRO installation in the left rail.",
+        "unsupportedEngine": "Demos play in Q2PRO or R1Q2 — the selected installation has neither. Pick one in the left rail.",
+        "r1q2CannotPlay": "Not available in R1Q2: it plays only uncompressed .dm2 demos (protocol 34 or 35). This demo needs Q2PRO.",
         "modMissing": "Mod `{{gameDir}}` is not fully installed in this installation — the demo may not play correctly.",
-        "linuxNoQ2pro": "Not available on Linux: demo playback needs a Q2PRO installation",
         "needsDirectLaunch": "This installation launches through Steam — switch it to a direct launch to play demos.",
         "gameRunning": "A game is already running — quit it before playing a demo.",
         "unsafeName": "This file name has characters the game console can't take — rename the demo (letters, digits, dot, dash and underscore only)."
@@ -158,6 +159,9 @@
       }
     },
     "playback": {
+      "unavailable": {
+        "r1q2": "Not available in R1Q2: pausing, speed, seeking, the position, volume, console commands, fullscreen and cinema need Q2PRO."
+      },
       "error": {
         "noSession": "No demo is playing, so there is nothing to control.",
         "invalidCommand": "This command has characters the game console can't take.",

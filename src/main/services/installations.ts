@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
   engineLabel,
@@ -297,6 +297,21 @@ export class InstallationsService {
       if (!chosenEngine.supported) return fail('installations.error.engineUnsupported', { engine })
     }
 
+    // A file name picks one build of the chosen engine, resolved from main's own detection
+    // (story 273).
+    let chosenExecutable = chosenEngine?.executablePath
+    if (chosenEngine && input.engineExecutable !== undefined) {
+      const wanted = input.engineExecutable.toLowerCase()
+      chosenExecutable = (chosenEngine.executablePaths ?? [chosenEngine.executablePath]).find(
+        (path) => basename(path).toLowerCase() === wanted,
+      )
+      if (!chosenExecutable) {
+        return fail('installations.error.executableNotDetected', {
+          executable: input.engineExecutable,
+        })
+      }
+    }
+
     const userPatch: InstallationPatch = { updatedAt: new Date().toISOString() }
 
     // A blank name keeps whatever name the record has.
@@ -333,7 +348,7 @@ export class InstallationsService {
     }
 
     if (chosenEngine) {
-      userPatch.executablePath = chosenEngine.executablePath
+      userPatch.executablePath = chosenExecutable
       // An explicit choice is the one thing that may replace a `custom` badge, which detection
       // never overwrites on its own.
       userPatch.engineKind = chosenEngine.kind
@@ -735,13 +750,17 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
   return next
 }
 
-/** The detected engine whose client is `executablePath`, compared the way paths are everywhere. */
+/**
+ * The detected engine that has `executablePath` among its clients - not just its preferred one, so
+ * a record launching `q2pro.exe` beside the preferred `q2pro64.exe` keeps its Q2PRO badge (story
+ * 273). Compared the way paths are everywhere.
+ */
 function engineOwning(
   engines: readonly DetectedEngine[],
   executablePath: string,
 ): DetectedEngine | undefined {
   const key = pathKey(executablePath)
-  return engines.find((engine) => pathKey(engine.executablePath) === key)
+  return engines.find((engine) => engine.executablePaths.some((path) => pathKey(path) === key))
 }
 
 /**

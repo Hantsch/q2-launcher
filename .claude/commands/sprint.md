@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.5.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.7.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run sprint **$1**.
@@ -91,22 +91,32 @@ that "knew" its agent had stopped while it was still editing the tree has happen
 2. Sprint status: `planned` → start normally. `in-progress` → **resume** (skip finished
    stories, continue at the first open spot). `done` → abort.
 3. `git status` must be clean. Foreign uncommitted changes → abort and ask the user.
+4. **The work branch.** `sprint-branch: true` (also when the key is missing) → the sprint
+   works on its own branch, named after `sprint-branch-pattern`, cut from `branch-base`.
+   `sprint-branch: false` → the work branch **is** `branch-base`: no branch is cut and every
+   commit of this command lands there. In that mode `branch-base` must not be listed in
+   `protected-branches` — if it is, abort and say: either set `sprint-branch: true` or take
+   the branch out of `protected-branches`. Below, "the work branch" means whichever applies.
 
 ## Phase 0 — Setup
 
 1. **Mark the sprint as running where everyone looks — on `branch-base`, before the branch
    exists.** With the sprint `planned`: check out `branch-base`, set `status: in-progress` and
-   the `branch:` line in `sprint.md` (the name the branch is about to get, from
-   `sprint-branch-pattern`), and commit exactly that one file as `$1: sprint started`. This is
-   the one commit this command makes outside the sprint branch, and it is allowed even when
-   `branch-base` is listed in `protected-branches`: it touches nothing but `sprint.md`, and it
-   is what lets anyone on the base branch see that the sprint is under way and on which
-   branch. Never push it.
-2. Create and check out the sprint branch from `branch-base`, named after
-   `sprint-branch-pattern` (e.g. `sprint/$1`). On resume (`in-progress`) the start commit
+   the `branch:` line in `sprint.md` (the work branch: the name the sprint branch is about to
+   get, from `sprint-branch-pattern`, or `branch-base` itself with `sprint-branch: false`), and
+   commit exactly that one file as `$1: sprint started`. With a sprint branch this is the one
+   commit this command makes outside it, and it is allowed even when `branch-base` is listed in
+   `protected-branches`: it touches nothing but `sprint.md`, and it is what lets anyone on the
+   base branch see that the sprint is under way and on which branch. Never push it.
+2. **The sprint's base** is that start commit — `<sprint-base>` below, found again on resume
+   with `git log --format=%h -1 --grep="^$1: sprint started"`. Every "the sprint's commits"
+   in this command is `<sprint-base>..HEAD`, in both modes.
+3. With `sprint-branch: true`: create and check out the sprint branch from `branch-base`, named
+   after `sprint-branch-pattern` (e.g. `sprint/$1`). On resume (`in-progress`) the start commit
    already exists and nothing is committed on `branch-base` again: check the branch out, or
-   create it now if the run died between the two steps.
-3. **Say what the run looks like from the outside** — the first-line status from
+   create it now if the run died between the two steps. With `sprint-branch: false`: stay on
+   `branch-base` (on resume, check it out); there is nothing to cut.
+4. **Say what the run looks like from the outside** — the first-line status from
    `## Status lines`: the phases with their shape and rough length, and the progress file
    `<sprints>/$1/progress.md`.
 
@@ -223,7 +233,7 @@ it returns the closing line, before the commit (`## Status lines`). Prompt (self
   your context for the rest of the sprint.
 
 **After each story YOU commit** — but only if `auto-commit-per-story: true` in the profile,
-and only on the sprint branch (never push, never on a `protected-branches` entry). If it is
+and only on the work branch (never push, never on a `protected-branches` entry). If it is
 `false`, leave the changes staged-free and tell the user at the end which commits to make.
 
 - Story `done`: tick the checkbox in `sprint.md`, then `git add -A` and commit with the
@@ -250,7 +260,7 @@ and only on the sprint branch (never push, never on a `protected-branches` entry
 Every story passed its own narrow gate; this is where they run **together**. A story's gate
 proves its criteria and what its changes touch — it cannot see a later story breaking an
 earlier one's flow, or two stories that are each fine and wrong in combination. Running all
-suites once, on the finished branch, is what catches that. This phase is not optional and is
+suites once, on the finished work branch, is what catches that. This phase is not optional and is
 not skipped because every story came back green: that is exactly the state in which such a
 regression hides.
 
@@ -258,14 +268,18 @@ Resume: the result lives in `sprint.md` under `## Regression gate` and is commit
 review in phase 3. If that section already holds a result and no story or fix commit came
 after the commit it names, skip to phase 3.
 
-**Budget — launches, and it is small.** The full suites run once (steps 1 and 1b). The
-attribution agent re-runs only the failing tests, at most twice (once on `HEAD`, once at the
-merge-base). A fix agent re-runs the failing tests and the short suites once per attempt, and
-you re-run the long suite once per attempt — two attempts. One extra launch is allowed for a
+**Budget — launches, and it is small.** The full suites run once (steps 1 and 1b) —
+**once**, the long suite included: there is no confirmation run of `e2e-all` after a fix. The
+attribution agent re-runs only the failing tests, at most twice (once on `HEAD`, once at
+`<sprint-base>`). A fix agent re-runs the failing tests, the short suites and the story-sized e2e
+gate on its own fix once per attempt — two attempts — and that narrow run *is* the
+confirmation. Measured over six sprints before this rule: the second full run after the fixes
+was ~45 % of all gate flow time and never once caught a regression a fix had introduced; the
+one sprint that skipped it lost nothing. One extra launch is allowed for a
 run the environment lost — an empty log, `another instance is already running`, a port in
 use, a crash before the first test — after the leftover check in step 1b; a second loss of
 that kind is reported as the environment's state, not launched a third time. That is every
-launch this phase has: at most five, usually one per suite. A collision with a stale process
+launch this phase has: at most three full-suite launches, usually one per suite. A collision with a stale process
 is not a test result. And once the attribution agent has returned its verdicts, the gate is
 **decided**: no baseline run in a worktree, no "one clean, isolated run", no re-run "to be
 sure", no second attribution — go to step 5 with what you have. Measured without this
@@ -274,7 +288,7 @@ story builds together.
 
 1. **Run the short suites** — ONE fresh `Agent` (`model: "sonnet"`, `run_in_background: false`),
    so the suite output lands in its context and not in yours. It runs, each once, on the
-   sprint branch's `HEAD`: `build`, the full `test`, the full `e2e` — each only if set and not
+   work branch's `HEAD`: `build`, the full `test`, the full `e2e` — each only if set and not
    `none` — **but not `e2e-all`**, which is step 1b and yours. Quote it the ceiling rule from
    `build.md`'s `## Delegation rules` ("A `Bash` call ends after ten minutes …") word for
    word: `timeout: 600000` on every suite call, and a command that is moved to the background
@@ -306,7 +320,7 @@ story builds together.
 2. **Green**, or red only in quarantined tests (step 3) → record it (step 5), go to phase 3.
 3. **Red → attribute it to a story.** Delegate to ONE fresh `Agent` (`model: "sonnet"`,
    `run_in_background: false`) with the failing tests, the gate log's path, the sprint's story
-   commits (`git log --oneline <branch-base>..HEAD`), the `build` command, the ceiling rule from
+   commits (`git log --oneline <sprint-base>..HEAD`), the `build` command, the ceiling rule from
    `build.md` and the instruction to change no source file and to run only the failing tests,
    never a whole suite — if the failing subset alone would exceed ten minutes, it says so and
    returns `unattributed` for those tests instead of running them. Its verdict is final for
@@ -315,9 +329,9 @@ story builds together.
      regression but a flaky test; it is named as a finding in the review, never silenced, and
      not bisected.
    - **Pre-existing:** run only the failing tests on the sprint's start
-     (`git merge-base <branch-base> HEAD`). Red there too → the sprint did not cause it; it is
+     (`<sprint-base>`). Red there too → the sprint did not cause it; it is
      reported as pre-existing, not bisected, not fixed here.
-   - **Otherwise bisect** over the sprint's commits: `git bisect start HEAD <merge-base>`, then
+   - **Otherwise bisect** over the sprint's commits: `git bisect start HEAD <sprint-base>`, then
      `git bisect run` with a script that runs `build` (when set) and only the failing tests —
      never the whole suite per step. The first bad commit names the story by its ID prefix
      (`042: …`, or `WIP 042: …` for a blocked one). Always finish with `git bisect reset`, and
@@ -336,12 +350,19 @@ story builds together.
    `/roadmap plan`, not a follow-up. With `e2e-quarantine: none` the follow-up line is all
    there is, and the review says the project has no quarantine yet. Measured without this:
    four flows red for five sprints, re-attributed at ~10 minutes per gate.
-4. **Fix it on the sprint branch, or report it as a blocker.** Per attributed story, ONE fresh
+4. **Fix it on the work branch, or report it as a blocker.** Per attributed story, ONE fresh
    `Agent` (`model: "sonnet"`, `run_in_background: false`) gets the story file, the failing
    tests, the bisected commit's diff and the build rules that still hold: fix the cause, never
-   the test — a test weakened until the gate goes green is the regression shipped. It re-runs
-   the failing tests and the short suites once; the long suite's confirmation run is yours, as
-   in step 1b, once per attempt. Green → commit on the sprint branch as
+   the test — a test weakened until the gate goes green is the regression shipped. **Its
+   re-run is the confirmation; the long suite does not run again.** Once per attempt, on the
+   still uncommitted fix, it re-runs: the failing tests (the way the attribution agent ran
+   them), the short suites, and — when the profile sets `e2e-story` — that template filled
+   with the failing e2e tests' files (and `{shard}` per `e2e-story-slices`, as in `build.md`
+   step 5), so a changed-files selection also covers whatever the fix diff touches. The
+   ceiling rule from `build.md` applies to it like to any subagent. A full `e2e-all` after
+   the fix is not launched, not even "to be sure": the fix was checked where it can break
+   something, and the next full run is the next sprint's gate or the release.
+   Green → commit on the work branch as
    `<id>: fix regression from sprint gate` (only with `auto-commit-per-story: true`, same rules
    as phase 2), and append one line to that story's `## Done` naming the regression and the fix
    commit. Two fix attempts without green → stop fixing: it is a **blocker for the merge**,
@@ -376,8 +397,8 @@ story builds together.
    - **Regression gate:** from `## Regression gate` in `sprint.md` — the commands, the
      result, and per failure the test, the story it was bisected to and what happened (fixed
      in which commit, blocker, pre-existing, flaky). A regression that is still red is listed
-     under **Blocked / open** as well, and the review says plainly: do not merge before it is
-     resolved.
+     under **Blocked / open** as well, and the review says plainly: do not merge (with
+     `sprint-branch: false`: do not push or release) before it is resolved.
    - **Acceptance:** one section listing, per story, the criteria and the test that proved
      each one (from the Done sections) — and separately every `manual residue` with its
      reason. That list is the sprint's acceptance record. It is also the honest place to say
@@ -458,7 +479,7 @@ story builds together.
 
 ## Final report to the user
 
-Short and complete: branch name, stories done/blocked, path to `review.md` (and to
+Short and complete: the work branch, stories done/blocked, path to `review.md` (and to
 `testplan.md`, if one was written — otherwise say plainly that nothing needs walking by hand),
 the regression gate in one line (green, or which story broke what and whether it was fixed — a
 red gate first and loudly, because it decides the merge), the acceptance record in one line
@@ -467,14 +488,16 @@ line of measured minutes (refine, each story, each gate command — from the tra
 record; the next sprint's estimates come from there), one line of tiers (the totals row of the
 tier record: `tiers: D 22 / hard 3 · hard reviews 1 of 4 · agents 41`), that nothing is still running
 (`background tasks: none`, or the list and why), and that merging into `branch-base` is the
-user's decision. A `protected-branches` entry is never the target of a sprint branch merge you
-make.
+user's decision — with `sprint-branch: false` instead that the commits are already on
+`branch-base` and pushing them is the user's decision. A `protected-branches` entry is never
+the target of a sprint branch merge you make.
 
 ## Rules
 
 - **Never push. Never commit on a protected branch. No merge** — that is the user's job. The
   single exception is the `$1: sprint started` commit of phase 0 on `branch-base`: one file,
-  once, never pushed.
+  once, never pushed. `sprint-branch: false` changes where the commits land, never this rule:
+  its `branch-base` is not protected, or the run does not start.
 - **Acceptance is the test suite.** A sprint does not hand the user a list of things to click.
   Every criterion was mapped to a test in refine and proven by it in build; `review.md` records
   which test proved what. A sprint that ends with "please walk these 40 items" has failed at
@@ -491,7 +514,7 @@ make.
   for a real reason (an OS dialog, specific hardware, a paid external service) land on a human,
   each with that reason. They are listed in the review and, per the `testplan` setting, in
   `testplan.md`. They do not hold a story or the sprint open.
-- Auto-commits apply only to `/sprint` on the sprint branch; elsewhere "never
+- Auto-commits apply only to `/sprint` on the work branch; elsewhere "never
   commit without being asked" still holds.
 - **Never end a turn waiting for an agent.** A turn without a tool call ends your run — "I'll
   report back once the build agent returns" is not a pause, it is the end of the sprint, and

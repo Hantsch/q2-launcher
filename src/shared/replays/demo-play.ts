@@ -14,10 +14,17 @@ import { STEAM_RUNNER_CHOICE } from '../types/runner'
 
 export const DEMO_BASE_GAME_DIR = 'baseq2'
 
+export type DemoPlayEngine = 'q2pro' | 'r1q2'
+
+/** R1Q2 has no `+demo` for a path it cannot resolve itself; it plays through `+demomap`. */
+export function demoPlayCommand(engine: DemoPlayEngine): '+demo' | '+demomap' {
+  return engine === 'q2pro' ? '+demo' : '+demomap'
+}
+
 export type DemoPlayReasonKey =
-  | 'replays.play.unavailable.linuxNoQ2pro'
   | 'replays.play.unavailable.modMissing'
-  | 'replays.play.unavailable.notQ2pro'
+  | 'replays.play.unavailable.unsupportedEngine'
+  | 'replays.play.unavailable.r1q2CannotPlay'
   | 'replays.play.unavailable.needsDirectLaunch'
   | 'replays.play.unavailable.gameRunning'
   | 'replays.play.unavailable.unsafeName'
@@ -34,8 +41,10 @@ export type DemoPlayEligibility =
           /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
           inPlace: boolean
           extraArgs: string[]
-          /** Set when the installation's own engine is not Q2PRO: the launch must use its detected Q2PRO. */
-          engine?: 'q2pro'
+          /** The engine that plays the demo; decides the console command. */
+          playEngine: DemoPlayEngine
+          /** Set when the installation's own engine is not the one that plays: the launch must use its detected one. */
+          engine?: DemoPlayEngine
         },
         DemoPlayReasonKey
       >,
@@ -89,26 +98,50 @@ function isQ2proCapable(i: Pick<Installation, 'engineKind' | 'detectedEngines'>)
   )
 }
 
+function isR1q2Capable(i: Pick<Installation, 'engineKind' | 'detectedEngines'>): boolean {
+  return (
+    i.engineKind === 'r1q2' ||
+    (i.detectedEngines ?? []).some((e) => e.kind === 'r1q2' && e.supported)
+  )
+}
+
+/** The wire protocol when known; null when the header gave none (an unknown protocol is tried). */
+function knownProtocol(demo: DiscoveredDemo): number | null {
+  const p = demo.readable ? demo.protocol : demo.unreadable?.protocol
+  return typeof p === 'number' ? p : null
+}
+
+function r1q2CanPlay(demo: DiscoveredDemo): boolean {
+  if (demo.format === 'mvd2' || demo.gzip) return false
+  const p = knownProtocol(demo)
+  return p === null || p === 34 || p === 35
+}
+
 function hasGameDir(gameDirs: readonly string[], dir: string): boolean {
   return sameDir(dir, DEMO_BASE_GAME_DIR) || gameDirs.some((d) => sameDir(d, dir))
 }
 
 export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
-  const { demo, installations, activeInstallationId, platform, gameRunning } = input
+  const { demo, installations, activeInstallationId, gameRunning } = input
   const gameDir = demoGameDir(demo)
-
-  if (platform === 'linux' && !installations.some(isQ2proCapable)) {
-    return refuse('replays.play.unavailable.linuxNoQ2pro')
-  }
 
   const active =
     activeInstallationId === null
       ? undefined
       : installations.find((i) => i.id === activeInstallationId)
-  if (!active || !isQ2proCapable(active)) return refuse('replays.play.unavailable.notQ2pro')
+  if (!active) return refuse('replays.play.unavailable.unsupportedEngine')
+  const playEngine: DemoPlayEngine | null = isQ2proCapable(active)
+    ? 'q2pro'
+    : isR1q2Capable(active)
+      ? 'r1q2'
+      : null
+  if (playEngine === null) return refuse('replays.play.unavailable.unsupportedEngine')
   if (active.runner === STEAM_RUNNER_CHOICE)
     return refuse('replays.play.unavailable.needsDirectLaunch')
   if (gameRunning) return refuse('replays.play.unavailable.gameRunning')
+  if (playEngine === 'r1q2' && !r1q2CanPlay(demo)) {
+    return refuse('replays.play.unavailable.r1q2CannotPlay')
+  }
   // Last, and only a warning: a mod folder the inspector does not list (only demos, or files the
   // server sent on connect) still plays - the user decides. Last so the warning is never shown for
   // a demo that could not be played anyway.
@@ -136,7 +169,8 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
     installationId: active.id,
     gameDir,
     inPlace,
-    extraArgs: inPlace ? ['+demo', demo.fileName] : [],
-    ...(active.engineKind !== 'q2pro' ? { engine: 'q2pro' as const } : {}),
+    playEngine,
+    extraArgs: inPlace ? [demoPlayCommand(playEngine), demo.fileName] : [],
+    ...(active.engineKind !== playEngine ? { engine: playEngine } : {}),
   }
 }

@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join } from 'node:path'
 import { z } from 'zod'
 import { limitsFor } from '@shared/config/syntax/engine-limits'
+import type { DemoPlayEngine } from '@shared/replays/demo-play'
 import {
   effectiveWriteDirs,
   type DiscoverableInstallation,
@@ -10,8 +11,8 @@ import {
 
 /**
  * Story 170: a stage play sets `vid_fullscreen`/`vid_geometry` on the command line, and Q2PRO
- * archives both into the user's own `q2config.cfg` when it exits. This puts back exactly those lines
- * afterwards - it never rewrites the file from a snapshot:
+ * archives both into the user's own `q2config.cfg` when it exits. A line-wise snapshot puts back
+ * exactly those lines afterwards - it never rewrites the file from a snapshot:
  *
  * - `snapshot` records, per name, the exact line as it stood before launch (or that it was absent),
  *   and persists that to `pendingPath` so a launcher crash mid-session is repaired on the next start;
@@ -19,6 +20,11 @@ import {
  *   file the engine just wrote: each named `set`/`seta` line becomes the recorded line again, or goes
  *   away if there was none. Every other byte - line endings, the user's in-session changes - stays;
  * - `applyPending` runs a snapshot a previous launcher run never got to restore.
+ *
+ * An R1Q2 play can only use `demomap`, which runs the demo's stufftext - any cvar or bind
+ * can be stuffed and archived, so no list of names covers it. A `wholeFile` snapshot records the
+ * config's exact bytes (or that it was absent) instead, and its restore puts the file back as it was
+ * (or removes the one the game created). It goes through the same pending file, queue and atomic write (story 275).
  *
  * The file is handled as latin1 so every byte round-trips unchanged whatever its encoding. All three
  * operations run strictly one after another, so a play started right after an exit can never take its
@@ -42,23 +48,26 @@ export interface CvarRestoreFs {
 export const nodeCvarRestoreFs: CvarRestoreFs = { readFile, writeFile, rename, rm, mkdir }
 
 export interface CvarRestore {
-  snapshot(configPath: string): Promise<void>
+  snapshot(configPath: string, options?: { wholeFile?: true }): Promise<void>
   restore(): Promise<void>
   applyPending(): Promise<void>
 }
 
 /**
- * `<write dir>/<game>/q2config.cfg`: Q2PRO on Linux writes under `~/.q2pro/<game>`, everywhere else
- * into the game dir itself. Null when the engine's config name is not known.
+ * The config the playing engine writes on exit. Q2PRO: `<write dir>/<game>/q2config.cfg` - on Linux
+ * under `~/.q2pro/<game>`, everywhere else the game dir itself. R1Q2 has no write dir: always the
+ * game dir. Null when the engine's config name is not known.
  */
 export function sessionConfigPath(
   installation: DiscoverableInstallation,
   gameDir: string,
   gameDirPath: string,
   context: DiscoverContext,
+  engine: DemoPlayEngine,
 ): string | null {
-  const name = limitsFor('q2pro')?.writtenConfigName
+  const name = limitsFor(engine)?.writtenConfigName
   if (!name) return null
+  if (engine === 'r1q2') return join(gameDirPath, name)
   const [writeDir] = effectiveWriteDirs(installation, context)
   return writeDir ? join(writeDir, gameDir, name) : join(gameDirPath, name)
 }
@@ -67,12 +76,19 @@ interface Snapshot {
   configPath: string
   /** Per name: the line's text without its line ending, or null when the file had no such line. */
   lines: Map<string, string | null>
+  /** Whole-file mode only: the file's bytes as base64, or null when it did not exist. */
+  file?: string | null
 }
 
 const lineSchema = z.string().regex(/^[^\r\n]*$/)
 const pendingSchema = z.object({
   configPath: z.string().refine((p) => isAbsolute(p)),
   lines: z.record(z.string(), lineSchema.nullable()),
+  file: z
+    .string()
+    .regex(/^[A-Za-z0-9+/]*={0,2}$/)
+    .nullable()
+    .optional(),
 })
 
 interface Segment {
@@ -155,13 +171,17 @@ export function createCvarRestore({
     return run
   }
 
-  async function readText(path: string): Promise<string | null> {
+  async function readBytes(path: string): Promise<Buffer | null> {
     try {
-      return (await fs.readFile(path)).toString('latin1')
+      return await fs.readFile(path)
     } catch (error) {
       if (isMissing(error)) return null
       throw error
     }
+  }
+
+  async function readText(path: string): Promise<string | null> {
+    return (await readBytes(path))?.toString('latin1') ?? null
   }
 
   // Not fs-utils' writeAtomic: writes through the injected fs and removes the tmp file on failure.
@@ -182,6 +202,7 @@ export function createCvarRestore({
   }
 
   async function apply(snapshot: Snapshot): Promise<void> {
+    if (snapshot.file !== undefined) return applyWholeFile(snapshot.configPath, snapshot.file)
     const text = await readText(snapshot.configPath)
     if (text === null) return
     const segments = splitLines(text)
@@ -209,6 +230,16 @@ export function createCvarRestore({
     if (next !== text) await writeAtomic(snapshot.configPath, next, 'latin1')
   }
 
+  /** latin1 maps every byte to one char and back, so the recorded bytes are written unchanged. */
+  async function applyWholeFile(configPath: string, file: string | null): Promise<void> {
+    if (file === null) {
+      await fs.rm(configPath, { force: true })
+      return
+    }
+    const original = Buffer.from(file, 'base64').toString('latin1')
+    if ((await readText(configPath)) !== original) await writeAtomic(configPath, original, 'latin1')
+  }
+
   /** The pending snapshot on disk: null when absent, unparseable or invalid (raw kept for the caller). */
   async function loadPending(): Promise<{ exists: boolean; snapshot: Snapshot | null }> {
     let raw: string
@@ -225,7 +256,11 @@ export function createCvarRestore({
         const lines = new Map(
           Object.entries(result.data.lines).filter(([name]) => names.includes(name)),
         )
-        return { exists: true, snapshot: { configPath: result.data.configPath, lines } }
+        const { configPath, file } = result.data
+        return {
+          exists: true,
+          snapshot: file === undefined ? { configPath, lines } : { configPath, lines, file },
+        }
       }
     } catch {
       // Unparseable JSON: nothing trustworthy to restore.
@@ -234,7 +269,7 @@ export function createCvarRestore({
   }
 
   return {
-    snapshot(configPath) {
+    snapshot(configPath, options) {
       return serial(async () => {
         // A pending snapshot a failed restore left behind holds the user's ORIGINAL lines; the config
         // now still carries the stage values, so snapshotting it would lose them. Repair first, and if
@@ -249,18 +284,29 @@ export function createCvarRestore({
             return
           }
         }
-        const text = await readText(configPath)
-        const lines = new Map<string, string | null>(names.map((n) => [n, null]))
-        for (const segment of text === null ? [] : splitLines(text)) {
-          const name = cvarNameOf(segment.content)
-          // The last one wins when the engine execs the file, so that is the line that counts.
-          if (name !== null && lines.has(name)) lines.set(name, segment.content)
+        let next: Snapshot
+        if (options?.wholeFile) {
+          const bytes = await readBytes(configPath)
+          next = { configPath, lines: new Map(), file: bytes?.toString('base64') ?? null }
+        } else {
+          const text = await readText(configPath)
+          const lines = new Map<string, string | null>(names.map((n) => [n, null]))
+          for (const segment of text === null ? [] : splitLines(text)) {
+            const name = cvarNameOf(segment.content)
+            // The last one wins when the engine execs the file, so that is the line that counts.
+            if (name !== null && lines.has(name)) lines.set(name, segment.content)
+          }
+          next = { configPath, lines }
         }
-        current = { configPath, lines }
+        current = next
         await fs.mkdir(dirname(pendingPath), { recursive: true })
         await writeAtomic(
           pendingPath,
-          JSON.stringify({ configPath, lines: Object.fromEntries(lines) }),
+          JSON.stringify({
+            configPath,
+            lines: Object.fromEntries(next.lines),
+            ...(next.file !== undefined ? { file: next.file } : {}),
+          }),
           'utf8',
         )
       })

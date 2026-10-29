@@ -73,8 +73,22 @@ const installationSchema = z.object({
   // Every engine client the last inspection found. Same additive/forgiving convention as
   // `executableKind` right above: a record predating this field lacks the key until the startup
   // revalidation fills it, and a mangled value degrades to "not inspected yet" (story 246)
+  // An item written before engines listed all their clients lacks `executablePaths`; its one
+  // known client is the whole list (story 273)
   detectedEngines: z
-    .array(z.object({ kind: engineKindSchema, executablePath: z.string(), supported: z.boolean() }))
+    .array(
+      z
+        .object({
+          kind: engineKindSchema,
+          executablePath: z.string(),
+          executablePaths: z.array(z.string()).min(1).optional(),
+          supported: z.boolean(),
+        })
+        .transform((engine) => ({
+          ...engine,
+          executablePaths: engine.executablePaths ?? [engine.executablePath],
+        })),
+    )
     .optional()
     .catch(undefined),
   // The user's runner choice, a `DetectedRunner.id` or `'native'`. Same additive,

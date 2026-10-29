@@ -200,9 +200,16 @@ async function harness(
     /** A backup this installation already carries - both the recorded pointer and a real slot on
      * disk, so a test can prove what a failed run does to *both* of them. */
     recordedBackup?: EngineBackupInfo
+    /** Names the client binary the installation holds and launches instead of `q2pro.exe`. */
+    installedBinary?: string
   } = {},
 ): Promise<Harness> {
-  await writeTree(installRoot, { ...OLD_FILES, ...UNRELATED_FILES })
+  const { 'q2pro.exe': oldBinary, ...oldRest } = OLD_FILES
+  await writeTree(installRoot, {
+    ...oldRest,
+    [options.installedBinary ?? 'q2pro.exe']: oldBinary,
+    ...UNRELATED_FILES,
+  })
 
   const validateCalls: string[] = []
   const harnessRunner = makeJobRunner({
@@ -386,6 +393,19 @@ describe('the engine update job', () => {
       status: 'succeeded',
       writeLock: false,
     })
+  })
+
+  it('updating a q2pro64.exe installation replaces q2pro64.exe in place', async () => {
+    const test = await harness({ installedBinary: 'q2pro64.exe' })
+    expect(test.installation.executablePath).toBe(join(installRoot, 'q2pro64.exe'))
+
+    const started = await startEngineUpdate(test.deps, { installationId: test.installation.id })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await expect(started.value.settled).resolves.toMatchObject({ status: 'succeeded' })
+
+    expect(await contentsOf(installRoot, 'q2pro64.exe')).toBe(NEW_FILES['q2pro.exe'])
+    expect(existsSync(join(installRoot, 'q2pro.exe'))).toBe(false)
   })
 
   it('the recorded engine version afterwards is the one written to disk', async () => {

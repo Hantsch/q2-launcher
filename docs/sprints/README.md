@@ -39,7 +39,9 @@ sprints/
 2. **`/sprint SNN`** runs autonomously:
    - **Setup:** `sprint.md` is set to `in-progress` and committed on `branch-base` as
      `SNN: sprint started` — the one commit the sprint makes there, so the base branch shows
-     that the sprint is running and where — then the sprint branch is cut from it. The first
+     that the sprint is running and where — then the sprint branch is cut from it. With
+     `sprint-branch: false` in the profile no branch is cut: the sprint commits directly on
+     `branch-base`, which then must not be a protected branch. The first
      chat line names the phases, their rough length and the progress file.
    - **Clarification round:** deliberately open decisions (`## Open Questions` of the
      stories) are never decided by an agent — the orchestrator puts them to you bundled via
@@ -53,7 +55,8 @@ sprints/
      tests the story's changes affect (`test-story`) and only the story's own e2e tests
      (`e2e-story`) — and a clean-agent review that also judges whether those
      tests would actually fail on a broken implementation. After each story **one commit on the
-     sprint branch** (never push, never on a protected branch). Blocked stories do not stop the
+     sprint branch** (or on `branch-base` with `sprint-branch: false`; never push, never on a
+     protected branch). Blocked stories do not stop the
      sprint — they are marked and explained in the review doc.
    - **Regression gate:** after the last story, the full `test`, the full `e2e` and `e2e-all`
      run once on the finished branch — this is where stories that are each fine break each
@@ -67,15 +70,10 @@ sprints/
      there is manual residue to walk, the roadmap gets its milestone row, its follow-up lines
      and a fresh "Where we stand" (nothing more), then committed, `status: done`.
 3. **You** read `review.md`, plan the next sprint on top of it (correction stories if needed)
-   and decide about the **merge back into `branch-base`**. There is nothing to accept by hand
+   and decide about the **merge back into `branch-base`** (with `sprint-branch: false` the
+   commits are already there; what is left is your push). There is nothing to accept by hand
    first. A protected branch only ever receives a deliberate release merge, never a sprint
    branch directly.
-
-   Run the rehearsal before a merge into `main` — not per sprint, not per push to `dev`:
-   `npm run rehearse` (detached: verify:release, `ci:local` and `ci:local:flows`, with a pass/fail
-   record and timings under the gitignored `.rehearsal/`) and check `npm run rehearse -- --status`
-   until it reports passed. After opening the PR, the GitHub-only checks remain: `ui-flows` shard
-   times under 20 minutes and `windows-verify` green.
 
 The sprint is **resumable**: if the session dies, `/sprint SNN` continues at the
 first open spot based on `sprint.md` + story status.

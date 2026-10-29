@@ -1,8 +1,19 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, matchesGlob } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import yaml from 'js-yaml'
+import vitestConfig from '../vitest.config.ts'
 
 /**
  * Repo-wide line-ending and formatting invariants, read from the real repo (story 226): every
@@ -88,8 +99,8 @@ describe('no patched dependencies', () => {
     expect(existsSync(fileURLToPath(new URL('../patches', import.meta.url)))).toBe(false)
     expect(pkg.scripts.postinstall).toBeUndefined()
     expect(JSON.stringify(pkg)).not.toContain('patch-package')
-    // markAsUncloneable exists from Node 22.10; 22.12 is the first LTS-line release with require(esm).
-    expect(pkg.engines.node).toBe('>=22.12.0')
+    // jsdom 30 and undici 8 (dev) need Node >=22.19; CI pins 22.22.2 in .node-version (story 271).
+    expect(pkg.engines.node).toBe('>=22.22.2')
   })
 })
 
@@ -105,7 +116,7 @@ describe('dependency floors', () => {
 
   test('the lockfile carries no advisory-affected electron or js-yaml', () => {
     const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'))
-    expect(atLeast(lock.packages['node_modules/electron'].version, '43.7.7')).toBe(true)
+    expect(atLeast(lock.packages['node_modules/electron'].version, '43.8.4')).toBe(true)
     expect(atLeast(lock.packages['node_modules/js-yaml'].version, '4.3.2')).toBe(true)
   })
 })
@@ -125,17 +136,117 @@ describe('dependency automation', () => {
     expect(groups.some((g) => g['update-types']?.includes('major'))).toBe(false)
   })
 
-  test('ci runs a non-blocking audit with a dated follow-up', () => {
+  test('the ci audit step blocks a PR', () => {
     const ci = yaml.load(readRepo('../.github/workflows/ci.yml'))
-    const steps = ci.jobs.test.steps
-    const audit = steps.find((s) => s.run === 'npm audit --audit-level=high')
-    expect(audit?.['continue-on-error']).toBe(true)
-    const roadmap = readRepo('../docs/ROADMAP.md')
-    expect(roadmap).toContain('npm audit')
-    expect(roadmap).toContain('2026-10-09')
+    const audit = ci.jobs.test.steps.find((s) => s.run === 'npm audit --audit-level=high')
+    expect(audit).toBeDefined()
+    expect(audit.name).toBe('Audit')
+    expect(audit['continue-on-error']).toBeUndefined()
   })
 
   test('the roadmap carries no Vite pin follow-up', () => {
     expect(readRepo('../docs/ROADMAP.md')).not.toContain('Vite is pinned to 7.x')
+  })
+})
+
+describe('test discovery', () => {
+  const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/
+
+  // A test file no include glob matches is silently never run.
+  const orphanTestFiles = (paths, include) =>
+    paths.filter(
+      (path) =>
+        TEST_FILE.test(path) &&
+        !path.split('/').includes('node_modules') &&
+        !include.some((glob) => matchesGlob(path, glob)),
+    )
+
+  test.skipIf(!IS_WORK_TREE_ROOT)('every tracked test file is inside a vitest include glob', () => {
+    const tracked = git(['ls-files']).split('\n').filter(Boolean)
+
+    expect(orphanTestFiles(tracked, vitestConfig.test.include)).toEqual([])
+  })
+
+  test('a test file outside the include globs is reported', () => {
+    const paths = [
+      'scripts/foo.test.cjs',
+      'src/a.test.ts',
+      'scripts/b.test.mjs',
+      'src/__snapshots__/a.test.ts.snap',
+      'node_modules/x/y.test.js',
+    ]
+
+    expect(orphanTestFiles(paths, vitestConfig.test.include)).toEqual(['scripts/foo.test.cjs'])
+  })
+})
+
+describe('flows wait on conditions', () => {
+  // Shrink only: a flow leaves this list when it is fixed.
+  const LEGACY_SLEEP_ALLOWLIST = Object.freeze([
+    'scripts/flows/controls-extra-keys.mjs',
+    'scripts/flows/drop-message-checkbox.mjs',
+    'scripts/flows/grenade-rows-take-a-key.mjs',
+    'scripts/flows/home-dashboard-arrange.mjs',
+    'scripts/flows/home-hero-carousel.mjs',
+    'scripts/flows/news-cover-template.mjs',
+    'scripts/flows/replays-bulk-delete.mjs',
+    'scripts/flows/replays-bulk-one-selected.mjs',
+    'scripts/flows/replays-demo-context-menu.mjs',
+    'scripts/flows/replays-demo-file-actions.mjs',
+    'scripts/flows/replays-detail-always-shown.mjs',
+    'scripts/flows/replays-folder-drag-move.mjs',
+    'scripts/flows/replays-multi-select.mjs',
+    'scripts/flows/replays-name-templates.mjs',
+    'scripts/flows/servers-lan-no-scan-while-playing.mjs',
+    'scripts/flows/servers-no-scan-while-playing.mjs',
+    'scripts/lib/servers-lan-flow.mjs',
+  ])
+
+  const filesWithFixedSleeps = (root) => {
+    const found = []
+    const walk = (relDir) => {
+      const dir = join(root, relDir)
+      if (!existsSync(dir)) return
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const rel = `${relDir}/${entry.name}`
+        if (entry.isDirectory()) walk(rel)
+        else if (
+          entry.name.endsWith('.mjs') &&
+          readFileSync(join(root, rel), 'utf8').includes('waitForTimeout')
+        ) {
+          found.push(rel)
+        }
+      }
+    }
+    walk('scripts/flows')
+    walk('scripts/lib')
+    return found.sort()
+  }
+
+  test('a flow with one fixed sleep is reported', () => {
+    const root = mkdtempSync(join(tmpdir(), 'sleep-ratchet-'))
+    try {
+      mkdirSync(join(root, 'scripts', 'flows'), { recursive: true })
+      writeFileSync(
+        join(root, 'scripts', 'flows', 'fixture-flow.mjs'),
+        'await page.waitForTimeout(100)\n',
+      )
+
+      expect(filesWithFixedSleeps(root)).toEqual(['scripts/flows/fixture-flow.mjs'])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('no flow outside the legacy allowlist sleeps on a fixed timeout', () => {
+    expect(
+      filesWithFixedSleeps(REPO_ROOT).filter((f) => !LEGACY_SLEEP_ALLOWLIST.includes(f)),
+    ).toEqual([])
+  })
+
+  test('every legacy allowlist entry still sleeps', () => {
+    const sleeping = filesWithFixedSleeps(REPO_ROOT)
+
+    expect(LEGACY_SLEEP_ALLOWLIST.filter((f) => !sleeping.includes(f))).toEqual([])
   })
 })

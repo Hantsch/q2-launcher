@@ -186,6 +186,20 @@ describe('queryServer (stub seam, fake timers)', () => {
     return pending
   }
 
+  it('a fractional round trip is reported in whole milliseconds', async () => {
+    const seam = stubSeam()
+    const { clock, advance } = fakeClock()
+    const pending = await start(seam, clock)
+
+    await advance(12.6)
+    seam.deliver(SAMPLE_INFO_REPLY)
+    await advance(0)
+
+    const result = pending.result
+    expect(result?.ok).toBe(true)
+    if (result?.ok === true) expect(result.rttMs).toBe(13)
+  })
+
   it('a reply is parsed and the result carries a measured rttMs', async () => {
     const seam = stubSeam()
     const { clock, advance } = fakeClock()

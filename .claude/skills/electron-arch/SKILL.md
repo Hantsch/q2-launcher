@@ -3,7 +3,7 @@ name: electron-arch
 description: "Layering and security rules for Electron apps (main / preload / renderer + a pure shared layer). Use when: creating or editing anything under a main, preload or renderer source tree; creating a BrowserWindow or setting webPreferences; adding filesystem, registry, shell or child-process access; handling a path or any other value that came from the renderer; adding openExternal, navigation or window-open handling; setting a Content-Security-Policy or a permission handler; spawning a process; adding a module/feature to an Electron app; adding persisted state for a module; handling app quit/before-quit; a module importing another module or electron directly; reviewing Electron code for privilege leaks. DO NOT USE FOR: web-only React apps; the IPC contract mechanics (use typed-ipc); backend services."
 ---
 
-<!-- tech-rules:managed 2.3.0 -->
+<!-- tech-rules:managed 2.4.0 -->
 
 # Electron Architecture and Security
 

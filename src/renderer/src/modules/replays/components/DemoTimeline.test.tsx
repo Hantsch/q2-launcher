@@ -313,6 +313,42 @@ describe('DemoTimeline (story 187 D6)', () => {
   })
 })
 
+describe('DemoTimeline engine without channel', () => {
+  it('with controls unavailable every channel control is visible, disabled and described by the visible reason, and Stop stays enabled', () => {
+    act(() => {
+      usePlaybackStore.getState().beginSession('a.dm2', 60_000, { id: 'd1', archived: false })
+      usePlaybackStore.getState().applyPosition(1000, null)
+    })
+    const demo = {
+      id: 'd1',
+      archiveEntry: null,
+      sidecar: { state: 'ok', values: { comments: [] } },
+    }
+    render(createElement(DemoTimeline, { demo: demo as unknown as DemoRow, onRowPatched: vi.fn() }))
+    act(() =>
+      usePlaybackStore.getState().applyDisplay({
+        fullscreen: false,
+        controlsUnavailable: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+      }),
+    )
+    const reason = screen.getByTestId('replays-playback-engine-reason')
+    expect(reason.textContent).toContain('not on the primary display')
+    for (const id of ['toggle', 'back', 'forward', 'speed', 'seek', 'cinema', 'fullscreen']) {
+      expect(testid(id).getAttribute('aria-disabled')).toBe('true')
+      expect(testid(id).getAttribute('aria-describedby')).toBe(reason.id)
+    }
+    expect(testid('volume').getAttribute('aria-describedby')).toBe(reason.id)
+    expect(testid('add-comment').getAttribute('aria-disabled')).toBe('true')
+    expect(testid('add-comment').getAttribute('aria-describedby')).toBe(reason.id)
+    expect((testid('volume') as HTMLInputElement).disabled).toBe(true)
+    expect(testid('position').textContent).toBe('--:--')
+    expect(screen.queryByTestId('replays-timeline-cinema-reason')).toBeNull()
+    fireEvent.click(testid('toggle'))
+    expect(playbackTimeline).not.toHaveBeenCalled()
+    expect((testid('stop') as HTMLButtonElement).disabled).toBe(false)
+  })
+})
+
 describe('DemoTimeline comments', () => {
   const DEMO_ID = 'd1'
   const commentEdit = vi.fn()

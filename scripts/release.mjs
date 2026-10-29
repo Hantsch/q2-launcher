@@ -11,12 +11,12 @@
 //   2. The CI guard is the very first thing that happens, before any file is read, before
 //      `planRelease`, before the build: a non-dry run outside `CI=true` can never legitimately
 //      proceed (the profile bars pushing to `main` by hand), so there is nothing to compute.
-//   3. The version bump (`CHANGELOG.md`, `package.json`, `package-lock.json`) lands on disk before
+//   3. The version bump (`CHANGELOG.md`, `package.json`, `package-lock.json`, `README.md`) lands on disk before
 //      the build runs, in both a dry and a real run - electron-builder reads `package.json`'s
 //      `"version"` to decide the build's output directory (`release/<version>`) and every
 //      artifact's filename, so the build has to run against the bumped version or the asset check
 //      right after it is checking a directory nothing was ever built into. A dry run reverts those
-//      three files back to what was read at the start immediately after the asset check succeeds,
+//      four files back to what was read at the start immediately after the asset check succeeds,
 //      so it ends up touching nothing; a real run leaves them bumped and continues into
 //      git add/commit/tag/push and `gh release create`.
 //
@@ -72,7 +72,7 @@ const BUMPS = ['major', 'minor', 'patch']
  * @typedef {Object} ReleaseArgs
  * @property {boolean} dryRun
  * @property {boolean} printPlan - `--print-plan`: resolve the plan, print it as JSON on stdout and
- *   stop. Reads nothing but the three tracked files and `git tag`; writes, builds and publishes
+ *   stop. Reads nothing but the four tracked files and `git tag`; writes, builds and publishes
  *   nothing. This is what lets CI's `plan` job decide the version before any runner starts a
  *   build, so a refusal (an empty `## Unreleased`, an existing tag) costs no build at all.
  * @property {boolean} promoteChangelog - `--promote-changelog --version <v>`: writes ONLY the
@@ -231,7 +231,7 @@ function usageFor(arg) {
  * The bump writes sit *above the build itself* (in both a dry and a real run) for the same reason:
  * electron-builder reads `package.json`'s `"version"` for its output directory and every artifact's
  * filename, so the build has to run against the bumped version for the asset check right after it
- * to mean anything. D4's "a dry run touches nothing" note is reconciled by reverting those three
+ * to mean anything. D4's "a dry run touches nothing" note is reconciled by reverting those four
  * files right before the dry run returns - in a `finally`, so the revert runs whether the build and
  * asset check succeeded or one of them threw; a thrown error is reverted-then-rethrown, never
  * swallowed.
@@ -265,6 +265,7 @@ export function runRelease(options, deps) {
   const changelogText = deps.readFile('CHANGELOG.md')
   const pkgText = deps.readFile('package.json')
   const lockText = deps.readFile('package-lock.json')
+  const readmeText = deps.readFile('README.md')
 
   let plan
   try {
@@ -272,6 +273,7 @@ export function runRelease(options, deps) {
       changelogText,
       pkgText,
       lockText,
+      readmeText,
       tags: deps.listTags(),
       requestedVersion: options.requestedVersion,
       bump: options.bump,
@@ -358,7 +360,7 @@ export function runRelease(options, deps) {
     try {
       assets = buildAndCollectAssets()
     } finally {
-      // "Touches nothing" (D4's own acceptance note): put the three bumped files back exactly as
+      // "Touches nothing" (D4's own acceptance note): put the four bumped files back exactly as
       // they were before this run started, so the working tree ends up byte-identical to how it
       // began - unconditionally, whether the build/asset check above succeeded or threw. Without
       // this in a `finally`, a real build failure or a genuinely missing asset (collectAssets'
@@ -368,6 +370,7 @@ export function runRelease(options, deps) {
       deps.writeFile('CHANGELOG.md', changelogText)
       deps.writeFile('package.json', pkgText)
       deps.writeFile('package-lock.json', lockText)
+      deps.writeFile('README.md', readmeText)
     }
     deps.log(
       'dry run - build ran for real and assets were checked, but the version bump was reverted; ' +
@@ -387,7 +390,7 @@ export function runRelease(options, deps) {
 
   // --- everything below this line mutates git or github.com -------------------------------------
   // (the version bump itself already landed on disk above, and - since we are not a dry run - stays
-  // there; `git-add` below is what stages exactly those three files.)
+  // there; `git-add` below is what stages exactly those four files.)
   const notesFile = deps.writeNotesFile(plan.notes)
   for (const command of plan.commands) {
     deps.run(

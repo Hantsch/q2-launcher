@@ -27,10 +27,9 @@ jobs:
           # Unit tests resolve `electron` to a stub (vitest.config.ts) and never need the binary.
           electron: 'false'
 
-      - name: Audit (non-blocking until 2026-10-09)
+      - name: Audit
         if: matrix.os == 'ubuntu-latest'
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       # One leg is enough: .gitattributes makes every text file LF on both OSes, so the check
       # cannot differ between them.

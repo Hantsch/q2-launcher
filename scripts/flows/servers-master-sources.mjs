@@ -153,19 +153,58 @@ async function waitForRowOrder(page, expectedIds) {
   )
 }
 
+// dnd-kit fires onDragOver right after onDragStart, so the "Picked up" text is replaced by a
+// "moved into position" one before a poll can see it - `texts` lists every announcement that proves
+// the state.
+async function waitForAnnouncement(page, texts, state) {
+  await page
+    .waitForFunction(
+      (texts) =>
+        Array.from(document.querySelectorAll('[role="status"][aria-live]')).some((region) =>
+          texts.some((text) => region.textContent.includes(text)),
+        ),
+      texts,
+      { timeout: TIMEOUT_MS },
+    )
+    .catch((error) => {
+      throw new Error(`keyboard reorder: live region never announced ${state}: ${error.message}`)
+    })
+}
+
 /** One picked-up/moved/dropped keyboard cycle on `grip` - the "Space picks up, ArrowDown moves,
  * Space drops" pattern `SortableList.test.tsx` establishes. `steps` arrow presses move the item one
- * position per press. */
-async function keyboardReorder(page, grip, arrowKey, steps) {
+ * position per press, starting from the 1-based `startPosition`; each step waits for dnd-kit's
+ * announcement of the new position, and the drop for the drag overlay's copy of the row to go. */
+async function keyboardReorder(page, grip, rowId, arrowKey, steps, startPosition) {
   await grip.focus()
   await grip.press('Space')
-  await page.waitForTimeout(150)
+  await waitForAnnouncement(
+    page,
+    ['Picked up item', 'was moved into position'],
+    'the item as picked up',
+  )
+  let position = startPosition
   for (let i = 0; i < steps; i += 1) {
     await grip.press(arrowKey)
-    await page.waitForTimeout(150)
+    position += arrowKey === 'ArrowUp' ? -1 : 1
+    await waitForAnnouncement(
+      page,
+      [`was moved into position ${position} of`],
+      `a move into position ${position}`,
+    )
   }
   await grip.press('Space')
-  await page.waitForTimeout(300)
+  await page
+    .waitForFunction(
+      (id) => document.querySelectorAll(`[data-testid="servers-source-row-${id}"]`).length === 1,
+      rowId,
+      { timeout: TIMEOUT_MS },
+    )
+    .catch((error) => {
+      throw new Error(
+        `keyboard reorder: drag overlay copy of ${rowId} never went away: ${error.message}`,
+      )
+    })
 }
 
 /**
@@ -258,7 +297,14 @@ export default async function serversMasterSources({ page, shot, step, variant }
   // AC1 just asserted, so AC3's restart proves the EDITED list survives.
   const addedId = await addSource(DEFAULT_SOURCES.length + 1)
   const reorderedIds = [addedId, ...DEFAULT_IDS]
-  await keyboardReorder(page, gripFor(page, addedId), 'ArrowUp', DEFAULT_SOURCES.length)
+  await keyboardReorder(
+    page,
+    gripFor(page, addedId),
+    addedId,
+    'ArrowUp',
+    DEFAULT_SOURCES.length,
+    DEFAULT_SOURCES.length + 1,
+  )
   await waitForRowOrder(page, reorderedIds)
   await shot('reordered')
 

@@ -9,7 +9,7 @@ Contract: `src/shared/modules/replays.ts`.
 - Discover demos (also in zip archives) across installations and user-added folders; index header facts in a disposable cache.
 - Let the user sort, filter, rename and annotate demos (tags, rating, favourite, sides) in a sidecar next to the demo; it also
   carries time-anchored comments (`comments`: demo time in ms plus text, at most 200 of 500 characters, sorted by time).
-- Play a demo in Q2PRO and steer it, on the launcher's stage or in cinema mode.
+- Play a demo in Q2PRO and steer it, on the launcher's stage or in cinema mode; R1Q2 plays it, stop only.
 
 ### Scope
 
@@ -32,7 +32,7 @@ counts follow the scoped rows; the filter value survives an installation switch.
 - `name-templates.ts` / `demo-rename.ts` / `file-actions.ts` — rename templates, rename, reveal and copy path; `demo-play.ts` /
   `demo-staging.ts` — eligibility, launch, temp copy in `<gamedir>/demos/_launcher/`.
 - `playback-sessions.ts` / `playback-control.ts` / `playback-timeline.ts` / `playback-console.ts` / `playback-stop.ts` /
-  `session-cvar-restore.ts` — the live session; `playback-channel/` — the link to the running engine.
+  `session-cvar-restore.ts` — the live session; `playback-channel/` — the link to the running engine (none for R1Q2).
 - `stage.ts` / `stage-follow.ts` / `stage-follow-session.ts` / `geometry.ts` / `x11/stage-window.ts` — placing the game window
   over the stage; `cinema.ts` / `cinema-controller.ts` — cinema mode; `persisted.ts` — the forgiving state parse.
 
@@ -122,7 +122,8 @@ replays-index.json (regenerable), one sidecar per demo.
   (inside a scanned root) or `{ kind: 'pick' }` (a folder dialog, any directory, `{ cancelled: true }` on dismiss) - a demo moved
   outside every root leaves the index. Tag never overwrites an unparsable sidecar. Skipped: archive entries, a playing demo, a
   demo already in the target. All four refuse while a scan runs.
-- `demoFoldersRead` — an installation's absolute `demos` folders (display only); `demoPlay` — plays a demo.
+- `demoFoldersRead` — an installation's absolute `demos` folders (display only); `demoPlay` — plays a demo. In an R1Q2
+  installation it launches `+demomap <file>`, Stop only; its whole config file is restored after the session (stufftext).
 - `playbackVolume` — sets the running game's `s_volume` (percent + mute; mute sends 0, latest value wins while a line is in
   flight).
 - `playbackTimeline` / `playbackConsoleSend` / `playbackStage` / `playbackStop` / `playbackCinema` / `playbackDisplayRead` —
@@ -137,14 +138,13 @@ volume, cinema availability, stage notice).
 - Files: demo files (optionally gz) in installation game dirs, the Linux Q2PRO write dir and extra folders, at any depth below
   each `demos` folder; zip archives via a bounded reader, never recursed; sidecars; replays-index.json; state.json. Folder walk:
   an already visited real path is never entered; the `_launcher` staging folder is skipped.
-- Engine: Q2PRO started with `+demo`. Windows: commands via `q2l_ctl.cfg` in the game dir, answers tailed from a dedicated
-  logfile; Linux: console over stdin/stdout.
+- Engine: Q2PRO started with `+demo`. Windows: commands via `q2l_ctl.cfg` in the game dir, answers tailed from a dedicated logfile; Linux: console over stdin/stdout.
 - Window system: placement on Windows; X11 (X-Resource PID) on Linux. Network: none.
 
 ## Limitations
 
-- Playback needs Q2PRO; other clients are not eligible. An installation whose own engine is another one still plays when it has a
-  detected, supported Q2PRO: the launch then runs that Q2PRO. A demo outside the Quake filesystem is played from a temporary copy;
-  a `.gz` is not decompressed by the launcher.
+- Playback needs Q2PRO or R1Q2; an installation of another engine plays through its detected, supported Q2PRO (or R1Q2). R1Q2
+  refuses `.mvd2`, `.gz` and protocols other than 34/35, and has no stage, cinema, pause, speed, seek, position or volume. A demo
+  outside the Quake filesystem is played from a temporary copy; a `.gz` is not decompressed by the launcher.
 - Stage placement depends on the platform's window system; nested archives are not expanded. An `.mvd2` demo has no roster and no
   stats; an OpenTDM 1v1 demo cut off before the match ends has no teams. Only OpenTDM's "Stats for" format is read for stats.

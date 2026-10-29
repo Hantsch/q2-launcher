@@ -50,7 +50,7 @@ export function planLines({ groups, pinned }, count, pinnedReasons = PINNED_FLOW
   return lines
 }
 
-const LISTS = ['failed', 'expectedFails', 'unexpectedPasses', 'flaky', 'notes']
+const LISTS = ['failed', 'expectedFails', 'unexpectedPasses', 'flaky', 'notes', 'flows']
 
 /**
  * The gate result of a child that ended without writing its report: every flow it was given
@@ -63,6 +63,7 @@ export function unreportedResult(names, label, status) {
     expectedFails: [],
     unexpectedPasses: [],
     flaky: [],
+    flows: names.map((name) => ({ name, seconds: null, ok: false })),
     configErrors: [],
     notes: [
       `${label}: exited with ${status === null ? 'a signal' : `status ${status}`} without a report — its ${names.length} flow(s) count as failed`,

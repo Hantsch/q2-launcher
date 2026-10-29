@@ -8,6 +8,8 @@ import type { PlaybackVolume } from '../playback-store'
 export interface VolumeControlProps {
   volume: PlaybackVolume
   disabled?: boolean
+  /** Id of the visible line that says why the control is disabled. */
+  describedBy?: string
   focusRing: string
   onChange: (volume: PlaybackVolume) => void
 }
@@ -20,6 +22,7 @@ export interface VolumeControlProps {
 export function VolumeControl({
   volume,
   disabled = false,
+  describedBy,
   focusRing,
   onChange,
 }: VolumeControlProps) {
@@ -39,6 +42,7 @@ export function VolumeControl({
         size="lg"
         label={muted ? t('replays.timeline.volume.unmute') : t('replays.timeline.volume.mute')}
         disabled={disabled}
+        aria-describedby={describedBy}
         aria-pressed={muted}
         onClick={() => onChange({ percent: level, muted: !muted })}
         className={focusRing}
@@ -53,6 +57,7 @@ export function VolumeControl({
         step={5}
         value={level}
         disabled={disabled}
+        aria-describedby={describedBy}
         aria-label={t('replays.timeline.volume.label')}
         aria-valuetext={text}
         onChange={(event) => {

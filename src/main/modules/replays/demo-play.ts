@@ -7,7 +7,12 @@ import type {
   ReplaysStageRect,
   ReplaysStageResult,
 } from '@shared/modules/replays'
-import { DEMO_BASE_GAME_DIR, demoPlayEligibility } from '@shared/replays/demo-play'
+import {
+  DEMO_BASE_GAME_DIR,
+  demoPlayCommand,
+  demoPlayEligibility,
+  type DemoPlayEngine,
+} from '@shared/replays/demo-play'
 import {
   fail,
   ok,
@@ -67,12 +72,16 @@ export const SESSION_RESTORE_CVARS = [
  * copy in `<gamedir>/demos/_launcher/` (`demo-staging.ts`), the game plays that copy, and the copy
  * is removed when exactly that installation's game exits or fails, or when the launch never starts.
  * An in-place play never gets a copy, so nothing on that path ever deletes a file.
+ *
+ * An R1Q2 installation plays with `+demomap` (its only route) and an engine-less session -
+ * no channel, volume or stage args. `demomap` runs the demo's stufftext, which can set and archive any
+ * cvar or bind, so the whole config R1Q2 writes is snapshotted before spawn and put back afterwards (story 275).
  */
 
 const NOT_FOUND = 'replays.play.error.notFound'
 const FILE_MISSING = 'replays.play.error.fileMissing'
-/** The payload named an installation other than the active Q2PRO one: the same "not the Q2PRO to play in" reason. */
-export const WRONG_INSTALLATION = 'replays.play.unavailable.notQ2pro'
+/** The payload named an installation that has neither Q2PRO nor R1Q2 to play in. */
+export const WRONG_INSTALLATION = 'replays.play.unavailable.unsupportedEngine'
 const UNSAFE_NAME = 'replays.play.unavailable.unsafeName'
 
 /** Same rule as the eligibility check's file-name guard: what the game console can take. */
@@ -294,14 +303,19 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     playbackInfo: { gameDirPath: string; durationMs: number | null; format: DemoFormat },
     stage: ReplaysStageRect | undefined,
     configPath: string | null,
+    engine: DemoPlayEngine,
   ): Promise<Outcome<ReplaysDemoPlayResult>> {
-    const pipes = deps.platform !== 'win32'
+    const r1q2 = engine === 'r1q2'
+    // An engine-less session has nothing to talk to over the pipes.
+    const pipes = !r1q2 && deps.platform !== 'win32'
     let input = launchInput
     // Story 170: stage args sit right before `+demo`, after the channel's args; only when a rect came.
     let stageArgs: string[] = []
     let stageResult: ReplaysStageResult | null = null
     let stageGeometry: string | null = null
-    if (stage) {
+    if (stage && r1q2) {
+      stageResult = refuse('replays.stage.unavailable.r1q2')
+    } else if (stage) {
       const availability = deps.stageAvailability()
       if (!availability.available) {
         stageArgs = normalWindowArgs()
@@ -326,15 +340,23 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       let prepared: Awaited<ReturnType<PlaybackControl['prepare']>>
       let volumeArgs: string[]
       try {
-        const volumePercent = await startVolumePercent(configPath)
-        volumeArgs = ['+set', 's_volume', String(volumePercent / 100)]
-        prepared = await deps.playback.prepare({ ...playbackInfo, volumePercent })
+        if (r1q2) {
+          volumeArgs = []
+          prepared = await deps.playback.prepare({ ...playbackInfo, engine: 'r1q2' })
+        } else {
+          const volumePercent = await startVolumePercent(configPath)
+          volumeArgs = ['+set', 's_volume', String(volumePercent / 100)]
+          prepared = await deps.playback.prepare({ ...playbackInfo, volumePercent })
+        }
       } catch (error) {
         await deps.playback.cancel()
         if (copyPath !== null) await removeStagedCopy(copyPath)
         throw error
       }
-      const { argsBeforeDemo, argsAfterDemo } = prepared
+      // An R1Q2 session has no channel: its args stay exactly the demo command and the file.
+      const { argsBeforeDemo, argsAfterDemo } = r1q2
+        ? { argsBeforeDemo: [], argsAfterDemo: [] }
+        : prepared
       // `+demo` must precede the channel's `+exec` polling loop.
       input = {
         ...launchInput,
@@ -345,24 +367,27 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         ],
       }
     }
-    // Story 170 / 174: only a play whose final args `+set` a restore cvar has its archived cvars put
-    // back once the game has exited (the engine writes its config on the way out). The snapshot is
-    // taken - and persisted - before the process is spawned. A failed restore keeps the pending
-    // snapshot on disk, so the next launcher start tries again.
+    // Story 170 / 174: the snapshot is taken - and persisted - before spawn; a failed restore keeps it
+    // pending for the next launcher start. Every R1Q2 play restores the whole file, since what
+    // `demomap`'s stufftext archives is unknowable up front (story 275).
     const overridesRestoreCvar = (input.extraArgs ?? []).some(
       (arg, i, all) =>
         i > 0 &&
         all[i - 1] === '+set' &&
         (SESSION_RESTORE_CVARS as readonly string[]).includes(arg),
     )
-    const cvarRestore = overridesRestoreCvar && configPath !== null ? deps.cvarRestore : undefined
+    const cvarRestore =
+      (r1q2 || overridesRestoreCvar) && configPath !== null ? deps.cvarRestore : undefined
     const restoring = cvarRestore !== undefined
     const restoreCvars = (): void => {
       void cvarRestore?.restore().catch(() => undefined)
     }
     let started: Outcome<LaunchState>
     try {
-      if (cvarRestore && configPath !== null) await cvarRestore.snapshot(configPath)
+      if (cvarRestore && configPath !== null) {
+        if (r1q2) await cvarRestore.snapshot(configPath, { wholeFile: true })
+        else await cvarRestore.snapshot(configPath)
+      }
       started = await (pipes && deps.playback
         ? deps.launch.start(input, { playback: true })
         : deps.launch.start(input, { demo: true }))
@@ -446,6 +471,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       // `inPlace`, and main still verifies containment below. Everything else is played from a copy.
       if (!eligibility.ok) return fail(eligibility.reasonKey, eligibility.params)
       const engineOverride = eligibility.engine ? { engine: eligibility.engine } : {}
+      const { playEngine } = eligibility
       const target = {
         installationId: eligibility.installationId,
         gameDir: eligibility.gameDir,
@@ -467,6 +493,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         target.gameDir,
         playbackInfo.gameDirPath,
         deps.discoveryContext(),
+        playEngine,
       )
 
       if (
@@ -492,6 +519,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
             playbackInfo,
             stage,
             configPath,
+            playEngine,
           )
         }
       }
@@ -515,13 +543,14 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         {
           installationId: target.installationId,
           gameDir: target.gameDir,
-          extraArgs: ['+demo', staged.value.relativePath],
+          extraArgs: [demoPlayCommand(playEngine), staged.value.relativePath],
           ...engineOverride,
         },
         staged.value.copyPath,
         playbackInfo,
         stage,
         configPath,
+        playEngine,
       )
     }
   }

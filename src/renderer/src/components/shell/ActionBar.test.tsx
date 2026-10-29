@@ -150,6 +150,7 @@ describe('ActionBar', () => {
         volume: { percent: 100, muted: false },
         mode: 'preview',
         cinemaAvailability: { available: true },
+        controlsUnavailable: null,
         fullscreen: false,
         stopping: false,
         optimistic: createTimeline({ view: null }, 0),

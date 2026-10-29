@@ -9,8 +9,11 @@ import {
   selectAffected,
   sharedTestIds,
   testIdOwners,
+  tierFlows,
   validateAreas,
+  validateTiers,
 } from './lib/flow-select.mjs'
+import { parseFlowArgs, planFlows } from './lib/flow-gate.mjs'
 import { loadFlowTree } from './lib/flow-tree.mjs'
 
 const tree = loadFlowTree()
@@ -52,7 +55,6 @@ describe('flow selection on the real tree', () => {
   })
 
   test('every area row names existing flows and selects at most 12', () => {
-    expect(MAX_FLOWS_PER_AREA).toBe(12)
     expect(unless(validateAreas(tree.areas, flowNames))).toBe('')
     for (const row of tree.areas) {
       const count = areaFlows(row, flowNames).length
@@ -206,5 +208,35 @@ describe('flow selection rules', () => {
       validateAreas([{ area: 'a', paths: ['x'], flows: ['f-*'], why: 'w' }], names)[0],
     ).toContain('selects 13 flows')
     expect(validateAreas([{ area: 'a', paths: [], flows: ['f-1'] }], names)).toHaveLength(2)
+  })
+})
+
+describe('the flow tiers', () => {
+  test('the tier table names existing flows and 10 to 15 smoke flows', () => {
+    expect(validateTiers(tree.tiers, flowNames)).toEqual([])
+    const smoke = tierFlows(tree.tiers, 'smoke', flowNames)
+    expect(smoke.length).toBeGreaterThanOrEqual(10)
+    expect(smoke.length).toBeLessThanOrEqual(15)
+    const problems = validateTiers({ ghost: 'smoke', [flowNames[0]]: 'fast' }, flowNames)
+    expect(problems).toHaveLength(2)
+    expect(problems.join(' ')).toContain('ghost')
+    expect(problems.join(' ')).toContain('fast')
+  })
+
+  test('--tier=smoke plans exactly the smoke flows of areas.json', () => {
+    const parsed = parseFlowArgs(['--tier=smoke'], flowNames)
+    expect(parsed.errors).toEqual([])
+    const tierNames = tierFlows(tree.tiers, parsed.tier, flowNames)
+    const plan = planFlows({
+      named: parsed.named,
+      affected: parsed.affected,
+      known: flowNames,
+      tier: parsed.tier,
+      tierNames,
+    })
+    const smokeKeys = Object.keys(tree.tiers)
+      .filter((name) => tree.tiers[name] === 'smoke')
+      .sort()
+    expect(plan.names).toEqual(smokeKeys)
   })
 })

@@ -204,20 +204,25 @@ export function validateUnreleased(text) {
 export function promote(text, version, date) {
   const { unreleased, prior, preamble } = parseChangelog(text)
 
-  const promotedBody = unreleased.categories
-    .map((c) => `### ${c.name}\n${c.bullets.map((b) => `- ${b}`).join('\n')}`)
-    .join('\n\n')
+  // Every block is separated by exactly one blank line, headings included: that is the shape
+  // prettier gives markdown, and the release commit is `[skip ci]`, so nothing reformats or checks
+  // it before the next PR's `format:check` does.
+  const blocks = (...parts) => parts.filter((p) => p !== '').join('\n\n')
 
-  const newSection = `## ${version} — ${date}\n\n${promotedBody}\n`
-  const emptiedUnreleased = `## Unreleased\n\n${UNRELEASED_PLACEHOLDER}\n`
+  const promotedBody = blocks(
+    ...unreleased.categories.map((c) =>
+      blocks(`### ${c.name}`, c.bullets.map((b) => `- ${b}`).join('\n')),
+    ),
+  )
 
-  const priorText = prior
-    .map((section) => `## ${section.heading}\n${section.raw.replace(/^\n+/, '')}`)
-    .join('\n')
-
-  const parts = [preamble.trimEnd(), emptiedUnreleased, newSection]
-  if (priorText) parts.push(priorText)
-  return parts.filter((p) => p.trim() !== '').join('\n\n').trimEnd() + '\n'
+  return (
+    blocks(
+      preamble.trim(),
+      `## Unreleased\n\n${UNRELEASED_PLACEHOLDER}`,
+      blocks(`## ${version} — ${date}`, promotedBody),
+      ...prior.map((section) => blocks(`## ${section.heading}`, section.raw.trim())),
+    ) + '\n'
+  )
 }
 
 /**

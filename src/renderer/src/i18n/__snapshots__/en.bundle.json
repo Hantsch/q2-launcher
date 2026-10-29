@@ -2284,6 +2284,7 @@
       "duplicate": "That folder is already in your library as “{{name}}”.",
       "engineNotDetected": "{{engine}} was not found in this installation's folder.",
       "engineUnsupported": "{{engine}} is not supported by the launcher yet.",
+      "executableNotDetected": "{{executable}} was not found in this installation's folder.",
       "iconPickCancelled": "No image was chosen. The icon was left as it was.",
       "iconStoreFailed": "The icon could not be saved. Check that the launcher can write to its own data folder.",
       "iconTooLarge": "That image is too large. Choose a file smaller than {{limit}} MB.",
@@ -3059,11 +3060,11 @@
       },
       "unavailable": {
         "gameRunning": "A game is already running — quit it before playing a demo.",
-        "linuxNoQ2pro": "Not available on Linux: demo playback needs a Q2PRO installation",
         "modMissing": "Mod `{{gameDir}}` is not fully installed in this installation — the demo may not play correctly.",
         "needsDirectLaunch": "This installation launches through Steam — switch it to a direct launch to play demos.",
-        "notQ2pro": "The selected installation is not Q2PRO — demo playback needs Q2PRO. Pick a Q2PRO installation in the left rail.",
-        "unsafeName": "This file name has characters the game console can't take — rename the demo (letters, digits, dot, dash and underscore only)."
+        "r1q2CannotPlay": "Not available in R1Q2: it plays only uncompressed .dm2 demos (protocol 34 or 35). This demo needs Q2PRO.",
+        "unsafeName": "This file name has characters the game console can't take — rename the demo (letters, digits, dot, dash and underscore only).",
+        "unsupportedEngine": "Demos play in Q2PRO or R1Q2 — the selected installation has neither. Pick one in the left rail."
       },
       "withInstallationQ2pro": "Plays with this installation's Q2PRO."
     },
@@ -3073,6 +3074,9 @@
         "fullscreen": "The demo is in fullscreen — steer it with your keys.",
         "invalidCommand": "This command has characters the game console can't take.",
         "noSession": "No demo is playing, so there is nothing to control."
+      },
+      "unavailable": {
+        "r1q2": "Not available in R1Q2: pausing, speed, seeking, the position, volume, console commands, fullscreen and cinema need Q2PRO."
       }
     },
     "rename": {
@@ -3162,6 +3166,7 @@
         "x11": "Not kept on top on X11: the launcher could not reach the game window, so it may hide behind the launcher"
       },
       "unavailable": {
+        "r1q2": "Not available in R1Q2: the launcher cannot place the game window, so the demo plays in its own window",
         "wayland": "Not available on Wayland: the launcher cannot place the game window, so the demo plays in its own window"
       }
     },

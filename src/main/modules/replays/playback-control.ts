@@ -10,6 +10,10 @@ import {
 import type { CinemaAvailability } from '@shared/replays/cinema'
 import { fail, type LaunchState, type Outcome } from '@shared/types'
 import { scopedLogger } from '../../lib/logger'
+import {
+  createEngineLessChannel,
+  R1Q2_CONTROLS_UNAVAILABLE,
+} from './playback-channel/engine-less-channel'
 import { createLinuxChannel } from './playback-channel/linux-channel'
 import { POSITION_PUSH_MS } from './playback-channel/protocol'
 import type { EngineIo, PlaybackChannel } from './playback-channel/types'
@@ -66,6 +70,8 @@ export interface PlaybackControl {
     format: DemoFormat
     /** Game volume the session starts with (default 70). */
     volumePercent?: number
+    /** `r1q2` has no control channel (default `q2pro`). */
+    engine?: 'q2pro' | 'r1q2'
   }): Promise<PlaybackPrepared>
   /** The game is up: start the channel on Linux (it needs the engine's pipes); Windows started in `prepare`. */
   attach(io?: EngineIo): Promise<void>
@@ -108,6 +114,7 @@ interface Prepared {
   bindIo: (io: EngineIo | undefined) => void
   /** The channel was started in `prepare` (Windows): `attach` must not start it again. */
   startedEarly: boolean
+  engine: 'q2pro' | 'r1q2'
 }
 
 interface Session extends Prepared {
@@ -145,13 +152,17 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     const live = session && !session.ending ? session : null
     const fullscreen = live?.fullscreen ?? false
     const c = cinema()
+    const noControls = live?.engine === 'r1q2'
     return {
       fullscreen,
       cinema: !fullscreen && c.open,
       speed: live?.speed ?? 1,
       volume: live?.volume ?? { percent: DEFAULT_VOLUME_PERCENT, muted: false },
-      cinemaAvailability: c.availability,
+      cinemaAvailability: noControls
+        ? { available: false, reason: { key: R1Q2_CONTROLS_UNAVAILABLE } }
+        : c.availability,
       stageNotice: deps.stageNotice?.() ?? null,
+      controlsUnavailable: noControls ? { key: R1Q2_CONTROLS_UNAVAILABLE } : null,
     }
   }
 
@@ -221,7 +232,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   }
 
   return {
-    async prepare({ gameDirPath, durationMs, format, volumePercent }) {
+    async prepare({ gameDirPath, durationMs, format, volumePercent, engine = 'q2pro' }) {
       subscribe()
       changedVolume = null
       if (prepared) void prepared.channel.close().catch(() => undefined)
@@ -232,7 +243,9 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       }
       // platform-read: injectable default, tests pass their own
       const platform = deps.platform ?? process.platform
-      if (platform === 'win32') {
+      if (engine === 'r1q2') {
+        channel = createEngineLessChannel()
+      } else if (platform === 'win32') {
         channel = makeWindows({ gameDirPath, log })
       } else {
         const lateIo: EngineIo = {
@@ -241,7 +254,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         }
         channel = makeLinux({ io: lateIo, log, gameDirPath })
       }
-      const startedEarly = platform === 'win32'
+      const startedEarly = engine === 'q2pro' && platform === 'win32'
       prepared = {
         channel,
         durationMs,
@@ -249,6 +262,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         volumePercent: volumePercent ?? DEFAULT_VOLUME_PERCENT,
         bindIo,
         startedEarly,
+        engine,
       }
       if (startedEarly) await channel.start()
       return { argsBeforeDemo: channel.argsBeforeDemo, argsAfterDemo: channel.argsAfterDemo }
@@ -294,7 +308,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         for (const cb of [...displayListeners]) cb(fullscreen)
       })
       pushState('playing')
-      startTimer(s)
+      if (s.engine === 'q2pro') startTimer(s)
     },
 
     async cancel() {

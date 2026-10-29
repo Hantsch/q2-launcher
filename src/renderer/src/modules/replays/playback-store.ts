@@ -73,6 +73,8 @@ export interface PlaybackSession {
   mode: PlaybackMode
   /** Story 187: whether cinema can run now, and the reason key when it cannot. */
   cinemaAvailability: CinemaAvailability
+  /** Why the engine takes no channel commands (an i18n key), or null; set for R1Q2 sessions. */
+  controlsUnavailable: { key: string } | null
   /** Story 173: a stop was requested; the session still ends only on `state: ended`. */
   stopping: boolean
   /** Story 184: the expected timeline - last readback plus commands still in flight. */
@@ -218,6 +220,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         fullscreen: false,
         mode: 'preview',
         cinemaAvailability: { available: true },
+        controlsUnavailable: null,
         stopping: false,
         optimistic,
         waiting: new Set(),
@@ -344,6 +347,8 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       const cinemaAvailability = p.cinemaAvailability ?? s.session.cinemaAvailability
       const c = s.session
       const volume = p.volume ?? c.volume
+      const controlsUnavailable =
+        p.controlsUnavailable === undefined ? c.controlsUnavailable : p.controlsUnavailable
       // The display event's speed is authoritative: the optimistic timeline (what the speed select shows)
       // follows it unless a speed change of this window's own is still pending.
       const followSpeed = c.optimistic.speed === null && c.optimistic.confirmed.speed !== speed
@@ -368,6 +373,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         c.volume.percent === volume.percent &&
         c.volume.muted === volume.muted &&
         !followSpeed &&
+        JSON.stringify(c.controlsUnavailable) === JSON.stringify(controlsUnavailable) &&
         JSON.stringify(c.cinemaAvailability) === JSON.stringify(cinemaAvailability)
       if (same) return s
       const optimistic = followSpeed
@@ -382,6 +388,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
           speed,
           volume,
           cinemaAvailability,
+          controlsUnavailable,
           optimistic,
         },
       }

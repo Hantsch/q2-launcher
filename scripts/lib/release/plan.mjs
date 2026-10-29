@@ -5,7 +5,13 @@
 // unit-testable without a real repo. Mirrors `scripts/lib/download-failures.mjs`'s shape: plain
 // ESM, JSDoc types, named exports.
 import { notesFor, promote, readUnreleased, validateUnreleased } from './changelog.mjs'
-import { applyVersion, deriveBump, isPrerelease, nextVersion } from './version.mjs'
+import {
+  applyReadmeVersion,
+  applyVersion,
+  deriveBump,
+  isPrerelease,
+  nextVersion,
+} from './version.mjs'
 
 /**
  * Thrown by `planRelease` whenever the tree isn't in a state a release can be cut from. Carries a
@@ -39,6 +45,8 @@ export class ReleaseRefused extends Error {
  * @param {string} input.changelogText - full current CHANGELOG.md text.
  * @param {string} input.pkgText - full current package.json text.
  * @param {string} input.lockText - full current package-lock.json text.
+ * @param {string} input.readmeText - full current README.md text (its Status line carries the
+ *   version).
  * @param {string[]} input.tags - existing tag names (e.g. from `git tag --list`), used only to
  *   refuse a re-run that would recreate an existing tag (AC7).
  * @param {string} [input.requestedVersion] - an explicit version (no leading `v`) that wins over
@@ -58,6 +66,7 @@ export function planRelease({
   changelogText,
   pkgText,
   lockText,
+  readmeText,
   tags,
   requestedVersion,
   bump,
@@ -98,12 +107,29 @@ export function planRelease({
     { path: 'CHANGELOG.md', content: promotedChangelogText },
     { path: 'package.json', content: newPkgText },
     { path: 'package-lock.json', content: newLockText },
+    { path: 'README.md', content: applyReadmeVersion(readmeText, version) },
   ]
 
   // AC5: a dry run computes everything (version, notes, writes) but plans no git/gh mutation.
   const commands = dryRun ? [] : buildCommands(version, tag)
 
   return { version, tag, notes, writes, commands }
+}
+
+/** @param {string} version @returns {string} */
+export function releaseCommitMessage(version) {
+  return `release: ${version} [skip ci]`
+}
+
+/** @param {string} message - first line is judged, so a full commit message is fine. */
+export function isReleaseCommitMessage(message) {
+  const firstLine = message.split('\n', 1)[0].trim()
+  const [prefix, suffix] = releaseCommitMessage('\0').split('\0')
+  return (
+    firstLine.startsWith(prefix) &&
+    firstLine.endsWith(suffix) &&
+    firstLine.length > prefix.length + suffix.length
+  )
 }
 
 /** @param {string} pkgText @returns {string} */
@@ -127,10 +153,18 @@ function unreleasedBumpArgs(changelogText) {
  * @returns {ReleaseCommand[]}
  */
 function buildCommands(version, tag) {
-  const commitMessage = `release: ${version} [skip ci]`
+  const commitMessage = releaseCommitMessage(version)
   /** @type {ReleaseCommand[]} */
   const commands = [
-    { kind: 'git-add', argv: ['git', 'add', 'CHANGELOG.md', 'package.json', 'package-lock.json'] },
+    { kind: 'git-add', argv: [
+        'git',
+        'add',
+        'CHANGELOG.md',
+        'package.json',
+        'package-lock.json',
+        'README.md',
+      ],
+    },
     { kind: 'git-commit', argv: ['git', 'commit', '-m', commitMessage] },
     // Annotated, not lightweight: `git push --follow-tags` only pushes annotated tags reachable
     // from what's being pushed, so a lightweight tag here would silently never reach the remote.

@@ -358,3 +358,15 @@ second roadmap.
 - 261 — The demo players are split by team · S35 · two teams sit side by side in side-1/side-2 colours, one or more than two stack, no teams is a plain list; side tokens meet contrast and flow axe is a shared helper
 - 262 — Demo details show the POV player's accuracy stats · S35 · the demo detail shows the recording player's OpenTDM weapon accuracy table and Total line, read from the demo and indexed (cache v7); no block, no section
 - 263 — I see where a server is and filter by region or country · S35 · server rows show a country/region from the bundled DB-IP database in a sortable Location column and detail field, filterable by region/country/LAN/Unknown, saved in quick filters, credited in About
+- 267 — Timing-ratio tests leave the blocking unit lane · S36 · ping-accuracy and full-pass budget tests run only in the manual `npm run test:perf` lane, the scan's shape stays in the unit lane, and the folder-scale flow logs navigation time instead of failing on it
+- 272 — Test hygiene: skipped launch flow fails in CI, loose pins, discovery guard · S36 · launch-with-scope throws under CI without 7za, xvfb pin loosened, orphaned test files are caught, two constant echoes removed
+- 266 — Release waits for a green CI run on its SHA · S36 · release plan fails without a successful ci run on the released commit (override and dry run exempt).
+- 273 — An installation with q2pro64.exe is recognised as Q2PRO · S36 · q2pro64.exe detected as Q2PRO, per-build chip choice, update/repair replace the launched build
+- 274 — The server ping is the best sample in whole milliseconds · S36 · scan ping is the rounded best of 3 samples, rounded at the source so every surface shows whole ms
+- 275 — Demos play in an R1Q2 installation · S36 · R1Q2 plays via +demomap, Stop only, other controls disabled with reason, whole config restored, protocol on rows
+- 268 — Recorded-flaky flows wait on conditions, not sleeps · S36 · drag and servers-source flows wait on dnd-kit state; hygiene ratchet with shrink-only allowlist
+- 269 — Quarantine entries get a real owner; Linux entries do not age out; two shard races fixed · S36 · unattributed quarantine entries are rejected, linux entries skip the age rule, news-feed and unlock-code races fixed.
+- 265 — Flow smoke tier, failed-only confirmation re-run, per-flow seconds recorded · S36 · 14-flow smoke tier (--tier=smoke), confirmation re-runs only failures (flaky reported), per-flow seconds + ten slowest in the report.
+- 264 — Windows PR lane blocks on core-journey flows; release launches the packaged app · S36 · windows-verify runs 8 blocking flows, release smoke-launches the unpacked app (non-blocking until 2 releases past 0.8.0, tripwire test).
+- 270 — Test lane map in CLAUDE.md, e2e definition, drift guard · S36 · one Test lanes table, one e2e definition, existence-check test
+- 271 — CI pins Node via a version file and the audit gate blocks · S36 · Node 22.22.2 via .node-version, blocking npm audit, audit-clean lockfile.

@@ -7,7 +7,7 @@ import {
   type ServerQueryResult,
   type ServerUdpTarget,
 } from './server-query'
-import { medianPing, PING_SAMPLES_EXTRA, PING_SAMPLES_FIRST, samplesFarApart } from './ping-samples'
+import { bestPing, PING_SAMPLES_FIRST } from './ping-samples'
 
 /**
  * Story 114: the two-stage sweep. One call runs one scan from start to finish (or abort); it
@@ -17,8 +17,8 @@ import { medianPing, PING_SAMPLES_EXTRA, PING_SAMPLES_FIRST, samplesFarApart } f
  *   only *its own* query, and `onServer` fires in that slot's continuation, so a row is delivered
  *   the moment its reply lands - never after an `await` on the whole stage.
  *   When the first `info` succeeds, the same slot takes `pingSamples - 1` more (one at a time, no
- *   retries) and, if they are far apart, `PING_SAMPLES_EXTRA` more; the row is emitted once, with
- *   `rttMs` replaced by the median. A failed extra sample is dropped; a failed first query is not
+ *   retries); the row is emitted once, with
+ *   `rttMs` replaced by the lowest sample. A failed extra sample is dropped; a failed first query is not
  *   sampled. Stage 2 never touches the ping (story 258).
  * - **Stage 2 (`status`)** starts once stage 1 has fully settled and runs the same pool over
  *   exactly {every target stage 1 reported worth checking} plus the selected address (
@@ -95,7 +95,7 @@ export interface RunScanOptions {
   settings: Pick<ServersScanSettings, 'concurrency' | 'timeoutMs' | 'retries'>
   /** Stage 2's "currently selected server" (D-G). Ignored if it does not parse. */
   selectedAddress?: string
-  /** `info` samples per reachable server in stage 1; the row carries their median. `1` is a single
+  /** `info` samples per reachable server in stage 1; the row carries their lowest. `1` is a single
    * query. Defaults to `PING_SAMPLES_FIRST`. */
   pingSamples?: number
   signal?: AbortSignal
@@ -245,10 +245,7 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
 
     const collected = [first.rttMs]
     if (!(await collectSamples(udp, pingSamples - 1, collected))) return null
-    if (samplesFarApart(collected) && !(await collectSamples(udp, PING_SAMPLES_EXTRA, collected))) {
-      return null
-    }
-    return { ...first, rttMs: medianPing(collected) }
+    return { ...first, rttMs: bestPing(collected) }
   }
 
   // Stage 1: info over the whole address set.

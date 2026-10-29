@@ -10,8 +10,18 @@ describe('engine scope', () => {
       assignments: [{ installationId: 'one', isDefault: true }],
     })
     const detectedEngines = [
-      { kind: 'r1q2' as const, executablePath: '/g/r1q2', supported: true },
-      { kind: 'q2pro' as const, executablePath: '/g/q2pro', supported: true },
+      {
+        kind: 'r1q2' as const,
+        executablePath: '/g/r1q2',
+        executablePaths: ['/g/r1q2'],
+        supported: true,
+      },
+      {
+        kind: 'q2pro' as const,
+        executablePath: '/g/q2pro',
+        executablePaths: ['/g/q2pro'],
+        supported: true,
+      },
     ]
     const withR1q2 = [makeInstallation({ id: 'one', engineKind: 'r1q2', detectedEngines })]
     const withQ2pro = [makeInstallation({ id: 'one', engineKind: 'q2pro', detectedEngines })]

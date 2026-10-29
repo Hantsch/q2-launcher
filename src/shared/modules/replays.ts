@@ -146,6 +146,8 @@ export interface ReplaysPlaybackDisplay {
   cinemaAvailability: CinemaAvailability
   /** Why the staged game could not be kept on top (an i18n key), or null. */
   stageNotice: { key: string } | null
+  /** Why the playback controls cannot work for this engine (an i18n key), or null. */
+  controlsUnavailable?: { key: string } | null
 }
 
 export interface ReplaysPlaybackState {
@@ -325,6 +327,9 @@ export const discoveredDemoSchema = z.object({
   readable: z.boolean(),
   /** Mirrors `readable`: null for a readable row, the structured reason. */
   unreadable: demoUnreadableSchema.nullable(),
+  /** The header's wire protocol for a readable `.dm2`; null for `.mvd2` and unreadable rows (an
+   * unreadable row's protocol stays in `unreadable.protocol`). */
+  protocol: z.number().int().nullable().optional(),
   /** The game dir (mod) from the demo's own header, or null when unparsable/not yet parsed. */
   gameDir: z.string().nullable(),
   /** The recording player's name from the header (`.dm2` only), or null when unknown. */

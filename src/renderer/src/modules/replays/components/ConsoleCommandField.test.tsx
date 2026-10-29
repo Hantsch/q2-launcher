@@ -54,6 +54,23 @@ const send = (): HTMLButtonElement =>
   screen.getByTestId('replays-console-send') as HTMLButtonElement
 
 describe('ConsoleCommandField (story 166 D4)', () => {
+  it('with controls unavailable the field is visible, disabled and shows the reason', () => {
+    begin()
+    act(() =>
+      usePlaybackStore.getState().applyDisplay({
+        fullscreen: false,
+        controlsUnavailable: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+      }),
+    )
+    render(createElement(ConsoleCommandField))
+    expect(input().disabled).toBe(true)
+    expect(send().disabled).toBe(true)
+    expect(screen.getByTestId('replays-console-field').hasAttribute('inert')).toBe(false)
+    expect(screen.getByTestId('replays-console-reason').textContent).toContain(
+      'not on the primary display',
+    )
+  })
+
   it('a rejected line is not sent and shows its reason', () => {
     begin()
     render(createElement(ConsoleCommandField))

@@ -64,9 +64,18 @@ async function openDemosView(page) {
     timeout: TIMEOUT_MS,
   })
   await waitForDemosScanToFinish(page)
-  if ((await page.getByTestId('replays-breadcrumb').count()) > 0) {
-    await page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
-    await page.getByTestId('replays-breadcrumb').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  // The remembered folder can be dropped by the view between the count and the click, so a crumb
+  // that vanished mid-click is the state we wanted (library root), not a failure.
+  const deadline = Date.now() + TIMEOUT_MS
+  while ((await page.getByTestId('replays-breadcrumb').count()) > 0) {
+    if (Date.now() > deadline) {
+      throw new Error('the Demos breadcrumb never went away after clicking its root crumb')
+    }
+    await page
+      .getByTestId('replays-crumb')
+      .first()
+      .click({ timeout: 1000 })
+      .catch(() => {})
   }
 }
 

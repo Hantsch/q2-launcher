@@ -103,6 +103,12 @@ describe('release pipeline wiring', () => {
     expect(resolved).toBe('Q2-Launcher-1.0.0-beta.1-linux-x86_64.AppImage')
   })
 
+  test('CLAUDE.md states that a release needs a green ci run on its SHA', () => {
+    const claude = readFileSync(fileURLToPath(new URL('../../../CLAUDE.md', import.meta.url)), 'utf8')
+    const lines = claude.split(/\r?\n/)
+    expect(lines.some((l) => /green/.test(l) && /\bci\b/.test(l) && /SHA/.test(l))).toBe(true)
+  })
+
   describe("D5: .github/workflows/release.yml", () => {
     /** @returns {any} the parsed workflow, re-read per test so no test can leak a mutation. */
     function readWorkflow() {
@@ -122,14 +128,14 @@ describe('release pipeline wiring', () => {
       expect(workflow.jobs.release['runs-on']).toBe('windows-latest')
     })
 
-    test('workflow_dispatch exposes exactly version, bump and dry_run as inputs', () => {
+    test('workflow_dispatch exposes exactly version, bump, dry_run and skip_ci_guard as inputs', () => {
       const workflow = readWorkflow()
       // js-yaml parses the `on:` key as the boolean `true` (YAML 1.1 quirk), never as the string
       // "on" - read it back the same way.
       const on = workflow.on ?? workflow[true]
       const inputs = on.workflow_dispatch.inputs
 
-      expect(Object.keys(inputs).sort()).toEqual(['bump', 'dry_run', 'version'].sort())
+      expect(Object.keys(inputs).sort()).toEqual(['bump', 'dry_run', 'skip_ci_guard', 'version'].sort())
     })
 
     test('the job carries a guard that skips a push carrying [skip ci]', () => {
@@ -186,6 +192,7 @@ describe('release pipeline wiring', () => {
         changelogText: changelog,
         pkgText,
         lockText,
+        readmeText: readFileSync(README_PATH, 'utf8'),
         tags: [],
         requestedVersion: undefined,
         bump: 'patch',
@@ -197,6 +204,10 @@ describe('release pipeline wiring', () => {
       const commitCommand = plan.commands.find((command) => command.kind === 'git-commit')
       expect(commitCommand).toBeDefined()
       expect(commitCommand.argv).toContain('release: 1.0.1 [skip ci]')
+      // Skipping CI means the real README's Status line has to be bumped here, or check-docs
+      // fails the next PR instead.
+      const readmeWrite = plan.writes.find((write) => write.path === 'README.md')
+      expect(readmeWrite.content).toMatch(/\*\*Status:[^\n]*\(1\.0\.1\)/)
 
       // (b) the workflow's own guard references that same marker.
       const workflow = readWorkflow()

@@ -22,6 +22,7 @@ const result = (over = {}) => ({
   flaky: [],
   configErrors: [],
   notes: [],
+  flows: [],
   total: 0,
   ...over,
 })
@@ -105,6 +106,7 @@ describe('flow result merging', () => {
       flaky: ['f'],
       configErrors: [],
       notes: ['n1', 'n2'],
+      flows: [],
       total: 6,
     })
     expect(mergeResults([result({ total: 2 }), result({ total: 1 })]).ok).toBe(true)
@@ -156,5 +158,19 @@ describe('the pinned list against the flows on disk', () => {
       .map(([name]) => name)
       .sort()
     expect(unsafe).toEqual(Object.keys(PINNED_FLOWS).sort())
+  })
+
+  test('merged results keep one timing entry per flow run', () => {
+    const timing = (name, seconds) => ({ name, seconds, ok: true })
+    const merged = mergeResults([
+      result({ total: 2, flows: [timing('a', 1.5), timing('b', 2)] }),
+      result({ total: 3, flows: [timing('c', 1), timing('c', 1.1), timing('d', 4)] }),
+      unreportedResult(['x', 'y'], 'shard 3', 1),
+    ])
+    expect(merged.flows).toHaveLength(merged.total)
+    expect(merged.flows.slice(5)).toEqual([
+      { name: 'x', seconds: null, ok: false },
+      { name: 'y', seconds: null, ok: false },
+    ])
   })
 })

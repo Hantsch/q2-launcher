@@ -1,0 +1,169 @@
+- 2026-10-29 07:58 · sprint · S36 · started on dev
+- 2026-10-29 08:06 · 264-275 · refine · started
+- 2026-10-29 08:17 · refine · 264-275 · done
+- 2026-10-29 08:17 · 271 · build · started
+- 2026-10-29 08:17 · 271 · D1 clean the audit · started
+- 2026-10-29 08:25 · 271 · D1 clean the audit · done
+- 2026-10-29 08:25 · 271 · D2 gate blocks · started
+- 2026-10-29 08:25 · 271 · D2 gate blocks · done
+- 2026-10-29 08:25 · 271 · D3 pin node · started
+- 2026-10-29 08:26 · 271 · D3 pin node · done
+- 2026-10-29 08:26 · 271 · verify · started
+- 2026-10-29 08:38 · 271 · verify · blocked: verify:release exceeded the 10-minute call limit (INCONCLUSIVE)
+- 2026-10-29 08:38 · 271 · story · blocked: verify:release proof of Node 22.12.0 not observable
+- 2026-10-29 08:38 · 267 · build · started
+- 2026-10-29 08:38 · 267 · D1 perf lane and split · started
+- 2026-10-29 08:45 · 267 · D1 perf lane and split · done
+- 2026-10-29 08:45 · 267 · D2 trigger guard docs · started
+- 2026-10-29 08:46 · 267 · D2 trigger guard docs · done
+- 2026-10-29 08:46 · 267 · D3 flow logs navigation · started
+- 2026-10-29 08:47 · 267 · D3 flow logs navigation · done
+- 2026-10-29 08:47 · 267 · verify · started
+- 2026-10-29 08:50 · 267 · verify · done
+- 2026-10-29 08:50 · 267 · review 1 · started
+- 2026-10-29 08:53 · 267 · review 1 · done
+- 2026-10-29 08:53 · 267 · story · done
+- 2026-10-29 08:53 · 272 · build · started
+- 2026-10-29 08:53 · 272 · D1 launch-with-scope CI fail · started
+- 2026-10-29 08:54 · 272 · D1 launch-with-scope CI fail · done
+- 2026-10-29 08:54 · 272 · D2 workflow pins · started
+- 2026-10-29 08:54 · 272 · D2 workflow pins · done
+- 2026-10-29 08:54 · 272 · D3 discovery guard · started
+- 2026-10-29 08:55 · 272 · D3 discovery guard · done
+- 2026-10-29 08:55 · 272 · D4 constant echoes · started
+- 2026-10-29 08:56 · 272 · D4 constant echoes · done
+- 2026-10-29 08:56 · 272 · verify · started
+- 2026-10-29 08:57 · 272 · verify · done
+- 2026-10-29 08:57 · 272 · review 1 · started
+- 2026-10-29 08:57 · 272 · review 1 · done
+- 2026-10-29 08:59 · 272 · story · done
+- 2026-10-29 08:59 · 266 · build · started
+- 2026-10-29 09:00 · 266 · D1 Guard decision + CLI · started
+- 2026-10-29 09:00 · 266 · D1 Guard decision + CLI · done
+- 2026-10-29 09:00 · 266 · D2 Workflow wiring, tests, CLAUDE.md · started
+- 2026-10-29 09:02 · 266 · D2 Workflow wiring, tests, CLAUDE.md · done
+- 2026-10-29 09:02 · 266 · verify · started
+- 2026-10-29 09:03 · 266 · verify · done
+- 2026-10-29 09:03 · 266 · review 1 · started
+- 2026-10-29 09:04 · 266 · review 1 · done
+- 2026-10-29 09:07 · 266 · story · done
+- 2026-10-29 09:07 · 273 · build · started
+- 2026-10-29 09:07 · 273 · D1 q2pro64 detection · started
+- 2026-10-29 09:12 · 273 · D1 q2pro64 detection · done
+- 2026-10-29 09:12 · 273 · D2 engineExecutable choice · started
+- 2026-10-29 09:13 · 273 · D2 engineExecutable choice · done
+- 2026-10-29 09:13 · 273 · D3 engine build chips · started
+- 2026-10-29 09:13 · 273 · D4 update/repair in place · started
+- 2026-10-29 09:17 · 273 · D3 engine build chips · done
+- 2026-10-29 09:17 · 273 · D4 update/repair in place · done
+- 2026-10-29 09:17 · 273 · verify · started
+- 2026-10-29 09:55 · 273 · verify · done
+- 2026-10-29 09:55 · 273 · review 1 · started
+- 2026-10-29 09:56 · 273 · review 1 · done
+- 2026-10-29 09:56 · 273 · review fix · started
+- 2026-10-29 09:58 · 273 · review fix · done
+- 2026-10-29 09:58 · 273 · story · done
+- 2026-10-29 09:58 · 274 · build · started
+- 2026-10-29 09:59 · 274 · D1 best-of-3 ping · started
+- 2026-10-29 09:59 · 274 · D1 best-of-3 ping · done
+- 2026-10-29 09:59 · 274 · D2 whole ms at source · started
+- 2026-10-29 10:02 · 274 · D2 whole ms at source · done
+- 2026-10-29 10:02 · 274 · D3 flow whole-ms step · started
+- 2026-10-29 10:03 · 274 · D3 flow whole-ms step · done
+- 2026-10-29 10:03 · 274 · verify · started
+- 2026-10-29 10:10 · 274 · verify · done
+- 2026-10-29 10:10 · 274 · review 1 · started
+- 2026-10-29 10:10 · 274 · review 1 · done
+- 2026-10-29 10:11 · 274 · story · done
+- 2026-10-29 10:11 · 275 · build · started
+- 2026-10-29 10:11 · 275 · D1 protocol on rows · started
+- 2026-10-29 10:12 · 275 · D1 protocol on rows · done
+- 2026-10-29 10:12 · 275 · D2 eligibility · started
+- 2026-10-29 10:17 · 275 · D2 eligibility · done
+- 2026-10-29 10:17 · 275 · D3 engine-less session · started
+- 2026-10-29 10:18 · 275 · D3 engine-less session · done
+- 2026-10-29 10:18 · 275 · D4 R1Q2 launch + config restore · started
+- 2026-10-29 10:25 · 275 · D4 R1Q2 launch + config restore · done
+- 2026-10-29 10:25 · 275 · D5 renderer · started
+- 2026-10-29 10:27 · 275 · D5 renderer · done
+- 2026-10-29 10:27 · 275 · D6 e2e · started
+- 2026-10-29 10:34 · 275 · D6 e2e · done
+- 2026-10-29 10:34 · 275 · verify · started
+- 2026-10-29 10:56 · 275 · verify · blocked: 2 unit reds fixed, e2e mods-* reds under investigation
+- 2026-10-29 11:04 · 275 · verify · done
+- 2026-10-29 11:04 · 275 · review 1 · started
+- 2026-10-29 11:06 · 275 · review 1 · done
+- 2026-10-29 11:06 · 275 · review fix 1 · started
+- 2026-10-29 11:08 · 275 · review fix 1 · done
+- 2026-10-29 11:08 · 275 · story · done
+- 2026-10-29 11:08 · 268 · build · started
+- 2026-10-29 11:09 · 268 · D1 drag-reorder waits · started
+- 2026-10-29 11:14 · 268 · D1 drag-reorder waits · done
+- 2026-10-29 11:14 · 268 · D2 servers keyboardReorder waits · started
+- 2026-10-29 11:14 · 268 · D3 sleep ratchet · started
+- 2026-10-29 11:18 · 268 · D2 servers keyboardReorder waits · done
+- 2026-10-29 11:18 · 268 · D3 sleep ratchet · done
+- 2026-10-29 11:18 · 268 · D4 stability record · started
+- 2026-10-29 11:23 · 268 · D4 stability record (1 red root-caused in replays-extra-folders, fixed; full rerun) · started
+- 2026-10-29 11:28 · 268 · D4 stability record · done
+- 2026-10-29 11:28 · 268 · verify · started
+- 2026-10-29 11:28 · 268 · verify · done
+- 2026-10-29 11:28 · 268 · review 1 · started
+- 2026-10-29 11:28 · 268 · review 1 · done
+- 2026-10-29 11:28 · 268 · story · done
+- 2026-10-29 11:29 · 269 · build · started
+- 2026-10-29 11:29 · 269 · D1 quarantine rules · started
+- 2026-10-29 11:30 · 269 · D1 quarantine rules · done
+- 2026-10-29 11:30 · 269 · D2 unlock-code wait · started
+- 2026-10-29 11:31 · 269 · D2 unlock-code wait · done
+- 2026-10-29 11:31 · 269 · D3 news-feed race · started
+- 2026-10-29 11:44 · 269 · D3 news-feed race · done
+- 2026-10-29 11:44 · 269 · verify · started
+- 2026-10-29 11:46 · 269 · verify · done
+- 2026-10-29 11:46 · 269 · review 1 · started
+- 2026-10-29 11:47 · 269 · review 1 · done
+- 2026-10-29 11:47 · 269 · review fix 500ms sleep · started
+- 2026-10-29 11:53 · 269 · review fix 500ms sleep · done
+- 2026-10-29 11:53 · 269 · story · done
+- 2026-10-29 11:53 · 265 · build · started
+- 2026-10-29 11:54 · 265 · D1 smoke tier · started
+- 2026-10-29 11:55 · 265 · D1 smoke tier · done
+- 2026-10-29 11:55 · 265 · D2 per-flow seconds · started
+- 2026-10-29 11:56 · 265 · D2 per-flow seconds · done
+- 2026-10-29 11:56 · 265 · D3 failed-only confirmation · started
+- 2026-10-29 11:58 · 265 · D3 failed-only confirmation · done
+- 2026-10-29 11:58 · 265 · verify · started
+- 2026-10-29 11:59 · 265 · verify · done
+- 2026-10-29 11:59 · 265 · review 1 · started
+- 2026-10-29 12:00 · 265 · review 1 · done
+- 2026-10-29 12:00 · 265 · D5 review-fix 1 · started
+- 2026-10-29 12:02 · 265 · story · done
+- 2026-10-29 12:02 · 264 · build · started
+- 2026-10-29 12:03 · 264 · D1 Windows PR lane · started
+- 2026-10-29 12:07 · 264 · D1 Windows PR lane · done
+- 2026-10-29 12:07 · 264 · D2 release packaged smoke · started
+- 2026-10-29 12:09 · 264 · D2 release packaged smoke · done
+- 2026-10-29 12:09 · 264 · D3 docs · started
+- 2026-10-29 12:10 · 264 · D3 docs · done
+- 2026-10-29 12:10 · 264 · verify · started
+- 2026-10-29 12:14 · 264 · verify · done
+- 2026-10-29 12:14 · 264 · review 1 · started
+- 2026-10-29 12:15 · 264 · review 1 · done
+- 2026-10-29 12:15 · 264 · story · done
+- 2026-10-29 12:15 · 270 · build · started
+- 2026-10-29 12:16 · 270 · D1 Lane map, e2e definition, drift guard · started
+- 2026-10-29 12:18 · 270 · D1 Lane map, e2e definition, drift guard · done
+- 2026-10-29 12:18 · 270 · verify · started
+- 2026-10-29 12:19 · 270 · verify · done
+- 2026-10-29 12:19 · 270 · review 1 · started
+- 2026-10-29 12:20 · 270 · review 1 · done
+- 2026-10-29 12:20 · 270 · story · done
+- 2026-10-29 12:20 · gate · short suites · started
+- 2026-10-29 12:26 · gate · e2e-all · started
+- 2026-10-29 12:37 · gate · e2e-all · relaunch (build older than sources)
+- 2026-10-29 12:59 · gate · verify:release · started
+- 2026-10-29 13:15 · gate · fix 266 verify-release · started
+- 2026-10-29 13:17 · gate · fix 266 verify-release · done
+- 2026-10-29 13:17 · gate · verify:release · relaunch after fixes
+- 2026-10-29 13:36 · gate · verify:release · relaunch on 22.22.2
+- 2026-10-29 14:01 · sprint · S36 · done

@@ -111,17 +111,23 @@ export interface BuildAssemblePlanInput {
    * `missingRequired` for the `pak1.pak` it never had.
    */
   folderPakNames?: string[]
+  /**
+   * The executable the installation launches, so an update or repair replaces that build in place.
+   * Honoured only when it names (case-insensitively) a client of the engine; anything else falls
+   * back to the default target (story 273).
+   */
+  engineExecutable?: string
 }
 
-/** The q2pro engine definition. */
-function getQ2proDefinition() {
-  const definition = ENGINE_DEFINITIONS.find((engine) => engine.kind === 'q2pro')
-  if (!definition) {
-    throw new Error(
-      'ENGINE_DEFINITIONS has no q2pro entry - bootstrap assembly cannot resolve a target binary name',
-    )
-  }
-  return definition
+/** The engine target: `engineExecutable` when it is one of the definition's executables. */
+function pickEngineTarget(
+  executables: readonly string[],
+  fallback: string,
+  engineExecutable: string | undefined,
+): string {
+  if (engineExecutable === undefined) return fallback
+  const wanted = engineExecutable.toLowerCase()
+  return executables.find((name) => name.toLowerCase() === wanted) ?? fallback
 }
 
 /** The r1q2 engine definition (story 080). */
@@ -215,13 +221,12 @@ function buildFolderGameDataEntries(names: string[]): AssembleFileEntry[] {
     }))
 }
 
-/**
- * The Q2PRO-specific entries. `to` is derived from `ENGINE_DEFINITIONS` rather than hardcoded, so
- * "the name the target expects" is read from the one table `inspectInstallation` already uses.
- */
-function buildQ2proEngineEntries(): AssembleFileEntry[] {
-  const q2pro = getQ2proDefinition()
-  const engineTarget = q2pro.executables[0]
+/** The Q2PRO-specific entries. */
+function buildQ2proEngineEntries(engineExecutable?: string): AssembleFileEntry[] {
+  // Not `executables[0]`: that order is the detection preference (`q2pro64.exe` first), while the
+  // bootstrap has always installed the client as `q2pro.exe` and must keep doing so (story 273).
+  const q2pro = ENGINE_DEFINITIONS.find((engine) => engine.kind === 'q2pro')
+  const engineTarget = pickEngineTarget(q2pro?.executables ?? [], 'q2pro.exe', engineExecutable)
 
   return [
     // Engine package (`q2pro-client_win64_x64.zip`).
@@ -249,9 +254,9 @@ function buildQ2proEngineEntries(): AssembleFileEntry[] {
  * DLL. `dedicated.exe` is deliberately never on this list (a deliberate exclusion). No optional menu
  * entry - none is known to ship with this package.
  */
-function buildR1q2EngineEntries(): AssembleFileEntry[] {
+function buildR1q2EngineEntries(engineExecutable?: string): AssembleFileEntry[] {
   const r1q2 = getR1q2Definition()
-  const engineTarget = r1q2.executables[0]
+  const engineTarget = pickEngineTarget(r1q2.executables, r1q2.executables[0], engineExecutable)
 
   return [
     { from: ['r1q2.exe'], to: engineTarget, role: 'engine', required: true },
@@ -335,9 +340,9 @@ export function buildAssemblePlan(
 
   switch (input.engine) {
     case 'q2pro':
-      return [...gameData, ...buildQ2proEngineEntries()]
+      return [...gameData, ...buildQ2proEngineEntries(input.engineExecutable)]
     case 'r1q2':
-      return [...gameData, ...buildR1q2EngineEntries()]
+      return [...gameData, ...buildR1q2EngineEntries(input.engineExecutable)]
     default:
       throw new Error(
         `buildAssemblePlan cannot assemble an installation for unsupported engine ${JSON.stringify(input.engine)}`,
@@ -365,6 +370,8 @@ export interface AssembleInstallationInput {
   sources: AssembleSource[]
   /** Absolute path to the installation root being assembled. */
   targetRoot: string
+  /** See `BuildAssemblePlanInput.engineExecutable`. */
+  engineExecutable?: string
   /**
    * Which engine this run is assembling - selects the engine-specific allowlist entries. Optional
    * (story 088): `copyRetailGameData` assembles game data only, with no engine entries.
@@ -498,7 +505,16 @@ async function expandGlobDir(
 export async function assembleInstallation(
   input: AssembleInstallationInput,
 ): Promise<AssembleInstallationResult> {
-  const { sources, targetRoot, engine, scope, dataSource, folderPakNames, restrictTo } = input
+  const {
+    sources,
+    targetRoot,
+    engine,
+    scope,
+    dataSource,
+    folderPakNames,
+    restrictTo,
+    engineExecutable,
+  } = input
   const copiedFiles: string[] = []
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
   const entries: AssembleEntryResult[] = []
@@ -530,7 +546,13 @@ export async function assembleInstallation(
     return { copiedFiles, missingRequired, entries }
   }
 
-  const fullPlan = buildAssemblePlan({ scope, engine, dataSource, folderPakNames })
+  const fullPlan = buildAssemblePlan({
+    scope,
+    engine,
+    dataSource,
+    folderPakNames,
+    engineExecutable,
+  })
   const plan =
     restrictTo === undefined
       ? fullPlan

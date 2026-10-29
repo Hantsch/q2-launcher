@@ -319,6 +319,7 @@ import {
   writeReplaysListErrorFixture,
   writeReplaysScopeNoneSelectedFixture,
 } from './fixture/replays.mjs'
+export { REPLAYS_PLAY_R1Q2_SEEDED_CONFIG, r1q2WrapperCompiler } from './fixture/replays-play.mjs'
 import {
   REPLAYS_TIMELINE_VARIANT,
   writeReplaysPlayFixture,
@@ -347,6 +348,7 @@ export const VARIANTS = {
   'replays-scale': writeReplaysScaleFixture,
   [REPLAYS_FOLDER_SCALE_VARIANT]: writeReplaysFolderScaleFixture,
   'replays-play': writeReplaysPlayFixture,
+  'replays-play-r1q2': () => writeReplaysPlayFixture('replays-play-r1q2', { r1q2Stub: true }),
   [REPLAYS_TIMELINE_VARIANT]: writeReplaysTimelineFixture,
   'replays-mod-install': writeReplaysModInstallFixture,
   [REPLAYS_SORT_ORDER_VARIANT]: writeReplaysSortOrderFixture,
