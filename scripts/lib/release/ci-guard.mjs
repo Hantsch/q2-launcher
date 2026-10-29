@@ -13,7 +13,8 @@ export function resolveGuardTarget({ headSha, headMessage, parentSha }) {
 /**
  * @param {{ dryRun: boolean, override: boolean, targetSha: string,
  *   runs: Array<{ head_sha: string, status: string, conclusion: string | null }> }} input
- * @returns {{ pass: boolean, reason: string }}
+ * @returns {{ pass: boolean, pending?: boolean, reason: string }} `pending` means the run is still
+ *   going: the caller polls again instead of refusing.
  */
 export function decideCiGuard({ dryRun, override, targetSha, runs }) {
   if (dryRun) return { pass: true, reason: 'dry run, guard not applied' }
@@ -25,7 +26,8 @@ export function decideCiGuard({ dryRun, override, targetSha, runs }) {
   if (matching.some((run) => run.status !== 'completed')) {
     return {
       pass: false,
-      reason: `ci run for ${targetSha} is not finished yet; dispatch release again once ci is green`,
+      pending: true,
+      reason: `ci run for ${targetSha} is not finished yet`,
     }
   }
   return { pass: false, reason: `no successful ci run for ${targetSha}` }

@@ -11,6 +11,12 @@ function run(cmd, args) {
   return res.stdout.trim()
 }
 
+const POLL_MS = 30_000
+const MAX_WAIT_MS = 60 * 60_000
+// A push starts `ci` and `release` together, so `ci` may not have registered its run yet.
+const NO_RUN_GRACE_MS = 3 * 60_000
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
 try {
   const env = process.env
   const dryRun = env.RELEASE_DRY_RUN_INPUT === 'true'
@@ -20,14 +26,25 @@ try {
   const headMessage = run('git', ['log', '-1', '--format=%B', 'HEAD'])
   const targetSha = resolveGuardTarget({ headSha, headMessage, parentSha })
 
-  let runs = []
-  if (!dryRun && !override) {
+  const fetchRuns = () => {
     const endpoint = `repos/${env.GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${targetSha}&per_page=100`
-    runs = JSON.parse(run('gh', ['api', endpoint])).workflow_runs
-    if (!Array.isArray(runs)) throw new Error('gh api returned no workflow_runs')
+    const found = JSON.parse(run('gh', ['api', endpoint])).workflow_runs
+    if (!Array.isArray(found)) throw new Error('gh api returned no workflow_runs')
+    return found
   }
 
-  const { pass, reason } = decideCiGuard({ dryRun, override, targetSha, runs })
+  const started = Date.now()
+  let decision
+  for (;;) {
+    const runs = !dryRun && !override ? fetchRuns() : []
+    decision = decideCiGuard({ dryRun, override, targetSha, runs })
+    const elapsed = Date.now() - started
+    const waitingForRun = !decision.pass && runs.length === 0 && elapsed < NO_RUN_GRACE_MS
+    if (!(decision.pending || waitingForRun) || elapsed >= MAX_WAIT_MS) break
+    console.log(`${decision.reason}; waiting ${POLL_MS / 1000}s for ci`)
+    await sleep(POLL_MS)
+  }
+  const { pass, reason } = decision
   if (override && !dryRun) {
     console.log(`::warning::ci guard skipped by ${env.GITHUB_ACTOR} for ${targetSha}`)
   }
