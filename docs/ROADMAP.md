@@ -59,7 +59,6 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - Crash detection: a non-zero exit shortly after start is worth surfacing.
 - Upstream the tech-debt ageing rule (docs/README.md, `.claude/ai-scrum.md` Notes) into the ai-scrum plugin — for the user. [story 229]
 - Register the six S34 flows in `scripts/flows/areas.json` and make `--affected` selective when `scripts/lib` changes (TD-042, TD-043). [S34 review](sprints/done/S34/review.md)
-- Promote or delete the 15 TECH-DEBT rows older than three sprints at S36 (TD-001–011, 015, 016, 019, 020, 021, 029, 030; `check-docs --overdue`). [S34 review](sprints/done/S34/review.md)
 
 ## History
 
