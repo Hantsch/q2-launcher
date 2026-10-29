@@ -13,7 +13,7 @@ exit condition — so that nobody reads five workflows and a 470-line script to 
 
 Comes after stories 264 and 265: the table is written once, with their final blocking/advisory values.
 
-Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F08, F02, F14; P2):
+Today ([review 2026-10-27](../../reviews/2026-10-27-tests-review.md), F08, F02, F14; P2):
 
 - F08: `CLAUDE.md` has no `## Test lanes` section. Lane facts are spread over `.claude/ai-scrum.md:20-43`,
   `scripts/verify-release.mjs:1-45`, `linux-verify.yml:3-21` and `ui-flows.yml:3-5`. "e2e" means

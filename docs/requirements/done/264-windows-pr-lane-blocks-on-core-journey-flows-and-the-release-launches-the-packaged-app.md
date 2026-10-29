@@ -11,7 +11,7 @@ As a maintainer, I want the blocking Windows lane to fail a pull request when a 
 and the release to start the packaged Windows app before it publishes, so the build about 80% of
 users run is the one that gets tested.
 
-Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F03): the blocking Windows UI job
+Today ([review 2026-10-27](../../reviews/2026-10-27-tests-review.md), F03): the blocking Windows UI job
 `windows-verify` runs `ui:verify` plus three flows (about-release-notes, steam-handoff,
 open-keycap-dialog) on a dev build (`.github/workflows/ui-flows.yml:62-91`, `npm run build:dev` at
 :77; `vitest.config.ts:8` forces `__Q2L_DEV_MODULES__: 'true'`). No Windows flow does add
