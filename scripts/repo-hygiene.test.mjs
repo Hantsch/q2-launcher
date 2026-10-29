@@ -105,7 +105,7 @@ describe('dependency floors', () => {
 
   test('the lockfile carries no advisory-affected electron or js-yaml', () => {
     const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'))
-    expect(atLeast(lock.packages['node_modules/electron'].version, '43.7.7')).toBe(true)
+    expect(atLeast(lock.packages['node_modules/electron'].version, '43.8.4')).toBe(true)
     expect(atLeast(lock.packages['node_modules/js-yaml'].version, '4.3.2')).toBe(true)
   })
 })
@@ -125,14 +125,12 @@ describe('dependency automation', () => {
     expect(groups.some((g) => g['update-types']?.includes('major'))).toBe(false)
   })
 
-  test('ci runs a non-blocking audit with a dated follow-up', () => {
+  test('the ci audit step blocks a PR', () => {
     const ci = yaml.load(readRepo('../.github/workflows/ci.yml'))
-    const steps = ci.jobs.test.steps
-    const audit = steps.find((s) => s.run === 'npm audit --audit-level=high')
-    expect(audit?.['continue-on-error']).toBe(true)
-    const roadmap = readRepo('../docs/ROADMAP.md')
-    expect(roadmap).toContain('npm audit')
-    expect(roadmap).toContain('2026-10-09')
+    const audit = ci.jobs.test.steps.find((s) => s.run === 'npm audit --audit-level=high')
+    expect(audit).toBeDefined()
+    expect(audit.name).toBe('Audit')
+    expect(audit['continue-on-error']).toBeUndefined()
   })
 
   test('the roadmap carries no Vite pin follow-up', () => {

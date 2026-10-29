@@ -2,7 +2,7 @@
 
 Defects and debt in existing code. Rows are removed when done; git is the history. A row older than three sprints is promoted to a story or deleted.
 
-Next id: TD-054
+Next id: TD-055
 
 | id     | since | area     | sev | item                                                                                                                                                                                                                                               | source                                                                                                   |
 | ------ | ----- | -------- | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -58,3 +58,4 @@ Next id: TD-054
 | TD-051 | S35   | tooling  | low | `scripts/update-geoip.mjs` does not parse-check the downloaded database and its `fetch` has no timeout (story 263)                                                                                                                                 | [S35 review](sprints/S35/review.md)                                                                      |
 | TD-052 | S35   | flows    | med | `news-feed` and `unlock-code` flake under four shards (S35 gate, quarantined): a manifest refresh lands in the second-launch window; the installation id is read before it renders                                                                 | [S35 review](sprints/S35/review.md)                                                                      |
 | TD-053 | S35   | servers  | low | The footer Map list is fetched once per installation and mod, so it does not refresh when maps are installed (story 252)                                                                                                                           | [S35 review](sprints/S35/review.md)                                                                      |
+| TD-054 | S36   | deps     | low | `overrides` pins node-gyp (dev-only) to undici ^8: its own ^6 range has no fix for the high advisories; drop the override once node-gyp moves to undici 7+ or by 2027-01-31 (story 271)                                                            | [story 271](requirements/271-ci-pins-node-and-the-audit-gate-blocks.md)                                  |

@@ -1,2 +1,13 @@
 - 2026-10-29 07:58 · sprint · S36 · started on dev
 - 2026-10-29 08:06 · 264-275 · refine · started
+- 2026-10-29 08:17 · refine · 264-275 · done
+- 2026-10-29 08:17 · 271 · build · started
+- 2026-10-29 08:17 · 271 · D1 clean the audit · started
+- 2026-10-29 08:25 · 271 · D1 clean the audit · done
+- 2026-10-29 08:25 · 271 · D2 gate blocks · started
+- 2026-10-29 08:25 · 271 · D2 gate blocks · done
+- 2026-10-29 08:25 · 271 · D3 pin node · started
+- 2026-10-29 08:26 · 271 · D3 pin node · done
+- 2026-10-29 08:26 · 271 · verify · started
+- 2026-10-29 08:38 · 271 · verify · blocked: verify:release exceeded the 10-minute call limit (INCONCLUSIVE)
+- 2026-10-29 08:38 · 271 · story · blocked: verify:release proof of Node 22.12.0 not observable

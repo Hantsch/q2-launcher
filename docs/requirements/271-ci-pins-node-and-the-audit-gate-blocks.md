@@ -1,7 +1,7 @@
 ---
 id: 271
 title: CI pins Node via a version file and the audit gate blocks
-status: ready # draft -> ready -> in-progress -> done
+status: in-progress # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -156,8 +156,14 @@ Review: → default
 
 ## Done
 
-<Leave empty. Filled by `/build <id>` after implementation:
+BLOCKED (status stays in-progress). D1-D3 are implemented; the D3 proof is unobserved.
 
-- Short summary (2–5 lines): what was done.
-- Commit message (1–2 lines, keywords are enough).
-- Verification: build/test/lint result + review outcome; open points/blockers, if any.>
+- D1: electron 43.8.4, vite 7.3.7, zod 4.6.7, vitest 4.1.12; `npm audit --audit-level=high` exits 0. `npm audit fix` crashes here, so versions were bumped per package. Override `node-gyp > undici ^8.12.3` documented as TD-054 (expiry 2027-01-31); undici 8 needs Node >=22.19, above the 22.12.0 pin (dev-only, node-gyp).
+- D2: audit step renamed `Audit`, `continue-on-error` removed; test "the ci audit step blocks a PR" added, seeded defect turns it red. Only `linux-journey` keeps `continue-on-error` (line 68).
+- D3: `.node-version` = 22.12.0, action uses `node-version-file`, CONTRIBUTING updated.
+- Four CRLF templates converted to LF so the hygiene test passes.
+- Verify: build, typecheck, lint, `npm test` (7631 passed) green. `npm run verify:release` (act on Node 22.12.0) ran >10 minutes and was stopped: INCONCLUSIVE, not observed. Docker had to be started first.
+- Open: prove 22.12.0 (npm ci + audit under act), or decide to pin 22.22.2 and raise `engines`.
+- Review not run.
+
+tiers: D 3 / hard 0 · review none · cycles 0 · agents 2

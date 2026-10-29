@@ -2,10 +2,6 @@ name: Set up Node and Electron
 description: Node with the npm cache, `npm ci`, and (optionally) the Electron binary from a version-keyed cache.
 
 inputs:
-  node-version:
-    description: Node.js version
-    required: false
-    default: '22'
   electron:
     description: "'true' downloads the Electron binary (cached per Electron version), 'false' skips it"
     required: false
@@ -16,7 +12,7 @@ runs:
   steps:
     - uses: actions/setup-node@v4
       with:
-        node-version: ${{ inputs.node-version }}
+        node-version-file: .node-version
         cache: npm
 
     - name: Install dependencies

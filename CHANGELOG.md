@@ -12,6 +12,10 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Security
+
+- Electron updated for a certificate-trust security advisory.
+
 ## 0.8.0 — 2026-10-27
 
 ### Added
