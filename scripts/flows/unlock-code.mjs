@@ -95,9 +95,17 @@ function nowSeconds() {
 
 async function openSettings(page) {
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('unlock-installation-id')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  // The <code> renders empty until the unlock state arrives, so visibility alone is too early.
+  await page.waitForFunction(
+    () =>
+      /^[A-Z2-7]{4}-[A-Z2-7]{4}-[A-Z2-7]{4}$/.test(
+        document
+          .querySelector('[data-testid="unlock-installation-id"]')
+          ?.textContent?.trim() ?? '',
+      ),
+    undefined,
+    { timeout: TIMEOUT_MS },
+  )
 }
 
 async function readInstallationId(page) {

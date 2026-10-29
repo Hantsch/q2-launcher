@@ -1562,8 +1562,8 @@ same root at once: the pinned flows and the parent's own `.ui-verify/` are
 not shared-safe.
 
 `scripts/flows/quarantine.json` lists flows that are known broken. Each entry
-has `flow` (a name in `scripts/flows/`), `reason`, `story` (the story that
-wrote the entry) and `since` (a sprint like `S32`), plus an optional `platform`
+has `flow` (a name in `scripts/flows/`), `reason`, `story` (the owning story or TD id;
+`unattributed` is rejected) and `since` (a sprint like `S32`), plus an optional `platform`
 (`win32` or `linux`) to limit it to one OS. Outcomes for a quarantined flow:
 
 - fails: an expected fail, noted but not counted against the run;
@@ -1584,7 +1584,9 @@ Entries are validated: missing fields, a malformed `since`, an unknown
 `platform` or an unknown flow name are errors, and while the list is invalid
 nothing is treated as quarantined. An entry also fails the run when the
 current sprint minus `since` is greater than 3 — fix the flow or make it a
-story.
+story. The age rule does not apply to `linux` entries: Linux is a manually-run
+qualification target and its entries list known platform differences, not
+forgotten breakage.
 
 ## Baselines and CI
 

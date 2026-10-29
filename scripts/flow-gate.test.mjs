@@ -58,8 +58,33 @@ describe('flow gate quarantine', () => {
     const old = await gate({ flaky: [false] }, [entry({ since: 'S28' })], { current: 32 })
     expect(old.ok).toBe(false)
     expect(old.configErrors[0]).toContain('quarantined since S28, older than three sprints')
+    const win = await gate({ flaky: [false] }, [entry({ since: 'S28', platform: 'win32' })], {
+      current: 32,
+      platform: 'win32',
+    })
+    expect(win.ok).toBe(false)
     const edge = await gate({ flaky: [false] }, [entry({ since: 'S29' })], { current: 32 })
     expect(edge.ok).toBe(true)
+  })
+
+  test('an unattributed or empty story is a config error', async () => {
+    for (const story of ['unattributed', ' Unattributed ']) {
+      const problems = validateQuarantine([entry({ story })], ['flaky'])
+      expect(problems).toHaveLength(1)
+      expect(problems[0]).toContain('story')
+    }
+    const result = await gate({ flaky: [false] }, [entry({ story: 'unattributed' })])
+    expect(result.ok).toBe(false)
+  })
+
+  test('a linux-scoped entry does not age out', async () => {
+    const entries = [entry({ since: 'S28', platform: 'linux' })]
+    const onLinux = await gate({ flaky: [false] }, entries, { platform: 'linux' })
+    expect(onLinux.ok).toBe(true)
+    expect(onLinux.configErrors ?? []).toEqual([])
+    const onWin = await gate({ flaky: [true] }, entries, { platform: 'win32' })
+    expect(onWin.ok).toBe(true)
+    expect(onWin.configErrors ?? []).toEqual([])
   })
 
   test('an entry naming an unknown flow fails the run', async () => {

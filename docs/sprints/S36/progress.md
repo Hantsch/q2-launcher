@@ -111,3 +111,17 @@
 - 2026-10-29 11:28 · 268 · review 1 · started
 - 2026-10-29 11:28 · 268 · review 1 · done
 - 2026-10-29 11:28 · 268 · story · done
+- 2026-10-29 11:29 · 269 · build · started
+- 2026-10-29 11:29 · 269 · D1 quarantine rules · started
+- 2026-10-29 11:30 · 269 · D1 quarantine rules · done
+- 2026-10-29 11:30 · 269 · D2 unlock-code wait · started
+- 2026-10-29 11:31 · 269 · D2 unlock-code wait · done
+- 2026-10-29 11:31 · 269 · D3 news-feed race · started
+- 2026-10-29 11:44 · 269 · D3 news-feed race · done
+- 2026-10-29 11:44 · 269 · verify · started
+- 2026-10-29 11:46 · 269 · verify · done
+- 2026-10-29 11:46 · 269 · review 1 · started
+- 2026-10-29 11:47 · 269 · review 1 · done
+- 2026-10-29 11:47 · 269 · review fix 500ms sleep · started
+- 2026-10-29 11:53 · 269 · review fix 500ms sleep · done
+- 2026-10-29 11:53 · 269 · story · done

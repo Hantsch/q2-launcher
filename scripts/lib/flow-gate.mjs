@@ -126,6 +126,9 @@ export function validateQuarantine(entries, knownFlows) {
     ) {
       problems.push(`${label}: "since" must look like S32, got "${entry.since}"`)
     }
+    if (typeof entry.story === 'string' && entry.story.trim().toLowerCase() === 'unattributed') {
+      problems.push(`${label}: "story" must name a story or TD id, got "unattributed"`)
+    }
     if ('platform' in entry && !PLATFORMS.includes(entry.platform)) {
       problems.push(
         `${label}: "platform" must be one of ${PLATFORMS.join(', ')}, got "${entry.platform}"`,
@@ -152,7 +155,9 @@ export function currentSprint(openDirs, doneDirs) {
 /** Entries that have been quarantined for more than MAX_QUARANTINE_AGE sprints. */
 export function staleEntries(entries, current) {
   if (current === null) return []
+  // Linux is a manually-run qualification target: its entries list known platform differences.
   return entries
+    .filter((entry) => entry.platform !== 'linux')
     .filter((entry) => current - sprintNumber(entry.since) > MAX_QUARANTINE_AGE)
     .map(
       (entry) =>

@@ -365,3 +365,4 @@ second roadmap.
 - 274 — The server ping is the best sample in whole milliseconds · S36 · scan ping is the rounded best of 3 samples, rounded at the source so every surface shows whole ms
 - 275 — Demos play in an R1Q2 installation · S36 · R1Q2 plays via +demomap, Stop only, other controls disabled with reason, whole config restored, protocol on rows
 - 268 — Recorded-flaky flows wait on conditions, not sleeps · S36 · drag and servers-source flows wait on dnd-kit state; hygiene ratchet with shrink-only allowlist
+- 269 — Quarantine entries get a real owner; Linux entries do not age out; two shard races fixed · S36 · unattributed quarantine entries are rejected, linux entries skip the age rule, news-feed and unlock-code races fixed.
