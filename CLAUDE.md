@@ -66,18 +66,22 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
   modules don't import each other, and the shell doesn't import module internals — enforced by
   `src/architecture.test.ts` and `npm run lint`. An exception is an allowlist entry with a story number.
 
-<!-- tech-rules:managed:start 2.3.0 -->
+<!-- tech-rules:managed:start 2.4.0 -->
 
 ## House rules
 
 These rules live in this repository as project skills, so they apply to everyone who works here —
 no plugin needed. Installed and updated with `/tech-rules:setup` (plugin `tech-rules@hantsch`).
 
-| Read before                                      | Skill                                        |
-| ------------------------------------------------ | -------------------------------------------- |
-| any code change                                  | `/karpathy`                                  |
-| touching `src/renderer`                          | `/renderer-guidelines`, `/design-tokens`     |
-| main / preload / renderer, IPC, `webPreferences` | `/electron-arch`, `/typed-ipc`, `/ui-verify` |
+| Read before                                                        | Skill                                        |
+| ------------------------------------------------------------------ | -------------------------------------------- |
+| any code change                                                    | `/karpathy`                                  |
+| writing or moving a test, touching a test config or a CI workflow  | `/test-gates`                                |
+| touching `src/renderer`                                            | `/renderer-guidelines`, `/design-tokens`     |
+| main / preload / renderer, IPC, `webPreferences`                   | `/electron-arch`, `/typed-ipc`, `/ui-verify` |
+
+`/test-review` reviews the test suite and writes a report; `/release-prep` runs every test lane
+before a release. Which command is which lane is this project's `## Test lanes` table.
 
 Do not edit a skill to make it fit this project. A deviation is recorded **here**, with its
 reason, and wins over the skill — one row per rule deviated from, listing the places, never one

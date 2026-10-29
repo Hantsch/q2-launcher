@@ -3,7 +3,7 @@ name: design-tokens
 description: "Method for a semantic design-token layer in a React/Tailwind app and the mobile accessibility floor that goes with it. Use when: picking colours for a component; writing a class list that would contain a hex value or a raw palette class (slate-500, gray-200); adding or changing dark mode; setting up or extending the token vocabulary in tailwind.config or the CSS variable block; adding a theme; choosing spacing, radius, elevation or transitions; building anything touch-operated; reviewing UI code for hardcoded colours, missing focus states, too-small touch targets or colour-only status. DO NOT USE FOR: choosing a brand palette from scratch; backend code; non-Tailwind styling systems."
 ---
 
-<!-- tech-rules:managed 2.3.0 -->
+<!-- tech-rules:managed 2.4.0 -->
 
 # Design Tokens and the Accessibility Floor
 

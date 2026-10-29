@@ -3,7 +3,7 @@ name: renderer-guidelines
 description: "Architecture, state and reuse rules for the React renderer of an Electron app organised as shell + modules. Use when: creating or editing files under an Electron renderer source tree; adding a view, tab, dialog, hook or list block to a renderer module; reading main-owned data in the renderer or wiring a subscription to a main-to-renderer event; applying a mutation whose result can be refused by main; deciding whether something is component state, context, a module store or a query hook; adding a UI-kit primitive (dialog, tab strip, menu, toast, error boundary); splitting a large component; writing a renderer unit or component test; reviewing a renderer diff for duplication, misplaced files, cross-module imports or hand-rolled effects. DO NOT USE FOR: web-only React apps with routing, pages and a server-state library (use frontend-guidelines); main-process or preload code (use electron-arch); IPC contract mechanics (use typed-ipc); colours, focus rings and target sizes (use design-tokens)."
 ---
 
-<!-- tech-rules:managed 2.3.0 -->
+<!-- tech-rules:managed 2.4.0 -->
 
 # Renderer Guidelines for Electron
 
