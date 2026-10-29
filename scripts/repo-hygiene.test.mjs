@@ -1,6 +1,15 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { matchesGlob } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, matchesGlob } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import yaml from 'js-yaml'
@@ -168,5 +177,76 @@ describe('test discovery', () => {
     ]
 
     expect(orphanTestFiles(paths, vitestConfig.test.include)).toEqual(['scripts/foo.test.cjs'])
+  })
+})
+
+describe('flows wait on conditions', () => {
+  // Shrink only: a flow leaves this list when it is fixed.
+  const LEGACY_SLEEP_ALLOWLIST = Object.freeze([
+    'scripts/flows/controls-extra-keys.mjs',
+    'scripts/flows/drop-message-checkbox.mjs',
+    'scripts/flows/grenade-rows-take-a-key.mjs',
+    'scripts/flows/home-dashboard-arrange.mjs',
+    'scripts/flows/home-hero-carousel.mjs',
+    'scripts/flows/news-cover-template.mjs',
+    'scripts/flows/replays-bulk-delete.mjs',
+    'scripts/flows/replays-bulk-one-selected.mjs',
+    'scripts/flows/replays-demo-context-menu.mjs',
+    'scripts/flows/replays-demo-file-actions.mjs',
+    'scripts/flows/replays-detail-always-shown.mjs',
+    'scripts/flows/replays-folder-drag-move.mjs',
+    'scripts/flows/replays-multi-select.mjs',
+    'scripts/flows/replays-name-templates.mjs',
+    'scripts/flows/servers-lan-no-scan-while-playing.mjs',
+    'scripts/flows/servers-no-scan-while-playing.mjs',
+    'scripts/lib/servers-lan-flow.mjs',
+  ])
+
+  const filesWithFixedSleeps = (root) => {
+    const found = []
+    const walk = (relDir) => {
+      const dir = join(root, relDir)
+      if (!existsSync(dir)) return
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const rel = `${relDir}/${entry.name}`
+        if (entry.isDirectory()) walk(rel)
+        else if (
+          entry.name.endsWith('.mjs') &&
+          readFileSync(join(root, rel), 'utf8').includes('waitForTimeout')
+        ) {
+          found.push(rel)
+        }
+      }
+    }
+    walk('scripts/flows')
+    walk('scripts/lib')
+    return found.sort()
+  }
+
+  test('a flow with one fixed sleep is reported', () => {
+    const root = mkdtempSync(join(tmpdir(), 'sleep-ratchet-'))
+    try {
+      mkdirSync(join(root, 'scripts', 'flows'), { recursive: true })
+      writeFileSync(
+        join(root, 'scripts', 'flows', 'fixture-flow.mjs'),
+        'await page.waitForTimeout(100)\n',
+      )
+
+      expect(filesWithFixedSleeps(root)).toEqual(['scripts/flows/fixture-flow.mjs'])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('no flow outside the legacy allowlist sleeps on a fixed timeout', () => {
+    expect(
+      filesWithFixedSleeps(REPO_ROOT).filter((f) => !LEGACY_SLEEP_ALLOWLIST.includes(f)),
+    ).toEqual([])
+  })
+
+  test('every legacy allowlist entry still sleeps', () => {
+    const sleeping = filesWithFixedSleeps(REPO_ROOT)
+
+    expect(LEGACY_SLEEP_ALLOWLIST.filter((f) => !sleeping.includes(f))).toEqual([])
   })
 })

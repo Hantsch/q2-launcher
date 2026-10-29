@@ -18,8 +18,8 @@
 // `move` would start the drag but might never register as "over" the target row/chip. Every drag
 // below goes: move to the grip, down, a small move past the activation distance, several
 // intermediate moves toward the target (letting dnd-kit's `onDragOver` fire and update `overId`
-// along the way), a final move onto the target's centre, a short pause so the last `onDragOver`
-// resolves, then up.
+// along the way), a final move onto the target's centre, a wait until dnd-kit reports the pointer
+// over that target, then up.
 //
 // The grip itself (`.ctrl-grip-handle`) is opacity-0 until its row is hovered/focus-within
 // (controls-grid.css) - real pointer events still land on it regardless of visual opacity (that is
@@ -34,37 +34,74 @@
 // reach the chip's real position, since `CategoryDropTarget` is only ever a target while the raw
 // pointer is literally inside it (`pointerWithin`, not the row zone's `closestCenter`).
 //
-// The other thing that made the difference, found by trial: the drop's own state update (and, for
-// a category move, the profile persist it triggers) is not synchronous with the drag's final
-// `mouseup` - reading the DOM's row order immediately after releasing the mouse observed the
-// *pre*-drop order more than once. `realDrag` settles for 300ms after `mouse.up()` before
-// returning, specifically so every assertion below reads the post-drop DOM, not a stale one.
+// `realDrag` never sleeps; each phase waits on state dnd-kit itself exposes. Drag started: the
+// `.ctrl-drag-preview` overlay is attached (it exists only while a drag is active). Over the
+// target: a category chip carries `ctrl-chip-drop-over`; for a row, dnd-kit's live region
+// announces "was moved into position N" with N the target row's own position. Dropped: the preview
+// is detached AND the caller's predicate over the rendered row order holds - the drop's state
+// update (and, for a category move, the profile persist it triggers) lands after `mouseup`, so the
+// order read straight after release can still be the pre-drop one, and the preview going away
+// alone says nothing about whether the drop resolved.
 
 const CLICK_TIMEOUT_MS = 8_000
+
+const ROW_SELECTOR = '[role="rowgroup"][data-row-id]'
 
 /** Every rendered row's stable identity, in DOM order - `role="rowgroup"` is the per-row sortable
  * item (`ControlsGrid.tsx`), `data-row-id` its id. Mirrors `screens.mjs`'s own row selectors. */
 async function rowOrder(page) {
   return page
-    .locator('[role="rowgroup"][data-row-id]')
+    .locator(ROW_SELECTOR)
     .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-row-id')))
+}
+
+/** Awaits `wait`, rethrowing a timeout with the state that never arrived named in the message. */
+async function waitForState(state, wait) {
+  try {
+    await wait
+  } catch (error) {
+    throw new Error(`timed out after ${CLICK_TIMEOUT_MS}ms waiting for ${state}: ${error.message}`)
+  }
 }
 
 /**
  * One real drag: pointer down on `from`'s centre, a small move past the pointer sensor's 8px
  * activation distance, several intermediate moves toward the target (so dnd-kit's collision
  * detection has a chance to register the hover-over-target along the way, not just teleport past
- * it), a final move onto the target, a short settle, then release.
+ * it), a final move onto the target, then release - each phase gated on dnd-kit's own state (see
+ * the module doc comment).
  *
  * `verticalOnly` (row-to-row reorders) pins the path's x to `from`'s own start x and only travels
  * to `to`'s y - see the module doc comment. Omit it (the category-chip drop) to travel to `to`'s
  * real, full on-screen centre, which `pointerWithin` needs.
+ *
+ * `dropped` is the post-drop DOM: `predicate` runs in the page through `waitForFunction` with
+ * `{ selector: ROW_SELECTOR, ...arg }` and returns true once the rendered rows show the drop;
+ * `state` names it in the timeout message.
  */
-async function realDrag(page, from, to, { verticalOnly = false } = {}) {
+async function realDrag(page, from, to, { verticalOnly = false, dropped }) {
   const fromBox = await from.boundingBox()
   const toBox = await to.boundingBox()
   if (!fromBox) throw new Error('drag source has no bounding box - is it actually rendered?')
   if (!toBox) throw new Error('drag target has no bounding box - is it actually rendered?')
+
+  // The drag-start collision already announces "moved into position <own>", so a row target's
+  // over-state has to name the target's position to prove the pointer reached it.
+  const targetCategory = await to.getAttribute('data-drop-category')
+  let overState
+  let overTarget
+  if (targetCategory !== null) {
+    overState = `category chip "${targetCategory}" to carry ctrl-chip-drop-over`
+    overTarget = page.locator(`[data-drop-category="${targetCategory}"].ctrl-chip-drop-over`)
+  } else {
+    const targetRowId = await to.getAttribute('data-row-id')
+    const position = (await rowOrder(page)).indexOf(targetRowId) + 1
+    if (position === 0) throw new Error(`drag target row "${targetRowId}" is not in the grid`)
+    const announcement = `was moved into position ${position} of`
+    overState = `the dnd live region to announce "${announcement}"`
+    overTarget = page.locator('[role="status"][aria-live]').filter({ hasText: announcement })
+  }
+  const preview = page.locator('.ctrl-drag-preview')
 
   const startX = fromBox.x + fromBox.width / 2
   const startY = fromBox.y + fromBox.height / 2
@@ -83,22 +120,35 @@ async function realDrag(page, from, to, { verticalOnly = false } = {}) {
   await page.mouse.down()
   // Past the 8px activation distance, so the pointer sensor actually starts the drag.
   await page.mouse.move(firstStepX, firstStepY, { steps: 5 })
-  // Gives React/dnd-kit a tick to process the drag-start before the next move.
-  await page.waitForTimeout(50)
+  await waitForState(
+    'the drag to start (.ctrl-drag-preview attached)',
+    preview.waitFor({ state: 'attached', timeout: CLICK_TIMEOUT_MS }),
+  )
 
   const STEPS = 10
   for (let i = 1; i <= STEPS; i += 1) {
     const x = firstStepX + ((endX - firstStepX) * i) / STEPS
     const y = firstStepY + ((endY - firstStepY) * i) / STEPS
     await page.mouse.move(x, y, { steps: 3 })
-    await page.waitForTimeout(30)
   }
   await page.mouse.move(endX, endY, { steps: 5 })
-  // Lets dnd-kit's own onDragOver resolve against the final position before release.
-  await page.waitForTimeout(200)
+  await waitForState(
+    overState,
+    overTarget.waitFor({ state: 'attached', timeout: CLICK_TIMEOUT_MS }),
+  )
   await page.mouse.up()
-  // See the module doc comment: the drop's own state update is not synchronous with `mouseup`.
-  await page.waitForTimeout(300)
+  await waitForState(
+    'the drag to end (.ctrl-drag-preview detached)',
+    preview.waitFor({ state: 'detached', timeout: CLICK_TIMEOUT_MS }),
+  )
+  await waitForState(
+    dropped.state,
+    page.waitForFunction(
+      dropped.predicate,
+      { selector: ROW_SELECTOR, ...dropped.arg },
+      { timeout: CLICK_TIMEOUT_MS },
+    ),
+  )
 }
 
 export default async function controlsDragReorder({ page, shot, step }) {
@@ -130,11 +180,24 @@ export default async function controlsDragReorder({ page, shot, step }) {
   }
 
   step('drag "Multi Bind" onto "Attack" - reorder within the same category')
-  await realDrag(page, multibindRow.locator('.ctrl-grip-handle'), attackRow, { verticalOnly: true })
+  const beforeIndex = orderBefore.indexOf('fixture-action-multibind')
+  await realDrag(page, multibindRow.locator('.ctrl-grip-handle'), attackRow, {
+    verticalOnly: true,
+    dropped: {
+      state: `"Multi Bind" to leave row index ${beforeIndex}`,
+      predicate: ({ selector, rowId, fromIndex }) => {
+        const ids = [...document.querySelectorAll(selector)].map((row) =>
+          row.getAttribute('data-row-id'),
+        )
+        const index = ids.indexOf(rowId)
+        return index !== -1 && index !== fromIndex
+      },
+      arg: { rowId: 'fixture-action-multibind', fromIndex: beforeIndex },
+    },
+  })
 
   step("assert the Movement grid's row order actually changed")
   const orderAfterReorder = await rowOrder(page)
-  const beforeIndex = orderBefore.indexOf('fixture-action-multibind')
   const afterIndex = orderAfterReorder.indexOf('fixture-action-multibind')
   if (afterIndex === -1) {
     throw new Error('"Multi Bind" row vanished from the Movement grid after the reorder drag')
@@ -151,7 +214,16 @@ export default async function controlsDragReorder({ page, shot, step }) {
   step('drag "Attack" onto the "Weapons" category chip')
   const weaponsChip = page.locator('[data-drop-category="weapons"]')
   await weaponsChip.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-  await realDrag(page, attackRow.locator('.ctrl-grip-handle'), weaponsChip)
+  await realDrag(page, attackRow.locator('.ctrl-grip-handle'), weaponsChip, {
+    dropped: {
+      state: '"Attack" to leave the Movement grid',
+      predicate: ({ selector, rowId }) =>
+        ![...document.querySelectorAll(selector)].some(
+          (row) => row.getAttribute('data-row-id') === rowId,
+        ),
+      arg: { rowId: 'fixture-action-attack' },
+    },
+  })
 
   step('assert "Attack" left the Movement grid')
   const orderAfterCategoryDrop = await rowOrder(page)

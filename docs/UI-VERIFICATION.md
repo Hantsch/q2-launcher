@@ -624,7 +624,8 @@ surface. It never asserts:
   that geometry.
 
 New flows do not use `waitForTimeout`; they wait on a state (a testid
-appearing, text changing, a value settling). All fixture data comes from the
+appearing, text changing, a value settling). `scripts/repo-hygiene.test.mjs` enforces this; its legacy allowlist
+only shrinks, and a legacy flow that is touched is fixed and leaves it. All fixture data comes from the
 one deterministic builder `scripts/lib/fixture/populated.mjs`, seeded by
 `scripts/seed.mjs`; a flow does not invent its own data on disk.
 

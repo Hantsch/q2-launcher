@@ -364,3 +364,4 @@ second roadmap.
 - 273 — An installation with q2pro64.exe is recognised as Q2PRO · S36 · q2pro64.exe detected as Q2PRO, per-build chip choice, update/repair replace the launched build
 - 274 — The server ping is the best sample in whole milliseconds · S36 · scan ping is the rounded best of 3 samples, rounded at the source so every surface shows whole ms
 - 275 — Demos play in an R1Q2 installation · S36 · R1Q2 plays via +demomap, Stop only, other controls disabled with reason, whole config restored, protocol on rows
+- 268 — Recorded-flaky flows wait on conditions, not sleeps · S36 · drag and servers-source flows wait on dnd-kit state; hygiene ratchet with shrink-only allowlist

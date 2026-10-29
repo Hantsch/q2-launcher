@@ -96,3 +96,18 @@
 - 2026-10-29 11:06 · 275 · review fix 1 · started
 - 2026-10-29 11:08 · 275 · review fix 1 · done
 - 2026-10-29 11:08 · 275 · story · done
+- 2026-10-29 11:08 · 268 · build · started
+- 2026-10-29 11:09 · 268 · D1 drag-reorder waits · started
+- 2026-10-29 11:14 · 268 · D1 drag-reorder waits · done
+- 2026-10-29 11:14 · 268 · D2 servers keyboardReorder waits · started
+- 2026-10-29 11:14 · 268 · D3 sleep ratchet · started
+- 2026-10-29 11:18 · 268 · D2 servers keyboardReorder waits · done
+- 2026-10-29 11:18 · 268 · D3 sleep ratchet · done
+- 2026-10-29 11:18 · 268 · D4 stability record · started
+- 2026-10-29 11:23 · 268 · D4 stability record (1 red root-caused in replays-extra-folders, fixed; full rerun) · started
+- 2026-10-29 11:28 · 268 · D4 stability record · done
+- 2026-10-29 11:28 · 268 · verify · started
+- 2026-10-29 11:28 · 268 · verify · done
+- 2026-10-29 11:28 · 268 · review 1 · started
+- 2026-10-29 11:28 · 268 · review 1 · done
+- 2026-10-29 11:28 · 268 · story · done

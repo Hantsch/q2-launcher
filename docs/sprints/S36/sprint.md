@@ -22,7 +22,7 @@ The Windows PR lane fails when a core journey breaks, the release publishes only
 - [x] 273 — An installation with q2pro64.exe is recognised as Q2PRO
 - [x] 274 — The server ping is the best sample in whole milliseconds
 - [x] 275 — Demos play in an R1Q2 installation, with the controls it cannot offer disabled
-- [ ] 268 — Recorded-flaky flows wait on conditions, not sleeps
+- [x] 268 — Recorded-flaky flows wait on conditions, not sleeps
 - [ ] 269 — Linux fixture engine clears the quarantine
 - [ ] 265 — Flow smoke tier, failed-only confirmation re-run, per-flow seconds recorded
 - [ ] 264 — Windows PR lane blocks on core-journey flows and the release launches the packaged app
