@@ -34,9 +34,8 @@ commit `verify:release` passed does not fail.
 
 - `ci.yml` also runs on every push to `main`. With the release checking its own commit, that run
   is redundant — drop the push trigger and keep only `pull_request` and `workflow_dispatch`?
-- Dependabot (`.github/dependabot.yml`) opens dependency PRs weekly by itself, and most of them
-  went red in October. Keep it, or switch it off and check dependencies in the process instead
-  (e.g. `npm outdated` / `npm audit` in `/roadmap check`, a story when something is due)?
+- Decided: Dependabot is removed (`.github/dependabot.yml` deleted). Dependencies are checked in the
+  process instead (e.g. `npm outdated` / `npm audit` in `/roadmap check`, a story when something is due).
 - The release job runs `npm test` and typecheck again (~4 min). With AC2 that is a second run of
   the same checks in the same workflow — drop it?
 

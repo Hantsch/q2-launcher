@@ -124,16 +124,8 @@ describe('dependency floors', () => {
 describe('dependency automation', () => {
   const readRepo = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
 
-  test('dependabot runs weekly with minor/patch grouped and majors separate', () => {
-    const config = yaml.load(readRepo('../.github/dependabot.yml'))
-    expect(config.version).toBe(2)
-    expect(config.updates).toHaveLength(1)
-    const [update] = config.updates
-    expect(update['package-ecosystem']).toBe('npm')
-    expect(update.schedule.interval).toBe('weekly')
-    const groups = Object.values(update.groups)
-    expect(groups.some((g) => [...g['update-types']].sort().join() === 'minor,patch')).toBe(true)
-    expect(groups.some((g) => g['update-types']?.includes('major'))).toBe(false)
+  test('dependency updates are done in the project, not by a bot', () => {
+    expect(existsSync(new URL('../.github/dependabot.yml', import.meta.url))).toBe(false)
   })
 
   test('the ci audit step blocks a PR', () => {
