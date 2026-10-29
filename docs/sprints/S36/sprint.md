@@ -15,7 +15,7 @@ The Windows PR lane fails when a core journey breaks, the release publishes only
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 271 — CI pins Node via a version file and the audit gate blocks (blocked: Node 22.12.0 pin unobserved — verify:release exceeded 10 min; resolve at the gate)
+- [x] 271 — CI pins Node via a version file and the audit gate blocks
 - [x] 267 — Timing-ratio tests leave the blocking unit lane
 - [x] 272 — Test hygiene: skipped launch flow fails in CI, loose workflow pins, discovery guard, constant echoes
 - [x] 266 — Release waits for a green CI run on its SHA
@@ -40,3 +40,16 @@ The Windows PR lane fails when a core journey breaks, the release publishes only
 ## Regression gate
 
 <!-- Filled by `/sprint` phase 2b: the commands run, minutes taken, result, commit, and a verdict per failure. -->
+
+Ran on `dev` (no sprint branch, by the user's call). Short suites on `1e1d50e`; `e2e-all` on `a808298`; final `verify:release` on `8eda5b0`.
+
+| Command                                      | Result                                                                                                                                                                                                                                    | Minutes      |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `npm run build`                              | green                                                                                                                                                                                                                                     | 0.1          |
+| `npm test`                                   | red: `src/comments.test.ts` (story 273), `scripts/check-docs.test.mjs` (264, 270 links) — fixed in `6f932d9`, `a808298`                                                                                                                   | 0.6          |
+| `npm run ui:verify`                          | red after a production `build` (mods/assets screens are dev-only); green on `build:dev`: 116/116, 0 serious, 1 moderate                                                                                                                   | 2.5 / 2.5    |
+| `npm run ui:flows -- --parallel=4` (e2e-all) | first launch lost (build older than sources); relaunch 180/180 green, longest shard 18.8 min                                                                                                                                              | 11 / 20.9    |
+| `npm run verify:release`                     | run 1 red: format check (17 sprint files, fixed `ea2fa3a`) + build-linux `needs.plan.outputs.sha` (266, fixed `41659a4`); run 2 red: vitest workers fail on Node 22.12.0 (271); run 3 green on 22.22.2 after the user's repin (`8eda5b0`) | 14 / 17 / 17 |
+
+- No flaky or pre-existing failures; no quarantine entries written. `mods-view`, reported red by 275's build, passed in the gate — its failure was the production build, not a regression.
+- `verify:release` ran three times: outside the flow-suite budget, as the proof story 271 was blocked on.

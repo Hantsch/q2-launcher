@@ -15,8 +15,8 @@ npm install
 npm run dev
 ```
 
-CI runs the Node version in `.node-version`; the supported floor is `engines` in `package.json`. `npm install` downloads an Electron binary (~100 MB) on first
-run.
+CI runs the Node version in `.node-version`; the supported floor is `engines` in `package.json`.
+`npm install` downloads an Electron binary (~100 MB) on first run.
 
 ### Scripts
 

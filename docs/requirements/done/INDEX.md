@@ -369,3 +369,4 @@ second roadmap.
 - 265 — Flow smoke tier, failed-only confirmation re-run, per-flow seconds recorded · S36 · 14-flow smoke tier (--tier=smoke), confirmation re-runs only failures (flaky reported), per-flow seconds + ten slowest in the report.
 - 264 — Windows PR lane blocks on core-journey flows; release launches the packaged app · S36 · windows-verify runs 8 blocking flows, release smoke-launches the unpacked app (non-blocking until 2 releases past 0.8.0, tripwire test).
 - 270 — Test lane map in CLAUDE.md, e2e definition, drift guard · S36 · one Test lanes table, one e2e definition, existence-check test
+- 271 — CI pins Node via a version file and the audit gate blocks · S36 · Node 22.22.2 via .node-version, blocking npm audit, audit-clean lockfile.

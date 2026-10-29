@@ -1,7 +1,7 @@
 ---
 id: 271
 title: CI pins Node via a version file and the audit gate blocks
-status: in-progress # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-27
 ---
 
@@ -11,7 +11,7 @@ A maintainer wants CI to run the Node version developers run, and wants a high-s
 advisory to fail the PR — so that a pass on "22.latest" cannot hide a failure on the supported
 floor, and a calendar promise made in a step name does not silently expire.
 
-Today ([review 2026-10-27](../reviews/2026-10-27-tests-review.md), F09 and F10; P2):
+Today ([review 2026-10-27](../../reviews/2026-10-27-tests-review.md), F09 and F10; P2):
 
 - F09: the composite action defaults `node-version` to `'22'`
   (`.github/actions/setup-node-electron/action.yml:5-8`); 9 jobs in 5 workflows use it (ci 2,
@@ -60,7 +60,7 @@ expiry before the gate blocks; a gate must not go blocking while red.
 - **(User)** Pin exactly 22.12.0; the audit is a blocking step in the PR lane; no pin assertion in workflows.test.mjs; no scheduled audit job.
 - No dated-comment scanner; the seeded-defect test on the audit step's `continue-on-error` is the
   only new assertion — AC3 asks for exactly that, the scanner is an optional P3 outside the ACs.
-- AC1 is met by `npm audit fix` (no `--force`), not by overrides: on 2026-10-29 all 4 high
+- AC1 is met by `npm audit fix` (no `--force`), plus one override (`node-gyp > undici`, TD-054) where no in-range fix exists: on 2026-10-29 all 4 high
   advisories (electron, undici, vite, zod) report "fix available via `npm audit fix`".
 - AC2's "line 69" is the `linux-journey` job's `continue-on-error`; deleting the audit step's line
   moves it to line 68 — the criterion's intent (only the Linux job keeps one) is what is checked.
@@ -157,14 +157,13 @@ Review: → default
 
 ## Done
 
-BLOCKED (status stays in-progress). D1-D3 are implemented; the D3 proof is unobserved.
+Done in the S36 gate after the user repinned Node to 22.22.2.
 
 - D1: electron 43.8.4, vite 7.3.7, zod 4.6.7, vitest 4.1.12; `npm audit --audit-level=high` exits 0. `npm audit fix` crashes here, so versions were bumped per package. Override `node-gyp > undici ^8.12.3` documented as TD-054 (expiry 2027-01-31); undici 8 needs Node >=22.19, above the 22.12.0 pin (dev-only, node-gyp).
 - D2: audit step renamed `Audit`, `continue-on-error` removed; test "the ci audit step blocks a PR" added, seeded defect turns it red. Only `linux-journey` keeps `continue-on-error` (line 68).
-- D3: `.node-version` = 22.12.0, action uses `node-version-file`, CONTRIBUTING updated.
+- D3: `.node-version` = 22.22.2 and `engines` `>=22.22.2` (user decision after 22.12.0 failed vitest workers under act, `8eda5b0`); action uses `node-version-file`, CONTRIBUTING updated.
 - Four CRLF templates converted to LF so the hygiene test passes.
-- Verify: build, typecheck, lint, `npm test` (7631 passed) green. `npm run verify:release` (act on Node 22.12.0) ran >10 minutes and was stopped: INCONCLUSIVE, not observed. Docker had to be started first.
-- Open: prove 22.12.0 (npm ci + audit under act), or decide to pin 22.22.2 and raise `engines`.
-- Review not run.
+- Verify: build, typecheck, lint, `npm test` green; `npm run verify:release` GREEN on `8eda5b0` (ci.yml under act on Node v22.22.2, blocking audit).
+- Review: default tier, run by the sprint orchestrator after unblocking — PASS; minor CONTRIBUTING wrap and the overrides wording fixed.
 
-tiers: D 3 / hard 0 · review none · cycles 0 · agents 2
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 3
