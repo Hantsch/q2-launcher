@@ -2284,6 +2284,7 @@
       "duplicate": "That folder is already in your library as “{{name}}”.",
       "engineNotDetected": "{{engine}} was not found in this installation's folder.",
       "engineUnsupported": "{{engine}} is not supported by the launcher yet.",
+      "executableNotDetected": "{{executable}} was not found in this installation's folder.",
       "iconPickCancelled": "No image was chosen. The icon was left as it was.",
       "iconStoreFailed": "The icon could not be saved. Check that the launcher can write to its own data folder.",
       "iconTooLarge": "That image is too large. Choose a file smaller than {{limit}} MB.",

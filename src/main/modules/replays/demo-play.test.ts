@@ -405,7 +405,14 @@ describe('demo.play engine guard (story 161 D1)', () => {
           },
         },
         activeEngine: 'r1q2',
-        activeDetectedEngines: [{ kind: 'q2pro', executablePath: 'q2pro.exe', supported: true }],
+        activeDetectedEngines: [
+          {
+            kind: 'q2pro',
+            executablePath: 'q2pro.exe',
+            executablePaths: ['q2pro.exe'],
+            supported: true,
+          },
+        ],
       })
       expect((await h.play(id, 'q2pro-a')).ok, id).toBe(true)
       expect(h.launch.start.mock.calls[0][0].engine, id).toBe('q2pro')

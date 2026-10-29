@@ -55,7 +55,7 @@ transport the [home-screen concept](home-screen.md) already fixed.
 - **Three settings**, and the Settings view learns to render **module-contributed sections** to
   hold them: concurrency limit, archive-cache budget (with current size and a clear button that
   says what it will delete), and download-while-playing.
-- **Engine update replaces and keeps a backup** with a rollback button. Versions are pinned by the
+- **Engine update replaces and keeps a backup** with a rollback button; update and repair overwrite the executable the installation launches, in place. Versions are pinned by the
   manifest; per installation, an optional "bleeding edge" follows upstream instead.
 - **Removal from disk becomes possible** with confirmation — except for store-managed
   installations (`source` is Steam/GOG/Epic), which are locked.

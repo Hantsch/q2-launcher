@@ -389,6 +389,7 @@
       "deleteFromDiskMisconfigured": "Removal from disk is not available right now.",
       "nothingImported": "Nothing was imported.",
       "engineNotDetected": "{{engine}} was not found in this installation's folder.",
+      "executableNotDetected": "{{executable}} was not found in this installation's folder.",
       "engineUnsupported": "{{engine}} is not supported by the launcher yet.",
       "iconPickCancelled": "No image was chosen. The icon was left as it was.",
       "iconUnsupportedFormat": "Only PNG and JPEG images can be used as an icon.",

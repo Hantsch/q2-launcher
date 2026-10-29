@@ -12,6 +12,10 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Added
+
+- Q2PRO's 64-bit `q2pro64.exe` is recognised — pick which build Play starts.
+
 ### Security
 
 - Electron updated for a certificate-trust security advisory.

@@ -271,6 +271,8 @@ export interface UpdateInstallationInput {
    * from its own detection, never from the renderer (story 246).
    */
   engine?: EngineKind
+  /** A file name among the chosen engine's detected clients; only meaningful with `engine`. */
+  engineExecutable?: string
 }
 
 export interface RemoveInstallationInput {

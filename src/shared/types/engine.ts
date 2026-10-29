@@ -96,10 +96,12 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
     kind: 'q2pro',
     label: 'Q2PRO',
     supported: true,
-    executables: ['q2pro.exe', 'q2pro'],
+    // The 64-bit Windows build comes first: when both builds sit in one root it is the client
+    // detection and ranking prefer (story 273).
+    executables: ['q2pro64.exe', 'q2pro.exe', 'q2pro'],
     dedicatedExecutables: ['q2proded.exe', 'q2proded'],
-    // 'q2pro' (no extension) is the Linux binary name, alongside the Windows one.
-    markers: ['q2pro.exe', 'q2pro'],
+    // 'q2pro' (no extension) is the Linux binary name, alongside the Windows ones.
+    markers: ['q2pro64.exe', 'q2pro.exe', 'q2pro'],
     configFileCandidates: ['q2pro.cfg', 'config.cfg'],
     supportsFsGame: true,
     // Q2PRO does have a `homedir` cvar, unlike r1q2.
@@ -221,10 +223,13 @@ export function isEngineSupported(kind: EngineKind): boolean {
   return getEngineDefinition(kind)?.supported ?? false
 }
 
-/** A client executable of a known engine found in an installation root. */
+/** A known engine found in an installation root, with every one of its clients there. */
 export interface DetectedEngine {
   kind: EngineKind
+  /** The preferred client - always `executablePaths[0]`. */
   executablePath: string
+  /** Every client of this engine in the root, in the definition's `executables` order. */
+  executablePaths: string[]
   supported: boolean
 }
 

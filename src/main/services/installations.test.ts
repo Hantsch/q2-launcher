@@ -740,6 +740,14 @@ async function writeClient(rootPath: string, name: string): Promise<string> {
   return path
 }
 
+/** A stand-in client under its exact file name, runnable on this host. */
+async function writeNamedClient(rootPath: string, fileName: string): Promise<string> {
+  const path = join(rootPath, fileName)
+  await writeFile(path, 'stand-in executable')
+  if (process.platform !== 'win32') await chmod(path, 0o755)
+  return path
+}
+
 /** A playable `baseq2` plus one stand-in client per engine name. */
 async function writeEnginesRoot(rootPath: string, engines: readonly string[]): Promise<void> {
   await mkdir(join(rootPath, 'baseq2'), { recursive: true })
@@ -756,8 +764,18 @@ describe('an installation with several engines', () => {
 
     if (!result.ok) throw new Error(`fixture installation was rejected: ${result.error.key}`)
     expect(result.value.detectedEngines).toEqual([
-      { kind: 'r1q2', executablePath: join(rootPath, client('r1q2')), supported: true },
-      { kind: 'q2pro', executablePath: join(rootPath, client('q2pro')), supported: true },
+      {
+        kind: 'r1q2',
+        executablePath: join(rootPath, client('r1q2')),
+        executablePaths: [join(rootPath, client('r1q2'))],
+        supported: true,
+      },
+      {
+        kind: 'q2pro',
+        executablePath: join(rootPath, client('q2pro')),
+        executablePaths: [join(rootPath, client('q2pro'))],
+        supported: true,
+      },
     ])
     expect(result.value.engineKind).toBe('q2pro')
     expect(result.value.executablePath).toBe(join(rootPath, client('q2pro')))
@@ -864,6 +882,43 @@ describe('an installation with several engines', () => {
     expect(installations.find(INSTALLATION_ID)?.executablePath).toBe(r1q2)
   })
 
+  it('choosing q2pro.exe of a two-build Q2PRO folder makes it the launched executable', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro', 'q2pro64'])
+    state.setInstallations([
+      installation({ engineKind: 'r1q2', executablePath: join(rootPath, client('r1q2')) }),
+    ])
+    await installations.validate(INSTALLATION_ID)
+
+    const result = await installations.update({
+      id: INSTALLATION_ID,
+      engine: 'q2pro',
+      engineExecutable: client('q2pro').toUpperCase(),
+    })
+
+    expect(result.ok === true && result.value.engineKind).toBe('q2pro')
+    expect(result.ok === true && result.value.executablePath).toBe(join(rootPath, client('q2pro')))
+  })
+
+  it('a build name that was not detected is refused', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    state.setInstallations([installation({ engineKind: 'r1q2', executablePath: r1q2 })])
+    await installations.validate(INSTALLATION_ID)
+
+    const result = await installations.update({
+      id: INSTALLATION_ID,
+      engine: 'q2pro',
+      engineExecutable: client('q2pro64'),
+    })
+
+    expect(result).toEqual(
+      fail('installations.error.executableNotDetected', { executable: client('q2pro64') }),
+    )
+    expect(installations.find(INSTALLATION_ID)?.executablePath).toBe(r1q2)
+  })
+
   it('an existing r1q2 installation keeps r1q2 when q2pro is present', async () => {
     const rootPath = join(dir, 'game', INSTALLATION_ID)
     await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
@@ -880,6 +935,45 @@ describe('an installation with several engines', () => {
     expect(kept?.executablePath).toBe(r1q2)
     expect(kept?.recordedEngineKind).toBe('r1q2')
     expect(kept?.detectedEngines?.map((e) => e.kind)).toEqual(['r1q2', 'q2pro'])
+  })
+
+  it('adding and revalidating a q2pro64.exe-only folder records engine q2pro and executable q2pro64.exe', async () => {
+    const rootPath = join(dir, 'q2pro64-only')
+    await writeEnginesRoot(rootPath, [])
+    const q2pro64 = await writeNamedClient(rootPath, 'q2pro64.exe')
+
+    const added = await installations.addExisting({ rootPath })
+
+    if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
+    expect(added.value.engineKind).toBe('q2pro')
+    expect(added.value.executablePath).toBe(q2pro64)
+
+    const revalidated = await installations.validate(added.value.id)
+
+    if (!revalidated.ok) throw new Error(revalidated.error.key)
+    expect(revalidated.value.engineKind).toBe('q2pro')
+    expect(revalidated.value.executablePath).toBe(q2pro64)
+    expect(revalidated.value.detectedEngines?.map((e) => e.kind)).toEqual(['q2pro'])
+  })
+
+  it('a stored q2pro.exe beside q2pro64.exe keeps the Q2PRO badge after revalidation', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, [])
+    const q2pro = await writeNamedClient(rootPath, 'q2pro.exe')
+    await writeNamedClient(rootPath, 'q2pro64.exe')
+    // A record written before both builds counted as Q2PRO: no `detectedEngines` key at all. Its
+    // stored badge is not q2pro, so only matching the path against every client can yield Q2PRO.
+    state.setInstallations([
+      installation({ engineKind: 'r1q2', executablePath: q2pro, recordedEngineKind: 'q2pro' }),
+    ])
+
+    await installations.validateAll()
+
+    const kept = installations.find(INSTALLATION_ID)
+    expect(kept?.engineKind).toBe('q2pro')
+    expect(kept?.executablePath).toBe(q2pro)
+    expect(kept?.detectedEngines?.map((e) => e.kind)).toEqual(['q2pro'])
+    expect(kept?.checks).not.toContainEqual(expect.objectContaining({ fix: 'choose-engine' }))
   })
 
   it('a relocated installation adopts the client of its own engine', async () => {

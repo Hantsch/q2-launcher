@@ -50,8 +50,9 @@ const canSymlink = (() => {
  * sourced from `baseq2/players`).
  */
 
-const Q2PRO_ENGINE_TARGET =
-  ENGINE_DEFINITIONS.find((engine) => engine.kind === 'q2pro')?.executables[0] ?? 'q2pro.exe'
+// Pinned, not read from the engine table: that table's order is the detection preference, and
+// the bootstrap's output name must not follow it.
+const Q2PRO_ENGINE_TARGET = 'q2pro.exe'
 
 let sourceRoot: string
 let targetRoot: string
@@ -424,6 +425,22 @@ describe('assembleInstallation', () => {
 
     expect(result.copiedFiles).toContain(Q2PRO_ENGINE_TARGET)
     expect(await namesUnder(targetRoot)).toContain(Q2PRO_ENGINE_TARGET)
+  })
+
+  it('an engine executable that is not a client of the engine falls back to the default target', async () => {
+    await writeFixtureFile('q2pro.exe')
+
+    for (const engineExecutable of ['r1q2.exe', '../evil.exe', 'sub/q2pro64.exe']) {
+      const result = await assembleInstallation({
+        sources: allRoleSources(sourceRoot),
+        targetRoot,
+        engine: 'q2pro',
+        scope: 'core',
+        engineExecutable,
+      })
+      expect(result.copiedFiles).toContain(Q2PRO_ENGINE_TARGET)
+    }
+    expect(await namesUnder(targetRoot)).toEqual(['q2pro.exe'])
   })
 
   it('a source set without pak0 reports the demo role as missing required', async () => {

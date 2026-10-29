@@ -104,6 +104,12 @@ export const updateInstallationInputSchema: z.ZodType<IpcInvokeMap['installation
       .string()
       .refine((value) => value === '' || isSafeGameName(value), 'invalid map name')
       .optional(),
+    // A single file name, never a path - same shape as `activeGameDir`.
+    engineExecutable: z
+      .string()
+      .max(64)
+      .regex(/^[A-Za-z0-9_.-]+$/, 'invalid executable name')
+      .optional(),
     favorite: z.boolean().optional(),
     // Story 103: a `RunnerChoice` - `DetectedRunner.id` or `'native'` - a plain non-empty string,
     // same as the persisted schema (`src/main/lib/schemas.ts`); resolving whether it is usable is

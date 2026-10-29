@@ -107,7 +107,8 @@ async function classifyEngine(
 }
 
 /**
- * Every known engine client in the root, in table order. A name several definitions list
+ * Every known engine in the root, in table order, each with all of its clients found there (one
+ * engine for `q2pro.exe` + `q2pro64.exe`, never two). A name several definitions list
  * (`quake2.exe`, `quake2`) is credited to the first of them whose markers match, so it never
  * yields two engines; dedicated-server binaries never count.
  */
@@ -118,6 +119,7 @@ async function detectEngines(
   const rootFileNames = new Set(rootListing.files.map((f) => f.toLowerCase()))
   const engines: DetectedEngine[] = []
   for (const definition of ENGINE_DEFINITIONS) {
+    const executablePaths: string[] = []
     for (const exe of definition.executables) {
       const onDisk = rootListing.byLowerName.get(exe.toLowerCase())
       if (!onDisk || !rootListing.files.includes(onDisk)) continue
@@ -135,12 +137,16 @@ async function detectEngines(
         }
         if (credited !== definition) continue
       }
+      executablePaths.push(join(rootPath, onDisk))
+    }
+    const [executablePath] = executablePaths
+    if (executablePath) {
       engines.push({
         kind: definition.kind,
-        executablePath: join(rootPath, onDisk),
+        executablePath,
+        executablePaths,
         supported: definition.supported,
       })
-      break
     }
   }
   return engines

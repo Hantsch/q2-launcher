@@ -7,6 +7,8 @@ import { SectionLabel } from '../ui/primitives'
 
 interface EngineChoice {
   kind: EngineKind
+  /** Set only for one build of an engine that ships several clients. */
+  build?: string
   /** Present only for an engine detected in the folder; absent for the stored-but-gone one. */
   detected?: DetectedEngine
   /** i18n key + params of why this engine cannot be picked. */
@@ -33,13 +35,19 @@ export function EngineSection({ installation }: { installation: Installation }) 
     installation.engineKind !== 'custom' && installation.engineKind !== 'unknown'
   const chosenMissing =
     chosenIsClient && !detected.some((engine) => engine.kind === installation.engineKind)
-  if (detected.length < 2 && !(chosenMissing && detected.length > 0)) return null
+  const clientsOf = (engine: DetectedEngine) => engine.executablePaths ?? [engine.executablePath]
+  const clientCount = detected.reduce((sum, engine) => sum + clientsOf(engine).length, 0)
+  if (clientCount < 2 && !(chosenMissing && detected.length > 0)) return null
 
-  const choices: EngineChoice[] = detected.map((engine) => ({
-    kind: engine.kind,
-    detected: engine,
-    reason: engine.supported ? undefined : { key: 'installation.engineChoice.unsupported' },
-  }))
+  const choices: EngineChoice[] = detected.flatMap((engine) => {
+    const paths = clientsOf(engine)
+    return paths.map((path) => ({
+      kind: engine.kind,
+      build: paths.length > 1 ? basename(path) : undefined,
+      detected: engine,
+      reason: engine.supported ? undefined : { key: 'installation.engineChoice.unsupported' },
+    }))
+  })
   if (chosenMissing) {
     choices.push({
       kind: installation.engineKind,
@@ -50,7 +58,12 @@ export function EngineSection({ installation }: { installation: Installation }) 
     })
   }
 
-  const reasonId = (kind: EngineKind) => `installation-engine-reason-${installation.id}-${kind}`
+  const suffix = (choice: EngineChoice) =>
+    choice.build ? `${choice.kind}-${choice.build}` : choice.kind
+  const reasonId = (choice: EngineChoice) =>
+    `installation-engine-reason-${installation.id}-${suffix(choice)}`
+  const label = (choice: EngineChoice) =>
+    choice.build ? `${engineLabel(choice.kind)} · ${choice.build}` : engineLabel(choice.kind)
   const withReason = choices.filter((choice) => choice.reason)
 
   return (
@@ -68,17 +81,26 @@ export function EngineSection({ installation }: { installation: Installation }) 
         className="flex flex-wrap gap-1.5"
       >
         {choices.map((choice) => {
-          const selected = choice.kind === installation.engineKind
+          const selected =
+            choice.kind === installation.engineKind &&
+            (choice.build === undefined ||
+              choice.build.toLowerCase() === basename(installation.executablePath).toLowerCase())
           return (
             <button
-              key={choice.kind}
+              key={suffix(choice)}
               type="button"
               role="radio"
               aria-checked={selected}
               disabled={choice.reason !== undefined}
-              aria-describedby={choice.reason ? reasonId(choice.kind) : undefined}
-              data-testid={`installation-engine-option-${choice.kind}`}
-              onClick={() => void updateInstallation({ id: installation.id, engine: choice.kind })}
+              aria-describedby={choice.reason ? reasonId(choice) : undefined}
+              data-testid={`installation-engine-option-${suffix(choice)}`}
+              onClick={() =>
+                void updateInstallation({
+                  id: installation.id,
+                  engine: choice.kind,
+                  ...(choice.build ? { engineExecutable: choice.build } : {}),
+                })
+              }
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
                 'transition-colors duration-[--dur-fast]',
@@ -88,7 +110,7 @@ export function EngineSection({ installation }: { installation: Installation }) 
                   : 'border-line-strong bg-raised text-ink-dim hover:border-line-strong hover:text-ink',
               )}
             >
-              {engineLabel(choice.kind)}
+              {label(choice)}
             </button>
           )
         })}
@@ -98,12 +120,12 @@ export function EngineSection({ installation }: { installation: Installation }) 
         <div className="space-y-0.5">
           {withReason.map((choice) => (
             <p
-              key={choice.kind}
-              id={reasonId(choice.kind)}
+              key={suffix(choice)}
+              id={reasonId(choice)}
               className="pl-0.5 text-[11px] leading-relaxed text-ink-muted"
-              data-testid={`installation-engine-reason-${choice.kind}`}
+              data-testid={`installation-engine-reason-${suffix(choice)}`}
             >
-              <span className="font-medium">{engineLabel(choice.kind)}</span>
+              <span className="font-medium">{label(choice)}</span>
               {': '}
               {t(choice.reason!.key, choice.reason!.params ?? {})}
             </p>

@@ -1,4 +1,5 @@
 import { rm } from 'node:fs/promises'
+import { basename } from 'node:path'
 import type {
   DownloadsErrorKey,
   ManifestPackage,
@@ -393,6 +394,9 @@ async function runRepair(
           sources: [{ packageId: step.pkg.id, dir: step.extractDir, role: step.role }],
           targetRoot: installation.rootPath,
           ...(step.engine ? { engine: step.engine } : {}),
+          ...(installation.executablePath
+            ? { engineExecutable: basename(installation.executablePath) }
+            : {}),
           scope: 'core',
           restrictTo: step.restrictTo,
         })

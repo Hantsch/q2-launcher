@@ -201,7 +201,8 @@ and the startup revalidation all call it, so the user can never be shown two
 different verdicts about the same folder. It produces `ValidationCheck[]`, each
 with a severity, an i18n key and an optional `ValidationFix` — and every fix is
 wired to a real flow in `ChecksList.tsx`. That is what keeps a broken installation
-from being a dead end.
+from being a dead end. The renderer may add a detected file name to pick one build of
+an engine; main resolves it from its own detection, never from a path.
 
 A folder can hold several engine clients. Every inspection records all of them as
 `detectedEngines`; the engine the installation _uses_ is its `executablePath`, and

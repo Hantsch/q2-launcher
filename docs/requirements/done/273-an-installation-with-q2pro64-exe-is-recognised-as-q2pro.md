@@ -1,7 +1,7 @@
 ---
 id: 273
 title: An installation with q2pro64.exe is recognised as Q2PRO
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-29
 ---
 
@@ -17,12 +17,12 @@ source and renames it (`src/main/modules/downloads/bootstrap/assemble.ts:228`) �
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A folder whose only engine binary is `q2pro64.exe` is detected as engine kind
+- [x] **AC1** — A folder whose only engine binary is `q2pro64.exe` is detected as engine kind
       `q2pro` (adding the installation and rescanning both).
-- [ ] **AC2** — Launching that installation starts `q2pro64.exe` (the spawned path names that file).
-- [ ] **AC3** — A folder with both `q2pro.exe` and `q2pro64.exe` is one Q2PRO installation, and
+- [x] **AC2** — Launching that installation starts `q2pro64.exe` (the spawned path names that file).
+- [x] **AC3** — A folder with both `q2pro.exe` and `q2pro64.exe` is one Q2PRO installation, and
       launching it starts the binary the decided preference names.
-- [ ] **AC4** — Everything keyed on Q2PRO (demo play eligibility, Q2PRO config limits, bleeding-edge
+- [x] **AC4** — Everything keyed on Q2PRO (demo play eligibility, Q2PRO config limits, bleeding-edge
       update) treats a `q2pro64.exe` installation the same as a `q2pro.exe` one.
 
 ## Open Questions
@@ -79,7 +79,7 @@ them; the bleeding-edge update is D4.
 
 ## Deliverables
 
-- [ ] **D1 — `q2pro64.exe` is a Q2PRO client, and the default when both builds are present.**
+- [x] **D1 — `q2pro64.exe` is a Q2PRO client, and the default when both builds are present.**
       Files: `src/shared/types/engine.ts` (q2pro `executables: ['q2pro64.exe', 'q2pro.exe', 'q2pro']`,
       `markers` add `'q2pro64.exe'`; `DetectedEngine.executablePaths: string[]` — every client of the
       engine found in the root, table order, `executablePath === executablePaths[0]`);
@@ -98,7 +98,7 @@ them; the bleeding-edge update is D4.
       q2pro64.exe" and › "a stored q2pro.exe beside q2pro64.exe keeps the Q2PRO badge after
       revalidation". The existing `assemble.test.ts` stays green unchanged (bootstrap still writes
       `q2pro.exe`).
-- [ ] **D2 — main resolves a chosen build of an engine.** Files:
+- [x] **D2 — main resolves a chosen build of an engine.** Files:
       `src/shared/types/installation.ts` (`UpdateInstallationInput.engineExecutable?: string` — doc:
       a file name among the chosen engine's detected clients, only meaningful with `engine`);
       `src/shared/ipc-schemas.ts` (`updateInstallationInputSchema`: `engineExecutable` a single file
@@ -114,7 +114,7 @@ them; the bleeding-edge update is D4.
       Tests: `src/main/services/installations.test.ts` › "choosing q2pro.exe of a two-build Q2PRO
       folder makes it the launched executable" and › "a build name that was not detected is
       refused".
-- [ ] **D3 — the library card lets the user pick the build.** Files:
+- [x] **D3 — the library card lets the user pick the build.** Files:
       `src/renderer/src/components/installations/EngineSection.tsx` (choices = one per detected
       client: for each `detectedEngines` entry, one chip per `executablePaths ?? [executablePath]`;
       label `engineLabel(kind)` alone when the engine has one client, `Q2PRO · q2pro64.exe` (label +
@@ -137,7 +137,7 @@ them; the bleeding-edge update is D4.
       `installation-engine-option-q2pro-<basename>` chips visible, the `q2pro64.exe` one
       `aria-checked="true"`); "choosing q2pro.exe moves the command to it" (click the `q2pro.exe`
       chip; it becomes checked; the preview contains `q2pro.exe` and not `q2pro64.exe`).
-- [ ] **D4 — engine update and repair replace the build the installation launches.** Files:
+- [x] **D4 — engine update and repair replace the build the installation launches.** Files:
       `src/main/modules/downloads/bootstrap/assemble.ts` (`BuildAssemblePlanInput.engineExecutable?:
       string`; `buildQ2proEngineEntries`/`buildR1q2EngineEntries` use it as the engine entry's `to`
       only when it equals, case-insensitively, one of that definition's `executables`, else the
@@ -184,8 +184,23 @@ them; the bleeding-edge update is D4.
 
 ## Done
 
-<Leave empty. Filled by `/build 273` after implementation:
+q2pro64.exe is now a Q2PRO client: detection collects every client of an engine (`executablePaths`, table order, q2pro64.exe first),
+the library card lists one chip per build so the user picks which one Play starts, and engine update/repair overwrite the executable the
+installation launches. Bootstrap still writes `q2pro.exe` for a fresh install.
 
-- Short summary (2–5 lines): what was done.
-- Commit message (1–2 lines, keywords are enough).
-- Verification: build/test/lint result + review outcome; open points/blockers, if any.>
+Commit message: `273: q2pro64.exe recognised as Q2PRO, per-build engine choice, update/repair in place`
+
+Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` green (322 files, 3908 tests); e2e-story run in 6
+slices instead of 2 (`npm run ui:flows -- --affected scripts/flows/installation-engine-choice.mjs --parallel=4 --shard=K/6`, the 2-slice
+selection exceeded the 10-minute call): 5 slices green, `installation-engine-choice` passed with its 3 new steps. Slice 2 showed `replays-volume`
+red once under 4-way load (burst step, unrelated to this story); alone it passes (28 s). news-feed/unlock-code unexpectedly passed (quarantine hint).
+AC -> test (all passed): AC1 inspector "only client is q2pro64.exe", installations "adding and revalidating a q2pro64.exe-only folder", flow step 1;
+AC2 flow step 1 + launch.test "launching a Q2PRO installation whose executable is q2pro64.exe spawns q2pro64.exe"; AC3 inspector "prefers q2pro64.exe",
+installations "choosing q2pro.exe..." / "a build name that was not detected is refused", flow steps 2-3; AC4 installations badge test, update-job, repair job tests.
+Review (clean agent, 1 cycle): UNCLEAR leaning PASS; fixed the non-discriminating badge test (now mutation-checked) and added the AC2 unit test.
+Unfixed, deliberate: a per-launch engine override (demo play) uses the engine's preferred build, not a user-chosen one; `?? [executablePath]` fallbacks remain as harmless defence.
+
+Decisions: assemble.test.ts pins 'q2pro.exe' (was read from `executables[0]`, which moved); legacy `executablePaths` default is filled by the persisted schema
+at load; the i18n bundle snapshot was updated for the new error key; `getQ2proDefinition` removed from assemble.ts as unused.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 9

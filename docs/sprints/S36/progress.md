@@ -47,3 +47,19 @@
 - 2026-10-29 09:03 · 266 · review 1 · started
 - 2026-10-29 09:04 · 266 · review 1 · done
 - 2026-10-29 09:07 · 266 · story · done
+- 2026-10-29 09:07 · 273 · build · started
+- 2026-10-29 09:07 · 273 · D1 q2pro64 detection · started
+- 2026-10-29 09:12 · 273 · D1 q2pro64 detection · done
+- 2026-10-29 09:12 · 273 · D2 engineExecutable choice · started
+- 2026-10-29 09:13 · 273 · D2 engineExecutable choice · done
+- 2026-10-29 09:13 · 273 · D3 engine build chips · started
+- 2026-10-29 09:13 · 273 · D4 update/repair in place · started
+- 2026-10-29 09:17 · 273 · D3 engine build chips · done
+- 2026-10-29 09:17 · 273 · D4 update/repair in place · done
+- 2026-10-29 09:17 · 273 · verify · started
+- 2026-10-29 09:55 · 273 · verify · done
+- 2026-10-29 09:55 · 273 · review 1 · started
+- 2026-10-29 09:56 · 273 · review 1 · done
+- 2026-10-29 09:56 · 273 · review fix · started
+- 2026-10-29 09:58 · 273 · review fix · done
+- 2026-10-29 09:58 · 273 · story · done

@@ -1,10 +1,12 @@
 // A folder holding several engines lists them on the library card and the user picks the one Play
 // starts (story 246). Fixture `engine-choice`: "Fixture Two Engines" (r1q2 + q2pro + kmquake2,
 // stored r1q2) and "Fixture Missing Engine" (q2pro only, stored r1q2 whose executable is gone), both
-// written without `detectedEngines`.
+// written without `detectedEngines`; "Fixture Q2PRO 64" (q2pro64.exe only) and "Fixture Two Builds"
+// (q2pro.exe + q2pro64.exe), written without `detectedEngines` or an executable.
 //
 // Selectors: `installation-engine`, `installation-engine-option-<kind>`,
-// `installation-engine-reason-<kind>`, `installation-runner-preview`, `engine-badge`,
+// `installation-engine-reason-<kind>`,
+// `installation-engine-option-<kind>-<basename>` (engines with several builds), `installation-runner-preview`, `engine-badge`,
 // `installation-remove-<id>` (row scope), `installation-checks`.
 import { writeEngineChoiceFixture } from '../lib/fixture.mjs'
 
@@ -13,6 +15,8 @@ export const variant = 'engine-choice'
 const TIMEOUT_MS = 8_000
 const TWO_ID = 'fixture-engine-choice-two'
 const MISSING_ID = 'fixture-engine-choice-missing'
+const Q2PRO64_ID = 'fixture-engine-choice-q2pro64'
+const BUILDS_ID = 'fixture-engine-choice-two-builds'
 const CHOOSE_ENGINE_LABEL = 'Choose engine…'
 
 // The flow changes the stored engine, so every run starts from a fresh legacy-shaped record.
@@ -114,4 +118,34 @@ export default async function installationEngineChoice({ page, step, shot }) {
   await missing.getByTestId('installation-engine-option-q2pro').click({ timeout: TIMEOUT_MS })
   await fix.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   await shot('missing-engine-resolved')
+
+  step('a q2pro64.exe-only folder is Q2PRO and its command names q2pro64.exe')
+  const solo = rowOf(page, Q2PRO64_ID)
+  await solo.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await waitForText(solo.getByTestId('engine-badge'), (text) => /q2pro/i.test(text), 'Q2PRO badge')
+  await waitForText(
+    solo.getByTestId('installation-runner-preview'),
+    (text) => text.includes('q2pro64.exe'),
+    'the q2pro64.exe command preview',
+  )
+
+  step('both Q2PRO builds are listed with q2pro64.exe checked')
+  const builds = rowOf(page, BUILDS_ID)
+  await builds.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const build32 = builds.getByTestId('installation-engine-option-q2pro-q2pro.exe')
+  const build64 = builds.getByTestId('installation-engine-option-q2pro-q2pro64.exe')
+  await build32.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await build64.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await waitForChecked(build64, 'true', 'q2pro64.exe to be checked')
+  await shot('two-builds')
+
+  step('choosing q2pro.exe moves the command to it')
+  await build32.click({ timeout: TIMEOUT_MS })
+  await waitForChecked(build32, 'true', 'q2pro.exe to be checked')
+  const buildsPreview = await waitForText(
+    builds.getByTestId('installation-runner-preview'),
+    (text) => text.includes('q2pro.exe') && !text.includes('q2pro64.exe'),
+    'the q2pro.exe command preview',
+  )
+  if (buildsPreview.includes('q2pro64.exe')) throw new Error('preview still names q2pro64.exe')
 }

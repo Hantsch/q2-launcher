@@ -107,7 +107,14 @@ describe('demoPlayEligibility', () => {
       installations: [
         {
           ...inst('a', 'r1q2'),
-          detectedEngines: [{ kind: 'q2pro', executablePath: 'q2pro.exe', supported: true }],
+          detectedEngines: [
+            {
+              kind: 'q2pro',
+              executablePath: 'q2pro.exe',
+              executablePaths: ['q2pro.exe'],
+              supported: true,
+            },
+          ],
         },
       ],
     })
@@ -116,7 +123,14 @@ describe('demoPlayEligibility', () => {
   })
 
   it('an r1q2 installation without Q2PRO is refused', () => {
-    const unsupported = [{ kind: 'q2pro' as const, executablePath: 'q2pro.exe', supported: false }]
+    const unsupported = [
+      {
+        kind: 'q2pro' as const,
+        executablePath: 'q2pro.exe',
+        executablePaths: ['q2pro.exe'],
+        supported: false,
+      },
+    ]
     expect(keyOf(run({ installations: [inst('a', 'r1q2')] }))).toBe(P + 'notQ2pro')
     expect(
       keyOf(run({ installations: [{ ...inst('a', 'r1q2'), detectedEngines: unsupported }] })),

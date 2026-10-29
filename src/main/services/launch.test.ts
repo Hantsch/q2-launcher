@@ -269,14 +269,42 @@ describe('LaunchService.plan with a runner', () => {
   })
 })
 
+describe('LaunchService.plan for a q2pro64.exe installation', () => {
+  it('launching a Q2PRO installation whose executable is q2pro64.exe spawns q2pro64.exe', async () => {
+    const q2pro64 = join('C:\\Games\\Quake2', 'q2pro64.exe')
+    const row = {
+      ...installation,
+      engineKind: 'q2pro',
+      executablePath: q2pro64,
+    } as unknown as Installation
+    const { launch } = service({ installation: row })
+
+    const planned = await launch.plan({ installationId: INSTALLATION })
+    if (!planned.ok) throw new Error(`expected a plan, got ${planned.error.key}`)
+
+    expect(planned.value.executablePath).toBe(q2pro64)
+    expect(planned.value.preview).toContain('q2pro64.exe')
+  })
+})
+
 describe('LaunchService.plan with an engine override', () => {
   const withEngines = {
     ...installation,
     activeGameDir: 'rogue',
     launchArgs: ['+set', 'cl_maxfps', '60'],
     detectedEngines: [
-      { kind: 'r1q2', executablePath: 'C:\\Games\\Quake2\\r1q2.exe', supported: true },
-      { kind: 'q2pro', executablePath: 'C:\\Games\\Quake2\\q2pro.exe', supported: true },
+      {
+        kind: 'r1q2',
+        executablePath: 'C:\\Games\\Quake2\\r1q2.exe',
+        executablePaths: ['C:\\Games\\Quake2\\r1q2.exe'],
+        supported: true,
+      },
+      {
+        kind: 'q2pro',
+        executablePath: 'C:\\Games\\Quake2\\q2pro.exe',
+        executablePaths: ['C:\\Games\\Quake2\\q2pro.exe'],
+        supported: true,
+      },
     ],
   } as unknown as Installation
 
@@ -313,8 +341,18 @@ describe('LaunchService.plan with an engine override', () => {
       executablePath: '/games/q2/r1q2.exe',
       executableKind: 'pe',
       detectedEngines: [
-        { kind: 'r1q2', executablePath: '/games/q2/r1q2.exe', supported: true },
-        { kind: 'q2pro', executablePath: '/games/q2/q2pro', supported: true },
+        {
+          kind: 'r1q2',
+          executablePath: '/games/q2/r1q2.exe',
+          executablePaths: ['/games/q2/r1q2.exe'],
+          supported: true,
+        },
+        {
+          kind: 'q2pro',
+          executablePath: '/games/q2/q2pro',
+          executablePaths: ['/games/q2/q2pro'],
+          supported: true,
+        },
       ],
     } as unknown as Installation
     const { launch } = service({ installation: linuxEngines, runners: [NATIVE, WINE] })

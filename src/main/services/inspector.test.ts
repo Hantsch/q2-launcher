@@ -412,7 +412,13 @@ describe('engine detection in the root', () => {
 
     const result = await inspectInstallation(enginesRoot)
 
-    expect(result.engines).toEqual([
+    expect(
+      result.engines.map(({ kind, executablePath, supported }) => ({
+        kind,
+        executablePath,
+        supported,
+      })),
+    ).toEqual([
       { kind: 'r1q2', executablePath: join(enginesRoot, 'r1q2.exe'), supported: true },
       { kind: 'q2pro', executablePath: join(enginesRoot, 'q2pro.exe'), supported: true },
       { kind: 'kmquake2', executablePath: join(enginesRoot, 'kmquake2.exe'), supported: false },
@@ -427,6 +433,34 @@ describe('engine detection in the root', () => {
 
     expect(result.engineKind).toBe('q2pro')
     expect(result.executables[0]).toBe(join(enginesRoot, 'q2pro.exe'))
+  })
+
+  it('a folder whose only client is q2pro64.exe is detected as Q2PRO', async () => {
+    await writeBinary('q2pro64.exe')
+
+    const result = await inspectInstallation(enginesRoot)
+
+    expect(result.engineKind).toBe('q2pro')
+    expect(result.engines.map((engine) => engine.kind)).toEqual(['q2pro'])
+    expect(result.executables[0]).toBe(join(enginesRoot, 'q2pro64.exe'))
+  })
+
+  it('a folder with q2pro.exe and q2pro64.exe is one Q2PRO engine that prefers q2pro64.exe', async () => {
+    await writeBinary('q2pro.exe')
+    await writeBinary('q2pro64.exe')
+
+    const result = await inspectInstallation(enginesRoot)
+
+    expect(result.engineKind).toBe('q2pro')
+    expect(result.engines).toEqual([
+      {
+        kind: 'q2pro',
+        executablePath: join(enginesRoot, 'q2pro64.exe'),
+        executablePaths: [join(enginesRoot, 'q2pro64.exe'), join(enginesRoot, 'q2pro.exe')],
+        supported: true,
+      },
+    ])
+    expect(result.executables[0]).toBe(join(enginesRoot, 'q2pro64.exe'))
   })
 
   it('a dedicated server binary is not an engine', async () => {
