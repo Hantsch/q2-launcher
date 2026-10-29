@@ -32,6 +32,7 @@ This document describes the module as built. `servers` is a registered module; i
   exceeds max(20 ms, 25% of the median)), rounded to whole ms; a failed extra sample is dropped. Stage 2
   (`status`) never overrides it; a server queried only in stage 2 (single-server refresh) takes the
   `status` ping, and LAN rounds follow the same rule.
+- Scan timing (ping accuracy, full-pass budget) is checked only by the manual perf lane `npm run test:perf`; the unit lane checks the scan's shape.
 - `favourites.ts` / `history-log.ts` / `quick-filter-entries.ts` — the persisted collections.
 - `watchlist-service.ts` / `watchlist-entries.ts` / `watchlist-matcher.ts` /
   `watchlist-regex-host.ts` — watchlist entries and name matching (regex runs isolated).

@@ -1,7 +1,7 @@
 ---
 id: 267
 title: Timing-ratio tests leave the blocking unit lane
-status: ready # draft -> ready -> in-progress -> done
+status: done
 created: 2026-10-27
 ---
 
@@ -22,20 +22,20 @@ no perf lane. Windows has a 15.6 ms timer tick.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `package.json` has a `test:perf` script that runs `scan-ping-accuracy.test.ts` and
+- [x] **AC1** — `package.json` has a `test:perf` script that runs `scan-ping-accuracy.test.ts` and
       `scan-measurement.test.ts`, and `npm test` does not run them (`npx vitest list` under the
       `npm test` config shows neither file).
-- [ ] **AC2** — The functional assertions of both files (sample count, median ordering, result
+- [x] **AC2** — The functional assertions of both files (sample count, median ordering, result
       shape) remain in files that `npm test` runs, and those tests pass.
-- [ ] **AC3** — `replays-folders-scale.mjs` logs the navigation time and no longer fails on it: a
+- [x] **AC3** — `replays-folders-scale.mjs` logs the navigation time and no longer fails on it: a
       search for `MAX_NAVIGATION_MS` in the flow returns nothing, while its row-count assertion
       (`MAX_MOUNTED_ROWS`) still fails when the mounted count exceeds 100.
-- [ ] **AC4** — `npm run test:perf` exits 0 on the maintainer's machine, and a seeded 3x slowdown in
+- [x] **AC4** — `npm run test:perf` exits 0 on the maintainer's machine, and a seeded 3x slowdown in
       the ping path makes it exit non-zero (recorded in the Done section).
-- [ ] **AC5** — The perf lane has a named trigger (manual dispatch or schedule) in a workflow or in
+- [x] **AC5** — The perf lane has a named trigger (manual dispatch or schedule) in a workflow or in
       the release gate documentation, and `scripts/workflows.test.mjs` asserts it is not among the
       merge-blocking jobs.
-- [ ] **AC6** — `grep -n "267" docs/TECH-DEBT.md` matches within the TD-049 entry, which is closed or
+- [x] **AC6** — `grep -n "267" docs/TECH-DEBT.md` matches within the TD-049 entry, which is closed or
       points at this story.
 
 ## Open Questions
@@ -93,7 +93,7 @@ under its new name `scan-ping-accuracy.perf.test.ts`.
 
 ## Deliverables
 
-- [ ] D1 — **Perf lane and the split of the two timing files.** Touches `vitest.config.ts`, new
+- [x] D1 — **Perf lane and the split of the two timing files.** Touches `vitest.config.ts`, new
       `vitest.perf.config.ts`, `tsconfig.node.json`, `package.json`, and in
       `src/main/modules/servers/`: `scan-ping-accuracy.test.ts` → `scan-ping-accuracy.perf.test.ts`
       (`git mv`; content unchanged except the header comment's pointer to the measurement file),
@@ -126,7 +126,7 @@ under its new name `scan-ping-accuracy.perf.test.ts`.
       - AC4 seeded defect, recorded in Done and reverted: slow the ping path 3x (e.g. multiply the
         round trip where `server-query.ts` computes it by 3) and show `npm run test:perf` exits
         non-zero.
-- [ ] D2 — **Manual trigger, its guard, and the docs.** Touches new `.github/workflows/perf.yml`,
+- [x] D2 — **Manual trigger, its guard, and the docs.** Touches new `.github/workflows/perf.yml`,
       `scripts/workflows.test.mjs`, `CLAUDE.md`, `docs/TECH-DEBT.md`, `docs/systems/servers-module.md`.
       - `perf.yml`: `name: perf`, `on: workflow_dispatch:` only (no `schedule`, `push`,
         `pull_request`); one job `perf`, `runs-on: windows-latest`, `timeout-minutes: 15`; steps
@@ -155,7 +155,7 @@ under its new name `scan-ping-accuracy.perf.test.ts`.
       - Acceptance: the new test passes and fails with a seeded `pull_request:` in perf.yml
         (recorded in Done, reverted); `grep -n "267" docs/TECH-DEBT.md` hits the TD-049 row;
         `npm test`, `npm run lint`, `npm run format:check` clean for the touched files.
-- [ ] D3 — **The folder-scale flow logs navigation time instead of failing on it.** Touches only
+- [x] D3 — **The folder-scale flow logs navigation time instead of failing on it.** Touches only
       `scripts/flows/replays-folders-scale.mjs`.
       - Delete `MAX_NAVIGATION_MS` and both `expect(openMs <= …)` / `expect(backMs <= …)` lines;
         the crumb-return `poll` drops its third argument and uses the default timeout. The existing
@@ -196,7 +196,19 @@ Review: → default
 
 ## Done
 
-<Leave empty. Filled by `/build 267` after implementation:
-- Short summary (2–5 lines): what was done.
-- Commit message (1–2 lines, keywords are enough).
-- Verification: build/test/lint result + review outcome; open points/blockers, if any.>
+The two wall-clock timing tests (ping accuracy, full-pass budget) moved to a manual-only perf lane (`npm run test:perf`, `vitest.perf.config.ts`, `perf.yml` on `workflow_dispatch`, Windows); `npm test` excludes `*.perf.test.*`. The scan's functional shape stays in the unit lane (`scan-runner-loopback.test.ts`). The folder-scale flow logs navigation time instead of failing on it. TD-049 rewritten to point here; CLAUDE.md Deviations row added.
+
+Commit message: `267: timing tests to manual perf lane, flow stops failing on navigation time`
+
+Verification (narrow gate: `npx vitest run --changed HEAD`, `npm run ui:flows -- --affected scripts/flows/replays-folders-scale.mjs --parallel=4 --shard=1/2` and `2/2`): build, typecheck, lint green; unit 7630 passed; `test:perf` green (2 files, 3 tests); flow passed and printed `measured: open 64 ms, crumb 32 ms`.
+- AC1 `npx vitest list` shows no scan-ping-accuracy*/scan-measurement*, perf config lists exactly the two `.perf.test.ts` files: passed.
+- AC2 `scan-runner-loopback.test.ts` + `ping-samples.test.ts` named tests: passed.
+- AC3 flow `replays-folders-scale` passed; `grep MAX_NAVIGATION_MS` empty; seeded `MAX_MOUNTED_ROWS = 1` failed the flow ("1 rows mounted, expected fewer than 1"), reverted.
+- AC4 `npm run test:perf` exit 0; seeded 3x RTT at `server-query.ts:291` gave exit 1, reverted (git diff empty).
+- AC5 `workflows.test.mjs` "the perf lane runs only on manual dispatch…" passed; seeded `pull_request:` in perf.yml made it fail, reverted.
+- AC6 `grep -n 267 docs/TECH-DEBT.md` hits the TD-049 row.
+- Review (default tier, 1 cycle): PASS.
+
+Decisions: perf.yml dispatch-only on windows-latest; `runScan` needs `onServer`, so the perf test passes a no-op; prettier re-padded the unrelated house-rules table in CLAUDE.md (whitespace only) — kept. Unfixed minor finding: the loopback and perf files each declare `POPULATION_SIZE = 30` and the population setup (the mandated split; drift risk accepted). No changelog entry (no user-facing change). Pre-existing: CLAUDE.md references a `## Test lanes` section that does not exist.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5

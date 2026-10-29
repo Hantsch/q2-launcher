@@ -104,6 +104,25 @@ describe('Linux jobs are advisory on GitHub', () => {
   })
 })
 
+describe('perf lane', () => {
+  test('the perf lane runs only on manual dispatch and no push or pull-request workflow runs it', () => {
+    const workflows = loadWorkflows()
+    const perf = workflows.find((w) => w.file === 'perf.yml').doc
+    expect(Object.keys(perf.on)).toEqual(['workflow_dispatch'])
+    const runs = Object.values(perf.jobs).flatMap((j) => j.steps.map((s) => String(s.run ?? '')))
+    expect(runs).toContain('npm run test:perf')
+
+    const offenders = workflows
+      .filter(({ doc }) => 'push' in doc.on || 'pull_request' in doc.on)
+      .flatMap(({ file }) =>
+        allSteps(workflows.filter((w) => w.file === file))
+          .filter(({ step }) => /test:perf|vitest\.perf\.config/.test(String(step.run ?? '')))
+          .map(({ job }) => `${file}:${job}`),
+      )
+    expect(offenders).toEqual([])
+  })
+})
+
 describe('workflow setup', () => {
   test('no workflow job runs setup-node, npm ci or electron install.js itself', () => {
     const offenders = allSteps()

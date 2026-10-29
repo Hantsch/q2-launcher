@@ -11,3 +11,15 @@
 - 2026-10-29 08:26 · 271 · verify · started
 - 2026-10-29 08:38 · 271 · verify · blocked: verify:release exceeded the 10-minute call limit (INCONCLUSIVE)
 - 2026-10-29 08:38 · 271 · story · blocked: verify:release proof of Node 22.12.0 not observable
+- 2026-10-29 08:38 · 267 · build · started
+- 2026-10-29 08:38 · 267 · D1 perf lane and split · started
+- 2026-10-29 08:45 · 267 · D1 perf lane and split · done
+- 2026-10-29 08:45 · 267 · D2 trigger guard docs · started
+- 2026-10-29 08:46 · 267 · D2 trigger guard docs · done
+- 2026-10-29 08:46 · 267 · D3 flow logs navigation · started
+- 2026-10-29 08:47 · 267 · D3 flow logs navigation · done
+- 2026-10-29 08:47 · 267 · verify · started
+- 2026-10-29 08:50 · 267 · verify · done
+- 2026-10-29 08:50 · 267 · review 1 · started
+- 2026-10-29 08:53 · 267 · review 1 · done
+- 2026-10-29 08:53 · 267 · story · done

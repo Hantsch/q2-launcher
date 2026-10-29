@@ -73,12 +73,12 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
 These rules live in this repository as project skills, so they apply to everyone who works here —
 no plugin needed. Installed and updated with `/tech-rules:setup` (plugin `tech-rules@hantsch`).
 
-| Read before                                                        | Skill                                        |
-| ------------------------------------------------------------------ | -------------------------------------------- |
-| any code change                                                    | `/karpathy`                                  |
-| writing or moving a test, touching a test config or a CI workflow  | `/test-gates`                                |
-| touching `src/renderer`                                            | `/renderer-guidelines`, `/design-tokens`     |
-| main / preload / renderer, IPC, `webPreferences`                   | `/electron-arch`, `/typed-ipc`, `/ui-verify` |
+| Read before                                                       | Skill                                        |
+| ----------------------------------------------------------------- | -------------------------------------------- |
+| any code change                                                   | `/karpathy`                                  |
+| writing or moving a test, touching a test config or a CI workflow | `/test-gates`                                |
+| touching `src/renderer`                                           | `/renderer-guidelines`, `/design-tokens`     |
+| main / preload / renderer, IPC, `webPreferences`                  | `/electron-arch`, `/typed-ipc`, `/ui-verify` |
 
 `/test-review` reviews the test suite and writes a report; `/release-prep` runs every test lane
 before a release. Which command is which lane is this project's `## Test lanes` table.
@@ -96,6 +96,7 @@ row per control; a deviation without a reason is a violation that has been writt
 | `/design-tokens` (≥16px input font-size)          | Settings tab dense cvar rows (`src/renderer/src/modules/config/components/CvarRow.tsx`, `SettingsTab.tsx`) do not apply the ≥16px input font-size floor meant to stop iOS zoom-on-focus. Focus-visible and non-colour status indication are kept in full.                                                                                                          | A desktop, mouse-and-keyboard-only Electron app has no zoom-on-focus behaviour to guard against; see `docs/requirements/021-settings-dense-rows-redesign.md`.                                                                                                                                                                                                                                                       |
 | CLAUDE.md Key rules ("No image assets in the UI") | Bitmaps are allowed for installation identity only — the tile that shows an installation's icon (`InstallationTile.tsx`, on the rail/library card/action bar) and the icon-picker dialog that lets the user choose one (`SetInstallationIconDialog.tsx`, which necessarily previews the same bitmaps as swatches). Everything else in the UI stays CSS/inline SVG. | Story `docs/requirements/067-an-installation-carries-an-icon-i-choose.md` needs a real bitmap on a routine UI surface (not just the boot splash hero) to let a user tell two identically-coded installations apart, and a picker cannot let you choose an icon without showing it.                                                                                                                                  |
 | CLAUDE.md Key rules ("No image assets in the UI") | Feed/news slide images — the split, banner and cover slide templates' images, served from the launcher's own image cache over `q2launcher://news-image/` — are the second place a real bitmap enters the UI, alongside the installation-icon exception above.                                                                                                      | Story `docs/requirements/084-slide-images-come-from-the-launchers-own-cache.md`: feed images are foreign content — downloaded from the news feed's own source at runtime, never a shipped/bundled asset — the same class of reasoning as the installation-icon row, but a distinct case (foreign downloaded content vs. a user-chosen local bitmap), so it gets its own row rather than being merged into that one. |
+| `/test-gates` (perf lane)                         | The perf lane (`npm run test:perf`, `perf.yml`) runs on manual dispatch only, not as an advisory PR job, and a budget overrun fails the run instead of warning.                                                                                                                                                                                                    | The maintainer made the lane manual-only (story 267); a manual run is read by its exit code and blocks no merge or release.                                                                                                                                                                                                                                                                                         |
 
 Sub-28px cases under the 44px row above:
 
