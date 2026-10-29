@@ -1,7 +1,7 @@
 ---
 sprint: S36
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: dev # no sprint branch, by the user's call
 milestone: 11.5 — tests review 2026-10-27
 ---
 
