@@ -1,11 +1,11 @@
 ---
-description: Runs a sprint (sprints/SNN/sprint.md) autonomously — branch, refine + build every story with its acceptance tests, one commit per story, a full regression gate, then the review doc.
+description: Runs a sprint (sprints/SNN/sprint.md) autonomously — branch, refine + build every story with its acceptance tests, one commit per story, a full regression gate, the review doc, then a releasable check on the final commit.
 argument-hint: <sprint-id>
 model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.7.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.8.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run sprint **$1**.
@@ -53,13 +53,15 @@ shorten their wording or change their language, never drop them.
   that appends the step's line to `<sprints>/$1/progress.md` in the same command, exactly like
   the trail rule in `build.md` — `- <shell timestamp> · 107 · build · started` for a story,
   `· refine · 106 107 108 109 · started` for the refine round, `· gate · e2e-all · started`
-  for the long suite. The last duration comes from the trail (the previous story's `build ·
+  for the long suite, `· gate · roadmap-check · started` and `· gate · release-verify ·
+  started` for phase 4. The last duration comes from the trail (the previous story's `build ·
   started` and `story · done` lines) or from the previous sprint's `## Regression gate` record;
   for the first of a kind write `first one, no estimate` — never a guess.
 - **After the step**, one line: result, elapsed, commit — `107 done · 16 min · 0a99dce · 2/4`.
 - **The first line of the sprint** (phase 0) names the shape once: `Refine (parallel, ~10 min)
   → Build 4 stories (one after another, 10–20 min each, silent while they run) → Regression
-  gate (long suite in the background, log named when it starts) → Review · progress:
+  gate (long suite in the background, log named when it starts) → Review → Releasable
+  (roadmap check, then the release verification on the final commit) · progress:
   docs/sprints/S22/progress.md`.
 
 Nothing else goes between delegations — no summary of what an agent did, that costs context —
@@ -89,7 +91,10 @@ that "knew" its agent had stopped while it was still editing the tree has happen
 1. Open `<sprints>/$1/sprint.md`. If it does not exist: abort and point at
    `<sprints>/_TEMPLATE/sprint.md`.
 2. Sprint status: `planned` → start normally. `in-progress` → **resume** (skip finished
-   stories, continue at the first open spot). `done` → abort.
+   stories, continue at the first open spot). `done` → abort — unless every commit after
+   `$1: sprint review + roadmap` on the work branch is one of phase 4's own (`$1: roadmap
+   check`, `$1: fix from release verification`): then phase 4 was interrupted or is asked
+   again, and only phase 4 runs, from step 1.
 3. `git status` must be clean. Foreign uncommitted changes → abort and ask the user.
 4. **The work branch.** `sprint-branch: true` (also when the key is missing) → the sprint
    works on its own branch, named after `sprint-branch-pattern`, cut from `branch-base`.
@@ -314,7 +319,7 @@ story builds together.
      attribute (measured: eleven minutes for nothing). Never as a foreground `Bash` either:
      that only burns ten minutes before landing in the same background state.
    - **End the turn** with exactly that one task in flight and nothing else pending. This is
-     the one sanctioned wait in this command (see Rules): the task's exit notification wakes
+     the one sanctioned kind of wait in this command (see Rules): the task's exit notification wakes
      this session. When it arrives, read only the runner's summary — `tail -n 40` of the log —
      never the whole file; the attribution agent gets the log path.
 2. **Green**, or red only in quarantined tests (step 3) → record it (step 5), go to phase 3.
@@ -457,6 +462,45 @@ story builds together.
    in `sprint.md` and the `e2e-quarantine` file the gate edited, if any, too (add `+ testplan`
    only if a `testplan.md` was actually written).
 
+## Phase 4 — Releasable (after the review commit, last)
+
+The sprint ends releasable: the commit the user merges, opens a PR from or releases is the one
+the last check ran on. The gate ran before phase 3, and phase 3 edits files after it — a roadmap
+line, a moved story, a debt row. In a project whose tests read those files, an unchecked review
+commit is how a green gate turns into a red PR (measured: a green 93-minute gate phase, then one
+roadmap line added by the review commit failed the PR's unit tests). So this phase runs last, and
+**nothing of the sprint is committed after its green run.**
+
+1. **Roadmap check.** Status line and trail line `· gate · roadmap-check · started`. ONE fresh
+   `Agent` (`model: "sonnet"`, `run_in_background: false`) reads `.claude/commands/roadmap.md`
+   and runs its mode `check` on the work branch, plus what the profile's `## Notes` add to that
+   mode. It cannot ask the user: a step that needs them (an older-shape rebuild, a decision) is
+   reported, not done. It commits nothing and returns its report in at most 15 lines. If it
+   changed files, commit them as `$1: roadmap check`. Its report goes into the final report.
+2. **The release verification, on `HEAD`, once.** The profile's `release-verify` — the
+   project's answer to "will a PR and a release of this commit pass?". With `release-verify:
+   none`, the short suites take its place (`build`, the full `test`, `lint`, `typecheck` — not
+   `e2e`, not `e2e-all`), run by ONE fresh agent the way phase 2b step 1 runs them: they are what
+   a doc edit can break. A `release-verify` that can take longer than ten minutes runs like
+   `e2e-all` in phase 2b step 1b: from your session, after the status line and the trail line
+   `· gate · release-verify · started`, as ONE background `Bash` —
+   `<release-verify> 2>&1 | tee <sprints>/$1/gate-release-verify.log` — then end the turn and
+   read the summary when it returns. A refusal for a reason outside the code — a prerequisite
+   that is not running, a base branch that has moved on and needs merging — is not fixed by
+   you: merging is the user's job (see Rules). It is the verdict of step 4, with the action that
+   unblocks it; after that action, `/sprint $1` runs this phase again.
+3. **Red → fix, at most twice.** ONE fresh `Agent` (`model: "sonnet"`, `run_in_background:
+   false`) per failing step, with the failing output, the log's path and the build rules that
+   still hold: fix the cause, never the test. It re-runs the failing step's own check (the
+   failing tests, the format check, …) once per attempt; green → commit as `$1: fix from
+   release verification`, then step 2 again — the whole command, on the new `HEAD`. Two rounds
+   without green → stop: the sprint is **not releasable**, a blocker naming the failing step.
+4. **The verdict is reported, never committed.** Writing it into `review.md`, `sprint.md` or
+   anywhere else in the repository would be the unchecked commit this phase exists to prevent.
+   It is the first line of the final report: `releasable: yes · <short sha> · <command>`, or
+   `releasable: NO — <step>: <reason> · <what unblocks it>`. Delete
+   `<sprints>/$1/gate-release-verify.log`.
+
 ## Closing the run — before the final report
 
 1. **Nothing of yours is still running.** Every `Agent` call you issued has returned — a
@@ -464,8 +508,9 @@ story builds together.
    stopped one: it may still be editing the tree and will hand back later; say so, and never
    start a second build agent for the same story on top of it. Every background task you
    started has returned or been stopped with `TaskStop`. `<sprints>/$1/gate-*.log` is deleted.
-2. **Nothing is pending.** The gate is recorded, `review.md` and the roadmap are committed. If
-   one of them is not, you are not at the final report yet.
+2. **Nothing is pending.** The gate is recorded, `review.md` and the roadmap are committed, and
+   phase 4 has its verdict on the current `HEAD`. If one of them is not, you are not at the
+   final report yet.
 3. **The final report is written once, and it ends the run.** Whatever arrives afterwards — a
    task notification for a launch you forgot to stop, a late agent result, a stray Monitor
    event — gets exactly one line (`Late result of <task>: <one-line outcome> — the sprint is
@@ -479,7 +524,10 @@ story builds together.
 
 ## Final report to the user
 
-Short and complete: the work branch, stories done/blocked, path to `review.md` (and to
+The first line is phase 4's verdict — `releasable: yes · <short sha> · <command>`, or
+`releasable: NO — …` with what unblocks it, loudly, because it decides whether the user can open
+a PR. Then, short and complete: the work branch, stories done/blocked, the roadmap check's report
+compacted, path to `review.md` (and to
 `testplan.md`, if one was written — otherwise say plainly that nothing needs walking by hand),
 the regression gate in one line (green, or which story broke what and whether it was fixed — a
 red gate first and loudly, because it decides the merge), the acceptance record in one line
@@ -520,7 +568,8 @@ the target of a sprint branch merge you make.
   report back once the build agent returns" is not a pause, it is the end of the sprint, and
   the user finds out by noticing that the working tree stopped moving. Every `Agent` call is
   foreground, and the question never comes up. The **one** exception is the background `Bash`
-  task of phase 2b step 1b, started by you at the top level: a background task's exit
+  task of phase 2b step 1b (and, the same way, a long `release-verify` in phase 4 step 2 — one
+  at a time, never both), started by you at the top level: a background task's exit
   notification does reach this session — it never reaches a subagent, which is why the gate
   agent must not start one. End that turn only after the status line, with exactly that one
   task in flight and nothing else pending — not with an agent, not with two tasks, not "to see

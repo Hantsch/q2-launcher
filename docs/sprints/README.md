@@ -69,6 +69,10 @@ sprints/
      proved which criterion — the regression gate result, findings & decisions, blockers) is written, `testplan.md` only if
      there is manual residue to walk, the roadmap gets its milestone row, its follow-up lines
      and a fresh "Where we stand" (nothing more), then committed, `status: done`.
+   - **Releasable:** after the review commit an agent runs `/roadmap check`, then the profile's
+     `release-verify` (or the short suites) runs once on the final commit. Red is fixed at most
+     twice; nothing is committed after a green run. The verdict — `releasable: yes` with the
+     commit, or `NO` and what unblocks it — is the first line of the final report.
 3. **You** read `review.md`, plan the next sprint on top of it (correction stories if needed)
    and decide about the **merge back into `branch-base`** (with `sprint-branch: false` the
    commits are already there; what is left is your push). There is nothing to accept by hand
