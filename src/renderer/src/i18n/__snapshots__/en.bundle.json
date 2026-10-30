@@ -3735,6 +3735,7 @@
     "rootMissing": "The installation folder is gone: {{path}}"
   },
   "x11": {
+    "authFamilyUnsupported": "The X server needs an authorisation method ({{family}}) the launcher does not support",
     "closed": "The X connection is closed",
     "connectionLost": "The X server connection was lost",
     "noDisplay": "No X display is set",

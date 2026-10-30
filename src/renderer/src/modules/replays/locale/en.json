@@ -574,6 +574,7 @@
     "requestFailed": "The X server rejected a request",
     "connectionLost": "The X server connection was lost",
     "protocolError": "Could not understand the X server",
-    "noXResource": "The X server lacks the Resource extension"
+    "noXResource": "The X server lacks the Resource extension",
+    "authFamilyUnsupported": "The X server needs an authorisation method ({{family}}) the launcher does not support"
   }
 }
