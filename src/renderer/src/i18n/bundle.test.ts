@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs'
+import { readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { REPO_ROOT } from '../../../test-support/source-tree'
@@ -34,11 +34,5 @@ describe('the English bundle', () => {
       (entry) => entry.isDirectory() && existsSync(join(modules, entry.name, 'locale/en.json')),
     )
     expect(MODULE_LOCALES_EN).toHaveLength(onDisk.length)
-  })
-
-  it("ARCHITECTURE.md's Adding-a-module names the module locale file", () => {
-    const doc = readFileSync(join(REPO_ROOT, 'docs/ARCHITECTURE.md'), 'utf8')
-    const step = doc.slice(doc.indexOf('5. **Strings**'))
-    expect(step.slice(0, 300)).toContain('modules/<id>/locale/en.json')
   })
 })

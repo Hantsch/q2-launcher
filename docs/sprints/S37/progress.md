@@ -18,3 +18,19 @@
 - 2026-10-30 09:21 · 276 · fix from review 1 · started
 - 2026-10-30 09:23 · 276 · fix from review 1 · done
 - 2026-10-30 09:23 · 276 · story · done
+- 2026-10-30 09:23:56 · 279 · build · started
+- 2026-10-30 09:24:13 · 279 · D1 docs lane plumbing · started
+- 2026-10-30 09:25:05 · 279 · D1 docs lane plumbing · done
+- 2026-10-30 09:25:05 · 279 · D2 script-side rules move · started
+- 2026-10-30 09:27:19 · 279 · D2 script-side rules move · done
+- 2026-10-30 09:27:19 · 279 · D3 src-side rules + read guard (hard) · started
+- 2026-10-30 09:33:08 · 279 · D3 src-side rules + read guard (hard) · done
+- 2026-10-30 09:33:08 · 279 · D4 process docs · started
+- 2026-10-30 09:34:18 · 279 · D4 process docs · done
+- 2026-10-30 09:34:18 · 279 · verify · started
+- 2026-10-30 09:35:41 · 279 · verify · done
+- 2026-10-30 09:35:41 · 279 · review 1 · started
+- 2026-10-30 09:36:32 · 279 · review 1 · done
+- 2026-10-30 09:36:33 · 279 · review fix · started
+- 2026-10-30 09:37:16 · 279 · review fix · done
+- 2026-10-30 09:37:16 · 279 · story · done

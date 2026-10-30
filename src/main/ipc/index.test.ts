@@ -1,6 +1,4 @@
 import type { IpcMainInvokeEvent } from 'electron'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { DEV_ONLY_CHANNELS, INVOKE_CHANNELS } from '@shared/ipc'
@@ -337,11 +335,5 @@ describe('a throwing handler', () => {
 describe('handlerFailed documentation and copy', () => {
   it('ipc.error.handlerFailed resolves to a string in en.json', () => {
     expect(typeof en.ipc.error.handlerFailed).toBe('string')
-  })
-
-  it('ARCHITECTURE.md states that both surfaces turn a throw into handlerFailed', () => {
-    const doc = readFileSync(resolve(__dirname, '../../../docs/ARCHITECTURE.md'), 'utf8')
-    expect(doc).toContain('ipc.error.handlerFailed')
-    expect(doc).toContain('modules.error.handlerFailed')
   })
 })

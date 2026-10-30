@@ -8,10 +8,8 @@ import { describe, expect, it } from 'vitest'
  * D1-D3 built the servers module (main handler, shared contract, renderer
  * view) as placeholder/zeroed data with no platform-specific behaviour yet.
  * This test locks that in - it never lets a `process.platform`/`os.platform`
- * check or a `win32`/`linux` literal creep into the module - and separately
- * asserts CLAUDE.md still states the "Platform parity is explicit." rule
- * that would govern any future platform branch here. It never writes to
- * CLAUDE.md, only reads it.
+ * check or a `win32`/`linux` literal creep into the module. That CLAUDE.md
+ * still states the platform-parity rule is checked in the docs lane.
  */
 
 const REPO_ROOT = join(__dirname, '../../../../')
@@ -57,10 +55,7 @@ function listSourceFiles(root: string): string[] {
 }
 
 describe('platform parity guard', () => {
-  it('CLAUDE.md carries the platform-parity rule and the servers module declares no platform branch', () => {
-    const claudeMd = readFileSync(join(REPO_ROOT, 'CLAUDE.md'), 'utf-8')
-    expect(claudeMd).toContain('Platform parity is explicit.')
-
+  it('the servers module declares no platform branch', () => {
     const targets = [
       join(REPO_ROOT, 'src/main/modules/servers'),
       join(REPO_ROOT, 'src/renderer/src/modules/servers'),

@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import yaml from 'js-yaml'
 import vitestConfig from '../vitest.config.ts'
+import docsConfig from '../vitest.docs.config.ts'
 
 /**
  * Repo-wide line-ending and formatting invariants, read from the real repo (story 226): every
@@ -135,10 +136,6 @@ describe('dependency automation', () => {
     expect(audit.name).toBe('Audit')
     expect(audit['continue-on-error']).toBeUndefined()
   })
-
-  test('the roadmap carries no Vite pin follow-up', () => {
-    expect(readRepo('../docs/ROADMAP.md')).not.toContain('Vite is pinned to 7.x')
-  })
 })
 
 describe('test discovery', () => {
@@ -169,6 +166,34 @@ describe('test discovery', () => {
     ]
 
     expect(orphanTestFiles(paths, vitestConfig.test.include)).toEqual(['scripts/foo.test.cjs'])
+  })
+
+  test.skipIf(!IS_WORK_TREE_ROOT)(
+    'every docs-lane test file runs in check:docs and not in npm test',
+    () => {
+      const docsFiles = git(['ls-files'])
+        .split('\n')
+        .filter((path) => /\.docs\.test\.[cm]?[jt]sx?$/.test(path))
+
+      for (const path of docsFiles) {
+        expect(
+          docsConfig.test.include.some((glob) => matchesGlob(path, glob)),
+          `${path} is not in the docs config include`,
+        ).toBe(true)
+        expect(
+          vitestConfig.test.exclude.some((glob) => matchesGlob(path, glob)),
+          `${path} is not excluded from the base config`,
+        ).toBe(true)
+      }
+    },
+  )
+
+  test('check:docs fails when either the link checker or the docs lane fails', () => {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+    const script = pkg.scripts['check:docs']
+
+    expect(script).toMatch(/^node scripts\/check-docs\.mjs && .*--config vitest\.docs\.config\.ts/)
+    expect(script).not.toContain('--passWithNoTests')
   })
 })
 

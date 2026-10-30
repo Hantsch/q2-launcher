@@ -289,16 +289,6 @@ describe('StateStore sections', () => {
   })
 })
 
-describe('architecture doc', () => {
-  it('ARCHITECTURE.md states the slice-mutator rule', async () => {
-    const doc = await readFile(join(__dirname, '../../../docs/ARCHITECTURE.md'), 'utf8')
-    const section = doc.split(/^## /m).find((s) => s.startsWith('State and persistence')) ?? ''
-
-    expect(section).toContain('updateSlice')
-    expect(section).toMatch(/Never read\s+->\s+spread\s+->\s+set/)
-  })
-})
-
 describe('a StateStore without migrations does not compile', () => {
   it('rejects a construction that omits the migrations option', () => {
     // Never called: only the type check matters.

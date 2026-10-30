@@ -166,12 +166,6 @@ describe('comment conventions', () => {
     expect(offenders).toEqual([])
   })
 
-  it('the build review prompt checks comments against the convention', () => {
-    expect(readRepoFile('.claude/commands/build.md')).toContain(
-      'comments that narrate story or review history',
-    )
-  })
-
   it.each(SWEPT_FILES)(
     'swept files keep comments under 35%% with trailing story pointers only: %s',
     (path) => {

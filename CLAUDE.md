@@ -100,6 +100,7 @@ row per control; a deviation without a reason is a violation that has been writt
 | sprint gate  | local, after the last story of a sprint                                                              | `npm run ui:flows` (full), `npm run ui:flows -- --tier=smoke`                   | Windows             | Blocks the sprint review                                                                       |
 | perf         | manual (`perf.yml`)                                                                                  | `npm run test:perf`                                                             | Windows             | No                                                                                             |
 | linux        | local, after the sprint's regression gate                                                            | `npm run verify:linux`                                                          | Linux (act, Docker) | No — advisory: green or yellow, never red; the release's AppImage build is best-effort         |
+| docs         | local, `/roadmap check` and sprint phase 3                                                           | `npm run check:docs`                                                            | Windows             | No — blocks no PR or release                                                                   |
 
 Linux is an additional target: its checks run locally (`npm run verify:linux`) and on manual dispatch
 only, never red, never gating a PR or release. The maintainer owns any change to that policy.

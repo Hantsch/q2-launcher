@@ -44,16 +44,4 @@ describe('shell layering', () => {
     const lines = readFileSync(resolve(MAIN_SRC, 'lib/schemas.ts'), 'utf-8').split('\n').length
     expect(lines).toBeLessThanOrEqual(400)
   })
-
-  it('ARCHITECTURE.md states the two-tier migration rule', () => {
-    const doc = readFileSync(resolve(REPO_ROOT, 'docs/ARCHITECTURE.md'), 'utf-8')
-    expect(doc).not.toContain('MIGRATIONS is empty')
-    expect(doc).not.toContain('never touches `ipcMain`,\n   `BrowserWindow` or the state file')
-    expect(doc).not.toMatch(/never touches[^.]*the state file/)
-    const addingAModule = doc.slice(doc.indexOf('## Adding a module'), doc.indexOf('### Jobs'))
-    expect(addingAModule).toContain('persisted.ts')
-    expect(doc).toContain('Additive optional key')
-    expect(doc).toContain('persisted-migrations.ts')
-    expect(doc).toContain('STATE_SCHEMA_VERSION')
-  })
 })

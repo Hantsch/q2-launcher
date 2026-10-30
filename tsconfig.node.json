@@ -8,6 +8,7 @@
     "electron.vite.config.ts",
     "vitest.config.ts",
     "vitest.perf.config.ts",
+    "vitest.docs.config.ts",
     "src/*.ts",
     // Story 040 D1: `comment-labels.test.ts` pins shared-layer ASCII literals against the real
     // English strings, so it needs this one renderer data file - listed explicitly rather than

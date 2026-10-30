@@ -25,6 +25,7 @@
     "lint": "oxlint --deny-warnings --report-unused-disable-directives-severity=error",
     "test": "vitest run",
     "test:perf": "vitest run --config vitest.perf.config.ts",
+    "check:docs": "node scripts/check-docs.mjs && vitest run --config vitest.docs.config.ts",
     "test:watch": "vitest",
     "measure:scan": "node scripts/measure/scan-pass.mjs",
     "icon": "node scripts/generate-icon.mjs",

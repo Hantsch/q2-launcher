@@ -108,16 +108,4 @@ describe('test kit guards', () => {
     }
     expect(offenders, `test files over 1,500 lines: ${offenders.join(', ')}`).toEqual([])
   })
-
-  it('ARCHITECTURE.md has a Testing section naming the kit, installTempDir and the 1,500-line cap', () => {
-    const doc = readFileSync(join(repoRoot, 'docs', 'ARCHITECTURE.md'), 'utf8')
-    const start = doc.search(/^## Testing\s*$/m)
-    expect(start).toBeGreaterThanOrEqual(0)
-    const rest = doc.slice(start + 3)
-    const next = rest.search(/^## /m)
-    const section = next === -1 ? rest : rest.slice(0, next)
-    for (const needle of ['src/test-support/', 'installTempDir', '1,500']) {
-      expect(section).toContain(needle)
-    }
-  })
 })

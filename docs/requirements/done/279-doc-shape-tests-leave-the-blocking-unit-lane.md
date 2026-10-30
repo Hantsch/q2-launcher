@@ -1,7 +1,7 @@
 ---
 id: 279
 title: Doc-shape tests leave the blocking unit lane
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-29
 ---
 
@@ -19,16 +19,16 @@ block a PR or a release. Code rules stay in the blocking lane.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `npm test` runs no test that asserts on the prose or shape of a project doc
+- [x] **AC1** — `npm test` runs no test that asserts on the prose or shape of a project doc
       (`docs/**/*.md`, `CLAUDE.md`, `.claude/**/*.md`, `README.md`). Tests of Markdown the
       product or the release reads (`CHANGELOG.md` for release notes and the release plan) stay.
-- [ ] **AC2** — `npm run check:docs` runs every moved rule and exits non-zero on a violation; a
+- [x] **AC2** — `npm run check:docs` runs every moved rule and exits non-zero on a violation; a
       rule dropped instead of moved is listed in this story's Done with its reason.
-- [ ] **AC3** — `.claude/ai-scrum.md` `## Notes` has `/roadmap check` and sprint phase 3 run
+- [x] **AC3** — `.claude/ai-scrum.md` `## Notes` has `/roadmap check` and sprint phase 3 run
       `npm run check:docs` and fix a violation in the doc before the review commit.
-- [ ] **AC4** — The code rules stay in `npm test`: layering and architecture, the comment rule,
+- [x] **AC4** — The code rules stay in `npm test`: layering and architecture, the comment rule,
       IPC coverage, repo hygiene on source files.
-- [ ] **AC5** — `CLAUDE.md` `## Test lanes` has a `docs` row (local, `npm run check:docs`,
+- [x] **AC5** — `CLAUDE.md` `## Test lanes` has a `docs` row (local, `npm run check:docs`,
       blocks no PR or release).
 
 ## Open Questions
@@ -182,3 +182,15 @@ on `npm run check:docs` green. No e2e: no user surface changes.
   runs check:docs and blocks nothing"
 
 ## Done
+
+Doc-prose tests left `npm test` for a second vitest config over `*.docs.test.*` (`npm run check:docs`, local only, link checker + docs lane). A unit-lane read guard (`src/test-support/doc-read-guard.ts`) throws on any read of `docs/**/*.md`, `CLAUDE.md`, `.claude/**/*.md`; it surfaced 7 further readers, moved too. Process notes and lane-map `docs` row added.
+
+Commit message: `279: doc-shape tests move to the docs lane - npm run check:docs, unit-lane doc-read guard, lane-map docs row`
+
+Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` 634 files / 7642 tests green; `npm run check:docs` green (6 files, 68 tests). No e2e (no UI change). Review: stage 1 PASS, 3 minor findings fixed (story comments in `spawn-network-allowlist.ts`, AC3 test made paragraph-discriminating) and re-checked with check:docs, lint, layering tests. AC1 → doc-read-guard.test.ts; AC2 → repo-hygiene.test.mjs docs-lane tests; AC3/AC5 → project-docs.docs.test.mjs; AC4 → existing include-glob test (all passed). No manual residue.
+
+Decisions: unit-lane guard test also covers file:// URL, Buffer path and fs/promises; the guard's absence from the docs lane is pinned only by `vitest.docs.config.ts` setupFiles (docs-lane tests read docs and pass). `ALLOWED_MAIN_SPAWN_NETWORK_FILES` moved to `src/test-support/spawn-network-allowlist.ts` (importing layering.test would re-run it in the docs lane). Lane-map test moved all four tests (incl. ai-scrum verify:linux order) minus the row-count bound. Seven extra readers moved: common, containment-guard, ipc/index, job-runner (docs block), state, i18n bundle, scripts/test-kit.
+
+Dropped, not moved: lane-map row-count bound (size preference S37's lane edits break); TECH-DEBT "first six rows are F34…F75", roadmap "links no story 199–231", "Open / unprioritised lists the codebase review", "no Vite pin follow-up" (one-off historic state `/roadmap check` legitimately removes); "no broken link in ROADMAP/TECH-DEBT" (duplicates check:docs link check).
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 7

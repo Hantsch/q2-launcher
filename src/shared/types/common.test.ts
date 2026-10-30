@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fail, isOutcome, ok, refuse } from './common'
 
@@ -29,15 +27,5 @@ describe('refusals', () => {
     expect('params' in bare).toBe(false)
     expect(refuse('a.b.c', { n: 2 })).toEqual({ ok: false, reasonKey: 'a.b.c', params: { n: 2 } })
     expect(isOutcome(bare)).toBe(false)
-  })
-
-  it('ARCHITECTURE.md documents Outcome and Refusal', () => {
-    const doc = readFileSync(resolve(__dirname, '../../../docs/ARCHITECTURE.md'), 'utf-8')
-    const paragraphs = doc.split(/\r?\n\s*\r?\n/)
-    expect(
-      paragraphs.some((p) =>
-        ['Outcome<T>', 'Refusal<R>', 'refuse()', 'toastRefusal'].every((t) => p.includes(t)),
-      ),
-    ).toBe(true)
   })
 })

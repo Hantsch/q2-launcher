@@ -168,6 +168,8 @@ The sprint review (phase 3) checks that every story touching `src/main/modules/<
 
 Unfixed review findings and ageing: in `/sprint` phase 3, an unfixed review finding that is a defect or debt goes into `docs/TECH-DEBT.md` as a row (next id, `since` = this sprint, source = this review) — not into a follow-up line and not into the review alone. `/roadmap check` step 4 runs `node scripts/check-docs.mjs --overdue` and lists every overdue row in its report for the maintainer to promote or delete (it does not delete rows itself). The plugin's follow-up ageing (older than three sprints -> draft or delete) applies unchanged. Overdue means current sprint minus `since` > 3.
 
+`/roadmap check` and `/sprint` phase 3 run `npm run check:docs` and fix a violation in the doc before the review commit; it blocks no PR or release.
+
 Sprint end — the sprint ends releasable (user decision 2026-10-29: after every sprint the project is releasable; opening a PR or starting a release must not fail; nothing runs by itself, the process runs every check). ai-scrum 4.8.0 does this as `/sprint` phase 4 with `release-verify` above. **Until `.claude/commands/sprint.md` has that phase** (`/ai-scrum:setup` after the plugin release — then delete this paragraph and its list), run it by hand after phase 3 step 6, before `## Closing the run`:
 
 1. **Linux check, advisory.** After the regression gate, `npm run verify:linux` once: one background `Bash`, `2>&1 | tee <sprints>/$1/gate-verify-linux.log`, end the turn, and let it finish before `verify:release` starts. The review records it as advisory — green, or yellow with the failing checks. A Linux finding becomes a `docs/TECH-DEBT.md` row (TECH-DEBT) or a follow-up, never a gate fix or a merge blocker.

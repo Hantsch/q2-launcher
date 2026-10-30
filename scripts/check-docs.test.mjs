@@ -71,11 +71,3 @@ describe('check-docs', () => {
     )
   })
 })
-
-describe('the repo itself', () => {
-  test("the repo's docs have no broken links and README matches package.json", () => {
-    const result = checkDocs(path.resolve(import.meta.dirname, '..'))
-    expect(result.brokenLinks).toEqual([])
-    expect(result.versionMismatch).toBeNull()
-  })
-})

@@ -23,13 +23,15 @@ export default defineConfig({
       electron: resolve(__dirname, 'src/test-support/electron-stub.ts'),
       'electron-log/main': resolve(__dirname, 'src/test-support/electron-log-stub.ts'),
     },
-    setupFiles: ['src/test-support/setup.ts'],
+    // The doc-read guard keeps project-doc prose out of the unit lane; the docs config pins its own
+    // setupFiles without it.
+    setupFiles: ['src/test-support/setup.ts', 'src/test-support/doc-read-guard.ts'],
     // .tsx tests render React components and need a DOM (story 054 D1's first one); they opt in
     // per-file with a `// @vitest-environment jsdom` docblock so plain .ts tests stay on the
     // faster `node` environment.
     include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.mjs'],
-    // Perf files run only via `npm run test:perf`.
-    exclude: [...configDefaults.exclude, '**/*.perf.test.*'],
+    // Perf files run only via `npm run test:perf`, docs-lane files only via `npm run check:docs`.
+    exclude: [...configDefaults.exclude, '**/*.perf.test.*', '**/*.docs.test.*'],
     // Default 5000ms is too tight for a dynamic `import()` under load: on a full run (~316 files),
     // transform/import contention can push a single test's first import past it, most reliably on
     // constrained CI runners (see docs/requirements/done/111-master-sources-are-a-list-i-edit.md's

@@ -438,18 +438,3 @@ describe('module jobs', () => {
     expect(missing).toEqual([])
   })
 })
-
-describe('docs', () => {
-  const docs = join(__dirname, '..', '..', '..', 'docs')
-
-  it('the architecture doc describes the runner', () => {
-    const architecture = readFileSync(join(docs, 'ARCHITECTURE.md'), 'utf8')
-    expect(architecture).not.toContain('No module produces jobs yet')
-    expect(architecture).toContain('JobRunner.run')
-    expect(architecture).toContain('installationBusy')
-
-    const roadmap = readFileSync(join(docs, 'ROADMAP.md'), 'utf8')
-    expect(roadmap).not.toContain('A mid-copy `PACKAGE_INCOMPLETE` failure can leave')
-    expect(roadmap).not.toContain('renders that placeholder unfilled')
-  })
-})

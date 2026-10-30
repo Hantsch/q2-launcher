@@ -573,15 +573,6 @@ describe('architecture', () => {
     expect(offenders).toEqual([])
   })
 
-  it("CLAUDE.md's key rules name src/architecture.test.ts", () => {
-    const text = readRepoFile('CLAUDE.md')
-    const start = text.indexOf('## Key rules')
-    expect(start).toBeGreaterThanOrEqual(0)
-    const next = text.indexOf('\n## ', start + 1)
-    const section = text.slice(start, next === -1 ? undefined : next)
-    expect(section).toContain('src/architecture.test.ts')
-  })
-
   it('a thinned module entry stays within its line cap', () => {
     for (const [file, cap] of Object.entries(LINE_CAPS)) {
       const lines = readRepoFile(file).split('\n').length
@@ -657,15 +648,6 @@ describe('architecture', () => {
         { from: `${CONFIG_ROOT}/render/a.ts`, to: `${CONFIG_ROOT}/syntax/b` },
       ]),
     ).toEqual([`${CONFIG_ROOT}/syntax/a.ts -> ${CONFIG_ROOT}/render/b`])
-  })
-
-  it('config-module.md states the shared/config dependency direction', () => {
-    const configDoc = readRepoFile('docs/systems/config-module.md')
-    expect(configDoc).toContain('syntax → catalog → aliases/validation → profile → render')
-    const flatPath = /src\/shared\/config\/[\w.-]+\.tsx?\b/
-    for (const doc of ['docs/systems/config-module.md', 'docs/systems/profile-file-format.md']) {
-      expect(readRepoFile(doc), doc).not.toMatch(flatPath)
-    }
   })
 
   it('save debounce and status are declared once in the renderer', () => {

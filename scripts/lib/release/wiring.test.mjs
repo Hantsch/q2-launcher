@@ -18,7 +18,6 @@ const ELECTRON_BUILDER_PATH = fileURLToPath(new URL('../../../electron-builder.y
 const RELEASE_WORKFLOW_PATH = fileURLToPath(
   new URL('../../../.github/workflows/release.yml', import.meta.url),
 )
-const AI_SCRUM_PROFILE_PATH = fileURLToPath(new URL('../../../.claude/ai-scrum.md', import.meta.url))
 
 describe('release pipeline wiring', () => {
   test("the repo's CHANGELOG.md is Keep-a-Changelog shaped and its Unreleased section carries the beta's entries", () => {
@@ -40,12 +39,6 @@ describe('release pipeline wiring', () => {
     const latestVersionBullets = (prior[0]?.categories ?? []).flatMap((c) => c.bullets)
     expect(unreleasedBullets.length + latestVersionBullets.length).toBeGreaterThan(0)
 
-    const readme = readFileSync(README_PATH, 'utf8')
-    expect(readme).not.toContain('No release build is published yet')
-    // Positive check to match: not just that the old "no build yet" sentence is gone, but that
-    // its replacement actually names GitHub Releases and the SmartScreen warning.
-    expect(readme).toContain('SmartScreen')
-    expect(readme).toContain('github.com/Hantsch/q2-launcher/releases')
   })
 
   test('electron-builder publishes to Hantsch/q2-launcher so latest.yml is written', () => {
@@ -101,12 +94,6 @@ describe('release pipeline wiring', () => {
       .replace('${arch}', 'x86_64')
       .replace('${ext}', 'AppImage')
     expect(resolved).toBe('Q2-Launcher-1.0.0-beta.1-linux-x86_64.AppImage')
-  })
-
-  test('CLAUDE.md states that a release needs a green ci run on its SHA', () => {
-    const claude = readFileSync(fileURLToPath(new URL('../../../CLAUDE.md', import.meta.url)), 'utf8')
-    const lines = claude.split(/\r?\n/)
-    expect(lines.some((l) => /green/.test(l) && /\bci\b/.test(l) && /SHA/.test(l))).toBe(true)
   })
 
   describe("D5: .github/workflows/release.yml", () => {
@@ -308,12 +295,5 @@ describe('release pipeline wiring', () => {
         expect(JSON.stringify(promoteStep.env ?? {})).toContain('needs.plan.outputs.version')
       })
     })
-  })
-
-  test('changelog-path points at CHANGELOG.md', () => {
-    const profile = readFileSync(AI_SCRUM_PROFILE_PATH, 'utf8')
-
-    expect(profile).toMatch(/^changelog-path:\s*CHANGELOG\.md\s*$/m)
-    expect(profile).not.toMatch(/^changelog-path:\s*none\s*$/m)
   })
 })

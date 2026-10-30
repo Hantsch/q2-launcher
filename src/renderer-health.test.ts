@@ -16,20 +16,4 @@ describe('renderer health', () => {
       .reduce((sum, file) => sum + (readRepoFile(file).match(flag)?.length ?? 0), 0)
     expect(count).toBeLessThanOrEqual(9)
   })
-
-  it('ARCHITECTURE.md states the four state kinds', () => {
-    const doc = readRepoFile('docs/ARCHITECTURE.md')
-    const renderer = doc.slice(doc.indexOf('\n## Renderer'))
-    const section = renderer.slice(0, renderer.indexOf('\n### Design system'))
-    for (const term of [
-      '### State',
-      'useModuleQuery',
-      'Zustand store',
-      'context',
-      'component state',
-    ]) {
-      expect(section).toContain(term)
-    }
-    expect(doc).not.toContain('One Zustand store')
-  })
 })
