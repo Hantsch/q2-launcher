@@ -160,6 +160,12 @@
         "archiveEntry": "Can't read this demo out of its archive ({{code}}). Nothing was started."
       }
     },
+    "integrated": {
+      "error": {
+        "dataTooLarge": "This demo needs {{sizeMb}} MB of game data, more than integrated playback can hold. Play it in engine mode.",
+        "superseded": "Another playback was prepared in the meantime. Try again."
+      }
+    },
     "player": {
       "mode": {
         "label": "Playback",

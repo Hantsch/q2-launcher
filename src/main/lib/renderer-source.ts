@@ -173,6 +173,21 @@ export interface EngineSource {
   onMissing: () => void
 }
 
+/** Path prefix the integrated demo session's game data is served under (story 289). */
+export const ENGINE_DATA_PATH_PREFIX = '/engine-data/'
+
+export type EngineDataEntry =
+  { kind: 'file'; path: string; size: number } | { kind: 'bytes'; bytes: Uint8Array; size: number }
+
+/** What the engine-data route asks main for; the route never sees a path from the request. */
+export interface EngineDataSource {
+  resolve: (token: string, index: number) => Promise<EngineDataEntry | null>
+  openFile: (path: string) => ReadableStream<Uint8Array>
+}
+
+const ENGINE_DATA_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const ENGINE_DATA_INDEX = /^(0|[1-9][0-9]{0,5})$/
+
 export interface CreateRendererProtocolHandlerInput {
   /** Absolute path to the built renderer directory (`out/renderer` in production). */
   root: string
@@ -189,6 +204,8 @@ export interface CreateRendererProtocolHandlerInput {
   newsImages?: NewsImageSource
   /** Third root, for the engine artefacts; absent means every `/engine/` request is a 404. */
   engine?: EngineSource
+  /** Game data of a live integrated session; absent means every `/engine-data/` request is a 404. */
+  engineData?: EngineDataSource
 }
 
 /**
@@ -199,7 +216,7 @@ export interface CreateRendererProtocolHandlerInput {
 export function createRendererProtocolHandler(
   input: CreateRendererProtocolHandlerInput,
 ): (request: Request) => Promise<Response> {
-  const { root, csp, readFile, newsImages, engine } = input
+  const { root, csp, readFile, newsImages, engine, engineData } = input
   let engineMissingReported = false
 
   // Every response this handler returns must carry the CSP - including 404s, so a missing or
@@ -269,6 +286,49 @@ export function createRendererProtocolHandler(
         )
       : Promise.resolve(notFound())
 
+  // The shape is validated before `resolve` is asked: only `<uuid>/<index>` ever reaches main,
+  // and the file served is whatever the session pinned for that token, never a request path.
+  const serveEngineData = async (rest: string): Promise<Response> => {
+    if (!engineData) return notFound()
+    const parts = rest.split('/')
+    const [token, indexText] = parts
+    if (
+      parts.length !== 2 ||
+      token === undefined ||
+      indexText === undefined ||
+      !ENGINE_DATA_TOKEN.test(token) ||
+      !ENGINE_DATA_INDEX.test(indexText)
+    ) {
+      return notFound()
+    }
+
+    let entry: EngineDataEntry | null
+    try {
+      entry = await engineData.resolve(token, Number(indexText))
+    } catch {
+      return notFound()
+    }
+    if (entry === null) return notFound()
+
+    const headers = {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': String(entry.size),
+      'Cache-Control': 'no-store',
+      'Content-Security-Policy': csp,
+    }
+    if (entry.kind === 'bytes') {
+      // A Uint8Array is a valid BodyInit at runtime; the node tsconfig lacks the DOM BodyInit typing.
+      return new Response(entry.bytes as unknown as ArrayBuffer, { status: 200, headers })
+    }
+    let stream: ReadableStream<Uint8Array>
+    try {
+      stream = engineData.openFile(entry.path)
+    } catch {
+      return notFound()
+    }
+    return new Response(stream, { status: 200, headers })
+  }
+
   return async function handleRendererRequest(request: Request): Promise<Response> {
     let url: URL
     try {
@@ -306,6 +366,12 @@ export function createRendererProtocolHandler(
     // Same rule as the news-image route: decided on the decoded path, before the renderer root.
     if (decodedPath.startsWith(ENGINE_PATH_PREFIX)) {
       return serveEngine(decodedPath.slice(ENGINE_PATH_PREFIX.length))
+    }
+
+    if (decodedPath.startsWith(ENGINE_DATA_PATH_PREFIX)) {
+      // An encoded separator is never legitimate here: the token and index are single segments.
+      if (/%(2f|5c)/i.test(url.pathname)) return notFound()
+      return serveEngineData(decodedPath.slice(ENGINE_DATA_PATH_PREFIX.length))
     }
 
     const requestPath = decodedPath === '' || decodedPath === '/' ? '/index.html' : decodedPath

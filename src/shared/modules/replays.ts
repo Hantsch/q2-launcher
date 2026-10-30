@@ -93,6 +93,10 @@ export const REPLAYS_HANDLERS = {
   demoFoldersRead: 'demoFolders.read',
   /** Plays a demo in Q2PRO (`+demo <file>`), id-addressed. */
   demoPlay: 'demo.play',
+  /** Pins the files the in-app engine may read and answers a token plus a manifest. */
+  integratedPrepare: 'integrated.prepare',
+  /** Drops the active integrated session's token. */
+  integratedRelease: 'integrated.release',
   /** Steers the running demo (pause, jump, seek, speed). */
   playbackTimeline: 'playback.timeline',
   /** Sets the running game's volume (`s_volume`), percent 0-100, plus the mute flag. */
@@ -651,6 +655,28 @@ export const replaysDemoFoldersReadSchema = z
   .object({ installationId: z.string().min(1).max(512) })
   .strict()
 
+/** `integrated.prepare`'s payload: ids only - main finds every file itself. */
+export const replaysIntegratedPrepareSchema = z
+  .object({ demoId: replaysDemoIdSchema, installationId: z.string().min(1).max(512) })
+  .strict()
+
+export const replaysIntegratedReleaseSchema = z.object({ token: z.string().uuid() }).strict()
+
+export interface ReplaysIntegratedFile {
+  index: number
+  vpath: string
+  size: number
+}
+
+export interface ReplaysIntegratedPrepareResult {
+  token: string
+  gameDir: string
+  files: ReplaysIntegratedFile[]
+  demo: ReplaysIntegratedFile
+}
+
+export type ReplaysIntegratedReleaseResult = void
+
 /**
  * `demo.play`'s payload: the demo id plus the installation the renderer believes it is playing in -
  * never a path.
@@ -764,6 +790,8 @@ export const REPLAYS_HANDLER_SCHEMAS = {
   [REPLAYS_HANDLERS.folderRename]: replaysFolderRenameSchema,
   [REPLAYS_HANDLERS.demoFoldersRead]: replaysDemoFoldersReadSchema,
   [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
+  [REPLAYS_HANDLERS.integratedPrepare]: replaysIntegratedPrepareSchema,
+  [REPLAYS_HANDLERS.integratedRelease]: replaysIntegratedReleaseSchema,
   [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
   [REPLAYS_HANDLERS.playbackVolume]: replaysPlaybackVolumeSchema,
   [REPLAYS_HANDLERS.playbackStage]: replaysPlaybackStageSchema,
@@ -896,6 +924,14 @@ export type ReplaysContract = {
     [REPLAYS_HANDLERS.folderRename]: ReplaysHandler<'folder.rename', ReplaysFolderRenameResult>
     [REPLAYS_HANDLERS.demoFoldersRead]: ReplaysHandler<'demoFolders.read', { folders: string[] }>
     [REPLAYS_HANDLERS.demoPlay]: ReplaysHandler<'demo.play', ReplaysDemoPlayResult>
+    [REPLAYS_HANDLERS.integratedPrepare]: ReplaysHandler<
+      'integrated.prepare',
+      ReplaysIntegratedPrepareResult
+    >
+    [REPLAYS_HANDLERS.integratedRelease]: ReplaysHandler<
+      'integrated.release',
+      ReplaysIntegratedReleaseResult
+    >
     [REPLAYS_HANDLERS.playbackTimeline]: ReplaysHandler<'playback.timeline', void>
     [REPLAYS_HANDLERS.playbackVolume]: ReplaysHandler<'playback.volume', void>
     [REPLAYS_HANDLERS.playbackConsoleSend]: ReplaysHandler<'playback.consoleSend', void>

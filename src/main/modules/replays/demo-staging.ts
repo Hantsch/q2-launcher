@@ -23,6 +23,23 @@ export function stagedFileName(
   return `${demo.id}${ext.toLowerCase()}`
 }
 
+/** One demo entry's bytes out of `archivePath`, looked up by its exact listed path. */
+export async function readDemoEntry(
+  archivePath: string,
+  entryPath: string,
+  zipDeps: ZipDeps,
+): Promise<Outcome<Uint8Array>> {
+  const listing = await listZipEntries(archivePath, zipDeps)
+  if (!listing.ok) return fail('replays.play.error.archiveEntry', { code: listing.code })
+  const entry = listing.entries.find((e) => !e.isFolder && e.path === entryPath)
+  if (!entry || entry.size === null) {
+    return fail('replays.play.error.archiveEntry', { code: 'unreadable' })
+  }
+  const read = await readZipEntry(archivePath, entryPath, entry.size, zipDeps)
+  if (!read.ok) return fail('replays.play.error.archiveEntry', { code: read.code })
+  return ok(read.bytes)
+}
+
 export interface StageDemoInput {
   demo: DiscoveredDemo
   /** Main-only path; for a zip entry, the archive. */
@@ -40,16 +57,9 @@ export async function stageDemo(
 
   let bytes: Uint8Array | null = null
   if (demo.archiveEntry) {
-    const { entryPath } = demo.archiveEntry
-    const listing = await listZipEntries(absolutePath, zipDeps)
-    if (!listing.ok) return fail('replays.play.error.archiveEntry', { code: listing.code })
-    const entry = listing.entries.find((e) => !e.isFolder && e.path === entryPath)
-    if (!entry || entry.size === null) {
-      return fail('replays.play.error.archiveEntry', { code: 'unreadable' })
-    }
-    const read = await readZipEntry(absolutePath, entryPath, entry.size, zipDeps)
-    if (!read.ok) return fail('replays.play.error.archiveEntry', { code: read.code })
-    bytes = read.bytes
+    const read = await readDemoEntry(absolutePath, demo.archiveEntry.entryPath, zipDeps)
+    if (!read.ok) return read
+    bytes = read.value
   }
 
   for (const demosDir of targetDemosDirs) {

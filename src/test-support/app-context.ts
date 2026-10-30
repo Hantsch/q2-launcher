@@ -3,6 +3,7 @@ import { IDLE_LAUNCH_STATE } from '@shared/types'
 import { createFeatureGate, type FeatureGate } from '../main/features/gate'
 import { bootEnv } from '../main/lib/boot-env'
 import { resolveUiHarness } from '../main/lib/ui-harness'
+import { createEngineDataPort } from '../main/services/engine-data-port'
 import { PersistenceRegistry } from '../main/services/persistence'
 
 /**
@@ -27,6 +28,7 @@ export function fakeAppContext(overrides: Partial<AppContext> = {}): AppContext 
     installations: { list: () => [] },
     persistence: new PersistenceRegistry(),
     content: { manifest: { getManifest: async () => ({ packages: [] }) } },
+    engineData: createEngineDataPort(),
     displays: {
       primary: () => ({ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1 }),
       all: () => [{ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1 }],

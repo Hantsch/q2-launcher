@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { SAFE_NEWS_IMAGE_EXTENSIONS } from './news-image-paths'
 import {
   createRendererProtocolHandler,
+  type EngineDataEntry,
+  type EngineDataSource,
   DEV_CSP,
+  ENGINE_DATA_PATH_PREFIX,
   ENGINE_FILE_NAMES,
   ENGINE_PATH_PREFIX,
   NEWS_IMAGE_PATH_PREFIX,
@@ -491,5 +494,120 @@ describe('createRendererProtocolHandler engine route', () => {
     expect(first.status).toBe(404)
     expect(second.status).toBe(404)
     expect(onMissing).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('createRendererProtocolHandler engine-data route', () => {
+  const TOKEN = '0b9d2f4e-6a1c-4d3e-8f5a-7c2b1e9d0a43'
+  const url = (rest: string): string => `q2launcher://app${ENGINE_DATA_PATH_PREFIX}${rest}`
+
+  function build(entry: EngineDataEntry | null, withSource = true) {
+    const resolve = vi.fn(async () => entry)
+    const openFile = vi.fn(
+      () =>
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('FILEDATA'))
+            controller.close()
+          },
+        }),
+    )
+    const engineData: EngineDataSource = { resolve, openFile }
+    const handler = createRendererProtocolHandler({
+      root: ROOT,
+      csp: PRODUCTION_CSP,
+      readFile: fakeFileSystem({}),
+      ...(withSource ? { engineData } : {}),
+    })
+    return { handler, resolve, openFile }
+  }
+
+  it('an engine-data request with a live token and index streams the file with its length', async () => {
+    const { handler, resolve, openFile } = build({ kind: 'file', path: 'C:/q2/pak0.pak', size: 8 })
+    const response = await handler(new Request(url(`${TOKEN}/3`)))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toBe('application/octet-stream')
+    expect(response.headers.get('Content-Length')).toBe('8')
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(response.headers.get('Content-Security-Policy')).toBe(PRODUCTION_CSP)
+    expect(await response.text()).toBe('FILEDATA')
+    expect(resolve).toHaveBeenCalledWith(TOKEN, 3)
+    expect(openFile).toHaveBeenCalledWith('C:/q2/pak0.pak')
+  })
+
+  it('an in-memory entry is served as its bytes', async () => {
+    const { handler, openFile } = build({
+      kind: 'bytes',
+      bytes: new TextEncoder().encode('MEM'),
+      size: 3,
+    })
+    const response = await handler(new Request(url(`${TOKEN}/0`)))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Length')).toBe('3')
+    expect(response.headers.get('Content-Security-Policy')).toBe(PRODUCTION_CSP)
+    expect(await response.text()).toBe('MEM')
+    expect(openFile).not.toHaveBeenCalled()
+  })
+
+  it('a malformed, traversing or encoded engine-data path is a 404 before the source is asked', async () => {
+    const { handler, resolve } = build({ kind: 'bytes', bytes: new Uint8Array(1), size: 1 })
+    for (const rest of [
+      '',
+      TOKEN,
+      `${TOKEN}/`,
+      `${TOKEN}/01`,
+      `${TOKEN}/-1`,
+      `${TOKEN}/1234567`,
+      `${TOKEN}/1/extra`,
+      `${TOKEN}/../1`,
+      `..%2f${TOKEN}/1`,
+      `${TOKEN}%2f1`,
+      `${TOKEN}%2f..%2f1`,
+      `${TOKEN}%252f1`,
+      `%252e%252e%252f${TOKEN}/1`,
+      `%2e%2e/${TOKEN}/1`,
+      `${TOKEN}/%2e%2e`,
+      `${TOKEN.toUpperCase()}/1`,
+      'not-a-uuid/1',
+    ]) {
+      const response = await handler(new Request(url(rest)))
+      expect(response.status, rest).toBe(404)
+      expect(response.headers.get('Content-Security-Policy')).toBe(PRODUCTION_CSP)
+    }
+    expect(resolve).not.toHaveBeenCalled()
+  })
+
+  it('a source whose resolve or openFile throws is a 404', async () => {
+    const make = (engineData: EngineDataSource) =>
+      createRendererProtocolHandler({
+        root: ROOT,
+        csp: PRODUCTION_CSP,
+        readFile: fakeFileSystem({}),
+        engineData,
+      })
+    const resolving = make({
+      resolve: async () => {
+        throw new Error('boom')
+      },
+      openFile: () => new ReadableStream<Uint8Array>(),
+    })
+    expect((await resolving(new Request(url(`${TOKEN}/1`)))).status).toBe(404)
+
+    const opening = make({
+      resolve: async () => ({ kind: 'file', path: 'C:/q2/pak0.pak', size: 8 }),
+      openFile: () => {
+        throw new Error('gone')
+      },
+    })
+    expect((await opening(new Request(url(`${TOKEN}/1`)))).status).toBe(404)
+  })
+
+  it('an unknown token and a handler without an engine-data source are both 404', async () => {
+    const unknown = build(null)
+    expect((await unknown.handler(new Request(url(`${TOKEN}/1`)))).status).toBe(404)
+    expect(unknown.resolve).toHaveBeenCalledTimes(1)
+
+    const absent = build(null, false)
+    expect((await absent.handler(new Request(url(`${TOKEN}/1`)))).status).toBe(404)
   })
 })

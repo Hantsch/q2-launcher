@@ -8,6 +8,7 @@ import {
   type DiscoveredDemo,
   type ExtraFoldersResult,
   type ReplaysDemoPlayResult,
+  type ReplaysIntegratedPrepareResult,
   type ReplaysDemosMoveResult,
   type ReplaysModWarning,
   type ReplaysStageRect,
@@ -121,6 +122,18 @@ export function playDemo(payload: {
   stage?: ReplaysStageRect
 }): Promise<Outcome<ReplaysDemoPlayResult>> {
   return client.call(REPLAYS_HANDLERS.demoPlay, payload)
+}
+
+/** `integrated.prepare` - main pins the files the in-app engine may read; ids in, token + manifest out. */
+export function integratedPrepare(payload: {
+  demoId: string
+  installationId: string
+}): Promise<Outcome<ReplaysIntegratedPrepareResult>> {
+  return client.call(REPLAYS_HANDLERS.integratedPrepare, payload)
+}
+
+export function integratedRelease(token: string): Promise<Outcome<void>> {
+  return client.call(REPLAYS_HANDLERS.integratedRelease, { token })
 }
 
 /** Story 170: re-places the running demo's window after the stage picture's box changed. */

@@ -122,6 +122,10 @@ replays-index.json (regenerable), one sidecar per demo.
   demo already in the target. All four refuse while a scan runs.
 - `demoFoldersRead` — an installation's absolute `demos` folders (display only); `demoPlay` — plays a demo. In an R1Q2
   installation it launches `+demomap <file>`, Stop only; its whole config file is restored after the session (stufftext).
+- `integratedPrepare` — takes `{ demoId, installationId }`, never a path; main resolves the demo, game dir and every file the
+  in-app engine may read, pins them and answers `{ token, gameDir, files, demo }` (index, vpath, size only). One token is active:
+  a new prepare replaces it. Refuses over the data limit or when overtaken by a later prepare.
+- `integratedRelease` — takes `{ token }` and drops it when it is the active one; any other token is a no-op.
 - `playbackVolume` — sets the running game's `s_volume` (percent + mute; mute sends 0, latest value wins while a line is in
   flight).
 - `playbackTimeline` / `playbackConsoleSend` / `playbackStage` / `playbackStop` / `playbackCinema` / `playbackDisplayRead` —

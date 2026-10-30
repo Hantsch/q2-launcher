@@ -1,7 +1,7 @@
 ---
 id: 289
 title: Main serves an installation's game data to the engine
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -34,26 +34,26 @@ null`) so `lib/` imports no module (`src/main/layering.test.ts`, `shell-layering
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `integrated.prepare({ demoId, installationId })` (zod, no paths) returns
+- [x] **AC1** — `integrated.prepare({ demoId, installationId })` (zod, no paths) returns
       `{ token, gameDir, files: [{ index, vpath, size }], demo: { index, vpath, size } }` for a
       valid demo and installation.
-- [ ] **AC2** — Every `vpath` is a relative Quake path (`baseq2/pak0.pak`,
+- [x] **AC2** — Every `vpath` is a relative Quake path (`baseq2/pak0.pak`,
       `<gamedir>/maps/x.bsp`, `<gamedir>/demos/_launcher/<safe-name>`), never an OS path.
-- [ ] **AC3** — The manifest holds `pak*.pak`/`*.pkz` of `baseq2` and of the demo's game dir,
+- [x] **AC3** — The manifest holds `pak*.pak`/`*.pkz` of `baseq2` and of the demo's game dir,
       plus loose files in `maps`, `textures`, `models`, `sprites`, `sound`, `pics`, `players`,
       `env` of the game dir, with case handled as discovery does (unit test with a fixture tree).
-- [ ] **AC4** — When the sum of file sizes exceeds the limit (a constant, 1 GiB to start),
+- [x] **AC4** — When the sum of file sizes exceeds the limit (a constant, 1 GiB to start),
       `prepare` refuses with `replays.integrated.error.dataTooLarge` and `{ sizeMb }`.
-- [ ] **AC5** — `/engine-data/<token>/<index>` with a valid token and index streams the file with 200.
-- [ ] **AC6** — A zip-entry demo is served unpacked and a `.gz` demo unchanged, as today's staging
+- [x] **AC5** — `/engine-data/<token>/<index>` with a valid token and index streams the file with 200.
+- [x] **AC6** — A zip-entry demo is served unpacked and a `.gz` demo unchanged, as today's staging
       does.
-- [ ] **AC7** — An unknown, expired or foreign token, an index outside the manifest, or a path
+- [x] **AC7** — An unknown, expired or foreign token, an index outside the manifest, or a path
       with `..` answers 404 without opening any file (unit test with a file-system spy).
-- [ ] **AC8** — After `integrated.release({ token })` or a new `prepare`, the old token is invalid;
+- [x] **AC8** — After `integrated.release({ token })` or a new `prepare`, the old token is invalid;
       at most one token is active.
-- [ ] **AC9** — A manifest file replaced by a symlink to outside the installation after `prepare`
+- [x] **AC9** — A manifest file replaced by a symlink to outside the installation after `prepare`
       answers 404 (real path re-checked against the installation root).
-- [ ] **AC10** — The handler-coverage tests (`src/main/modules/handler-coverage.test.ts`,
+- [x] **AC10** — The handler-coverage tests (`src/main/modules/handler-coverage.test.ts`,
       `src/renderer/src/modules/handler-coverage.test.ts`) and the layering tests are green.
 
 ## Open Questions
@@ -106,7 +106,7 @@ Order D1 → D2 → D3. No `CHANGELOG.md` line ([[287]] carries the feature line
 
 ## Deliverables
 
-- **D1 — Integrated session: manifest, size cap, token, resolve** (+ tests)
+- [x] **D1 — Integrated session: manifest, size cap, token, resolve** (+ tests)
   - New `src/main/modules/replays/integrated-session.ts` + `integrated-session.test.ts`.
   - Deps (injected, as `DemoPlayDeps` does in `demo-play.ts`): `readDemos`, `resolveFile`, `installations`,
     `activeInstallationId`, `discoveryContext` (for `effectiveWriteDirs` from `discovery.ts` and `zipDeps`),
@@ -140,7 +140,7 @@ Order D1 → D2 → D3. No `CHANGELOG.md` line ([[287]] carries the feature line
   - Tests: tmp-dir fixture tree with mixed-case `BaseQ2/PAK0.PAK`, `Maps/`, a `.txt` outside asset
     folders, a mod dir; fake `fs.realpath` to simulate a swapped symlink (real symlinks need admin
     on Windows).
-- **D2 — Contract, handlers, client, locale, systems doc** (+ schema test)
+- [x] **D2 — Contract, handlers, client, locale, systems doc** (+ schema test)
   - `src/shared/modules/replays.ts`: `REPLAYS_HANDLERS.integratedPrepare: 'integrated.prepare'`,
     `integratedRelease: 'integrated.release'`; `replaysIntegratedPrepareSchema` =
     `{ demoId: replaysDemoIdSchema, installationId: z.string().min(1).max(512) }.strict()`;
@@ -158,7 +158,7 @@ Order D1 → D2 → D3. No `CHANGELOG.md` line ([[287]] carries the feature line
   - `docs/systems/replays-module.md` `## Handlers`: two bullets (what they take, that main resolves
     everything, one active token).
   - Test in `integrated-session.test.ts`: the prepare schema rejects an extra `path` key.
-- **D3 — `/engine-data/` route and the engine-data port** (+ tests)
+- [x] **D3 — `/engine-data/` route and the engine-data port** (+ tests)
   - `src/main/lib/renderer-source.ts`: export `ENGINE_DATA_PATH_PREFIX = '/engine-data/'`, types
     `EngineDataEntry = { kind: 'file'; path; size } | { kind: 'bytes'; bytes: Uint8Array; size }` and
     `EngineDataSource { resolve(token, index): Promise<EngineDataEntry | null>; openFile(path): ReadableStream<Uint8Array> }`;
@@ -197,3 +197,17 @@ Order D1 → D2 → D3. No `CHANGELOG.md` line ([[287]] carries the feature line
 Coverage: AC1 D1+D2 · AC2 D1 · AC3 D1 · AC4 D1 · AC5 D3 · AC6 D1+D3 · AC7 D1+D3 · AC8 D1 · AC9 D1 · AC10 D2+D3. No user-facing action (the surface arrives in [[291]]), so no e2e line.
 
 ## Done
+
+Main now hands an installation's game data to the engine: `integrated.prepare` builds an indexed manifest of paks and loose asset files (case-folded vpaths, write dir wins, 1 GiB cap) behind one active token, `integrated.release` drops it, and `/engine-data/<token>/<index>` on the `app` scheme streams the pinned realpath (or the unpacked zip entry from memory). Port `EngineDataPort` on `AppContext` keeps `lib/` free of module imports.
+
+Change type: test
+Commit message: `289: integrated.prepare/release, token + pinned-realpath manifest, /engine-data/ route, EngineDataPort`
+Verification: narrow gate (`npx vitest run --changed HEAD`, 208 files / 1964 tests), typecheck, lint, build, prettier green after the last fix; no e2e line (no user-facing surface). AC1-AC10 walked to their named tests (all ran and passed; AC10 via handler-coverage, layering, shell-layering, architecture). No manual residue. Review: default PASS (findings fixed: pinned-vs-manifest path test, stale-session recheck test, double-encoded path and throwing resolve/openFile tests, comment nits), hard review PASS focused on check-then-swap (the opened path is the pinned realpath on every route).
+Decisions:
+- Added `replays.integrated.error.superseded` (a prepare overtaken by a later one) with en string; not in the plan.
+- `readDemoEntry` extracted from `stageDemo` (shared zip lookup); `SAFE_FILE_NAME` exported; `index.test.ts` payload table extended.
+- `%2f`/`%5c` in the raw path are rejected before parsing (decoded `<uuid>%2f1` would otherwise pass).
+- `gameDir` in the result is lower-case, matching the vpaths. `entry.bytes as unknown as ArrayBuffer` is a typing workaround (commented).
+Unfixed, documented: (1) residual TOCTOU: the pinned realpath's own last component or a parent dir swapped after the check is followed by `createReadStream`; needs a local writer with the user's privileges, not reachable from the renderer; the Decision "cannot redirect the read" holds for the manifest link only. Hard links pass containment. (2) A junctioned `baseq2`/mod dir passes `gameDirMissing` but contributes an empty manifest (safe, silent). (3) The zip/.gz resolve test is `skipIf` without 7za.
+Follow-up note (not a change): spike 284 measured renderer RSS about 2.2x data size, so the 1 GiB cap may extrapolate to about 2.3 GiB RSS; the cap is a user decision.
+tiers: D 3 / hard 1 · review default+hard · cycles 2 · agents 8

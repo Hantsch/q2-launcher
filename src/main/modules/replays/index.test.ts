@@ -839,6 +839,8 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.folderRename]: { folder: { sourceKey: 'x', path: ['a'] }, name: 'b' },
         [REPLAYS_HANDLERS.demoFoldersRead]: { installationId: 'nope' },
         [REPLAYS_HANDLERS.demoPlay]: { demoId: 'nope', installationId: 'nope' },
+        [REPLAYS_HANDLERS.integratedPrepare]: { demoId: 'nope', installationId: 'nope' },
+        [REPLAYS_HANDLERS.integratedRelease]: { token: '00000000-0000-4000-8000-000000000000' },
         [REPLAYS_HANDLERS.playbackTimeline]: { kind: 'togglePause' },
         [REPLAYS_HANDLERS.playbackVolume]: { percent: 70, muted: false },
         [REPLAYS_HANDLERS.playbackConsoleSend]: { line: 'echo hi' },

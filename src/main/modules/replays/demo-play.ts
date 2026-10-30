@@ -87,7 +87,7 @@ export const WRONG_INSTALLATION = 'replays.play.unavailable.unsupportedEngine'
 const UNSAFE_NAME = 'replays.play.unavailable.unsafeName'
 
 /** Same rule as the eligibility check's file-name guard: what the game console can take. */
-const SAFE_FILE_NAME = /^[A-Za-z0-9_.-]+$/
+export const SAFE_FILE_NAME = /^[A-Za-z0-9_.-]+$/
 
 /** Where a copy of a demo for `gameDir` may go, in priority order: the installation, then its write dirs. */
 export function stagingDemosDirs(

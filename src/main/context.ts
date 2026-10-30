@@ -17,6 +17,7 @@ import { ManifestService } from './services/content/manifest-service'
 import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './services/content/source'
 import { DetectionService } from './services/detection'
 import { DialogService } from './services/dialog'
+import { createEngineDataPort, type EngineDataPort } from './services/engine-data-port'
 import { deleteStoredIcon, InstallationIconsService } from './services/installation-icons'
 import { InstallationsService } from './services/installations'
 import { JobRunner } from './services/job-runner'
@@ -119,6 +120,8 @@ export interface AppContext {
   content: { manifest: ManifestService }
   /** Every persisted store registers here; shutdown settles them all through it. */
   persistence: PersistenceRegistry
+  /** Late-bound source of the integrated session's game data for the `/engine-data/` route. */
+  engineData: EngineDataPort
 }
 
 /**
@@ -280,6 +283,7 @@ export async function createAppContext(options: {
     features,
     content: { manifest },
     persistence,
+    engineData: createEngineDataPort(),
   }
 
   await registerModules(context)

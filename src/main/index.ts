@@ -1,4 +1,6 @@
+import { createReadStream } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { Readable } from 'node:stream'
 import { join } from 'node:path'
 import { BrowserWindow, app, protocol, screen, session } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
@@ -264,6 +266,12 @@ function serveRendererFromScheme(): void {
           onMissing: () => logger.warn(`engine artifacts missing: ${engineRoot}`),
         }
       })(),
+      // The handler is registered before the context exists, so the port is read late.
+      engineData: {
+        resolve: (token, index) =>
+          context?.engineData.resolve(token, index) ?? Promise.resolve(null),
+        openFile: (path) => Readable.toWeb(createReadStream(path)) as ReadableStream<Uint8Array>,
+      },
     }),
   )
 

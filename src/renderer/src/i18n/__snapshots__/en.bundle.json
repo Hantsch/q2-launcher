@@ -2945,6 +2945,12 @@
       "tdm": "TDM",
       "unknown": "unknown"
     },
+    "integrated": {
+      "error": {
+        "dataTooLarge": "This demo needs {{sizeMb}} MB of game data, more than integrated playback can hold. Play it in engine mode.",
+        "superseded": "Another playback was prepared in the meantime. Try again."
+      }
+    },
     "list": {
       "archiveSource": "{{base}} › {{archive}} › {{entry}}",
       "empty": "No demos found.",

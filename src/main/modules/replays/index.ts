@@ -21,6 +21,7 @@ import {
   createDemoPlay,
   launcherSweepDirs,
 } from './demo-play'
+import { createIntegratedSession } from './integrated-session'
 import { isDirectory } from '../../lib/fs-utils'
 import { createDemoBulkTags } from './demo-bulk-tags'
 import { createDemoFileOps } from './demo-file-ops'
@@ -477,6 +478,15 @@ export const replaysModule: MainModule = {
       demoVolume: () => replaysState(app.state).get().demoVolume,
     })
 
+    const integratedSession = createIntegratedSession({
+      readDemos: () => scanService.read(),
+      resolveFile: (id) => scanService.resolveFile(id),
+      installations: () => app.installations.list(),
+      activeInstallationId: () => app.state.settings().activeInstallationId,
+      discoveryContext,
+    })
+    app.engineData.provide((token, index) => integratedSession.resolve(token, index))
+
     handle(REPLAYS_HANDLERS.overviewRead, async () => ok(await scanService.overview()))
     handle(REPLAYS_HANDLERS.scanStart, async () => ok(await scanService.start()))
     // `index.read` answers composed rows - each demo plus its sidecar and resolved effective
@@ -545,6 +555,16 @@ export const replaysModule: MainModule = {
         acknowledgeModMissing: payload.acknowledgeModMissing === true,
         stage: payload.stage,
       }),
+    )
+
+    handle(REPLAYS_HANDLERS.integratedPrepare, async (payload) => {
+      const prepared = await integratedSession.prepare(payload.demoId, payload.installationId)
+      if (!prepared.ok) return prepared
+      const { token, gameDir, files, demo } = prepared.value
+      return ok({ token, gameDir, files, demo })
+    })
+    handle(REPLAYS_HANDLERS.integratedRelease, (payload) =>
+      integratedSession.release(payload.token),
     )
 
     handle(REPLAYS_HANDLERS.playbackStage, (payload) => stageFollow.report(payload.rect))
