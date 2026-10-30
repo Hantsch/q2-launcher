@@ -525,9 +525,10 @@ describe('architecture', () => {
       )
   })
 
-  it('lint runs in ci.yml and verify:release', () => {
+  it('lint runs in ci.yml and in the check verify:release runs', () => {
     expect(readRepoFile('.github/workflows/ci.yml')).toContain('npm run lint')
-    expect(readRepoFile('scripts/verify-release.mjs')).toContain("['run', 'lint']")
+    expect(readRepoFile('package.json')).toMatch(/"check": "[^"]*npm run lint/)
+    expect(readRepoFile('scripts/lib/verify-release-plan.mjs')).toContain("['run', 'check']")
   })
 
   it('oxlint restricts electron and node imports in shared and renderer', () => {

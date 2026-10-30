@@ -24,6 +24,7 @@
     "typecheck:web": "tsc -p tsconfig.web.json --noEmit",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives-severity=error",
     "test": "vitest run",
+    "check": "npm run format:check && npm run typecheck && npm run lint && npm test",
     "test:perf": "vitest run --config vitest.perf.config.ts",
     "check:docs": "node scripts/check-docs.mjs && vitest run --config vitest.docs.config.ts",
     "test:watch": "vitest",

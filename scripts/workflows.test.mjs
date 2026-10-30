@@ -1,35 +1,13 @@
-import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import yaml from 'js-yaml'
 import { describe, expect, test } from 'vitest'
 import { tierFlows } from './lib/flow-select.mjs'
 import { loadFlowTree } from './lib/flow-tree.mjs'
+import { allSteps, loadWorkflows, loadYaml } from './lib/workflow-yaml.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const WORKFLOWS_DIR = join(ROOT, '.github/workflows')
 const SETUP_ACTION = join(ROOT, '.github/actions/setup-node-electron/action.yml')
-
-export function loadYaml(path) {
-  return yaml.load(readFileSync(path, 'utf-8'))
-}
-
-/** Every `.github/workflows/*.yml`, parsed: `[{ file, doc }]`. */
-export function loadWorkflows() {
-  return readdirSync(WORKFLOWS_DIR)
-    .filter((f) => f.endsWith('.yml'))
-    .sort()
-    .map((file) => ({ file, doc: loadYaml(join(WORKFLOWS_DIR, file)) }))
-}
-
-/** Every step of every job: `[{ file, job, step }]`. */
-export function allSteps(workflows = loadWorkflows()) {
-  return workflows.flatMap(({ file, doc }) =>
-    Object.entries(doc.jobs ?? {}).flatMap(([job, def]) =>
-      (def.steps ?? []).map((step) => ({ file, job, step })),
-    ),
-  )
-}
 
 const LINUX = join(WORKFLOWS_DIR, 'linux.yml')
 

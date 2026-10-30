@@ -9,6 +9,8 @@ dist/
 .ui-verify/
 # `npm run rehearse` run records and logs (scripts/rehearse.mjs).
 /.rehearsal/
+# `npm run verify:release` last-run record; ignored so it never dirties the tree the next run snapshots.
+/.verify-release/
 
 *.log
 # Test fixtures are real captures, not run output.

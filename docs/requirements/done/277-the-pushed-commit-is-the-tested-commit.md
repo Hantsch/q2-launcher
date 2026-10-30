@@ -1,7 +1,7 @@
 ---
 id: 277
 title: verify:release checks exactly what a PR and a release check, cheap steps first
-status: ready # draft -> ready -> in-progress -> done
+status: done
 created: 2026-10-29
 ---
 
@@ -22,19 +22,19 @@ reaches the format check only inside act, after about eight minutes.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `npm run check` runs the format check, typecheck, lint and unit tests, in that
+- [x] **AC1** — `npm run check` runs the format check, typecheck, lint and unit tests, in that
       order, and stops at the first failure.
-- [ ] **AC2** — `npm run verify:release` runs every blocking step of the PR workflows and the
+- [x] **AC2** — `npm run verify:release` runs every blocking step of the PR workflows and the
       release job on Windows — the `ci` audit included, `windows-verify`'s `ui:verify` and every
       flow it runs. The list is read from the workflow files, so a blocking step added to a PR
       workflow and missing from `verify:release` fails a test.
-- [ ] **AC3** — `verify:release` runs `npm run check` before `ui:verify` and any packaging, and
+- [x] **AC3** — `verify:release` runs `npm run check` before `ui:verify` and any packaging, and
       stops there on the first failure; a seeded format error fails it in under three minutes.
-- [ ] **AC4** — `verify:release` leaves a local, uncommitted record of the commit it verified,
+- [x] **AC4** — `verify:release` leaves a local, uncommitted record of the commit it verified,
       the `origin/main` it merged into and the result; `npm run verify:release -- --status` says
       whether the current `HEAD` is that verified commit and whether `origin/main` has moved
       since.
-- [ ] **AC5** — `CLAUDE.md` `## Test lanes` names `npm run check` and the `--status` call in the
+- [x] **AC5** — `CLAUDE.md` `## Test lanes` names `npm run check` and the `--status` call in the
       `release-prep` row.
 
 ## Open Questions
@@ -184,3 +184,19 @@ Order D1 → D2 → D3 → D4 (D2 runs `check`, D3 sits on D2's split, D4 docume
   proves the scripts the row names exist; no new prose assertion (see Decisions).
 
 ## Done
+
+**Summary.** `npm run check` (format, typecheck, lint, tests; `&&` chain). `verify:release` split into a pure plan (`scripts/lib/verify-release-plan.mjs`: ordered steps, gates, coverage table, blocking-run reader) and I/O; new order npm ci (gate), check (gate), audit, release plan, Electron, 7za, build, ui:verify, every windows-verify flow, packaged smoke, dry run. A drift test fails on a blocking workflow run no local step or stated reason covers. Record in `.verify-release/last-run.json` plus `-- --status` (exit 0/1/2). Lane map and sprint-end notes updated.
+
+**Commit message:** `277: verify:release runs every blocking PR/release step, check first, leaves a record, --status`
+
+**Verification (narrow gate).** typecheck, lint, prettier on changed files, `npx vitest run --changed HEAD` (633 files, 7654 tests), `npm run check:docs` (69 tests) all green; no e2e criteria. Review: stage 1 default, PASS with gaps, one fix cycle (extra blockingRuns/anchoring tests, `--status` uses `record.base`, corrupt record exits 2), re-verified green. AC1-AC4 -> the named tests in `scripts/verify-release.test.mjs`, all passed; AC5 -> lane-map rule in `scripts/project-docs.docs.test.mjs` (docs lane), passed. No manual residue. `verify:release` itself not run (phase-4 gate).
+
+**Decisions.**
+- `verifiedTree` is the tree of the verified working-tree snapshot before merging `origin/main`, so committing exactly the verified changes reads as verified.
+- `src/architecture.test.ts` lint assertion moved to `package.json` check script + plan module (stale after the split).
+- Windows-only `IS_WIN` guard on the release phase dropped (supported host is Windows; spec lists the dry run unconditionally).
+- Step-level composite actions (`setup-node-electron`) are not expanded by the drift test; multi-line release scripts are matched by first/main/last line (known narrow spot).
+- Run record is not written when checkout/merge-tree fails before the tree exists.
+- `.gitignore` kept LF (repo-hygiene test).
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 8
