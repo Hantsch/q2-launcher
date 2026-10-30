@@ -120,7 +120,7 @@ Order: D1 → D2 → D3 → D4 → D5. Nothing under `src/` changes.
   `readUpstream(text)` → `{ repo, commit }` (rejects a non-40-hex commit or a missing line);
   `orderPatches(names)` → the `*.patch` names sorted by their `NNNN-` prefix, rejecting duplicates
   and non-matching names; `parseArgs(argv)` → `{ opt: 'O0'|'O1'|'O2' (default 'O2'), checkConfig,
-  patchesDir }`, rejecting any other `--opt` value; `configReport(buildoptionsJson, targetsJson)` →
+patchesDir }`, rejecting any other `--opt` value; `configReport(buildoptionsJson, targetsJson)` →
   lines `libcurl=disabled`, `openal=disabled`, … for the §8.1 options, then `target: <name>` per
   target; `checkSymbols(objdumpText, rules)` → `{ ok, forbidden: [...], missingRequired: [...] }`
   reading function/import/export names from `wasm-objdump -x` text. `rules` has `forbidden` regexes
@@ -153,13 +153,13 @@ Order: D1 → D2 → D3 → D4 → D5. Nothing under `src/` changes.
   `side_module_imports` export list, the hard-coded `-O0`/`-fPIC` and `-sASSERTIONS`;
   `software-sound` is allowed for `web` (sound stays `s_enable 0` until [[286]]); no
   `dependency('threads')` on web; link flags `-sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2
-  -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=2GB -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web
-  -sFORCE_FILESYSTEM=1 --profiling-funcs`, `EXPORTED_RUNTIME_METHODS` `FS,cwrap,HEAPU8,HEAP16`,
+-sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=2GB -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web
+-sFORCE_FILESYSTEM=1 --profiling-funcs`, `EXPORTED_RUNTIME_METHODS` `FS,cwrap,HEAPU8,HEAP16`,
   `_main` exported. `engine/docker/build.sh` passes the §8.1 meson options
   (`-Dlibcurl=disabled -Dopenal=disabled -Dsdl2=disabled -Dx11=disabled -Dwayland=disabled
-  -Davcodec=disabled -Dlibjpeg=disabled -Dsystem-console=false -Dclient-gtv=false
-  -Dclient-ui=false -Dmvd-server=false -Dsave-games=false -Dtests=false -Dzlib=enabled
-  -Dlibpng=enabled -Dsoftware-sound=enabled`), and `--check-config` stops after `meson setup` and
+-Davcodec=disabled -Dlibjpeg=disabled -Dsystem-console=false -Dclient-gtv=false
+-Dclient-ui=false -Dmvd-server=false -Dsave-games=false -Dtests=false -Dzlib=enabled
+-Dlibpng=enabled -Dsoftware-sound=enabled`), and `--check-config` stops after `meson setup` and
   prints D1's `configReport` over `meson introspect --buildoptions`/`--targets`. Spike (timebox one
   day): build `-O2` first; on a WebAssembly validation error narrow down via `-O1` and flag
   variants (`-sBINARYEN_*`, `-fno-*`). Store the build logs (incl. elapsed time and wasm size per
@@ -241,6 +241,7 @@ Verification (narrow gate): `npm run build`, `typecheck`, `lint` green; `npx vit
 AC -> test: AC1/2/4/10 verify.mjs checks; AC3/5/6/7 lib.test.mjs plus verify.mjs checks; AC8/AC9 spike-result.docs.test.mjs — all passed. No manual residue.
 
 Decisions:
+
 - O2 validates: the O1/O2 failure was meson's default `-fPIC` on the zlib-ng/libpng subprojects, fixed with `-Db_staticpic=false` in `build.sh` (no patch needed). Default `--opt` stays O2. wasm bytes O0 2495042 / O1 1079538 / O2 1013566.
 - `SV_InitGameProgs` is listen-server code the client legitimately contains, so it is not in the forbidden symbol rules; `Sys_RunConsole`, `GetGameAPI`, `curl_*`, `al*`/`alc*` are. The required name is `Com_LPrintf` (`Com_Printf` is a macro).
 - `build.sh` builds only the `q2pro.js` target (libpng's `pngtest` fails emscripten finalize); the image installs wabt 1.0.36 from a sha256-checked tarball, meson/ninja pinned via pip; apt git/pip are not version-pinned (the image is pinned by base digest and a Dockerfile-hash tag).

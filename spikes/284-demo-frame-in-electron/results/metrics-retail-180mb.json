@@ -1,0 +1,79 @@
+{
+  "label": "retail-180mb",
+  "cspMode": "wasm-unsafe-eval",
+  "dataLoadMs": 93,
+  "dataBytes": 63008885,
+  "padBytes": 122683392,
+  "files": [
+    {
+      "vpath": "baseq2/pak0.pak",
+      "size": 49951322
+    },
+    {
+      "vpath": "baseq2/pak1.pak",
+      "size": 12992754
+    },
+    {
+      "vpath": "baseq2/pak2.pak",
+      "size": 45055
+    },
+    {
+      "vpath": "baseq2/demos/move-fire.dm2",
+      "size": 19754
+    }
+  ],
+  "timeToPictureMs": 1900,
+  "longestLongTaskMs": 0,
+  "longTaskTotalMs": 0,
+  "longTaskControlObserved": true,
+  "longTaskEntriesTotal": 1,
+  "longTaskEntriesInWindow": [],
+  "maxLoopGapMs": 242.4,
+  "maxLoopGapWholeRunMs": 242.4,
+  "factoryCallMs": 1.6,
+  "factoryResolveMs": 231,
+  "engineImportMs": 5,
+  "fsWriteMs": 39,
+  "playbackMotion": 0.7002275678684065,
+  "rendererMemBefore": {
+    "residentSet": 65200,
+    "private": 24196,
+    "shared": 48
+  },
+  "rendererMemAfter": {
+    "residentSet": 496748,
+    "private": 534452,
+    "shared": 4336
+  },
+  "appMetricsWorkingSet": {
+    "rendererKB": 496760,
+    "gpuKB": 124100,
+    "totalKB": 836464
+  },
+  "heapBytes": 134217728,
+  "fps": 60,
+  "cspViolations": 0,
+  "cspViolationSamples": [],
+  "engineError": null,
+  "wasmSha256": "aa92eb37be2b136b918d5a84cf4c78c20c670393f2ae7d5e50554c71e7cd4a1b",
+  "wasmBytes": 1013566,
+  "electronVersion": "43.8.4",
+  "gpu": null,
+  "gpuFeatureStatus": {
+    "2d_canvas": "enabled",
+    "direct_rendering_display_compositor": "disabled_off_ok",
+    "gpu_compositing": "enabled",
+    "multiple_raster_threads": "enabled_on",
+    "opengl": "enabled_on",
+    "rasterization": "enabled",
+    "raw_draw": "disabled_off_ok",
+    "skia_graphite": "disabled_off",
+    "trees_in_viz": "disabled_off",
+    "video_decode": "enabled",
+    "video_encode": "enabled",
+    "webgl": "enabled",
+    "webgpu": "enabled",
+    "webnn": "disabled_off"
+  },
+  "failures": []
+}

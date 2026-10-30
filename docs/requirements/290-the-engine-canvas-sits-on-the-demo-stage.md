@@ -184,7 +184,7 @@ Engine side, then host, then harness, then the stage, then the user path.
   `/design-tokens`.
 - **D6 — Integrated Play and Stop drive the stage.** `useDemoPlay.ts`: in mode `integrated`,
   `play` calls `armStage()`, `beginSession(demo.fileName, demo.durationMs, { id, archived,
-  mode: 'integrated' })` and `setStageReason({ key: 'replays.player.unavailable.integratedNotReady' })`
+mode: 'integrated' })` and `setStageReason({ key: 'replays.player.unavailable.integratedNotReady' })`
   — no `playDemo` IPC; Play is no longer disabled by that reason. `playback-store.ts`: the session
   carries `mode: PlayerMode` (default `engine`); `requestStop` on an integrated session calls
   `endSession()` without `playbackStop()`. `ReplaysView.tsx` passes the current playback mode (the
@@ -198,7 +198,7 @@ Engine side, then host, then harness, then the stage, then the user path.
   `scripts/flows/areas.json` under the replays area with `src/renderer/src/modules/replays/integrated/**`.
   Steps: Play → canvas visible in the stage, a centre pixel read via `page.evaluate` is non-black;
   resize the window (`app.evaluate` → `BrowserWindow.setSize`) → `canvas.width ===
-  Math.round(clientWidth × dpr)` and `__q2lFakeEngine.resizes` grew; type into the comment input →
+Math.round(clientWidth × dpr)` and `__q2lFakeEngine.resizes` grew; type into the comment input →
   the field holds the text and `keyEvents === 0`; Stop → `loopRunning false`, `disconnects` grew;
   Play again → `instances === 1`; leave Demos and return → pixel still non-black; lose the context
   via `WEBGL_lose_context` → the contextLost text is visible. `scripts/lib/screens.mjs`: screen

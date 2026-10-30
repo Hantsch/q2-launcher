@@ -135,7 +135,7 @@ Spike, no `src/` change, no CHANGELOG entry (nothing user-visible), no systems d
   - `EMSCRIPTEN_KEEPALIVE void q2l_audio_consumed(int frames)` (real time): sets `samplepos` to
     `(frames·2) mod dma.samples`.
   - `EMSCRIPTEN_KEEPALIVE void q2l_audio_capture(int on)`: capture flag; on → `taken =
-    s_paintedtime`. While on, a hook `snddma_web_step(int ms)` advances `samplepos` by
+s_paintedtime`. While on, a hook `snddma_web_step(int ms)` advances `samplepos` by
     `48·ms·2` mono samples (with wrap); `q2l_step` calls it before `CL_Frame`.
   - `dma.c`: `extern const snddma_driver_t snddma_web;` and `&snddma_web` in `s_drivers[]` under
     `#ifdef __EMSCRIPTEN__`.
@@ -144,7 +144,7 @@ Spike, no `src/` change, no CHANGELOG entry (nothing user-visible), no systems d
   - Acceptance: `npm run engine:build` exits 0 and the three names appear in the built
     `resources/engine/q2pro.wasm` exports (`wasm-objdump -x`, or the [[281]] symbol-check script).
 - **D2 — Capture harness with boot check, counts and PCM hashes.** `spikes/286-dma-audio-pull/
-  harness.mjs` (plus `README.md`), results under `spikes/286-dma-audio-pull/results/`. Reuse the
+harness.mjs` (plus `README.md`), results under `spikes/286-dma-audio-pull/results/`. Reuse the
   Electron frame (window with copied `webPreferences`, spike scheme, game data + test demo of
   story 283) by importing it from `spikes/285-deterministic-step/` or
   `spikes/284-demo-frame-in-electron/`; if 285's harness is a copy of 284's, first extract the
@@ -156,7 +156,7 @@ Spike, no `src/` change, no CHANGELOG entry (nothing user-visible), no systems d
   - `--mode=capture --frames=600 --fps=60`: seed via [[285]]'s setup, `q2l_audio_capture(1)`,
     then per step `q2l_step(ms)` with the cadence 17/17/16 and `q2l_audio_take(buf, 4096)`;
     expected `48·ms`. Writes `results/counts.json` `{ steps, expected[], got[], mismatches,
-    nonZeroSamples }`; exit 0 only when `mismatches === 0` and `nonZeroSamples > 0`.
+nonZeroSamples }`; exit 0 only when `mismatches === 0` and `nonZeroSamples > 0`.
   - `--runs=2 --seed=1`: two capture runs (engine re-initialised as in 285), SHA-256 over the
     concatenated PCM per run → `results/pcm-hashes.json` `{ runs: [hash, hash], equal }`; exit 0
     only when equal. Also writes `results/capture-run1.wav` for listening.
@@ -169,8 +169,8 @@ Spike, no `src/` change, no CHANGELOG entry (nothing user-visible), no systems d
   in a `SharedArrayBuffer`, available only when the spike scheme serves the page with
   `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` and
   `crossOriginIsolated` is true — otherwise it exits 1 naming the reason. `--mode=realtime
-  --seconds=60` writes `results/realtime.json` `{ transport, seconds, underruns,
-  underrunsPerMinute, latencyMs, nonSilentBlocks, crossOriginIsolated }` (underrun = the worklet
+--seconds=60` writes `results/realtime.json` `{ transport, seconds, underruns,
+underrunsPerMinute, latencyMs, nonSilentBlocks, crossOriginIsolated }` (underrun = the worklet
   rendered a quantum with fewer frames than needed; `latencyMs` per the Decisions); exit 0 when
   `nonSilentBlocks > 0`.
 - **D4 — `RESULT.md`.** `spikes/286-dma-audio-pull/RESULT.md`: the interface (`q2l_audio_take`,

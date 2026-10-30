@@ -1,7 +1,7 @@
 ---
 id: 284
 title: 'Spike: a demo frame renders in the Electron renderer'
-status: ready # draft -> ready -> in-progress -> done
+status: done
 created: 2026-10-30
 ---
 
@@ -44,25 +44,25 @@ textured (no black surfaces, no wrong colours).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — In a spike window with the launcher's `webPreferences` and the CSP
+- [x] **AC1** — In a spike window with the launcher's `webPreferences` and the CSP
       `script-src 'self' 'wasm-unsafe-eval'`, the WASM module compiles with zero
       `securitypolicyviolation` events in the log.
-- [ ] **AC2** — With the installation's paks fetched over the spike scheme and written to
+- [x] **AC2** — With the installation's paks fetched over the spike scheme and written to
       `/q2/baseq2/` in MEMFS, `demo <name>` shows a picture of the map within 10 s;
       `Q2L_SPIKE_Q2DIR=<path> npm run engine:smoke` exits 0 and writes
       `spikes/284-demo-frame-in-electron/results/frame.png`.
-- [ ] **AC3** — After 10 s of real-time playback, `results/metrics.json` records data load time
+- [x] **AC3** — After 10 s of real-time playback, `results/metrics.json` records data load time
       (ms), duration of the `demo` call (ms, UI block), renderer RAM before/after
       (`process.getProcessMemoryInfo`), WASM heap size, measured fps and `cspViolations`; a check
       script exits 0 when `fps > 0` and `cspViolations === 0`.
-- [ ] **AC4** — With `script-src 'self'` and no `'wasm-unsafe-eval'`
+- [x] **AC4** — With `script-src 'self'` and no `'wasm-unsafe-eval'`
       (`npm run engine:smoke -- --no-wasm-csp`), `WebAssembly.instantiate` fails with a CSP error,
       the command exits non-zero and the log shows the error.
-- [ ] **AC5** — `RESULT.md` recommends MEMFS on the main thread or a worker with WORKERFS, backed
+- [x] **AC5** — `RESULT.md` recommends MEMFS on the main thread or a worker with WORKERFS, backed
       by the measurements, and answers R8: does the `demo` call block the UI for more than 500 ms?
-- [ ] **AC6** — `RESULT.md` lists deviations from concept §8.5/§8.6 as change proposals and the
+- [x] **AC6** — `RESULT.md` lists deviations from concept §8.5/§8.6 as change proposals and the
       consequences for [[289]] and [[290]].
-- [ ] **AC7** — `git status --short src/` is empty.
+- [x] **AC7** — `git status --short src/` is empty.
 
 ## Open Questions
 
@@ -133,7 +133,7 @@ one export in `scripts/engine/fetch-data.mjs`.
 
 ## Deliverables
 
-- [ ] **D1 — Spike harness `npm run engine:smoke`.** Node ESM + Electron built-ins only, no `src/`
+- [x] **D1 — Spike harness `npm run engine:smoke`.** Node ESM + Electron built-ins only, no `src/`
       import (copy what is needed, with a comment naming the source). Files:
       `spikes/284-demo-frame-in-electron/{harness.mjs, main.cjs, preload.cjs, app/index.html,
 app/boot.js, check.mjs, README.md}`, `package.json` (script
@@ -185,7 +185,7 @@ electronVersion, gpu: app.getGPUFeatureStatus().webgl2 }`. Exit 0 only with a pi
 --no-wasm-csp` exits non-zero and its log names the CSP/`WebAssembly` error; `node
 spikes/284-demo-frame-in-electron/check.mjs` exits 0 on the first, 1 on a metrics file with
     `fps: 0`; `npm run lint` and `npm run format:check` are green; `git status --short src/` empty.
-- [ ] **D2 — Run and `RESULT.md`.** Run unattended: shareware run; retail run with
+- [x] **D2 — Run and `RESULT.md`.** Run unattended: shareware run; retail run with
       `Q2L_SPIKE_Q2DIR=C:\Games\Q2Pro --label retail` if that install has `baseq2/pak0.pak`
       (otherwise record "retail not measured" + why); `--no-wasm-csp` run (keep its log as
       `results/no-wasm-csp.log`); `check.mjs` on each metrics file; `git status --short src/`. Then
@@ -239,3 +239,22 @@ outside `src/`), so `ui:flow` does not apply.
   only proves a moving, non-black picture.
 
 ## Done
+
+Spike delivered: `spikes/284-demo-frame-in-electron/` (`npm run engine:smoke`, `check.mjs`, `RESULT.md`, `results/*`). The WASM engine runs in an Electron window with the launcher's `webPreferences` under `script-src 'self' 'wasm-unsafe-eval'`: first picture in 0.8 s (shareware) / 1.9 s (install), 60 fps, 0 CSP violations; without `'wasm-unsafe-eval'` the compile fails with a CSP error (exit 1). Verdict: integrated mode is viable; MEMFS on the main thread recommended, renderer RSS about 2.2x data size.
+
+Change type: docs
+
+Commit message: `284: spike demo frame in Electron (engine:smoke, CSP, MEMFS, metrics, RESULT.md)`
+
+Verification: narrow gate — typecheck, lint, `vitest run --changed HEAD` (7781 passed), prettier check green; `git status --short src/` empty; no ui:flow applies (developer harness outside `src/`). AC1-AC4 proven by the probe runs (`results/metrics-*.json`, `results/no-wasm-csp.log`, `check.mjs` exit 0 on every good file); AC5-AC7 by RESULT.md sections and the empty `git status`. Review: default stage, 1 cycle.
+
+Decisions:
+- Review found the R8 `0 ms` unproven; added a 120 ms long-task positive control, a 5 ms heartbeat stall probe and `factoryCallMs`. Result: no long task over 50 ms, but a real 206-242 ms stall (unattributed) — still under 500 ms, so R8 is "no", with a loading state recommended.
+- The C:\Games\Q2Pro install has a shareware-size pak0 (63 MB total, not ~180 MB retail); added `--pad-mb` and a synthetic 180 MB run for R2; RESULT.md says so plainly.
+- Picture test hardened: two consecutive passing polls plus a `playbackMotion` check at the end.
+- Cache resolver `resolveCacheDir` already exported from `scripts/engine/data.mjs`; imported there, `fetch-data.mjs` unchanged.
+- `gpu` is null in Electron 43 (no `webgl2` key); `gpuFeatureStatus` recorded instead.
+
+Manual residue: look at `results/frame*.png` — frames show a corridor/crates with the blaster close-up, not a map overview; texture/colour correctness needs eyes (retail frames not re-viewed after the fix round).
+
+tiers: D 3 / hard 1 · review default · cycles 1 · agents 7

@@ -1,0 +1,17 @@
+
+> q2-launcher@0.9.0 engine:smoke
+> node spikes/284-demo-frame-in-electron/harness.mjs --no-wasm-csp --label no-wasm
+
+engine:smoke: label=no-wasm data=C:\Users\darkp\AppData\Local\q2l-engine-test demo=move-fire.dm2 csp=no-wasm
+
+[engine] wasm streaming compile failed: CompileError: WebAssembly.instantiateStreaming(): Compiling or instantiating WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
+[engine] falling back to ArrayBuffer instantiation
+[csp] {"directive":"script-src","blockedURI":"wasm-eval","sample":"","sourceFile":"q2spike"}
+[engine] failed to asynchronously prepare wasm: CompileError: WebAssembly.instantiate(): Compiling or instantiating WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
+[engine] Aborted(CompileError: WebAssembly.instantiate(): Compiling or instantiating WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".)
+[engine error] RuntimeError: Aborted(CompileError: WebAssembly.instantiate(): Compiling or instantiating WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".). Build with -sASSERTIONS for more info.
+[csp] {"directive":"script-src","blockedURI":"wasm-eval","sample":"","sourceFile":"q2spike"}
+engine:smoke: wrote metrics-no-wasm.json
+engine:smoke FAILED: engine error: RuntimeError: Aborted(CompileError: WebAssembly.instantiate(): Compiling or instantiating WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".). Build with -sASSERTIONS for more info.
+engine:smoke FAILED: 2 CSP violation(s), first: {"directive":"script-src","blockedURI":"wasm-eval","sample":"","sourceFile":"q2spike"}
+engine:smoke FAILED: no picture in the canvas

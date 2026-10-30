@@ -125,71 +125,60 @@ Order: D1 → D2 (D2 needs the cache). Nothing touches `src/`; no IPC, no render
       `"engine:data": "node scripts/engine/fetch-data.mjs"`), `scripts/repo-hygiene.test.mjs`.
       Mirror the download/7-Zip style of `scripts/fetch-7za.mjs` (plain `fetch`, `execFileSync`,
       binary name `7za.exe` on win32 else `7zz` in `resources/bin/`, see
-      `src/main/lib/archive/7za-path.ts`).
-      - Lock shape: `{ "archive": { "url", "mirrors": [], "sizeBytes", "sha256", "fileName":
-        "q2-314-demo-x86.exe" }, "pak0": { "path": "baseq2/pak0.pak", "sha256" } }`; archive values
-        copied from `content/q2_community_content/gamedata/manifest.json` package
-        `q2-314-demo-x86`. `Q2L_ENGINE_DATA_LOCK` overrides the lock path (resolved against the
-        repo root). `data.lock.broken.json` = same archive fields, `pak0.sha256` of 64 zeros.
-      - Cache dir: `Q2L_ENGINE_DATA` if set; else win32 `%LOCALAPPDATA%\q2l-engine-test`; else
-        `${XDG_CACHE_HOME:-~/.cache}/q2l-engine-test`. Resolved absolute; refused (exit non-zero,
-        message names the repo) when equal to or inside the repo root — lexical containment with
-        case folding on win32, a whole `..` segment only escapes (semantics of `isInside` in
-        `src/main/lib/fs-utils.ts:145`; reimplement in the `.mjs`, do not import TS).
-      - Cached path: marker `<cache>/data.lock.json` exists, its `archive.sha256` equals the lock's,
-        `<cache>/baseq2/pak0.pak` exists → hash it; equal → print `cached`, then the cache path as
-        the last line, exit 0; different → exit non-zero with `pak0.pak SHA-256 mismatch` +
-        expected/actual. No download, no extraction.
-      - Fetch path (no cache, or marker archive hash ≠ lock): download into `<cache>/.tmp/` trying
-        `url` then each mirror; SHA-256 ≠ lock → exit non-zero with `archive SHA-256 mismatch` +
-        expected/actual; extract with the vendored 7-Zip (`x <archive> -o<tmp> -y`), take the first
-        existing of `baseq2/pak0.pak`, `Install/Data/baseq2/pak0.pak`; hash-check against the lock
-        (same mismatch message); move to `<cache>/baseq2/pak0.pak`, write the marker, delete
-        `.tmp/`; print the cache path as the last line. Missing 7-Zip binary → exit non-zero naming
-        `npm run fetch:7za`.
-      - Pin `pak0.sha256`: run `npm run engine:data` once for real, put the hash it reports into
-        `data.lock.json`, run it twice more (second prints `cached`), and run the AC2 command;
-        paste the three outputs' last lines into the story's `## Done`.
-      - Tests in `scripts/engine/data.test.mjs` (injected `download`/`extract`, temp dirs, no
-        network): "resolves the cache dir per platform and honours Q2L_ENGINE_DATA"; "refuses a
-        cache dir inside the repo"; "a fresh fetch writes baseq2/pak0.pak and prints the cache path
-        last" (real vendored 7-Zip packs a tiny archive at test time holding
-        `Install/Data/baseq2/pak0.pak`; `skipIf` the binary is missing, like
-        `src/main/lib/archive/extractor.test.ts`); "a cached call downloads and extracts nothing and
-        prints cached" (counts calls of the injected functions); "an archive hash mismatch fails
-        naming the archive"; "a pak0 hash mismatch fails naming pak0.pak"; "the lock's archive
-        matches the shipped manifest's demo package".
-      - In `scripts/repo-hygiene.test.mjs`, beside the other `git ls-files` guards and with the
-        same `IS_WORK_TREE_ROOT` skip: "no game data pak is tracked" (`git ls-files "*.pak"
-        "*.pkz"` is empty).
+      `src/main/lib/archive/7za-path.ts`). - Lock shape: `{ "archive": { "url", "mirrors": [], "sizeBytes", "sha256", "fileName":
+      "q2-314-demo-x86.exe" }, "pak0": { "path": "baseq2/pak0.pak", "sha256" } }`; archive values
+      copied from `content/q2_community_content/gamedata/manifest.json` package
+      `q2-314-demo-x86`. `Q2L_ENGINE_DATA_LOCK` overrides the lock path (resolved against the
+      repo root). `data.lock.broken.json` = same archive fields, `pak0.sha256` of 64 zeros. - Cache dir: `Q2L_ENGINE_DATA` if set; else win32 `%LOCALAPPDATA%\q2l-engine-test`; else
+      `${XDG_CACHE_HOME:-~/.cache}/q2l-engine-test`. Resolved absolute; refused (exit non-zero,
+      message names the repo) when equal to or inside the repo root — lexical containment with
+      case folding on win32, a whole `..` segment only escapes (semantics of `isInside` in
+      `src/main/lib/fs-utils.ts:145`; reimplement in the `.mjs`, do not import TS). - Cached path: marker `<cache>/data.lock.json` exists, its `archive.sha256` equals the lock's,
+      `<cache>/baseq2/pak0.pak` exists → hash it; equal → print `cached`, then the cache path as
+      the last line, exit 0; different → exit non-zero with `pak0.pak SHA-256 mismatch` +
+      expected/actual. No download, no extraction. - Fetch path (no cache, or marker archive hash ≠ lock): download into `<cache>/.tmp/` trying
+      `url` then each mirror; SHA-256 ≠ lock → exit non-zero with `archive SHA-256 mismatch` +
+      expected/actual; extract with the vendored 7-Zip (`x <archive> -o<tmp> -y`), take the first
+      existing of `baseq2/pak0.pak`, `Install/Data/baseq2/pak0.pak`; hash-check against the lock
+      (same mismatch message); move to `<cache>/baseq2/pak0.pak`, write the marker, delete
+      `.tmp/`; print the cache path as the last line. Missing 7-Zip binary → exit non-zero naming
+      `npm run fetch:7za`. - Pin `pak0.sha256`: run `npm run engine:data` once for real, put the hash it reports into
+      `data.lock.json`, run it twice more (second prints `cached`), and run the AC2 command;
+      paste the three outputs' last lines into the story's `## Done`. - Tests in `scripts/engine/data.test.mjs` (injected `download`/`extract`, temp dirs, no
+      network): "resolves the cache dir per platform and honours Q2L_ENGINE_DATA"; "refuses a
+      cache dir inside the repo"; "a fresh fetch writes baseq2/pak0.pak and prints the cache path
+      last" (real vendored 7-Zip packs a tiny archive at test time holding
+      `Install/Data/baseq2/pak0.pak`; `skipIf` the binary is missing, like
+      `src/main/lib/archive/extractor.test.ts`); "a cached call downloads and extracts nothing and
+      prints cached" (counts calls of the injected functions); "an archive hash mismatch fails
+      naming the archive"; "a pak0 hash mismatch fails naming pak0.pak"; "the lock's archive
+      matches the shipped manifest's demo package". - In `scripts/repo-hygiene.test.mjs`, beside the other `git ls-files` guards and with the
+      same `IS_WORK_TREE_ROOT` skip: "no game data pak is tracked" (`git ls-files "*.pak"
+      "*.pkz"` is empty).
 - [x] **D2 — Test demos recorded with native Q2PRO on shareware data, read by a header test.**
       Files: `tests/engine/demos/record-move-fire.cfg` (new), `tests/engine/demos/move-fire.dm2`
       (new), `tests/engine/demos/move-fire.dm2.gz` (new), `tests/engine/demos/README.md` (new),
       `tests/engine/demos/test-demos.test.ts` (new), `vitest.config.ts`, `tsconfig.node.json`.
-      Precondition: `npm run engine:data` (D1) has filled the cache; it prints the cache path.
-      - Record — never synthesize with `src/shared/demos/dm2-writer.ts`/`dm2-frames-writer.ts`:
-        native `C:\Games\Q2Pro\q2pro.exe` with `+set basedir <cache>` (the game library comes from
-        the native install, e.g. Q2PRO's `libdir` cvar or a temp copy outside the repo — never
-        copy game data into the repo), `+map base1`, `+exec` of the committed cfg. The cfg waits
-        for the level to load, runs `record move-fire` (protocol 34, no `-e`), drives movement and
-        fire with `+forward`/`-forward`, `+left`/`+right`, `+attack`/`-attack` and `wait`, records
-        20–40 s, then `stop` and `quit`. Pitfalls known on this machine: synthetic keystrokes never
-        reach Q2PRO (scripted input only); Q2PRO's logfile is buffered, so end via `quit`/WM_CLOSE,
-        never kill. Copy the recorded file from Q2PRO's demos dir into `tests/engine/demos/`, then
-        `gzip -9 -k` it (or an equivalent node `zlib` level 9) for `move-fire.dm2.gz`.
-      - `README.md`: the exact command line and cfg used, map `base1`, length in seconds and demo
-        frames, the `+attack` windows as demo-frame ranges (10 Hz, marked approximate ±2 frames),
-        that the data is the shareware `pak0.pak` from `npm run engine:data` and that no game data
-        is committed, and the manual check (watch once in native Q2PRO).
-      - `vitest.config.ts`: add `'tests/**/*.test.ts'` to `test.include`. `tsconfig.node.json`:
-        add `"tests/**/*.ts"` to `include`.
-      - Test `tests/engine/demos/test-demos.test.ts` (repo files only, no network; `node:fs` +
-        `node:zlib` `gunzipSync`): for every `*.dm2` and `*.dm2.gz` in the folder, "each test demo
-        names its map and protocol" (`parseDemoHeader` from `@shared/demos/demo-header` → `ok`,
-        `format: 'dm2'`, `map === 'base1'`, `protocol === 34`); "the gz demo is the same recording"
-        (gunzipped bytes equal `move-fire.dm2`); "move-fire runs 20 to 40 seconds"
-        (`createDm2FrameCounter` from `@shared/demos/dm2-frames` → `durationMs` in
-        [20 000, 40 000]).
+      Precondition: `npm run engine:data` (D1) has filled the cache; it prints the cache path. - Record — never synthesize with `src/shared/demos/dm2-writer.ts`/`dm2-frames-writer.ts`:
+      native `C:\Games\Q2Pro\q2pro.exe` with `+set basedir <cache>` (the game library comes from
+      the native install, e.g. Q2PRO's `libdir` cvar or a temp copy outside the repo — never
+      copy game data into the repo), `+map base1`, `+exec` of the committed cfg. The cfg waits
+      for the level to load, runs `record move-fire` (protocol 34, no `-e`), drives movement and
+      fire with `+forward`/`-forward`, `+left`/`+right`, `+attack`/`-attack` and `wait`, records
+      20–40 s, then `stop` and `quit`. Pitfalls known on this machine: synthetic keystrokes never
+      reach Q2PRO (scripted input only); Q2PRO's logfile is buffered, so end via `quit`/WM_CLOSE,
+      never kill. Copy the recorded file from Q2PRO's demos dir into `tests/engine/demos/`, then
+      `gzip -9 -k` it (or an equivalent node `zlib` level 9) for `move-fire.dm2.gz`. - `README.md`: the exact command line and cfg used, map `base1`, length in seconds and demo
+      frames, the `+attack` windows as demo-frame ranges (10 Hz, marked approximate ±2 frames),
+      that the data is the shareware `pak0.pak` from `npm run engine:data` and that no game data
+      is committed, and the manual check (watch once in native Q2PRO). - `vitest.config.ts`: add `'tests/**/*.test.ts'` to `test.include`. `tsconfig.node.json`:
+      add `"tests/**/*.ts"` to `include`. - Test `tests/engine/demos/test-demos.test.ts` (repo files only, no network; `node:fs` +
+      `node:zlib` `gunzipSync`): for every `*.dm2` and `*.dm2.gz` in the folder, "each test demo
+      names its map and protocol" (`parseDemoHeader` from `@shared/demos/demo-header` → `ok`,
+      `format: 'dm2'`, `map === 'base1'`, `protocol === 34`); "the gz demo is the same recording"
+      (gunzipped bytes equal `move-fire.dm2`); "move-fire runs 20 to 40 seconds"
+      (`createDm2FrameCounter` from `@shared/demos/dm2-frames` → `durationMs` in
+      [20 000, 40 000]).
 
 ## Model Hints
 
@@ -235,6 +224,7 @@ node tsconfig.
 Commit message: `283: engine:data shareware cache and native-recorded test demos (move-fire.dm2)`
 
 Decisions:
+
 - Map is `demo1`, not `base1`: the shareware `pak0.pak` has only demo1-demo3 (demo1 is "Outer Base");
   README and test say demo1, AC5 "such as base1" is met in spirit.
 - The 7-Zip existence check runs only on the extract path, so a cached call needs no 7za (review fix).

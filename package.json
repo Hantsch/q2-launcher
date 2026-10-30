@@ -50,6 +50,7 @@
     "engine:build": "node scripts/engine/build.mjs",
     "engine:verify": "node scripts/engine/verify.mjs",
     "engine:data": "node scripts/engine/fetch-data.mjs",
+    "engine:smoke": "node spikes/284-demo-frame-in-electron/harness.mjs",
     "verify:linux": "node scripts/verify-linux.mjs",
     "verify:release": "node scripts/verify-release.mjs",
     "rehearse": "node scripts/rehearse.mjs",

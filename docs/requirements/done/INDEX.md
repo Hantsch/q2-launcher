@@ -386,3 +386,4 @@ second roadmap.
 - 281 — The engine builds reproducibly as WebAssembly · S38 · npm run engine:build builds Q2PRO (MashedD @ 3139866 + 6 patches) in a pinned container, O2 validates, engine:verify lane and spike result
 - 283 — Test data: a shareware data cache and test demos · S38 · engine:data caches verified shareware pak0 outside the repo; native-recorded move-fire.dm2 test demo with header test
 - 282 — Spike: what WebCodecs and Mediabunny can encode in Electron 43 · S38 · measured encoder matrix on Windows and Linux, tier 1 Windows / tier 2 Linux, ffmpeg fallback recommended P3
+- 284 — Spike: a demo frame renders in the Electron renderer · S38 · engine runs under wasm-unsafe-eval CSP, MEMFS main thread viable, first picture <2 s, 60 fps, stall 206-242 ms
