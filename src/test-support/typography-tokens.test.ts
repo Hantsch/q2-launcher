@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const SRC = join(__dirname, '..')
+const SRC = join(__dirname, '../renderer/src')
 const KEYCAP_OWNER = 'modules/config/OverviewKeyboardPanel.tsx'
 
 function sources(dir: string): string[] {
