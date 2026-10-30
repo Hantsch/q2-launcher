@@ -224,7 +224,7 @@
 
 .ctrl-colhead span {
   font-family: var(--font-display);
-  font-size: 0.656rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--color-ink-muted);
@@ -252,7 +252,7 @@
 .ctrl-group-eyebrow {
   white-space: nowrap;
   font-family: var(--font-display);
-  font-size: 0.6875rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-ink-dim);
@@ -283,7 +283,7 @@
 */
 .ctrl-row {
   height: 40px;
-  border-bottom: 1px solid rgb(41 44 51 / 0.55);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line) 55%, transparent);
   border-left: 2px solid transparent;
 }
 
@@ -306,11 +306,11 @@
    across the whole row list. `ControlsGrid`/`ControlsRow` compute `odd` across the filtered row
    list itself and apply this class directly. */
 .ctrl-row.is-odd {
-  background: rgb(255 255 255 / 0.014);
+  background: color-mix(in srgb, var(--color-glint) 1.4%, transparent);
 }
 
 .ctrl-row:hover {
-  background: rgb(255 138 31 / 0.05);
+  background: color-mix(in srgb, var(--color-flame-500) 5%, transparent);
 }
 
 .ctrl-row:hover .ctrl-reset,
@@ -320,13 +320,13 @@
 
 /* --- action label + its command in mono as a secondary label ------------ */
 .ctrl-label {
-  font-size: 0.844rem;
+  font-size: var(--text-compact);
   color: var(--color-ink);
 }
 
 .ctrl-label-cmd {
   font-family: var(--font-mono);
-  font-size: 0.656rem;
+  font-size: var(--text-2xs);
   color: var(--color-ink-faint);
   margin-left: 8px;
 }
@@ -365,7 +365,7 @@
   gap: 4px;
   padding-inline: 7px;
   font-family: var(--font-mono);
-  font-size: 0.688rem;
+  font-size: var(--text-2xs);
   color: var(--color-ink-dim);
   background: var(--color-raised);
   border: 1px solid var(--color-line);
@@ -392,7 +392,7 @@
   justify-content: center;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--color-ink-faint);
   background: var(--color-raised);
@@ -410,7 +410,7 @@
 .ctrl-slot-empty {
   font-family: var(--font-display);
   letter-spacing: 0.14em;
-  font-size: 0.688rem;
+  font-size: var(--text-2xs);
   text-transform: uppercase;
 }
 
@@ -444,7 +444,7 @@
 /* The modifier of a modifier-bound key, as a small cap ahead of the key itself (`ALT R`, AC 8). */
 .ctrl-cap {
   font-family: var(--font-display);
-  font-size: 0.594rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.1em;
   padding: 0 4px;
   color: var(--color-ink-dim);
@@ -476,7 +476,7 @@
    fill above disappears into the gradient. */
 .ctrl-slot.is-primary-bound .ctrl-cap {
   color: var(--color-flame-ink);
-  background: rgb(0 0 0 / 0.12);
+  background: color-mix(in srgb, var(--color-shade) 12%, transparent);
   border-color: var(--color-flame-800);
 }
 
@@ -484,7 +484,7 @@
    Disabled under both reduced-motion conditions the app recognises. */
 .ctrl-slot.is-capturing {
   color: var(--color-flame-300);
-  background: rgb(255 138 31 / 0.1);
+  background: color-mix(in srgb, var(--color-flame-500) 10%, transparent);
   border-color: var(--color-flame-500);
   border-style: dashed;
   animation: ctrl-pulse calc(var(--dur-slow) * 3) var(--ease-in-out-quart) infinite;
@@ -492,7 +492,7 @@
 
 @keyframes ctrl-pulse {
   50% {
-    background: rgb(255 138 31 / 0.2);
+    background: color-mix(in srgb, var(--color-flame-500) 20%, transparent);
   }
 }
 
@@ -630,11 +630,11 @@
   height: 22px;
   padding-inline: 8px;
   font-family: var(--font-display);
-  font-size: 0.656rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-warning);
-  background: rgb(245 179 43 / 0.12);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
   border: 1px solid var(--color-warning);
   border-radius: var(--radius-md);
 }
@@ -647,7 +647,7 @@
   padding: 12px 16px;
   border-top: 1px solid var(--color-line);
   font-family: var(--font-mono);
-  font-size: 0.688rem;
+  font-size: var(--text-2xs);
   color: var(--color-ink-muted);
 }
 
@@ -657,7 +657,7 @@
 
 .ctrl-kbd {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   padding: 1px 5px;
   background: var(--color-raised);
   border: 1px solid var(--color-line-strong);
@@ -714,7 +714,7 @@
   background: var(--color-raised);
   border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-sm);
-  box-shadow: 0 10px 24px rgb(0 0 0 / 0.45);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-shade) 45%, transparent);
   cursor: grabbing;
 }
 

@@ -382,3 +382,4 @@ second roadmap.
 - 321 — Demo play, stop and stage restore end in a defined state · S37 · missing game dir refused, single-flight play, stop settles via launch, pid-guarded quit restore, single-sign geometry, Alt+Enter race, replace-dialog value, Join vs filter
 - 326 — Platform decisions in playback stay behind the seam · S37 · plan.ts owns playback platform choice, X11 keeper reports stray errors/auth family/parked and re-raises the overlay
 - 327 — OpenTDM installs on a 64-bit Q2PRO · S37 · OpenTDM gets a content-only package (example config, visible not-playable reason); flow proves remove and noVariant refusal
+- 324 — Styles use tokens only, and UI kit controls keep their own rules · S37 · colour and font-size tokens with scanning checks, Radio 24px floor, canSubmit and tab-panel labelling fixed, memoised Controls rows

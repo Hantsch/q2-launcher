@@ -61,7 +61,7 @@ export function PlannedModuleView({ module }: { module: ModuleManifest }) {
         )}
 
         {import.meta.env.DEV && (
-          <div className="numeric px-1 text-[10px] text-ink-muted">
+          <div className="numeric px-1 text-2xs text-ink-muted">
             id: {module.id} &middot; route: {module.route} &middot; ipc: {module.ipcNamespace}
           </div>
         )}

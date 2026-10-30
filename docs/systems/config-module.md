@@ -272,3 +272,4 @@ original-configs folder (first original wins) before the assignment and sync run
 - `writeState` and `write`'s `written`/`error` result shape survive only for the contract;
   `syncState` is the accurate status.
 - No direct numbered profile selection: it conflicts with the default `1`–`9` weapon binds.
+- Controls rows are memoised; the drag grip is passed as inputs and built inside the row, so an unchanged row skips re-render.

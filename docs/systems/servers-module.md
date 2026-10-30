@@ -135,3 +135,4 @@ Events: `SERVERS_EVENTS` pushes `scanChanged`, `scanServer` (one row per result)
 - One scan at a time; a start during a scan is refused, not queued.
 - No server data is persisted beyond the address collections — rows are rebuilt by scanning.
 - History is append-only from main and capped; there is no import or export of the lists.
+- The servers body is a tab panel only while the watchlist tab strip shows; otherwise a plain container, so no aria-labelledby dangles.

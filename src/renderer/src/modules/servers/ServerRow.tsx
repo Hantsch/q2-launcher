@@ -145,7 +145,7 @@ export function ServerRow({
           </p>
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             {showAddressUnderName && (
-              <span className="numeric truncate text-[11px] text-ink-muted">{row.address}</span>
+              <span className="numeric truncate text-2xs text-ink-muted">{row.address}</span>
             )}
             {row.gamemode !== undefined && (
               <Badge tone="neutral" testId={`servers-row-gamemode-${row.address}`}>
@@ -197,7 +197,7 @@ export function ServerRow({
           <span className="numeric text-ink">{formatOccupancy(row)}</span>
           <OccupancyPips row={row} />
         </span>
-        <span className="numeric truncate text-right text-[11px]">{orDash(row.map)}</span>
+        <span className="numeric truncate text-right text-2xs">{orDash(row.map)}</span>
         <span className="numeric truncate text-right">{formatPing(row)}</span>
       </div>
 

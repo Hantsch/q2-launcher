@@ -39,7 +39,7 @@ export function Radio({
   const group = useContext(RadioGroupContext)
   if (!group) throw new Error('Radio must be rendered inside a RadioGroup')
   return (
-    <label className="flex items-center gap-2 text-sm text-ink-dim">
+    <label className="flex min-h-6 items-center gap-2 text-sm text-ink-dim">
       <input
         type="radio"
         name={group.name}

@@ -42,7 +42,10 @@ export function DeleteCategoryDialog({
   const [targetId, setTargetId] = useState<string | undefined>(otherCategories[0]?.id)
   const { submitting, run } = useSubmitting()
 
-  const canSubmit = choice === 'delete' || (choice === 'move' && targetId !== undefined)
+  // The target is state, so it can name a category that left `otherCategories` after mount.
+  const canSubmit =
+    choice === 'delete' ||
+    (targetId !== undefined && otherCategories.some((category) => category.id === targetId))
 
   const submit = (): void => {
     if (canSubmit) void run(() => onConfirm(choice, choice === 'move' ? targetId : undefined))
@@ -59,6 +62,7 @@ export function DeleteCategoryDialog({
       confirmLabel={t('config.controls.deleteCategoryDialog.confirm')}
       tone="danger"
       busy={submitting}
+      confirmDisabled={!canSubmit}
       onConfirm={submit}
       onClose={onClose}
       body={

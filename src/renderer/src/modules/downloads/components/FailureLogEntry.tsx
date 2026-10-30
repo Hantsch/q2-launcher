@@ -102,7 +102,7 @@ export function FailureLogEntry({
             <Badge tone="danger">{t('jobs.status.failed')}</Badge>
           </div>
           <p className="text-xs text-ink-dim">{t(errorKey, failure.error.params ?? {})}</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-muted">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-ink-muted">
             {installation && (
               <span>{t('downloads.failures.installation', { name: installation.name })}</span>
             )}

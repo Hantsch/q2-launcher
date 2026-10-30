@@ -79,7 +79,7 @@ export function CareItemRow({
             <p className="text-xs text-ink-muted">{t(item.params['messageKey'])}</p>
           )}
           {item.fixKey && <p className="text-xs text-ink-muted">{t(item.fixKey, item.params)}</p>}
-          {item.source && <p className="text-[10px] text-ink-faint">{item.source}</p>}
+          {item.source && <p className="text-2xs text-ink-faint">{item.source}</p>}
           {details.length > 0 && (
             <div className="space-y-1.5 pt-0.5">
               <button
@@ -177,7 +177,7 @@ function CareDetailRow({
             name, their section and their body, and this is both the only thing that tells them apart
             and the exact `cid=` tag the rendered `.cfg` marks the same two lines with. */}
         {typeof catalogId === 'string' && (
-          <span className="numeric ml-1.5 text-[10px] text-ink-muted">{catalogId}</span>
+          <span className="numeric ml-1.5 text-2xs text-ink-muted">{catalogId}</span>
         )}
       </span>
       <span className="flex shrink-0 flex-wrap items-center gap-1.5">

@@ -59,7 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
             report.
           </p>
           <pre
-            className="numeric max-h-52 overflow-auto rounded-sm border border-line bg-void p-3 text-[11px] whitespace-pre-wrap text-ink-muted"
+            className="numeric max-h-52 overflow-auto rounded-sm border border-line bg-void p-3 text-2xs whitespace-pre-wrap text-ink-muted"
             data-selectable
           >
             {error.message}

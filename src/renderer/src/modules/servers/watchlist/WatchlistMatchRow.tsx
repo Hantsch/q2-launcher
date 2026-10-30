@@ -66,7 +66,7 @@ export function WatchlistMatchRow({
             <span className="truncate">{name}</span>
           </span>
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="numeric truncate text-[11px] text-ink-muted">{match.address}</span>
+            <span className="numeric truncate text-2xs text-ink-muted">{match.address}</span>
             {server?.gamemode !== undefined && (
               <Badge tone="neutral">{t(`servers.gamemode.${server.gamemode}`)}</Badge>
             )}

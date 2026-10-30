@@ -122,7 +122,7 @@ export function EngineSection({ installation }: { installation: Installation }) 
             <p
               key={suffix(choice)}
               id={reasonId(choice)}
-              className="pl-0.5 text-[11px] leading-relaxed text-ink-muted"
+              className="pl-0.5 text-2xs leading-relaxed text-ink-muted"
               data-testid={`installation-engine-reason-${suffix(choice)}`}
             >
               <span className="font-medium">{label(choice)}</span>

@@ -316,7 +316,7 @@ export function CvarRow({
           <span id={labelId} className="truncate text-sm text-ink">
             {t(def.labelKey)}
           </span>
-          <span className="shrink-0 font-mono text-[11px] text-ink-faint">{def.name}</span>
+          <span className="shrink-0 font-mono text-2xs text-ink-faint">{def.name}</span>
           {edited && (
             // Story 0490: the left border alone is colour-only, so every unsaved row also
             // carries a shape-based glyph with its own translated `aria-label` - the border stays as
@@ -385,7 +385,7 @@ export function CvarRow({
           <Badge tone={flag.tone} className="mt-px shrink-0">
             {flag.badge}
           </Badge>
-          <p className="min-w-0 text-[11.5px] leading-snug text-ink-dim">{flag.text}</p>
+          <p className="min-w-0 text-xs leading-snug text-ink-dim">{flag.text}</p>
         </div>
       ))}
     </div>
@@ -433,7 +433,7 @@ export function PlainCvarRow({ name, value, edited, onChange }: PlainCvarRowProp
     >
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
-          <span id={labelId} className="truncate font-mono text-[13px] text-ink">
+          <span id={labelId} className="truncate font-mono text-compact text-ink">
             {name}
           </span>
           {edited && (

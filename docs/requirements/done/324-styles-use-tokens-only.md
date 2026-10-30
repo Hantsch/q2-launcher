@@ -1,7 +1,7 @@
 ---
 id: 324
 title: Styles use tokens only, and UI kit controls keep their own rules
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -14,21 +14,21 @@ re-renders every row.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `controls-grid.css` and `surfaces.css` contain no rgb/hex colour literal; a check
+- [x] **AC1** — `controls-grid.css` and `surfaces.css` contain no rgb/hex colour literal; a check
       fails when one is added under `src/renderer/src/styles/` (TD-004).
-- [ ] **AC2** — Font sizes come from a typography token scale; no arbitrary `text-[Npx]` class
+- [x] **AC2** — Font sizes come from a typography token scale; no arbitrary `text-[Npx]` class
       remains in the renderer, enforced by a check (TD-006).
-- [ ] **AC3** — The mods remove dialog's changed-files radios are at least 24px high (TD-021).
-- [ ] **AC4** — DeleteCategoryDialog's confirm is disabled while `canSubmit` is false; no TabPanel
+- [x] **AC3** — The mods remove dialog's changed-files radios are at least 24px high (TD-021).
+- [x] **AC4** — DeleteCategoryDialog's confirm is disabled while `canSubmit` is false; no TabPanel
       has an `aria-labelledby` pointing at a missing element, verified by the axe report (TD-026).
-- [ ] **AC5** — Re-rendering `ControlsGrid` with unchanged props does not re-render unchanged
+- [x] **AC5** — Re-rendering `ControlsGrid` with unchanged props does not re-render unchanged
       `ControlsEntryRow`s; row tests cover compactAdd, extra-key rows and drop toggles (TD-032).
-- [ ] **AC6** — Rows TD-004, TD-006, TD-021, TD-026 and TD-032 are removed from `docs/TECH-DEBT.md`.
+- [x] **AC6** — Rows TD-004, TD-006, TD-021, TD-026 and TD-032 are removed from `docs/TECH-DEBT.md`.
 
 ## Open Questions
 
 ~~Typography scale: how many steps (proposal: four micro steps, 11/12/13/14px), and may a size move~~ answered → Decisions (Sprint)
-  by 1px to land on a step?
+by 1px to land on a step?
 
 ~~Q1 — sizes below the 11–14px micro scale (18 sites at 7–9.5px): A all → 11px, B a separate legend tier, or C stencil/hex → 11px and keycap legends → one 8px token?~~ answered → Decisions (Sprint)
 
@@ -77,17 +77,17 @@ so it lands after the sweep), then D6–D8 in any order, D9 last.
 
 ## Deliverables
 
-- [ ] **D1 — Colour literals become tokens (TD-004).** Files: `src/renderer/src/styles/controls-grid.css`,
+- [x] **D1 — Colour literals become tokens (TD-004).** Files: `src/renderer/src/styles/controls-grid.css`,
       `surfaces.css`, `config-syntax.css`, `index.css` (only if a needed token is missing), new
       `src/renderer/src/styles/colour-literals.test.ts`. Replace every `rgb()/rgba()/hsl()/#hex`
       with a token: an alpha tint of an existing token is `color-mix(in srgb, var(--color-X) N%,
-      transparent)` (the pattern already at `controls-grid.css:78`); pure black/white shades and the
+transparent)` (the pattern already at `controls-grid.css:78`); pure black/white shades and the
       two `surfaces.css:24` gradient stops get named tokens in `index.css`'s `@theme` block if none
       matches. Visible colours stay the same (pick the token whose value equals the literal's rgb).
       The test (`// @vitest-environment node`, read files like `side-tokens.test.ts`) reads every
       `styles/*.css`, strips `index.css`'s `@theme { ... }` block, and fails naming file:line for any
       colour literal. Test › "style sheets name colours through tokens only".
-- [ ] **D2 — Typography token scale and CSS sizes (TD-006).** Files: `src/renderer/src/styles/index.css`
+- [x] **D2 — Typography token scale and CSS sizes (TD-006).** Files: `src/renderer/src/styles/index.css`
       (`@theme`), `controls-grid.css`, `surfaces.css`, `config-syntax.css`, `home-hero.css`,
       `dashboard.css`, `docs/ARCHITECTURE.md` (the token paragraph near line 504: name the scale and
       both checks). Micro scale: `--text-2xs: 0.6875rem` (11px) and `--text-compact: 0.8125rem`
@@ -100,7 +100,7 @@ so it lands after the sweep), then D6–D8 in any order, D9 last.
       Sub-11px CSS sizes move up to 11px (`var(--text-2xs)`): `surfaces.css` `.tile-demo-tag` and
       `.tile-failed-tag` (8px) and `controls-grid.css` `.ctrl-cap` (0.594rem). If an 11px tile tag
       crowds the tile in the `ui:verify` screenshot, reduce its padding/letter-spacing — never the size.
-- [ ] **D3 — Size class sweep, shell and UI kit.** Files: `src/renderer/src/components/about/AboutPanel.tsx`,
+- [x] **D3 — Size class sweep, shell and UI kit.** Files: `src/renderer/src/components/about/AboutPanel.tsx`,
       `components/shell/{ActionBar,BootSplash,InstallationRail,TitleBar,UpdateAction}.tsx`,
       `components/ui/{ErrorBoundary,primitives}.tsx`. Replace each `text-[Npx]` with the token class
       per the D2 mapping (11 → `text-2xs`, 12 → `text-xs`, 13 → `text-compact`, 14 → `text-sm`,
@@ -110,13 +110,13 @@ so it lands after the sweep), then D6–D8 in any order, D9 last.
       screenshot, add an explicit `leading-*` class to restore it.
       `ErrorBoundary.tsx`'s inline `fontSize: '0.875rem'` stays (render-failure fallback must not
       depend on the stylesheet).
-- [ ] **D4 — Size class sweep, installations, views and small modules.** Files:
+- [x] **D4 — Size class sweep, installations, views and small modules.** Files:
       `src/renderer/src/components/installations/{DetectDialog,EngineSection,RunnerSection}.tsx`,
       `views/{LibraryView,PlannedModuleView}.tsx`, `modules/downloads/components/{FailureLogEntry,JobRow}.tsx`,
       `modules/home/dashboard/PlaytimeTile.tsx`. Same mapping and rules as D3 (11 → `text-2xs`,
       12 → `text-xs`, 13 → `text-compact`, 14 → `text-sm`, 10 → `text-2xs`; 9px stencil/section
       labels → `text-2xs`).
-- [ ] **D5 — Size class sweep, config/replays/servers, and the check.** Files:
+- [x] **D5 — Size class sweep, config/replays/servers, and the check.** Files:
       `src/renderer/src/modules/config/{CareItemRow,ImportProfileDialog,LayersPanel,OverviewKeyboardPanel,SettingsTab}.tsx`,
       `modules/config/components/{CvarRow,SymbolPicker}.tsx`, `modules/replays/components/DemoRow.tsx`,
       `modules/servers/{ServerRow,watchlist/WatchlistMatchRow}.tsx`, new
@@ -128,12 +128,12 @@ so it lands after the sweep), then D6–D8 in any order, D9 last.
       `text-keycap` appears in any file other than `modules/config/OverviewKeyboardPanel.tsx`, and
       checks `styles/*.css` for a `font-size:` whose value is not `var(--text-…)` or `inherit`,
       failing with file:line. Test › "font sizes come from the typography scale".
-- [ ] **D6 — Radio rows meet the 24px floor (TD-021).** Files: `src/renderer/src/components/ui/RadioGroup.tsx`
+- [x] **D6 — Radio rows meet the 24px floor (TD-021).** Files: `src/renderer/src/components/ui/RadioGroup.tsx`
       (the `Radio` label gets `min-h-6`), `scripts/flows/mods-remove.mjs` (new step before checking
       `mods-remove-changed-delete`: the labels of `mods-remove-changed-keep` and `-delete` each have
       a bounding box ≥ 24px high, pushing to `failures` like the flow's other checks). Step ›
       "the changed-files radios are at least 24px high".
-- [ ] **D7 — Dialog confirm and tab-panel labelling (TD-026).** Files:
+- [x] **D7 — Dialog confirm and tab-panel labelling (TD-026).** Files:
       `src/renderer/src/modules/config/components/DeleteCategoryDialog.tsx`, new
       `DeleteCategoryDialog.test.tsx` beside it, `src/renderer/src/modules/servers/ServersView.tsx`,
       new `src/renderer/src/modules/servers/ServersView.test.tsx` only if ServersView renders in jsdom
@@ -145,7 +145,7 @@ so it lands after the sweep), then D6–D8 in any order, D9 last.
       plain `div` with the same className. Tests › "the confirm stays disabled once the chosen move
       target is gone" (rerender with the target removed from `otherCategories`); "with the watchlist
       locked the servers body carries no tab-panel labelling".
-- [ ] **D8 — Unchanged Controls rows skip re-render (TD-032).** Files:
+- [x] **D8 — Unchanged Controls rows skip re-render (TD-032).** Files:
       `src/renderer/src/modules/config/components/ControlsGrid.tsx`, `ControlsEntryRow.tsx`,
       `modules/config/ControlsTab.tsx` (the `renderRow` caller), `ControlsEntryRow.test.tsx`,
       `ControlsGrid.dnd.test.tsx` only if its expectations reference the grip element. Make the grip
@@ -157,7 +157,7 @@ so it lands after the sweep), then D6–D8 in any order, D9 last.
       by mocking `memo`), "a compact add row assigns its key", "an extra-key row writes its own
       slot", "toggling drop on a row changes only that row". Run `controls-drag-reorder` and
       `controls-extra-keys` flows.
-- [ ] **D9 — Docs close the debt.** Files: `docs/TECH-DEBT.md` (delete rows TD-004, TD-006, TD-021,
+- [x] **D9 — Docs close the debt.** Files: `docs/TECH-DEBT.md` (delete rows TD-004, TD-006, TD-021,
       TD-026, TD-032), `docs/systems/config-module.md` (one line: rows are memoised, grip stable),
       `docs/systems/servers-module.md` (one line: the body is a tab panel only while the strip shows).
       `CHANGELOG.md`: one `### Fixed` line under `## Unreleased` only for the user-visible part
@@ -181,3 +181,19 @@ so it lands after the sweep), then D6–D8 in any order, D9 last.
 - AC6 → `node scripts/check-docs.mjs` stays green and `grep -E "TD-0(04|06|21|26|32)" docs/TECH-DEBT.md` is empty — checked in D9's review (doc-only criterion, no runtime behaviour)
 
 ## Done
+
+Styles name colours through tokens and sizes through a typography scale (11/12/13/14px micro steps, display tokens, one 8px keycap token), each guarded by a node test. The shared `Radio` has a 24px floor, DeleteCategoryDialog's confirm honours `canSubmit`, ServersView drops its dangling tab-panel labelling, and Controls rows are memoised with a grip built inside the row.
+
+**Commit message:** `324: colour literals + arbitrary font sizes replaced by tokens with scanning checks, Radio 24px floor, DeleteCategoryDialog canSubmit, ServersView no dangling tabpanel, memoised Controls rows, TD-004/006/021/026/032 closed`
+
+**Verification (narrow gate):** build, typecheck, lint green; `npx vitest run --changed HEAD` green (82 files, 593 tests); `ui:verify` exit 0 (no critical/serious axe, no aria-valid-attr-value). Flows run by name with fresh seeds (`npm run ui:flows -- mods-remove controls-extra-keys controls-drag-reorder controls-subcategory controls-category-rename-reorder grenade-rows-take-a-key --parallel=4`): 6/6 passed. The `--affected` e2e-story selection was not usable: the CSS/class sweep selects most of the suite and shard 1/2 exceeded the 10-minute ceiling (stopped, not observed), so the story's own flow plus the config flows D8/D3 touch were run by name instead. `ui:flow -- <name>` does not reseed: running controls-drag-reorder then controls-extra-keys in one session fails the second (Attack moved to Weapons) - not a product defect. Review 1 (default tier): PASS. AC1 colour-literals.test.ts passed; AC2 typography-tokens.test.ts passed; AC3 mods-remove step passed; AC4 DeleteCategoryDialog + ServersView tests passed, ui:verify exit 0; AC5 four ControlsEntryRow tests passed; AC6 rows gone, `check-docs` exit 0. No manual residue.
+
+**Decisions:**
+
+- Both new scanning tests are node-only: excluded from `tsconfig.web.json`, included in `tsconfig.node.json`, like `side-tokens.test.ts`.
+- New colour tokens (shade, glint, night, void-deep, backdrop-top/-bottom, danger-hi/-lo/-edge/-ink) hold the exact old literals; alpha tints use `color-mix`.
+- ServersView.test.tsx already existed; the locked-watchlist test was appended.
+- D8: grip passed as inputs (`ControlsRowGrip`) and built by `ControlsGripHandle` inside the row; per-row edited/revealed/expanded state became boolean props instead of Sets in ctx.
+- Open visual points (not re-opened, size is the user's decision): 11px tile tags/`.ctrl-cap` and TitleBar `leading-normal` were not eyeballed in screenshots. Docs for downloads/home/replays modules not touched (class swaps only), as decided.
+
+tiers: D 9 / hard 1 · review default · cycles 0 · agents 11

@@ -1,4 +1,5 @@
 import { memo, useCallback, type ReactNode } from 'react'
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Pencil, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { actionKeySlots } from '@shared/config/catalog/action-slots'
@@ -25,6 +26,7 @@ import {
 import { rawCommandText, type ControlsRowEntry } from '../lib/controls-row-entries'
 import type { ControlsRows } from '../lib/useControlsRows'
 import { BindSlot, BindSlotPlaceholder } from './BindSlot'
+import { ControlsGripHandle } from './ControlsGrid'
 import { ControlsOptionsCell } from './ControlsOptionsCell'
 import { ControlsRow } from './ControlsRow'
 import { ControlsRowMenu } from './ControlsRowMenu'
@@ -38,9 +40,10 @@ export interface MessageEditorTarget {
 }
 
 /**
- * Everything a Controls row reads from the tab, built once per relevant change so a memoised row
- * re-renders only when something it shows actually changed. Every callback must keep its identity
- * across renders for that to hold.
+ * Everything every Controls row reads from the tab, built once per relevant change so a memoised
+ * row re-renders only when something it shows actually changed. Every callback must keep its
+ * identity across renders for that to hold. Per-row view state (edited, revealed, expanded) is not
+ * here but a row prop, so changing it for one row re-renders that row only.
  */
 export interface ControlsEntryRowContext {
   draft: ConfigProfile
@@ -48,9 +51,6 @@ export interface ControlsEntryRowContext {
   /** Catalogue entries' derived state; the only source of a catalogue row's keys. */
   rowState: ControlsRows['rowState']
   moveTargets: ControlsRows['moveTargets']
-  editedActionIds: ReadonlySet<string>
-  revealedMessageRows: ReadonlySet<string>
-  expandedKeyRows: ReadonlySet<string>
   unavailableReasonKey: (row: CatalogRow) => string | undefined
   onActionsChange: (nextActions: ConfigAction[]) => void
   onReset: (actionId: string) => void
@@ -69,7 +69,18 @@ export interface ControlsEntryRowContext {
 export interface ControlsEntryRowProps {
   entry: ControlsRowEntry
   odd: boolean
-  grip: ReactNode
+  /** The row carries an unsaved edit. */
+  edited: boolean
+  /** The drop message row is shown even while the message is still empty. */
+  messageRevealed: boolean
+  /** Three or more keys are unfolded into their own sub-rows. */
+  keysExpanded: boolean
+  /** The drag grip's inputs (`ControlsRowGrip`), flat so each is compared on its own; no grip is
+   * drawn without `gripAttributes`. */
+  gripAttributes?: DraggableAttributes
+  gripListeners?: DraggableSyntheticListeners
+  dragDisabled?: boolean
+  dragDisabledReason?: string
   ctx: ControlsEntryRowContext
 }
 
@@ -82,7 +93,18 @@ const NO_KEYS: readonly ActionKeySlot[] = []
  * the keys come from, the label/command text, whether an assignment first gives a body-less entry
  * the catalogue's commands, and which affordances the Options cell carries.
  */
-function ControlsEntryRowImpl({ entry, odd, grip, ctx }: ControlsEntryRowProps) {
+function ControlsEntryRowImpl({
+  entry,
+  odd,
+  edited,
+  messageRevealed,
+  keysExpanded,
+  gripAttributes,
+  gripListeners,
+  dragDisabled = false,
+  dragDisabledReason = '',
+  ctx,
+}: ControlsEntryRowProps) {
   const { t } = useTranslation()
   const { setRowElement } = ctx
   const { action } = entry
@@ -108,7 +130,7 @@ function ControlsEntryRowImpl({ entry, odd, grip, ctx }: ControlsEntryRowProps) 
   const isDrop = isDropEntry(action) || (row !== undefined && isDropCatalogRow(row))
   const dropState = dropStateFor(action)
   const message = isDrop ? (dropState.message ?? '') : ''
-  const messageOn = message.trim().length > 0 || ctx.revealedMessageRows.has(action.id)
+  const messageOn = message.trim().length > 0 || messageRevealed
   // Catalogue-mirror entry ids are minted fresh on every seed; `catalogId` is the stable handle.
   const testIdBase = row?.catalogId ?? action.id
 
@@ -179,8 +201,7 @@ function ControlsEntryRowImpl({ entry, odd, grip, ctx }: ControlsEntryRowProps) 
 
   // Two bindings stay inline; three or more fold behind a disclosure, open per row.
   const hasMany = keys.length >= 3
-  const expanded = ctx.expandedKeyRows.has(action.id)
-  const foldedOpen = hasMany && expanded
+  const foldedOpen = hasMany && keysExpanded
   const toggleLabel = t(
     foldedOpen ? 'config.controls.grid.keyMoreHide' : 'config.controls.grid.keyMoreShow',
     { count: keys.length - 1, name: label },
@@ -268,11 +289,20 @@ function ControlsEntryRowImpl({ entry, odd, grip, ctx }: ControlsEntryRowProps) 
       resetLabel={t('config.controls.actions.reset', { name: label })}
       onReset={() => ctx.onReset(action.id)}
       odd={odd}
-      edited={ctx.editedActionIds.has(action.id)}
+      edited={edited}
       keyCell={keyCell}
       extraKeyRows={extraKeyRows}
       rowId={action.id}
-      grip={grip}
+      grip={
+        gripAttributes ? (
+          <ControlsGripHandle
+            attributes={gripAttributes}
+            listeners={gripListeners}
+            disabled={dragDisabled}
+            disabledReason={dragDisabledReason}
+          />
+        ) : undefined
+      }
       unavailable={unavailable}
       optionsCell={
         // No `flex-wrap`: the Options track fits its icon buttons only at 2px gaps, and wrapping

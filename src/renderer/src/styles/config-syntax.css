@@ -4,7 +4,7 @@
    Style layer for `ConfigCodeView` (story 024 D2), the highlighted read-only
    viewer that replaces the plain `CodeBlock` primitive for config text. Every
    value here reads a @theme token or a local geometry variable declared in
-   this file — no hex, no rgb(), no Tailwind palette class, same rule as
+   this file — no colour literal, no Tailwind palette class, same rule as
    `controls-grid.css`.
 
    Prefix: `cfg-code-` for the layout, `cfg-tok-` for the token kinds. The
@@ -35,7 +35,7 @@
 
 /* --- shared typography + geometry ---------------------------------------
    The font size, line height and block padding match the `CodeBlock`
-   primitive this view replaces (`text-[11px]`, `p-3`, `max-h-64`), so D4's
+   primitive this view replaces (`text-2xs`, `p-3`, `max-h-64`), so D4's
    swap-in does not change the visible size of Raw File or the preview
    dialog. The line height is a fixed px value on purpose: the gutter rows
    read the same variable for their `height`, and that is the whole basis of
@@ -47,7 +47,7 @@
   --cfg-code-pad: 12px;
 
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   line-height: var(--cfg-code-line-h);
   tab-size: 4;
 }
@@ -207,7 +207,7 @@
   color: transparent;
   caret-color: var(--color-ink);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   line-height: var(--cfg-code-line-h);
   tab-size: 4;
   white-space: pre;
@@ -305,7 +305,7 @@
 .cfg-code-search-count {
   min-width: 5.5rem;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-ink-muted);
 }

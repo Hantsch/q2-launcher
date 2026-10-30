@@ -102,7 +102,7 @@ export function AboutPanel() {
         <div className="min-w-0">
           <SectionLabel>{t('settings.userData')}</SectionLabel>
           <p
-            className="numeric truncate text-[11px] text-ink-muted"
+            className="numeric truncate text-2xs text-ink-muted"
             title={appInfo?.userDataPath}
             data-selectable
           >
@@ -126,7 +126,7 @@ export function AboutPanel() {
         <div className="min-w-0">
           <SectionLabel>{t('settings.logs')}</SectionLabel>
           <p
-            className="numeric truncate text-[11px] text-ink-muted"
+            className="numeric truncate text-2xs text-ink-muted"
             title={appInfo?.logPath}
             data-selectable
           >

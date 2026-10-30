@@ -225,3 +225,28 @@
 - 2026-10-30 14:11:50 · 327 · review 1 · started
 - 2026-10-30 14:12:45 · 327 · review 1 · done
 - 2026-10-30 14:12:46 · 327 · story · done
+- 2026-10-30 14:13:01 · 324 · build · started
+- 2026-10-30 14:13:29 · 324 · D1 colour literals · started
+- 2026-10-30 14:14:15 · 324 · D1 colour literals · done
+- 2026-10-30 14:14:15 · 324 · D2 typography tokens CSS · started
+- 2026-10-30 14:15:12 · 324 · D2 typography tokens CSS · done
+- 2026-10-30 14:15:12 · 324 · D3 size sweep shell+ui · started
+- 2026-10-30 14:15:12 · 324 · D4 size sweep views+small modules · started
+- 2026-10-30 14:16:21 · 324 · D3 size sweep shell+ui · done
+- 2026-10-30 14:16:21 · 324 · D4 size sweep views+small modules · done
+- 2026-10-30 14:16:34 · 324 · D5 size sweep config/replays/servers + check · started
+- 2026-10-30 14:17:38 · 324 · D5 size sweep config/replays/servers + check · done
+- 2026-10-30 14:17:38 · 324 · D6 radio floor · started
+- 2026-10-30 14:17:38 · 324 · D7 dialog confirm + tabpanel · started
+- 2026-10-30 14:17:38 · 324 · D8 controls rows memo (hard) · started
+- 2026-10-30 14:22:57 · 324 · D6 radio floor · done
+- 2026-10-30 14:22:57 · 324 · D7 dialog confirm + tabpanel · done
+- 2026-10-30 14:22:57 · 324 · D8 controls rows memo (hard) · done
+- 2026-10-30 14:22:57 · 324 · D9 docs close debt · started
+- 2026-10-30 14:23:26 · 324 · D9 docs close debt · done
+- 2026-10-30 14:23:26 · 324 · verify · started
+- 2026-10-30 14:38:03 · 324 · verify · blocked: controls-extra-keys red, affected shard 1/2 exceeded ceiling
+- 2026-10-30 14:42:53 · 324 · verify · done
+- 2026-10-30 14:42:53 · 324 · review 1 · started
+- 2026-10-30 14:47:21 · 324 · review 1 · done
+- 2026-10-30 14:47:21 · 324 · story · done

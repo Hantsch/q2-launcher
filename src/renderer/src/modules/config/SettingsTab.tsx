@@ -1031,7 +1031,7 @@ export function SettingsTab() {
                               >
                                 <div className="flex min-w-0 items-center gap-2">
                                   <DragHandle attributes={attributes} listeners={listeners} />
-                                  <span className="truncate font-display text-[11px] tracking-[0.06em] text-ink-faint uppercase">
+                                  <span className="truncate font-display text-2xs tracking-[0.06em] text-ink-faint uppercase">
                                     {sub.subsection.name}
                                   </span>
                                 </div>

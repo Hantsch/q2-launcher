@@ -323,13 +323,20 @@ export function ServersView() {
     </div>
   )
 
+  const body = activeTab === 'watchlist' ? isWatchlistUnlocked && watchlistAndDetail : listAndDetail
+
   return (
     <div className="flex h-full flex-col">
       {join.dialogs}
       <ServersTabStrip activeTab={activeTab} onChange={setActiveTab} />
-      <TabPanel idBase="servers" tabId={activeTab} className="min-h-0 flex-1">
-        {activeTab === 'watchlist' ? isWatchlistUnlocked && watchlistAndDetail : listAndDetail}
-      </TabPanel>
+      {/* Without the tab strip there is no tab for a panel to be labelled by. */}
+      {isWatchlistUnlocked ? (
+        <TabPanel idBase="servers" tabId={activeTab} className="min-h-0 flex-1">
+          {body}
+        </TabPanel>
+      ) : (
+        <div className="min-h-0 flex-1">{body}</div>
+      )}
     </div>
   )
 }

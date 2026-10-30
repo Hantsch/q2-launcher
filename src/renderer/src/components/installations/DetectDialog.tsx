@@ -165,11 +165,11 @@ export function DetectDialog({ autoStart = false }: { autoStart?: boolean }) {
               active
             />
             {progress?.currentPath && (
-              <p className="numeric truncate text-[10px] text-ink-faint">
+              <p className="numeric truncate text-2xs text-ink-faint">
                 {t('dialog.detect.scanningPath', { path: shortenPath(progress.currentPath, 60) })}
               </p>
             )}
-            <p className="text-[11px] text-ink-muted">
+            <p className="text-2xs text-ink-muted">
               {t('dialog.detect.found', { count: progress?.candidatesFound ?? 0 })}
             </p>
           </div>
@@ -236,7 +236,7 @@ export function DetectDialog({ autoStart = false }: { autoStart?: boolean }) {
                             )}
                           </span>
                           <span
-                            className="numeric block truncate text-[11px] text-ink-muted"
+                            className="numeric block truncate text-2xs text-ink-muted"
                             title={candidate.rootPath}
                           >
                             {candidate.rootPath}

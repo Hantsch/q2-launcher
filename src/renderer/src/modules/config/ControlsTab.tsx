@@ -347,23 +347,10 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
       conflictIndex,
       rowState,
       moveTargets,
-      editedActionIds,
-      revealedMessageRows,
-      expandedKeyRows,
       unavailableReasonKey,
       ...rowHandlers,
     }),
-    [
-      draft,
-      conflictIndex,
-      rowState,
-      moveTargets,
-      editedActionIds,
-      revealedMessageRows,
-      expandedKeyRows,
-      unavailableReasonKey,
-      rowHandlers,
-    ],
+    [draft, conflictIndex, rowState, moveTargets, unavailableReasonKey, rowHandlers],
   )
 
   return (
@@ -504,10 +491,18 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
                 renderRow={(entry, index, grip) => (
                   // Parity runs across the whole filtered row list, not per group - see
                   // `ControlsRow`'s doc comment for why this replaces CSS `:nth-of-type`.
+                  // Every prop is a primitive or an identity-stable value, so an unchanged row skips
+                  // this render; the grip's inputs are passed flat for the same reason.
                   <ControlsEntryRow
                     entry={entry}
                     odd={index % 2 === 0}
-                    grip={grip}
+                    edited={editedActionIds.has(entry.action.id)}
+                    messageRevealed={revealedMessageRows.has(entry.action.id)}
+                    keysExpanded={expandedKeyRows.has(entry.action.id)}
+                    gripAttributes={grip.attributes}
+                    gripListeners={grip.listeners}
+                    dragDisabled={grip.disabled}
+                    dragDisabledReason={grip.disabledReason}
                     ctx={entryRowContext}
                   />
                 )}

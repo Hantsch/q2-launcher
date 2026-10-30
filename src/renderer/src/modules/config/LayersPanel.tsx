@@ -287,7 +287,7 @@ export function LayersPanel({
                         {t('config.layersPanel.preview.empty')}
                       </p>
                     ) : (
-                      <pre className="numeric max-h-64 overflow-auto rounded-sm border border-line bg-void p-3 text-[11px] whitespace-pre text-ink-muted">
+                      <pre className="numeric max-h-64 overflow-auto rounded-sm border border-line bg-void p-3 text-2xs whitespace-pre text-ink-muted">
                         {preview.aliases.map((alias) => alias.line).join('\n')}
                       </pre>
                     )}

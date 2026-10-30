@@ -69,7 +69,7 @@ export function Badge({
       data-testid={testId}
       className={cn(
         'inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5',
-        'font-display text-[10px] font-medium tracking-[0.12em] uppercase',
+        'font-display text-2xs font-medium tracking-[0.12em] uppercase',
         BADGE_TONES[tone],
         className,
       )}

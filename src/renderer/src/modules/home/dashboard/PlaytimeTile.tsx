@@ -90,7 +90,7 @@ export function PlaytimeTile() {
 
         {engineEntries.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5" data-testid="playtime-tile-engines">
-            <SectionLabel className="text-[9px]">
+            <SectionLabel className="text-2xs">
               {t('home.dashboard.tiles.playtime.engines.label')}
             </SectionLabel>
             {engineEntries.map(([engine, count]) => (
@@ -126,7 +126,7 @@ function StatBlock({ label, value, tone }: { label: string; value: string; tone?
   return (
     <div className="flex flex-col items-center gap-0.5 rounded-sm border border-line bg-panel px-1.5 py-1.5">
       <span className={cn('numeric text-base leading-none text-ink', tone)}>{value}</span>
-      <span className="stencil text-center text-[9px] leading-tight">{label}</span>
+      <span className="stencil text-center text-2xs leading-tight">{label}</span>
     </div>
   )
 }

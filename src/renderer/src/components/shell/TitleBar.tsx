@@ -47,10 +47,10 @@ export function TitleBar() {
           size below `lg`, which is the width from which the full-size block provably fits. */}
       <div className="flex shrink-0 items-center pr-5 pl-4 whitespace-nowrap lg:pr-6 lg:pl-5">
         <div className="leading-none">
-          <div className="font-display text-[20px] font-semibold tracking-[0.18em] text-ink uppercase lg:text-[26px]">
+          <div className="font-display text-xl leading-normal font-semibold tracking-[0.18em] text-ink uppercase lg:text-display">
             {t('app.wordmark')}
           </div>
-          <div className="stencil mt-0.5 text-[14px] tracking-[0.3em] lg:text-[18px]">
+          <div className="stencil mt-0.5 text-sm leading-normal tracking-[0.3em] lg:text-lg lg:leading-normal">
             {t('app.tagline')}
           </div>
         </div>
@@ -154,7 +154,7 @@ function NavItem({
       aria-current={active ? 'page' : undefined}
       className={cn(
         'no-drag relative flex items-center gap-1.5 px-4',
-        'font-display text-[13px] font-medium tracking-[0.14em] uppercase',
+        'font-display text-compact font-medium tracking-[0.14em] uppercase',
         'transition-colors duration-[--dur-fast]',
         active ? 'text-ink' : 'text-ink-muted hover:text-ink-dim',
       )}

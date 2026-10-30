@@ -226,7 +226,7 @@ export function ImportProfileDialog({
                   <p title={file.fileName} className="truncate text-xs font-medium text-ink">
                     {file.fileName}
                   </p>
-                  <p title={file.dirName} className="truncate text-[11px] text-ink-muted">
+                  <p title={file.dirName} className="truncate text-2xs text-ink-muted">
                     {file.dirName}
                   </p>
                 </div>

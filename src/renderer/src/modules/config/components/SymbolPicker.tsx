@@ -44,7 +44,7 @@ export function SymbolPicker({
               className="flex min-w-9 flex-col items-center gap-0.5 rounded-sm border border-line px-1.5 py-1 text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover"
             >
               <span className="text-sm leading-none">{glyph.ascii}</span>
-              <span className="numeric text-[9px] leading-none text-ink-muted">{hex}</span>
+              <span className="numeric text-2xs leading-none text-ink-muted">{hex}</span>
             </button>
           )
         })}

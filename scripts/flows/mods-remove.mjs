@@ -131,6 +131,20 @@ export default async function modsRemove({ page, shot, step }) {
   if (!(await page.getByTestId('mods-remove-changed-keep').isChecked()))
     failures.push('keep is not the default')
   await shot('remove-dialog-opentdm')
+  const radioHeights = await page.evaluate(() =>
+    ['keep', 'delete'].map(
+      (id) =>
+        document
+          .querySelector(`[data-testid="mods-remove-changed-${id}"]`)
+          ?.closest('label')
+          ?.getBoundingClientRect().height ?? 0,
+    ),
+  )
+  check(
+    'the changed-files radios are at least 24px high',
+    radioHeights.every((h) => h >= 24),
+    `heights=${JSON.stringify(radioHeights)}`,
+  )
   await page.getByTestId('mods-remove-changed-delete').check({ timeout: TIMEOUT_MS })
   await page.getByTestId('mods-remove-confirm').click({ timeout: TIMEOUT_MS })
   await page.getByRole('dialog').waitFor({ state: 'detached', timeout: TIMEOUT_MS })

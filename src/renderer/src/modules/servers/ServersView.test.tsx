@@ -976,3 +976,13 @@ describe('ServersView - keyboard navigation', () => {
     expect(selectedAddresses()).toEqual([ADDRESSES[0]])
   })
 })
+
+describe('ServersView - tab-panel labelling', () => {
+  it('with the watchlist locked the servers body carries no tab-panel labelling', async () => {
+    await renderView(snapshot({}))
+    await screen.findByTestId('servers-refresh')
+
+    expect(document.querySelector('[role="tabpanel"]')).toBeNull()
+    expect(document.querySelector('[aria-labelledby^="servers-tab-"]')).toBeNull()
+  })
+})

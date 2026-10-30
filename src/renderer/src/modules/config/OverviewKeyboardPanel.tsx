@@ -424,16 +424,16 @@ export function OverviewKeyboardPanel({
     trigger: TriggerInfo | null,
   ) => (
     <>
-      <span className="text-[11px] leading-none font-semibold">{def.label}</span>
+      <span className="text-2xs leading-none font-semibold">{def.label}</span>
       {trigger ? (
-        <span className="max-w-full truncate text-[8px] leading-none text-strogg-300/90">
+        <span className="max-w-full truncate text-keycap leading-none text-strogg-300/90">
           {t('config.overview.trigger.layerLabel', { layer: trigger.layerName })}
         </span>
       ) : (
         commandLabel && (
           <span
             className={cn(
-              'max-w-full truncate text-[8px] leading-none',
+              'max-w-full truncate text-keycap leading-none',
               warn ? 'text-warning' : 'text-flame-300/90',
               !commandLabel.recognized && 'font-mono',
             )}
@@ -444,7 +444,7 @@ export function OverviewKeyboardPanel({
         )
       )}
       {baseReferenceLabel && (
-        <span className="max-w-full truncate text-[7px] leading-none text-ink-muted italic opacity-80">
+        <span className="max-w-full truncate text-keycap leading-none text-ink-muted italic opacity-80">
           {baseReferenceLabel.label}
         </span>
       )}

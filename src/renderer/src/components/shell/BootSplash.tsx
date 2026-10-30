@@ -22,7 +22,7 @@ export function BootSplash() {
           its way: bottom-anchored, and it names the launcher rather than the game. */}
       <div className="relative flex h-full flex-col items-center justify-end pb-16">
         <div className="flex w-64 flex-col items-center gap-3">
-          <div className="font-display text-[22px] leading-none font-semibold tracking-[0.38em] text-ink uppercase">
+          <div className="font-display text-display-sm leading-none font-semibold tracking-[0.38em] text-ink uppercase">
             {t('app.tagline')}
           </div>
 
@@ -30,7 +30,7 @@ export function BootSplash() {
             <div className="progress-fill" data-indeterminate="true" />
           </div>
 
-          <div className="stencil text-[10px] text-ink-muted">{t('app.boot.status')}</div>
+          <div className="stencil text-2xs text-ink-muted">{t('app.boot.status')}</div>
         </div>
       </div>
     </div>

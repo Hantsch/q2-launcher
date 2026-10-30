@@ -130,7 +130,7 @@ export function ActionBar() {
 
           {installation ? (
             <>
-              <div className="flex items-center gap-2 text-[11px] text-ink-muted">
+              <div className="flex items-center gap-2 text-2xs text-ink-muted">
                 <StatusDot className={statusTone(installation.status).dot} />
                 <span className={statusTone(installation.status).text}>
                   {t(statusTone(installation.status).labelKey)}
@@ -161,7 +161,7 @@ ${installation.activeGameDir}`}
               )}
             </>
           ) : (
-            <p className="text-[11px] text-ink-muted">{t('empty.body')}</p>
+            <p className="text-2xs text-ink-muted">{t('empty.body')}</p>
           )}
         </div>
       </div>
@@ -241,7 +241,7 @@ ${installation.activeGameDir}`}
           </PlayButton>
         </div>
         {appVersion && (
-          <span className="stencil text-[9px] tracking-[0.2em]">
+          <span className="stencil text-2xs tracking-[0.2em]">
             {t('actionbar.buildLabel', { version: appVersion })}
           </span>
         )}
@@ -263,7 +263,7 @@ function GameDirSelect({
 
   return (
     <div className="flex items-center gap-2">
-      <span className="stencil text-[9px]">{t('dialog.gameDir.label')}</span>
+      <span className="stencil text-2xs">{t('dialog.gameDir.label')}</span>
       <Select
         className="h-6 w-44 py-0 text-xs"
         aria-label={t('dialog.gameDir.label')}
@@ -348,7 +348,7 @@ function MapSelect({
 
   return (
     <div className="flex items-center gap-2">
-      <span className="stencil text-[9px]">{t('common.label.map')}</span>
+      <span className="stencil text-2xs">{t('common.label.map')}</span>
       <Select
         className="h-6 w-44 py-0 text-xs"
         aria-label={t('common.label.map')}
@@ -371,7 +371,7 @@ function JobReadout({ job, onCancel }: { job: Job; onCancel: () => void }) {
   return (
     <>
       <div className="flex items-baseline justify-between gap-3">
-        <div className="numeric flex items-baseline gap-3 text-[11px] tracking-wide text-ink-dim uppercase">
+        <div className="numeric flex items-baseline gap-3 text-2xs tracking-wide text-ink-dim uppercase">
           {/* Story 091: a waiting job names its reason (mirrors `RunningStep.tsx`'s
               `job.error` rendering) instead of reusing the download readout, which would read as
               a generic "queued" state. */}
@@ -413,7 +413,7 @@ function JobReadout({ job, onCancel }: { job: Job; onCancel: () => void }) {
         {...(job.playableAtRatio !== undefined ? { playableAtRatio: job.playableAtRatio } : {})}
       />
 
-      <div className="flex items-center justify-between gap-3 text-[10px]">
+      <div className="flex items-center justify-between gap-3 text-2xs">
         {job.playableAtRatio !== undefined ? (
           <span
             className="stencil flex items-center gap-1 text-strogg-500"
@@ -474,9 +474,9 @@ function LaunchReadout({
   // unlabelled path floating in the middle of the bar.
   return (
     <div className="min-w-0 space-y-0.5">
-      <div className="stencil text-[9px]">{t('common.label.engineExecutable')}</div>
+      <div className="stencil text-2xs">{t('common.label.engineExecutable')}</div>
       <p
-        className="numeric truncate text-[11px] text-ink-muted"
+        className="numeric truncate text-2xs text-ink-muted"
         title={installation.executablePath ?? ''}
       >
         {installation.executablePath

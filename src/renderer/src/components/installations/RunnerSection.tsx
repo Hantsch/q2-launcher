@@ -119,7 +119,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
                   <p
                     key={option.kind}
                     id={`installation-runner-reason-${installation.id}-${option.kind}`}
-                    className="pl-0.5 text-[11px] leading-relaxed text-ink-muted"
+                    className="pl-0.5 text-2xs leading-relaxed text-ink-muted"
                     data-testid={`installation-runner-reason-${option.kind}`}
                   >
                     {t(option.reasonKey as string, option.reasonParams ?? {})}
@@ -137,7 +137,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
           Steam already gets its own short disabled reason from the block above). */}
       {steamOption && steamSelected && (
         <p
-          className="pl-2.5 text-[11px] leading-relaxed text-ink-muted"
+          className="pl-2.5 text-2xs leading-relaxed text-ink-muted"
           data-testid="installation-runner-steam-caveat"
         >
           {t('runner.steam.caveat')}
@@ -149,7 +149,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
           {/* Mirrors `EngineScopeSelect.tsx`'s label/control pairing: a sibling `<label>` with
               `htmlFor` pointing at the `Select`'s own `id`, rather than an unassociated `<span>` -
               the same fix story 037 made for `Field`. */}
-          <label className="stencil text-[9px]" htmlFor={steamClientSelectId}>
+          <label className="stencil text-2xs" htmlFor={steamClientSelectId}>
             {t('runner.steam.client.label')}
           </label>
           <Select

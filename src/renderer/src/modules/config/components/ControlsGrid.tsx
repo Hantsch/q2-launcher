@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core'
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { ConfigActionSubcategory } from '@shared/modules/config'
@@ -75,12 +76,11 @@ export interface ControlsGridProps {
    * Renders one row's content. `index` is this row's position across the *whole* filtered row
    * list (not per-group) — the `ControlsRow` uses it to compute zebra parity explicitly, since
    * CSS `:nth-of-type` resets at every group divider (see `ControlsRow`'s doc comment). `grip` is
-   * this row's `DragHandle`, already wired to the sortable item and to the disabled state — the
-   * caller only has to hand it to `ControlsRow`'s `grip` prop, which puts it in the reserved
-   * `.ctrl-grip` cell. Defaults to `renderPlaceholderRow` (name only) for a
-   * caller that renders no real row.
+   * what this row's drag handle is built from (`ControlsGripHandle`), handed over as inputs rather
+   * than as a ready element so a memoised row can take them as props and still skip a re-render.
+   * Defaults to `renderPlaceholderRow` (name only) for a caller that renders no real row.
    */
-  renderRow?: (entry: ControlsRowEntry, index: number, grip: ReactNode) => ReactNode
+  renderRow?: (entry: ControlsRowEntry, index: number, grip: ControlsRowGrip) => ReactNode
   /** Footer's "n rows" — the count of rows on screen, which follows the filter once filtering is on. */
   rowCount: number
   /** Footer's "m bound" — how many of `rowCount` carry at least one key. */
@@ -101,6 +101,23 @@ export interface ControlsGridProps {
    * explaining tooltip.
    */
   dragDisabled?: boolean
+}
+
+/**
+ * The inputs of one row's drag grip. Each keeps its identity across a re-render with unchanged drag
+ * state (dnd-kit memoises `attributes`/`listeners`; the rest are primitives), which is what lets
+ * a memoised row receive them without re-rendering on every grid render.
+ */
+export interface ControlsRowGrip {
+  attributes: DraggableAttributes
+  listeners: DraggableSyntheticListeners
+  disabled: boolean
+  disabledReason: string
+}
+
+/** A row's drag grip, for `ControlsRow`'s reserved `.ctrl-grip` cell. */
+export function ControlsGripHandle(grip: ControlsRowGrip) {
+  return <DragHandle className="ctrl-grip-handle" {...grip} />
 }
 
 /** Fallback row for a caller that has not wired the `ControlsRow` yet: the entry's name only, in
@@ -133,6 +150,7 @@ export function ControlsGrid({
 }: ControlsGridProps) {
   const { t } = useTranslation()
   const drag = useSortableZoneState()
+  const gripDisabledReason = t('config.controls.grid.gripFilterActive')
 
   // move up/down is disabled at the first/last *sub-category* group - the ungrouped
   // run (`subcategory: null`) is never itself a target, so it does not count. Counted up front
@@ -253,7 +271,7 @@ export function ControlsGrid({
                             attributes={attributes}
                             listeners={listeners}
                             disabled={dragDisabled}
-                            disabledReason={t('config.controls.grid.gripFilterActive')}
+                            disabledReason={gripDisabledReason}
                           />
                           <span className="ctrl-group-eyebrow">{subcategory.name}</span>
                           <span className="ctrl-group-rule" aria-hidden="true" />
@@ -327,17 +345,12 @@ export function ControlsGrid({
                       role="rowgroup"
                       data-row-id={entry.action.id}
                     >
-                      {renderRow(
-                        entry,
-                        rowIndexById.get(entry.action.id) ?? 0,
-                        <DragHandle
-                          className="ctrl-grip-handle"
-                          attributes={attributes}
-                          listeners={listeners}
-                          disabled={dragDisabled}
-                          disabledReason={t('config.controls.grid.gripFilterActive')}
-                        />,
-                      )}
+                      {renderRow(entry, rowIndexById.get(entry.action.id) ?? 0, {
+                        attributes,
+                        listeners,
+                        disabled: dragDisabled,
+                        disabledReason: gripDisabledReason,
+                      })}
                     </div>
                   )}
                 </SortableItem>

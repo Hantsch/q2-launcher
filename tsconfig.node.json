@@ -25,6 +25,8 @@
     "src/renderer/src/i18n/keys.test.ts",
     "src/renderer/src/i18n/bundle.test.ts",
     "src/renderer/src/styles/side-tokens.test.ts",
+    "src/renderer/src/styles/colour-literals.test.ts",
+    "src/renderer/src/styles/typography-tokens.test.ts",
     "src/test-support/source-files.ts",
     "src/renderer/src/lib/toast.ts"
   ],

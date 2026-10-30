@@ -163,7 +163,7 @@ export function LibraryView() {
 function StatTile({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <Panel className="space-y-1 p-3">
-      <SectionLabel className="text-[9px]">{label}</SectionLabel>
+      <SectionLabel className="text-2xs">{label}</SectionLabel>
       <div className={cn('numeric text-xl leading-none text-ink', tone)}>{value}</div>
     </Panel>
   )
@@ -234,7 +234,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-muted">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-2xs text-ink-muted">
             <span className={cn('flex items-center gap-1.5', tone.text)}>
               <StatusDot className={tone.dot} />
               {t(tone.labelKey)}
@@ -260,7 +260,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
           {/* `ink-muted` not `ink-faint`: the path is information, and faint is
               documented as decorative-only (2.6:1) in the token file. */}
           <p
-            className="numeric truncate text-[11px] text-ink-muted"
+            className="numeric truncate text-2xs text-ink-muted"
             title={installation.rootPath}
             data-selectable
           >

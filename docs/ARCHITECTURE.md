@@ -520,6 +520,14 @@ Four kinds of renderer state, picked in this order:
 ink ramp, the amber `flame` ramp, `strogg` green, `rust`, semantics, type scale,
 radii, motion. Contrast ratios are noted in comments next to the text tokens.
 
+The type scale is tokens only: `--text-2xs` (11px), `--text-xs` (12px), `--text-compact` (13px),
+`--text-sm` (14px), `--text-lg`/`--text-xl` (18/20px), `--text-display-sm`/`--text-display`/
+`--text-display-xl` (22/26/56px), and `--text-keycap` (8px), reserved for keyboard-panel keycap
+legends. Two tests guard the tokens: `styles/colour-literals.test.ts` (no colour literals) and
+`styles/typography-tokens.test.ts`, which fails on any `text-[Npx]` class, on any `font-size:` in
+`styles/*.css` that is not `var(--text-…)` or `inherit`, and on `text-keycap` outside
+`modules/config/OverviewKeyboardPanel.tsx`.
+
 `styles/surfaces.css` holds the handwritten surfaces and is imported **into the
 `components` layer**:
 

@@ -229,10 +229,7 @@ export function DemoRow({
             </span>
           </p>
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <span
-              className="truncate text-[11px] text-ink-muted"
-              data-testid="replays-demo-gamemode"
-            >
+            <span className="truncate text-2xs text-ink-muted" data-testid="replays-demo-gamemode">
               {gamemodeDescription.labelKey !== undefined
                 ? t(gamemodeDescription.labelKey)
                 : gamemodeDescription.text}
@@ -240,7 +237,7 @@ export function DemoRow({
             <Badge tone="neutral" testId="replays-demo-format">
               {formatLabel(row.format, row.gzip, t)}
             </Badge>
-            <span className="truncate text-[11px] text-ink-muted" data-testid="replays-demo-source">
+            <span className="truncate text-2xs text-ink-muted" data-testid="replays-demo-source">
               {folderText ?? sourceText}
             </span>
 
@@ -278,7 +275,7 @@ export function DemoRow({
           </div>
         </div>
 
-        <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-map">
+        <span className="numeric truncate text-right text-2xs" data-testid="replays-demo-map">
           {row.effective.map.value !== null ? row.effective.map.value : <UnknownValue />}
         </span>
         <span className="truncate text-right" data-testid="replays-demo-mod">
@@ -287,13 +284,10 @@ export function DemoRow({
         <span className="truncate text-right" data-testid="replays-demo-sides">
           {sides !== '' ? sides : <UnknownValue />}
         </span>
-        <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-date">
+        <span className="numeric truncate text-right text-2xs" data-testid="replays-demo-date">
           {date !== null ? date : <UnknownValue />}
         </span>
-        <span
-          className="numeric truncate text-right text-[11px]"
-          data-testid="replays-demo-duration"
-        >
+        <span className="numeric truncate text-right text-2xs" data-testid="replays-demo-duration">
           {duration.kind === 'known' ? duration.text : <UnknownValue />}
         </span>
         {/* This column's real content (badges + quick controls) is the outer div's sibling below -
@@ -363,7 +357,7 @@ export function DemoRow({
           tabIndex={-1}
           data-testid="replays-row-rating"
           value={rating !== undefined ? String(rating) : ''}
-          className="h-6 rounded-sm border border-line-strong bg-void/60 px-1 text-[11px] text-ink disabled:opacity-45"
+          className="h-6 rounded-sm border border-line-strong bg-void/60 px-1 text-2xs text-ink disabled:opacity-45"
           onClick={(event) => event.stopPropagation()}
           onKeyDown={handleRatingKeyDown}
           onChange={(event) => {
@@ -389,7 +383,7 @@ export function DemoRow({
           <span
             id={archiveReadonlyRowId}
             data-testid="replays-archive-readonly-row"
-            className="text-[10px] text-ink-muted"
+            className="text-2xs text-ink-muted"
           >
             {t('replays.archive.readOnly.row')}
           </span>

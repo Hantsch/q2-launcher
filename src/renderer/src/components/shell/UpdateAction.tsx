@@ -66,7 +66,7 @@ export function UpdateAction() {
             ratio={update.progress?.ratio ?? null}
             label={t('appUpdate.progress.label')}
           />
-          <div className="numeric flex items-center justify-between text-[11px] text-ink-muted">
+          <div className="numeric flex items-center justify-between text-2xs text-ink-muted">
             <span>
               {update.progress
                 ? update.progress.bytesTotal

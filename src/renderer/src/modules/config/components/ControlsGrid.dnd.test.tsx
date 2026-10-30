@@ -7,7 +7,7 @@ import { initI18n } from '../../../i18n'
 import { groupControlsRowEntries } from '../lib/controls-row-groups'
 import { moveEntryToDropTarget, type EntryDropTarget } from '../lib/entry-order'
 import { ControlsDragZone } from './ControlsDragZone'
-import { ControlsGrid } from './ControlsGrid'
+import { ControlsGrid, ControlsGripHandle } from './ControlsGrid'
 import { ControlsRow } from './ControlsRow'
 
 /**
@@ -144,7 +144,7 @@ function renderGrid(options: { dragDisabled?: boolean } = {}): void {
               onReset={() => {}}
               odd={index % 2 === 0}
               rowId={entry.action.id}
-              grip={grip}
+              grip={<ControlsGripHandle {...grip} />}
               keyCell={<span>key</span>}
               optionsCell={<span>options</span>}
               // Story 056's extra-key sub-rows and story 029's message row, on one row, so the

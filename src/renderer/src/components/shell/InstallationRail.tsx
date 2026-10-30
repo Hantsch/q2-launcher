@@ -68,7 +68,7 @@ export function InstallationRail() {
       style={{ width: 'var(--rail-w)' }}
       aria-label={t('rail.label')}
     >
-      <SectionLabel className="text-[9px] tracking-[0.22em]">{t('rail.label')}</SectionLabel>
+      <SectionLabel className="text-2xs tracking-[0.22em]">{t('rail.label')}</SectionLabel>
 
       <ul className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto px-2 py-1">
         {installations.map((installation) => (
@@ -304,12 +304,12 @@ function RailCard({ installation }: { installation: Installation }) {
         <span className={cn('text-xs', tone.text)}>{t(tone.labelKey)}</span>
       </div>
 
-      <p className="numeric truncate text-[11px] text-ink-muted" title={installation.rootPath}>
+      <p className="numeric truncate text-2xs text-ink-muted" title={installation.rootPath}>
         {shortenPath(installation.rootPath, 40)}
       </p>
 
       {installation.gameDirs.length > 0 && (
-        <p className="text-[11px] text-ink-muted">
+        <p className="text-2xs text-ink-muted">
           {t('installation.mods', { count: installation.gameDirs.length })}
         </p>
       )}

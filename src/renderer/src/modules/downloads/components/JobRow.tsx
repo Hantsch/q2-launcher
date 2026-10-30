@@ -74,7 +74,7 @@ export function JobRow({ job, fading = false, onCancel }: JobRowProps) {
             label={t(job.labelKey, job.labelParams ?? {})}
             {...(job.playableAtRatio !== undefined ? { playableAtRatio: job.playableAtRatio } : {})}
           />
-          <div className="numeric flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-muted">
+          <div className="numeric flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-ink-muted">
             <span>
               {bytesTotal
                 ? `${formatBytes(bytesDone)} / ${formatBytes(bytesTotal)}`
