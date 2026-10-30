@@ -1,7 +1,7 @@
 ---
 id: 282
 title: 'Spike: what WebCodecs and Mediabunny can encode in Electron 43'
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -39,29 +39,29 @@ player, the sine tone is audible, no artefacts.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `cd spikes/282-webcodecs-matrix && npm install && node harness.mjs` exits 0 in a
+- [x] **AC1** — `cd spikes/282-webcodecs-matrix && npm install && node harness.mjs` exits 0 in a
       window with the launcher's `webPreferences` and writes `results/matrix-win32.json`.
-- [ ] **AC2** — The matrix holds the `VideoEncoder.isConfigSupported()` result for every
+- [x] **AC2** — The matrix holds the `VideoEncoder.isConfigSupported()` result for every
       combination of codec (`avc1.640028`, `avc1.4d0028`, `avc1.42e01f`, `vp09.00.10.08`,
       `av01.0.04M.08`), resolution (1280×720, 1920×1080), frame rate (30, 60) and
       `hardwareAcceleration` (`no-preference`, `prefer-hardware`, `prefer-software`).
-- [ ] **AC3** — The matrix holds `AudioEncoder.isConfigSupported` for AAC (`mp4a.40.2`, 48 kHz,
+- [x] **AC3** — The matrix holds `AudioEncoder.isConfigSupported` for AAC (`mp4a.40.2`, 48 kHz,
       stereo, 160 kbit/s) and for Opus.
-- [ ] **AC4** — The matrix holds Mediabunny's `canEncodeAudio('aac')` before and after
+- [x] **AC4** — The matrix holds Mediabunny's `canEncodeAudio('aac')` before and after
       `registerAacEncoder()` from `@mediabunny/aac-encoder`.
-- [ ] **AC5** — With `preserveDrawingBuffer: false`, a `new VideoFrame(canvas)` created in the
+- [x] **AC5** — With `preserveDrawingBuffer: false`, a `new VideoFrame(canvas)` created in the
       same task right after drawing and read via `copyTo` contains test-pattern pixels; the result
       of a second attempt after an `await` (new task) is recorded too.
-- [ ] **AC6** — With the first supported H.264 config, Mediabunny writes 10 s of test pattern at
+- [x] **AC6** — With the first supported H.264 config, Mediabunny writes 10 s of test pattern at
       60 fps plus a 10 s sine tone via `StreamTarget` to `results/sample-win32.mp4`.
-- [ ] **AC7** — `node spikes/282-webcodecs-matrix/verify-sample.mjs results/sample-win32.mp4`
+- [x] **AC7** — `node spikes/282-webcodecs-matrix/verify-sample.mjs results/sample-win32.mp4`
       prints `frames=600 audio=10.00s` (± 1 frame) and exits 0.
-- [ ] **AC8** — A Linux run (`harness.mjs --platform-label=linux`) writes
+- [x] **AC8** — A Linux run (`harness.mjs --platform-label=linux`) writes
       `results/matrix-linux.json`; `RESULT.md` records whether `prefer-hardware` crashes the GPU
       process (#55456) and whether `prefer-software` avoids it.
-- [ ] **AC9** — `RESULT.md` recommends an encoder tier (1/2/3 per concept §10.4) per platform and
+- [x] **AC9** — `RESULT.md` recommends an encoder tier (1/2/3 per concept §10.4) per platform and
       whether the ffmpeg fallback ([[313]]) stays P2 or becomes P3.
-- [ ] **AC10** — `git diff --stat package.json package-lock.json` shows no change.
+- [x] **AC10** — `git diff --stat package.json package-lock.json` shows no change.
 
 ## Open Questions
 
@@ -241,3 +241,27 @@ run by `/build` as the D's acceptance.
   VLC and the Windows media player with an audible sine — playback quality needs eyes and ears.
 
 ## Done
+
+Spike delivered in `spikes/282-webcodecs-matrix/`: harness + probe (60-entry video matrix, audio, Mediabunny AAC before/after,
+`VideoFrame` capture), a 10 s 60 fps + sine MP4 via `StreamTarget`, `verify-sample.mjs`, a Docker/xvfb Linux run and `RESULT.md`
+(Windows tier 1, Linux tier 2 with the AAC polyfill, ffmpeg [[313]] recommended P3). Electron 43.8.4 / Chrome 150.
+
+Change type: docs
+
+Commit message: `282: spike WebCodecs/Mediabunny matrix (win32 + linux), sample mp4, RESULT.md recommendation`
+
+Verification (narrow gate; no `test-story`/`e2e-story` line applies, the spike has no flows): `node harness.mjs` exit 0 (AC1-AC6),
+`verify-sample.mjs` on win32 and linux samples `frames=600 audio=10.01s` (AC7, within 1/60 s), `run-linux.mjs` exit 0 with
+`matrix-linux.json` (AC8), `git diff --stat package.json package-lock.json` empty (AC10), `npm run build`, `typecheck`, `lint`,
+`prettier --check spikes/282-webcodecs-matrix` and `npx vitest run --changed HEAD` (7781 passed) green. Review (default): PASS, findings fixed.
+AC9 checked by the reviewer against both matrices. Root `npm run format:check` has pre-existing failures outside the spike.
+Manual residue: sample plays in VLC/Windows player with audible tone; #55456 crash needs a Linux desktop with VA-API.
+
+Findings and decisions:
+
+- `capture.afterAwait` is blank on both platforms (`preserveDrawingBuffer: false`): capture must happen in the drawing task.
+- `ELECTRON_RUN_AS_NODE` is removed from the child env by `harness.mjs`; probe.html carries an import map for the Mediabunny bundles.
+- The container run needs `--no-sandbox` and SwiftShader WebGL, passed only via `SPIKE282_ELECTRON_ARGS`; the harness's validation checks counts and types, not values.
+- #55456 is not exercised (no VA-API, only `isConfigSupported` ran per acceleration value); stated in `RESULT.md`.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 6

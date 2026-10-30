@@ -17,7 +17,7 @@ milestone: 12.1 — Toolchain and spikes; 12.2 — Playback in the canvas
 
 - [x] 281 — The engine builds reproducibly as WebAssembly
 - [x] 283 — Test data: a shareware data cache and test demos
-- [ ] 282 — Spike: what WebCodecs and Mediabunny can encode in Electron 43
+- [x] 282 — Spike: what WebCodecs and Mediabunny can encode in Electron 43
 - [ ] 284 — Spike: a demo frame renders in the Electron renderer
 - [ ] 285 — Spike: the engine steps deterministically
 - [ ] 286 — Spike: audio is pulled from the DMA mixer per step

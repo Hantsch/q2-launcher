@@ -32,3 +32,17 @@
 - 2026-10-30 18:33 · 283 · verify · started
 - 2026-10-30 18:33 · 283 · verify · done
 - 2026-10-30 18:33 · 283 · story · done
+- 2026-10-30 18:34 · 282 · build · started
+- 2026-10-30 18:34 · 282 · D1 Harness and encoder matrix · started
+- 2026-10-30 18:36 · 282 · D1 Harness and encoder matrix · done
+- 2026-10-30 18:37 · 282 · D2 Sample MP4 and read-back · started
+- 2026-10-30 18:37 · 282 · D2 Sample MP4 and read-back · done
+- 2026-10-30 18:37 · 282 · D3 Linux run and RESULT.md · started
+- 2026-10-30 18:43 · 282 · D3 Linux run and RESULT.md · done
+- 2026-10-30 18:43 · 282 · verify · started
+- 2026-10-30 18:44 · 282 · verify · done
+- 2026-10-30 18:44 · 282 · review 1 · started
+- 2026-10-30 18:45 · 282 · review 1 · done
+- 2026-10-30 18:45 · 282 · D3 review fixes · started
+- 2026-10-30 18:46 · 282 · D3 review fixes · done
+- 2026-10-30 18:46 · 282 · story · done

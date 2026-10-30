@@ -1,0 +1,520 @@
+{
+  "label": "linux",
+  "electron": "43.8.4",
+  "chrome": "150.0.7871.250",
+  "platform": "Linux x86_64",
+  "video": [
+    {
+      "codec": "avc1.640028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.640028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.4d0028",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": false
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": false
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": false
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "avc1.42e01f",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": false
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "vp09.00.10.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1280,
+      "height": 720,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 30,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "no-preference",
+      "supported": true
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-hardware",
+      "supported": false
+    },
+    {
+      "codec": "av01.0.04M.08",
+      "width": 1920,
+      "height": 1080,
+      "framerate": 60,
+      "hardwareAcceleration": "prefer-software",
+      "supported": true
+    }
+  ],
+  "audio": [
+    {
+      "codec": "mp4a.40.2",
+      "sampleRate": 48000,
+      "numberOfChannels": 2,
+      "bitrate": 160000,
+      "supported": false
+    },
+    {
+      "codec": "opus",
+      "sampleRate": 48000,
+      "numberOfChannels": 2,
+      "bitrate": 128000,
+      "supported": true
+    }
+  ],
+  "mediabunny": {
+    "aacBefore": false,
+    "aacAfter": true
+  },
+  "capture": {
+    "sameTask": "pattern",
+    "afterAwait": "blank"
+  },
+  "sample": {
+    "codec": "avc1.640028",
+    "width": 1280,
+    "height": 720,
+    "audioPath": "polyfill",
+    "bytes": 2919540
+  },
+  "childProcessGone": []
+}

@@ -1,0 +1,9 @@
+{
+  "name": "spike-282-webcodecs-matrix",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "mediabunny": "1.65.0",
+    "@mediabunny/aac-encoder": "1.65.0"
+  }
+}
