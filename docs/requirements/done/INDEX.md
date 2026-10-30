@@ -387,3 +387,4 @@ second roadmap.
 - 283 — Test data: a shareware data cache and test demos · S38 · engine:data caches verified shareware pak0 outside the repo; native-recorded move-fire.dm2 test demo with header test
 - 282 — Spike: what WebCodecs and Mediabunny can encode in Electron 43 · S38 · measured encoder matrix on Windows and Linux, tier 1 Windows / tier 2 Linux, ffmpeg fallback recommended P3
 - 284 — Spike: a demo frame renders in the Electron renderer · S38 · engine runs under wasm-unsafe-eval CSP, MEMFS main thread viable, first picture <2 s, 60 fps, stall 206-242 ms
+- 285 — Spike: the engine steps deterministically · S38 · fixed-step frames bit-identical per renderer with a seed (SwiftShader and GPU stable, they differ from each other), seed needed

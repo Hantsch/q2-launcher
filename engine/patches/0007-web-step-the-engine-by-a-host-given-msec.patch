@@ -1,0 +1,180 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 7/7] web: step the engine by a host-given msec
+
+Exports q2l_step, q2l_seed and q2l_frames_rendered so the launcher can drive frames deterministically instead of from the wall clock. com_abortframe becomes visible to the step's translation unit, and SCR_UpdateScreen counts frames that reached the page flip.
+---
+ inc/common/common.h |  8 +++++
+ meson.build         |  5 ++-
+ src/client/screen.c |  1 +
+ src/common/common.c |  3 +-
+ src/unix/q2l_step.c | 77 +++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 92 insertions(+), 2 deletions(-)
+ create mode 100644 src/unix/q2l_step.c
+
+diff --git a/inc/common/common.h b/inc/common/common.h
+index 448ae00..38e9f25 100644
+--- a/inc/common/common.h
++++ b/inc/common/common.h
+@@ -21,6 +21,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
+ #include "common/cmd.h"
+ #include "common/utils.h"
+ 
++#include <setjmp.h>
++
+ //
+ // common.h -- definitions common between client and server, but not game.dll
+ //
+@@ -199,6 +201,9 @@ extern unsigned     time_after_ref;
+ extern const char   com_version_string[];
+ 
+ extern unsigned     com_framenum;
++// Frames that reached the main SCR_UpdateScreen page flip; a frame skipped by
++// the client refresh rate or a disabled screen does not count.
++extern unsigned     com_framesRendered;
+ extern unsigned     com_eventTime; // system time of the last event
+ extern unsigned     com_localTime; // milliseconds since Q2 startup
+ extern unsigned     com_localTime2; // milliseconds since Q2 startup, but doesn't run if paused
+@@ -207,3 +212,6 @@ extern time_t       com_startTime;
+ 
+ void Qcommon_Init(int argc, char **argv);
+ void Qcommon_Frame(void);
++
++// Target of the longjmp on ERR_DROP; whoever runs a frame must setjmp it first.
++extern jmp_buf      com_abortframe;
+diff --git a/meson.build b/meson.build
+index 71b2e6c..4ef86db 100644
+--- a/meson.build
++++ b/meson.build
+@@ -682,10 +682,13 @@ if web
+     '-sALLOW_MEMORY_GROWTH=1',
+     '-sINITIAL_MEMORY=128MB',
+     '-sMAXIMUM_MEMORY=2GB',
+-    '-sEXPORTED_FUNCTIONS=_main',
++    '-sEXPORTED_FUNCTIONS=_main,_q2l_step,_q2l_seed,_q2l_frames_rendered',
+     '-sEXPORTED_RUNTIME_METHODS=FS,cwrap,HEAPU8,HEAP16',
+     '--profiling-funcs',
+   ]
++
++  # Lets the launcher step the engine by a fixed msec instead of real time.
++  client_src += 'src/unix/q2l_step.c'
+ endif
+ 
+ executable('q2pro', common_src, client_src, refresh_src,
+diff --git a/src/client/screen.c b/src/client/screen.c
+index e409689..f6ecd9f 100644
+--- a/src/client/screen.c
++++ b/src/client/screen.c
+@@ -2393,6 +2393,7 @@ void SCR_UpdateScreen(void)
+     SCR_DrawLoading();
+ 
+     R_EndFrame();
++    com_framesRendered++;
+ 
+     recursive--;
+ }
+diff --git a/src/common/common.c b/src/common/common.c
+index b5cf1ff..a2eb9dc 100644
+--- a/src/common/common.c
++++ b/src/common/common.c
+@@ -55,7 +55,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
+ 
+ #include <setjmp.h>
+ 
+-static jmp_buf  com_abortframe;    // an ERR_DROP occurred, exit the entire frame
++jmp_buf  com_abortframe;    // an ERR_DROP occurred, exit the entire frame
+ 
+ static void     (*com_abort_func)(void *);
+ static void     *com_abort_arg;
+@@ -133,6 +133,7 @@ const char  com_version_string[] =
+     APPLICATION " " VERSION " " __DATE__ " " BUILDSTRING " " CPUSTRING;
+ 
+ unsigned    com_framenum;
++unsigned    com_framesRendered;
+ unsigned    com_eventTime;
+ unsigned    com_localTime;
+ unsigned    com_localTime2;
+diff --git a/src/unix/q2l_step.c b/src/unix/q2l_step.c
+new file mode 100644
+index 0000000..725e54d
+--- /dev/null
++++ b/src/unix/q2l_step.c
+@@ -0,0 +1,77 @@
++/*
++Copyright (C) 2026 Q2 Launcher
++
++This program is free software; you can redistribute it and/or modify
++it under the terms of the GNU General Public License as published by
++the Free Software Foundation; either version 2 of the License, or
++(at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License along
++with this program; if not, write to the Free Software Foundation, Inc.,
++51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++*/
++
++// Deterministic stepping for the launcher: the host decides how much time a
++// frame covers, so the same demo and the same step sequence give the same
++// frames. The emscripten_set_main_loop real-time path is left untouched; the
++// host pauses it before stepping. (story 285)
++
++#include "shared/shared.h"
++#include "common/async.h"
++#include "common/common.h"
++#include "common/cvar.h"
++#include "common/net/net.h"
++#include "client/client.h"
++#include "server/server.h"
++#include "system/system.h"
++
++#include <emscripten.h>
++
++/*
++=================
++q2l_step
++
++The body of Qcommon_Frame around the msec computation. Real time (NET_Sleep,
++Sys_Milliseconds, the busy-wait, the hitch clamp) and fixedtime/timescale are
++left out: they would make the frame length depend on the host clock.
++=================
++*/
++EMSCRIPTEN_KEEPALIVE void q2l_step(int ms)
++{
++    unsigned msec = ms;
++
++    // Com_Error(ERR_DROP) longjmps here; the jump target must be a frame that
++    // is still on the stack, so every entry point sets it like Qcommon_Frame.
++    if (setjmp(com_abortframe)) {
++        return;
++    }
++
++    Com_CompleteAsyncWork();
++
++    com_localTime += msec;
++    com_localTime2 += msec & (sv_paused->integer - 1);
++    com_framenum++;
++
++    Sys_RunConsole();
++
++    NET_UpdateStats();
++
++    SV_Frame(msec);
++
++    CL_Frame(msec);
++}
++
++EMSCRIPTEN_KEEPALIVE void q2l_seed(int seed)
++{
++    Q_srand(seed);
++}
++
++EMSCRIPTEN_KEEPALIVE int q2l_frames_rendered(void)
++{
++    return com_framesRendered;
++}

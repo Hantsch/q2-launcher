@@ -1,0 +1,184 @@
+{
+  "renderer": "swiftshader",
+  "seed": 1,
+  "fps": 30,
+  "steps": 300,
+  "runs": [
+    {
+      "framesRendered": 300,
+      "warmupSteps": 3,
+      "glRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "hashes": [
+        {
+          "frame": 15,
+          "sha256": "eed20b6cc3b6009de712272622f48dde224cb422d8000b9c576167ee723768dd"
+        },
+        {
+          "frame": 30,
+          "sha256": "af23bac811a855dfde86a5e9e950c870a4edb6b50918be86b8a16fa7e4b9f66c"
+        },
+        {
+          "frame": 45,
+          "sha256": "ba2d1851853ff016c56062a1451cb2ec9dd9ebf15ab516707ff3043a31151880"
+        },
+        {
+          "frame": 60,
+          "sha256": "958fd17a7d4cc2e995bad0744370e5e5600e236ee55b9d726d9e710fec9558d7"
+        },
+        {
+          "frame": 75,
+          "sha256": "0826bb741dd904a8f2be71a3c37cee6c38797441d16ac3aee6f192ef80e77cc5"
+        },
+        {
+          "frame": 90,
+          "sha256": "55b9a0d56e2c565af42f6e9c80b6c878839b6f5497defa9b55fdf63b1db7c219"
+        },
+        {
+          "frame": 105,
+          "sha256": "8b1f68939f393386805e2468a6d9a90222e2b55e18bcb0eb82c5370c15bcbc43"
+        },
+        {
+          "frame": 120,
+          "sha256": "3ee7941f6bb8c6078d1a83966e02a2514017e20fe68d9669bee8790e168406a2"
+        },
+        {
+          "frame": 135,
+          "sha256": "1e1b3fd25458a00649399683a3628623ddae3b8494e4a84430a54553c2bcc830"
+        },
+        {
+          "frame": 150,
+          "sha256": "538981fdc9c61e358385c136ad0b89a5763d9fd484cb95414d907520d37cd058"
+        },
+        {
+          "frame": 165,
+          "sha256": "49776011e7a89f501697c5d9bac2f053b87a5874d38559e4fc0d7f31ac543505"
+        },
+        {
+          "frame": 180,
+          "sha256": "b0f3c8ae09e601c82f666ec337e59e59fe134abe146887c0290c54d24c3d3d29"
+        },
+        {
+          "frame": 195,
+          "sha256": "89a4a52ef2ce80d5689608fe553efbc0d3da8aefbba05168228097858b40b228"
+        },
+        {
+          "frame": 210,
+          "sha256": "09f76b5a78e7370ad76231aa3741f3652ea6042ec0dcd64d0dd22ad9de9ba190"
+        },
+        {
+          "frame": 225,
+          "sha256": "b39afb996492889159dc640f3d83c4c4854f6ff276208f1b907f740d68c69844"
+        },
+        {
+          "frame": 240,
+          "sha256": "fe292bd105c54b73855bec75ff09686ac042039d031daf93ed2c072df4d8c629"
+        },
+        {
+          "frame": 255,
+          "sha256": "56d8d8ce084e00bec9d0730329caa037e3f486db7d986b2e5eed0960d590ce2f"
+        },
+        {
+          "frame": 270,
+          "sha256": "8e5522bea1d2bcfad7b8cf077f6a498801ed6460659ea4a03753ddd564f16b33"
+        },
+        {
+          "frame": 285,
+          "sha256": "af8923d55d8c90a1b115ef0b17aa9ba066592c8e79e79bb9ac78e4c045b315f7"
+        },
+        {
+          "frame": 300,
+          "sha256": "228bedcd6d2d5701346e8d575a10bd0a753648b09d98b62cee425628405e0993"
+        }
+      ]
+    },
+    {
+      "framesRendered": 300,
+      "warmupSteps": 3,
+      "glRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "hashes": [
+        {
+          "frame": 15,
+          "sha256": "eed20b6cc3b6009de712272622f48dde224cb422d8000b9c576167ee723768dd"
+        },
+        {
+          "frame": 30,
+          "sha256": "af23bac811a855dfde86a5e9e950c870a4edb6b50918be86b8a16fa7e4b9f66c"
+        },
+        {
+          "frame": 45,
+          "sha256": "ba2d1851853ff016c56062a1451cb2ec9dd9ebf15ab516707ff3043a31151880"
+        },
+        {
+          "frame": 60,
+          "sha256": "958fd17a7d4cc2e995bad0744370e5e5600e236ee55b9d726d9e710fec9558d7"
+        },
+        {
+          "frame": 75,
+          "sha256": "0826bb741dd904a8f2be71a3c37cee6c38797441d16ac3aee6f192ef80e77cc5"
+        },
+        {
+          "frame": 90,
+          "sha256": "55b9a0d56e2c565af42f6e9c80b6c878839b6f5497defa9b55fdf63b1db7c219"
+        },
+        {
+          "frame": 105,
+          "sha256": "8b1f68939f393386805e2468a6d9a90222e2b55e18bcb0eb82c5370c15bcbc43"
+        },
+        {
+          "frame": 120,
+          "sha256": "3ee7941f6bb8c6078d1a83966e02a2514017e20fe68d9669bee8790e168406a2"
+        },
+        {
+          "frame": 135,
+          "sha256": "1e1b3fd25458a00649399683a3628623ddae3b8494e4a84430a54553c2bcc830"
+        },
+        {
+          "frame": 150,
+          "sha256": "538981fdc9c61e358385c136ad0b89a5763d9fd484cb95414d907520d37cd058"
+        },
+        {
+          "frame": 165,
+          "sha256": "49776011e7a89f501697c5d9bac2f053b87a5874d38559e4fc0d7f31ac543505"
+        },
+        {
+          "frame": 180,
+          "sha256": "b0f3c8ae09e601c82f666ec337e59e59fe134abe146887c0290c54d24c3d3d29"
+        },
+        {
+          "frame": 195,
+          "sha256": "89a4a52ef2ce80d5689608fe553efbc0d3da8aefbba05168228097858b40b228"
+        },
+        {
+          "frame": 210,
+          "sha256": "09f76b5a78e7370ad76231aa3741f3652ea6042ec0dcd64d0dd22ad9de9ba190"
+        },
+        {
+          "frame": 225,
+          "sha256": "b39afb996492889159dc640f3d83c4c4854f6ff276208f1b907f740d68c69844"
+        },
+        {
+          "frame": 240,
+          "sha256": "fe292bd105c54b73855bec75ff09686ac042039d031daf93ed2c072df4d8c629"
+        },
+        {
+          "frame": 255,
+          "sha256": "56d8d8ce084e00bec9d0730329caa037e3f486db7d986b2e5eed0960d590ce2f"
+        },
+        {
+          "frame": 270,
+          "sha256": "8e5522bea1d2bcfad7b8cf077f6a498801ed6460659ea4a03753ddd564f16b33"
+        },
+        {
+          "frame": 285,
+          "sha256": "af8923d55d8c90a1b115ef0b17aa9ba066592c8e79e79bb9ac78e4c045b315f7"
+        },
+        {
+          "frame": 300,
+          "sha256": "228bedcd6d2d5701346e8d575a10bd0a753648b09d98b62cee425628405e0993"
+        }
+      ]
+    }
+  ],
+  "identical": true,
+  "firstDifferentFrame": null
+}

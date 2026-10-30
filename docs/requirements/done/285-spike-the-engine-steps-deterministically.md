@@ -1,7 +1,7 @@
 ---
 id: 285
 title: 'Spike: the engine steps deterministically'
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -41,23 +41,23 @@ frozen pictures.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `npm run engine:build` exits 0 with the `q2l_step` patch.
-- [ ] **AC2** — 300 steps of 33 ms render exactly one frame each (a frame counter rises by 1 per
+- [x] **AC1** — `npm run engine:build` exits 0 with the `q2l_step` patch.
+- [x] **AC2** — 300 steps of 33 ms render exactly one frame each (a frame counter rises by 1 per
       step).
-- [ ] **AC3** — With seed 1, flares off, 640×480 and the [[283]] test demo, two runs in the same
+- [x] **AC3** — With seed 1, flares off, 640×480 and the [[283]] test demo, two runs in the same
       process (engine re-initialised) give identical SHA-256 for every 15th frame:
       `node spikes/285-deterministic-step/harness.mjs --runs=2 --seed=1 --renderer=swiftshader`
       exits 0 and writes `results/hashes-swiftshader.json` with two identical hash lists.
-- [ ] **AC4** — The same run under SwiftShader (`--use-angle=swiftshader
+- [x] **AC4** — The same run under SwiftShader (`--use-angle=swiftshader
 --enable-unsafe-swiftshader`) and on the real GPU (`--renderer=gpu`) is recorded in
       `RESULT.md`: stable per renderer or not, and whether the renderers differ from each other.
-- [ ] **AC5** — Two runs without a fixed seed (`--no-seed`) are recorded in `RESULT.md` with the
+- [x] **AC5** — Two runs without a fixed seed (`--no-seed`) are recorded in `RESULT.md` with the
       first frame whose hashes differ (proving whether the seed is needed).
-- [ ] **AC6** — `RESULT.md` names the cvar or patch that switches off flares/occlusion queries
+- [x] **AC6** — `RESULT.md` names the cvar or patch that switches off flares/occlusion queries
       during capture.
-- [ ] **AC7** — `RESULT.md` lists every other source of non-determinism found, each with a
+- [x] **AC7** — `RESULT.md` lists every other source of non-determinism found, each with a
       countermeasure, and a recommendation for [[300]] and [[304]].
-- [ ] **AC8** — `git status --short src/` is empty.
+- [x] **AC8** — `git status --short src/` is empty.
 
 ## Open Questions
 
@@ -214,3 +214,22 @@ harness is the test, `RESULT.md` + `results/*.json` its report. No launcher UI s
   pictures by eye needs a person.
 
 ## Done
+
+Spike delivered: engine patch `engine/patches/0007-web-step-the-engine-by-a-host-given-msec.patch` (`q2l_step`, `q2l_seed`, `q2l_frames_rendered`) and `spikes/285-deterministic-step/` (`harness.mjs`, `README.md`, `RESULT.md`, `results/*`). Fixed-step driving is bit-identical: SwiftShader 2 runs x 20 hashes identical, GPU (RTX 4080) identical, 60 fps identical; SwiftShader and GPU differ in 20 of 20 frames (goldens per renderer); `--no-seed` diverges (first sampled difference at frame 150, seed needed). `cl_flares 0` removes the occlusion queries.
+
+Change type: docs
+
+Commit message: `285: spike deterministic engine stepping (q2l_step patch, hash harness, RESULT.md)`
+
+Verification: narrow gate — typecheck, lint, build, `vitest run --changed HEAD` (no tests selected), `npm run engine:build` exit 0, harness `--runs=2 --seed=1 --renderer=swiftshader` exit 0 with `identical: true`, 300 frames and 20 hashes per run; `git status --short src/` empty; no ui:flow applies. AC1-AC8 all verified by those runs and RESULT.md sections AC2-AC7. Review: stage 1 and hard stage PASS.
+
+Decisions:
+
+- The patch is named by the series' convention (0007-web-...) and counts frames after `SCR_UpdateScreen`'s main `R_EndFrame` (the plan's l.1246 is `SCR_TimeRefresh_f`).
+- The harness warms up until 3 consecutive steps render one frame before the 300 counted steps (`warmupSteps` 3 in every run); `frame` is `i+1`.
+- Window is focusable and focused (284's is not) so `cls.active` is activated; blur would switch the sync mode, listed in RESULT.md AC7.
+- Reviews' wording findings fixed in RESULT.md (warm-up claim, "between frames 136 and 150", focus source); occlusion-query and `com_eventTime` claims are code reading, disclosed as such.
+
+Manual residue: look at `results/frame-*.png` — they show movement, not frozen pictures (viewed by the reviewer: different scenes at frames 60 and 240).
+
+tiers: D 3 / hard 1 · review default+hard · cycles 2 · agents 6

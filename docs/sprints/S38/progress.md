@@ -60,3 +60,17 @@
 - 2026-10-30 19:16 · 284 · verify · started
 - 2026-10-30 19:16 · 284 · verify · done
 - 2026-10-30 19:16 · 284 · story · done
+- 2026-10-30 19:17 · 285 · build · started
+- 2026-10-30 19:17 · 285 · D1 q2l_step engine patch · started
+- 2026-10-30 19:21 · 285 · D1 q2l_step engine patch · done
+- 2026-10-30 19:21 · 285 · D2 determinism harness · started
+- 2026-10-30 19:24 · 285 · D2 determinism harness · done
+- 2026-10-30 19:24 · 285 · D3 measurements and RESULT.md · started
+- 2026-10-30 19:27 · 285 · D3 measurements and RESULT.md · done
+- 2026-10-30 19:27 · 285 · verify · started
+- 2026-10-30 19:29 · 285 · verify · done
+- 2026-10-30 19:29 · 285 · review 1 · started
+- 2026-10-30 19:30 · 285 · review 1 · done
+- 2026-10-30 19:30 · 285 · review 2 (hard) · started
+- 2026-10-30 19:33 · 285 · review 2 (hard) · done
+- 2026-10-30 19:33 · 285 · story · done

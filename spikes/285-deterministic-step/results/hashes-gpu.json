@@ -1,0 +1,184 @@
+{
+  "renderer": "gpu",
+  "seed": 1,
+  "fps": 30,
+  "steps": 300,
+  "runs": [
+    {
+      "framesRendered": 300,
+      "warmupSteps": 3,
+      "glRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 (0x00002704) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "hashes": [
+        {
+          "frame": 15,
+          "sha256": "0f23ee2fb47926e66dcdbf646eddb5d18b01d359ef89185a9e5ac85cdbc0da1d"
+        },
+        {
+          "frame": 30,
+          "sha256": "38f0e3158614666c4abe79d56098c98d5ec92e069fb3eae6e0e2fd0d2fd5b15e"
+        },
+        {
+          "frame": 45,
+          "sha256": "4147891d7ae4b2ee8281ad462e20898fcf25e053367332cb4acf42e0cc2826b4"
+        },
+        {
+          "frame": 60,
+          "sha256": "1d3eabf3b8d01bb9b56e1447d9d6f3e843a566d56fb6b0178d95bbae893fe605"
+        },
+        {
+          "frame": 75,
+          "sha256": "dca6ede728edeadb83ae6c2b005a753ac2124bcb4eb72aed91ee64104ce17ac3"
+        },
+        {
+          "frame": 90,
+          "sha256": "88c4e5b10a2c0385de25fa7760583ebdf46bd96152ad391ab114a051c032d423"
+        },
+        {
+          "frame": 105,
+          "sha256": "118c5971fef33288f926ac78d0f09a0b4d02fe1030518aa575c87a08ccef250e"
+        },
+        {
+          "frame": 120,
+          "sha256": "d93d5f30db1938b6c56bf582d2229b347331c14a134227e4ab8618ad9e19d6ef"
+        },
+        {
+          "frame": 135,
+          "sha256": "674e2a8e3f682078be192dd16028eef93c10b4ed07be1514ff6f821e618971fd"
+        },
+        {
+          "frame": 150,
+          "sha256": "bd66288eba41aa9d9cec72a686202fc8ed05f539e14e066a9735277c2c5c3479"
+        },
+        {
+          "frame": 165,
+          "sha256": "72f45569f90c8ffe668cfc0020428156530f980158fdda7b69fee99087c136d3"
+        },
+        {
+          "frame": 180,
+          "sha256": "b9a388ec4341037a6778381b4c2ecc2e0cb58ddccae5de5afa4f49b66e75c395"
+        },
+        {
+          "frame": 195,
+          "sha256": "a68c2d50c6d4a0b17ba891dcb477306c446cf8658470da9c8ffd19eb1a8cf0e2"
+        },
+        {
+          "frame": 210,
+          "sha256": "d2d8bea3fb498d937a3ab66b4f2a107472a4bc5fe3e67fcadfc8b929fdbd0d46"
+        },
+        {
+          "frame": 225,
+          "sha256": "9dc2c8e3fd75826fe7715e4cc8d6c8b1c842038772faca1e88bab07b16159144"
+        },
+        {
+          "frame": 240,
+          "sha256": "885c03a17609485059995489c589711a26f874fd9e540b1f1ea4d56583644250"
+        },
+        {
+          "frame": 255,
+          "sha256": "007c319b91fc4e428ef405905f5e4804cac5b403fa86e1010f2c8c4fe3367ae9"
+        },
+        {
+          "frame": 270,
+          "sha256": "d1e26a6a9898c8465eed3cfe335b957ae02ba75fb5a6afe630c6136a19b9537a"
+        },
+        {
+          "frame": 285,
+          "sha256": "7921d54f8cd2b208dceb30b26fbb47f9782b94ca040ce9df401437e22716965b"
+        },
+        {
+          "frame": 300,
+          "sha256": "cfe37b4850952fa004321550b912b1d463dc32fb5dbacc0d59d566e1fe9f1460"
+        }
+      ]
+    },
+    {
+      "framesRendered": 300,
+      "warmupSteps": 3,
+      "glRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 (0x00002704) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "hashes": [
+        {
+          "frame": 15,
+          "sha256": "0f23ee2fb47926e66dcdbf646eddb5d18b01d359ef89185a9e5ac85cdbc0da1d"
+        },
+        {
+          "frame": 30,
+          "sha256": "38f0e3158614666c4abe79d56098c98d5ec92e069fb3eae6e0e2fd0d2fd5b15e"
+        },
+        {
+          "frame": 45,
+          "sha256": "4147891d7ae4b2ee8281ad462e20898fcf25e053367332cb4acf42e0cc2826b4"
+        },
+        {
+          "frame": 60,
+          "sha256": "1d3eabf3b8d01bb9b56e1447d9d6f3e843a566d56fb6b0178d95bbae893fe605"
+        },
+        {
+          "frame": 75,
+          "sha256": "dca6ede728edeadb83ae6c2b005a753ac2124bcb4eb72aed91ee64104ce17ac3"
+        },
+        {
+          "frame": 90,
+          "sha256": "88c4e5b10a2c0385de25fa7760583ebdf46bd96152ad391ab114a051c032d423"
+        },
+        {
+          "frame": 105,
+          "sha256": "118c5971fef33288f926ac78d0f09a0b4d02fe1030518aa575c87a08ccef250e"
+        },
+        {
+          "frame": 120,
+          "sha256": "d93d5f30db1938b6c56bf582d2229b347331c14a134227e4ab8618ad9e19d6ef"
+        },
+        {
+          "frame": 135,
+          "sha256": "674e2a8e3f682078be192dd16028eef93c10b4ed07be1514ff6f821e618971fd"
+        },
+        {
+          "frame": 150,
+          "sha256": "bd66288eba41aa9d9cec72a686202fc8ed05f539e14e066a9735277c2c5c3479"
+        },
+        {
+          "frame": 165,
+          "sha256": "72f45569f90c8ffe668cfc0020428156530f980158fdda7b69fee99087c136d3"
+        },
+        {
+          "frame": 180,
+          "sha256": "b9a388ec4341037a6778381b4c2ecc2e0cb58ddccae5de5afa4f49b66e75c395"
+        },
+        {
+          "frame": 195,
+          "sha256": "a68c2d50c6d4a0b17ba891dcb477306c446cf8658470da9c8ffd19eb1a8cf0e2"
+        },
+        {
+          "frame": 210,
+          "sha256": "d2d8bea3fb498d937a3ab66b4f2a107472a4bc5fe3e67fcadfc8b929fdbd0d46"
+        },
+        {
+          "frame": 225,
+          "sha256": "9dc2c8e3fd75826fe7715e4cc8d6c8b1c842038772faca1e88bab07b16159144"
+        },
+        {
+          "frame": 240,
+          "sha256": "885c03a17609485059995489c589711a26f874fd9e540b1f1ea4d56583644250"
+        },
+        {
+          "frame": 255,
+          "sha256": "007c319b91fc4e428ef405905f5e4804cac5b403fa86e1010f2c8c4fe3367ae9"
+        },
+        {
+          "frame": 270,
+          "sha256": "d1e26a6a9898c8465eed3cfe335b957ae02ba75fb5a6afe630c6136a19b9537a"
+        },
+        {
+          "frame": 285,
+          "sha256": "7921d54f8cd2b208dceb30b26fbb47f9782b94ca040ce9df401437e22716965b"
+        },
+        {
+          "frame": 300,
+          "sha256": "cfe37b4850952fa004321550b912b1d463dc32fb5dbacc0d59d566e1fe9f1460"
+        }
+      ]
+    }
+  ],
+  "identical": true,
+  "firstDifferentFrame": null
+}
