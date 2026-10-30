@@ -255,3 +255,5 @@
 - 2026-10-30 15:14:00 · gate · e2e-all · done green 181/181
 - 2026-10-30 15:32:33 · gate · recorded
 - 2026-10-30 15:37:53 · review · done
+- 2026-10-30 15:38:01 · gate · roadmap-check · started
+- 2026-10-30 15:40:56 · gate · release-verify · started
