@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.9.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.10.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Implement the story with ID **$1**. If **$2** is `--full`, the full regression gate runs
@@ -15,8 +15,8 @@ and the closing report says the full one is still pending.
 ## Project profile
 
 Read `.claude/ai-scrum.md` first — paths, verify commands, acceptance policy,
-`changelog-path`, doc language and the files every agent must read before coding all come
-from there. If it is missing,
+`changelog-path`, `changelog-style`, `commit-style`, `release-branch`, doc language and the
+files every agent must read before coding all come from there. If it is missing,
 stop and say: run `/ai-scrum:setup` (ai-scrum plugin) first. Below, `<requirements>` means
 `requirements-path` from the profile.
 
@@ -376,8 +376,17 @@ finishes or quietly stops with nothing in the working tree to show for it.
    reason.
 8. **Fill `## Done`:**
    - Short summary (2–5 lines): what was done.
-   - Commit message (1–2 lines, keywords are enough — no full sentence needed; story ID
-     first, e.g. `042: finish team-based combat`).
+   - **Change type**, exactly one line, machine-readable: `Change type: <type>` — `feat` (the
+     user can do something new), `fix` (something the user hit works again), `perf`, or, when
+     nothing changes for the user, `refactor` / `test` / `docs` / `build` / `ci` / `chore`;
+     `feat!` / `fix!` when users must change something after updating. It decides the release:
+     `/release-check` derives the expected bump from it, and only `feat`, `fix` and `perf`
+     release anything, so a story that changes nothing for the user is never `feat` or `fix`.
+   - Commit message (1–2 lines, keywords are enough — no full sentence needed). Its subject
+     follows `commit-style`: `plain` (also when missing) puts the story ID first,
+     `042: finish team-based combat`; `conventional` puts the change type first and the ID as
+     scope, `feat(042): finish team-based combat` — that is what a release script reading
+     Conventional-Commit types needs to plan the right version.
    - Verification: build/test/lint/e2e status + review outcome, and **which gate ran** —
      the narrow one (with the `test-story` / `e2e-story` commands as actually run, or the
      full suites they fell back to) and, with `--full`, the full one; **the AC → test mapping
@@ -393,12 +402,25 @@ finishes or quietly stops with nothing in the working tree to show for it.
      pasted output, no narrative of the build.
 9. Check all `## Acceptance Criteria` and tick the ones that are met.
 9b. **If `changelog-path` is set in the profile:** every user-facing feature or fix in this
-    story gets an entry there, under `# Features` or `# Fixes` of the **current** version
-    section — appended, never restructuring an earlier one. Short, punchy, a little funny, in
-    `doc-language`; what the user can now do, not how it was built. Tests, refactors and
-    internal changes get no entry, because they change nothing for the user. A story with no
-    user-facing change adds nothing at all — an empty entry is worse than none. When
-    `changelog-path` is `none`, skip this step entirely.
+    story (change type `feat`, `fix`, `perf`) gets an entry there, **in the open block** — the
+    place the release reads its notes from. Where that is, is `changelog-style`:
+    - `unreleased` (missing: `unreleased` if the file has an `Unreleased` heading): under the
+      `Unreleased` heading (`## Unreleased`, `## [Unreleased]`, `# Unreleased`), which the
+      release script promotes to the new version. Use the subheadings the file already uses
+      there (`### Added` / `### Fixed`, `# Features` / `# Fixes`); none → plain bullets. No
+      heading yet → create it above the first version section. Never into a version section.
+    - `version-section`: the topmost version section — but only if it is not published yet.
+      **Published** means its heading exists on `origin/<release-branch>` (`git show
+      origin/<release-branch>:<changelog-path>`) or a tag names its version. Published → open a
+      new section above it, in the file's own shape (heading, date line, `# Features` /
+      `# Fixes`), with the next version: minor for a `feat`, patch for a `fix`, from the
+      published one.
+    **A published section is never touched** — not appended to, not reworded: its notes have
+    shipped, and a line added there claims a version had a change it never had. Appended,
+    never restructuring. Short, punchy, a little funny, in `doc-language`; what the user can now
+    do, not how it was built. Tests, refactors and internal changes get no entry, because they
+    change nothing for the user. A story with no user-facing change adds nothing at all — an
+    empty entry is worse than none. When `changelog-path` is `none`, skip this step entirely.
 10. Set `status: done` once verification (step 5) is green, the review (step 6) is through
     and, with `--full`, the full gate (step 6b) is green or its failures are pre-existing.
     **That is the whole gate** — there is no user acceptance round to wait for, and a story is

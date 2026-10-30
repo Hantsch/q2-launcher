@@ -14,7 +14,7 @@
   update those files (`/ai-scrum:setup`). Hashes of the managed copies: .claude/ai-scrum.lock
 -->
 
-ai-scrum-version: 4.9.0
+ai-scrum-version: 4.10.0
 project: Q2 Launcher
 
 ## Verify
@@ -42,7 +42,6 @@ e2e-story: npm run ui:flows -- --affected {files} --parallel=4 --shard={shard}
 e2e-story-slices: 2 <!-- /build runs e2e-story once per slice, {shard} = 1/2 and 2/2, so a selection of most of the suite still fits two ten-minute calls at 4 workers -->
 e2e-all: npm run ui:flows -- --parallel=4
 e2e-cleanup: none <!-- e.g. taskkill /F /IM electron.exe | pkill -f electron | none -->
-release-verify: npm run verify:release <!-- /sprint phase 4 (ai-scrum 4.8.0): last step of every sprint, on the final commit. Needs no Docker. Refuses when origin/main has commits the branch lacks — that is releasable: NO, and merging origin/main is the user's call. -->
 <!--
   Narrow gates /build runs per-story instead of the full `test`/`e2e` above.
   `/sprint` still runs full `test`, full `e2e` and `e2e-all` once after the last story.
@@ -74,6 +73,7 @@ story-id-format: NNN <!-- three digits + slug, e.g. 042-npc-haggling.md -->
 sprint-id-format: SNN <!-- e.g. S07 -->
 
 changelog-path: CHANGELOG.md
+changelog-style: unreleased <!-- unreleased | version-section — where the next release's notes go -->
 <!--
   Optional. Path to a USER-FACING changelog (e.g. version.md, CHANGELOG.md) — not the
   git history. When set, /build and /sprint require an entry for every user-facing
@@ -86,6 +86,45 @@ changelog-path: CHANGELOG.md
     - short, punchy, a little funny. Not a paragraph explaining the implementation.
     - the language is `doc-language`
 -->
+
+## Release
+
+Whether a sprint ends releasable: `/sprint` merges the release branch in at its start and runs
+`/release-check` as its very last step — the merge of the final commit into the release branch,
+in a throwaway clone with a clean install, every blocking step of the PR and the release
+pipelines (the release as a dry run), under CI conditions. Its verdict, `releasable: yes | NO |
+UNVERIFIED`, heads the sprint's final report. Run `/release-check` yourself before opening a PR.
+
+release-branch: main <!-- the branch PRs target and releases run on, e.g. main | none -->
+release-verify: npm run verify:release <!-- the project's own check: merges, runs every blocking step; /release-check runs it in place of its own steps -->
+release-plan: node scripts/release.mjs --print-plan <!-- read-only, prints the next version + bump level, e.g. pwsh -File scripts/plan-release.ps1 | node scripts/release.mjs --print-plan | npx semantic-release --dry-run | none -->
+release-dry-run: npm run release -- --dry-run <!-- the release minus commit, tag, push, publish, e.g. pwsh -File scripts/ci-release.ps1 -DryRun | node scripts/release.mjs --dry-run | none -->
+commit-style: plain <!-- plain | conventional — the subjects /sprint and /build write -->
+<!--
+  release-branch  = where GitHub (or your CI) runs the PR checks against and the release after
+                    the merge. `/sprint` merges `origin/<release-branch>` into its work branch at
+                    the start and before its last check, when that is conflict-free — that is
+                    how the release commit your pipeline pushes gets back. `none` = no PR target
+                    and no release: the check runs the PR lane on HEAD.
+  release-verify  = auto: /release-check reads the CI workflow files of the merge on every run and
+                    runs every blocking step, so it cannot drift from them.
+                    <command>: your own check, if you already have one that merges, runs every
+                    blocking step and emulates the runner — /release-check runs it in place of
+                    its own steps and still checks the merge, the notes and the bump itself.
+                    none: only the short suites run, on HEAD — and the verdict is UNVERIFIED,
+                    never yes.
+  release-plan    = how the release decides its next version. Without it, the verdict names no
+                    version and the bump is not checked.
+  release-dry-run = how the release lane is checked without releasing. Without it, the release
+                    step is reported as not run, and the verdict cannot be yes for a due release.
+  commit-style    = conventional when your release derives the bump from Conventional-Commit
+                    types (feat → minor, fix → patch): story commits become `feat(042): …`,
+                    `fix(042): …`, `test(042): …` from the story's change type, bookkeeping
+                    `docs(S07): …`. plain keeps `042: …` / `S07: …`, which such a script reads
+                    as patch — a feature sprint then ships as a patch release.
+-->
+
+
 
 ## Branching
 

@@ -1,11 +1,11 @@
 ---
-description: Runs a sprint (sprints/SNN/sprint.md) autonomously — branch, refine + build every story with its acceptance tests, one commit per story, a full regression gate, the review doc, then a releasable check on the final commit.
+description: Runs a sprint (sprints/SNN/sprint.md) autonomously — branch, the release branch merged in, refine + build every story with its acceptance tests, one commit per story, a full regression gate, the review doc, then the release check on the merge of the final commit.
 argument-hint: <sprint-id>
 model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.9.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.10.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run sprint **$1**.
@@ -13,7 +13,8 @@ Run sprint **$1**.
 ## Project profile
 
 Read `.claude/ai-scrum.md` first — paths, verify commands, branching, auto-commit,
-acceptance policy, `changelog-path` and doc language come from there. If it is missing, stop
+acceptance policy, `changelog-path`, the `## Release` keys (`release-branch`, `release-verify`,
+`changelog-style`, `commit-style`) and doc language come from there. If it is missing, stop
 and say: run `/ai-scrum:setup` first. Below, `<sprints>` and `<requirements>` mean the
 corresponding paths from the profile.
 
@@ -53,16 +54,22 @@ shorten their wording or change their language, never drop them.
   that appends the step's line to `<sprints>/$1/progress.md` in the same command, exactly like
   the trail rule in `build.md` — `- <shell timestamp> · 107 · build · started` for a story,
   `· refine · 106 107 108 109 · started` for the refine round, `· gate · e2e-all · started`
-  for the long suite, `· gate · roadmap-check · started` and `· gate · release-verify ·
-  started` for phase 4. The last duration comes from the trail (the previous story's `build ·
+  for the long suite. **Phase 4 writes its lines elsewhere**: by then `progress.md` is
+  committed in `<sprints>/done/$1/`, and a line appended after the review commit would leave the
+  working tree dirty — the next `/sprint` refuses to start on it, or the line slips into someone
+  else's commit. Its trail is `<trail>` = `$(git rev-parse --git-common-dir)/ai-scrum/trail.md`,
+  inside `.git`, never tracked (`mkdir -p` its folder): `- <ts> · $1 · roadmap-check · started`,
+  `- <ts> · $1 · roadmap-check · done`, and the release check's own two lines (its F4 and F6).
+  Every phase-4 step writes both its `started` and its `done` line — that is how anyone watching
+  (the scrum cockpit, you on resume) tells a running step from a finished one. The last duration comes from the trail (the previous story's `build ·
   started` and `story · done` lines) or from the previous sprint's `## Regression gate` record;
   for the first of a kind write `first one, no estimate` — never a guess.
 - **After the step**, one line: result, elapsed, commit — `107 done · 16 min · 0a99dce · 2/4`.
 - **The first line of the sprint** (phase 0) names the shape once: `Refine (parallel, ~10 min)
   → Build 4 stories (one after another, 10–20 min each, silent while they run) → Regression
   gate (long suite in the background, log named when it starts) → Review → Releasable
-  (roadmap check, then the release verification on the final commit) · progress:
-  docs/sprints/S22/progress.md`.
+  (roadmap check, then the release check on the merge with main, in the background) ·
+  next release from here: 1.4.0 (minor) · progress: docs/sprints/S22/progress.md`.
 
 Nothing else goes between delegations — no summary of what an agent did, that costs context —
 but these lines are not optional, and `Now building story 107.` does not satisfy them: no
@@ -73,8 +80,8 @@ message reaches you when the current call returns), answer in at most five lines
 nothing new in that turn:
 
 1. the current step and its start time · elapsed of expected;
-2. the last line of `<sprints>/$1/progress.md` with its timestamp (`tail -n 1`), or for a gate
-   suite the last three lines of its log;
+2. the last line of `<sprints>/$1/progress.md` with its timestamp (`tail -n 1`) — in phase 4
+   the last line of `<trail>` — or for a gate suite the last three lines of its log;
 3. background tasks alive (`<id> <command> since HH:MM`) or `none`;
 4. what you are waiting for and when you expect it;
 5. the escape: `Esc, then /sprint $1 — it resumes at the first open spot`.
@@ -94,9 +101,9 @@ that "knew" its agent had stopped while it was still editing the tree has happen
    `<sprints>/_TEMPLATE/sprint.md`.
 2. Sprint status: `planned` → start normally. `in-progress` → **resume** (skip finished
    stories, continue at the first open spot). `done` → abort — unless every commit after
-   `$1: sprint review + roadmap` on the work branch is one of phase 4's own (`$1: roadmap
-   check`, `$1: fix from release verification`): then phase 4 was interrupted or is asked
-   again, and only phase 4 runs, from step 1.
+   the sprint's review commit on the work branch is one of phase 4's own (roadmap check, fix
+   from the release check, merge of the release branch — `## Commit subjects`): then phase 4
+   was interrupted or is asked again, and only phase 4 runs, from step 1.
 3. `git status` must be clean. Foreign uncommitted changes → abort and ask the user.
 4. **The work branch.** `sprint-branch: true` (also when the key is missing) → the sprint
    works on its own branch, named after `sprint-branch-pattern`, cut from `branch-base`.
@@ -105,27 +112,80 @@ that "knew" its agent had stopped while it was still editing the tree has happen
    `protected-branches` — if it is, abort and say: either set `sprint-branch: true` or take
    the branch out of `protected-branches`. Below, "the work branch" means whichever applies.
 
+## Commit subjects
+
+Every commit this command makes has one of these subjects. `commit-style` in the profile picks
+the column; missing means `plain`. `conventional` exists because a release script that derives
+the bump from Conventional-Commit types reads `042: …` as a plain commit — patch — so a sprint of
+features ships as a patch release, and a sprint of tests and docs cuts a release nobody wanted.
+
+| Commit | `plain` | `conventional` |
+| --- | --- | --- |
+| sprint start (phase 0) | `$1: sprint started` | `docs($1): sprint started` |
+| release branch merged in (phases 0, 4) | `$1: merge origin/<release-branch>` | `chore($1): merge origin/<release-branch>` |
+| story done (phase 2) | `042: <message>` | `<change type>(042): <message>` |
+| story blocked (phase 2) | `WIP 042: blocked — <reason>` | `chore(042): WIP blocked — <reason>` |
+| gate fix (phase 2b) | `042: fix regression from sprint gate` | `<the story's change type>(042): fix regression from sprint gate` |
+| review (phase 3) | `$1: sprint review + roadmap` | `docs($1): sprint review + roadmap` |
+| roadmap check (phase 4) | `$1: roadmap check` | `docs($1): roadmap check` |
+| release check fix (phase 4) | `$1: fix from release check` | `<type by what it changes>($1): fix from release check` |
+
+The change type is the `Change type:` line `/build` writes into the story's `## Done` (`feat`,
+`fix`, `perf`, `refactor`, `test`, `docs`, `build`, `ci`, `chore`; `feat!` for a breaking
+change). Only `feat`, `fix` and `perf` release anything; a story that changes nothing for the
+user is never typed `feat` or `fix`. When looking a commit up — resume, phase 4's own commits, the
+bisect attribution — accept **both** columns and the older `$1: fix from release verification`,
+because a project can switch style between sprints:
+`git log -E --format=%h -1 --grep="^(docs\($1\)|$1): sprint started"`.
+
 ## Phase 0 — Setup
 
 1. **Mark the sprint as running where everyone looks — on `branch-base`, before the branch
    exists.** With the sprint `planned`: check out `branch-base`, set `status: in-progress` and
    the `branch:` line in `sprint.md` (the work branch: the name the sprint branch is about to
    get, from `sprint-branch-pattern`, or `branch-base` itself with `sprint-branch: false`), and
-   commit exactly that one file as `$1: sprint started`. With a sprint branch this is the one
+   commit exactly that one file with the sprint-start subject (`## Commit subjects`). With a sprint branch this is the one
    commit this command makes outside it, and it is allowed even when `branch-base` is listed in
    `protected-branches`: it touches nothing but `sprint.md`, and it is what lets anyone on the
    base branch see that the sprint is under way and on which branch. Never push it.
 2. **The sprint's base** is that start commit — `<sprint-base>` below, found again on resume
-   with `git log --format=%h -1 --grep="^$1: sprint started"`. Every "the sprint's commits"
+   with the lookup from `## Commit subjects`. Every "the sprint's commits"
    in this command is `<sprint-base>..HEAD`, in both modes.
 3. With `sprint-branch: true`: create and check out the sprint branch from `branch-base`, named
    after `sprint-branch-pattern` (e.g. `sprint/$1`). On resume (`in-progress`) the start commit
    already exists and nothing is committed on `branch-base` again: check the branch out, or
    create it now if the run died between the two steps. With `sprint-branch: false`: stay on
    `branch-base` (on resume, check it out); there is nothing to cut.
-4. **Say what the run looks like from the outside** — the first-line status from
-   `## Status lines`: the phases with their shape and rough length, and the progress file
-   `<sprints>/$1/progress.md`.
+4. **Bring the release branch in, before any story writes a line.** Read
+   `.claude/commands/release-check.md` and run its part **B** (base: seconds, nothing installed,
+   nothing run) yourself, on the work branch. A release on `release-branch` leaves a commit there
+   that nothing brings back — the bot's version bump and promoted notes. A sprint that starts
+   without it plans a version that is already tagged and files its notes under the version that
+   is already shipped; measured: six stories' notes written into a released `## 1.1.0`, and
+   `releasable: yes` twice on a branch whose PR then went red on exactly that.
+   - **B2 found commits, B3 no conflict** → merge them into the work branch:
+     `git merge --no-edit -m "<merge subject from ## Commit subjects>" origin/<release-branch>`.
+     This is the one merge this command makes (see Rules): only from the release branch, only
+     into the work branch (never into a `protected-branches` entry — with a sprint branch the
+     merge rides into `branch-base` when the user merges the sprint), only without a conflict,
+     never pushed. Say it in one line: `Merged origin/main into dev: b492451 chore(release): 1.1.1`.
+   - **A conflict** → stop before phase 1; the sprint stays `in-progress`:
+     `Stopped: origin/<release-branch> conflicts with <work branch> in <files> — merge it yourself
+     and resolve them, then /sprint $1 resumes here.` A conflict is the user's to resolve.
+   - **No remote, a failed fetch, `release-branch: none`** → one line saying so, and go on; phase
+     4 reports what it could not check.
+   - **B4 and B5 after the merge** go into the next step's first line: the planned next release,
+     and a notes problem (the open block missing, a published section changed) as a warning — not
+     a stop: the sprint's stories are what fill the open block. A published section that was
+     *already* changed on the release branch is not this sprint's to repair; name it, leave it.
+   - **B7's record line** too — how the earlier verdicts fared on GitHub. A **missed** one (the
+     last sprint said `releasable: yes`, then a PR or release went red) is said loudly here, goes
+     into this sprint's `review.md` under findings with its ready-made incident row, and into the
+     final report. It does not stop the sprint: it is evidence that the check has a gap, and the
+     gap is closed in the plugin, not here.
+5. **Say what the run looks like from the outside** — the first-line status from
+   `## Status lines`: the phases with their shape and rough length, the next release from step
+   4, and the progress file `<sprints>/$1/progress.md`.
 
 ## Phase 1a — Clarification round (orchestrator ↔ user)
 
@@ -244,12 +304,14 @@ and only on the work branch (never push, never on a `protected-branches` entry).
 `false`, leave the changes staged-free and tell the user at the end which commits to make.
 
 - Story `done`: tick the checkbox in `sprint.md`, then `git add -A` and commit with the
-  prepared message (story ID first, e.g. `042: finish team-based combat`).
+  prepared message, its subject per `## Commit subjects` (`042: finish team-based combat`, or
+  `feat(042): finish team-based combat` with `commit-style: conventional` — the type is the
+  story's `Change type:` line; a prepared prefix that disagrees with it is corrected to it).
 - Either way, glance at the new lines in `<sprints>/$1/progress.md`: timestamps must be
   monotonic and none may be later than `date`/`Get-Date` says now. If they are not, the build
   agent typed them instead of running the trail command — note that under findings for
   `review.md` (phase 3) so it is visible, and do not repair the lines by hand.
-- Story `BLOCKED`: commit the partial changes as `WIP <id>: blocked — <reason>` so they do
+- Story `BLOCKED`: commit the partial changes with the blocked subject (`## Commit subjects`) so they do
   not bleed into the next story's diff; mark the story in `sprint.md`. If a later story
   depends on the blocked one, skip it too (with a note) instead of building on a broken base.
 - **Anything else is a failed agent, not a pause.** A return that is neither `done` nor
@@ -340,8 +402,8 @@ story builds together.
      reported as pre-existing, not bisected, not fixed here.
    - **Otherwise bisect** over the sprint's commits: `git bisect start HEAD <sprint-base>`, then
      `git bisect run` with a script that runs `build` (when set) and only the failing tests —
-     never the whole suite per step. The first bad commit names the story by its ID prefix
-     (`042: …`, or `WIP 042: …` for a blocked one). Always finish with `git bisect reset`, and
+     never the whole suite per step. The first bad commit names the story by its ID
+     (`042: …`, `WIP 042: …`, `feat(042): …`, `chore(042): WIP …` — `## Commit subjects`). Always finish with `git bisect reset`, and
      confirm the branch is back on its `HEAD` with a clean tree.
    - Returns at most 10 lines: per failing test the verdict (`flaky` / `pre-existing` /
      `story <id>, commit <sha>`), and for `flaky` / `pre-existing` the cause in one line.
@@ -369,9 +431,8 @@ story builds together.
    ceiling rule from `build.md` applies to it like to any subagent. A full `e2e-all` after
    the fix is not launched, not even "to be sure": the fix was checked where it can break
    something, and the next full run is the next sprint's gate or the release.
-   Green → commit on the work branch as
-   `<id>: fix regression from sprint gate` (only with `auto-commit-per-story: true`, same rules
-   as phase 2), and append one line to that story's `## Done` naming the regression and the fix
+   Green → commit on the work branch with the gate-fix subject from `## Commit subjects` (only
+   with `auto-commit-per-story: true`, same rules as phase 2), and append one line to that story's `## Done` naming the regression and the fix
    commit. Two fix attempts without green → stop fixing: it is a **blocker for the merge**,
    reported in the review with the failing tests and the attributed story. The story file is
    not moved back out of `done/`; the blocker is the sprint's, not a reopened story.
@@ -452,10 +513,16 @@ story builds together.
    If every milestone of a concept's phase is thereby `done`: `git mv` the concept to
    `systems-path` and update its status line.
 4. **If `changelog-path` is set in the profile:** check that every story done in this sprint
-   with a user-facing change has its entry there, under `# Features` / `# Fixes` of the current
-   version section. `/build` writes them per story; this is the sweep that catches the ones it
-   missed. A missing entry is a finding in the review, not something you fix silently — add it,
-   and say in the review that it was added late. When `changelog-path` is `none`, skip this.
+   whose `Change type:` is `feat`, `fix` or `perf` has its entry there, **in the open block** —
+   where the release reads its notes, decided by `changelog-style` exactly as `build.md` step 9b
+   says (`unreleased`: under the `Unreleased` heading; `version-section`: the topmost section
+   that is not on the release branch yet). `/build` writes them per story; this is the sweep
+   that catches the ones it missed and the ones it put in the wrong place. A missing entry is a
+   finding in the review, not something you fix silently — add it, and say in the review that
+   it was added late. **A published section is never changed:** if
+   `git diff <sprint-base>..HEAD -- <changelog-path>` touches a version section that exists on
+   `origin/<release-branch>`, move those lines into the open block, restore the section to its
+   text at its tag (on the release branch, without a tag), and name it as a finding. When `changelog-path` is `none`, skip this.
 5. `sprint.md`: `status: done` as soon as every story is `done` or visibly marked blocked,
    and the regression gate (phase 2b) is recorded — green, or its red result named as a
    blocker in the review.
@@ -465,7 +532,8 @@ story builds together.
 6. **Archive the sprint, then the final commit.** `git add -A`, then
    `git mv <sprints>/$1 <sprints>/done/$1` — the whole folder (`sprint.md`, `progress.md`,
    `review.md`, `testplan.md`), so the open sprints folder only ever shows what is still
-   running. Then the commit: `$1: sprint review + roadmap` — it carries the move, the
+   running. Then the commit, with the review subject from `## Commit subjects`
+   (`$1: sprint review + roadmap`) — it carries the move, the
    `## Regression gate` record in `sprint.md` and the `e2e-quarantine` file the gate edited, if
    any, too (add `+ testplan` only if a `testplan.md` was actually written). Move and commit
    happen together, in this order, in one step: the review commit is the one phase 4 checks, so
@@ -481,35 +549,55 @@ commit is how a green gate turns into a red PR (measured: a green 93-minute gate
 roadmap line added by the review commit failed the PR's unit tests). So this phase runs last, and
 **nothing of the sprint is committed after its green run.**
 
-1. **Roadmap check.** Status line and trail line `· gate · roadmap-check · started`. ONE fresh
+1. **Roadmap check.** Status line and the `roadmap-check · started` line in `<trail>`
+   (`## Status lines`), its `done` line when the agent has returned. ONE fresh
    `Agent` (`model: "sonnet"`, `run_in_background: false`) reads `.claude/commands/roadmap.md`
    and runs its mode `check` on the work branch, plus what the profile's `## Notes` add to that
    mode. It cannot ask the user: a step that needs them (an older-shape rebuild, a decision) is
    reported, not done. It commits nothing and returns its report in at most 15 lines. If it
-   changed files, commit them as `$1: roadmap check`. Its report goes into the final report.
-2. **The release verification, on `HEAD`, once.** The profile's `release-verify` — the
-   project's answer to "will a PR and a release of this commit pass?". With `release-verify:
-   none`, the short suites take its place (`build`, the full `test`, `lint`, `typecheck` — not
-   `e2e`, not `e2e-all`), run by ONE fresh agent the way phase 2b step 1 runs them: they are what
-   a doc edit can break. A `release-verify` that can take longer than ten minutes runs like
-   `e2e-all` in phase 2b step 1b: from your session, after the status line and the trail line
-   `· gate · release-verify · started`, as ONE background `Bash` —
-   `<release-verify> 2>&1 | tee <sprints>/done/$1/gate-release-verify.log` — then end the turn and
-   read the summary when it returns. A refusal for a reason outside the code — a prerequisite
-   that is not running, a base branch that has moved on and needs merging — is not fixed by
-   you: merging is the user's job (see Rules). It is the verdict of step 4, with the action that
-   unblocks it; after that action, `/sprint $1` runs this phase again.
-3. **Red → fix, at most twice.** ONE fresh `Agent` (`model: "sonnet"`, `run_in_background:
-   false`) per failing step, with the failing output, the log's path and the build rules that
-   still hold: fix the cause, never the test. It re-runs the failing step's own check (the
-   failing tests, the format check, …) once per attempt; green → commit as `$1: fix from
-   release verification`, then step 2 again — the whole command, on the new `HEAD`. Two rounds
-   without green → stop: the sprint is **not releasable**, a blocker naming the failing step.
-4. **The verdict is reported, never committed.** Writing it into `review.md`, `sprint.md` or
+   changed files, commit them with the roadmap-check subject (`## Commit subjects`). Its report
+   goes into the final report.
+2. **The release branch, once more.** Part B of `.claude/commands/release-check.md` again: if
+   `origin/<release-branch>` moved during the sprint (a release, a hotfix), merge it in exactly
+   as phase 0 step 4 does — before the check, so nothing is committed after it. A conflict is
+   the verdict `NO — merge conflict with origin/<release-branch>: <files> · merge it and resolve
+   them, then /sprint $1`, and steps 3–4 do not run.
+3. **The release check, on the merge, once.** Run `.claude/commands/release-check.md` in full
+   mode — read it and follow it; you are the top-level session it needs for its one background
+   run. It is what GitHub will run: the merge of `HEAD` into `origin/<release-branch>`, in a
+   throwaway clone with a clean install, every blocking step of the PR lane and the release lane
+   (the release as a dry run), under CI conditions — derived from the workflow files on every
+   run, so it cannot drift from them. Run it with `$1` as its sprint id — its trail lines in
+   `<trail>` and its record carry it. Its F4 is this phase's background task: the status line
+   with the `release-check · started` line, ONE background `Bash`, end the turn, read its
+   summary when it returns; its F6 writes the `done` line with the verdict. `release-verify` in the profile picks the method
+   (`auto`, the project's own command, or `none` — which can never be `yes`).
+   A NO for a reason outside the code — a prerequisite that is not running, a step that needs
+   the user (a secret, a tag that already exists), the bump with `commit-style: plain` — is not
+   fixed by you. It is the verdict of step 5, with the action that unblocks it; after that
+   action, `/sprint $1` runs this phase again.
+4. **Red → fix, at most twice.** For a red step in the code — a test, a format check, the
+   package, notes the sprint filed in the wrong place, subjects whose type contradicts the
+   stories — ONE fresh `Agent` (`model: "sonnet"`, `run_in_background: false`) per failing step,
+   with the failing output, `<work>/step-<n>.log` and the build rules that still hold: fix the
+   cause, never the test. It re-runs the failing step's own check (the failing tests, the format
+   check, …) once per attempt in the work tree; green → commit with the release-check-fix subject
+   (`## Commit subjects`), then step 3 again — the whole check, on the new `HEAD`. A wrong subject
+   is fixed by the next commit's type only when that is honest; rewriting pushed history is never
+   an option, and rewriting the sprint's local commits is the user's call — report it instead.
+   Two rounds without green → stop: the sprint is **not releasable**, a blocker naming the
+   failing step.
+5. **The verdict is reported, never committed.** Writing it into `review.md`, `sprint.md` or
    anywhere else in the repository would be the unchecked commit this phase exists to prevent.
-   It is the first line of the final report: `releasable: yes · <short sha> · <command>`, or
-   `releasable: NO — <step>: <reason> · <what unblocks it>`. Delete
-   `<sprints>/done/$1/gate-release-verify.log`.
+   It is the release check's verdict line, unchanged — `releasable: yes · merge of <sha> into
+   origin/<branch>@<sha> · next release <version> (<level>) · <n>/<n> blocking steps green`,
+   `releasable: NO — <step>: <reason> · <what unblocks it>` or `releasable: UNVERIFIED — <steps
+   not run> · <why>` — followed by its warnings and its step table. Never `yes` from a subset:
+   the short suites green on `HEAD` are not a release check (measured: two sprints in a row said
+   `releasable: yes` on build + test + typecheck, and both PRs went red on steps nobody had run).
+   The check's own record line in `.git/ai-scrum/release-checks.jsonl` (its F6, with `"sprint":
+   "$1"`) is not a repository file and not a commit; the next sprint's phase 0 compares it with
+   what GitHub did. Then delete the release check's `<work>` directory.
 
 ## Closing the run — before the final report
 
@@ -517,8 +605,8 @@ roadmap line added by the review commit failed the PR's unit tests). So this pha
    result reading `[Request interrupted by user for tool use]` is a *detached* agent, not a
    stopped one: it may still be editing the tree and will hand back later; say so, and never
    start a second build agent for the same story on top of it. Every background task you
-   started has returned or been stopped with `TaskStop`. `<sprints>/done/$1/gate-*.log` is
-   deleted.
+   started has returned or been stopped with `TaskStop`. `<sprints>/done/$1/gate-*.log` and the
+   release check's `<work>` directory are deleted.
 2. **Nothing is pending.** The gate is recorded, `review.md` and the roadmap are committed with
    the sprint folder moved to `<sprints>/done/$1/`, and
    phase 4 has its verdict on the current `HEAD`. If one of them is not, you are not at the
@@ -536,9 +624,11 @@ roadmap line added by the review commit failed the PR's unit tests). So this pha
 
 ## Final report to the user
 
-The first line is phase 4's verdict — `releasable: yes · <short sha> · <command>`, or
-`releasable: NO — …` with what unblocks it, loudly, because it decides whether the user can open
-a PR. Then, short and complete: the work branch, stories done/blocked, the roadmap check's report
+The first line is phase 4's verdict — `releasable: yes · …` with the planned version and level,
+or `releasable: NO — …` / `releasable: UNVERIFIED — …` with what unblocks it, loudly, because it
+decides whether the user can open a PR. Directly under it its warnings and its step table, the
+PR lane and the release lane step by step, and the record line (green cycles, missed, not
+confirmed — a missed one loudly). Then, short and complete: the work branch, stories done/blocked, the roadmap check's report
 compacted, path to `review.md` (and to
 `testplan.md`, if one was written — otherwise say plainly that nothing needs walking by hand),
 the regression gate in one line (green, or which story broke what and whether it was fixed — a
@@ -554,10 +644,14 @@ the target of a sprint branch merge you make.
 
 ## Rules
 
-- **Never push. Never commit on a protected branch. No merge** — that is the user's job. The
-  single exception is the `$1: sprint started` commit of phase 0 on `branch-base`: one file,
-  once, never pushed. `sprint-branch: false` changes where the commits land, never this rule:
-  its `branch-base` is not protected, or the run does not start.
+- **Never push. Never commit on a protected branch. No merge** — that is the user's job. Two
+  exceptions, both narrow. The sprint-start commit of phase 0 on `branch-base`: one file, once,
+  never pushed. And `origin/<release-branch>` merged into the work branch (phase 0 step 4, phase
+  4 step 2): only that source, only into the work branch, only without a conflict, never pushed
+  — it is mechanical, and a sprint without it builds on a tree the PR will never see. Merging
+  the sprint into `branch-base`, the PR and the release stay the user's. `sprint-branch: false`
+  changes where the commits land, never this rule: its `branch-base` is not protected, or the
+  run does not start.
 - **Acceptance is the test suite.** A sprint does not hand the user a list of things to click.
   Every criterion was mapped to a test in refine and proven by it in build; `review.md` records
   which test proved what. A sprint that ends with "please walk these 40 items" has failed at
@@ -580,7 +674,7 @@ the target of a sprint branch merge you make.
   report back once the build agent returns" is not a pause, it is the end of the sprint, and
   the user finds out by noticing that the working tree stopped moving. Every `Agent` call is
   foreground, and the question never comes up. The **one** exception is the background `Bash`
-  task of phase 2b step 1b (and, the same way, a long `release-verify` in phase 4 step 2 — one
+  task of phase 2b step 1b (and, the same way, the release check's run in phase 4 step 3 — one
   at a time, never both), started by you at the top level: a background task's exit
   notification does reach this session — it never reaches a subagent, which is why the gate
   agent must not start one. End that turn only after the status line, with exactly that one

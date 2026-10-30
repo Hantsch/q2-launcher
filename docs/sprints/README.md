@@ -41,8 +41,11 @@ sprints/
      `SNN: sprint started` — the one commit the sprint makes there, so the base branch shows
      that the sprint is running and where — then the sprint branch is cut from it. With
      `sprint-branch: false` in the profile no branch is cut: the sprint commits directly on
-     `branch-base`, which then must not be a protected branch. The first
-     chat line names the phases, their rough length and the progress file.
+     `branch-base`, which then must not be a protected branch. Then the release branch comes
+     in: commits on it that the work branch lacks — the release commit your pipeline pushed —
+     are merged into the work branch when that is conflict-free (a conflict stops the sprint
+     before any story starts). The first chat line names the phases, their rough length, the
+     next release and the progress file.
    - **Clarification round:** deliberately open decisions (`## Open Questions` of the
      stories) are never decided by an agent — the orchestrator puts them to you bundled via
      AskUserQuestion and records the answers as binding `(User)` decisions.
@@ -70,10 +73,13 @@ sprints/
      there is manual residue to walk, the roadmap gets its milestone row, its follow-up lines
      and a fresh "Where we stand" (nothing more), `status: done`, and the sprint folder is moved
      to `done/SNN/` with `git mv` — all in the one review commit.
-   - **Releasable:** after the review commit an agent runs `/roadmap check`, then the profile's
-     `release-verify` (or the short suites) runs once on the final commit. Red is fixed at most
-     twice; nothing is committed after a green run. The verdict — `releasable: yes` with the
-     commit, or `NO` and what unblocks it — is the first line of the final report.
+   - **Releasable:** after the review commit an agent runs `/roadmap check`, then
+     `/release-check` runs once on the merge of the final commit into the release branch: a
+     throwaway clone, a clean install, every blocking step of the PR and the release pipelines
+     (the release as a dry run), under CI conditions. Red is fixed at most twice; nothing is
+     committed after a green run. The verdict — `releasable: yes` with the next version, `NO`
+     and what unblocks it, or `UNVERIFIED` and what did not run — is the first line of the final
+     report, with every step under it.
 3. **You** read `review.md`, plan the next sprint on top of it (correction stories if needed)
    and decide about the **merge back into `branch-base`** (with `sprint-branch: false` the
    commits are already there; what is left is your push). There is nothing to accept by hand
