@@ -2950,9 +2950,12 @@
       "error": {
         "contextLost": "The 3D view was lost. Press Play to restart.",
         "dataTooLarge": "This demo needs {{sizeMb}} MB of game data, more than integrated playback can hold. Play it in engine mode.",
-        "loadFailed": "The 3D view could not be started. Press Play to retry.",
+        "engineStartFailed": "The 3D view could not be started. Press Play to retry.",
+        "loadFailed": "The demo could not be loaded into the launcher.",
         "superseded": "Another playback was prepared in the meantime. Try again."
-      }
+      },
+      "loading": "Loading demo…",
+      "playInEngineMode": "Play in engine mode"
     },
     "list": {
       "archiveSource": "{{base}} › {{archive}} › {{entry}}",
@@ -3099,7 +3102,7 @@
         "lockedWhilePlaying": "Stop the demo to switch"
       },
       "unavailable": {
-        "integratedNotReady": "Integrated mode is not ready yet — switch to Engine window to play.",
+        "controlsComingSoon": "Timeline controls are coming soon for integrated playback.",
         "mvd2Integrated": "MVD2 demos play in engine mode for now",
         "noBasePaks": "Integrated playback needs an installation with the Quake II game files (baseq2). Pick one in the left rail."
       }

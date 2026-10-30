@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DemoRow } from '@shared/modules/replays'
 import type { LocalizedMessage } from '@shared/types'
+import type { PlayerMode } from '@shared/replays/player-mode'
 import { demoPlayEligibility, type DemoPlayEligibility } from '@shared/replays/demo-play'
 import { useLauncher } from '../../store/useLauncher'
 import { playDemo } from './client'
+import { playIntegrated, stopIntegrated } from './integrated/integrated-session'
 import { usePlaybackModeStore } from './playback-mode-store'
 import { usePlaybackStore, type StageRect } from './playback-store'
 
@@ -22,6 +24,8 @@ export interface DemoPlay {
    * `startAtS` seeks there once the engine reports its first position.
    */
   play(acknowledgeModMissing?: boolean, startAtS?: number): Promise<void>
+  /** Switches the persisted mode to engine and plays this demo there in the same click. */
+  playInEngineMode(): Promise<void>
 }
 
 /**
@@ -63,31 +67,53 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
     })
   }, [demo, mode, installations, activeInstallationId, platform, gameRunning])
 
-  async function play(acknowledgeModMissing = false, startAtS?: number): Promise<void> {
+  async function run(
+    runMode: PlayerMode,
+    acknowledgeModMissing = false,
+    startAtS?: number,
+  ): Promise<void> {
     if (demo === null || eligibility === null) return
-    const target = acknowledgeModMissing
-      ? demoPlayEligibility({
-          demo,
-          mode,
-          installations,
-          activeInstallationId,
-          platform,
-          gameRunning,
-          acknowledgeModMissing: true,
-        })
-      : eligibility
+    const target =
+      acknowledgeModMissing || runMode !== mode
+        ? demoPlayEligibility({
+            demo,
+            mode: runMode,
+            installations,
+            activeInstallationId,
+            platform,
+            gameRunning,
+            ...(acknowledgeModMissing ? { acknowledgeModMissing: true } : {}),
+          })
+        : eligibility
     if (!target.ok) return
-    if (mode === 'integrated') {
-      // No engine launch and no IPC: the canvas in the stage plays the demo. (story 290)
+    if (runMode === 'integrated') {
+      // No engine launch and no IPC to main: the in-launcher engine plays the demo. (story 291)
       const playback = usePlaybackStore.getState()
-      playback.armStage()
       playback.beginSession(demo.fileName, demo.durationMs, {
         id: demo.id,
         archived: demo.archiveEntry !== null,
-        mode: 'integrated',
+        kind: 'integrated',
+        controlsUnavailable: { key: 'replays.player.unavailable.controlsComingSoon' },
         ...(startAtS !== undefined ? { startAtS } : {}),
       })
-      playback.setStageReason({ key: 'replays.player.unavailable.integratedNotReady' })
+      await playIntegrated(
+        { demoId: demo.id, installationId: target.installationId },
+        {
+          onLoading: () => playback.setIntegratedPhase('loading'),
+          onPlaying: () => playback.setIntegratedPhase('playing'),
+          onFinished: () => {
+            playback.setIntegratedPhase('finished')
+            playback.applyState('finished')
+          },
+          onRefused: (reason) => {
+            playback.setIntegratedPhase(null)
+            playback.setStageReason(
+              { key: reason.key, ...(reason.params ? { params: reason.params } : {}) },
+              true,
+            )
+          },
+        },
+      )
       return
     }
     setError(null)
@@ -148,5 +174,19 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
     }
   }
 
-  return { eligibility, busy, error, play }
+  async function playInEngineMode(): Promise<void> {
+    await stopIntegrated()
+    usePlaybackStore.getState().endSession()
+    await usePlaybackModeStore.getState().set('engine')
+    if (usePlaybackModeStore.getState().mode !== 'engine') return
+    await run('engine')
+  }
+
+  return {
+    eligibility,
+    busy,
+    error,
+    play: (acknowledgeModMissing, startAtS) => run(mode, acknowledgeModMissing, startAtS),
+    playInEngineMode,
+  }
 }

@@ -25,7 +25,7 @@ milestone: 12.1 — Toolchain and spikes; 12.2 — Playback in the canvas
 - [x] 287 — I choose between engine and integrated playback
 - [x] 289 — Main serves game data to the engine
 - [x] 290 — The engine canvas sits on the demo stage
-- [ ] 291 — A demo plays inside the launcher
+- [x] 291 — A demo plays inside the launcher
 
 ## Notes
 

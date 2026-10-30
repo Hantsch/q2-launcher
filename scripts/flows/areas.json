@@ -952,8 +952,17 @@
     },
     {
       "area": "replays-integrated",
-      "paths": ["src/renderer/src/modules/replays/integrated/**"],
-      "flows": ["replays-integrated-canvas", "replays-playback-mode", "replays-stage"],
+      "paths": [
+        "src/renderer/src/modules/replays/integrated/**",
+        "src/main/modules/replays/integrated-session.ts",
+        "src/main/services/engine-data-port.ts"
+      ],
+      "flows": [
+        "replays-integrated-canvas",
+        "replays-play-integrated",
+        "replays-playback-mode",
+        "replays-stage"
+      ],
       "why": "The integrated player: the engine canvas in the stage, its loader and the fake engine the flows run against."
     },
     {

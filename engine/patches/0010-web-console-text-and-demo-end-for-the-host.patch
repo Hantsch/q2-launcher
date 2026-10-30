@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 10/10] web: console text and demo end for the host
+
+q2l_console runs console text synchronously so the host reads its effect before it steps again; q2l_demo_eof reports the end of a playing demo. callMain is exported and INVOKE_RUN=0 leaves starting the engine to the host.
+---
+ meson.build         |  5 +++--
+ src/unix/q2l_step.c | 20 ++++++++++++++++++++
+ 2 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index b58cf9f..2648fca 100644
+--- a/meson.build
++++ b/meson.build
+@@ -685,8 +685,9 @@ if web
+     '-sALLOW_MEMORY_GROWTH=1',
+     '-sINITIAL_MEMORY=128MB',
+     '-sMAXIMUM_MEMORY=2GB',
+-    '-sEXPORTED_FUNCTIONS=_main,_q2l_step,_q2l_seed,_q2l_frames_rendered,_q2l_audio_take,_q2l_audio_consumed,_q2l_audio_capture,_malloc,_free,_q2l_resize',
+-    '-sEXPORTED_RUNTIME_METHODS=FS,cwrap,ccall,pauseMainLoop,resumeMainLoop,HEAPU8,HEAP16',
++    '-sEXPORTED_FUNCTIONS=_main,_q2l_step,_q2l_seed,_q2l_frames_rendered,_q2l_audio_take,_q2l_audio_consumed,_q2l_audio_capture,_malloc,_free,_q2l_resize,_q2l_console,_q2l_demo_eof',
++    '-sEXPORTED_RUNTIME_METHODS=FS,cwrap,ccall,callMain,pauseMainLoop,resumeMainLoop,HEAPU8,HEAP16',
++    '-sINVOKE_RUN=0',
+     '--profiling-funcs',
+   ]
+ 
+diff --git a/src/unix/q2l_step.c b/src/unix/q2l_step.c
+index 8438591..b415f9d 100644
+--- a/src/unix/q2l_step.c
++++ b/src/unix/q2l_step.c
+@@ -27,6 +27,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
+ #include "common/cvar.h"
+ #include "common/net/net.h"
+ #include "client/client.h"
++#include "src/client/client.h"
+ #include "client/sound/dma.h"
+ #include "server/server.h"
+ #include "system/system.h"
+@@ -84,3 +85,22 @@ EMSCRIPTEN_KEEPALIVE int q2l_frames_rendered(void)
+ {
+     return com_framesRendered;
+ }
++
++// Synchronous on purpose: the host reads the result (a loaded demo, a
++// disconnect) in the same call, before it steps the engine again.
++EMSCRIPTEN_KEEPALIVE void q2l_console(const char *text)
++{
++    // Com_Error(ERR_DROP) from a command longjmps to com_abortframe.
++    if (setjmp(com_abortframe)) {
++        return;
++    }
++
++    Cbuf_AddText(&cmd_buffer, text);
++    Cbuf_AddText(&cmd_buffer, "\n");
++    Cbuf_Execute(&cmd_buffer);
++}
++
++EMSCRIPTEN_KEEPALIVE int q2l_demo_eof(void)
++{
++    return cls.demo.playback && cls.demo.eof;
++}

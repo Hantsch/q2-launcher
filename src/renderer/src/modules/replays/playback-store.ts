@@ -18,6 +18,7 @@ import {
   playbackVolume,
   playbackTimeline,
 } from './client'
+import { stopIntegrated } from './integrated/integrated-session'
 import {
   applyReadback,
   confirmSpeed,
@@ -70,8 +71,8 @@ export interface PlaybackSession {
   volume: PlaybackVolume
   /** Story 172: the game window is fullscreen; the strip shows the keys text instead of stale position. */
   fullscreen: boolean
-  /** Who plays the demo: the engine window (main) or the in-launcher canvas. (story 290) */
-  playerMode: PlayerMode
+  /** Who plays the demo: the engine window (main) or the in-launcher canvas. (story 291) */
+  kind: PlayerMode
   /** Story 187: preview (the stage), cinema (the overlay) or fullscreen, from the display event. */
   mode: PlaybackMode
   /** Story 187: whether cinema can run now, and the reason key when it cannot. */
@@ -85,6 +86,8 @@ export interface PlaybackSession {
   /** Story 184: chains whose oldest pending command has waited over 1 s for its readback. */
   waiting: ReadonlySet<TimelineChain>
 }
+
+export type IntegratedPhase = 'loading' | 'playing' | 'finished'
 
 export interface StageRect {
   x: number
@@ -100,13 +103,18 @@ interface PlaybackStoreState {
   /** The stage picture's last measured rect in viewport CSS px, or null. */
   stageRect: StageRect | null
   /** Why the stage could not place the game window (an i18n key), or null. */
-  stageReason: { key: string } | null
+  stageReason: LocalizedMessage | null
   /** Invariant: true only while `stageReason` came from a display-event notice; a null notice clears just those. */
   stageReasonIsNotice: boolean
+  /** True while `stageReason` is an integrated refusal the user can answer with "Play in engine mode". */
+  stageEngineModeOffer: boolean
+  /** Where the integrated engine is; null outside an integrated session. */
+  integratedPhase: IntegratedPhase | null
   armStage: () => void
   disarmStage: () => void
   setStageRect: (rect: StageRect | null) => void
-  setStageReason: (reason: { key: string } | null) => void
+  setStageReason: (reason: LocalizedMessage | null, engineModeOffer?: boolean) => void
+  setIntegratedPhase: (phase: IntegratedPhase | null) => void
   beginSession: (demoName: string, knownDurationMs: number | null, demo?: SessionDemo) => void
   endSession: () => void
   /** Asks main to end the demo; resolves to the refusal to show, or null when the request was accepted. */
@@ -132,7 +140,8 @@ export interface SessionDemo {
   id: string
   archived: boolean
   startAtS?: number
-  mode?: PlayerMode
+  kind?: PlayerMode
+  controlsUnavailable?: { key: string }
 }
 
 /** The display event; `cinema`, `speed` and `cinemaAvailability` are optional for older callers. */
@@ -188,9 +197,17 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   stageRect: null,
   stageReason: null,
   stageReasonIsNotice: false,
+  stageEngineModeOffer: false,
+  integratedPhase: null,
   armStage: () => set({ stageArmed: true }),
   disarmStage: () =>
-    set({ stageArmed: false, stageRect: null, stageReason: null, stageReasonIsNotice: false }),
+    set({
+      stageArmed: false,
+      stageRect: null,
+      stageReason: null,
+      stageReasonIsNotice: false,
+      stageEngineModeOffer: false,
+    }),
   setStageRect: (rect) =>
     set((s) => {
       const p = s.stageRect
@@ -206,12 +223,24 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         return s
       return { stageRect: rect }
     }),
-  setStageReason: (reason) => set({ stageReason: reason, stageReasonIsNotice: false }),
+  setStageReason: (reason, engineModeOffer = false) =>
+    set({
+      stageReason: reason,
+      stageReasonIsNotice: false,
+      stageEngineModeOffer: reason !== null && engineModeOffer,
+    }),
+  setIntegratedPhase: (phase) =>
+    set((s) => (s.session?.kind === 'integrated' ? { integratedPhase: phase } : s)),
   beginSession: (demoName, knownDurationMs, demo) => {
     unsubscribeAll()
     clearTimers()
     const optimistic = createTimeline({ view: null, durationMs: knownDurationMs }, Date.now())
+    const integrated = demo?.kind === 'integrated'
     set({
+      // An integrated session has no armStage call of its own: the canvas needs the stage.
+      ...(integrated ? { stageArmed: true } : {}),
+      stageEngineModeOffer: false,
+      integratedPhase: null,
       session: {
         demoName,
         demoId: demo?.id ?? null,
@@ -222,10 +251,10 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         speed: 1,
         volume: { percent: 100, muted: false },
         fullscreen: false,
-        playerMode: demo?.mode ?? 'engine',
+        kind: demo?.kind ?? 'engine',
         mode: 'preview',
         cinemaAvailability: { available: true },
-        controlsUnavailable: null,
+        controlsUnavailable: demo?.controlsUnavailable ?? null,
         stopping: false,
         optimistic,
         waiting: new Set(),
@@ -237,6 +266,8 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       onPlaybackDisplay((p) => get().applyDisplay(p)),
     ]
     // The display event only fires on change; read the state the session starts in (cinema availability).
+    // Main knows no integrated session, so there is no display state to read for one.
+    if (integrated) return
     void playbackDisplayRead()
       .then((result) => {
         if (result.ok && get().session !== null) get().applyDisplay(result.value)
@@ -252,13 +283,16 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       stageRect: null,
       stageReason: null,
       stageReasonIsNotice: false,
+      stageEngineModeOffer: false,
+      integratedPhase: null,
     })
   },
   requestStop: async () => {
     const setStopping = (stopping: boolean): void =>
       set((s) => (s.session === null ? s : { session: { ...s.session, stopping } }))
-    if (get().session?.playerMode === 'integrated') {
-      // Main knows no integrated session; nothing to ask it. (story 290)
+    if (get().session?.kind === 'integrated') {
+      // Main knows no integrated session and sends no `ended` event for one. (story 291)
+      await stopIntegrated()
       get().endSession()
       return null
     }

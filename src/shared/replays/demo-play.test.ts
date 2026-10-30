@@ -434,7 +434,7 @@ function failing(id: Inst['checks'][number]['id'], severity: 'error' | 'warn' = 
 }
 
 describe('integrated playback eligibility', () => {
-  it('integrated mode plays on an R1Q2-only or engine-less installation that has baseq2 paks', () => {
+  it('integrated mode with baseq2 paks is playable, whatever the engine kind', () => {
     for (const engineKind of ['r1q2', 'vanilla', 'unknown'] as const) {
       const installations = [inst('a', engineKind)]
       expect(runIntegrated({ installations }), engineKind).toEqual({

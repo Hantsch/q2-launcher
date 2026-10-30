@@ -121,13 +121,56 @@ describe('DemoStage', () => {
 
   it('in integrated mode the stage holds the engine canvas instead of the placeholder', async () => {
     vi.mocked(client.sendStageRect).mockClear()
-    act(() => usePlaybackStore.getState().beginSession('d.dm2', null))
+    act(() =>
+      usePlaybackStore.getState().beginSession('d.dm2', null, {
+        id: 'd',
+        archived: false,
+        kind: 'integrated',
+      }),
+    )
     render(<DemoStage mode="integrated" />)
     await act(async () => {})
     const picture = screen.getByTestId('replays-stage-picture')
     expect(picture.contains(screen.getByTestId('replays-engine-canvas'))).toBe(true)
     expect(picture.textContent).not.toContain('The demo plays here')
     expect(client.sendStageRect).not.toHaveBeenCalled()
+  })
+
+  it('the stage shows the loading text while an integrated demo loads', async () => {
+    act(() => {
+      const store = usePlaybackStore.getState()
+      store.beginSession('d.dm2', null, { id: 'd', archived: false, kind: 'integrated' })
+      store.setIntegratedPhase('loading')
+    })
+    render(<DemoStage mode="integrated" />)
+    await act(async () => {})
+    const loading = screen.getByTestId('replays-integrated-loading')
+    expect(loading.getAttribute('role')).toBe('status')
+    expect(loading.textContent).toBe('Loading demo…')
+
+    act(() => usePlaybackStore.getState().setIntegratedPhase('playing'))
+    expect(screen.queryByTestId('replays-integrated-loading')).toBeNull()
+  })
+
+  it('a refused integrated play offers playing in engine mode', async () => {
+    const onPlayInEngineMode = vi.fn()
+    act(() => {
+      const store = usePlaybackStore.getState()
+      store.beginSession('d.dm2', null, { id: 'd', archived: false, kind: 'integrated' })
+      store.setStageReason(
+        { key: 'replays.integrated.error.dataTooLarge', params: { sizeMb: 612 } },
+        true,
+      )
+    })
+    render(<DemoStage mode="integrated" onPlayInEngineMode={onPlayInEngineMode} />)
+    await act(async () => {})
+    expect(screen.getByTestId('replays-stage-reason').textContent).toBe(
+      'This demo needs 612 MB of game data, more than integrated playback can hold. Play it in engine mode.',
+    )
+    const button = screen.getByTestId('replays-stage-play-engine')
+    expect(button.textContent).toBe('Play in engine mode')
+    act(() => button.click())
+    expect(onPlayInEngineMode).toHaveBeenCalledTimes(1)
   })
 
   it('in engine mode the stage keeps the placeholder and reports its rect', () => {

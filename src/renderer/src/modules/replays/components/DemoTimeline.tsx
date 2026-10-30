@@ -122,12 +122,17 @@ export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
   const ended = view?.ended ?? false
   // Leaving cinema is always possible; entering needs availability and a demo that has not ended.
   const cinemaBlocked = locked || (!inCinema && (cinemaReason !== null || ended))
-  const positionText = locked
-    ? t('replays.timeline.durationUnknown')
-    : formatPlaybackPosition(positionMs)
-  const durationText = hasDuration
-    ? formatPlaybackPosition(durationMs)
-    : t('replays.timeline.durationUnknown')
+  const integrated = session.kind === 'integrated'
+  const positionText = integrated
+    ? t('common.label.noValue')
+    : locked
+      ? t('replays.timeline.durationUnknown')
+      : formatPlaybackPosition(positionMs)
+  const durationText = integrated
+    ? t('common.label.noValue')
+    : hasDuration
+      ? formatPlaybackPosition(durationMs)
+      : t('replays.timeline.durationUnknown')
   const durationS = hasDuration ? Math.floor(durationMs / 1000) : 0
   const positionS = Math.min(durationS, Math.floor(positionMs / 1000))
   const fraction = hasDuration ? Math.min(1, positionMs / durationMs) : 0

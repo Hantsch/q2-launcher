@@ -11,6 +11,9 @@ const handlers = vi.hoisted(() => ({
   stop: vi.fn(),
 }))
 
+const stopIntegrated = vi.hoisted(() => vi.fn(async () => {}))
+vi.mock('./integrated/integrated-session', () => ({ stopIntegrated }))
+
 vi.mock('./client', (importOriginal) =>
   mockClient<typeof import('./client')>(importOriginal, {
     playbackCinema: vi.fn(),
@@ -48,15 +51,17 @@ beforeEach(() => {
 afterEach(() => usePlaybackStore.getState().endSession())
 
 describe('playback store', () => {
-  it('stopping an integrated session ends it without asking main', async () => {
+  it('stopping an integrated session ends it without the engine-mode stop', async () => {
     handlers.stop.mockClear()
+    stopIntegrated.mockClear()
     usePlaybackStore.getState().armStage()
     usePlaybackStore.getState().beginSession('a.dm2', 90_000, {
       id: 'x',
       archived: false,
-      mode: 'integrated',
+      kind: 'integrated',
     })
     expect(await usePlaybackStore.getState().requestStop()).toBeNull()
+    expect(stopIntegrated).toHaveBeenCalledTimes(1)
     expect(handlers.stop).not.toHaveBeenCalled()
     expect(usePlaybackStore.getState().session).toBeNull()
     expect(usePlaybackStore.getState().stageArmed).toBe(false)

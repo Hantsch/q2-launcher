@@ -72,14 +72,25 @@ export default async function replaysPlaybackMode({ page, step, shot }) {
   await selectDemo(page, REPLAYS_PLAY_CTF_DEMO)
   await poll('Play to be enabled', async () => !(await play.isDisabled()), TIMEOUT_MS)
   await play.click({ timeout: TIMEOUT_MS })
-  const stageReason = page.getByTestId('replays-stage-reason')
-  await stageReason.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const reason = (await stageReason.textContent()) ?? ''
-  if (!reason.includes('Integrated mode is not ready'))
-    throw new Error(`replays-playback-mode: unexpected reason ${JSON.stringify(reason)}`)
+  // This variant has no fake engine, so the stage may end in loading or the canvas without a
+  // picture; what matters is that Play is accepted (no refusal reason) and Stop clears the stage.
+  const canvas = page.getByTestId('replays-engine-canvas')
+  const loading = page.getByTestId('replays-integrated-loading')
+  const reasonNode = page.getByTestId('replays-stage-reason')
+  await canvas.or(loading).first().waitFor({ state: 'visible', timeout: 15_000 })
+  if (await reasonNode.isVisible()) {
+    const reason = (await reasonNode.textContent()) ?? ''
+    if (/not ready/i.test(reason))
+      throw new Error(`replays-playback-mode: Play must not be refused as not ready: ${reason}`)
+  }
+  if (await play.isDisabled())
+    throw new Error('replays-playback-mode: Play must stay enabled in integrated mode')
   await shot('integrated-stage')
   await page.getByTestId('replays-timeline-stop').click({ timeout: TIMEOUT_MS })
-  await stageReason.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  await canvas.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  await loading.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  // endSession disarms the stage, so the whole stage (placeholder included) leaves with the session.
+  await page.getByTestId('replays-stage').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
 
   step('switching back to the engine window enables Play')
   await viewEngine.click({ timeout: TIMEOUT_MS })

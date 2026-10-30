@@ -3,11 +3,11 @@ From: Q2 Launcher <engine@q2launcher.invalid>
 Date: Thu, 1 Jan 2026 00:00:00 +0000
 Subject: [PATCH 9/9] web: integrated canvas host, keys, size and exports
 
-The engine draws into the launcher's #q2l-engine-canvas, takes keys only from it and never requests pointer lock or sizes the canvas itself. The host resizes the canvas and calls q2l_resize; q2l_console queues console text; ccall, pauseMainLoop and resumeMainLoop are exported.
+The engine draws into the launcher's #q2l-engine-canvas, takes keys only from it and never requests pointer lock or sizes the canvas itself. The host resizes the canvas and calls q2l_resize; ccall, pauseMainLoop and resumeMainLoop are exported.
 ---
  meson.build                 |  4 ++--
  src/unix/video/emscripten.c | 30 +++++++++++++++++-------------
- 2 files changed, 19 insertions(+), 15 deletions(-)
+ 2 files changed, 14 insertions(+), 15 deletions(-)
 
 diff --git a/meson.build b/meson.build
 index a8c345a..c08e3fe 100644
@@ -19,7 +19,7 @@ index a8c345a..c08e3fe 100644
      '-sMAXIMUM_MEMORY=2GB',
 -    '-sEXPORTED_FUNCTIONS=_main,_q2l_step,_q2l_seed,_q2l_frames_rendered,_q2l_audio_take,_q2l_audio_consumed,_q2l_audio_capture,_malloc,_free',
 -    '-sEXPORTED_RUNTIME_METHODS=FS,cwrap,HEAPU8,HEAP16',
-+    '-sEXPORTED_FUNCTIONS=_main,_q2l_step,_q2l_seed,_q2l_frames_rendered,_q2l_audio_take,_q2l_audio_consumed,_q2l_audio_capture,_malloc,_free,_q2l_resize,_q2l_console',
++    '-sEXPORTED_FUNCTIONS=_main,_q2l_step,_q2l_seed,_q2l_frames_rendered,_q2l_audio_take,_q2l_audio_consumed,_q2l_audio_capture,_malloc,_free,_q2l_resize',
 +    '-sEXPORTED_RUNTIME_METHODS=FS,cwrap,ccall,pauseMainLoop,resumeMainLoop,HEAPU8,HEAP16',
      '--profiling-funcs',
    ]
@@ -74,7 +74,7 @@ index 717cb52..a55ccd3 100644
      emscripten_set_resize_callback           (EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, true, window_resized_cb);
      emscripten_set_pointerlockchange_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, true, pointerlock_change_cb);
      emscripten_set_focus_callback            (EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, true, focus_cb);
-@@ -308,14 +303,23 @@ static void grab_mouse(bool grab)
+@@ -308,14 +303,18 @@ static void grab_mouse(bool grab)
      if (!htm.mouse.initialized)
          return;
  
@@ -91,11 +91,6 @@ index 717cb52..a55ccd3 100644
 +EMSCRIPTEN_KEEPALIVE void q2l_resize(void)
 +{
 +    mode_changed();
-+}
-+
-+EMSCRIPTEN_KEEPALIVE void q2l_console(const char *text)
-+{
-+    Cbuf_AddText(&cmd_buffer, text);
 +}
 +
  static bool probe(void)

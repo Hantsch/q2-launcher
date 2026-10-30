@@ -106,7 +106,7 @@ export function EngineCanvas({ loader = engineLoader }: EngineCanvasProps) {
         >
           {problem === 'lost'
             ? t('replays.integrated.error.contextLost')
-            : t('replays.integrated.error.loadFailed')}
+            : t('replays.integrated.error.engineStartFailed')}
         </div>
       )}
     </div>

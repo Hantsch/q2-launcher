@@ -6,7 +6,7 @@ const spike = window.spike
 // No inline styles under the production CSP; CSSOM writes are not governed by style-src.
 Object.assign(document.documentElement.style, { margin: '0', height: '100%', overflow: 'hidden' })
 Object.assign(document.body.style, { margin: '0', height: '100%', background: '#000' })
-const canvas = document.getElementById('canvas')
+const canvas = document.getElementById('q2l-engine-canvas')
 Object.assign(canvas.style, { display: 'block', width: '100vw', height: '100vh' })
 
 // Instrumentation goes in before the engine module is imported, so nothing it does is missed.
@@ -134,7 +134,9 @@ async function main() {
   const callStart = performance.now()
   const pending = createEngine(moduleOptions)
   const callMs = performance.now() - callStart
-  await pending
+  const engine = await pending
+  // INVOKE_RUN=0: the host starts the engine.
+  engine.callMain(moduleOptions.arguments)
   spike.report({
     type: 'factory',
     importMs: callStart - importStart,

@@ -9,6 +9,15 @@ describe('engine module adapter', () => {
       pauseMainLoop: vi.fn(),
       resumeMainLoop: vi.fn(),
       ccall: vi.fn(),
+      callMain: vi.fn(),
+      FS: {
+        mkdirTree: vi.fn(),
+        writeFile: vi.fn(),
+        unlink: vi.fn(),
+        analyzePath: vi.fn(() => ({ exists: false })),
+        stat: vi.fn(() => ({ size: 0 })),
+      },
+      _q2l_demo_eof: vi.fn(() => 0),
     }
     const canvas = document.createElement('canvas')
     const host = adaptEngineModule(raw, canvas)

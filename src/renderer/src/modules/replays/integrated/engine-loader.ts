@@ -1,3 +1,4 @@
+import { consoleLines, pushLine } from './engine-console'
 import { adaptEngineModule, type EngineFactory, type EngineHost } from './engine-module'
 
 const ENGINE_BASE = '/engine/'
@@ -25,9 +26,20 @@ export function createEngineLoader(importFactory: () => Promise<EngineFactory>):
     canvas.setAttribute('data-testid', 'replays-engine-canvas')
     const mine: Promise<EngineHost> = importFactory()
       .then((factory) =>
-        factory({ canvas, noInitialRun: true, locateFile: (p) => `${ENGINE_BASE}${p}` }),
+        factory({
+          canvas,
+          noInitialRun: true,
+          locateFile: (p) => `${ENGINE_BASE}${p}`,
+          print: pushLine,
+          printErr: pushLine,
+        }),
       )
       .then((raw) => {
+        // Only the fixture engine announces itself on `__q2lFakeEngine`; production exposes nothing.
+        if ('__q2lFakeEngine' in globalThis) {
+          ;(window as unknown as { __q2lEngineConsole?: () => string[] }).__q2lEngineConsole =
+            consoleLines
+        }
         const host = adaptEngineModule(raw, canvas)
         if (pending === mine) {
           instance = host

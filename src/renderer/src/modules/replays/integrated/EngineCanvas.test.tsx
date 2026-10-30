@@ -4,7 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { initI18n } from '../../../i18n'
 import { EngineCanvas } from './EngineCanvas'
 import type { EngineLoader } from './engine-loader'
-import type { EngineHost } from './engine-module'
+import type { EngineHost, RawEngineModule } from './engine-module'
 
 let frames: Map<number, FrameRequestCallback>
 let nextFrame: number
@@ -18,6 +18,7 @@ function fakeLoader() {
   )
   const host: EngineHost = {
     canvas,
+    module: {} as RawEngineModule,
     resize: vi.fn(),
     pauseLoop: vi.fn(),
     resumeLoop: vi.fn(),

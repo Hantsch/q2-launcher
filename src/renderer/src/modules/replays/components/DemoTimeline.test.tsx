@@ -349,6 +349,29 @@ describe('DemoTimeline engine without channel', () => {
   })
 })
 
+describe('DemoTimeline integrated playback', () => {
+  it('an integrated session shows dashes and disabled controls with their reason', () => {
+    act(() => {
+      usePlaybackStore.getState().beginSession('a.dm2', 60_000, {
+        id: 'd1',
+        archived: false,
+        kind: 'integrated',
+        controlsUnavailable: { key: 'replays.player.unavailable.controlsComingSoon' },
+      })
+    })
+    render(createElement(DemoTimeline))
+    const reason = screen.getByTestId('replays-playback-engine-reason')
+    expect(reason.textContent).toBe('Timeline controls are coming soon for integrated playback.')
+    expect(testid('position').textContent).toBe('—')
+    expect(testid('duration').textContent).toBe('—')
+    for (const id of ['toggle', 'back', 'forward', 'speed', 'seek', 'cinema', 'fullscreen']) {
+      expect(testid(id).getAttribute('aria-disabled')).toBe('true')
+      expect(testid(id).getAttribute('aria-describedby')).toBe(reason.id)
+    }
+    expect((testid('stop') as HTMLButtonElement).disabled).toBe(false)
+  })
+})
+
 describe('DemoTimeline comments', () => {
   const DEMO_ID = 'd1'
   const commentEdit = vi.fn()

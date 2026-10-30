@@ -377,6 +377,45 @@ export function writeReplaysIntegratedFixture() {
   return { ...fixture, engineDir, env: { Q2L_UI_ENGINE_DIR: engineDir } }
 }
 
+export const REPLAYS_INTEGRATED_GZ_DEMO = 'play-gz.dm2.gz'
+
+export const REPLAYS_INTEGRATED_ZIP = 'pack-integrated.zip'
+
+export const REPLAYS_INTEGRATED_ZIP_ENTRY = 'zipped-integrated.dm2'
+
+/** The integrated fixture plus a gzipped demo and (when 7za is vendored) a zip with one demo, both in
+ * `baseq2/demos/`; `zipped` tells the flow whether the archive exists. */
+export function writeReplaysIntegratedPlayFixture() {
+  const fixture = writeReplaysIntegratedFixture()
+  const demosDir = join(fixture.installRoot, 'baseq2', 'demos')
+  writeFileSync(
+    join(demosDir, REPLAYS_INTEGRATED_GZ_DEMO),
+    gzipSync(demoBytesWithGameDir('baseq2')),
+  )
+  const zipped = vendoredExtractorExists()
+  if (zipped) {
+    const staging = join(bootstrapStagingDir(), 'replays-integrated-zip')
+    rmSync(staging, { recursive: true, force: true })
+    mkdirSync(staging, { recursive: true })
+    writeFileSync(join(staging, REPLAYS_INTEGRATED_ZIP_ENTRY), demoBytesWithGameDir('baseq2'))
+    execFileSync(
+      vendoredSevenZaPath(),
+      [
+        'a',
+        '-tzip',
+        '-mx1',
+        '-bso0',
+        '-bse0',
+        '-bd',
+        join(demosDir, REPLAYS_INTEGRATED_ZIP),
+        REPLAYS_INTEGRATED_ZIP_ENTRY,
+      ],
+      { cwd: staging, windowsHide: true },
+    )
+  }
+  return { ...fixture, zipped }
+}
+
 export const REPLAYS_COMMENTS_ZIP = 'pack-play.zip'
 
 export const REPLAYS_COMMENTS_ZIP_ENTRY = 'zipped.dm2'

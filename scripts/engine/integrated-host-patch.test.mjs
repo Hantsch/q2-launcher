@@ -9,6 +9,14 @@ const patch = readFileSync(
   'utf8',
 ).replace(/\r\n/g, '\n')
 
+const patch10 = readFileSync(
+  new URL(
+    '../../engine/patches/0010-web-console-text-and-demo-end-for-the-host.patch',
+    import.meta.url,
+  ),
+  'utf8',
+).replace(/\r\n/g, '\n')
+
 const added = patch.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++'))
 const removed = patch.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'))
 const has = (lines, re) => lines.some((l) => re.test(l))
@@ -39,17 +47,27 @@ describe('integrated canvas host engine patch', () => {
     )
   })
 
-  it('the console export queues text on the command buffer', () => {
-    expect(patch).toMatch(
-      /\+EMSCRIPTEN_KEEPALIVE void q2l_console\(const char \*text\)\n\+\{\n\+ {4}Cbuf_AddText\(&cmd_buffer, text\);/,
-    )
-  })
-
-  it('the link flags export the host entry points', () => {
+  it('patch 0009 exports q2l_resize and the pause/resume runtime methods', () => {
     const fns = added.find((l) => l.includes('-sEXPORTED_FUNCTIONS='))
     expect(fns).toMatch(/_q2l_resize/)
-    expect(fns).toMatch(/_q2l_console/)
     const methods = added.find((l) => l.includes('-sEXPORTED_RUNTIME_METHODS='))
     for (const m of ['pauseMainLoop', 'resumeMainLoop', 'ccall']) expect(methods).toContain(m)
+  })
+
+  it('patch 0010 runs console text synchronously and reports the demo end', () => {
+    expect(patch10).toMatch(
+      /\+EMSCRIPTEN_KEEPALIVE void q2l_console\(const char \*text\)\n\+\{[\s\S]*?\+ {4}Cbuf_AddText\(&cmd_buffer, text\);[\s\S]*?\+ {4}Cbuf_Execute\(&cmd_buffer\);/,
+    )
+    expect(patch10).toMatch(/\+EMSCRIPTEN_KEEPALIVE int q2l_demo_eof\(void\)/)
+  })
+
+  it('patch 0010 link flags export the console, demo end, callMain and leave starting to the host', () => {
+    const add10 = patch10.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++'))
+    expect(add10.find((l) => l.includes('-sEXPORTED_FUNCTIONS='))).toContain(
+      '_q2l_console,_q2l_demo_eof',
+    )
+    const methods = add10.find((l) => l.includes('-sEXPORTED_RUNTIME_METHODS='))
+    for (const m of ['callMain', 'FS']) expect(methods).toContain(m)
+    expect(has(add10, /-sINVOKE_RUN=0/)).toBe(true)
   })
 })

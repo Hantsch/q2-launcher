@@ -316,6 +316,7 @@ export function createRendererProtocolHandler(
     try {
       entry = await engineData.resolve(token, Number(indexText))
     } catch {
+      // A stale token or index is a plain 404; the renderer never learns why.
       return notFound()
     }
     if (entry === null) return notFound()
@@ -334,6 +335,7 @@ export function createRendererProtocolHandler(
     try {
       stream = engineData.openFile(entry.path)
     } catch {
+      // The file vanished or is unreadable after resolve; answer 404 like any missing entry.
       return notFound()
     }
     return new Response(stream, { status: 200, headers })

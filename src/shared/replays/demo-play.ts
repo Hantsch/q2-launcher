@@ -31,8 +31,6 @@ export type DemoPlayReasonKey =
   | 'replays.play.unavailable.unsafeName'
   | 'replays.player.unavailable.noBasePaks'
   | 'replays.player.unavailable.mvd2Integrated'
-  /** Produced by the renderer while the integrated player cannot play yet, never by this file. */
-  | 'replays.player.unavailable.integratedNotReady'
 
 /** `acknowledgeable` marks a warning, not a blocker: playing is allowed once the user has acknowledged it (`acknowledgeModMissing`). */
 export type DemoPlayRefusal = Refusal<DemoPlayReasonKey> & { acknowledgeable?: true }

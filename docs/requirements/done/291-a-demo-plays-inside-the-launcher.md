@@ -1,7 +1,7 @@
 ---
 id: 291
 title: A demo plays inside the launcher in integrated mode
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -41,25 +41,25 @@ and UI stalls on a retail map (R8).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — In mode `integrated`, Play on a `.dm2` of the active installation loads the
+- [x] **AC1** — In mode `integrated`, Play on a `.dm2` of the active installation loads the
       manifest files into MEMFS, starts the engine with `+set basedir /q2 +set homedir /q2home +set game <gamedir>` and plays the demo in the canvas.
-- [ ] **AC2** — In integrated mode the engine-mode path (`demoPlay` handler, Q2PRO process) is
+- [x] **AC2** — In integrated mode the engine-mode path (`demoPlay` handler, Q2PRO process) is
       not called.
-- [ ] **AC3** — A `.dm2.gz` and a zip-entry demo play the same way.
-- [ ] **AC4** — During playback the session cvars `scr_showpause 0`, `cl_autopause 0`,
+- [x] **AC3** — A `.dm2.gz` and a zip-entry demo play the same way.
+- [x] **AC4** — During playback the session cvars `scr_showpause 0`, `cl_autopause 0`,
       `con_notifylines 0`, `scr_demobar 0` and `cl_demowait 1` are set.
-- [ ] **AC5** — The engine console capture contains no line with `q2l_` or `Execing`.
-- [ ] **AC6** — The stage shows the loading state (`replays.integrated.loading`) one animation
+- [x] **AC5** — The engine console capture contains no line with `q2l_` or `Execing`.
+- [x] **AC6** — The stage shows the loading state (`replays.integrated.loading`) one animation
       frame before the synchronous `demo` call starts.
-- [ ] **AC7** — At the demo's end the last picture stays (no disconnect screen) and the store
+- [x] **AC7** — At the demo's end the last picture stays (no disconnect screen) and the store
       receives `finished`.
-- [ ] **AC8** — Stop ends playback, calls `integrated.release` and puts the placeholder back on
+- [x] **AC8** — Stop ends playback, calls `integrated.release` and puts the placeholder back on
       the stage.
-- [ ] **AC9** — When `integrated.prepare` refuses (e.g. `dataTooLarge`), the stage shows the
+- [x] **AC9** — When `integrated.prepare` refuses (e.g. `dataTooLarge`), the stage shows the
       reason and a one-click "Play in engine mode" action that switches the mode.
-- [ ] **AC10** — The interim reason `replays.player.unavailable.integratedNotReady` from [[287]]
+- [x] **AC10** — The interim reason `replays.player.unavailable.integratedNotReady` from [[287]]
       is gone.
-- [ ] **AC11** — `npm run ui:flow -- replays-play-integrated` and
+- [x] **AC11** — `npm run ui:flow -- replays-play-integrated` and
       `npm run ui:flow -- replays-play-q2pro` are green; `npm run engine:smoke` still exits 0.
 
 ## Open Questions
@@ -106,7 +106,7 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
 
 ## Deliverables
 
-- [ ] **D1 — The engine takes console commands and reports the demo's end.** New patch
+- [x] **D1 — The engine takes console commands and reports the demo's end.** New patch
       `engine/patches/<next-number>-q2l-console.patch` (numbering as the series from story 281) adds
       a small C file in the web branch with `EMSCRIPTEN_KEEPALIVE void q2l_console(const char *text)`
       (`Cbuf_AddText(&cmd_buffer, text); Cbuf_AddText(&cmd_buffer, "\n"); Cbuf_Execute(&cmd_buffer);`
@@ -119,7 +119,7 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
     engine:build` exits 0 and `npx wasm-objdump -x resources/engine/q2pro.wasm` lists both
       exports; `npm run engine:smoke` still exits 0. Files: the patch, the web link-flag location
       of the series, `engine-module.ts`.
-- [ ] **D2 — Console capture and a fake engine that behaves like Q2PRO.** New
+- [x] **D2 — Console capture and a fake engine that behaves like Q2PRO.** New
       `src/renderer/src/modules/replays/integrated/engine-console.ts`: a 500-line ring buffer with
       `pushLine(text)`, `consoleLines(): string[]`, `clearConsole()`; story 290's
       `engine-loader.ts` passes `print`/`printErr` that call `pushLine` into the module factory
@@ -138,7 +138,7 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
       `integrated/fake-engine.test.ts` ("an exec prints Execing like Q2PRO", "a demo reaches its end
       and keeps the last picture"). Files: `engine-console.ts` (+test), `engine-loader.ts`,
       `fake-engine.ts` (+test), `engine-module.ts`.
-- [ ] **D3 — The integrated session plays a demo.** New
+- [x] **D3 — The integrated session plays a demo.** New
       `src/renderer/src/modules/replays/integrated/integrated-session.ts` with
       `playIntegrated({ demoId, installationId }, hooks)` and `stopIntegrated()`; hooks are
       `onLoading()`, `onPlaying()`, `onFinished()`, `onRefused(reason)` (reason is a
@@ -165,7 +165,7 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
     })`. Tests in `integrated/integrated-session.test.ts` against the D2 fake engine and a mocked
       client — names listed under Acceptance Tests. Files: `integrated-session.ts` (+test),
       `client.ts`.
-- [ ] **D4 — Play and Stop route by mode.** `src/renderer/src/modules/replays/useDemoPlay.ts`:
+- [x] **D4 — Play and Stop route by mode.** `src/renderer/src/modules/replays/useDemoPlay.ts`:
       in mode `integrated` (story 287's mode read) `play` calls D3's `playIntegrated` and never
       `playDemo`/`armStage`; `beginSession` gets `kind: 'integrated'` and
       `controlsUnavailable: { key: 'replays.player.unavailable.controlsComingSoon' }`; hooks set
@@ -180,7 +180,7 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
       eligibility and from `src/renderer/src/modules/replays/locale/en.json`. Tests in
       `useDemoPlay.test.ts`, `playback-store.test.ts`, `src/shared/replays/demo-play.test.ts`.
       Files: `useDemoPlay.ts`, `playback-store.ts`, `demo-play.ts`, `en.json` and the three tests.
-- [ ] **D5 — The stage and timeline show integrated playback.**
+- [x] **D5 — The stage and timeline show integrated playback.**
       `src/renderer/src/modules/replays/components/DemoStage.tsx`: in mode `integrated` render
       story 290's `EngineCanvas` only while `session?.kind === 'integrated'`, else today's
       placeholder; while `integratedPhase === 'loading'` overlay the visible text
@@ -199,7 +199,7 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
       game data ({{sizeMb}} MB) is too large for integrated playback."). Tokens only
       (`/design-tokens`). Tests in `DemoStage.test.tsx`, `DemoTimeline.test.tsx`. Files:
       `DemoStage.tsx`, `DemoTimeline.tsx`, `en.json`, two tests.
-- [ ] **D6 — Flow and docs.** New `scripts/flows/replays-play-integrated.mjs` (mirror
+- [x] **D6 — Flow and docs.** New `scripts/flows/replays-play-integrated.mjs` (mirror
       `scripts/flows/replays-play-q2pro.mjs` and its fixture `writeReplaysPlayFixture`; story 290's
       fake-engine switch on), registered in `scripts/flows/areas.json` under the replays area that
       lists `src/renderer/src/modules/replays/integrated/**`. Steps: set mode integrated; play the
@@ -245,3 +245,24 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
 - Manual residue: real installation — `.dm2`, `.dm2.gz`, zip demo in integrated mode show the correct picture with no PAUSED, console lines or demo bar, and load time / UI stall on a retail map is acceptable (R8) — needs retail game data and a human judgement of picture and stall, which the fake engine cannot give.
 
 ## Done
+
+Integrated Play loads the manifest into MEMFS, starts the engine (callMain, then q2l_console for later plays), plays in the canvas with the session cvars, reports finished from `q2l_demo_eof`, and Stop disconnects and releases. Refusals show the reason with a one-click "Play in engine mode". New patch 0010 (synchronous `q2l_console`, `q2l_demo_eof`, `callMain`/`FS`, `INVOKE_RUN=0`); patch 0009 compiled and verified (`engine:build` exit 0).
+
+Change type: feat
+
+Commit message: `291: integrated demo play (patch 0010 q2l_console + demo eof, integrated-session, store/stage/timeline routing, flow replays-play-integrated)`
+
+Decisions:
+- Patch 0010's `q2l_console` replaces the queue-only one 0009 carried (removed there); `INVOKE_RUN=0` made the spike harness call `callMain` itself and its canvas id match 0009's `#q2l-engine-canvas`.
+- Fake-engine harness switch = presence of `globalThis.__q2lFakeEngine`; `__q2lEngineConsole` is set only then.
+- Store session field `playerMode` became `kind`; an integrated session arms the stage itself; a refusal keeps the session open (reason + offer) until Stop.
+- `loadFailed` is now the demo-load text; EngineCanvas got its own key `engineStartFailed` with the old text.
+- The flow truncates `pak1.pak` of the one fixture installation as its last step instead of a second installation; the zip step is mandatory (needs `npm run fetch:7za`).
+- After Stop the whole stage unmounts (as for engine mode); `replays-playback-mode` asserts that rather than a placeholder.
+- Fixed reds found by full `npm test`: areas.json rows for 289's main files, CRLF worktree files, bare catches in `renderer-source.ts`, `mockClient` use, `integrated-host-patch.test.mjs` for 0010.
+- Build variant `npm run build:dev`.
+
+Verification (narrow gate): build:dev, typecheck, lint, full `npm test` (659 files, 7883 passed), `vitest --changed HEAD`, e2e-story `--affected` slices 1/2 and 2/2 (80/80 each, before the review-fix cycle), then flows `replays-play-integrated`, `replays-playback-mode`, `replays-play-q2pro`, `replays-integrated-canvas` green after it; `engine:build` exit 0, `engine:smoke` OK. AC1–AC11 all map to the named tests, which ran and passed. Review 1 (default tier): FAIL with findings (dataTooLarge params dropped, loadFailed key clash, stale host-patch test, weak tests and flow) — all fixed; no second review run. Full regression gate pending (sprint's).
+Open: `wasm-objdump` not installed, exports checked in `q2pro.js`; 0009 lists invalid runtime methods `pauseMainLoop/resumeMainLoop` (emcc warning; real pause on context loss may be undefined — fix would export `_emscripten_pause_main_loop`/`_emscripten_resume_main_loop`); `npm run check:docs` reports broken concept links in stories 287–290 (pre-existing). 290 leftovers not addressed: engine mouse-look dead; after context loss Play may need Stop first. Manual residue: real installation `.dm2`/`.dm2.gz`/zip demo in integrated mode, picture and load stall on a retail map.
+
+tiers: D 6 / hard 1 · review default · cycles 1 · agents 12

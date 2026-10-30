@@ -15,9 +15,17 @@ vi.hoisted(() => {
 })
 
 const playDemo = vi.fn()
+const playIntegrated = vi.hoisted(() =>
+  vi.fn(
+    async (_args: unknown, _hooks: import('./integrated/integrated-session').IntegratedHooks) => {},
+  ),
+)
+const stopIntegrated = vi.hoisted(() => vi.fn(async () => {}))
+vi.mock('./integrated/integrated-session', () => ({ playIntegrated, stopIntegrated }))
 vi.mock('./client', (importOriginal) =>
   mockClient<typeof import('./client')>(importOriginal, {
     readPlaybackMode: () => new Promise(() => {}),
+    setPlaybackMode: async (mode: 'engine' | 'integrated') => ({ ok: true as const, value: mode }),
     playDemo: (...args: unknown[]) => playDemo(...args),
     onPlaybackPosition: () => () => {},
     onPlaybackState: () => () => {},
@@ -248,7 +256,7 @@ describe('useDemoPlay', () => {
     expect(reasonText(demo({ format: 'mvd2' }))).toContain('MVD2 demos play in engine mode for now')
   })
 
-  it('integrated Play arms the stage without calling demo play', async () => {
+  it('integrated mode never calls the engine-mode play', async () => {
     setStore({})
     usePlaybackModeStore.setState({ mode: 'integrated' })
     const { result } = hook()
@@ -256,9 +264,59 @@ describe('useDemoPlay', () => {
     await act(() => result.current.play())
     expect(playDemo).not.toHaveBeenCalled()
     const state = usePlaybackStore.getState()
+    expect(playIntegrated).toHaveBeenCalledTimes(1)
     expect(state.stageArmed).toBe(true)
-    expect(state.session).toMatchObject({ demoName: 'a.dm2', playerMode: 'integrated' })
-    expect(state.stageReason).toEqual({ key: 'replays.player.unavailable.integratedNotReady' })
+    expect(state.session).toMatchObject({
+      demoName: 'a.dm2',
+      kind: 'integrated',
+      controlsUnavailable: { key: 'replays.player.unavailable.controlsComingSoon' },
+    })
+  })
+
+  it('an integrated finish marks the session finished', async () => {
+    setStore({})
+    usePlaybackModeStore.setState({ mode: 'integrated' })
+    playIntegrated.mockImplementationOnce(async (_args, hooks) => hooks.onFinished())
+    const { result } = hook()
+    await act(() => result.current.play())
+    const state = usePlaybackStore.getState()
+    expect(state.integratedPhase).toBe('finished')
+    expect(state.session?.view?.ended).toBe(true)
+  })
+
+  it('an integrated refusal sets the stage reason with the engine-mode offer', async () => {
+    setStore({})
+    usePlaybackModeStore.setState({ mode: 'integrated' })
+    playIntegrated.mockImplementationOnce(async (_args, hooks) =>
+      hooks.onRefused({
+        key: 'replays.integrated.error.dataTooLarge',
+        params: { sizeMb: 612 },
+        canPlayInEngineMode: true,
+      }),
+    )
+    const { result } = hook()
+    await act(() => result.current.play())
+    const state = usePlaybackStore.getState()
+    expect(state.stageReason).toEqual({
+      key: 'replays.integrated.error.dataTooLarge',
+      params: { sizeMb: 612 },
+    })
+    expect(state.stageEngineModeOffer).toBe(true)
+    expect(state.integratedPhase).toBeNull()
+  })
+
+  it('playing in engine mode switches the mode, ends the integrated session and plays in the engine', async () => {
+    setStore({})
+    usePlaybackModeStore.setState({ mode: 'integrated' })
+    playDemo.mockResolvedValue(PLAYED)
+    stopIntegrated.mockClear()
+    const { result } = hook()
+    await act(() => result.current.play())
+    await act(() => result.current.playInEngineMode())
+    expect(stopIntegrated).toHaveBeenCalledTimes(1)
+    expect(usePlaybackModeStore.getState().mode).toBe('engine')
+    expect(playDemo).toHaveBeenCalledWith({ demoId: '0123456789abcdef', installationId: 'q' })
+    expect(usePlaybackStore.getState().session?.kind).not.toBe('integrated')
   })
 
   it('engine mode still plays through demo.play', async () => {

@@ -166,3 +166,25 @@
 - 2026-10-30 22:19 · 290 · fix 1 review findings · done
 - 2026-10-30 22:19 · 290 · verify 2 · started
 - 2026-10-30 22:24 · 290 · story · done
+- 2026-10-30 22:24 · 291 · build · started
+- 2026-10-30 22:24 · 291 · D1 engine console + eof patch · started
+- 2026-10-30 22:34 · 291 · D1 engine console + eof patch · done
+- 2026-10-30 22:34 · 291 · D2 console capture + fake engine · started
+- 2026-10-30 22:35 · 291 · D2 console capture + fake engine · done
+- 2026-10-30 22:35 · 291 · D3 integrated session · started
+- 2026-10-30 22:40 · 291 · D3 integrated session · done
+- 2026-10-30 22:40 · 291 · D4 play/stop routing · started
+- 2026-10-30 22:46 · 291 · D4 play/stop routing · done
+- 2026-10-30 22:46 · 291 · D5 stage + timeline · started
+- 2026-10-30 22:48 · 291 · D5 stage + timeline · done
+- 2026-10-30 22:48 · 291 · D6 flow + docs · started
+- 2026-10-30 22:54 · 291 · D6 flow + docs · done
+- 2026-10-30 22:54 · 291 · verify · started
+- 2026-10-30 23:15 · 291 · verify · done
+- 2026-10-30 23:15 · 291 · review 1 · started
+- 2026-10-30 23:17 · 291 · review 1 · done
+- 2026-10-30 23:17 · 291 · review 1 fixes · started
+- 2026-10-30 23:19 · 291 · review 1 fixes · done
+- 2026-10-30 23:19 · 291 · verify 2 · started
+- 2026-10-30 23:28 · 291 · verify 2 · done
+- 2026-10-30 23:28 · 291 · story · done

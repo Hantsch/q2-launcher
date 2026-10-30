@@ -434,7 +434,13 @@ export function ReplaysView() {
   // demo. The published object must stay stable (the contribution effect republishes on every new
   // identity), so `run` never changes; it reads the latest `play` - the one rendered for the
   // currently selected row - through a ref, never a stale closure over an earlier selection.
-  const { eligibility, busy: playBusy, error: playError, play } = useDemoPlay(selected)
+  const {
+    eligibility,
+    busy: playBusy,
+    error: playError,
+    play,
+    playInEngineMode,
+  } = useDemoPlay(selected)
   // Story 180 / 182: a mod-missing refusal is a warning, not a wall - View stays enabled and
   // `run` asks first (the dialog below, the warning's only place) unless the user switched the
   // warning off or trusted this mod; the readout carries no permanent warning text.
@@ -846,7 +852,9 @@ export function ReplaysView() {
           />
         </aside>
 
-        {stageMode && <DemoStage mode={playerMode} />}
+        {stageMode && (
+          <DemoStage mode={playerMode} onPlayInEngineMode={() => void playInEngineMode()} />
+        )}
         <div
           className={cn(
             '@container min-h-0 min-w-0',
