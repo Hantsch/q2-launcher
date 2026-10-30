@@ -12,8 +12,10 @@ import {
   PRODUCTION_CSP,
   RENDERER_CINEMA_URL,
   rendererCinemaUrl,
+  resolveEngineRoot,
   resolveRendererSource,
 } from './renderer-source'
+import { resolveUiHarness } from './ui-harness'
 
 /**
  * Story 035 D1: the pure decidable part of "how does the renderer document get to the window,
@@ -494,6 +496,32 @@ describe('createRendererProtocolHandler engine route', () => {
     expect(first.status).toBe(404)
     expect(second.status).toBe(404)
     expect(onMissing).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('engine directory under the UI harness', () => {
+  const SHIPPED = 'C:/app/resources/engine'
+  const FIXTURE = 'C:/fixture/engine'
+
+  it('under the UI harness the engine directory comes from Q2L_UI_ENGINE_DIR, outside it never', async () => {
+    const open = resolveUiHarness({ Q2L_UI_HARNESS: '1', Q2L_UI_ENGINE_DIR: FIXTURE })
+    const closed = resolveUiHarness({ Q2L_UI_ENGINE_DIR: FIXTURE })
+    const unset = resolveUiHarness({ Q2L_UI_HARNESS: '1' })
+    expect(resolveEngineRoot(open, SHIPPED)).toBe(FIXTURE)
+    expect(resolveEngineRoot(closed, SHIPPED)).toBe(SHIPPED)
+    expect(resolveEngineRoot(unset, SHIPPED)).toBe(SHIPPED)
+
+    // The allowlist still holds on the redirected directory.
+    const read = vi.fn(async () => Buffer.from('X'))
+    const handler = createRendererProtocolHandler({
+      root: ROOT,
+      csp: PRODUCTION_CSP,
+      readFile: async () => Buffer.from(''),
+      engine: { root: resolveEngineRoot(open, SHIPPED), readFile: read, onMissing: vi.fn() },
+    })
+    expect((await handler(new Request('q2launcher://app/engine/secret.txt'))).status).toBe(404)
+    expect(read).not.toHaveBeenCalled()
+    expect((await handler(new Request('q2launcher://app/engine/q2pro.js'))).status).toBe(200)
   })
 })
 

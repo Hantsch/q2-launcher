@@ -392,3 +392,4 @@ second roadmap.
 - 288 — The launcher serves the engine and allows WebAssembly · S38 · engine artefacts served at q2launcher://app/engine/ (allowlist), CSP gains only 'wasm-unsafe-eval', packaged under resources/engine
 - 287 — I choose between engine and integrated playback · S38 · playback mode persisted, served over IPC, eligibility per mode, switch in Settings and the Demos view
 - 289 — Main serves an installation's game data to the engine · S38 · integrated.prepare/release with token + pinned-realpath manifest and the /engine-data/ route.
+- 290 — The engine canvas sits on the demo stage · S38 · integrated stage hosts the engine canvas via loader singleton, fake-engine harness and patch 0009

@@ -12,12 +12,13 @@ import { usePlaybackStore, type StageRect } from './playback-store'
  * - Unmounting while a session is live (the user left the view) reports `null`: no stage, park the game.
  * - An overlay open over the stage (`overlay-registry`) reports `null` too, and the rect again once it closes.
  * The session ending needs no `null`: main ends its follower with the session.
+ * Disabled (integrated playback draws inside the launcher), nothing is measured and nothing is sent.
  */
-export function useStageReport(ref: RefObject<HTMLElement | null>): void {
+export function useStageReport(ref: RefObject<HTMLElement | null>, enabled: boolean): void {
   const setStageRect = usePlaybackStore((s) => s.setStageRect)
   useLayoutEffect(() => {
     const el = ref.current
-    if (!el) return undefined
+    if (!el || !enabled) return undefined
     let last: StageRect | null = null
     let occluded = false
     let frame = 0
@@ -59,5 +60,5 @@ export function useStageReport(ref: RefObject<HTMLElement | null>): void {
       cancelAnimationFrame(frame)
       if (usePlaybackStore.getState().session !== null && !occluded) void sendStageRect(null)
     }
-  }, [ref, setStageRect])
+  }, [ref, enabled, setStageRect])
 }

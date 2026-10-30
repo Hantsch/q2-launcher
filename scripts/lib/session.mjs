@@ -515,11 +515,15 @@ export async function runVariantSession({
    * and is recorded as such instead of vanishing.
    */
   const runSession = async (visits, launchOptions) => {
-    if (seedFixture) writeFixture(variant)
+    // A fixture that needs launch environment (the fake engine's directory) hands it back here.
+    const seeded = seedFixture ? writeFixture(variant) : undefined
+    const options = seeded?.env
+      ? { ...launchOptions, env: { ...seeded.env, ...launchOptions.env } }
+      : launchOptions
     launches += 1
     let pending = []
     try {
-      await withApp(launchOptions, async ({ app, page, log }) => {
+      await withApp(options, async ({ app, page, log }) => {
         pending = await runVisits({ app, page, log, visits, capture, axeSource, results })
       })
     } catch (sessionError) {

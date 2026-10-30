@@ -1,4 +1,5 @@
 import { isSafeNewsImageFileName } from './news-image-paths'
+import type { UiHarness } from './ui-harness'
 
 /**
  * Story 035: the whole decidable part of "how does the renderer document get to the window,
@@ -171,6 +172,15 @@ export interface EngineSource {
   readFile: (path: string) => Promise<Buffer>
   /** Called when an engine read fails, at most once per handler instance. */
   onMissing: () => void
+}
+
+/**
+ * The directory the engine route serves from. Only an open harness gate may redirect it, so a
+ * production launch never reads `Q2L_UI_ENGINE_DIR`; the file-name allowlist applies either way.
+ */
+export function resolveEngineRoot(harness: UiHarness, shippedRoot: string): string {
+  const override = harness.read('Q2L_UI_ENGINE_DIR')
+  return override !== undefined && override.length > 0 ? override : shippedRoot
 }
 
 /** Path prefix the integrated demo session's game data is served under (story 289). */

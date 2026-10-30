@@ -1,5 +1,5 @@
 // Story 287: the playback mode is switched in Settings and in the Demos view, both show the same
-// stored value, the integrated mode refuses to play for now with a visible reason, and the switch is
+// stored value, the integrated mode plays into the stage (reason text visible), and the switch is
 // locked (with visible text) while a demo plays.
 //
 // Selectors: `replays-settings-playback-mode-<mode>`, `replays-playback-mode-<mode>`,
@@ -65,16 +65,21 @@ export default async function replaysPlaybackMode({ page, step, shot }) {
     throw new Error('replays-playback-mode: main did not store integrated')
   await shot('settings-integrated')
 
-  step('the Demos view shows integrated and Play is refused with a reason')
+  step('the Demos view shows integrated and Play opens the stage with its reason text')
   await openDemos(page)
   await expectPressed(viewIntegrated, 'true', 'the Demos switch to show integrated')
   await openFolder(page, 'ctf')
   await selectDemo(page, REPLAYS_PLAY_CTF_DEMO)
-  await poll('Play to be disabled', async () => await play.isDisabled(), TIMEOUT_MS)
-  const reason = (await page.getByTestId('actionbar-action-reason').textContent()) ?? ''
+  await poll('Play to be enabled', async () => !(await play.isDisabled()), TIMEOUT_MS)
+  await play.click({ timeout: TIMEOUT_MS })
+  const stageReason = page.getByTestId('replays-stage-reason')
+  await stageReason.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const reason = (await stageReason.textContent()) ?? ''
   if (!reason.includes('Integrated mode is not ready'))
     throw new Error(`replays-playback-mode: unexpected reason ${JSON.stringify(reason)}`)
-  await shot('integrated-refused')
+  await shot('integrated-stage')
+  await page.getByTestId('replays-timeline-stop').click({ timeout: TIMEOUT_MS })
+  await stageReason.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
 
   step('switching back to the engine window enables Play')
   await viewEngine.click({ timeout: TIMEOUT_MS })

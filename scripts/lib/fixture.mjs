@@ -241,6 +241,10 @@ export {
   replaysTimelineEngineFiles,
   replaysStageFollowEngineFiles,
   writeReplaysTimelineFixture,
+  REPLAYS_INTEGRATED_VARIANT,
+  replaysIntegratedEngineDir,
+  writeFakeEngine,
+  writeReplaysIntegratedFixture,
   REPLAYS_COMMENTS_ZIP,
   REPLAYS_COMMENTS_ZIP_ENTRY,
   writeReplaysCommentsArchiveFixture,
@@ -324,6 +328,8 @@ import {
   REPLAYS_TIMELINE_VARIANT,
   writeReplaysPlayFixture,
   writeReplaysTimelineFixture,
+  REPLAYS_INTEGRATED_VARIANT,
+  writeReplaysIntegratedFixture,
 } from './fixture/replays-play.mjs'
 import { writeReplaysModInstallFixture } from './fixture/mods.mjs'
 export { writeEngineChoiceFixture } from './fixture/engine-choice.mjs'
@@ -350,6 +356,7 @@ export const VARIANTS = {
   'replays-play': writeReplaysPlayFixture,
   'replays-play-r1q2': () => writeReplaysPlayFixture('replays-play-r1q2', { r1q2Stub: true }),
   [REPLAYS_TIMELINE_VARIANT]: writeReplaysTimelineFixture,
+  [REPLAYS_INTEGRATED_VARIANT]: writeReplaysIntegratedFixture,
   'replays-mod-install': writeReplaysModInstallFixture,
   [REPLAYS_SORT_ORDER_VARIANT]: writeReplaysSortOrderFixture,
   [REPLAYS_TEAMS_VARIANT]: writeReplaysTeamsFixture,

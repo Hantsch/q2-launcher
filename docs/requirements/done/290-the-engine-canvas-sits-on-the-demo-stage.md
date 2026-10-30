@@ -1,7 +1,7 @@
 ---
 id: 290
 title: The engine canvas sits on the demo stage
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -37,20 +37,20 @@ picture stays sharp, no flicker.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — In mode `integrated`, `DemoStage` renders `<canvas data-testid="replays-engine-canvas">` in the 4:3 area instead of the placeholder.
-- [ ] **AC2** — In mode `engine`, `DemoStage` behaves as today (existing tests and
+- [x] **AC1** — In mode `integrated`, `DemoStage` renders `<canvas data-testid="replays-engine-canvas">` in the 4:3 area instead of the placeholder.
+- [x] **AC2** — In mode `engine`, `DemoStage` behaves as today (existing tests and
       `npm run ui:flow -- replays-stage` green).
-- [ ] **AC3** — After a resize, the canvas buffer size equals CSS size × `devicePixelRatio`
+- [x] **AC3** — After a resize, the canvas buffer size equals CSS size × `devicePixelRatio`
       (rounded), and the engine receives the new size (the fake counts resize calls).
-- [ ] **AC4** — Starting a second demo does not instantiate the WASM module again (loader
+- [x] **AC4** — Starting a second demo does not instantiate the WASM module again (loader
       singleton, test with a fake loader).
-- [ ] **AC5** — Leaving the Demos view or stopping the demo stops the rAF loop and makes the
+- [x] **AC5** — Leaving the Demos view or stopping the demo stops the rAF loop and makes the
       engine release demo resources (`disconnect`); quitting the app discards the instance.
-- [ ] **AC6** — On `webglcontextlost` the stage shows the visible text "The 3D view was lost.
+- [x] **AC6** — On `webglcontextlost` the stage shows the visible text "The 3D view was lost.
       Press Play to restart." (`replays.integrated.error.contextLost`) instead of a black picture.
-- [ ] **AC7** — Typing in the list's filter field during playback does not reach the engine
+- [x] **AC7** — Typing in the list's filter field during playback does not reach the engine
       (`npm run ui:flow -- replays-integrated-canvas`).
-- [ ] **AC8** — `npm run ui:verify` is green and has a screenshot of the Demos view with the
+- [x] **AC8** — `npm run ui:verify` is green and has a screenshot of the Demos view with the
       canvas; `src/architecture.test.ts` stays green (no cross-module imports).
 
 ## Open Questions
@@ -242,3 +242,26 @@ Math.round(clientWidth × dpr)` and `__q2lFakeEngine.resizes` grew; type into th
   stays sharp, no flicker; needs the real engine and a GPU, which the UI harness does not run.
 
 ## Done
+
+The integrated stage hosts the engine canvas: engine patch 0009 (canvas-only keys, no pointer lock, JS-owned size, `q2l_resize`/`q2l_console`), a singleton loader owning the one canvas, `EngineCanvas` in `DemoStage` (DPR sizing, context-loss and load-failure text), a fake WebGL2 engine served through the harness-only `Q2L_UI_ENGINE_DIR`, and integrated Play/Stop as a local session.
+
+Change type: feat
+Commit message: `290: engine canvas on the demo stage (patch 0009, loader, EngineCanvas, fake engine harness, flow replays-integrated-canvas)`
+
+Verification (narrow gate; build variant `npm run build:dev`, needed by the flows):
+- typecheck, lint green; `vitest run --changed HEAD` 216 files / 2030 passed; `ui:verify` 61/61 screens incl. `replays-integrated-stage`, 0 errors.
+- Flows green: `replays-integrated-canvas`, `replays-stage` (AC2), `replays-playback-mode`, `replays-play-r1q2`. e2e-story slices: shard 1/2 81/81; shard 2/2 hit the 10-minute call limit (log summary 80/81, `replays-play-r1q2` red once in the parallel run; green alone on HEAD, on this tree and in the second verify) - recorded as INCONCLUSIVE, the named flows were run individually instead.
+- AC → test: AC1 DemoStage.test "in integrated mode…" + flow; AC2 DemoStage.test "in engine mode…" + replays-stage; AC3 EngineCanvas.test resize + flow; AC4 engine-loader.test "a second load reuses…" + flow; AC5 EngineCanvas.test unmount + loader "pagehide…" + flow; AC6 EngineCanvas.test context lost + flow; AC7 flow typing step + integrated-host-patch.test; AC8 ui:verify screen + architecture.test - all passed.
+- Manual residue: with the real engine (after 291) move/resize the window, picture stays sharp. `npm run engine:build` was NOT run (patch applies cleanly via git apply in sequence 0001-0009; C never compiled here).
+
+Decisions:
+- `writeFakeEngine` uses esbuild `transformSync` (fixtures are sync; Vite's is async); esbuild is Vite's transitive dependency, not declared.
+- `session.mjs` now passes a fixture's returned `env` to the launch so `ui:verify` screens get `Q2L_UI_ENGINE_DIR`.
+- Session carries `playerMode` (`session.mode` already means preview/cinema/fullscreen).
+- Unmount guard in EngineCanvas is an AbortController (renderer-health caps hand-rolled flags). Canvas label "Demo playback, 3D view" (unique-value key test).
+- Review fixes: load failure shows `replays.integrated.error.loadFailed`; a load resolving after `discard()` is torn down; disconnect sends `disconnect\n`.
+- Known, left to 291: `q2l_console` only queues text, so with the loop paused the `disconnect` runs on next resume; engine mouse-look is dead (pointer lock removed, `pointerlocked` never true); after context loss the session stays active while text says "Press Play" (Play may need Stop first).
+- 291 narrows AC1: the canvas will show only while an integrated session exists; 290 is implemented as written (stage armed by local session on Play).
+- Review: 1 cycle (default tier, FAIL with 2 correctness bugs, fixed, re-verified); no second review pass.
+
+tiers: D 7 / hard 1 · review default · cycles 1 · agents 13

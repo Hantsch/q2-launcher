@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DemoRow } from '@shared/modules/replays'
-import { refuse, type LocalizedMessage } from '@shared/types'
+import type { LocalizedMessage } from '@shared/types'
 import { demoPlayEligibility, type DemoPlayEligibility } from '@shared/replays/demo-play'
 import { useLauncher } from '../../store/useLauncher'
 import { playDemo } from './client'
@@ -53,7 +53,7 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
   // published action built from it stays stable instead of republishing every render.
   const eligibility = useMemo((): DemoPlayEligibility | null => {
     if (demo === null) return null
-    const decided = demoPlayEligibility({
+    return demoPlayEligibility({
       demo,
       mode,
       installations,
@@ -61,15 +61,10 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
       platform,
       gameRunning,
     })
-    // The integrated player cannot play yet. (story 291)
-    return mode === 'integrated' && decided.ok
-      ? refuse('replays.player.unavailable.integratedNotReady')
-      : decided
   }, [demo, mode, installations, activeInstallationId, platform, gameRunning])
 
   async function play(acknowledgeModMissing = false, startAtS?: number): Promise<void> {
     if (demo === null || eligibility === null) return
-    if (mode === 'integrated') return // (story 291)
     const target = acknowledgeModMissing
       ? demoPlayEligibility({
           demo,
@@ -82,6 +77,19 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
         })
       : eligibility
     if (!target.ok) return
+    if (mode === 'integrated') {
+      // No engine launch and no IPC: the canvas in the stage plays the demo. (story 290)
+      const playback = usePlaybackStore.getState()
+      playback.armStage()
+      playback.beginSession(demo.fileName, demo.durationMs, {
+        id: demo.id,
+        archived: demo.archiveEntry !== null,
+        mode: 'integrated',
+        ...(startAtS !== undefined ? { startAtS } : {}),
+      })
+      playback.setStageReason({ key: 'replays.player.unavailable.integratedNotReady' })
+      return
+    }
     setError(null)
     setBusy(true)
     const playback = usePlaybackStore.getState()

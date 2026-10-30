@@ -951,6 +951,12 @@
       "why": "What a demo play launch depends on: mod warning and install, bound demo actions, autorecord and the running-game job wait."
     },
     {
+      "area": "replays-integrated",
+      "paths": ["src/renderer/src/modules/replays/integrated/**"],
+      "flows": ["replays-integrated-canvas", "replays-playback-mode", "replays-stage"],
+      "why": "The integrated player: the engine canvas in the stage, its loader and the fake engine the flows run against."
+    },
+    {
       "area": "replays-stage",
       "paths": [
         "src/main/modules/replays/stage*.ts",

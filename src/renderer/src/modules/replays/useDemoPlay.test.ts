@@ -248,14 +248,17 @@ describe('useDemoPlay', () => {
     expect(reasonText(demo({ format: 'mvd2' }))).toContain('MVD2 demos play in engine mode for now')
   })
 
-  it('in integrated mode a playable demo says integrated mode is not ready and never starts', async () => {
+  it('integrated Play arms the stage without calling demo play', async () => {
     setStore({})
     usePlaybackModeStore.setState({ mode: 'integrated' })
-    expect(reasonText(demo())).toContain('Integrated mode is not ready yet')
     const { result } = hook()
+    expect(result.current.eligibility?.ok).toBe(true)
     await act(() => result.current.play())
-    await act(() => result.current.play(true))
     expect(playDemo).not.toHaveBeenCalled()
+    const state = usePlaybackStore.getState()
+    expect(state.stageArmed).toBe(true)
+    expect(state.session).toMatchObject({ demoName: 'a.dm2', playerMode: 'integrated' })
+    expect(state.stageReason).toEqual({ key: 'replays.player.unavailable.integratedNotReady' })
   })
 
   it('engine mode still plays through demo.play', async () => {

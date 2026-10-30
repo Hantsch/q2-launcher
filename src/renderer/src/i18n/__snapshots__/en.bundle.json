@@ -2946,8 +2946,11 @@
       "unknown": "unknown"
     },
     "integrated": {
+      "canvasLabel": "Demo playback, 3D view",
       "error": {
+        "contextLost": "The 3D view was lost. Press Play to restart.",
         "dataTooLarge": "This demo needs {{sizeMb}} MB of game data, more than integrated playback can hold. Play it in engine mode.",
+        "loadFailed": "The 3D view could not be started. Press Play to retry.",
         "superseded": "Another playback was prepared in the meantime. Try again."
       }
     },

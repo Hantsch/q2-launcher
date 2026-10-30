@@ -8,11 +8,13 @@ const handlers = vi.hoisted(() => ({
   offState: vi.fn(),
   display: null as null | ((p: Record<string, unknown>) => void),
   timeline: vi.fn(),
+  stop: vi.fn(),
 }))
 
 vi.mock('./client', (importOriginal) =>
   mockClient<typeof import('./client')>(importOriginal, {
     playbackCinema: vi.fn(),
+    playbackStop: () => handlers.stop(),
     playbackDisplayRead: () => new Promise(() => {}),
     playbackTimeline: (a: unknown) => handlers.timeline(a),
     onPlaybackPosition: (l: unknown) => {
@@ -46,6 +48,20 @@ beforeEach(() => {
 afterEach(() => usePlaybackStore.getState().endSession())
 
 describe('playback store', () => {
+  it('stopping an integrated session ends it without asking main', async () => {
+    handlers.stop.mockClear()
+    usePlaybackStore.getState().armStage()
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000, {
+      id: 'x',
+      archived: false,
+      mode: 'integrated',
+    })
+    expect(await usePlaybackStore.getState().requestStop()).toBeNull()
+    expect(handlers.stop).not.toHaveBeenCalled()
+    expect(usePlaybackStore.getState().session).toBeNull()
+    expect(usePlaybackStore.getState().stageArmed).toBe(false)
+  })
+
   it('has no session until one begins, then starts at 1x with no view', () => {
     expect(usePlaybackStore.getState().session).toBeNull()
     usePlaybackStore.getState().beginSession('a.dm2', 90_000)

@@ -72,6 +72,7 @@ export type UiHarnessVar =
   | 'Q2L_UI_SESSION_TYPE'
   | 'Q2L_UI_CINEMA_DISPLAY'
   | 'Q2L_UI_UNLOCK_PUBLIC_KEY'
+  | 'Q2L_UI_ENGINE_DIR'
 
 /**
  * The harness gate, resolved once at boot (`AppContext.harness`). `enabled`/`offscreen` are frozen

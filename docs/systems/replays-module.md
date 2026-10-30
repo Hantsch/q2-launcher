@@ -60,6 +60,7 @@ counts follow the scoped rows; the filter value survives an installation switch.
   `role="slider"` element (a mark's click is not also a bar seek) and seek to `floor(atMs / 1000)`. Add comment pins the shown
   position, then pauses; field and hover bubble stay inside the strip (the native game window covers the stage above it). No
   comment controls in fullscreen or the cinema overlay. "Play from here" seeks a session on that demo, else plays it.
+- `integrated/` — the integrated host (story 290). `engine-loader.ts` is a singleton that owns the engine canvas and its WebGL context for the whole session: `EngineCanvas.tsx` only attaches and detaches it, so a remount re-attaches the same instance (`instances` stays 1). The drawing buffer has one owner, `EngineCanvas`, which keeps it at CSS size x `devicePixelRatio` in JS and calls `_q2l_resize`. `fake-engine.ts` stands in for the WASM build in flows and tests: the harness serves it from `Q2L_UI_ENGINE_DIR` and exposes counters on `globalThis.__q2lFakeEngine`; the flow is `scripts/flows/replays-integrated-canvas.mjs`.
 - `components/DemoStatsPanel.tsx` — the detail's OpenTDM accuracy table (one row per item, totals below), rendered from `row.stats` alone and absent when the row has none.
 - `components/DemoPlayersPanel.tsx` — players by side — two teams side by side, otherwise stacked; side colours from `--color-side-1/2`; `components/DemoStage.tsx`, `components/DemoTimeline.tsx` (takes the
   session's `demo` and `onRowPatched` for comments), `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `playback-mode-store.ts`, `components/PlaybackModeSwitch.tsx`, `useDemoPlay.ts` — playback. `beginSession(..., { startAtS })` keeps `pendingSeekS`; the first position sample sends one `seekTo`. Also `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
@@ -152,5 +153,6 @@ volume, cinema availability, stage notice).
   stats; an OpenTDM 1v1 demo cut off before the match ends has no teams. Only OpenTDM's "Stats for" format is read for stats.
 - Quit-time stage restore: the pending record carries the game's pid; `applyPending` retries every 2 s while it is alive (on
   Windows the only guarantee; Linux also sends a last console line). `vid_geometry` origins are single-sign (`200x100-1920+0`).
+- Integrated host: pointer lock is removed, so the engine's mouse-look is inactive; the canvas takes no focus and the engine receives no keys. A lost WebGL context is final for the instance and shows `replays.integrated.error.contextLost` until the next Play.
 - A stop whose kill succeeds without an exit event is settled by main after 5 s: the launch ends as for an exit, the UI returns to idle.
 - Play refuses with `replays.play.error.gameDirMissing` when the mod game dir does not exist; a failed "don't ask again" trust keeps the dialog open.

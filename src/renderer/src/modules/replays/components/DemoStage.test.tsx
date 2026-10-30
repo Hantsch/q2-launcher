@@ -29,6 +29,13 @@ vi.mock('../client', (importOriginal) =>
   }),
 )
 
+vi.mock('../integrated/engine-loader', () => {
+  const canvas = document.createElement('canvas')
+  canvas.setAttribute('data-testid', 'replays-engine-canvas')
+  const host = { canvas, resize() {}, pauseLoop() {}, resumeLoop() {}, disconnect() {} }
+  return { engineLoader: { load: async () => host, discard() {} } }
+})
+
 import * as client from '../client'
 
 let DemoStage: typeof import('./DemoStage').DemoStage
@@ -110,6 +117,37 @@ describe('DemoStage', () => {
       )
     })
     expect(usePlaybackStore.getState().stageRect).toEqual({ x: 10, y: 21, width: 800, height: 600 })
+  })
+
+  it('in integrated mode the stage holds the engine canvas instead of the placeholder', async () => {
+    vi.mocked(client.sendStageRect).mockClear()
+    act(() => usePlaybackStore.getState().beginSession('d.dm2', null))
+    render(<DemoStage mode="integrated" />)
+    await act(async () => {})
+    const picture = screen.getByTestId('replays-stage-picture')
+    expect(picture.contains(screen.getByTestId('replays-engine-canvas'))).toBe(true)
+    expect(picture.textContent).not.toContain('The demo plays here')
+    expect(client.sendStageRect).not.toHaveBeenCalled()
+  })
+
+  it('in engine mode the stage keeps the placeholder and reports its rect', () => {
+    vi.mocked(client.sendStageRect).mockClear()
+    act(() => usePlaybackStore.getState().beginSession('d.dm2', null))
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 5,
+      y: 6,
+      width: 640,
+      height: 480,
+      top: 6,
+      left: 5,
+      right: 645,
+      bottom: 486,
+      toJSON: () => ({}),
+    } as DOMRect)
+    render(<DemoStage mode="engine" />)
+    expect(screen.getByTestId('replays-stage-picture').textContent).toBe('The demo plays here')
+    expect(screen.queryByTestId('replays-engine-canvas')).toBeNull()
+    expect(client.sendStageRect).toHaveBeenCalledWith({ x: 5, y: 6, width: 640, height: 480 })
   })
 
   describe('live rect updates', () => {

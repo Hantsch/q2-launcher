@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { REPO_ROOT, UI_VERIFY_ROOT } from '../paths.mjs'
 import { variantUserDataDir } from '../harness.mjs'
 import { gzipSync } from 'node:zlib'
+import { transformSync } from 'esbuild'
 import { execFileSync } from 'node:child_process'
 import {
   DEFAULT_SETTINGS,
@@ -325,6 +326,55 @@ export function writeReplaysTimelineFixture() {
     }),
     ...files,
   }
+}
+
+// The `replays-integrated` variant: the timeline install with playback mode `integrated`, and the
+// WASM engine slot (`/engine/q2pro.js`) filled by the renderer's fake engine instead of the real build.
+export const REPLAYS_INTEGRATED_VARIANT = 'replays-integrated'
+
+const FAKE_ENGINE_SOURCE = join(
+  REPO_ROOT,
+  'src',
+  'renderer',
+  'src',
+  'modules',
+  'replays',
+  'integrated',
+  'fake-engine.ts',
+)
+
+/** Fills `dir` with the two names the engine route serves: the fake engine's transpiled module and an
+ * empty wasm (the fake never instantiates one). */
+export function writeFakeEngine(dir) {
+  // Synchronous on purpose: `writeFixture()` and every VARIANTS writer are, and Vite's
+  // `transformWithEsbuild` is async-only. `esbuild` is Vite's own dependency.
+  const { code } = transformSync(readFileSync(FAKE_ENGINE_SOURCE, 'utf8'), {
+    loader: 'ts',
+    format: 'esm',
+    target: 'es2022',
+  })
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'q2pro.js'), code)
+  writeFileSync(join(dir, 'q2pro.wasm'), '')
+}
+
+export function replaysIntegratedEngineDir() {
+  return join(UI_VERIFY_ROOT, 'fixture', 'replays-integrated-engine')
+}
+
+/** `env` goes to the flow's `setup()` result so the harness launches main with the fixture engine. */
+export function writeReplaysIntegratedFixture() {
+  const engineDir = replaysIntegratedEngineDir()
+  rmDirBestEffort(engineDir)
+  writeFakeEngine(engineDir)
+  const fixture = writeReplaysPlayFixture(REPLAYS_INTEGRATED_VARIANT, {
+    engineLifetimeMs: REPLAYS_TIMELINE_ENGINE_LIFETIME_MS,
+  })
+  const statePath = join(fixture.userDataDir, STATE_FILE)
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  state.replays = { ...state.replays, playbackMode: 'integrated' }
+  writeJson(statePath, state)
+  return { ...fixture, engineDir, env: { Q2L_UI_ENGINE_DIR: engineDir } }
 }
 
 export const REPLAYS_COMMENTS_ZIP = 'pack-play.zip'

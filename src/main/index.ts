@@ -11,12 +11,14 @@ import { createMainWindowEvents } from './main-window-observer'
 import { bindAllChannels, markIpcFailed, markIpcReady, registerAllIpc } from './ipc'
 import { logger } from './lib/logger'
 import { resolveResourcePath } from './lib/resource-path'
+import { resolveUiHarness } from './lib/ui-harness'
 import {
   DEV_CSP,
   PRODUCTION_CSP,
   RENDERER_INDEX_URL,
   RENDERER_SCHEME,
   createRendererProtocolHandler,
+  resolveEngineRoot,
   rendererSourceFromEnv,
   type RendererSource,
 } from './lib/renderer-source'
@@ -256,9 +258,12 @@ function serveRendererFromScheme(): void {
       // Engine artefacts ship under resources/engine. Nothing is read at boot; a
       // missing file is only noticed (and logged once) on the first request for it (story 288).
       engine: (() => {
-        const engineRoot = resolveResourcePath(
-          { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath },
-          'engine',
+        const engineRoot = resolveEngineRoot(
+          resolveUiHarness(process.env),
+          resolveResourcePath(
+            { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath },
+            'engine',
+          ),
         )
         return {
           root: engineRoot,

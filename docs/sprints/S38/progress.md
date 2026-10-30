@@ -142,3 +142,27 @@
 - 2026-10-30 21:29 · 289 · verify 2 · started
 - 2026-10-30 21:30 · 289 · verify 2 · done
 - 2026-10-30 21:30 · 289 · story · done
+- 2026-10-30 21:31 · 290 · build · started
+- 2026-10-30 21:31 · 290 · D1 engine patch · started
+- 2026-10-30 21:32 · 290 · D1 engine patch · done
+- 2026-10-30 21:32 · 290 · D2 engine host and loader · started
+- 2026-10-30 21:33 · 290 · D2 engine host and loader · done
+- 2026-10-30 21:33 · 290 · D3 fake engine · started
+- 2026-10-30 21:34 · 290 · D3 fake engine · done
+- 2026-10-30 21:34 · 290 · D4 harness serves fake · started
+- 2026-10-30 21:36 · 290 · D4 harness serves fake · done
+- 2026-10-30 21:36 · 290 · D5 stage hosts engine canvas · started
+- 2026-10-30 21:40 · 290 · D5 stage hosts engine canvas · done
+- 2026-10-30 21:40 · 290 · D6 integrated play and stop · started
+- 2026-10-30 21:41 · 290 · D6 integrated play and stop · done
+- 2026-10-30 21:41 · 290 · D7 e2e flow, screen, systems doc · started
+- 2026-10-30 21:44 · 290 · D7 e2e flow, screen, systems doc · done
+- 2026-10-30 21:44 · 290 · verify · started
+- 2026-10-30 22:10 · 290 · verify · blocked: ui:verify screen replays-integrated-stage (fixture env not passed, fixed); replays-play-r1q2 under investigation
+- 2026-10-30 22:16 · 290 · verify · done
+- 2026-10-30 22:16 · 290 · review 1 · started
+- 2026-10-30 22:18 · 290 · review 1 · done
+- 2026-10-30 22:18 · 290 · fix 1 review findings · started
+- 2026-10-30 22:19 · 290 · fix 1 review findings · done
+- 2026-10-30 22:19 · 290 · verify 2 · started
+- 2026-10-30 22:24 · 290 · story · done

@@ -5,6 +5,7 @@ import {
   type TimelineAction,
 } from '@shared/replays/timeline'
 import type { LocalizedMessage } from '@shared/types'
+import type { PlayerMode } from '@shared/replays/player-mode'
 import type { CinemaAvailability } from '@shared/replays/cinema'
 import type { ReplaysPlaybackDisplay } from '@shared/modules/replays'
 import {
@@ -69,6 +70,8 @@ export interface PlaybackSession {
   volume: PlaybackVolume
   /** Story 172: the game window is fullscreen; the strip shows the keys text instead of stale position. */
   fullscreen: boolean
+  /** Who plays the demo: the engine window (main) or the in-launcher canvas. (story 290) */
+  playerMode: PlayerMode
   /** Story 187: preview (the stage), cinema (the overlay) or fullscreen, from the display event. */
   mode: PlaybackMode
   /** Story 187: whether cinema can run now, and the reason key when it cannot. */
@@ -129,6 +132,7 @@ export interface SessionDemo {
   id: string
   archived: boolean
   startAtS?: number
+  mode?: PlayerMode
 }
 
 /** The display event; `cinema`, `speed` and `cinemaAvailability` are optional for older callers. */
@@ -218,6 +222,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         speed: 1,
         volume: { percent: 100, muted: false },
         fullscreen: false,
+        playerMode: demo?.mode ?? 'engine',
         mode: 'preview',
         cinemaAvailability: { available: true },
         controlsUnavailable: null,
@@ -252,6 +257,11 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   requestStop: async () => {
     const setStopping = (stopping: boolean): void =>
       set((s) => (s.session === null ? s : { session: { ...s.session, stopping } }))
+    if (get().session?.playerMode === 'integrated') {
+      // Main knows no integrated session; nothing to ask it. (story 290)
+      get().endSession()
+      return null
+    }
     setStopping(true)
     try {
       const result = await playbackStop()

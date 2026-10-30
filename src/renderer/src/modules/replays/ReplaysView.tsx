@@ -62,6 +62,7 @@ import { DemoStage } from './components/DemoStage'
 import { PlaybackModeSwitch } from './components/PlaybackModeSwitch'
 import { DemoTimeline } from './components/DemoTimeline'
 import { usePlaybackStore } from './playback-store'
+import { usePlaybackModeStore } from './playback-mode-store'
 import { useDemoPlay } from './useDemoPlay'
 import { DemoListFilterBar } from './DemoListFilterBar'
 import { findRowReplaceId, useDemoEditorStore, type RowPatcher } from './demo-editor-store'
@@ -218,6 +219,7 @@ export function ReplaysView() {
   const [scanning, setScanning] = useState(true)
   const [progress, setProgress] = useState<ReplaysScanProgress>(IDLE_SCAN_PROGRESS)
   const stageMode = usePlaybackStore((state) => state.stageArmed || state.session !== null)
+  const playerMode = usePlaybackModeStore((state) => state.mode)
   const selectedId = useDemoEditorStore((state) => state.selectedId)
   const selectedIds = useDemoEditorStore((state) => state.selectedIds)
   const toggleDemo = useDemoEditorStore((state) => state.toggleSelect)
@@ -844,7 +846,7 @@ export function ReplaysView() {
           />
         </aside>
 
-        {stageMode && <DemoStage />}
+        {stageMode && <DemoStage mode={playerMode} />}
         <div
           className={cn(
             '@container min-h-0 min-w-0',

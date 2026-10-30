@@ -1404,6 +1404,36 @@ export const SCREENS = [
     },
   },
   {
+    id: 'replays-integrated-stage',
+    variant: 'replays-integrated',
+    viewports: BOTH_VIEWPORTS,
+    // The integrated stage with the fake engine's canvas (the second viewport shares the
+    // launch, so the demo is already playing there). (story 290)
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-demo-list')
+        .or(page.getByTestId('replays-engine-canvas'))
+        .filter({ visible: true })
+        .first()
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      if (!(await page.getByTestId('replays-engine-canvas').isVisible())) {
+        await openFirstReplaysRoot(page, 'ctf')
+        await page
+          .getByTestId('replays-demo-row')
+          .filter({ hasText: 'play-ctf.dm2' })
+          .first()
+          .click({ timeout: CLICK_TIMEOUT_MS })
+        await page
+          .locator('[data-testid="actionbar-play"][data-action="view"]')
+          .click({ timeout: CLICK_TIMEOUT_MS })
+      }
+      await page
+        .getByTestId('replays-engine-canvas')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'replays-timeline',
     variant: 'replays-timeline',
     viewports: BOTH_VIEWPORTS,
