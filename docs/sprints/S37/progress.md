@@ -250,3 +250,6 @@
 - 2026-10-30 14:42:53 · 324 · review 1 · started
 - 2026-10-30 14:47:21 · 324 · review 1 · done
 - 2026-10-30 14:47:21 · 324 · story · done
+- 2026-10-30 14:47:36 · gate · short-suites · started
+- 2026-10-30 14:52:01 · gate · e2e-all · started
+- 2026-10-30 15:14:00 · gate · e2e-all · done green 181/181
