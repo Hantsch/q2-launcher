@@ -65,6 +65,8 @@ export interface ProfileBaseline {
   actions: ConfigAction[]
   cvarSections: ConfigCvarSection[]
   writeUnbindall: boolean
+  /** Rendered into the file, so a pending toggle must not reach disk through a cvar commit. */
+  writeCatalogDefaults: boolean
   /** Kept in lockstep with the field it snapshots rather than restating the three literals. */
   sectionHeaderStyle: NonNullable<ConfigProfile['sectionHeaderStyle']>
   unrecognized: UnrecognizedConfigLine[]
@@ -108,6 +110,7 @@ export function captureBaseline(profile: ConfigProfile): ProfileBaseline {
     })),
     // The same two reads `render.ts` performs, so the snapshot says what the file would have said.
     writeUnbindall: profile.writeUnbindall !== false,
+    writeCatalogDefaults: profile.writeCatalogDefaults !== false,
     sectionHeaderStyle: profile.sectionHeaderStyle ?? 'dashes',
     unrecognized: (profile.unrecognized ?? []).map((line) => ({ ...line })),
   }

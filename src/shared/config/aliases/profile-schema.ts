@@ -92,11 +92,7 @@ export const actionKeySlotObjectSchema = z.object({
 })
 export const actionKeySlotSchema: z.ZodType<ActionKeySlot> = actionKeySlotObjectSchema
 
-/**
- * `keepEmptyAlias` is deliberately absent: neither reader has ever carried it, and adding it here
- * would change what a persisted profile parses to. Ids naming a category/sub-category the profile
- * does not have are valid - no cross-reference check at the schema level.
- */
+/** A category or sub-category id the profile does not have is valid: no cross-reference check here. */
 export const configActionObjectSchema = z.object({
   id: z.string().min(1),
   categoryId: z.string().min(1),
@@ -108,6 +104,7 @@ export const configActionObjectSchema = z.object({
   catalogId: z.string().optional(),
   aliasName: z.string().optional(),
   parts: z.array(actionEntryPartObjectSchema).optional(),
+  keepEmptyAlias: z.literal(true).optional(),
 })
 export const configActionSchema: z.ZodType<ConfigAction> =
   configActionObjectSchema.superRefine(refineActionParts)

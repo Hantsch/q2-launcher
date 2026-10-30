@@ -31,13 +31,17 @@ export function SwitchBindControl({
 }) {
   const { t } = useTranslation()
   const [capturing, setCapturing] = useState(false)
+  const [errorKey, setErrorKey] = useState<string | null>(null)
 
   const applyKey = useCallback(
     async (key: string | null): Promise<void> => {
       const result = await setSwitchBind({ installationId, key })
       if (result.ok) {
+        setErrorKey(null)
         onChanged(result.value)
         setCapturing(false)
+      } else {
+        setErrorKey(result.error.key)
       }
     },
     [installationId, onChanged],
@@ -75,15 +79,34 @@ export function SwitchBindControl({
       )}
 
       {!capturing && (
-        <Button variant="ghost" size="sm" onClick={() => setCapturing(true)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          data-testid="switch-bind-capture"
+          onClick={() => {
+            setErrorKey(null)
+            setCapturing(true)
+          }}
+        >
           {t('config.switchBind.capture')}
         </Button>
       )}
 
       {!capturing && currentKey && (
-        <Button variant="danger" size="sm" onClick={() => void applyKey(null)}>
+        <Button
+          variant="danger"
+          size="sm"
+          data-testid="switch-bind-clear"
+          onClick={() => void applyKey(null)}
+        >
           {t('common.action.clear')}
         </Button>
+      )}
+
+      {errorKey && (
+        <p role="alert" data-testid="switch-bind-error" className="w-full text-xs text-danger">
+          {t(errorKey)}
+        </p>
       )}
     </div>
   )

@@ -12,7 +12,7 @@ import {
   type PreviewProfileResult,
   type WriteState,
 } from '@shared/modules/config'
-import { reconcileAssignments } from './assignments'
+import { withLiveAssignments } from './assignments'
 import { resolveProfileFileNames } from '@shared/config/profile/profile-files'
 import { fail, ok, type Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
@@ -98,12 +98,6 @@ export const configModule: MainModule = {
     // sweep in between) never shows up in what the renderer sees - without
     // writing that removal to disk here, since this module deliberately does
     // not hook into `InstallationsService.remove()`.
-    const withLiveAssignments = (list: ConfigProfile[]): ConfigProfile[] =>
-      reconcileAssignments(
-        list,
-        app.installations.list().map((installation) => installation.id),
-      )
-
     /**
      * Story 043: the tail every *content* mutation now ends in, in place of `syncAndPersist`.
      *
@@ -115,12 +109,12 @@ export const configModule: MainModule = {
      * `CONFIG_HANDLERS.save` is the only thing that writes profile content from now on.
      */
     const markUnsaved = (profileId: string): ConfigProfile[] =>
-      withLiveAssignments(profiles.setDirty(profileId, true))
+      withLiveAssignments(app.installations, profiles.setDirty(profileId, true))
 
-    handle(CONFIG_HANDLERS.list, () => ok(withLiveAssignments(profiles.list())))
+    handle(CONFIG_HANDLERS.list, () => ok(withLiveAssignments(app.installations, profiles.list())))
 
     handle(CONFIG_HANDLERS.create, (input) =>
-      writes.syncAppended(withLiveAssignments(profiles.create(input))),
+      writes.syncAppended(withLiveAssignments(app.installations, profiles.create(input))),
     )
 
     /**
@@ -137,7 +131,7 @@ export const configModule: MainModule = {
     })
 
     handle(CONFIG_HANDLERS.remove, async (input) => {
-      const list = withLiveAssignments(profiles.remove(input))
+      const list = withLiveAssignments(app.installations, profiles.remove(input))
       await writes.cleanupRemoved(input.id)
       return ok(list)
     })
@@ -217,7 +211,7 @@ export const configModule: MainModule = {
         return ok<DiscardProfileResult>({ status: 'noBaseline' })
       return ok<DiscardProfileResult>({
         status: 'discarded',
-        profiles: withLiveAssignments(outcome.profiles),
+        profiles: withLiveAssignments(app.installations, outcome.profiles),
       })
     })
 
@@ -389,7 +383,7 @@ export const configModule: MainModule = {
       )
       // Nothing was created, so there is nothing to sync.
       if (!result.ok) return result
-      return writes.syncAppended(withLiveAssignments(result.value))
+      return writes.syncAppended(withLiveAssignments(app.installations, result.value))
     })
 
     // Story 010: find and remove mod-folder `.cfg` copies that duplicate a

@@ -27,7 +27,7 @@ import { configState } from './persisted'
 
 vi.mock('electron', async () => {
   const h = await import('./index.test-helpers')
-  return { app: { getPath: () => h.userDataBox.current }, shell: h.shellMock }
+  return { app: { getPath: () => h.userDataBox.current } }
 })
 
 const getDir = installConfigTestDir()

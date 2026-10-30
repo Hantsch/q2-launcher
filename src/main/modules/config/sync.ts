@@ -18,7 +18,12 @@ import {
 } from './canonical'
 import { hashCanonicalFileContent } from './file-source'
 import { assignedProfilesFor, defaultProfileFor } from './write-plan'
-import { BASE_GAME_DIR, reconcileOwnedProfileFiles, writeInstallationFiles } from './writer'
+import {
+  BASE_GAME_DIR,
+  reconcileOwnedProfileFiles,
+  writeInstallationFiles,
+  type writeTargetFile,
+} from './writer'
 
 /**
  * The sync engine that reports, and drives towards, "is
@@ -106,6 +111,8 @@ export interface SyncProfileDeps {
    * before.
    */
   targetInstallationId?: string
+  /** The canonical file's writer; injected so a caller can hold or fail the write. */
+  writeTargetFile: typeof writeTargetFile
   log: Logger
 }
 
@@ -322,7 +329,13 @@ async function syncOneProfile(
   const ownRendered = renderProfileFile(profile)
   if (await mayWrite(profile)) {
     try {
-      await writeCanonicalProfileFile(deps.canonicalBaseDir, profile, ownFileName, liveProfileIds)
+      await writeCanonicalProfileFile(
+        deps.canonicalBaseDir,
+        profile,
+        ownFileName,
+        liveProfileIds,
+        deps.writeTargetFile,
+      )
       // A previous failure is now resolved.
       delete writeFailures[ownFailureKey]
     } catch (error) {

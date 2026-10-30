@@ -180,6 +180,8 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
   // (below) forgives one.
   cvarSections: z.array(configCvarSectionPersistedSchema).optional().default([]),
   writeUnbindall: z.boolean(),
+  // Absent in baselines written before the field joined the snapshot; `true` is the profile default.
+  writeCatalogDefaults: z.boolean().catch(true),
   sectionHeaderStyle: z.enum(['dashes', 'brackets', 'plain']),
   unrecognized: z.array(z.object({ file: z.string(), line: z.number(), text: z.string() })),
 })

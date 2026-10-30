@@ -19,6 +19,7 @@ version section when a release actually ships.
 ### Fixed
 
 - A watchlist re-check started while browsing LAN no longer stays pending.
+- Unsaved config edits no longer reach disk from an address-book add or switch bind; alias flags survive restarts.
 
 ## 0.9.0 — 2026-10-29
 

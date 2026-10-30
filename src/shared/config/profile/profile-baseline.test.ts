@@ -13,6 +13,7 @@ const BASELINE_FIELDS: readonly (keyof ProfileBaseline)[] = [
   'name',
   'sectionHeaderStyle',
   'unrecognized',
+  'writeCatalogDefaults',
   'writeUnbindall',
 ]
 
@@ -106,6 +107,7 @@ describe('captureBaseline', () => {
         },
       ],
       writeUnbindall: false,
+      writeCatalogDefaults: true,
       sectionHeaderStyle: 'brackets',
       unrecognized: [{ file: 'config.cfg', line: 12, text: 'somethingodd 1' }],
     })
@@ -125,6 +127,7 @@ describe('captureBaseline', () => {
       actions: [],
       cvarSections: [],
       writeUnbindall: true,
+      writeCatalogDefaults: true,
       sectionHeaderStyle: 'dashes',
       unrecognized: [],
     })
@@ -186,6 +189,13 @@ describe('captureBaseline', () => {
     expect(captureBaseline(profile()).writeUnbindall).toBe(true)
     expect(captureBaseline(profile({ writeUnbindall: true })).writeUnbindall).toBe(true)
     expect(captureBaseline(profile({ writeUnbindall: false })).writeUnbindall).toBe(false)
+  })
+
+  it('reads `writeCatalogDefaults` the way the writer does - absent means on, only `false` means off', () => {
+    expect(captureBaseline(profile()).writeCatalogDefaults).toBe(true)
+    expect(captureBaseline(profile({ writeCatalogDefaults: false })).writeCatalogDefaults).toBe(
+      false,
+    )
   })
 
   it('captures the profile name - a rename is pending file content, not just a list label', () => {

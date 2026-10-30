@@ -235,9 +235,10 @@ export async function writeCanonicalProfileFile(
   profile: ConfigProfile,
   fileName: string,
   liveProfileIds?: ReadonlySet<string>,
+  writeFile: typeof writeTargetFile = writeTargetFile,
 ): Promise<WriteCanonicalProfileFileResult> {
   const targetPath = await moveCanonicalProfileFile(baseDir, profile, fileName, liveProfileIds)
-  const outcome = await writeTargetFile(targetPath, renderProfileFile(profile))
+  const outcome = await writeFile(targetPath, renderProfileFile(profile))
   return { path: targetPath, outcome }
 }
 

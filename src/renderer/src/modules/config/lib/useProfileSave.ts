@@ -35,7 +35,9 @@ export interface UseProfileSaveResult<T> {
   /**
    * Saves right away, dropping any pending debounced save first - `run` must therefore carry
    * whatever that pending save would have sent. Resolves `false` on a refusal and also when the
-   * result was ignored (profile switched or unmounted), so the caller only applies on `true`.
+   * result was ignored (profile switched or unmounted), so the caller only applies on `true`. A
+   * pending or just-cancelled burst's revert runs when this save fails, so the editor shows the
+   * value on disk rather than the optimistic one.
    */
   saveNow: (save: ImmediateSave<T>) => Promise<boolean>
   /** Drops a pending debounced save without running or reverting it. */
@@ -61,6 +63,8 @@ export function useProfileSave<T = ConfigProfile[]>({
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const burstRef = useRef<PendingBurst<T> | null>(null)
+  /** Revert of a burst `cancel` dropped, so a following `saveNow` can still undo its optimistic edit. */
+  const cancelledRevertRef = useRef<(() => void) | null>(null)
   /** Bumped on profile switch and unmount; a result from an older epoch is dropped entirely. */
   const epochRef = useRef(0)
   /**
@@ -90,6 +94,7 @@ export function useProfileSave<T = ConfigProfile[]>({
       epochRef.current += 1
       immediateInFlightRef.current = 0
       clearPending()
+      cancelledRevertRef.current = null
     }
   }, [profileId, clearPending])
 
@@ -119,6 +124,7 @@ export function useProfileSave<T = ConfigProfile[]>({
     (save: ScheduledSave<T>): void => {
       save.apply()
       seqRef.current += 1
+      cancelledRevertRef.current = null
       // The revert of the burst's first edit holds the pre-burst snapshot; a later closure would
       // restore a state that already contains earlier edits of the same burst.
       burstRef.current = { revert: burstRef.current?.revert ?? save.revert, run: save.run }
@@ -136,13 +142,15 @@ export function useProfileSave<T = ConfigProfile[]>({
 
   const saveNow = useCallback(
     async (save: ImmediateSave<T>): Promise<boolean> => {
+      const revert = burstRef.current?.revert ?? cancelledRevertRef.current
+      cancelledRevertRef.current = null
       clearPending()
       seqRef.current += 1
       const epoch = epochRef.current
       immediateInFlightRef.current += 1
       setSaving(true)
       setStatus('saving')
-      const ok = await execute(save.run, null)
+      const ok = await execute(save.run, revert)
       if (epoch !== epochRef.current) return false
       immediateInFlightRef.current -= 1
       if (immediateInFlightRef.current === 0) setSaving(false)
@@ -152,6 +160,7 @@ export function useProfileSave<T = ConfigProfile[]>({
   )
 
   const cancel = useCallback((): void => {
+    cancelledRevertRef.current = burstRef.current?.revert ?? cancelledRevertRef.current
     if (clearPending()) setStatus('idle')
   }, [clearPending])
 

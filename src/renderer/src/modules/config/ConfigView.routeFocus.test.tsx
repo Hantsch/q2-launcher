@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { StrictMode } from 'react'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockClient } from '../../test-support/mock-client'
 import type { ConfigProfile } from '@shared/modules/config'
@@ -173,6 +173,40 @@ describe('ConfigView route focus', () => {
 
     renderView()
 
+    await waitFor(() =>
+      expect(screen.getByTestId('config-profile-identity').textContent).toContain('Casual'),
+    )
+  })
+
+  it('a stale load does not mark the list loaded', async () => {
+    // The hinted profile is absent from the stored list; the answer is superseded by a replaceAll,
+    // so the hint must stay parked rather than be dropped as "load settled without it".
+    useConfigProfiles.setState({ profiles: [PROFILES[0]!] })
+    let answer: (outcome: Outcome<ConfigProfile[]>) => void = () => {}
+    listConfigProfiles.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+    useLauncher.getState().setRoute('/config', 'p2')
+    renderView()
+
+    act(() => useConfigProfiles.getState().replaceAll([PROFILES[0]!]))
+    await act(async () => answer({ ok: true, value: PROFILES }))
+    expect(screen.queryByTestId('config-profile-header')).toBeNull()
+
+    act(() => useConfigProfiles.getState().replaceAll(PROFILES))
+    await waitFor(() =>
+      expect(screen.getByTestId('config-profile-identity').textContent).toContain('Casual'),
+    )
+  })
+
+  it('a failed load keeps the focus hint', async () => {
+    useConfigProfiles.setState({ profiles: [PROFILES[0]!] })
+    listConfigProfiles.mockResolvedValue({ ok: false, error: { key: 'ipc.error.handlerFailed' } })
+    useLauncher.getState().setRoute('/config', 'p2')
+    renderView()
+    await waitFor(() => expect(listConfigProfiles).toHaveBeenCalled())
+    await act(async () => {})
+    expect(screen.queryByTestId('config-profile-header')).toBeNull()
+
+    act(() => useConfigProfiles.getState().replaceAll(PROFILES))
     await waitFor(() =>
       expect(screen.getByTestId('config-profile-identity').textContent).toContain('Casual'),
     )

@@ -12,6 +12,7 @@ import {
   userDataBox,
 } from './index.test-helpers'
 import { syncProfile } from './sync'
+import { writeTargetFile } from './writer'
 import {
   assignedProfilesFor,
   defaultProfileFor,
@@ -22,7 +23,7 @@ import {
 
 vi.mock('electron', async () => {
   const h = await import('./index.test-helpers')
-  return { app: { getPath: () => h.userDataBox.current }, shell: h.shellMock }
+  return { app: { getPath: () => h.userDataBox.current } }
 })
 
 const getDir = installConfigTestDir()
@@ -157,6 +158,7 @@ describe('previewProfileFiles', () => {
       canonicalWriteAllowed: () => true,
       canonicalMoveAllowed: () => true,
       canonicalBaseDir: userDataBox.current,
+      writeTargetFile,
       writeFailures: {},
       log,
     })

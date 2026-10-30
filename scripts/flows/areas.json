@@ -448,6 +448,7 @@
         "raw-inline-edit",
         "raw-save-cascades",
         "external-edit-cascades",
+        "switch-bind-keeps-unsaved-edits",
         "unsaved-diff",
         "settings-section-rename-add-cvar",
         "controls-extra-keys",
@@ -511,7 +512,8 @@
         "raw-save-cascades",
         "tabs-keyboard",
         "config-header-geometry",
-        "external-edit-cascades"
+        "external-edit-cascades",
+        "switch-bind-keeps-unsaved-edits"
       ],
       "why": "Config profiles, their assignments, care checks, the profile draft and the config view frame."
     },
@@ -568,6 +570,7 @@
         "controls-drag-reorder",
         "controls-extra-keys",
         "controls-subcategory",
+        "switch-bind-keeps-unsaved-edits",
         "custom-action-row",
         "demo-actions-bind",
         "drop-message-checkbox",

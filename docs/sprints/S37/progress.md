@@ -133,3 +133,27 @@
 - 2026-10-30 11:15:40 · 323 · review 1 · started
 - 2026-10-30 11:17:22 · 323 · review 1 · done
 - 2026-10-30 11:17:24 · 323 · story · done
+- 2026-10-30 11:17:34 · 320 · build · started
+- 2026-10-30 11:17:55 · 320 · D1 pending catalog-defaults toggle · started
+- 2026-10-30 11:20:18 · 320 · D1 pending catalog-defaults toggle · done
+- 2026-10-30 11:20:18 · 320 · D2 keepEmptyAlias · started
+- 2026-10-30 11:21:08 · 320 · D2 keepEmptyAlias · done
+- 2026-10-30 11:21:08 · 320 · D3 withLiveAssignments + no writer mock · started
+- 2026-10-30 11:22:32 · 320 · D3 withLiveAssignments + no writer mock · done
+- 2026-10-30 11:22:32 · 320 · D4 switch bind through save path · started
+- 2026-10-30 11:25:03 · 320 · D4 switch bind through save path · done
+- 2026-10-30 11:25:03 · 320 · D5 switch bind refusal visible + flow · started
+- 2026-10-30 11:27:50 · 320 · D5 switch bind refusal visible + flow · done
+- 2026-10-30 11:27:50 · 320 · D6 draft and list-load edges · started
+- 2026-10-30 11:28:41 · 320 · D6 draft and list-load edges · done
+- 2026-10-30 11:28:41 · 320 · D7 stale electron mock + debt rows · started
+- 2026-10-30 11:29:16 · 320 · D7 stale electron mock + debt rows · done
+- 2026-10-30 11:29:16 · 320 · verify · started
+- 2026-10-30 11:33:56 · 320 · verify · done
+- 2026-10-30 11:33:56 · 320 · review 1 · started
+- 2026-10-30 11:35:21 · 320 · review 1 · done
+- 2026-10-30 11:35:21 · 320 · review fix 1 · started
+- 2026-10-30 11:37:19 · 320 · review fix 1 · done
+- 2026-10-30 11:37:19 · 320 · verify 2 · started
+- 2026-10-30 11:41:57 · 320 · verify 2 · done
+- 2026-10-30 11:41:57 · 320 · story · done

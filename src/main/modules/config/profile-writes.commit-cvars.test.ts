@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { ConfigProfile } from '@shared/modules/config'
 import { fail, type Outcome } from '@shared/types'
 import { diffProfileAgainstBaseline } from '@shared/config/profile/profile-diff'
+import { renderProfileFile } from '@shared/config/render/render'
 import { pathExists } from '../../lib/fs-utils'
 import { seedConfigProfiles } from '../../../test-support/config-state'
 import { installTempDir } from '../../../test-support/temp-dir'
@@ -96,6 +97,33 @@ describe('commit cvars', () => {
     expect(diff.keys.cvars.has('sensitivity')).toBe(true)
     expect(diff.keys.cvars.has('adr0')).toBe(false)
     expect(diff.keys.binds.size).toBe(1)
+  })
+
+  it('a pending catalog-defaults toggle is not written by a cvar commit', async () => {
+    const h = await harness()
+    await h.writes.save({ profileId: 'p1' })
+    const savedBytes = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    const savedOn = profileRecord(h).writeCatalogDefaults !== false
+    h.profiles.setWriteCatalogDefaults({ profileId: 'p1', writeCatalogDefaults: !savedOn })
+    markUnsaved(h)
+
+    const result = await commit(h)
+
+    if (!result.ok) throw new Error(`expected the commit to succeed, got ${result.error}`)
+    const onDisk = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    expect(onDisk).toContain(ADDRESS)
+    expect(onDisk).toBe(
+      renderProfileFile({
+        ...profileRecord(h),
+        ...profileRecord(h).baseline!,
+        cvars: { ...profileRecord(h).baseline!.cvars },
+      }),
+    )
+    expect(onDisk.includes('Defaults')).toBe(savedBytes.includes('Defaults'))
+    const after = profileRecord(h)
+    expect(after.writeCatalogDefaults !== false).toBe(!savedOn)
+    expect(after.baseline!.writeCatalogDefaults).toBe(savedOn)
+    expect(after.dirty).toBe(true)
   })
 
   it('a canonical file changed on disk is not overwritten and nothing changes', async () => {

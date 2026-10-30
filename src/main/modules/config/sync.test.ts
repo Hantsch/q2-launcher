@@ -10,6 +10,7 @@ import { pathExists } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX } from './backup'
 import { hashCanonicalFileContent } from './file-source'
 import { syncProfile } from './sync'
+import { writeTargetFile } from './writer'
 import type { SyncProfileDeps } from './sync'
 
 /**
@@ -90,6 +91,7 @@ function deps(overrides: Partial<SyncProfileDeps> = {}): SyncProfileDeps {
     // Tests that only override the write predicate expect the move predicate to follow it.
     canonicalMoveAllowed: overrides.canonicalWriteAllowed ?? (() => true),
     canonicalBaseDir: userDataDir,
+    writeTargetFile,
     writeFailures: {},
     log: noopLog,
     ...overrides,

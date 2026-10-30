@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { assign, reconcileAssignments, setDefault, unassign } from './assignments'
+import type { Installation } from '@shared/types'
+import {
+  assign,
+  reconcileAssignments,
+  setDefault,
+  unassign,
+  withLiveAssignments,
+} from './assignments'
 
 function profile(id: string, overrides: Partial<ConfigProfile> = {}): ConfigProfile {
   return {
@@ -277,5 +284,23 @@ describe('reconcileAssignments', () => {
 
     expect(assignmentsOf(result, 'p1')).toEqual([])
     expect(profiles[0]!.assignments).toHaveLength(1)
+  })
+})
+
+describe('withLiveAssignments', () => {
+  it('withLiveAssignments drops assignments to unregistered installations', () => {
+    const profiles = [
+      profile('p1', {
+        assignments: [
+          { installationId: 'i1', isDefault: true },
+          { installationId: 'gone', isDefault: true },
+        ],
+      }),
+    ]
+    const installations = { list: () => [{ id: 'i1' }] as Installation[] }
+
+    const live = withLiveAssignments(installations, profiles)
+
+    expect(assignmentsOf(live, 'p1')).toEqual([{ installationId: 'i1', isDefault: true }])
   })
 })

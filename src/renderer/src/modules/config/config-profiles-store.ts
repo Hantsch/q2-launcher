@@ -14,8 +14,11 @@ import { listConfigProfiles } from './client'
  */
 interface ConfigProfilesState {
   profiles: ConfigProfile[]
-  /** Re-reads the list from main; the outcome is returned unchanged, a failure leaves the list. */
-  load: () => Promise<Outcome<ConfigProfile[]>>
+  /**
+   * Re-reads the list from main; the outcome is returned with `applied` - false when a failure or a
+   * newer action superseded the answer, so the list was left as it was.
+   */
+  load: () => Promise<Outcome<ConfigProfile[]> & { applied: boolean }>
   /** Adopts a full list main returned from a mutation. */
   replaceAll: (profiles: ConfigProfile[]) => void
   /** Folds one profile main returned into the list by id, appending it when it is new. */
@@ -31,8 +34,9 @@ export const useConfigProfiles = create<ConfigProfilesState>((set) => {
     load: async () => {
       const ticket = ++sequence
       const outcome = await listConfigProfiles()
-      if (outcome.ok && ticket === sequence) set({ profiles: outcome.value })
-      return outcome
+      const applied = outcome.ok && ticket === sequence
+      if (applied) set({ profiles: outcome.value })
+      return { ...outcome, applied }
     },
     replaceAll: (profiles) => {
       sequence++

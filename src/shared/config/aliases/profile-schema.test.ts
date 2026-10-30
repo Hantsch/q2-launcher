@@ -37,17 +37,16 @@ type Assignable<From, To> = [From] extends [To] ? true : false
 
 describe('profile sub-shape object schemas match their contract types', () => {
   it('configActionSchema infers exactly ConfigAction', () => {
-    // `keepEmptyAlias` is the one ConfigAction key no reader declares yet, so zod strips it on parse.
     type Out = z.output<typeof configActionObjectSchema>
-    // Out -> ConfigAction holds as is. The reverse is checked without `keys` and `keepEmptyAlias`, which the contract
+    // Out -> ConfigAction holds as is. The reverse is checked without `keys`, which the contract
     // declares `readonly` (a mutable array schema output is assignable to it, not the other way);
     // the `keys` element type is pinned separately.
-    type Shared = Exclude<keyof ConfigAction, 'keys' | 'keepEmptyAlias'>
+    type Shared = Exclude<keyof ConfigAction, 'keys'>
     expectTypeOf<Assignable<Out, ConfigAction>>().toEqualTypeOf<true>()
     expectTypeOf<Assignable<Pick<ConfigAction, Shared>, Pick<Out, Shared>>>().toEqualTypeOf<true>()
     expectTypeOf<Out['keys']>().toEqualTypeOf<ActionKeySlot[] | undefined>()
     expectTypeOf<ConfigAction['keys']>().toEqualTypeOf<readonly ActionKeySlot[] | undefined>()
-    expectTypeOf<keyof Out>().toEqualTypeOf<Exclude<keyof ConfigAction, 'keepEmptyAlias'>>()
+    expectTypeOf<keyof Out>().toEqualTypeOf<keyof ConfigAction>()
   })
 
   it('every other object schema is mutually assignable with its contract and has its keys', () => {

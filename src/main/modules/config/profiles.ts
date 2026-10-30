@@ -490,6 +490,7 @@ export class ProfilesStore {
           : {}),
       })),
       writeUnbindall: baseline.writeUnbindall,
+      writeCatalogDefaults: baseline.writeCatalogDefaults,
       sectionHeaderStyle: baseline.sectionHeaderStyle,
       unrecognized: baseline.unrecognized.map((line) => ({ ...line })),
       dirty: false,

@@ -52,8 +52,8 @@ export function ConfigView() {
   // mount. A failed read leaves the stored list as it was.
   useEffect(() => {
     let cancelled = false
-    void loadProfiles().then(() => {
-      if (!cancelled) setListLoaded(true)
+    void loadProfiles().then((outcome) => {
+      if (!cancelled && outcome.ok && outcome.applied) setListLoaded(true)
     })
     return () => {
       cancelled = true

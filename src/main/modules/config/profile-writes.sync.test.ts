@@ -18,6 +18,7 @@ import { unwrapOk } from '../../../test-support/outcome'
 import { installTempDir } from '../../../test-support/temp-dir'
 import { hashCanonicalFileContent } from './file-source'
 import { installation, profile } from './index.test-helpers'
+import type { ProfileWritesDeps } from './profile-writes'
 import { configState } from './persisted'
 import {
   markUnsaved,
@@ -26,15 +27,6 @@ import {
   type WritesHarness,
 } from './profile-writes.test-helpers'
 import { ORIGINAL_CONFIGS_DIR_NAME, restoreOriginals } from './original-backup'
-import { writeTargetFile } from './writer'
-
-// The sync engine writes the canonical file through `writer.ts` directly, so holding or failing
-// that write mid-run (the overlapping-runs test) needs the module's own export wrapped. It
-// delegates to the real writer unless a test overrides it.
-vi.mock('./writer', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./writer')>()
-  return { ...actual, writeTargetFile: vi.fn(actual.writeTargetFile) }
-})
 
 const getDir = installTempDir('q2-launcher-profile-writes-sync-')
 let dir: string
@@ -831,6 +823,17 @@ describe('sync triggers that are not a save', () => {
 
 describe('write failures under overlapping sync runs', () => {
   it("concurrent syncAndPersist runs keep each other's write failures", async () => {
+    let releaseFirst!: () => void
+    const held = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    let calls = 0
+    const failingWrite: ProfileWritesDeps['writeTargetFile'] = async () => {
+      calls += 1
+      if (calls === 1) await held
+      throw new Error('disk full')
+    }
+
     const i1 = installation({ id: 'i1', rootPath: join(dir, 'one') })
     const i2 = installation({ id: 'i2', rootPath: join(dir, 'two') })
     const h = await seeded(
@@ -846,19 +849,8 @@ describe('write failures under overlapping sync runs', () => {
           assignments: [{ installationId: 'i2', isDefault: true }],
         }),
       ],
-      { installations: [i1, i2] },
+      { installations: [i1, i2], writeTargetFile: failingWrite },
     )
-
-    let releaseFirst!: () => void
-    const held = new Promise<void>((resolve) => {
-      releaseFirst = resolve
-    })
-    let calls = 0
-    vi.mocked(writeTargetFile).mockImplementation(async () => {
-      calls += 1
-      if (calls === 1) await held
-      throw new Error('disk full')
-    })
 
     const first = save(h, 'p1')
     await vi.waitFor(() => expect(calls).toBe(1))
@@ -872,7 +864,6 @@ describe('write failures under overlapping sync runs', () => {
       'p1|own',
       'p2|own',
     ])
-    vi.mocked(writeTargetFile).mockReset()
   })
 })
 

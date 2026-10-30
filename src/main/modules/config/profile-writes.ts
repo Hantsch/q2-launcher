@@ -34,10 +34,10 @@ import { isLatin1Text } from '@shared/config/syntax/q2-charset'
 import { restoredToProfileFields } from '@shared/config/profile/profile-restore-input'
 import type { RestoreWarning } from '@shared/config/profile/profile-restore'
 import { resolveProfileFileNames } from '@shared/config/profile/profile-files'
-import { renderLoaderFile, renderProfileFile } from '@shared/config/render/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { fail, ok, type Installation, type LaunchState, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
-import { reconcileAssignments } from './assignments'
+import { withLiveAssignments } from './assignments'
 import { readCanonicalOwnership, removeCanonicalProfileFile } from './canonical'
 import { corruptContentDiagnostic, hashCanonicalFileContent, readFileState } from './file-source'
 import type { configState } from './persisted'
@@ -57,7 +57,6 @@ import {
   isForeignFile,
   ownedProfileIdFromContent,
   readExisting,
-  writeInstallationFiles,
   writeTargetFile,
 } from './writer'
 
@@ -81,19 +80,17 @@ export interface ProfileWritesDeps {
   /** Reads a whole file as latin-1, the config file encoding; rejects like `fs.readFile`. */
   readText: (path: string) => Promise<string>
   writeTargetFile: typeof writeTargetFile
-  writeInstallationFiles: typeof writeInstallationFiles
   log: Logger
 }
 
 /** The production file IO for `ProfileWritesDeps`. */
 export const profileWritesFileIo: Pick<
   ProfileWritesDeps,
-  'readFileState' | 'readText' | 'writeTargetFile' | 'writeInstallationFiles'
+  'readFileState' | 'readText' | 'writeTargetFile'
 > = {
   readFileState,
   readText: (path) => readFile(path, 'latin1'),
   writeTargetFile,
-  writeInstallationFiles,
 }
 
 export interface SyncAndPersistOptions {
@@ -173,17 +170,6 @@ export function createProfileWrites(deps: ProfileWritesDeps): ProfileWrites {
     syncState: (input) => syncState(deps, input),
     rawFiles: (input) => rawFiles(deps, input),
   }
-}
-
-/**
- * The live assignment view every handler returns: assignments to installations no longer
- * registered are filtered out on read (see `configModule.setup()`'s own `withLiveAssignments`).
- */
-function withLiveAssignments(deps: ProfileWritesDeps, list: ConfigProfile[]): ConfigProfile[] {
-  return reconcileAssignments(
-    list,
-    deps.installations.list().map((installation) => installation.id),
-  )
 }
 
 /**
@@ -271,6 +257,7 @@ async function syncAndPersist(
       playedModsFor: (installationId) => deps.config.playedMods.get()[installationId] ?? [],
       switchBindFor: (installationId) => deps.config.switchBinds.get()[installationId],
       canonicalBaseDir: deps.canonicalBaseDir(),
+      writeTargetFile: deps.writeTargetFile,
       writeFailures: before,
       targetInstallationId: options.targetInstallationId,
       canonicalWriteAllowed: (candidate, onDisk) => {
@@ -569,7 +556,7 @@ async function save(
   }
 
   // `unchanged` or `missing`, or `force === true`: the file is ours to write.
-  const list = withLiveAssignments(deps, profiles.setDirty(profile.id, false))
+  const list = withLiveAssignments(deps.installations, profiles.setDirty(profile.id, false))
   // `setDirty` throws on an unknown id and cannot remove the profile, so this cannot miss.
   const target = list.find((p) => p.id === profile.id)!
   // `overwriteProfileId` is passed unconditionally here, not only on `force`: on EITHER path
@@ -598,7 +585,8 @@ async function save(
   // confirmed on disk, and the caller wants the profile as it now stands - through
   // `withLiveAssignments`, the same view of it every other handler returns.
   const saved =
-    withLiveAssignments(deps, profiles.list()).find((p) => p.id === profile.id) ?? target
+    withLiveAssignments(deps.installations, profiles.list()).find((p) => p.id === profile.id) ??
+    target
   return ok({ status: 'saved', profile: saved, sync: state })
 }
 
@@ -776,7 +764,7 @@ async function saveRawText(
   profiles.setDirty(profile.id, false)
 
   const list = withLiveAssignments(
-    deps,
+    deps.installations,
     profiles.adoptFromFile(
       profile.id,
       {
@@ -908,7 +896,7 @@ async function refreshFromFiles(
       // *current* value rather than being omitted, since there is an existing value here to
       // preserve rather than a fresh record's implicit default.
       const list = withLiveAssignments(
-        deps,
+        deps.installations,
         profiles.adoptFromFile(
           profile.id,
           {
@@ -1061,11 +1049,6 @@ async function cleanupRemoved(deps: ProfileWritesDeps, profileId: string): Promi
  * 5. The installation cascade runs with `refuseCanonicalWriteFor`, so the copies are brought in
  *    line with the bytes now on disk while the canonical file is not re-rendered from the live
  *    record.
- *
- * Known limitation: `writeCatalogDefaults` is a render-relevant field that `captureBaseline`
- * does not snapshot, so a pending catalog-defaults toggle is rendered from the live value and
- * would land on disk with the commit. Follow-up: add the field to `captureBaseline` in
- * `src/shared/config/profile/profile-baseline.ts`.
  */
 async function commitCvars(
   deps: ProfileWritesDeps,
@@ -1111,7 +1094,9 @@ async function commitCvars(
   const committed = list.find((p) => p.id === profile.id)!
   await syncAndPersist(deps, committed, list, { refuseCanonicalWriteFor: committed.id })
 
-  return ok(withLiveAssignments(deps, profiles.list()).find((p) => p.id === profile.id)!)
+  return ok(
+    withLiveAssignments(deps.installations, profiles.list()).find((p) => p.id === profile.id)!,
+  )
 }
 
 /**
@@ -1151,7 +1136,7 @@ async function assign(
 
   let list: ConfigProfile[]
   try {
-    list = withLiveAssignments(deps, deps.profiles.assign(input))
+    list = withLiveAssignments(deps.installations, deps.profiles.assign(input))
   } catch {
     // Nothing was mutated, so there is nothing to sync.
     return fail('config.error.profileNotFound')
@@ -1173,7 +1158,7 @@ async function unassign(
   }
   let list: ConfigProfile[]
   try {
-    list = withLiveAssignments(deps, deps.profiles.unassign(input))
+    list = withLiveAssignments(deps.installations, deps.profiles.unassign(input))
   } catch {
     // unassign throws when the profile is unknown
     return fail('config.error.profileNotFound')
@@ -1242,7 +1227,7 @@ async function restoreOriginalConfigs(
   for (const assigned of profiles.list()) {
     if (!assigned.assignments.some((a) => a.installationId === installation.id)) continue
     const list = withLiveAssignments(
-      deps,
+      deps.installations,
       profiles.unassign({ profileId: assigned.id, installationId: installation.id }),
     )
     // Nothing is assigned here any more, so this writes nothing into the installation.
@@ -1262,7 +1247,7 @@ async function restoreOriginalConfigs(
     )
     return fail('config.error.restoreOriginalsFailed')
   }
-  return ok(withLiveAssignments(deps, profiles.list()))
+  return ok(withLiveAssignments(deps.installations, profiles.list()))
 }
 
 async function setDefault(
@@ -1274,7 +1259,7 @@ async function setDefault(
   }
   let list: ConfigProfile[]
   try {
-    list = withLiveAssignments(deps, deps.profiles.setDefault(input))
+    list = withLiveAssignments(deps.installations, deps.profiles.setDefault(input))
   } catch (error) {
     // The thrown message is the only way to tell "unknown profile" apart
     // from "profile exists but isn't assigned to that installation" -
@@ -1355,54 +1340,45 @@ async function setSwitchBind(
   const installation = deps.installations.find(input.installationId)
   if (!installation) return fail('installations.error.notFound')
 
+  // The loader is regenerated from the default profile's canonical file, so a file changed on disk
+  // or unreadable refuses the whole call before the bind is stored: a stored bind with no loader
+  // carrying it would read as applied when it is not (story 320).
+  const defaultProfile = defaultProfileFor(profiles.list(), installation.id)
+  if (defaultProfile && !(await authoriseContentWrite(deps, defaultProfile))) {
+    log.warn(
+      `refusing to set the switch bind for installation ${installation.id}: the canonical file ` +
+        `of its default profile ${defaultProfile.id} changed on disk or could not be read`,
+    )
+    return fail('config.error.commitConflict')
+  }
+
   const next = { ...config.switchBinds.get() }
   if (input.key === null) delete next[installation.id]
   else next[installation.id] = input.key
   config.switchBinds.update(() => next)
 
-  // Decision 12/13: write immediately for this one installation only,
-  // through the unchanged story-004 pipeline (`writeInstallationFiles`);
-  // this never touches `assignments`/`isDefault` on any profile - the
-  // installation's default is only ever changed by `setDefault` above.
-  //
-  // Judgment call: this does not consult `isInstallationRunning` either (consistent with
-  // story 079's "a running game defers nothing" everywhere else now) - the write below is
-  // safe while the game is running (loader files are not open for exclusive access), it just
-  // means the running instance keeps whatever chain it already loaded until its next launch -
-  // the same story-004 precedent the default-profile rule relies on for the default profile itself.
-  const allProfiles = profiles.list()
-  const defaultProfile = defaultProfileFor(allProfiles, installation.id)
+  // Only this installation is rewritten, and only from what the canonical files say on disk: the
+  // sync renders the loader with `switchBindFor` and publishes each copy's saved bytes, so pending
+  // edits never reach the installation through a bind change and `dirty` is left alone. A running
+  // game defers nothing - it keeps the chain it loaded until its next launch (story 079).
   if (defaultProfile) {
-    const fileNames = resolveProfileFileNames(allProfiles)
-    const assignedProfiles = assignedProfilesFor(allProfiles, installation.id).map((p) => ({
-      ...p,
-      // Every assigned profile comes from `allProfiles`, which
-      // `fileNames` was resolved from above, so this lookup cannot miss.
-      fileName: fileNames.get(p.id)!,
-    }))
-    const switchBindKey = next[installation.id]
-    try {
-      await deps.writeInstallationFiles({
-        installation,
-        // `defaultProfile` is drawn from `allProfiles` above, so this
-        // lookup cannot miss.
-        profileFileName: fileNames.get(defaultProfile.id)!,
-        profileFileContent: renderProfileFile(defaultProfile),
-        loaderFileContent: renderLoaderFile(
-          defaultProfile,
-          fileNames.get(defaultProfile.id)!,
-          switchBindKey
-            ? {
-                key: switchBindKey,
-                profiles: assignedProfiles,
-                defaultProfileId: defaultProfile.id,
-              }
-            : undefined,
-        ),
-        playedMods: config.playedMods.get()[installation.id] ?? [],
-      })
-    } catch (error) {
-      log.error(`failed to write switch bind for installation ${installation.id}`, error)
+    const failuresBefore = config.writeFailures.get()
+    const list = profiles.list()
+    const state = await syncAndPersist(deps, defaultProfile, list, {
+      targetInstallationId: installation.id,
+    })
+    // `syncAndPersist` records write errors instead of throwing, so only a failure THIS run
+    // recorded for the installation (new, or re-stamped) means the bind did not reach disk; an
+    // older entry it left untouched belongs to a copy this run did not attempt.
+    const failuresAfter = config.writeFailures.get()
+    const failedNow = assignedProfilesFor(list, installation.id).some((p) => {
+      const key = `${p.id}|${installation.id}`
+      const after = failuresAfter[key]
+      const prior = failuresBefore[key]
+      return after !== undefined && (prior === undefined || prior.at !== after.at)
+    })
+    if (!state || failedNow) {
+      log.error(`failed to write the switch bind for installation ${installation.id}`)
       return fail('config.error.writeFailed')
     }
   }
@@ -1438,7 +1414,7 @@ async function tidyUpApply(
 
   const outcome = applyTidyUpOps(current, input.ops)
   if (outcome.applied.length === 0) {
-    const list = withLiveAssignments(deps, profiles.list())
+    const list = withLiveAssignments(deps.installations, profiles.list())
     return ok({
       profile: list.find((p) => p.id === current.id) ?? current,
       applied: [],
@@ -1457,7 +1433,7 @@ async function tidyUpApply(
   const authorised = await authoriseContentWrite(deps, current)
 
   const list = withLiveAssignments(
-    deps,
+    deps.installations,
     profiles.replaceProfile({ ...outcome.profile, updatedAt: new Date().toISOString() }),
   )
   const updated = list.find((p) => p.id === current.id)!

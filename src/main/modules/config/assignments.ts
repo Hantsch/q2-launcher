@@ -1,4 +1,5 @@
 import type { ConfigProfile, ProfileAssignment } from '@shared/modules/config'
+import type { Installation } from '@shared/types'
 
 /**
  * The assignment rules between profiles and installations.
@@ -186,4 +187,18 @@ export function reconcileAssignments(
     const assignments = profile.assignments.filter((a) => known.has(a.installationId))
     return assignments.length === profile.assignments.length ? profile : { ...profile, assignments }
   })
+}
+
+/**
+ * The live assignment view every handler returns: assignments to installations no longer
+ * registered are filtered out on read, without writing that removal to disk.
+ */
+export function withLiveAssignments(
+  installations: { list: () => Installation[] },
+  list: ConfigProfile[],
+): ConfigProfile[] {
+  return reconcileAssignments(
+    list,
+    installations.list().map((installation) => installation.id),
+  )
 }

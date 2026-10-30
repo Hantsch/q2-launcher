@@ -182,7 +182,7 @@ counted as a store write.
 | `openFile`                | Opens or reveals one of the profile's files; ids only, path resolved and ownership-checked in main.            | none                     |
 | `setPlayedMods`           | Sets which mod folders get the loader copy, validated against `installation.gameDirs`.                         | writes the profile store |
 | `switchBinds`             | Per-installation profile-switch keys.                                                                          | none                     |
-| `setSwitchBind`           | Sets the switch key and rewrites that installation's default profile and loader directly.                      | both                     |
+| `setSwitchBind`           | Sets the switch key, writing through `syncAndPersist`; refused (`commitConflict`) on an external edit.         | both                     |
 | `setWriteUnbindall`       | Toggles the `unbindall` line, marks dirty.                                                                     | writes the profile store |
 | `setWriteCatalogDefaults` | Toggles writing unplaced catalogue cvars into the `Defaults` section, marks dirty.                             | writes the profile store |
 | `setSectionHeaderStyle`   | Sets the section-banner style, marks dirty.                                                                    | writes the profile store |
@@ -201,7 +201,7 @@ The central write rule lives in `profile-writes.ts#syncAndPersist` (`canonicalWr
 `dirty` profile's canonical file is written by nothing but `save` (and `commitCvars`, which writes
 baseline plus cvars itself), and a canonical file is only overwritten when it is absent, the
 profile has no `fileHash` baseline yet, it already holds exactly `renderProfileFile(profile)`, or
-the user forced the overwrite. A refused write records no failure; the row reports `outOfSync`.
+the user forced the overwrite. A refused write records no failure; the row reports `outOfSync`. `setSwitchBind` goes through the same path (unsaved edits stay off disk) and is refused with `config.error.commitConflict` when the default profile's canonical file was edited externally. The profile baseline includes `writeCatalogDefaults`, so `commitCvars` leaves a pending toggle of it unsaved.
 
 `assign` is two-step. Unless the profile is already assigned there, it first checks
 `<root>/baseq2/<name>.cfg` (`writer.ts#isForeignFile`: exists and carries no launcher stamp). A
@@ -267,11 +267,6 @@ original-configs folder (first original wins) before the assignment and sync run
 - `remove` does not delete installation copies of the removed profile; they are cleaned by
   `reconcileOwnedProfileFiles` when that installation is next synced. `unassign` leaves the copy
   when nothing else is assigned to that installation.
-- `commitCvars` renders `writeCatalogDefaults` from the live record, because the baseline does not
-  snapshot it (`profile-baseline.ts`); a pending toggle of it lands on disk with the commit.
-- `setSwitchBind` writes the default profile through `writeInstallationFiles` directly, outside
-  `syncAndPersist`, rendering the live record — a `dirty` default's unsaved edits reach that
-  installation's copy, and the external-edit guard does not apply.
 - A rename cycle (two profiles trading names) cannot be ordered; the first move is attempted and a
   refusal is recorded in `configWriteFailures` for retry.
 - `writeState` and `write`'s `written`/`error` result shape survive only for the contract;

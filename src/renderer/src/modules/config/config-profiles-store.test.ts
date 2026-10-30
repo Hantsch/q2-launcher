@@ -31,7 +31,10 @@ describe('config profiles store', () => {
     const outcome: Outcome<ConfigProfile[]> = { ok: true, value: [p1, p2] }
     listConfigProfiles.mockResolvedValue(outcome)
 
-    await expect(useConfigProfiles.getState().load()).resolves.toBe(outcome)
+    await expect(useConfigProfiles.getState().load()).resolves.toEqual({
+      ...outcome,
+      applied: true,
+    })
     expect(profiles()).toEqual([p1, p2])
   })
 
@@ -43,7 +46,10 @@ describe('config profiles store', () => {
     }
     listConfigProfiles.mockResolvedValue(outcome)
 
-    await expect(useConfigProfiles.getState().load()).resolves.toBe(outcome)
+    await expect(useConfigProfiles.getState().load()).resolves.toEqual({
+      ...outcome,
+      applied: false,
+    })
     expect(profiles()).toEqual([p1])
   })
 
@@ -58,7 +64,7 @@ describe('config profiles store', () => {
     // The list main had before the save, answered only now.
     answer({ ok: true, value: [p1] })
 
-    await expect(pending).resolves.toEqual({ ok: true, value: [p1] })
+    await expect(pending).resolves.toEqual({ ok: true, value: [p1], applied: false })
     expect(profiles()).toEqual([saved])
   })
 
@@ -74,6 +80,16 @@ describe('config profiles store', () => {
     await older
 
     expect(profiles()).toEqual([p1, p2])
+  })
+
+  it('a superseded load reports it was not applied', async () => {
+    listConfigProfiles.mockResolvedValue({ ok: true, value: [p1] })
+
+    const pending = useConfigProfiles.getState().load()
+    useConfigProfiles.getState().replaceAll([p2])
+
+    await expect(pending).resolves.toMatchObject({ ok: true, applied: false })
+    expect(profiles()).toEqual([p2])
   })
 
   it('replaceAll, upsert and remove', () => {

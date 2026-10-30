@@ -1,7 +1,7 @@
 ---
 id: 320
 title: Config edits reach disk only through save, and every flag survives a reload
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -14,19 +14,19 @@ TD-024 (config main-side test gaps) is closed in passing because the same code i
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With an unsaved `writeCatalogDefaults` toggle pending, adding an address-book entry
+- [x] **AC1** — With an unsaved `writeCatalogDefaults` toggle pending, adding an address-book entry
       writes the address book only; the profile file on disk keeps the toggle's old value (TD-009).
-- [ ] **AC2** — Changing a switch bind writes through the same save path as every other edit:
+- [x] **AC2** — Changing a switch bind writes through the same save path as every other edit:
       unsaved edits in the open profile stay unsaved, and an external edit of the file since load is
       reported, not overwritten (TD-017).
-- [ ] **AC3** — A config action saved with `keepEmptyAlias` set still has it set after the profile
+- [x] **AC3** — A config action saved with `keepEmptyAlias` set still has it set after the profile
       is reloaded from disk (TD-022).
-- [ ] **AC4** — When `saveNow` fails after a cancelled edit burst, the editor shows the value on
+- [x] **AC4** — When `saveNow` fails after a cancelled edit burst, the editor shows the value on
       disk, not the optimistic one; a stale `load()` does not mark the list loaded; a failed
       `load()` keeps its hint visible (TD-025).
-- [ ] **AC5** — `withLiveAssignments` has one implementation with a unit test; the config main
+- [x] **AC5** — `withLiveAssignments` has one implementation with a unit test; the config main
       tests use no stale electron mock and no `vi.mock('./writer')` (TD-024).
-- [ ] **AC6** — Rows TD-009, TD-017, TD-022, TD-024 and TD-025 are removed from `docs/TECH-DEBT.md`.
+- [x] **AC6** — Rows TD-009, TD-017, TD-022, TD-024 and TD-025 are removed from `docs/TECH-DEBT.md`.
 
 ## Open Questions
 
@@ -59,7 +59,7 @@ Main first, then renderer, then hygiene. Every D comes with its own tests.
 
 ## Deliverables
 
-- [ ] **D1 — A pending catalog-defaults toggle stays off disk (TD-009).**
+- [x] **D1 — A pending catalog-defaults toggle stays off disk (TD-009).**
   - **Change:**
     - Add `writeCatalogDefaults: boolean` to `ProfileBaseline`. `captureBaseline` sets it as `profile.writeCatalogDefaults !== false`. File: `src/shared/config/profile/profile-baseline.ts`.
     - In the persisted baseline zod schema (`src/main/modules/config/persisted.ts`), accept the field and default it to `true` for old baselines.
@@ -70,13 +70,13 @@ Main first, then renderer, then hygiene. Every D comes with its own tests.
     - `src/main/modules/config/profile-writes.commit-cvars.test.ts` › "a pending catalog-defaults toggle is not written by a cvar commit": toggle via `setWriteCatalogDefaults` on a profile with a baseline, commit cvars, and assert the file bytes follow the baseline value.
     - `src/main/modules/config/persisted.test.ts` › "a baseline without writeCatalogDefaults loads as true".
     - Add a step to `scripts/flows/servers-address-book.mjs`: before the add, toggle catalog defaults in the Settings tab without saving; after the add, the canonical profile file on disk still has the old catalog-defaults output and the profile is still unsaved.
-- [ ] **D2 — keepEmptyAlias survives a reload (TD-022).**
+- [x] **D2 — keepEmptyAlias survives a reload (TD-022).**
   - **Change:**
     - Add `keepEmptyAlias: z.literal(true).optional()` to `configActionObjectSchema` in `src/shared/config/aliases/profile-schema.ts`, and delete the "deliberately absent" comment above it. The IPC tree (`src/shared/modules/config-schemas.ts`, `.omit`) and the persisted tree (`src/main/modules/config/persisted.ts`, `.extend`) derive from it, so they need no edit unless one of them omits the field.
     - In `src/shared/config/aliases/profile-schema.test.ts`, drop the `keepEmptyAlias` exclusions so the key-equality test covers the full `ConfigAction`.
     - Regenerate the snapshot in `src/main/modules/config/__snapshots__/` that `schema-parity.test.ts` produces, and check that the diff only flips the `keepEmptyAlias` fixture's verdict.
   - **Test:** `src/main/modules/config/persisted.test.ts` › "a saved action keeps keepEmptyAlias after a persisted load".
-- [ ] **D3 — One withLiveAssignments, and no writer mock (TD-024, part 1).**
+- [x] **D3 — One withLiveAssignments, and no writer mock (TD-024, part 1).**
   - **Change:**
     - Move `withLiveAssignments(deps, list)` from `src/main/modules/config/profile-writes.ts:~182` into `src/main/modules/config/assignments.ts`, next to `reconcileAssignments`. It takes the installations source as its argument.
     - Point `profile-writes.ts` and `src/main/modules/config/index.ts` at it, and delete the closure in `index.ts:~101`.
@@ -85,7 +85,7 @@ Main first, then renderer, then hygiene. Every D comes with its own tests.
   - **Tests:**
     - `src/main/modules/config/assignments.test.ts` › "withLiveAssignments drops assignments to unregistered installations".
     - The existing overlapping-runs tests in `profile-writes.sync.test.ts` stay green without the mock.
-- [ ] **D4 — A switch bind goes through the save path (TD-017, main).**
+- [x] **D4 — A switch bind goes through the save path (TD-017, main).**
   - **Change:** in `src/main/modules/config/profile-writes.ts#setSwitchBind`:
     1. Resolve the installation's default profile.
     2. If there is one and `authoriseContentWrite(deps, defaultProfile)` is false, return `fail('config.error.commitConflict')`. Store nothing in that case.
@@ -96,7 +96,7 @@ Main first, then renderer, then hygiene. Every D comes with its own tests.
     - "a switch bind leaves unsaved edits off disk": the profile copy keeps the saved bytes, the loader carries the bind, and the profile stays dirty.
     - "a switch bind on an externally edited profile is refused and stores nothing".
     - "a switch bind with no default profile only stores the bind".
-- [ ] **D5 — The switch bind's refusal is visible and walked end to end (TD-017, renderer).**
+- [x] **D5 — The switch bind's refusal is visible and walked end to end (TD-017, renderer).**
   - **Change:**
     - In `src/renderer/src/modules/config/SwitchBindControl.tsx`, render `result.ok === false` as visible inline text, `t(error.key)` with `role="alert"`. Clear it on the next success or capture.
     - Add `data-testid`s `switch-bind-capture`, `switch-bind-clear` and `switch-bind-error`.
@@ -109,7 +109,7 @@ Main first, then renderer, then hygiene. Every D comes with its own tests.
     - Add one line under `## Unreleased` › `### Fixed` in `CHANGELOG.md`: "Unsaved config edits no longer reach disk from an address-book add or switch bind; alias flags survive restarts."
     - Update `docs/systems/config-module.md`: the switch bind writes through `syncAndPersist` and is refused on an external edit; the baseline includes `writeCatalogDefaults`.
   - **Test:** the flow above.
-- [ ] **D6 — Draft and list-load edges (TD-025).**
+- [x] **D6 — Draft and list-load edges (TD-025).**
   - **Change:**
     - `src/renderer/src/modules/config/lib/useProfileSave.ts`: when `saveNow` takes over a pending burst, it keeps that burst's `revert` and runs it if the save fails or is refused. A plain `cancel` without a save keeps today's behaviour.
     - `src/renderer/src/modules/config/config-profiles-store.ts#load`: tell the caller whether the answer was applied. For example, return `{ applied: false }` when a newer load superseded it.
@@ -118,7 +118,7 @@ Main first, then renderer, then hygiene. Every D comes with its own tests.
     - `lib/useProfileSave.test.ts` › "a failed saveNow after a cancelled burst shows the value on disk".
     - `config-profiles-store.test.ts` › "a superseded load reports it was not applied".
     - `ConfigView.routeFocus.test.tsx` › "a stale load does not mark the list loaded" and › "a failed load keeps the focus hint".
-- [ ] **D7 — No stale electron mock, and the debt rows go (TD-024 part 2, AC6).**
+- [x] **D7 — No stale electron mock, and the debt rows go (TD-024 part 2, AC6).**
   - **Change:**
     - Remove `shell: h.shellMock` from `vi.mock('electron')` in these files under `src/main/modules/config/`: `index.test.ts`, `index.cleanup.test.ts`, `index.preview.test.ts`, `index.raw-files.test.ts`, `import.test.ts`, `file-source-pipeline.test.ts` and `write-plan.test.ts`. `shellMock` stays, injected as `app.os`.
     - Delete the `vi.mock('electron')` block entirely in any file that does not reach `userDataDir()`. Verify this by deleting the block and running the file.
@@ -141,3 +141,18 @@ Review: → default
 - AC6 → `node scripts/check-docs.mjs` on the edited `docs/TECH-DEBT.md` (D7)
 
 ## Done
+Config edits reach disk only through save: the baseline carries `writeCatalogDefaults` (TD-009), `setSwitchBind` refuses on an external edit and writes via `syncAndPersist` with a visible refusal (TD-017), `keepEmptyAlias` is in the shared action schema (TD-022), `saveNow` reverts after a cancelled burst and `load()` reports `applied` (TD-025), one `withLiveAssignments` plus injected `writeTargetFile`, stale `shell` electron mocks gone (TD-024).
+
+Commit message: `320: config edits reach disk only via save - baseline writeCatalogDefaults, switch bind through syncAndPersist, keepEmptyAlias persisted, saveNow revert + applied load, TD-009/017/022/024/025 closed`
+
+Verification (narrow gate): typecheck, lint, `npm run check:docs` green; `npx vitest run --changed HEAD` green (93 files, 1356 tests); `npm run build:dev` + `npm run ui:flows -- --affected <servers-address-book, switch-bind-keeps-unsaved-edits> --parallel=4 --shard=1/2` and `2/2` green, both named flows passed. Clean-agent review: 1 cycle, findings fixed and re-verified.
+AC -> test as verified: AC1 commit-cvars test + `servers-address-book.mjs`; AC2 `profile-writes.switch-bind.test.ts` + `switch-bind-keeps-unsaved-edits.mjs`; AC3 `persisted.test.ts` + `profile-schema.test.ts`; AC4 `useProfileSave.test.ts`, `ConfigView.routeFocus.test.tsx`, `config-profiles-store.test.ts`; AC5 `assignments.test.ts` + config tests passing without the mocks; AC6 `check:docs`. No manual residue.
+
+Decisions:
+- Review finding not fixed: a dirty default profile with no canonical file and no other assigned profile gets the bind stored but no loader written (sync has nothing it may publish); the plan does not cover it, and before the change the unsaved render leaked instead.
+- `cancel()` has no production caller today, so the parked-revert path is exercised by tests and by `saveNow` taking over a pending burst; not widened.
+- The address-book flow compares the canonical file before the toggle and after the add, ignoring `set adrN`/blank/`// --- Other ---` lines; strict byte equality is impossible since the add legitimately writes those. The unit test proves the toggle's output effect.
+- `import.test.ts` and `file-source-pipeline.test.ts` had no `shell` mock left and reach `userDataDir()`, so their electron blocks stay.
+- The new flow sets Plain Profile as default on the two-profile fixture installation first (the switch-bind control needs a default profile); a re-run needs `npm run ui:seed` (flow header says so).
+
+tiers: D 7 / hard 1 · review default · cycles 1 · agents 11

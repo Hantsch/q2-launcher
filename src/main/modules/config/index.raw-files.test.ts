@@ -29,7 +29,7 @@ import { seedConfigProfiles } from '../../../test-support/config-state'
 
 vi.mock('electron', async () => {
   const h = await import('./index.test-helpers')
-  return { app: { getPath: () => h.userDataBox.current }, shell: h.shellMock }
+  return { app: { getPath: () => h.userDataBox.current } }
 })
 
 const getDir = installConfigTestDir()

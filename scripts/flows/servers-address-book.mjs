@@ -37,7 +37,7 @@
 // tsx`, D1), `config-profile-row` (ConfigView.tsx, filtered by profile name, mirrors `unsaved-
 // diff.mjs`'s `openConfig()`), `config-unsaved-indicator` (`UnsavedIndicator.tsx`), `config-tab-
 // unsaved`/`config-save-changes` (ConfigView.tsx/`ProfileChangeList.tsx`).
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
 import {
@@ -55,6 +55,7 @@ const TIMEOUT_MS = 8_000
 const SCAN_SETTLE_TIMEOUT_MS = 15_000
 const RAW_TAB_LOAD_TIMEOUT_MS = 20_000
 const EDITED_SENSITIVITY = '7.25'
+const CATALOG_DEFAULTS_LABEL = 'Write unset catalogue defaults'
 
 /** One loopback responder answering both `info` and `status` queries - mirrors
  * `servers-scoped-refresh.mjs`'s `bindResponder`, minus the per-kind packet log this flow never
@@ -248,6 +249,21 @@ export default async function serversAddressBook({ page, step, shot }) {
   await sensitivityRow.locator('input:not([type="range"])').first().fill(EDITED_SENSITIVITY)
   await sensitivityRow.getByRole('img', { name: 'Unsaved change' }).waitFor({ timeout: TIMEOUT_MS })
 
+  step('toggle "Write unset catalogue defaults" on "Layered Profile" without saving')
+  const layeredPath = join(variantUserDataDir(variant), 'Layered-Profile.cfg')
+  if (!existsSync(layeredPath)) {
+    throw new Error(`expected ${layeredPath} to exist before the unsaved toggle`)
+  }
+  const withoutAdr = (text) =>
+    text
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== '' && !/^\s*set adr\d|^\/\/ --- Other -/.test(line))
+      .join('\n')
+  const layeredBefore = withoutAdr(readFileSync(layeredPath, 'latin1'))
+  const catalogSwitch = page.getByRole('switch', { name: CATALOG_DEFAULTS_LABEL })
+  await catalogSwitch.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await catalogSwitch.click({ timeout: TIMEOUT_MS })
+
   step('add the server to "Layered Profile"\'s adr0 from the servers list')
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
   await page.getByTestId(`servers-row-${server.address}`).click({ timeout: TIMEOUT_MS })
@@ -299,11 +315,18 @@ export default async function serversAddressBook({ page, step, shot }) {
   }
   await shot('layered-profile-unsaved-excludes-adr0')
 
-  const layeredPath = join(variantUserDataDir(variant), 'Layered-Profile.cfg')
   const layered = readFileSync(layeredPath, 'latin1')
   if (!adrLine.test(layered)) {
     throw new Error(
       `expected ${layeredPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(layered.slice(-300))}`,
+    )
+  }
+  // The pending toggle is as unsaved as the sensitivity edit: apart from the adr slots the
+  // commit writes (and the "Other" section header they open), the file is unchanged from before
+  // the toggle.
+  if (withoutAdr(layered) !== layeredBefore) {
+    throw new Error(
+      `expected ${layeredPath} to be unchanged apart from adr slots while the toggle is unsaved`,
     )
   }
   if (

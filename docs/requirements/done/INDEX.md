@@ -378,3 +378,4 @@ second roadmap.
 - 325 — Tests and comments state what they check · S37 · describe titles id-free, typed client mocks, edge-case tests, locale-comment guard, zero bare catches in src/main with a guard, config invariant notes restored
 - 322 — Boot does not wait on file I/O, and a failed module has no live handlers · S37 · window opens before the context is built, failed modules refuse invokes, test-only deps required, unlock off AppContext
 - 323 — The update service is split into testable parts · S37 · createUpdateService split into four parts, TD-020 gaps closed (slot-keep/abort tests, LAN recheck, joined catalog fetch)
+- 320 — Config edits reach disk only through save, and every flag survives a reload · S37 · baseline carries writeCatalogDefaults, switch bind writes via syncAndPersist with visible refusal, keepEmptyAlias persisted, saveNow revert and applied-load fixed, five TD rows closed

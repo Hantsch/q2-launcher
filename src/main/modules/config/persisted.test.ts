@@ -56,6 +56,28 @@ describe('configProfileSchema - categories/actions', () => {
     expect(result.actions[0]).toMatchObject({ id: 'a1', name: 'Good row' })
   })
 
+  it('a saved action keeps keepEmptyAlias after a persisted load', () => {
+    const saved = setProfileActionsInputSchema.parse({
+      profileId: 'p1',
+      categories: [],
+      actions: [
+        {
+          id: 'a1',
+          categoryId: 'c1',
+          name: 'hook',
+          kind: 'alias',
+          commands: [],
+          keepEmptyAlias: true,
+        },
+      ],
+    })
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      actions: JSON.parse(JSON.stringify(saved.actions)),
+    })
+    expect(result.actions[0]!.keepEmptyAlias).toBe(true)
+  })
+
   it('drops only the malformed row among two category rows, keeping the valid one', () => {
     const result = configProfileSchema.parse({
       ...baseProfile,
@@ -882,6 +904,13 @@ describe('configProfileSchema - baseline', () => {
     const result = configProfileSchema.parse({ ...profileWithContent, baseline: preO54Baseline })
     expect(result.baseline).not.toBeUndefined()
     expect(result.baseline?.cvarSections).toEqual([])
+  })
+
+  it('a baseline without writeCatalogDefaults loads as true', () => {
+    const baseline = captureBaseline({ ...profileWithContent, writeCatalogDefaults: false })
+    const { writeCatalogDefaults: _omitted, ...oldBaseline } = baseline
+    const result = configProfileSchema.parse({ ...profileWithContent, baseline: oldBaseline })
+    expect(result.baseline?.writeCatalogDefaults).toBe(true)
   })
 
   it('degrades a malformed baseline to undefined instead of dropping the profile', () => {

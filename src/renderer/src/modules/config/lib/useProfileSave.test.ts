@@ -115,6 +115,51 @@ describe('useProfileSave', () => {
     expect(result.current.status).toBe('idle')
   })
 
+  it('a failed saveNow after a cancelled burst shows the value on disk', async () => {
+    const { result } = hook()
+    const revert = vi.fn()
+    act(() => result.current.schedule({ apply: vi.fn(), revert, run: async () => saved('typed') }))
+    act(() => result.current.cancel())
+    expect(revert).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await result.current.saveNow({ run: async () => REFUSED })
+    })
+
+    expect(revert).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('idle')
+  })
+
+  it('a second cancel keeps the revert parked by the first', async () => {
+    const { result } = hook()
+    const revert = vi.fn()
+    act(() => result.current.schedule({ apply: vi.fn(), revert, run: async () => saved('typed') }))
+    act(() => result.current.cancel())
+    act(() => result.current.cancel())
+
+    await act(async () => {
+      await result.current.saveNow({ run: async () => REFUSED })
+    })
+
+    expect(revert).toHaveBeenCalledTimes(1)
+  })
+
+  it('a failed saveNow takes over a pending burst and shows the value on disk', async () => {
+    const { result } = hook()
+    const revert = vi.fn()
+    const debounced = vi.fn(async () => saved('typed'))
+    act(() => result.current.schedule({ apply: vi.fn(), revert, run: debounced }))
+
+    await act(async () => {
+      await result.current.saveNow({ run: async () => REFUSED })
+    })
+    await elapseDebounce()
+
+    expect(revert).toHaveBeenCalledTimes(1)
+    expect(debounced).not.toHaveBeenCalled()
+    expect(result.current.status).toBe('idle')
+  })
+
   it('a refused save pushes one error toast with the refusal key', async () => {
     const { result } = hook()
     act(() =>
