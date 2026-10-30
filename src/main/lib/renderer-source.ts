@@ -30,7 +30,7 @@ export const RENDERER_CINEMA_URL = `${RENDERER_ORIGIN}/cinema.html`
  * `<style>` blocks for HMR - and is not drift from `PRODUCTION_CSP` below.
  */
 export const DEV_CSP =
-  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:*"
+  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:*"
 
 /**
  * Production allows no inline styles: dynamic values go through React's `style` prop (and CSS
@@ -38,8 +38,10 @@ export const DEV_CSP =
  * `style-src` does not govern at all. Only parsed `style="..."` HTML attributes and literal
  * `<style>` blocks are subject to this directive, and the renderer has neither.
  */
+// Invariant: only 'wasm-unsafe-eval' is allowed here, never 'unsafe-eval' - the engine's
+// WebAssembly is compiled in the launcher document, which must not gain string-eval (story 288).
 export const PRODUCTION_CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
 
 export interface ResolveRendererSourceInput {
   isDev: boolean
@@ -90,6 +92,7 @@ const MIME_TYPES: Record<string, string> = {
   '.avif': 'image/avif',
   '.ico': 'image/vnd.microsoft.icon',
   '.json': 'application/json',
+  '.wasm': 'application/wasm',
   // Story 084: the remaining extensions the news-image cache is ever allowed to hold
   // (`SAFE_NEWS_IMAGE_EXTENSIONS` in `lib/news-image-paths.ts`; `.png` is already above).
   // Cached slide images are served through the same content-type inference as the bundle.
@@ -155,6 +158,21 @@ export interface NewsImageSource {
   readFile: (path: string) => Promise<Buffer>
 }
 
+/** Path prefix the engine artefacts are served under, a path on the existing host (story 288). */
+export const ENGINE_PATH_PREFIX = '/engine/'
+
+/** The only names the engine route ever serves. */
+export const ENGINE_FILE_NAMES = ['q2pro.js', 'q2pro.wasm'] as const
+
+/** The engine artefact directory as far as serving it is concerned (story 288). */
+export interface EngineSource {
+  /** Absolute path to the directory holding the engine artefacts. */
+  root: string
+  readFile: (path: string) => Promise<Buffer>
+  /** Called when an engine read fails, at most once per handler instance. */
+  onMissing: () => void
+}
+
 export interface CreateRendererProtocolHandlerInput {
   /** Absolute path to the built renderer directory (`out/renderer` in production). */
   root: string
@@ -169,6 +187,8 @@ export interface CreateRendererProtocolHandlerInput {
    * would mean downloaded content living inside `out/renderer`.
    */
   newsImages?: NewsImageSource
+  /** Third root, for the engine artefacts; absent means every `/engine/` request is a 404. */
+  engine?: EngineSource
 }
 
 /**
@@ -179,7 +199,8 @@ export interface CreateRendererProtocolHandlerInput {
 export function createRendererProtocolHandler(
   input: CreateRendererProtocolHandlerInput,
 ): (request: Request) => Promise<Response> {
-  const { root, csp, readFile, newsImages } = input
+  const { root, csp, readFile, newsImages, engine } = input
+  let engineMissingReported = false
 
   // Every response this handler returns must carry the CSP - including 404s, so a missing or
   // corrupt file inside the packaged asar still produces a policy-protected document instead of
@@ -188,30 +209,34 @@ export function createRendererProtocolHandler(
     new Response(null, { status: 404, headers: { 'Content-Security-Policy': csp } })
 
   /**
-   * Story 084: serves one cached slide image, given the decoded path *after* the
-   * `/news-image/` prefix. This branch never falls through to the renderer root - every failure
-   * returns a 404 here - and it accepts nothing but a bare file name: `isSafeNewsImageFileName`
-   * (the one owner of what the cache may ever contain, `lib/news-image-paths.ts`) matches
-   * 64 lowercase hex characters plus an allowed extension and therefore rejects a `/` or `\`
-   * separator, a `..` token, a nested path and an unexpected extension in a single check - a name
-   * validated as a name, not a path sanitised after the fact.
+   * Serves one file from a side root, given the decoded path *after* the route prefix (story 084
+   * news images, story 288 engine). A side route never falls through to the renderer root - every
+   * failure returns a 404 here - and accepts nothing but a bare file name approved by
+   * `isAllowedName`: a name validated as a name, not a path sanitised after the fact. For news
+   * images that is `isSafeNewsImageFileName` (the one owner of what the cache may ever contain,
+   * `lib/news-image-paths.ts`), which rejects a separator, a `..` token and a nested path.
    */
-  const serveNewsImage = async (fileName: string): Promise<Response> => {
-    if (!newsImages) return notFound()
-    if (!isSafeNewsImageFileName(fileName)) return notFound()
+  const serveFromSideRoot = async (
+    source: { root: string; readFile: (path: string) => Promise<Buffer> },
+    fileName: string,
+    isAllowedName: (name: string) => boolean,
+    onReadFailure?: () => void,
+  ): Promise<Response> => {
+    if (!isAllowedName(fileName)) return notFound()
 
     // Defence in depth at the statement that actually reads, mirroring the "re-check the rule
     // where it matters" discipline of `modules/home/images/image-cache.ts`'s delete path: a name
     // that got this far cannot contain a separator, so this can only ever be a direct child of
-    // the cache root - and if that ever stops being true, the containment check says no.
-    const resolvedPath = resolveWithinRoot(newsImages.root, fileName)
+    // the root - and if that ever stops being true, the containment check says no.
+    const resolvedPath = resolveWithinRoot(source.root, fileName)
     if (resolvedPath === null) return notFound()
 
     let contents: Buffer
     try {
-      contents = await newsImages.readFile(resolvedPath)
+      contents = await source.readFile(resolvedPath)
     } catch {
-      // ENOENT: a cached news image that is gone is a 404
+      // ENOENT: a side-root file that is gone is a 404
+      onReadFailure?.()
       return notFound()
     }
 
@@ -223,6 +248,26 @@ export function createRendererProtocolHandler(
       },
     })
   }
+
+  const serveNewsImage = (fileName: string): Promise<Response> =>
+    newsImages
+      ? serveFromSideRoot(newsImages, fileName, isSafeNewsImageFileName)
+      : Promise.resolve(notFound())
+
+  // The engine artefacts: same shape as the news-image route, with a fixed allowlist (story 288).
+  const serveEngine = (fileName: string): Promise<Response> =>
+    engine
+      ? serveFromSideRoot(
+          engine,
+          fileName,
+          (name) => (ENGINE_FILE_NAMES as readonly string[]).includes(name),
+          () => {
+            if (engineMissingReported) return
+            engineMissingReported = true
+            engine.onMissing()
+          },
+        )
+      : Promise.resolve(notFound())
 
   return async function handleRendererRequest(request: Request): Promise<Response> {
     let url: URL
@@ -256,6 +301,11 @@ export function createRendererProtocolHandler(
     // that rejects it by name, instead of missing the prefix and falling through.
     if (decodedPath.startsWith(NEWS_IMAGE_PATH_PREFIX)) {
       return serveNewsImage(decodedPath.slice(NEWS_IMAGE_PATH_PREFIX.length))
+    }
+
+    // Same rule as the news-image route: decided on the decoded path, before the renderer root.
+    if (decodedPath.startsWith(ENGINE_PATH_PREFIX)) {
+      return serveEngine(decodedPath.slice(ENGINE_PATH_PREFIX.length))
     }
 
     const requestPath = decodedPath === '' || decodedPath === '/' ? '/index.html' : decodedPath

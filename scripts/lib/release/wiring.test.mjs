@@ -41,6 +41,14 @@ describe('release pipeline wiring', () => {
 
   })
 
+  test('electron-builder ships exactly the engine artefacts under resources/engine', () => {
+    const config = yaml.load(readFileSync(ELECTRON_BUILDER_PATH, 'utf8'))
+    const entry = config.extraResources.find((e) => e.from === 'resources/engine')
+
+    expect(entry.to).toBe('engine')
+    expect(entry.filter).toEqual(['q2pro.js', 'q2pro.wasm'])
+  })
+
   test('electron-builder publishes to Hantsch/q2-launcher so latest.yml is written', () => {
     const raw = readFileSync(ELECTRON_BUILDER_PATH, 'utf8')
     const config = yaml.load(raw)

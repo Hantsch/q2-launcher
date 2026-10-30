@@ -44,6 +44,12 @@ extraResources:
   # runtime through resolveResourcePath() in src/main/lib/resource-path.ts.
   - from: resources/geoip
     to: geoip
+  # WebAssembly engine build (npm run engine:build); served by the renderer protocol handler.
+  - from: resources/engine
+    to: engine
+    filter:
+      - 'q2pro.js'
+      - 'q2pro.wasm'
 
 asar: true
 electronLanguages:

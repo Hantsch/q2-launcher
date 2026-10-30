@@ -604,6 +604,27 @@ describe('architecture', () => {
     expect(offenders).toEqual([])
   })
 
+  it('wasm-unsafe-eval appears only in the renderer CSP beside the engine branch', () => {
+    // (story 288)
+    const cspFile = 'src/main/lib/renderer-source.ts'
+    const wasm = new RegExp('wasm-unsafe' + '-eval')
+    const evalToken = "'unsafe" + "-eval'"
+    const withWasm = PRODUCTION.filter((file) => wasm.test(TEXT.get(file) ?? ''))
+    expect(withWasm).toEqual([cspFile])
+    expect(TEXT.get(cspFile)).toContain('ENGINE_PATH_PREFIX')
+
+    const offenders: string[] = []
+    for (const file of PRODUCTION) {
+      const lines = (TEXT.get(file) ?? '').split('\n')
+      lines.forEach((line, index) => {
+        if (!line.includes(evalToken) || /^\s*(\/\/|\*|\/\*)/.test(line)) return
+        const inDevCsp = /\bDEV_CSP\s*=/.test(`${lines[index - 1] ?? ''}\n${line}`)
+        if (file !== cspFile || !inDevCsp) offenders.push(`${file}:${index + 1}`)
+      })
+    }
+    expect(offenders).toEqual([])
+  })
+
   it('a thinned module entry stays within its line cap', () => {
     for (const [file, cap] of Object.entries(LINE_CAPS)) {
       const lines = readRepoFile(file).split('\n').length

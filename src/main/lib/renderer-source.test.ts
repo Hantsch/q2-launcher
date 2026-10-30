@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SAFE_NEWS_IMAGE_EXTENSIONS } from './news-image-paths'
 import {
   createRendererProtocolHandler,
   DEV_CSP,
+  ENGINE_FILE_NAMES,
+  ENGINE_PATH_PREFIX,
   NEWS_IMAGE_PATH_PREFIX,
   PRODUCTION_CSP,
   RENDERER_CINEMA_URL,
@@ -62,7 +64,7 @@ describe('PRODUCTION_CSP', () => {
     // Pinned verbatim, so relaxing any directive for an image feature later fails right here
     // instead of quietly widening the renderer's reach.
     expect(PRODUCTION_CSP).toBe(
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
     )
   })
 
@@ -72,7 +74,15 @@ describe('PRODUCTION_CSP', () => {
     // write that `style-src` never governs. This would fail if `'unsafe-inline'` came back.
     expect(PRODUCTION_CSP).toContain("style-src 'self';")
     expect(PRODUCTION_CSP).not.toContain('unsafe-inline')
-    expect(PRODUCTION_CSP).not.toContain('unsafe-eval')
+  })
+
+  it('production script-src is exactly self plus wasm-unsafe-eval', () => {
+    const directive = PRODUCTION_CSP.split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith('script-src '))
+    const tokens = (directive ?? '').split(/\s+/).slice(1)
+    expect(tokens).toEqual(["'self'", "'wasm-unsafe-eval'"])
+    expect(tokens).not.toContain("'unsafe-eval'")
   })
 })
 
@@ -81,6 +91,10 @@ describe('DEV_CSP', () => {
     // Deliberate dev-only allowance, not drift from PRODUCTION_CSP above: Vite/Fast Refresh
     // injects `<style>` blocks at dev time, which a locked-down style-src would block.
     expect(DEV_CSP).toContain("style-src 'self' 'unsafe-inline'")
+  })
+
+  it('dev script-src allows wasm-unsafe-eval', () => {
+    expect(DEV_CSP).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'")
   })
 })
 
@@ -385,7 +399,7 @@ describe('createRendererProtocolHandler news-image route', () => {
     // `img-src 'self'` would then have needed widening. Nothing here may relax the policy, and
     // both the served image and the 404 carry exactly the same header the document does.
     expect(PRODUCTION_CSP).toBe(
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
     )
     expect(NEWS_IMAGE_PATH_PREFIX).toBe('/news-image/')
 
@@ -397,5 +411,85 @@ describe('createRendererProtocolHandler news-image route', () => {
     expect(rejected.status).toBe(404)
     expect(served.headers.get('Content-Security-Policy')).toBe(PRODUCTION_CSP)
     expect(rejected.headers.get('Content-Security-Policy')).toBe(PRODUCTION_CSP)
+  })
+})
+
+describe('createRendererProtocolHandler engine route', () => {
+  const ENGINE_ROOT = 'C:/Users/u/AppData/Roaming/q2-launcher/engine'
+  const rendererFiles: Record<string, string> = {
+    [`${ROOT}/index.html`]: '<html>index</html>',
+    [`${ROOT}/q2pro.wasm`]: 'renderer-root impostor',
+    [`${ROOT}/other.wasm`]: 'renderer-root impostor',
+  }
+
+  function engineHandler(engineFiles: Record<string, string>): {
+    handler: (request: Request) => Promise<Response>
+    rendererReads: string[]
+    onMissing: ReturnType<typeof vi.fn>
+  } {
+    const rendererReads: string[] = []
+    const rendererRead = fakeFileSystem(rendererFiles)
+    const onMissing = vi.fn()
+    const handler = createRendererProtocolHandler({
+      root: ROOT,
+      csp: PRODUCTION_CSP,
+      readFile: async (path) => {
+        rendererReads.push(path)
+        return rendererRead(path)
+      },
+      engine: { root: ENGINE_ROOT, readFile: fakeFileSystem(engineFiles), onMissing },
+    })
+    return { handler, rendererReads, onMissing }
+  }
+
+  const engineFiles = {
+    [`${ENGINE_ROOT}/q2pro.wasm`]: 'WASM',
+    [`${ENGINE_ROOT}/q2pro.js`]: 'JS',
+  }
+
+  it('the engine wasm is served as application/wasm', async () => {
+    const { handler } = engineHandler(engineFiles)
+    const response = await handler(new Request(`q2launcher://app${ENGINE_PATH_PREFIX}q2pro.wasm`))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toBe('application/wasm')
+    expect(response.headers.get('Content-Security-Policy')).toBe(PRODUCTION_CSP)
+    expect(await response.text()).toBe('WASM')
+  })
+
+  it('the engine loader is served as text/javascript', async () => {
+    const { handler } = engineHandler(engineFiles)
+    const response = await handler(new Request(`q2launcher://app${ENGINE_PATH_PREFIX}q2pro.js`))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toBe('text/javascript')
+    expect(ENGINE_FILE_NAMES).toContain('q2pro.js')
+  })
+
+  it('an engine request outside the allowlist is a 404 and never reaches the renderer root', async () => {
+    const { handler, rendererReads, onMissing } = engineHandler(engineFiles)
+    for (const name of [
+      'other.wasm',
+      // A literal `../index.html` is collapsed by the URL parser into a plain `/index.html`
+      // renderer request before the handler sees it, so only encoded escapes can reach this route.
+      'sub/q2pro.wasm',
+      '%2E%2E%2Findex.html',
+      '..%2Fq2pro.wasm',
+      '..%5Cq2pro.wasm',
+      'q2pro.wasm/',
+    ]) {
+      const response = await handler(new Request(`q2launcher://app/engine/${name}`))
+      expect(response.status, name).toBe(404)
+      expect(response.headers.get('Content-Security-Policy')).toBe(PRODUCTION_CSP)
+    }
+    expect(rendererReads).toEqual([])
+    expect(onMissing).not.toHaveBeenCalled()
+  })
+
+  it('missing engine artefacts answer 404 and report once', async () => {
+    const { handler, onMissing } = engineHandler({})
+    const first = await handler(new Request('q2launcher://app/engine/q2pro.wasm'))
+    const second = await handler(new Request('q2launcher://app/engine/q2pro.js'))
+    expect(first.status).toBe(404)
+    expect(second.status).toBe(404)
+    expect(onMissing).toHaveBeenCalledTimes(1)
   })
 })

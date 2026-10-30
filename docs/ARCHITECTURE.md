@@ -371,7 +371,9 @@ The seams a module is built on, each described once:
 - **The protocol handler.** `src/main/index.ts` registers the privileged `q2launcher` scheme and,
   in production, serves the renderer bundle from it with `PRODUCTION_CSP`, plus the cached news
   images under `q2launcher://news-image/` on the same origin (see
-  [Dynamic styles under the production CSP](#dynamic-styles-under-the-production-csp)).
+  [Dynamic styles under the production CSP](#dynamic-styles-under-the-production-csp)). The Q2PRO
+  engine artefacts (`q2pro.js`, `q2pro.wasm` allowlist) come from `resources/engine/` under
+  `q2launcher://app/engine/`; the CSP allows `'wasm-unsafe-eval'` for them and never `'unsafe-eval'`.
 - **The UI harness.** `app.harness` is the `Q2L_UI_*` environment gate resolved once at boot
   (`resolveUiHarness` in `src/main/lib/ui-harness.ts`); a module reads its fixture overrides
   through it, never through `process.env` — see

@@ -90,3 +90,18 @@
 - 2026-10-30 20:20 · 286 · review 1 · started
 - 2026-10-30 20:21 · 286 · review 1 · done
 - 2026-10-30 20:22 · 286 · story · done
+- 2026-10-30 20:22 · 288 · build · started
+- 2026-10-30 20:22 · 288 · D1 CSP and engine branch · started
+- 2026-10-30 20:24 · 288 · D1 CSP and engine branch · done
+- 2026-10-30 20:24 · 288 · D2 wiring and packaging · started
+- 2026-10-30 20:26 · 288 · D2 wiring and packaging · done
+- 2026-10-30 20:26 · 288 · D3 guard and docs · started
+- 2026-10-30 20:26 · 288 · D3 guard and docs · done
+- 2026-10-30 20:26 · 288 · verify · started
+- 2026-10-30 20:30 · 288 · verify · blocked: layering.test CSP, ui:verify 4 unreachable screens
+- 2026-10-30 20:30 · 288 · fix 1 (layering test, ui:verify) · started
+- 2026-10-30 20:35 · 288 · fix 1 (layering test, ui:verify) · done
+- 2026-10-30 20:35 · 288 · verify · done
+- 2026-10-30 20:35 · 288 · review 1 · started
+- 2026-10-30 20:39 · 288 · review 1 · done
+- 2026-10-30 20:39 · 288 · story · done

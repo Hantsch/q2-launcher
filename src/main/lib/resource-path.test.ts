@@ -14,4 +14,16 @@ describe('bundled resource path', () => {
       resolveResourcePath({ isPackaged: false, resourcesPath, repoRoot }, 'geoip', 'a.mmdb'),
     ).toBe(join(repoRoot, 'resources', 'geoip', 'a.mmdb'))
   })
+
+  it('a packaged engine resolves under resourcesPath/engine', () => {
+    const resourcesPath = join('install', 'resources')
+    const repoRoot = join('work', 'repo')
+
+    expect(resolveResourcePath({ isPackaged: true, resourcesPath, repoRoot }, 'engine')).toBe(
+      join(resourcesPath, 'engine'),
+    )
+    expect(resolveResourcePath({ isPackaged: false, resourcesPath, repoRoot }, 'engine')).toBe(
+      join(repoRoot, 'resources', 'engine'),
+    )
+  })
 })

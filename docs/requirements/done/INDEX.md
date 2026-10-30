@@ -389,3 +389,4 @@ second roadmap.
 - 284 — Spike: a demo frame renders in the Electron renderer · S38 · engine runs under wasm-unsafe-eval CSP, MEMFS main thread viable, first picture <2 s, 60 fps, stall 206-242 ms
 - 285 — Spike: the engine steps deterministically · S38 · fixed-step frames bit-identical per renderer with a seed (SwiftShader and GPU stable, they differ from each other), seed needed
 - 286 — Spike: audio is pulled from the DMA mixer · S38 · snddma_web driver pulls exact 48·ms frames per step (reproducible PCM) and plays in real time through an AudioWorklet
+- 288 — The launcher serves the engine and allows WebAssembly · S38 · engine artefacts served at q2launcher://app/engine/ (allowlist), CSP gains only 'wasm-unsafe-eval', packaged under resources/engine

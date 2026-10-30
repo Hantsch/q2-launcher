@@ -58,10 +58,11 @@ describe('spawn/network layering', () => {
     expect(violations).toEqual([])
   })
 
-  it("leaves the production CSP unchanged (connect-src 'self')", () => {
+  it("pins the production CSP (connect-src 'self'; script-src only adds wasm-unsafe-eval)", () => {
     expect(PRODUCTION_CSP).toContain("connect-src 'self'")
+    expect(PRODUCTION_CSP).not.toContain("'unsafe-eval'")
     expect(PRODUCTION_CSP).toBe(
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
     )
   })
 })

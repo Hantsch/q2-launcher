@@ -8,6 +8,7 @@ import { createAppContext, createAppShell, type AppContext } from './context'
 import { createMainWindowEvents } from './main-window-observer'
 import { bindAllChannels, markIpcFailed, markIpcReady, registerAllIpc } from './ipc'
 import { logger } from './lib/logger'
+import { resolveResourcePath } from './lib/resource-path'
 import {
   DEV_CSP,
   PRODUCTION_CSP,
@@ -250,6 +251,19 @@ function serveRendererFromScheme(): void {
         root: getNewsImagesCacheDir(app.getPath('userData')),
         readFile: (path) => readFile(path),
       },
+      // Engine artefacts ship under resources/engine. Nothing is read at boot; a
+      // missing file is only noticed (and logged once) on the first request for it (story 288).
+      engine: (() => {
+        const engineRoot = resolveResourcePath(
+          { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath },
+          'engine',
+        )
+        return {
+          root: engineRoot,
+          readFile: (path: string) => readFile(path),
+          onMissing: () => logger.warn(`engine artifacts missing: ${engineRoot}`),
+        }
+      })(),
     }),
   )
 
