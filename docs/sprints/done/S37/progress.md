@@ -257,3 +257,5 @@
 - 2026-10-30 15:37:53 · review · done
 - 2026-10-30 15:38:01 · gate · roadmap-check · started
 - 2026-10-30 15:40:56 · gate · release-verify · started
+- 2026-10-30 15:43:35 · gate · release-verify · red (check: update-job.test.ts 2 tests)
+- 2026-10-30 15:48:42 · gate · release-verify · started (round 2)

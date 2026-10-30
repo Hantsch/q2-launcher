@@ -1,5 +1,14 @@
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -119,7 +128,9 @@ let userData: string
 let gameDir: string
 
 beforeEach(async () => {
-  tmp = await mkdtemp(join(tmpdir(), 'q2l-mod-update-'))
+  // Canonical: planning hashes realpath'd paths, which the hashFile hook matches by prefix; a TEMP
+  // behind a junction or 8.3 name (the CI runner's) would otherwise never match and never swap.
+  tmp = await realpath(await mkdtemp(join(tmpdir(), 'q2l-mod-update-')))
   root = join(tmp, 'quake2')
   userData = join(tmp, 'userData')
   gameDir = join(root, 'fixturemod')
