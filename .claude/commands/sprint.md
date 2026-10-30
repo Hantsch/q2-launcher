@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.8.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.9.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run sprint **$1**.
@@ -88,7 +88,9 @@ that "knew" its agent had stopped while it was still editing the tree has happen
 
 ## Precondition
 
-1. Open `<sprints>/$1/sprint.md`. If it does not exist: abort and point at
+1. Open `<sprints>/$1/sprint.md`. If it does not exist, look in
+   `<sprints>/done/$1/sprint.md` — a finished sprint lives there (phase 3 step 6), and step 2
+   decides what happens to it. If neither exists: abort and point at
    `<sprints>/_TEMPLATE/sprint.md`.
 2. Sprint status: `planned` → start normally. `in-progress` → **resume** (skip finished
    stories, continue at the first open spot). `done` → abort — unless every commit after
@@ -387,7 +389,8 @@ story builds together.
 ## Phase 3 — Sprint review
 
 1. **`<sprints>/$1/review.md`** you write yourself from the collected results (in the
-   profile's `doc-language`):
+   profile's `doc-language`). It moves to `<sprints>/done/$1/` in step 6, so write every
+   relative link in it for that final location, one folder deeper:
    - **Overview:** sprint goal + table (story · status · short commit description).
    - **Implemented stories:** 1–3 lines each on what was built.
    - **Findings & decisions:** aggregated from the `## Decisions (Sprint)` sections, the
@@ -433,7 +436,8 @@ story builds together.
    - **`off`:** skip the file entirely.
 3. **Update the roadmap** (`roadmap-path`) — it is a one-screen map, and this step touches
    exactly three places in it, never more:
-   - **The milestone's table row:** sprint link (to `review.md`), status from the real state —
+   - **The milestone's table row:** sprint link (to `review.md` at its final path,
+     `<sprints>/done/$1/review.md`), status from the real state —
      all its stories done means **`done <date>`**, not "built, acceptance pending"; there is no
      user acceptance step gating this, the criteria were proven by their tests, and what a
      later walk-through finds becomes a new story in a new sprint. The row's note is at most
@@ -458,9 +462,15 @@ story builds together.
    Nothing is held open for an acceptance round — a sprint is finished when its work is
    finished, and a story stays open only for a blocker that makes it genuinely
    uncompletable (normally caught in refinement, not here).
-6. Final commit: `$1: sprint review + roadmap` — it carries the `## Regression gate` record
-   in `sprint.md` and the `e2e-quarantine` file the gate edited, if any, too (add `+ testplan`
-   only if a `testplan.md` was actually written).
+6. **Archive the sprint, then the final commit.** `git add -A`, then
+   `git mv <sprints>/$1 <sprints>/done/$1` — the whole folder (`sprint.md`, `progress.md`,
+   `review.md`, `testplan.md`), so the open sprints folder only ever shows what is still
+   running. Then the commit: `$1: sprint review + roadmap` — it carries the move, the
+   `## Regression gate` record in `sprint.md` and the `e2e-quarantine` file the gate edited, if
+   any, too (add `+ testplan` only if a `testplan.md` was actually written). Move and commit
+   happen together, in this order, in one step: the review commit is the one phase 4 checks, so
+   the move must be in it, never after it. Everything after this step that names the sprint's
+   folder means `<sprints>/done/$1/`.
 
 ## Phase 4 — Releasable (after the review commit, last)
 
@@ -484,7 +494,7 @@ roadmap line added by the review commit failed the PR's unit tests). So this pha
    a doc edit can break. A `release-verify` that can take longer than ten minutes runs like
    `e2e-all` in phase 2b step 1b: from your session, after the status line and the trail line
    `· gate · release-verify · started`, as ONE background `Bash` —
-   `<release-verify> 2>&1 | tee <sprints>/$1/gate-release-verify.log` — then end the turn and
+   `<release-verify> 2>&1 | tee <sprints>/done/$1/gate-release-verify.log` — then end the turn and
    read the summary when it returns. A refusal for a reason outside the code — a prerequisite
    that is not running, a base branch that has moved on and needs merging — is not fixed by
    you: merging is the user's job (see Rules). It is the verdict of step 4, with the action that
@@ -499,7 +509,7 @@ roadmap line added by the review commit failed the PR's unit tests). So this pha
    anywhere else in the repository would be the unchecked commit this phase exists to prevent.
    It is the first line of the final report: `releasable: yes · <short sha> · <command>`, or
    `releasable: NO — <step>: <reason> · <what unblocks it>`. Delete
-   `<sprints>/$1/gate-release-verify.log`.
+   `<sprints>/done/$1/gate-release-verify.log`.
 
 ## Closing the run — before the final report
 
@@ -507,8 +517,10 @@ roadmap line added by the review commit failed the PR's unit tests). So this pha
    result reading `[Request interrupted by user for tool use]` is a *detached* agent, not a
    stopped one: it may still be editing the tree and will hand back later; say so, and never
    start a second build agent for the same story on top of it. Every background task you
-   started has returned or been stopped with `TaskStop`. `<sprints>/$1/gate-*.log` is deleted.
-2. **Nothing is pending.** The gate is recorded, `review.md` and the roadmap are committed, and
+   started has returned or been stopped with `TaskStop`. `<sprints>/done/$1/gate-*.log` is
+   deleted.
+2. **Nothing is pending.** The gate is recorded, `review.md` and the roadmap are committed with
+   the sprint folder moved to `<sprints>/done/$1/`, and
    phase 4 has its verdict on the current `HEAD`. If one of them is not, you are not at the
    final report yet.
 3. **The final report is written once, and it ends the run.** Whatever arrives afterwards — a

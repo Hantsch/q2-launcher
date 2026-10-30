@@ -68,7 +68,8 @@ sprints/
    - **Review:** `review.md` (stories + short description, the acceptance record — which test
      proved which criterion — the regression gate result, findings & decisions, blockers) is written, `testplan.md` only if
      there is manual residue to walk, the roadmap gets its milestone row, its follow-up lines
-     and a fresh "Where we stand" (nothing more), then committed, `status: done`.
+     and a fresh "Where we stand" (nothing more), `status: done`, and the sprint folder is moved
+     to `done/SNN/` with `git mv` — all in the one review commit.
    - **Releasable:** after the review commit an agent runs `/roadmap check`, then the profile's
      `release-verify` (or the short suites) runs once on the final commit. Red is fixed at most
      twice; nothing is committed after a green run. The verdict — `releasable: yes` with the

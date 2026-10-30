@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.8.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.9.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run the roadmap ritual: **$1** (no argument: run `check` first, then offer `plan`).
@@ -79,6 +79,11 @@ paragraph in the roadmap.
    - Every concept whose phase has every milestone `done` in the roadmap (its stories done is
      how a milestone becomes `done`, step 3) moves to `<systems>/` now (`git mv`, update the
      status line), named in the report.
+   - Every sprint with `status: done` still outside `<sprints>/done/` moves there now
+     (`git mv <sprints>/SNN <sprints>/done/SNN`), named in the report — `/sprint` archives its
+     own sprint in the review commit; this catches the ones finished before it did. Repoint the
+     roadmap's links to its `review.md` and the relative links inside that `review.md`, which
+     now sit one folder deeper. A sprint that is not `done` is never moved.
    - A systems doc older than its module's last story commit is listed in the report as
      stale — best effort.
 5. Compact to the budgets: every cell or line that exceeds its budget is cut back to the one
