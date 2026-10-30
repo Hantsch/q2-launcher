@@ -22,6 +22,7 @@
       "paths": [
         "src/main/lib/boot-env.ts",
         "src/main/context.ts",
+        "src/main/boot.ts",
         "src/main/index.ts",
         "src/main/shutdown.ts",
         "src/main/lib/ui-harness.ts",
@@ -448,7 +449,6 @@
         "raw-inline-edit",
         "raw-save-cascades",
         "external-edit-cascades",
-        "switch-bind-keeps-unsaved-edits",
         "unsaved-diff",
         "settings-section-rename-add-cvar",
         "controls-extra-keys",
@@ -518,6 +518,19 @@
       "why": "Config profiles, their assignments, care checks, the profile draft and the config view frame."
     },
     {
+      "area": "config-switch-bind",
+      "paths": [
+        "src/main/modules/config/canonical.ts",
+        "src/main/modules/config/sync.ts",
+        "src/renderer/src/modules/config/SwitchBindControl.tsx",
+        "src/renderer/src/modules/config/lib/useProfileSave.ts",
+        "src/shared/config/profile/profile-baseline.ts",
+        "src/shared/config/aliases/profile-schema.ts"
+      ],
+      "flows": ["switch-bind-keeps-unsaved-edits"],
+      "why": "Switching a bind goes through the profile save path: unsaved edits must survive it."
+    },
+    {
       "area": "config-originals",
       "paths": [
         "src/main/modules/config/original-backup.ts",
@@ -570,7 +583,6 @@
         "controls-drag-reorder",
         "controls-extra-keys",
         "controls-subcategory",
-        "switch-bind-keeps-unsaved-edits",
         "custom-action-row",
         "demo-actions-bind",
         "drop-message-checkbox",
