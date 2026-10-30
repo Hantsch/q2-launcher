@@ -49,6 +49,7 @@
     "package:linux": "npm run icon && npm run fetch:7za && npm run typecheck && npm run build && electron-builder --linux --config electron-builder.yml --publish never",
     "engine:build": "node scripts/engine/build.mjs",
     "engine:verify": "node scripts/engine/verify.mjs",
+    "engine:data": "node scripts/engine/fetch-data.mjs",
     "verify:linux": "node scripts/verify-linux.mjs",
     "verify:release": "node scripts/verify-release.mjs",
     "rehearse": "node scripts/rehearse.mjs",

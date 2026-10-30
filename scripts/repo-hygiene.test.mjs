@@ -94,6 +94,12 @@ describe('line endings and formatting', () => {
   })
 })
 
+describe('no game data in the repo', () => {
+  test.skipIf(!IS_WORK_TREE_ROOT)('no game data pak is tracked', () => {
+    expect(git(['ls-files', '*.pak', '*.pkz']).trim()).toBe('')
+  })
+})
+
 describe('no patched dependencies', () => {
   test('no patch-package, no patches dir, engines cover markAsUncloneable', () => {
     const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))

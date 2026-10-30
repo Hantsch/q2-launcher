@@ -18,3 +18,17 @@
 - 2026-10-30 18:20 · 281 · D6 review fixes · started
 - 2026-10-30 18:22 · 281 · D6 review fixes · done
 - 2026-10-30 18:22 · 281 · story · done
+- 2026-10-30 18:22 · 283 · build · started
+- 2026-10-30 18:23 · 283 · D1 data command · started
+- 2026-10-30 18:25 · 283 · D1 data command · done
+- 2026-10-30 18:25 · 283 · D2 test demos · started
+- 2026-10-30 18:30 · 283 · D2 test demos · done
+- 2026-10-30 18:30 · 283 · verify · started
+- 2026-10-30 18:32 · 283 · verify · done
+- 2026-10-30 18:32 · 283 · review 1 · started
+- 2026-10-30 18:33 · 283 · review 1 · done
+- 2026-10-30 18:33 · 283 · D3 review fixes · started
+- 2026-10-30 18:33 · 283 · D3 review fixes · done
+- 2026-10-30 18:33 · 283 · verify · started
+- 2026-10-30 18:33 · 283 · verify · done
+- 2026-10-30 18:33 · 283 · story · done

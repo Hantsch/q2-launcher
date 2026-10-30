@@ -16,7 +16,7 @@ milestone: 12.1 — Toolchain and spikes; 12.2 — Playback in the canvas
 <!-- Concept increments 1 and 2 (281–291). Spikes come first: each writes spikes/<id>-<slug>/RESULT.md and decides whether the dependent stories hold. -->
 
 - [x] 281 — The engine builds reproducibly as WebAssembly
-- [ ] 283 — Test data: a shareware data cache and test demos
+- [x] 283 — Test data: a shareware data cache and test demos
 - [ ] 282 — Spike: what WebCodecs and Mediabunny can encode in Electron 43
 - [ ] 284 — Spike: a demo frame renders in the Electron renderer
 - [ ] 285 — Spike: the engine steps deterministically

@@ -1,0 +1,13 @@
+{
+  "archive": {
+    "url": "https://deponie.yamagi.org/quake2/idstuff/q2-314-demo-x86.exe",
+    "mirrors": ["https://tastyspleen.net/quake2/idstuff/q2-314-demo-x86.exe"],
+    "sizeBytes": 39015499,
+    "sha256": "7ace5a43983f10d6bdc9d9b6e17a1032ba6223118d389bd170df89b945a04a1e",
+    "fileName": "q2-314-demo-x86.exe"
+  },
+  "pak0": {
+    "path": "baseq2/pak0.pak",
+    "sha256": "cae257182f34d3913f3d663e1d7cf865d668feda6af393d4ecf3e9e408b48d09"
+  }
+}

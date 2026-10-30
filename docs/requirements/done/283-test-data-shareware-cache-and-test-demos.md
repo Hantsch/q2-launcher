@@ -1,7 +1,7 @@
 ---
 id: 283
 title: 'Test data: a shareware data cache and test demos'
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -32,24 +32,24 @@ described in the README.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On a machine without a Quake II installation, `npm run engine:data` exits 0,
+- [x] **AC1** — On a machine without a Quake II installation, `npm run engine:data` exits 0,
       writes `baseq2/pak0.pak` into a cache outside the repo (`%LOCALAPPDATA%/q2l-engine-test` or
       `~/.cache/q2l-engine-test`, overridable via `Q2L_ENGINE_DATA`) and prints the cache path as
       its last line.
-- [ ] **AC2** — When the archive's or `pak0.pak`'s SHA-256 differs from
+- [x] **AC2** — When the archive's or `pak0.pak`'s SHA-256 differs from
       `tests/engine/data.lock.json`, the command exits non-zero with a message naming the hash
       mismatch (`Q2L_ENGINE_DATA_LOCK=tests/engine/data.lock.broken.json npm run engine:data`).
-- [ ] **AC3** — A second call with a valid cache downloads nothing, prints `cached` and finishes
+- [x] **AC3** — A second call with a valid cache downloads nothing, prints `cached` and finishes
       in under 2 s.
-- [ ] **AC4** — `Q2L_ENGINE_DATA` pointing inside the repo folder is refused.
-- [ ] **AC5** — `tests/engine/demos/` holds `move-fire.dm2` (20–40 s on a shareware map such as
+- [x] **AC4** — `Q2L_ENGINE_DATA` pointing inside the repo folder is refused.
+- [x] **AC5** — `tests/engine/demos/` holds `move-fire.dm2` (20–40 s on a shareware map such as
       `base1`, movement and weapon fire) and `move-fire.dm2.gz` (gzip of the same file);
       `pause-section.dm2` is optional.
-- [ ] **AC6** — `tests/engine/demos/README.md` names the recording commands, map, length and the
+- [x] **AC6** — `tests/engine/demos/README.md` names the recording commands, map, length and the
       frames with weapon fire.
-- [ ] **AC7** — A unit test reads map name and protocol of each test demo through
+- [x] **AC7** — A unit test reads map name and protocol of each test demo through
       `src/shared/demos/demo-header.ts` without errors (`npx vitest run tests/engine/demos`).
-- [ ] **AC8** — `git ls-files "*.pak" "*.pkz"` prints nothing; `npm run lint` and
+- [x] **AC8** — `git ls-files "*.pak" "*.pkz"` prints nothing; `npm run lint` and
       `npm run typecheck` are green.
 
 ## Open Questions
@@ -118,7 +118,7 @@ Order: D1 → D2 (D2 needs the cache). Nothing touches `src/`; no IPC, no render
 
 ## Deliverables
 
-- [ ] **D1 — `npm run engine:data` fetches, verifies and caches the shareware `pak0.pak`.**
+- [x] **D1 — `npm run engine:data` fetches, verifies and caches the shareware `pak0.pak`.**
       Files: `scripts/engine/data.mjs` (new), `scripts/engine/fetch-data.mjs` (new, CLI),
       `scripts/engine/data.test.mjs` (new), `tests/engine/data.lock.json` (new),
       `tests/engine/data.lock.broken.json` (new), `package.json` (script
@@ -162,7 +162,7 @@ Order: D1 → D2 (D2 needs the cache). Nothing touches `src/`; no IPC, no render
       - In `scripts/repo-hygiene.test.mjs`, beside the other `git ls-files` guards and with the
         same `IS_WORK_TREE_ROOT` skip: "no game data pak is tracked" (`git ls-files "*.pak"
         "*.pkz"` is empty).
-- [ ] **D2 — Test demos recorded with native Q2PRO on shareware data, read by a header test.**
+- [x] **D2 — Test demos recorded with native Q2PRO on shareware data, read by a header test.**
       Files: `tests/engine/demos/record-move-fire.cfg` (new), `tests/engine/demos/move-fire.dm2`
       (new), `tests/engine/demos/move-fire.dm2.gz` (new), `tests/engine/demos/README.md` (new),
       `tests/engine/demos/test-demos.test.ts` (new), `vitest.config.ts`, `tsconfig.node.json`.
@@ -223,3 +223,37 @@ Order: D1 → D2 (D2 needs the cache). Nothing touches `src/`; no IPC, no render
   typecheck are the build's own verify steps.
 
 ## Done
+
+Change type: chore
+
+Summary: `npm run engine:data` fetches the shareware archive, verifies archive and `pak0.pak` against
+`tests/engine/data.lock.json` and caches `baseq2/pak0.pak` outside the repo. `tests/engine/demos/`
+holds `move-fire.dm2` (+ `.gz`), recorded with native Q2PRO on that cache (29.5 s, 295 frames,
+protocol 34), its cfg, README and a header/duration test. `tests/` joined vitest's include and the
+node tsconfig.
+
+Commit message: `283: engine:data shareware cache and native-recorded test demos (move-fire.dm2)`
+
+Decisions:
+- Map is `demo1`, not `base1`: the shareware `pak0.pak` has only demo1-demo3 (demo1 is "Outer Base");
+  README and test say demo1, AC5 "such as base1" is met in spirit.
+- The 7-Zip existence check runs only on the extract path, so a cached call needs no 7za (review fix).
+- `engine/cross/emscripten.ini` was CRLF in the worktree (LF in the index, story 281): normalised to LF
+  so `repo-hygiene` "every text file is LF" is green; no diff against the index.
+- Attack windows in the README are approximate (50-70, 85-110, 130-145, 175-195 frames), not decoded.
+- Unfixed review notes: no test for `fetch-data.mjs` CLI/exit code or `.tmp` cleanup on failure
+  (thin, spec-conformant); `test-demos.test.ts` existence check overlaps the header test (harmless).
+
+Real run, pak0 pin (cache `C:\Users\darkp\AppData\Local\q2l-engine-test`, pak0 sha256
+`cae257182f34d3913f3d663e1d7cf865d668feda6af393d4ecf3e9e408b48d09`), last lines: fresh fetch exit 0 ->
+`C:\Users\darkp\AppData\Local\q2l-engine-test`; second and third call -> `cached` then the same path;
+AC2 command with `data.lock.broken.json` -> exit 1, `pak0.pak SHA-256 mismatch`, `actual cae25718...48d09`.
+
+Verification (narrow gate; full gate is the sprint's): `npm run build`, `typecheck`, `lint` green;
+`npx vitest run --changed HEAD` 7778 passed; `npx vitest run tests/engine scripts/engine
+scripts/repo-hygiene.test.mjs` 42 passed after fixes; `git ls-files "*.pak" "*.pkz"` empty. No e2e
+mapped. AC1-AC4, AC7, AC8 map to the named tests (all ran, passed); AC5 files/length/gz tests passed.
+Manual residue: AC5 movement and fire in the picture; AC6 README content (watch once in native Q2PRO).
+Review: clean-agent stage 1 PASS, findings fixed (1 cycle). No changelog entry (developer tooling).
+
+tiers: D 2 / hard 1 · review default · cycles 1 · agents 7

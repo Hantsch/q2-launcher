@@ -384,3 +384,4 @@ second roadmap.
 - 327 — OpenTDM installs on a 64-bit Q2PRO · S37 · OpenTDM gets a content-only package (example config, visible not-playable reason); flow proves remove and noVariant refusal
 - 324 — Styles use tokens only, and UI kit controls keep their own rules · S37 · colour and font-size tokens with scanning checks, Radio 24px floor, canSubmit and tab-panel labelling fixed, memoised Controls rows
 - 281 — The engine builds reproducibly as WebAssembly · S38 · npm run engine:build builds Q2PRO (MashedD @ 3139866 + 6 patches) in a pinned container, O2 validates, engine:verify lane and spike result
+- 283 — Test data: a shareware data cache and test demos · S38 · engine:data caches verified shareware pak0 outside the repo; native-recorded move-fire.dm2 test demo with header test
