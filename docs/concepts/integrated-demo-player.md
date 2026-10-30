@@ -1,6 +1,6 @@
 # Integrated Demo Player and MP4 Export — Concept
 
-Status: **Draft** (vision, decisions and story drafts 281–319; not scheduled). This document fixes
+Status: **Partly implemented** (S38 built stories 281–291; drafts 292–319 not yet cut). This document fixes
 how the demo browser (`replays` module) gets a second way to play a demo. **Integrated mode**
 runs Q2PRO compiled to WebAssembly inside the launcher window. A JS API controls it in place of
 cfg polling, and it can export a demo deterministically to MP4. Today's playback in a native Q2PRO
