@@ -204,10 +204,11 @@ Change type: test
 Commit message: `289: integrated.prepare/release, token + pinned-realpath manifest, /engine-data/ route, EngineDataPort`
 Verification: narrow gate (`npx vitest run --changed HEAD`, 208 files / 1964 tests), typecheck, lint, build, prettier green after the last fix; no e2e line (no user-facing surface). AC1-AC10 walked to their named tests (all ran and passed; AC10 via handler-coverage, layering, shell-layering, architecture). No manual residue. Review: default PASS (findings fixed: pinned-vs-manifest path test, stale-session recheck test, double-encoded path and throwing resolve/openFile tests, comment nits), hard review PASS focused on check-then-swap (the opened path is the pinned realpath on every route).
 Decisions:
+
 - Added `replays.integrated.error.superseded` (a prepare overtaken by a later one) with en string; not in the plan.
 - `readDemoEntry` extracted from `stageDemo` (shared zip lookup); `SAFE_FILE_NAME` exported; `index.test.ts` payload table extended.
 - `%2f`/`%5c` in the raw path are rejected before parsing (decoded `<uuid>%2f1` would otherwise pass).
 - `gameDir` in the result is lower-case, matching the vpaths. `entry.bytes as unknown as ArrayBuffer` is a typing workaround (commented).
-Unfixed, documented: (1) residual TOCTOU: the pinned realpath's own last component or a parent dir swapped after the check is followed by `createReadStream`; needs a local writer with the user's privileges, not reachable from the renderer; the Decision "cannot redirect the read" holds for the manifest link only. Hard links pass containment. (2) A junctioned `baseq2`/mod dir passes `gameDirMissing` but contributes an empty manifest (safe, silent). (3) The zip/.gz resolve test is `skipIf` without 7za.
-Follow-up note (not a change): spike 284 measured renderer RSS about 2.2x data size, so the 1 GiB cap may extrapolate to about 2.3 GiB RSS; the cap is a user decision.
-tiers: D 3 / hard 1 · review default+hard · cycles 2 · agents 8
+  Unfixed, documented: (1) residual TOCTOU: the pinned realpath's own last component or a parent dir swapped after the check is followed by `createReadStream`; needs a local writer with the user's privileges, not reachable from the renderer; the Decision "cannot redirect the read" holds for the manifest link only. Hard links pass containment. (2) A junctioned `baseq2`/mod dir passes `gameDirMissing` but contributes an empty manifest (safe, silent). (3) The zip/.gz resolve test is `skipIf` without 7za.
+  Follow-up note (not a change): spike 284 measured renderer RSS about 2.2x data size, so the 1 GiB cap may extrapolate to about 2.3 GiB RSS; the cap is a user decision.
+  tiers: D 3 / hard 1 · review default+hard · cycles 2 · agents 8

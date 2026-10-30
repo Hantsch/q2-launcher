@@ -126,7 +126,7 @@ Order: D1 → D2 (D2 needs the cache). Nothing touches `src/`; no IPC, no render
       Mirror the download/7-Zip style of `scripts/fetch-7za.mjs` (plain `fetch`, `execFileSync`,
       binary name `7za.exe` on win32 else `7zz` in `resources/bin/`, see
       `src/main/lib/archive/7za-path.ts`). - Lock shape: `{ "archive": { "url", "mirrors": [], "sizeBytes", "sha256", "fileName":
-      "q2-314-demo-x86.exe" }, "pak0": { "path": "baseq2/pak0.pak", "sha256" } }`; archive values
+"q2-314-demo-x86.exe" }, "pak0": { "path": "baseq2/pak0.pak", "sha256" } }`; archive values
       copied from `content/q2_community_content/gamedata/manifest.json` package
       `q2-314-demo-x86`. `Q2L_ENGINE_DATA_LOCK` overrides the lock path (resolved against the
       repo root). `data.lock.broken.json` = same archive fields, `pak0.sha256` of 64 zeros. - Cache dir: `Q2L_ENGINE_DATA` if set; else win32 `%LOCALAPPDATA%\q2l-engine-test`; else
@@ -154,7 +154,7 @@ Order: D1 → D2 (D2 needs the cache). Nothing touches `src/`; no IPC, no render
       naming the archive"; "a pak0 hash mismatch fails naming pak0.pak"; "the lock's archive
       matches the shipped manifest's demo package". - In `scripts/repo-hygiene.test.mjs`, beside the other `git ls-files` guards and with the
       same `IS_WORK_TREE_ROOT` skip: "no game data pak is tracked" (`git ls-files "*.pak"
-      "*.pkz"` is empty).
+"*.pkz"` is empty).
 - [x] **D2 — Test demos recorded with native Q2PRO on shareware data, read by a header test.**
       Files: `tests/engine/demos/record-move-fire.cfg` (new), `tests/engine/demos/move-fire.dm2`
       (new), `tests/engine/demos/move-fire.dm2.gz` (new), `tests/engine/demos/README.md` (new),

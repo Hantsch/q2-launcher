@@ -111,12 +111,12 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
       a small C file in the web branch with `EMSCRIPTEN_KEEPALIVE void q2l_console(const char *text)`
       (`Cbuf_AddText(&cmd_buffer, text); Cbuf_AddText(&cmd_buffer, "\n"); Cbuf_Execute(&cmd_buffer);`
       — synchronous on purpose) and `int q2l_demo_eof(void)` (returns `cls.demo.playback &&
-    cls.demo.eof`). The web link flags gain `_q2l_console,_q2l_demo_eof` in `EXPORTED_FUNCTIONS`,
+cls.demo.eof`). The web link flags gain `_q2l_console,_q2l_demo_eof` in `EXPORTED_FUNCTIONS`,
       `callMain,FS` in `EXPORTED_RUNTIME_METHODS` and `-sINVOKE_RUN=0`. Update
       `src/renderer/src/modules/replays/integrated/engine-module.ts` (TS type from story 290) with
       `callMain(args: string[])`, `FS.mkdirTree/writeFile/unlink/analyzePath/stat`, `_q2l_console`
       (via `ccall`/`cwrap` string marshalling) and `_q2l_demo_eof`. Acceptance: `npm run
-    engine:build` exits 0 and `npx wasm-objdump -x resources/engine/q2pro.wasm` lists both
+engine:build` exits 0 and `npx wasm-objdump -x resources/engine/q2pro.wasm` lists both
       exports; `npm run engine:smoke` still exits 0. Files: the patch, the web link-flag location
       of the series, `engine-module.ts`.
 - [x] **D2 — Console capture and a fake engine that behaves like Q2PRO.** New
@@ -129,11 +129,11 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
       `writeFile`, `unlink`, `analyzePath`, `stat`) whose written paths/sizes and `callMain` args are
       readable for tests (and through the same harness-only hook `window.__q2lFakeEngine`);
       `q2l_console` parses `;`/newline-separated commands: `set <cvar> <v>` records the cvar, `exec
-    <f>` prints `Execing <f>`, `demo <name>` checks the file exists under
+<f>` prints `Execing <f>`, `demo <name>` checks the file exists under
       `/q2/<game>/demos/<name>` (else prints `Couldn't open demos/<name>`), draws its pattern and
       reports `q2l_demo_eof() === 1` after a fixed play time (default 1500 ms, harness-settable),
       keeping the last picture; `disconnect` clears the demo; any other word prints `Unknown command
-    "<word>"`. `callMain` applies `+set`/`+demo` args the same way. Tests in
+"<word>"`. `callMain` applies `+set`/`+demo` args the same way. Tests in
       `integrated/engine-console.test.ts` ("the ring keeps the newest 500 lines") and
       `integrated/fake-engine.test.ts` ("an exec prints Execing like Q2PRO", "a demo reaches its end
       and keeps the last picture"). Files: `engine-console.ts` (+test), `engine-loader.ts`,
@@ -153,7 +153,7 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
       `/q2/*/demos/_launcher/`; write the demo to `/q2/<demo.vpath>`. Then wait exactly one
       `requestAnimationFrame`, then: first start of the instance → `FS.mkdirTree('/q2home')` and
       `callMain(['+set','basedir','/q2','+set','homedir','/q2home','+set','game',gameDir,
-    ...SESSION_CVARS,'+demo','_launcher/<name>'])`; later plays → one
+...SESSION_CVARS,'+demo','_launcher/<name>'])`; later plays → one
       `q2l_console('disconnect')`, `game <gameDir>` only when it differs from the last one, the
       `set` lines of `SESSION_CVARS`, then `demo _launcher/<name>`. `SESSION_CVARS` is one constant:
       `scr_showpause 0`, `cl_autopause 0`, `con_notifylines 0`, `scr_demobar 0`, `cl_demowait 1`,
@@ -162,7 +162,7 @@ Order: D1 ∥ D2 → D3 → D4 → D5 → D6. Gates: `npm run engine:build`, `np
       (keep polling stopped, the picture stays). A fetch failure or a throwing engine call releases
       the token and goes to `onRefused({ key: 'replays.integrated.error.loadFailed' })`.
       `stopIntegrated()`: stop the poll, `q2l_console('disconnect')`, `integratedRelease({ token
-    })`. Tests in `integrated/integrated-session.test.ts` against the D2 fake engine and a mocked
+})`. Tests in `integrated/integrated-session.test.ts` against the D2 fake engine and a mocked
       client — names listed under Acceptance Tests. Files: `integrated-session.ts` (+test),
       `client.ts`.
 - [x] **D4 — Play and Stop route by mode.** `src/renderer/src/modules/replays/useDemoPlay.ts`:
@@ -253,6 +253,7 @@ Change type: feat
 Commit message: `291: integrated demo play (patch 0010 q2l_console + demo eof, integrated-session, store/stage/timeline routing, flow replays-play-integrated)`
 
 Decisions:
+
 - Patch 0010's `q2l_console` replaces the queue-only one 0009 carried (removed there); `INVOKE_RUN=0` made the spike harness call `callMain` itself and its canvas id match 0009's `#q2l-engine-canvas`.
 - Fake-engine harness switch = presence of `globalThis.__q2lFakeEngine`; `__q2lEngineConsole` is set only then.
 - Store session field `playerMode` became `kind`; an integrated session arms the stage itself; a refusal keeps the session open (reason + offer) until Stop.

@@ -74,6 +74,7 @@ Example paths below; your real test layout and the commands that run it are in
 ## Done
 
 <Leave empty. Filled by `/build <id>` after implementation:
+
 - Short summary (2–5 lines): what was done.
 - `Change type: feat | fix | perf | refactor | test | docs | build | ci | chore` — decides the release bump.
 - Commit message (1–2 lines, keywords are enough).

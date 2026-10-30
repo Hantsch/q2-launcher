@@ -249,6 +249,7 @@ Commit message: `284: spike demo frame in Electron (engine:smoke, CSP, MEMFS, me
 Verification: narrow gate — typecheck, lint, `vitest run --changed HEAD` (7781 passed), prettier check green; `git status --short src/` empty; no ui:flow applies (developer harness outside `src/`). AC1-AC4 proven by the probe runs (`results/metrics-*.json`, `results/no-wasm-csp.log`, `check.mjs` exit 0 on every good file); AC5-AC7 by RESULT.md sections and the empty `git status`. Review: default stage, 1 cycle.
 
 Decisions:
+
 - Review found the R8 `0 ms` unproven; added a 120 ms long-task positive control, a 5 ms heartbeat stall probe and `factoryCallMs`. Result: no long task over 50 ms, but a real 206-242 ms stall (unattributed) — still under 500 ms, so R8 is "no", with a loading state recommended.
 - The C:\Games\Q2Pro install has a shareware-size pak0 (63 MB total, not ~180 MB retail); added `--pad-mb` and a synthetic 180 MB run for R2; RESULT.md says so plainly.
 - Picture test hardened: two consecutive passing polls plus a `playbackMotion` check at the end.

@@ -194,6 +194,7 @@ Verification (narrow gate: `npx vitest run --changed HEAD`, `npm run build`, `ty
 Evidence AC6: `npm run package:dir` exit 0 with artefacts, `win-unpacked/resources/engine/` holds `q2pro.js` and `q2pro.wasm`; with artefacts moved aside it still exits 0 (no engine dir) and the artefacts were put back.
 
 Decisions:
+
 - The allowlist test table omits `../index.html`: the URL parser collapses it to `/index.html` before the handler, a legitimate renderer request; the encoded escapes do reach the engine route.
 - `layering.test.ts` pinned the old production `script-src 'self'`; updated to the new exact policy plus a quoted `'unsafe-eval'` absence check (not loosened).
 - `ui:verify` drives the existing `out/`; mods and assets screens exist only in a development build (`npm run build:dev`), so a release-style `build` leaves four screens unreachable. Not caused by this story.

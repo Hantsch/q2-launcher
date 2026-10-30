@@ -249,12 +249,14 @@ Change type: feat
 Commit message: `290: engine canvas on the demo stage (patch 0009, loader, EngineCanvas, fake engine harness, flow replays-integrated-canvas)`
 
 Verification (narrow gate; build variant `npm run build:dev`, needed by the flows):
+
 - typecheck, lint green; `vitest run --changed HEAD` 216 files / 2030 passed; `ui:verify` 61/61 screens incl. `replays-integrated-stage`, 0 errors.
 - Flows green: `replays-integrated-canvas`, `replays-stage` (AC2), `replays-playback-mode`, `replays-play-r1q2`. e2e-story slices: shard 1/2 81/81; shard 2/2 hit the 10-minute call limit (log summary 80/81, `replays-play-r1q2` red once in the parallel run; green alone on HEAD, on this tree and in the second verify) - recorded as INCONCLUSIVE, the named flows were run individually instead.
 - AC → test: AC1 DemoStage.test "in integrated mode…" + flow; AC2 DemoStage.test "in engine mode…" + replays-stage; AC3 EngineCanvas.test resize + flow; AC4 engine-loader.test "a second load reuses…" + flow; AC5 EngineCanvas.test unmount + loader "pagehide…" + flow; AC6 EngineCanvas.test context lost + flow; AC7 flow typing step + integrated-host-patch.test; AC8 ui:verify screen + architecture.test - all passed.
 - Manual residue: with the real engine (after 291) move/resize the window, picture stays sharp. `npm run engine:build` was NOT run (patch applies cleanly via git apply in sequence 0001-0009; C never compiled here).
 
 Decisions:
+
 - `writeFakeEngine` uses esbuild `transformSync` (fixtures are sync; Vite's is async); esbuild is Vite's transitive dependency, not declared.
 - `session.mjs` now passes a fixture's returned `env` to the launch so `ui:verify` screens get `Q2L_UI_ENGINE_DIR`.
 - Session carries `playerMode` (`session.mode` already means preview/cinema/fullscreen).
