@@ -113,11 +113,6 @@ export function ServersView() {
   const resolveServer = (address: string): ServerListRow | undefined =>
     entries.find((entry) => entry.address === address)
 
-  const join = useServerJoin(
-    resolveServer,
-    activeTab === 'watchlist' ? watchlistDetailAddress : selectedAddress,
-  )
-
   // The watchlist's actions column reuses this view's real Join. A match with no live row (the
   // watchlist's own scan raced this view's `entries`) renders nothing - never a fallback Join for a
   // server the view doesn't know about.
@@ -143,6 +138,16 @@ export function ServersView() {
 
   const sortedRows = useMemo(() => sortServerRows(entries, sort), [entries, sort])
   const visible = useMemo(() => filterServers(sortedRows, filter), [sortedRows, filter])
+
+  // Join resolves against the rows the active tab shows, so it is disabled in the very render a
+  // filter hides its target (a selection-clearing effect would leave one enabled render). The filter
+  // is drawn on the list tab only; the watchlist shows its matches unfiltered, like their in-row Join.
+  const join = useServerJoin(
+    activeTab === 'watchlist'
+      ? resolveServer
+      : (address) => visible.find((row) => row.address === address),
+    activeTab === 'watchlist' ? watchlistDetailAddress : selectedAddress,
+  )
 
   const { tableRef, navigate: handleRowNavigate } = useRowNavigation(
     visible,

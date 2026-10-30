@@ -62,7 +62,7 @@ function setup() {
 
 describe('parkGeometryAt / virtualDesktopRightEdge', () => {
   it('keeps size and Y, moves X 64 px beyond the right edge', () => {
-    expect(parkGeometryAt('800x600+10+-20', 1920)).toBe('800x600+1984+-20')
+    expect(parkGeometryAt('800x600+10+-20', 1920)).toBe('800x600+1984-20')
     expect(parkGeometryAt('not a geometry', 1920)).toBe('not a geometry')
   })
 
@@ -98,6 +98,24 @@ describe('stage follow sessions', () => {
     // stage + main window now are, once the quiet period passes.
     vi.advanceTimersByTime(STAGE_FOLLOW_QUIET_MS)
     expect(lines.some((l) => l.includes('800x600+150+120'))).toBe(true)
+  })
+
+  it('a stage moved during fullscreen is placed when fullscreen ends', () => {
+    const { lines, sessions } = setup()
+    sessions.begin({ geometry: '800x600+10+20', rect: RECT })
+    sessions.setSuspended(true)
+    sessions.report({ ...RECT, x: 50 })
+    expect(lines).toEqual([])
+    sessions.setSuspended(false)
+    expect(lines).toEqual([geometryLine('800x600+50+20')])
+  })
+
+  it('leaving fullscreen re-sends the geometry', () => {
+    const { lines, sessions } = setup()
+    sessions.begin({ geometry: '800x600+10+20', rect: RECT })
+    sessions.setSuspended(true)
+    sessions.setSuspended(false)
+    expect(lines).toEqual([geometryLine('800x600+10+20')])
   })
 
   it('without a session, window events and reports reach nothing', () => {

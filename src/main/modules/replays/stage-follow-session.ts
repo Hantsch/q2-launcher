@@ -1,7 +1,7 @@
 import type { ReplaysStageRect } from '@shared/modules/replays'
 import { ok, type Outcome } from '@shared/types'
 import type { MainWindowEvent, MainWindowObserver } from '../../main-window-observer'
-import { parseGeometry } from './geometry'
+import { formatGeometry, parseGeometry } from './geometry'
 import type { StageRect } from './stage'
 import {
   createStageFollower,
@@ -22,7 +22,7 @@ export const PARK_MARGIN_PX = 64
 export function parkGeometryAt(geometry: string, rightEdge: number): string {
   const g = parseGeometry(geometry)
   if (!g) return geometry
-  return `${g.width}x${g.height}+${Math.round(rightEdge) + PARK_MARGIN_PX}+${g.y}`
+  return formatGeometry(g.width, g.height, Math.round(rightEdge) + PARK_MARGIN_PX, g.y)
 }
 
 /** The right edge of the virtual desktop in physical px: the rightmost display's right edge. */
@@ -84,7 +84,7 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
 
   let suspended = false
 
-  const feed = (session: NonNullable<typeof current>, tick: boolean): void => {
+  const feed = (session: NonNullable<typeof current>, tick: boolean, forcePlace = false): void => {
     if (suspended) return
     const snap = deps.window.snapshot()
     if (!snap) return
@@ -94,7 +94,7 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
       minimized: snap.minimized,
       focused: snap.focused,
     }
-    session.follower.update({ stageRect: session.rect, window, tick })
+    session.follower.update({ stageRect: session.rect, window, tick, forcePlace })
   }
 
   return {
@@ -125,7 +125,7 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
     setSuspended(value) {
       if (suspended === value) return
       suspended = value
-      if (!value && current) feed(current, false)
+      if (!value && current) feed(current, false, true)
     },
     pin(geometry) {
       if (!current) return false

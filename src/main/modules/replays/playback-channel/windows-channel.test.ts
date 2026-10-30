@@ -767,6 +767,70 @@ describe('createWindowsChannel fullscreen', () => {
     for (const seq of [1, 2, 3, 4, 5]) expect(engine.state.executions.get(seq)).toBe(1)
   })
 
+  const userSample = (fullscreen: boolean): void =>
+    appendFileSync(
+      logPath(),
+      `${PREFIX}POS 0:01.0 FS ${fullscreen ? 1 : 0} P 0
+`,
+    )
+
+  it('a user Alt+Enter while a fullscreen switch is queued ends in fullscreen once', async () => {
+    const { ch } = makeChannel()
+    const onDisplay = withDisplayLog(ch)
+    await ch.start()
+    mkdirSync(join(dir, 'logs'), { recursive: true })
+    expect(ch.enterFullscreen().ok).toBe(true)
+    expect(ch.send('seek 20').ok).toBe(true)
+
+    // The game reports fullscreen before it ever ran the switch.
+    userSample(true)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    expect(ch.display()).toBe('fullscreen')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen']])
+    // The switch is not lost; the command queued behind it is dropped, as ever.
+    expect(controlFile()).toBe(asFile(buildControlFile([1])))
+
+    const engine = createFakeEngine(dir)
+    engine.state.fullscreen = true
+    engine.run()
+    vi.advanceTimersByTime(1000)
+
+    expect(engine.state.executed).toEqual(SWITCH)
+    expect(engine.state.fullscreen).toBe(true)
+    expect(engine.state.stopped).toBe(true)
+    expect(ch.display()).toBe('fullscreen')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen']])
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+    expect(commandFiles()).toEqual([])
+  })
+
+  it('a user Alt+Enter back to window while the switch is in flight reports the window mode', async () => {
+    const { ch } = makeChannel()
+    const onDisplay = withDisplayLog(ch)
+    await ch.start()
+    mkdirSync(join(dir, 'logs'), { recursive: true })
+    expect(ch.enterFullscreen().ok).toBe(true)
+
+    userSample(true)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    userSample(false)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    expect(ch.display()).toBe('stage')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen'], ['stage']])
+    // The switch no longer waits in the control file: it cannot push the user back in.
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+
+    const engine = createFakeEngine(dir)
+    engine.run()
+    vi.advanceTimersByTime(1000)
+    expect(engine.state.fullscreen).toBe(false)
+    expect(engine.state.executed).toEqual([])
+    expect(ch.display()).toBe('stage')
+    expect(ch.send('seek 5').ok).toBe(true)
+    vi.advanceTimersByTime(500)
+    expect(engine.state.executed).toEqual(['seek 5'])
+  })
+
   it('the channel returns to the stage only on a fresh FS 0 sample', async () => {
     const { ch } = makeChannel()
     const onDisplay = withDisplayLog(ch)

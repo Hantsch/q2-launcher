@@ -2972,6 +2972,7 @@
     },
     "modWarning": {
       "enabled": "Warn when a demo's mod is not installed",
+      "error": "Could not remember this mod. Try again or cancel.",
       "heading": "Missing-mod warning",
       "reset": "Forget remembered mods",
       "trustedEmpty": "No mods remembered - every missing mod asks once.",
@@ -3047,6 +3048,7 @@
         "archiveEntry": "Can't read this demo out of its archive ({{code}}). Nothing was started.",
         "copyDirNotWritable": "Can't write a temporary copy to {{path}}. Nothing was started.",
         "fileMissing": "This demo's file is no longer on disk — rescan to update the list.",
+        "gameDirMissing": "The mod folder {{mod}} does not exist in this installation.",
         "notFound": "This demo is no longer in the list — rescan to update it."
       },
       "modMissingConfirm": {

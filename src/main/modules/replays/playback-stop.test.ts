@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LaunchState, Outcome } from '@shared/types'
 import { fail, ok } from '@shared/types'
 import { NO_SESSION } from './playback-control'
-import { STOP_EXIT_TIMEOUT_MS, createPlaybackStop } from './playback-stop'
+import { STOP_EXIT_TIMEOUT_MS, STOP_KILL_SETTLE_MS, createPlaybackStop } from './playback-stop'
 
 /**
  * A fake of the launch slice that behaves like `LaunchService`: a playback launch "runs" until
@@ -14,15 +14,19 @@ function harness(options: { quit?: Outcome<void> } = {}) {
   const listeners = new Set<(state: LaunchState) => void>()
   const send = vi.fn((_line: string): Outcome<void> => options.quit ?? ok(undefined))
   const terminatePlayback = vi.fn(() => running)
+  const settleKilledPlayback = vi.fn(() => {
+    if (running) exit()
+  })
   const launch = {
     isPlaybackRunning: () => running,
     terminatePlayback,
+    settleKilledPlayback,
     onStateChange: (listener: (state: LaunchState) => void) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
   }
-  const exit = (): void => {
+  function exit(): void {
     running = false
     const state = {
       phase: 'exited',
@@ -41,6 +45,8 @@ function harness(options: { quit?: Outcome<void> } = {}) {
     listenerCount: () => listeners.size,
     exit,
     relaunch,
+    settleKilledPlayback,
+    isRunning: () => running,
     stop: createPlaybackStop({ playback: { send }, launch }),
   }
 }
@@ -75,6 +81,38 @@ describe('createPlaybackStop', () => {
     vi.advanceTimersByTime(1)
 
     expect(t.terminatePlayback).toHaveBeenCalledTimes(1)
+  })
+
+  it('a kill without an exit event ends the launch after the settle time', () => {
+    const t = harness()
+
+    t.stop.stop()
+    vi.advanceTimersByTime(STOP_EXIT_TIMEOUT_MS)
+    expect(t.terminatePlayback).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(STOP_KILL_SETTLE_MS - 1)
+    expect(t.settleKilledPlayback).not.toHaveBeenCalled()
+    expect(t.isRunning()).toBe(true)
+    vi.advanceTimersByTime(1)
+
+    expect(t.settleKilledPlayback).toHaveBeenCalledTimes(1)
+    expect(t.isRunning()).toBe(false)
+    // Back to idle: there is nothing left to stop.
+    expect(t.stop.stop()).toEqual(fail(NO_SESSION))
+    expect(t.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('an exit before the settle time ends the launch once', () => {
+    const t = harness()
+
+    t.stop.stop()
+    vi.advanceTimersByTime(STOP_EXIT_TIMEOUT_MS)
+    t.exit()
+    vi.advanceTimersByTime(STOP_KILL_SETTLE_MS * 2)
+
+    // The exit is the launch's end; the stop itself never settles it, and a late exit is harmless.
+    expect(t.settleKilledPlayback).not.toHaveBeenCalled()
+    t.exit()
+    expect(t.settleKilledPlayback).not.toHaveBeenCalled()
   })
 
   it('a refused quit terminates at once', () => {

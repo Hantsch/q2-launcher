@@ -438,7 +438,18 @@ export function ReplaysView() {
   const askFirst = eligibility !== null && !eligibility.ok && eligibility.acknowledgeable === true
   const modGameDir =
     eligibility !== null && !eligibility.ok ? String(eligibility.params?.gameDir ?? '') : ''
-  const [confirmingModMissing, setConfirmingModMissing] = useState(false)
+  // Keyed by the demo it was opened for; a selection change clears it for good, so returning to the
+  // earlier demo does not reopen it.
+  const [confirmingFor, setConfirmingFor] = useState<string | null>(null)
+  const [confirmSelectionSeen, setConfirmSelectionSeen] = useState(selectedId)
+  if (confirmSelectionSeen !== selectedId) {
+    setConfirmSelectionSeen(selectedId)
+    setConfirmingFor(null)
+  }
+  const confirmingModMissing = confirmingFor !== null && confirmingFor === selectedId
+  const setConfirmingModMissing = (open: boolean): void =>
+    setConfirmingFor(open ? selectedId : null)
+  const [trustError, setTrustError] = useState(false)
   // Story 193: the catalog entry offered for install in the mod-missing dialog, if any.
   const [modOffer, setModOffer] = useState<{ id: string; name: string } | null>(null)
   const [installError, setInstallError] = useState<string | null>(null)
@@ -469,48 +480,61 @@ export function ReplaysView() {
         setInstallPending(false)
       })
   }
-  const playRef = useRef({ play, askFirst, modGameDir })
+  const playRef = useRef({ play, askFirst, modGameDir, selectedId })
   useLayoutEffect(() => {
-    playRef.current = { play, askFirst, modGameDir }
+    playRef.current = { play, askFirst, modGameDir, selectedId }
   })
+  // Set before the first await so a second Play while one is starting starts nothing.
+  const playInFlightRef = useRef(false)
+  // Covers the whole trust-then-play sequence of "Play anyway" with "don't ask again".
+  const confirmInFlightRef = useRef(false)
   const runPlay = useCallback(() => {
+    if (playInFlightRef.current) return
+    playInFlightRef.current = true
     const latest = playRef.current
+    const release = (): void => {
+      playInFlightRef.current = false
+    }
     if (!latest.askFirst) {
-      void latest.play()
+      void latest.play().finally(release)
       return
     }
-    void readModWarning().then((result) => {
-      // A failed read falls back to asking.
-      if (
-        result.ok &&
-        (!result.value.enabled ||
-          result.value.trustedMods.includes(latest.modGameDir.toLowerCase()))
-      ) {
-        void latest.play(true)
-      } else {
-        // Only here is the dialog opening: read the catalog fresh for an install offer. A failed,
-        // rejected or empty read means no offer - it never blocks the dialog.
-        void (DEV_MODULES ? getCatalog() : Promise.resolve(null))
-          .then((catalog) =>
-            catalog?.ok && catalog.value.status === 'ok'
-              ? findCatalogEntryByGameDir(
-                  catalog.value.entries.map((e) => ({
-                    id: e.id,
-                    gameDir: e.gamedir,
-                    name: e.name,
-                  })),
-                  latest.modGameDir,
-                )
-              : null,
-          )
-          .catch(() => null)
-          .then((entry) => {
-            setInstallError(null)
-            setModOffer(entry === null ? null : { id: entry.id, name: entry.name })
-            setConfirmingModMissing(true)
-          })
-      }
-    })
+    void readModWarning()
+      .catch(() => null)
+      .then((result) => {
+        // A failed or rejected read falls back to asking.
+        if (
+          result?.ok &&
+          (!result.value.enabled ||
+            result.value.trustedMods.includes(latest.modGameDir.toLowerCase()))
+        ) {
+          void latest.play(true).finally(release)
+        } else {
+          // Only here is the dialog opening: read the catalog fresh for an install offer. A failed,
+          // rejected or empty read means no offer - it never blocks the dialog.
+          void (DEV_MODULES ? getCatalog() : Promise.resolve(null))
+            .then((catalog) =>
+              catalog?.ok && catalog.value.status === 'ok'
+                ? findCatalogEntryByGameDir(
+                    catalog.value.entries.map((e) => ({
+                      id: e.id,
+                      gameDir: e.gamedir,
+                      name: e.name,
+                    })),
+                    latest.modGameDir,
+                  )
+                : null,
+            )
+            .catch(() => null)
+            .then((entry) => {
+              setInstallError(null)
+              setTrustError(false)
+              setModOffer(entry === null ? null : { id: entry.id, name: entry.name })
+              setConfirmingFor(latest.selectedId)
+            })
+            .finally(release)
+        }
+      })
   }, [])
   const hasSelection = selected !== null
   const viewAction = useMemo<ContributedAction>(
@@ -1058,14 +1082,30 @@ export function ReplaysView() {
             : {})}
           installPending={installPending}
           {...(installError !== null ? { installError } : {})}
+          {...(trustError ? { error: t('replays.modWarning.error') } : {})}
           onCancel={() => setConfirmingModMissing(false)}
           onConfirm={(dontAskAgain) => {
-            setConfirmingModMissing(false)
             if (!dontAskAgain) {
+              setConfirmingModMissing(false)
               void play(true)
               return
             }
-            void trustModWarningMod(modGameDir).finally(() => void play(true))
+            if (confirmInFlightRef.current) return
+            confirmInFlightRef.current = true
+            setTrustError(false)
+            void trustModWarningMod(modGameDir)
+              .then((outcome) => {
+                if (!outcome.ok) {
+                  setTrustError(true)
+                  return
+                }
+                setConfirmingModMissing(false)
+                void play(true)
+              })
+              .catch(() => setTrustError(true))
+              .finally(() => {
+                confirmInFlightRef.current = false
+              })
           }}
         />
       )}

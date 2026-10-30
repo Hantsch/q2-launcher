@@ -277,10 +277,31 @@ export const replaysModule: MainModule = {
     const cvarRestore = createCvarRestore({
       names: SESSION_RESTORE_CVARS,
       pendingPath: join(app.userDataDir, SESSION_CVARS_PENDING_FILE),
+      onWaiting: (pid) => log.info(`stage cvar restore waits for game pid ${pid} to exit`),
     })
     void cvarRestore
       .applyPending()
       .catch((error: unknown) => log.warn(`stage cvar restore at start failed: ${String(error)}`))
+    onDispose(() => cvarRestore.dispose())
+    // A launcher quit leaves the game running (story 163), and it archives its cvars when it exits -
+    // possibly after the next launcher start. The pid lets that start's restore wait for the exit;
+    // the last console line makes the engine archive the originals itself. Only a piped (Linux)
+    // session is told: the Windows file channel is torn down with the release, before the engine's
+    // next poll could run the line, so there the pid is the only guarantee (story 321). Taken at
+    // setup, before playback-control subscribes on its first play: listeners run in registration
+    // order, and closing the Linux channel turns `sys_console` off, after which stdin is not read.
+    const offSessionPid = app.launch.onStateChange((state) => {
+      if (state.phase !== 'running' || state.pid === undefined) return
+      cvarRestore
+        .recordPid(state.pid)
+        .catch((error: unknown) => log.warn(`recording the session pid failed: ${String(error)}`))
+    })
+    onDispose(offSessionPid)
+    const offSessionRelease = app.launch.onBeforePlaybackRelease(() => {
+      const line = cvarRestore.originalsLine()
+      if (line !== null) app.launch.getPlaybackSession()?.write(`${line}\n`)
+    })
+    onDispose(offSessionRelease)
 
     // Story 170: the stage rect (CSS px) as the engine's physical `vid_geometry`. Story 171: the
     // follower passes the observer's content bounds (the last un-minimized ones) instead of asking.
@@ -535,7 +556,10 @@ export const replaysModule: MainModule = {
     handle(REPLAYS_HANDLERS.playbackVolume, (payload) => playbackVolume.set(payload))
     const playbackConsole = createPlaybackConsole({ playback: playbackControl })
     handle(REPLAYS_HANDLERS.playbackConsoleSend, (payload) => playbackConsole.send(payload.line))
-    const playbackStop = createPlaybackStop({ playback: playbackControl, launch: app.launch })
+    const playbackStop = createPlaybackStop({
+      playback: playbackControl,
+      launch: app.launch,
+    })
     onDispose(() => playbackStop.dispose())
     handle(REPLAYS_HANDLERS.playbackStop, () => playbackStop.stop())
     handle(REPLAYS_HANDLERS.playbackCinema, (payload) => cinema.set(payload.enter))

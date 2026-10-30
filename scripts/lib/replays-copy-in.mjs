@@ -161,7 +161,7 @@ export async function launchGeometry(logPath, { fail = defaultFail } = {}) {
   const deadline = Date.now() + 10_000
   for (;;) {
     const line = launchLines(logPath).pop()
-    const m = line ? /\+set vid_geometry ((\d+)x(\d+)\+(-?\d+)\+(-?\d+))/.exec(line) : null
+    const m = line ? /\+set vid_geometry ((\d+)x(\d+)\+?(-?\d+)\+?(-?\d+))/.exec(line) : null
     if (m) return { raw: m[1], w: Number(m[2]), h: Number(m[3]), x: Number(m[4]), y: Number(m[5]) }
     if (Date.now() >= deadline)
       fail(`main.log has no launching line with a vid_geometry: ${JSON.stringify(line)}`)

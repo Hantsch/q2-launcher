@@ -37,6 +37,11 @@ export interface StageFollowInput {
   window: StageFollowWindow
   /** True when this input is a window move/resize tick. */
   tick?: boolean
+  /**
+   * Place the stage geometry at once and send it again even when it equals the last one sent: the
+   * game window after a fullscreen exit is not known to still be where that send put it.
+   */
+  forcePlace?: boolean
 }
 
 export interface StageFollower {
@@ -140,7 +145,11 @@ export function createStageFollower(deps: StageFollowerDeps): StageFollower {
       const moving = t - lastTickAt < STAGE_FOLLOW_QUIET_MS
       const parked = input.stageRect === null || input.window.minimized
       clearQuiet()
-      if (parked || moving) {
+      if (input.forcePlace === true && !parked) {
+        desiredGeo = placedGeo
+        desiredIsPark = false
+        sentGeo = ''
+      } else if (parked || moving) {
         // Once parked, stay put: the park line follows the stage's Y, and a diagonal drag must not
         // queue one park command per step.
         if (sentIsPark) {

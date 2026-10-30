@@ -1,4 +1,5 @@
 import type { CinemaAvailability } from '@shared/replays/cinema'
+import { formatGeometry } from './geometry'
 import type { StageAvailability, StageRect } from './stage'
 
 /**
@@ -34,7 +35,12 @@ export function cinemaAvailability(input: {
 
 /** The display rect (physical px) as the engine's `vid_geometry` 'WxH+X+Y'. */
 export function displayGeometry(physicalRect: StageRect): string {
-  return `${Math.round(physicalRect.width)}x${Math.round(physicalRect.height)}+${Math.round(physicalRect.x)}+${Math.round(physicalRect.y)}`
+  return formatGeometry(
+    Math.round(physicalRect.width),
+    Math.round(physicalRect.height),
+    Math.round(physicalRect.x),
+    Math.round(physicalRect.y),
+  )
 }
 
 /**

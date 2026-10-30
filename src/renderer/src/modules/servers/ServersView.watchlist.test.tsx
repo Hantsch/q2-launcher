@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement } from 'react'
+import { createElement, Fragment } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type {
@@ -15,6 +15,10 @@ import type { ServerListSort } from '@shared/servers/list-sort'
 import { initI18n } from '../../i18n'
 import { mockClient } from '../../test-support/mock-client'
 import { useLauncher } from '../../store/useLauncher'
+import { usePrimaryActionStore } from '../../lib/primary-action'
+import { ActionBar } from '../../components/shell/ActionBar'
+import { makeInstallation } from '../../../../test-support/fixtures'
+import { DEFAULT_SETTINGS } from '@shared/types'
 
 /**
  * Story 132 D3. Mirrors `ServersView.test.tsx`'s own conventions (module-scoped `window.q2` stub,
@@ -254,6 +258,62 @@ describe('ServersView - watchlist tab, unlocked', () => {
     expect(joinServerButtonMock).toHaveBeenCalledWith(
       expect.objectContaining({ row: expect.objectContaining({ address: '5.6.7.8:27910' }) }),
     )
+  })
+
+  it('a list selection hidden by the filter leaves no Join on the watchlist tab, and a shown match agrees with its in-row Join', async () => {
+    useLauncher.setState({
+      route: '/servers',
+      unlockedFeatures: ['watchlist'],
+      installations: [makeInstallation()],
+      settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+    })
+    const rowA: ServerListEntry = {
+      address: '1.2.3.4:27910',
+      origins: ['manual'],
+      status: 'online',
+      lastSeenAt: 'x',
+    }
+    const rowB: ServerListEntry = { ...rowA, address: '5.6.7.8:27910' }
+    readWatchlistMock.mockResolvedValue({
+      ok: true,
+      value: {
+        asOf: 'x',
+        entries: [
+          {
+            entry: { id: 'e1', name: 'Alice', mode: 'exact', tooSlow: false },
+            state: 'found',
+            recheck: null,
+            matches: [
+              { address: rowB.address, playerName: 'Alice', score: 3, ping: 40, seenAt: 'x' },
+            ],
+          },
+        ],
+      } as WatchlistSnapshot,
+    })
+    readScanMock.mockResolvedValue({ ok: true, value: snapshot({ entries: [rowA, rowB] }) })
+    render(createElement(Fragment, null, createElement(ServersView), createElement(ActionBar)))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // B is selected on the list, then the filter hides it.
+    fireEvent.click(await screen.findByTestId(`servers-row-${rowB.address}`))
+    fireEvent.change(screen.getByTestId('servers-filter-search'), { target: { value: '1.2.3.4' } })
+    expect(screen.queryByTestId(`servers-row-${rowB.address}`)).toBeNull()
+
+    fireEvent.click(screen.getByTestId('servers-tab-watchlist'))
+    await screen.findByTestId(`servers-watchlist-match-e1-${rowB.address}`)
+    // No detail is open on the watchlist: the list selection must not leave a Join behind.
+    expect(screen.getByTestId('actionbar-play').hasAttribute('disabled')).toBe(true)
+
+    // The watchlist shows B unfiltered, so its in-row Join and the action bar's Join both apply.
+    fireEvent.click(screen.getByTestId(`servers-watchlist-open-detail-${rowB.address}`))
+    expect(joinServerButtonMock).toHaveBeenCalledWith(
+      expect.objectContaining({ row: expect.objectContaining({ address: rowB.address }) }),
+    )
+    expect(screen.getByTestId('actionbar-play').hasAttribute('disabled')).toBe(false)
+    usePrimaryActionStore.setState({ owner: null, action: null })
   })
 
   it("open-detail opens that server's detail beside the watchlist, and toggles it closed", async () => {

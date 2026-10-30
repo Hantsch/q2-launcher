@@ -14,7 +14,11 @@ import { PersistenceRegistry } from '../main/services/persistence'
 export function fakeAppContext(overrides: Partial<AppContext> = {}): AppContext {
   return {
     broadcast: { emit: () => {} },
-    launch: { getState: () => IDLE_LAUNCH_STATE, onStateChange: () => () => {} },
+    launch: {
+      getState: () => IDLE_LAUNCH_STATE,
+      onStateChange: () => () => {},
+      onBeforePlaybackRelease: () => () => {},
+    },
     harness: resolveUiHarness({}),
     env: bootEnv({}),
     isPackaged: false,

@@ -31,7 +31,7 @@ describe('cinema', () => {
 
   it('displayGeometry formats WxH+X+Y', () => {
     expect(displayGeometry({ x: -1920, y: 0, width: 1920.4, height: 1080 })).toBe(
-      '1920x1080+-1920+0',
+      '1920x1080-1920+0',
     )
   })
 })

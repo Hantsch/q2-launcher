@@ -432,3 +432,27 @@ describe('comment ops', () => {
     expect(sidecar.disk.values.comments).toHaveLength(1)
   })
 })
+
+describe('the overlay behind the replace dialog', () => {
+  it('a quick edit waiting for replace confirmation keeps showing the new value', async () => {
+    const sidecar = fakeSidecar({ rating: 2 }, { broken: true })
+    await sidecar.settle(store().quickEdit(A, { rating: 5 }, vi.fn()))
+    await flush()
+    await flush()
+
+    expect(store().drafts[A]?.replace).toBeDefined()
+    expect(effectiveQuickValues(store().quickPending[A], { rating: 2 }).rating).toBe(5)
+  })
+
+  it('cancelling the replace shows the stored value again', async () => {
+    const sidecar = fakeSidecar({ rating: 2 }, { broken: true })
+    await sidecar.settle(store().quickEdit(A, { rating: 5 }, vi.fn()))
+    await flush()
+    await flush()
+
+    store().cancelEdit(A)
+
+    expect(store().quickPending[A]).toBeUndefined()
+    expect(effectiveQuickValues(store().quickPending[A], { rating: 2 }).rating).toBe(2)
+  })
+})

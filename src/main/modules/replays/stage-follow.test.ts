@@ -27,7 +27,11 @@ function setup(results: Array<'ok' | 'busy'> = []) {
   const follower = createStageFollower({
     send,
     launchGeometry: LAUNCH,
-    computeGeometry: (r) => `${r.width}x${r.height}+${r.x}+${r.y}`,
+    // Physical px like the real conversion, so a follower that ignores the scale is caught.
+    computeGeometry: (r, w) => {
+      const s = w.scaleFactor
+      return `${r.width * s}x${r.height * s}+${r.x * s}+${r.y * s}`
+    },
     parkGeometry: (g) => g.replace(/\+\d+\+/, '+3904+'),
   })
   return { lines, follower }
@@ -112,6 +116,25 @@ describe('stage follower', () => {
     expect(lines).toEqual([PARKED, PARKED])
     vi.advanceTimersByTime(1000)
     expect(lines).toHaveLength(2)
+  })
+
+  it('a retry after a failed send places the latest geometry', () => {
+    const { lines, follower } = setup(['busy'])
+    follower.update({ stageRect: rect(), window: win({ minimized: true }) })
+    follower.update({ stageRect: rect(300, 40), window: win() })
+    vi.advanceTimersByTime(250)
+    expect(lines.at(-1)).toBe(geometryLine('800x600+300+40'))
+    expect(lines).not.toContain(geometryLine('800x600+10+20'))
+  })
+
+  it('a display-scale change during playback replaces the desired geometry', () => {
+    const { lines, follower } = setup()
+    follower.update({ stageRect: rect(300, 40), window: win() })
+    vi.advanceTimersByTime(250)
+    expect(lines).toEqual([geometryLine('800x600+300+40')])
+    follower.update({ stageRect: rect(300, 40), window: win({ scaleFactor: 2 }) })
+    vi.advanceTimersByTime(250)
+    expect(lines).toEqual([geometryLine('800x600+300+40'), geometryLine('1600x1200+600+80')])
   })
 
   it('dispose sends nothing further', () => {

@@ -144,6 +144,9 @@ export class LaunchService {
    * `releasePlaybackSession()`: letting go of the pipes leaves the game running.
    */
   private playbackChild: ChildProcess | undefined
+  /** Story 321: the playback child `terminatePlayback()` killed, and the exit chain that settles it. */
+  private killedPlayback: { child: ChildProcess; settle: () => void } | undefined
+  private readonly playbackSettlers = new WeakMap<ChildProcess, () => void>()
   private readonly beforeReleaseListeners = createListenerSet(log, 'an onBeforePlaybackRelease')
 
   constructor(deps: LaunchDeps) {
@@ -326,7 +329,20 @@ export class LaunchService {
       `terminating the playback launch${child.pid !== undefined ? ` (pid ${String(child.pid)})` : ''}`,
     )
     child.kill()
+    const settle = this.playbackSettlers.get(child)
+    if (settle) this.killedPlayback = { child, settle }
     return true
+  }
+
+  /**
+   * Story 321: a kill that produced no `'exit'` event leaves the launch `running` for good; this
+   * runs that launch's own exit chain once, as if the event had arrived. Only for the playback
+   * child `terminatePlayback()` killed; a later real `'exit'` finds the chain already run.
+   */
+  settleKilledPlayback(): void {
+    const killed = this.killedPlayback
+    if (!killed || this.playbackChild !== killed.child) return
+    killed.settle()
   }
 
   /**
@@ -499,6 +515,7 @@ export class LaunchService {
     if (playback || demo) this.playbackChild = child
     const forgetOwnChild = (): void => {
       if (this.playbackChild === child) this.playbackChild = undefined
+      if (this.killedPlayback?.child === child) this.killedPlayback = undefined
     }
 
     child.once('spawn', () => {
@@ -523,7 +540,10 @@ export class LaunchService {
       })
     })
 
-    child.once('exit', (code) => {
+    let exitHandled = false
+    const handleExit = (code: number | null): void => {
+      if (exitHandled) return
+      exitHandled = true
       void removeOwnedCfg()
       endOwnSession()
       forgetOwnChild()
@@ -536,7 +556,9 @@ export class LaunchService {
         exitedAt: new Date().toISOString(),
         exitCode: code,
       })
-    })
+    }
+    if (playback || demo) this.playbackSettlers.set(child, () => handleExit(null))
+    child.once('exit', handleExit)
 
     return ok(this.current)
   }

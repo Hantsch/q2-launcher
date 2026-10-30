@@ -100,7 +100,7 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
       ? `+demo ${REPLAYS_PLAY_CTF_DEMO} +exec q2l_loop.cfg`
       : `+demo ${REPLAYS_PLAY_CTF_DEMO}`
   const trimmed = (line ?? '').trimEnd()
-  const geometryAt = trimmed.search(/ \+set vid_geometry \d+x\d+\+-?\d+\+-?\d+ /)
+  const geometryAt = trimmed.search(/ \+set vid_geometry \d+x\d+[+-]\d+[+-]\d+ /)
   const okOrder =
     trimmed.includes(
       ` +set game ctf ${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set in_grab 2 `,

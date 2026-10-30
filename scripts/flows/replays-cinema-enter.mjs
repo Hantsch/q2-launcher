@@ -93,7 +93,7 @@ export default async function replaysCinemaEnter({ page, app, log, step, shot })
             width: p.bounds.width * p.scaleFactor,
             height: p.bounds.height * p.scaleFactor,
           }
-    return `set vid_geometry ${Math.round(r.width)}x${Math.round(r.height)}+${Math.round(r.x)}+${Math.round(r.y)}`
+    return `set vid_geometry ${Math.round(r.width)}x${Math.round(r.height)}${Math.round(r.x) < 0 ? '' : '+'}${Math.round(r.x)}${Math.round(r.y) < 0 ? '' : '+'}${Math.round(r.y)}`
   })
   await cinema.click({ timeout: TIMEOUT_MS })
   await waitForWindow(app, 'cinema.html', log)

@@ -37,6 +37,24 @@ export default async function replaysEditUnreadableSidecar({ page, shot, step })
   await rowFor(page, REPLAYS_ROWS_MVD_DEMO).click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-detail-title').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
 
+  step('a quick edit waiting for the replace dialog keeps showing the new rating')
+  const star = page.getByTestId('replays-detail-rating-star-5')
+  const wasChecked = await star.getAttribute('aria-checked')
+  await star.click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-replace-sidecar-dialog')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    ([id, before]) =>
+      document.querySelector(`[data-testid="${id}"]`)?.getAttribute('aria-checked') !== before,
+    ['replays-detail-rating-star-5', wasChecked],
+    { timeout: TIMEOUT_MS },
+  )
+  await page.keyboard.press('Escape')
+  await page
+    .getByTestId('replays-replace-sidecar-dialog')
+    .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+
   step('the first edit asks before replacing an unreadable sidecar')
   const name = page.getByTestId('replays-detail-input-name')
   await name.fill(NAME)

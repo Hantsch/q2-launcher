@@ -168,6 +168,50 @@ describe('ActionBar', () => {
     expect(requestStop).toHaveBeenCalledTimes(1)
   })
 
+  it('a refused stop from the action bar shows the reason', async () => {
+    useLauncher.setState({
+      installations: [makeInstallation()],
+      settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+      jobs: [],
+      launch: { phase: 'running', installationId: 'inst-1', pid: 1 },
+      toasts: [],
+    })
+    const requestStop = vi.fn(async () => ({ key: 'replays.stop.refused' }))
+    usePlaybackStore.setState({
+      requestStop,
+      session: {
+        demoName: 'a.dm2',
+        demoId: null,
+        archived: false,
+        pendingSeekS: null,
+        knownDurationMs: null,
+        view: null,
+        speed: 1,
+        volume: { percent: 100, muted: false },
+        mode: 'preview',
+        cinemaAvailability: { available: true },
+        controlsUnavailable: null,
+        fullscreen: false,
+        stopping: false,
+        optimistic: createTimeline({ view: null }, 0),
+        waiting: new Set(),
+      },
+    })
+
+    render(createElement(ActionBar))
+    fireEvent.click(await screen.findByTestId('actionbar-play'))
+
+    await waitFor(() =>
+      expect(useLauncher.getState().toasts).toEqual([
+        expect.objectContaining({
+          level: 'error',
+          messageKey: 'replays.stop.refused',
+          timeoutMs: 0,
+        }),
+      ]),
+    )
+  })
+
   describe('a tab contributes the primary action', () => {
     const seed = (over: Partial<Installation> = {}, jobs: Job[] = []): void => {
       useLauncher.setState({

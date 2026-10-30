@@ -19,7 +19,11 @@ import {
  * - `restore` runs after the game exited (the engine writes its config on the way out) and edits the
  *   file the engine just wrote: each named `set`/`seta` line becomes the recorded line again, or goes
  *   away if there was none. Every other byte - line endings, the user's in-session changes - stays;
- * - `applyPending` runs a snapshot a previous launcher run never got to restore.
+ * - `applyPending` runs a snapshot a previous launcher run never got to restore. The record carries
+ *   the game's pid once it is known: a game left running by a launcher quit (story 163) writes the
+ *   stage values on its own exit, which may come after the next launcher start, so the restore waits
+ *   until that pid is gone. A record without a pid restores at once. A session started meanwhile
+ *   gets its own record beside the waiting one, so each is restored after its own game (story 321).
  *
  * An R1Q2 play can only use `demomap`, which runs the demo's stufftext - any cvar or bind
  * can be stuffed and archived, so no list of names covers it. A `wholeFile` snapshot records the
@@ -49,8 +53,37 @@ export const nodeCvarRestoreFs: CvarRestoreFs = { readFile, writeFile, rename, r
 
 export interface CvarRestore {
   snapshot(configPath: string, options?: { wholeFile?: true }): Promise<void>
+  /** The running session's game pid, persisted with its snapshot; a no-op without one or once set. */
+  recordPid(pid: number): Promise<void>
+  /**
+   * One console line that sets every snapshotted name back to its pre-session value (`reset` when
+   * the file had none), or null without a line-wise snapshot. Sent before the launcher lets go of a
+   * game it keeps running, so the engine's own write-on-exit archives the originals (story 321).
+   */
+  originalsLine(): string | null
   restore(): Promise<void>
   applyPending(): Promise<void>
+  /** Cancels a scheduled pending retry. */
+  dispose(): void
+}
+
+/** How often a pending restore checks again whether the recorded game has exited. */
+export const PENDING_RETRY_MS = 2_000
+
+/** Signal 0 only probes: EPERM means the process exists but belongs to someone else. */
+export function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException | null)?.code === 'EPERM'
+  }
+}
+
+function scheduleRetryDefault(run: () => void): () => void {
+  const timer = setTimeout(run, PENDING_RETRY_MS)
+  timer.unref()
+  return () => clearTimeout(timer)
 }
 
 /**
@@ -78,10 +111,12 @@ interface Snapshot {
   lines: Map<string, string | null>
   /** Whole-file mode only: the file's bytes as base64, or null when it did not exist. */
   file?: string | null
+  /** The session's game process, once spawned. */
+  pid?: number
 }
 
 const lineSchema = z.string().regex(/^[^\r\n]*$/)
-const pendingSchema = z.object({
+const recordSchema = z.object({
   configPath: z.string().refine((p) => isAbsolute(p)),
   lines: z.record(z.string(), lineSchema.nullable()),
   file: z
@@ -89,7 +124,10 @@ const pendingSchema = z.object({
     .regex(/^[A-Za-z0-9+/]*={0,2}$/)
     .nullable()
     .optional(),
+  pid: z.number().int().positive().optional(),
 })
+/** One record per unrestored session, oldest first; a lone record is stored bare. */
+const pendingSchema = z.union([recordSchema, z.array(recordSchema)])
 
 interface Segment {
   content: string
@@ -159,12 +197,28 @@ export function createCvarRestore({
   names,
   fs = nodeCvarRestoreFs,
   pendingPath,
+  isAlive = processIsAlive,
+  scheduleRetry = scheduleRetryDefault,
+  onWaiting,
 }: {
   names: readonly string[]
   fs?: CvarRestoreFs
   pendingPath: string
+  isAlive?: (pid: number) => boolean
+  /** Runs `run` once later; returns its cancel. */
+  scheduleRetry?: (run: () => void) => () => void
+  /** Told once per instance that a pending restore waits for `pid` to exit. */
+  onWaiting?: (pid: number) => void
 }): CvarRestore {
   let current: Snapshot | null = null
+  /**
+   * Records of earlier sessions not restored yet, never the running session's: a retry only ever
+   * restores these, so it cannot restore the running session's record before its pid is known.
+   */
+  let earlier: Snapshot[] | null = null
+  let cancelRetry: (() => void) | null = null
+  let disposed = false
+  let waitingAnnounced = false
   let chain: Promise<unknown> = Promise.resolve()
   const serial = (task: () => Promise<void>): Promise<void> => {
     const run = chain.then(task, task)
@@ -241,50 +295,109 @@ export function createCvarRestore({
     if ((await readText(configPath)) !== original) await writeAtomic(configPath, original, 'latin1')
   }
 
-  /** The pending snapshot on disk: null when absent, unparseable or invalid (raw kept for the caller). */
-  async function loadPending(): Promise<{ exists: boolean; snapshot: Snapshot | null }> {
-    let raw: string
+  const toRecord = (snapshot: Snapshot): z.input<typeof recordSchema> => ({
+    configPath: snapshot.configPath,
+    lines: Object.fromEntries(snapshot.lines),
+    ...(snapshot.file !== undefined ? { file: snapshot.file } : {}),
+    ...(snapshot.pid !== undefined ? { pid: snapshot.pid } : {}),
+  })
+
+  /**
+   * Writes every unrestored record - earlier sessions' first, the running session's last - or removes
+   * the file once none is left. A lone record is stored bare: the format earlier launchers read.
+   */
+  async function save(): Promise<void> {
+    const records = [...(earlier ?? []), ...(current ? [current] : [])].map(toRecord)
+    if (records.length === 0) return fs.rm(pendingPath, { force: true })
+    await fs.mkdir(dirname(pendingPath), { recursive: true })
+    const json = JSON.stringify(records.length === 1 ? records[0] : records)
+    await writeAtomic(pendingPath, json, 'utf8')
+  }
+
+  function parsePending(raw: string): Snapshot[] {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      // Unparseable JSON: nothing trustworthy to restore.
+      return []
+    }
+    const result = pendingSchema.safeParse(parsed)
+    if (!result.success) return []
+    return (Array.isArray(result.data) ? result.data : [result.data]).map(
+      ({ configPath, lines, file, pid }) => ({
+        configPath,
+        // Only the names this launcher owns - a stray key never edits an unrelated line.
+        lines: new Map(Object.entries(lines).filter(([name]) => names.includes(name))),
+        ...(file !== undefined ? { file } : {}),
+        ...(pid !== undefined ? { pid } : {}),
+      }),
+    )
+  }
+
+  /** The earlier sessions' records, read once; an unreadable or invalid file is dropped. */
+  async function loadEarlier(): Promise<Snapshot[]> {
+    if (earlier) return earlier
+    let raw: string | null = null
     try {
       raw = (await fs.readFile(pendingPath)).toString('utf8')
     } catch (error) {
-      if (isMissing(error)) return { exists: false, snapshot: null }
-      throw error
+      if (!isMissing(error)) throw error
     }
-    try {
-      const result = pendingSchema.safeParse(JSON.parse(raw))
-      if (result.success) {
-        // Only the names this launcher owns - a stray key never edits an unrelated line.
-        const lines = new Map(
-          Object.entries(result.data.lines).filter(([name]) => names.includes(name)),
-        )
-        const { configPath, file } = result.data
-        return {
-          exists: true,
-          snapshot: file === undefined ? { configPath, lines } : { configPath, lines, file },
-        }
-      }
-    } catch {
-      // Unparseable JSON: nothing trustworthy to restore.
-    }
-    return { exists: true, snapshot: null }
+    const loaded = raw === null ? [] : parsePending(raw)
+    if (raw !== null && loaded.length === 0) await fs.rm(pendingPath, { force: true })
+    earlier = loaded
+    return loaded
   }
 
-  return {
+  /**
+   * Restoring a record while its game runs would be undone by the engine's write-on-exit. Known
+   * limit: a crashed game's pid reused by an unrelated process defers the restore until that exits.
+   */
+  const gameRuns = (record: Snapshot): boolean => record.pid !== undefined && isAlive(record.pid)
+
+  function retryWhileRunning(live: readonly Snapshot[]): void {
+    const pid = live[0]?.pid
+    if (pid === undefined || disposed) return
+    if (!waitingAnnounced) {
+      waitingAnnounced = true
+      onWaiting?.(pid)
+    }
+    cancelRetry?.()
+    cancelRetry = scheduleRetry(() => {
+      cancelRetry = null
+      // A failed retry leaves the pending file in place for the next launcher start.
+      void restorer.applyPending().catch(() => undefined)
+    })
+  }
+
+  const restorer: CvarRestore = {
     snapshot(configPath, options) {
       return serial(async () => {
-        // A pending snapshot a failed restore left behind holds the user's ORIGINAL lines; the config
-        // now still carries the stage values, so snapshotting it would lose them. Repair first, and if
-        // that fails again keep the original snapshot as the one to restore later.
-        const { snapshot: pending } = await loadPending()
-        if (pending) {
+        const pending = await loadEarlier()
+        // A record whose game still runs keeps governing until that game is gone: it is neither
+        // applied nor dropped here, and this session gets a record of its own beside it.
+        const live = pending.filter(gameRuns)
+        // A record a failed restore left behind holds the user's ORIGINAL lines; the config still
+        // carries the stage values, so snapshotting it would lose them. Repair first, and if that
+        // fails again this session takes over the record - without the old pid, its game is gone.
+        let adopted: Snapshot | null = null
+        for (const record of pending) {
+          if (live.includes(record)) continue
           try {
-            await apply(pending)
-            await fs.rm(pendingPath, { force: true })
+            await apply(record)
           } catch {
-            // the pending restore could not be re-applied, so the original snapshot is kept
-            current = pending
-            return
+            // the config could not be repaired: the oldest such record holds the originals
+            adopted ??= record
           }
+        }
+        earlier = live
+        retryWhileRunning(live)
+        if (adopted) {
+          const { configPath: path, lines, file } = adopted
+          current = { configPath: path, lines, ...(file !== undefined ? { file } : {}) }
+          await save()
+          return
         }
         let next: Snapshot
         if (options?.wholeFile) {
@@ -301,35 +414,61 @@ export function createCvarRestore({
           next = { configPath, lines }
         }
         current = next
-        await fs.mkdir(dirname(pendingPath), { recursive: true })
-        await writeAtomic(
-          pendingPath,
-          JSON.stringify({
-            configPath,
-            lines: Object.fromEntries(next.lines),
-            ...(next.file !== undefined ? { file: next.file } : {}),
-          }),
-          'utf8',
-        )
+        await save()
       })
+    },
+    recordPid(pid) {
+      return serial(async () => {
+        const snapshot = current
+        if (!snapshot || snapshot.pid !== undefined) return
+        snapshot.pid = pid
+        await save()
+      })
+    },
+    originalsLine() {
+      if (!current || current.file !== undefined || current.lines.size === 0) return null
+      const commands = [...current.lines].map(([name, line]) => {
+        const value = line === null ? null : cvarValueOf(line)
+        return value === null ? `reset ${name}` : `set ${name} "${value}"`
+      })
+      return commands.join('; ')
     },
     restore() {
       return serial(async () => {
         const snapshot = current
         current = null
         if (!snapshot) return
-        // A failed edit leaves the pending file in place, so the next start tries again.
-        await apply(snapshot)
-        await fs.rm(pendingPath, { force: true })
+        try {
+          await apply(snapshot)
+        } catch (error) {
+          // The pending file still holds the record, so the next snapshot or start tries again.
+          earlier = [...(earlier ?? []), snapshot]
+          throw error
+        }
+        await save()
       })
     },
     applyPending() {
       return serial(async () => {
-        const { exists, snapshot } = await loadPending()
-        if (!exists) return
-        if (snapshot) await apply(snapshot)
-        await fs.rm(pendingPath, { force: true })
+        const pending = await loadEarlier()
+        const live = pending.filter(gameRuns)
+        try {
+          for (const record of pending) if (!live.includes(record)) await apply(record)
+          if (live.length < pending.length) {
+            earlier = live
+            await save()
+          }
+        } finally {
+          // A dead game's failed apply must not leave a running game's record without its wait.
+          retryWhileRunning(live)
+        }
       })
     },
+    dispose() {
+      disposed = true
+      cancelRetry?.()
+      cancelRetry = null
+    },
   }
+  return restorer
 }

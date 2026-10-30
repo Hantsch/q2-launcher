@@ -189,6 +189,18 @@ describe('ServersView - Join in the action bar', () => {
     expect(playMock).toHaveBeenCalledWith(undefined, expect.objectContaining({ connect: ROW_B }))
   })
 
+  it('Join is disabled once the filter hides the selected server', async () => {
+    seedLauncher(true)
+    await renderViewWithBar([entry(ROW_A), entry(ROW_B)])
+    fireEvent.click(await screen.findByTestId(`servers-row-${ROW_B}`))
+    expect(joinButton().hasAttribute('disabled')).toBe(false)
+
+    fireEvent.change(screen.getByTestId('servers-filter-search'), { target: { value: '1.2.3.4' } })
+
+    expect(screen.queryByTestId(`servers-row-${ROW_B}`)).toBeNull()
+    expect(joinButton().hasAttribute('disabled')).toBe(true)
+  })
+
   it("the watchlist tab contributes the detail pane's server, not the list selection", async () => {
     seedLauncher(true, ['watchlist'])
     readWatchlistMock.mockResolvedValue({

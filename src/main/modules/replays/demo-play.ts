@@ -23,7 +23,7 @@ import {
   type LaunchState,
   type Outcome,
 } from '@shared/types'
-import { isFile, listDir, pathKey } from '../../lib/fs-utils'
+import { isDirectory, isFile, listDir, pathKey } from '../../lib/fs-utils'
 import { removeStagedCopy, stageDemo, stagedFileName } from './demo-staging'
 import {
   effectiveWriteDirs,
@@ -80,6 +80,7 @@ export const SESSION_RESTORE_CVARS = [
 
 const NOT_FOUND = 'replays.play.error.notFound'
 const FILE_MISSING = 'replays.play.error.fileMissing'
+const GAME_DIR_MISSING = 'replays.play.error.gameDirMissing'
 /** The payload named an installation that has neither Q2PRO nor R1Q2 to play in. */
 export const WRONG_INSTALLATION = 'replays.play.unavailable.unsupportedEngine'
 const UNSAFE_NAME = 'replays.play.unavailable.unsafeName'
@@ -489,6 +490,10 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         durationMs: demo.durationMs,
         format: demo.format,
       }
+      // Checked before anything is staged or a channel prepared: both write into the game dir and
+      // would otherwise fail with a raw ENOENT (an acknowledged mod-missing play reaches here).
+      if (!(await isDirectory(playbackInfo.gameDirPath)))
+        return fail(GAME_DIR_MISSING, { mod: target.gameDir })
       // Story 170: where the engine writes its config for this game (Linux: Q2PRO's write dir).
       const configPath = sessionConfigPath(
         installation,

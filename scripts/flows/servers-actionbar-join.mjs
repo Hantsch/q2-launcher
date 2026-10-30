@@ -148,6 +148,14 @@ export default async function serversActionbarJoin({ page, step, shot }) {
   await page.getByTestId(`servers-row-${serverB.address}`).click({ timeout: TIMEOUT_MS })
   await expectBar('Join', false)
   await shot('actionbar-join-enabled')
+
+  step('a filter that hides the selected server disables Join until the server is selected again')
+  const search = page.getByTestId('servers-filter-search')
+  await search.fill('no-such-server-name')
+  await expectBar('Join', true)
+  await search.fill('')
+  await page.getByTestId(`servers-row-${serverB.address}`).click({ timeout: TIMEOUT_MS })
+  await expectBar('Join', false)
   await bar.click({ timeout: TIMEOUT_MS })
   const logAfterB = await waitForLogContains(
     logPath,

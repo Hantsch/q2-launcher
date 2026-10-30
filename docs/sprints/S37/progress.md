@@ -157,3 +157,46 @@
 - 2026-10-30 11:37:19 · 320 · verify 2 · started
 - 2026-10-30 11:41:57 · 320 · verify 2 · done
 - 2026-10-30 11:41:57 · 320 · story · done
+- 2026-10-30 11:42:08 · 321 · build · started
+- 2026-10-30 11:42:34 · 321 · D1 missing game dir refused · started
+- 2026-10-30 11:42:34 · 321 · D3 stop settles without exit · started
+- 2026-10-30 11:42:34 · 321 · D4 action-bar stop refusal · started
+- 2026-10-30 11:44:16 · 321 · D1 · done
+- 2026-10-30 11:44:16 · 321 · D3 · done
+- 2026-10-30 11:44:16 · 321 · D4 · done
+- 2026-10-30 11:44:23 · 321 · D2 single-flight play and trust failure · started
+- 2026-10-30 11:44:23 · 321 · D5 quit restores stage values (hard) · started
+- 2026-10-30 11:44:23 · 321 · D6 origins and latest geometry · started
+- 2026-10-30 11:44:23 · 321 · D7 Alt+Enter race · started
+- 2026-10-30 11:44:23 · 321 · D8 replace dialog value · started
+- 2026-10-30 11:44:23 · 321 · D9 Join hidden by filter · started
+- 2026-10-30 11:52:19 · 321 · D2 single-flight play and trust failure · done
+- 2026-10-30 11:52:19 · 321 · D6 origins and latest geometry · done
+- 2026-10-30 11:52:19 · 321 · D7 Alt+Enter race · done
+- 2026-10-30 11:52:19 · 321 · D8 replace dialog value · done
+- 2026-10-30 11:52:19 · 321 · D9 Join hidden by filter · done
+- 2026-10-30 11:52:19 · 321 · D5 quit restores stage values (hard) · partial, re-dispatching
+- 2026-10-30 11:52:19 · 321 · D5 quit restores stage values (hard) retry · started
+- 2026-10-30 11:58:38 · 321 · D5 quit restores stage values (hard) retry · done
+- 2026-10-30 11:58:38 · 321 · D10 docs · started
+- 2026-10-30 12:01:30 · 321 · D10 docs · done
+- 2026-10-30 12:01:30 · 321 · verify · started
+- 2026-10-30 12:17:35 · 321 · verify · blocked: docs line limit + 6 flows red, fixing
+- 2026-10-30 12:17:35 · 321 · verify fix 1 · started
+- 2026-10-30 12:37:17 · 321 · verify fix 1 · done
+- 2026-10-30 12:37:17 · 321 · verify 2 · started
+- 2026-10-30 12:52:00 · 321 · verify 2 · done
+- 2026-10-30 12:52:00 · 321 · review 1 · started
+- 2026-10-30 12:54:29 · 321 · review 1 · done
+- 2026-10-30 12:54:29 · 321 · review fix 1 · started
+- 2026-10-30 13:00:22 · 321 · review fix 1 · done
+- 2026-10-30 13:00:22 · 321 · verify 3 · started
+- 2026-10-30 13:15:27 · 321 · verify 3 · done
+- 2026-10-30 13:15:27 · 321 · review 2 (hard) · started
+- 2026-10-30 13:23:17 · 321 · review 2 (hard) · done
+- 2026-10-30 13:23:17 · 321 · review fix 2 · started
+- 2026-10-30 13:25:13 · 321 · review fix 2 · done
+- 2026-10-30 13:25:13 · 321 · verify 4 · started
+- 2026-10-30 13:41:09 · 321 · verify 4 · done
+- 2026-10-30 13:41:24 · 321 · story · done
+- 2026-10-30 13:41:27 · 321 · story · done

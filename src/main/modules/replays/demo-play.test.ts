@@ -275,6 +275,37 @@ describe('demo.play with a mod the installation does not list', () => {
   })
 })
 
+describe('demo.play with a mod game dir that does not exist', () => {
+  it('playing a demo whose mod game dir is missing is refused with a reason and stages nothing', async () => {
+    const ghost = demo({
+      id: 'ghost',
+      fileName: 'g.dm2',
+      gameDir: 'ghostmod',
+      source: {
+        kind: 'installation',
+        installationId: 'q2pro-a',
+        installationName: 'Q2PRO',
+        gameDir: 'baseq2',
+      },
+    })
+    await writeFile(join(q2proRoot, 'baseq2', 'demos', 'g.dm2'), 'demo')
+    const h = harness({
+      demos: [ghost],
+      files: {
+        ghost: { absolutePath: join(q2proRoot, 'baseq2', 'demos', 'g.dm2'), archiveEntry: null },
+      },
+    })
+
+    expect(await h.play('ghost', 'q2pro-a', { acknowledgeModMissing: true })).toEqual({
+      ok: false,
+      error: { key: 'replays.play.error.gameDirMissing', params: { mod: 'ghostmod' } },
+    })
+    expect(h.launch.start).not.toHaveBeenCalled()
+    expect(existsSync(join(q2proRoot, 'ghostmod'))).toBe(false)
+    expect(existsSync(join(q2proRoot, 'baseq2', 'demos', LAUNCHER_DIR_NAME))).toBe(false)
+  })
+})
+
 describe('demo.play with a saved mod', () => {
   it('a demo launches with its own mod when the saved mod differs', async () => {
     await mkdir(join(q2proRoot, 'opentdm', 'demos'), { recursive: true })

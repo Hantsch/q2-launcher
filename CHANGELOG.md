@@ -20,6 +20,7 @@ version section when a release actually ships.
 
 - A watchlist re-check started while browsing LAN no longer stays pending.
 - Unsaved config edits no longer reach disk from an address-book add or switch bind; alias flags survive restarts.
+- Demo playback: play, stop and quitting always end in a clear state.
 
 ## 0.9.0 — 2026-10-29
 

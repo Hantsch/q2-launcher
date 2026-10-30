@@ -57,6 +57,8 @@ This document describes the module as built. `servers` is a registered module; i
   `onActivate` through the same guard as the action bar's Join: valid address, active installation),
   while the persisted scan setting `doubleClickJoins` is on (default; Settings > Servers); with it
   off, a double-click is two selecting clicks.
+  The action bar's Join resolves its target against the rows the active tab shows: the filtered list
+  on the list tab (a hidden server cannot be joined), the unfiltered matches on the watchlist tab.
   Keyboard, handled on the focused row only (never a window listener, so the filter inputs keep
   their keys): Enter selects an unselected row and joins the selected one through the same guard,
   independent of `doubleClickJoins`; Arrow Up/Down move the selection to the neighbouring visible row

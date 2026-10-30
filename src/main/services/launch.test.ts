@@ -911,6 +911,37 @@ describe('LaunchService playback session', () => {
     expect(child.kill).not.toHaveBeenCalled()
   })
 
+  it('a settled killed playback leaves running once even when the exit event arrives late', async () => {
+    const installations = fakeInstallations(tempInstallation())
+    const launch = new LaunchService({
+      installations,
+      onStateChange: vi.fn(),
+      detectRunners: () => Promise.resolve([NATIVE]),
+    })
+    const child = pipedChild()
+    spawnMock.mockImplementation(() => child as never)
+    await launch.start({ installationId: INSTALLATION }, PLAY)
+    listener(child, 'spawn')()
+    const session = launch.getPlaybackSession()
+    const observed: LaunchState[] = []
+    launch.onStateChange((state) => observed.push(state))
+
+    launch.settleKilledPlayback()
+    expect(launch.getState().phase).toBe('running')
+
+    expect(launch.terminatePlayback()).toBe(true)
+    launch.settleKilledPlayback()
+    expect(launch.getState()).toMatchObject({ phase: 'exited', exitCode: null })
+    expect(launch.isRunning()).toBe(false)
+    expect(launch.isPlaybackRunning()).toBe(false)
+    expect(session?.ended).toBe(true)
+
+    listener(child, 'exit')(null, 'SIGTERM')
+    launch.settleKilledPlayback()
+    expect(observed.map((state) => state.phase)).toEqual(['exited'])
+    expect(installations.recordPlaySession).toHaveBeenCalledTimes(1)
+  })
+
   it('a terminated playback launch ends in exited, like any exit', async () => {
     const installations = fakeInstallations(tempInstallation())
     const broadcast = vi.fn<(state: LaunchState) => void>()

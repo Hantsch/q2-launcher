@@ -24,4 +24,16 @@ describe('ModMissingConfirmDialog', () => {
     fireEvent.click(screen.getByTestId('replays-mod-missing-confirm'))
     expect(onConfirm).toHaveBeenCalledWith(false)
   })
+
+  it('an error is shown as an alert', () => {
+    render(
+      createElement(ModMissingConfirmDialog, {
+        gameDir: 'opentdm',
+        error: 'Could not remember this mod.',
+        onCancel: vi.fn(),
+        onConfirm: vi.fn(),
+      }),
+    )
+    expect(screen.getByRole('alert').textContent).toBe('Could not remember this mod.')
+  })
 })

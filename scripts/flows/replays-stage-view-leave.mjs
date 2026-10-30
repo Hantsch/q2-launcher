@@ -66,7 +66,7 @@ async function placedNow(page, app) {
             width: dip.width * scale,
             height: dip.height * scale,
           }
-    return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}+${Math.round(p.x)}+${Math.round(p.y)}`
+    return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}${Math.round(p.x) < 0 ? '' : '+'}${Math.round(p.x)}${Math.round(p.y) < 0 ? '' : '+'}${Math.round(p.y)}`
   }, rect)
 }
 
@@ -135,7 +135,7 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
   })
   const parkX = edge + 64
   const parseGeo = (l) => {
-    const g = /^set vid_geometry (\d+)x(\d+)\+(-?\d+)\+(-?\d+)$/.exec(l ?? '')
+    const g = /^set vid_geometry (\d+)x(\d+)\+?(-?\d+)\+?(-?\d+)$/.exec(l ?? '')
     return g ? { w: Number(g[1]), h: Number(g[2]), x: Number(g[3]), y: Number(g[4]) } : null
   }
   const isPark = (l) => parseGeo(l)?.x === parkX

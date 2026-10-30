@@ -162,6 +162,14 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
     set({ drafts: { ...get().drafts, [id]: { ...entry, ...patch } } })
   }
 
+  const clearOverlay = (id: string): void => {
+    const { quickPending } = get()
+    if (quickPending[id] === undefined) return
+    const rest = { ...quickPending }
+    delete rest[id]
+    set({ quickPending: rest })
+  }
+
   /** Runs `task` after the demo's current tail. The last task of a queue removes the tail and the
    * demo's `quickPending` overlay before its own promise settles - on success and on failure. */
   const enqueue = (id: string, task: () => Promise<void>): Promise<void> => {
@@ -181,12 +189,9 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
         }
         if (queues.get(id) === tail) {
           queues.delete(id)
-          const { quickPending } = get()
-          if (quickPending[id] !== undefined) {
-            const rest = { ...quickPending }
-            delete rest[id]
-            set({ quickPending: rest })
-          }
+          // A write waiting behind the replace dialog keeps showing the value it will write;
+          // confirm re-applies the overlay and cancel drops it.
+          if (get().drafts[id]?.replace === undefined) clearOverlay(id)
         }
       }
     })
@@ -305,6 +310,7 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
       pendingChange: undefined,
       pendingOverlay: undefined,
     })
+    if (!queues.has(id)) clearOverlay(id)
     settleParked(id, 'cancelled')
   }
 

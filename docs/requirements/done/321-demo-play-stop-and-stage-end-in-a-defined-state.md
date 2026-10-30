@@ -1,7 +1,7 @@
 ---
 id: 321
 title: Demo play, stop and stage restore end in a defined state
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -14,25 +14,25 @@ does not match what happened.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — "Play anyway" on a demo whose mod game directory is missing shows a play error with
+- [x] **AC1** — "Play anyway" on a demo whose mod game directory is missing shows a play error with
       a reason; main does not fail with an unhandled ENOENT on `q2l_back.cfg` (TD-008).
-- [ ] **AC2** — A second Play while one is starting is refused, and a failed `trustMod` does not
+- [x] **AC2** — A second Play while one is starting is refused, and a failed `trustMod` does not
       start playback (TD-019); `replays.modWarning.error` is either shown somewhere or deleted.
-- [ ] **AC3** — A stop whose kill succeeds without an `exit` event leaves Stopping within a bounded
+- [x] **AC3** — A stop whose kill succeeds without an `exit` event leaves Stopping within a bounded
       time and returns the UI to idle; a stop refused from the action bar shows the refusal (TD-011).
-- [ ] **AC4** — Quitting the launcher while a staged demo runs restores the stage values in the
+- [x] **AC4** — Quitting the launcher while a staged demo runs restores the stage values in the
       config; a settings change during playback and a switch back from fullscreen restore the
       latest geometry, not a stale one (TD-010, TD-029). `+-X` in `vid_geometry` is parsed or
       refused, with a test.
-- [ ] **AC5** — The replace dialog shows the current value; the missing-mod confirmation is cleared
+- [x] **AC5** — The replace dialog shows the current value; the missing-mod confirmation is cleared
       when the selection changes; Join is disabled for a server the filter hides (TD-030).
-- [ ] **AC6** — Rows TD-008, TD-010, TD-011, TD-019, TD-029 and TD-030 are removed from
+- [x] **AC6** — Rows TD-008, TD-010, TD-011, TD-019, TD-029 and TD-030 are removed from
       `docs/TECH-DEBT.md`.
 
 ## Open Questions
 
 ~~TD-010's "Alt+Enter can race a queued switch": fix it here, or record it as manual residue if~~ answered → Decisions (Sprint)
-  the flow harness cannot reproduce it?
+the flow harness cannot reproduce it?
 
 ## Decisions (Sprint)
 
@@ -117,7 +117,7 @@ Flows extended (no new flow): `replays-mod-warning`, `replays-stage`,
   `src/renderer/src/modules/replays/ReplaysView.tsx`: `runPlay` (~:476-518) gets an in-flight guard
   (a ref set before the first await, cleared in `finally`), so a second Play while one starts
   starts nothing. "Play anyway" (~:1060-1068, `trustModWarningMod(modGameDir).finally(() => void
-  play(true))`) plays only when the trust `Outcome` is ok; on failure the dialog stays open and
+play(true))`) plays only when the trust `Outcome` is ok; on failure the dialog stays open and
   shows `replays.modWarning.error` (add it to `locale/en.json` under `modWarning`, e.g. "Could not
   remember this mod. Try again or cancel.") as a visible line in
   `src/renderer/src/modules/replays/components/ModMissingConfirmDialog.tsx` (new optional `error`
@@ -274,11 +274,24 @@ Flows extended (no new flow): `replays-mod-warning`, `replays-stage`,
   missing-mod confirmation"; component
   `src/renderer/src/modules/servers/ServersView.actionbar.test.tsx` › "Join is disabled once the
   filter hides the selected server", `src/renderer/src/modules/servers/ServersView.watchlist.test.tsx`
-  › "a watchlist server hidden by the filter cannot be joined"; e2e
-  `scripts/flows/servers-filter-search.mjs` › servers-filter-search (D9 step)
+  › "a list selection hidden by the filter leaves no Join on the watchlist tab, and a shown match agrees with its in-row Join" (replaces the planned name); e2e
+  `scripts/flows/servers-actionbar-join.mjs` › servers-actionbar-join (D9 step; the servers-filter-search fixture shows Repair, not Join)
 - AC6 → doc check: `node scripts/check-docs.mjs` green and the six rows absent from
   `docs/TECH-DEBT.md` (D10; a row deletion has no behaviour, the review checks the diff)
 
 Coverage: AC1 D1 · AC2 D2 · AC3 D3+D4 · AC4 D5+D6+D7 · AC5 D2+D8+D9 · AC6 D10.
 
 ## Done
+
+Fixes the work required: D3 settles at launch level (`launch.settleKilledPlayback()`, not a playback-only `endSession`); `snapshot()` keeps a live game's pending record (file holds one record per session, a lone record stays bare); `replays-stage` flow seeds a flow-owned pid because the stub dies with its parent.
+
+**Summary:** Six replays edge cases closed: Play refuses a missing mod game dir, Play is single-flight and a failed trust keeps the dialog open with an error, a stop whose kill yields no exit settles after 5 s through the launch exit path and shows refusals as a toast, quitting mid-stage leaves the original stage values (pid-guarded pending record, plus a last console line on Linux), vid_geometry uses single-sign origins with latest-geometry-wins pinned, Alt+Enter no longer loses a queued fullscreen switch, the replace dialog and Join respect what the user sees. TD rows removed, one re-filed as TD-059.
+
+**Commit message:** `321: demo play/stop/stage end in a defined state - gameDirMissing refusal, single-flight play, stop settle via launch, pid-guarded stage restore, single-sign geometry, Alt+Enter race, replace dialog value, Join vs filter, TD-008/010/011/019/029/030 closed`
+
+**Verification (narrow gate):** `npm run build`, `typecheck`, `lint`, `npx vitest run --changed HEAD` (188 files / 1763 tests), `npm run check:docs`, `npm run build:dev`, `npm run ui:flows -- --affected <the story's flows> --parallel=4 --shard=1/2` and `2/2` (54 + 53 flows) all green. AC1-AC6 → the named tests all ran and passed; flows replays-mod-warning, replays-stage, replays-edit-unreadable-sidecar, servers-actionbar-join, servers-filter-search, replays-stop green. Review: stage 1 (default) FAIL, stage 2 (hard) FAIL, both fixed and re-verified; no third review run (2 of 3 cycles used).
+**Manual residue:** real Alt+Enter in Q2PRO racing a queued switch (stub has no window/keys); real Q2PRO at a single-sign negative origin on a left-of-primary monitor.
+
+**Decisions:** Windows file channel cannot deliver the originals line at quit (files deleted on quit, release listeners do not fire without pipes), so on Windows the pid wait is the only guarantee and Linux additionally gets the last console line (that line applies live to the running game: accepted). The replays-stage flow proves the wait/restore with a flow-owned live pid because the stub exits with its parent (real-engine survival is story 163's coverage). Join flow assertion moved to servers-actionbar-join (fixture install needs repair). Watchlist tab action-bar Join resolves against the unfiltered matches the tab shows; list tab against filtered rows. Stale pid reuse after a crash defers the restore until that pid exits (documented limit). TD-030's fourth item re-filed as TD-059.
+
+tiers: D 10 / hard 1 · review default+hard · cycles 2 · agents 23

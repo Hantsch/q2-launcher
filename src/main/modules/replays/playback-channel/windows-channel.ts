@@ -218,8 +218,12 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     dispatchQueued()
   }
 
-  /** `ackedSeq`: the switch's seq when its ACK is what got us here, else null. */
-  function reachFullscreen(ackedSeq: number | null): void {
+  /**
+   * `ackedSeq`: the switch's seq when its ACK is what got us here, else null. `keepSwitch`: the user
+   * got there first - the switch stays in the control file so the loop still stops (it sets the
+   * mode, it does not toggle it); only the commands around it are dropped.
+   */
+  function reachFullscreen(ackedSeq: number | null, keepSwitch = false): void {
     const switchSeq = switchInFlight()
     const dropped =
       queue.filter((c) => !c.fullscreenSwitch).length +
@@ -227,7 +231,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     if (dropped > 0) log.warn(`demo went fullscreen: dropping ${dropped} unsent command(s)`)
     mode = 'fullscreen'
     queue.length = 0
-    inFlight.clear()
+    for (const [seq, command] of [...inFlight])
+      if (!(keepSwitch && command.fullscreenSwitch)) inFlight.delete(seq)
     unackedSwitchSeq = ackedSeq === null ? switchSeq : null
     // Idle, so the loop's `set q2l_seq 0` on Back to window finds no guard to re-fire.
     writeInFlight()
@@ -268,6 +273,11 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
         )
           return
         mode = 'stage'
+        // The user left fullscreen before the switch ran: it must not push them back in.
+        if (inFlight.size > 0) {
+          inFlight.clear()
+          writeInFlight()
+        }
         unackedSwitchSeq = null
         positionMs = parsed.positionMs
         paused = parsed.paused
@@ -279,12 +289,13 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       if (finished || parsed.fullscreen !== true) return
       if (mode === 'stage') beginEntering(false)
       // An FS 1 while our own switch is pending means it ran; when the user switched, FS 1 is old news.
-      else if (enteringSwitchesMode) reachFullscreen(null)
+      else if (enteringSwitchesMode) reachFullscreen(null, true)
     } else if (parsed.kind === 'ack') {
       if (finished) return
       if (mode === 'fullscreen') {
         if (parsed.seq === unackedSwitchSeq) {
           unackedSwitchSeq = null
+          if (inFlight.delete(parsed.seq)) writeInFlight()
           removeCommandFile(parsed.seq)
         }
         return
@@ -322,6 +333,12 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     for (const [seq, command] of [...inFlight]) {
       if (now - command.sentAt < ACK_TIMEOUT_MS) continue
       if (command.fullscreenSwitch) {
+        if (mode === 'fullscreen') {
+          // Kept in the file when the user reached fullscreen first; it will not be ACKed any more.
+          inFlight.delete(seq)
+          writeInFlight()
+          return
+        }
         log.warn(
           `no ACK for the fullscreen switch (seq ${seq}) within ${ACK_TIMEOUT_MS} ms, assuming fullscreen`,
         )

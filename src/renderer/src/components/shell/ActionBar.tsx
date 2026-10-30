@@ -15,6 +15,7 @@ import {
 } from '../../lib/format'
 import { type ContributedAction, usePrimaryActionStore } from '../../lib/primary-action'
 import { isPlayable, statusTone } from '../../lib/status'
+import { toastOutcomeError } from '../../lib/toast'
 import { useModuleQuery } from '../../lib/useModuleQuery'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
 import { IconButton, PlayButton } from '../ui/Button'
@@ -46,6 +47,7 @@ export function ActionBar() {
   const cancelJob = useLauncher((state) => state.cancelJob)
   const updateInstallation = useLauncher((state) => state.updateInstallation)
   const openDialog = useLauncher((state) => state.openDialog)
+  const pushToast = useLauncher((state) => state.pushToast)
   const runFix = useFixAction()
   const demo = useDemoStop()
   const switchGameDir = useSwitchGameDir()
@@ -88,7 +90,9 @@ export function ActionBar() {
         })
         return
       case 'stop':
-        void demo.stop()
+        void demo.stop().then((error) => {
+          if (error) toastOutcomeError(pushToast, { ok: false, error })
+        })
         return
       case 'busy':
         return

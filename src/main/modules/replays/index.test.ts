@@ -22,6 +22,7 @@ import { fail } from '@shared/types/common'
 import { WRONG_INSTALLATION } from './demo-play'
 import { discoveryHomeDir, replaysModule, scanHoldMs } from './index'
 import { replaysState } from './persisted'
+import { SESSION_CVARS_PENDING_FILE, nodeCvarRestoreFs } from './session-cvar-restore'
 
 /** Lets a test hold `canonicalizePath` (the last await in `extraFolders.add`) open. */
 const canonicalizeGate = vi.hoisted(() => ({ wait: null as Promise<void> | null }))
@@ -615,6 +616,8 @@ describe('replays module', () => {
         launch: {
           isRunning: () => false,
           isPlaybackRunning: () => false,
+          onStateChange: () => () => undefined,
+          onBeforePlaybackRelease: () => () => undefined,
         } as unknown as AppContext['launch'],
         userDataDir: dir,
       })
@@ -696,6 +699,8 @@ describe('replays module', () => {
           launch: {
             isRunning: () => false,
             isPlaybackRunning: () => false,
+            onStateChange: () => () => undefined,
+            onBeforePlaybackRelease: () => () => undefined,
           } as unknown as AppContext['launch'],
           userDataDir: dir,
         })
@@ -767,6 +772,8 @@ describe('replays module', () => {
         launch: {
           isRunning: () => false,
           isPlaybackRunning: () => false,
+          onStateChange: () => () => undefined,
+          onBeforePlaybackRelease: () => () => undefined,
         } as unknown as AppContext['launch'],
         userDataDir: dir,
       })
@@ -1024,7 +1031,20 @@ describe('replays module lifecycle', () => {
           installationId: 'inst-1',
         })
     }
-    return { app, live, liveCinemaAndStage, playback, launchArgs, game, exit }
+    /** The launch service reports the game of `inst-1` running under `pid`. */
+    const run = (pid: number): void => {
+      for (const listener of [...stateListeners])
+        (listener as (s: { phase: string; installationId: string; pid: number }) => void)({
+          phase: 'running',
+          installationId: 'inst-1',
+          pid,
+        })
+    }
+    /** The launcher lets go of the playback session (quit), as `releasePlaybackSession` announces it. */
+    const release = (): void => {
+      for (const listener of [...releaseListeners]) (listener as () => void)()
+    }
+    return { app, live, liveCinemaAndStage, playback, launchArgs, game, exit, run, release }
   }
 
   /** Scans, then plays the one demo, so every lazily-taken subscription is live. */
@@ -1065,8 +1085,9 @@ describe('replays module lifecycle', () => {
 
   it('registering the module twice leaves exactly one live subscription each', async () => {
     const { app, live, playback } = await countingContext()
-    // The play's own subscription plus playback-stop's, which is only taken by a stop.
-    const one = { launchState: 2, playbackRelease: 1, mainWindow: 1 }
+    // The play's own subscription plus playback-stop's, which is only taken by a stop, plus the
+    // session cvar restore's pid and release listeners.
+    const one = { launchState: 3, playbackRelease: 2, mainWindow: 1 }
     const none = { launchState: 0, playbackRelease: 0, mainWindow: 0 }
 
     const first = await registerAndPlay(app)
@@ -1137,6 +1158,78 @@ describe('replays module lifecycle', () => {
       focused: true,
     }),
     on: () => () => undefined,
+  })
+
+  it('releasing a staged session hands the engine its original stage values', async () => {
+    await mkdir(join(dir, 'baseq2'), { recursive: true })
+    await writeFile(
+      join(dir, 'baseq2', 'q2config.cfg'),
+      'seta vid_fullscreen "1"\nseta vid_geometry "1024x768+0+0"\n',
+    )
+    const { app, game, release } = await countingContext({ mainWindow: windowOn(1) })
+    const written: string[] = []
+    Object.assign(app.launch, {
+      getPlaybackSession: () => ({ write: (text: string) => written.push(text) > 0 }),
+    })
+    game.keepRunning = true
+    const registry = await registerAndPlay(app, { x: 10, y: 20, width: 640, height: 360 })
+
+    release()
+    expect(written).toHaveLength(1)
+    const [line] = written
+    expect(line.endsWith('\n')).toBe(true)
+    const commands = line.trimEnd().split('; ')
+    expect(commands).toContain('set vid_fullscreen "1"')
+    expect(commands).toContain('set vid_geometry "1024x768+0+0"')
+    // A name the config did not carry goes back to the engine's own default.
+    expect(commands).toContain('reset s_volume')
+    await registry.disposeAll()
+  })
+
+  it('releasing a staged session leaves the config and the pending record untouched', async () => {
+    const configPath = join(dir, 'baseq2', 'q2config.cfg')
+    await mkdir(join(dir, 'baseq2'), { recursive: true })
+    await writeFile(configPath, 'seta vid_fullscreen "1"\nseta vid_geometry "1024x768+0+0"\n')
+    const { app, game, release } = await countingContext({ mainWindow: windowOn(1) })
+    Object.assign(app.launch, { getPlaybackSession: () => ({ write: () => true }) })
+    game.keepRunning = true
+    const registry = await registerAndPlay(app, { x: 10, y: 20, width: 640, height: 360 })
+    const pendingPath = join(dir, SESSION_CVARS_PENDING_FILE)
+    const configBefore = await readFile(configPath, 'utf8')
+    const pendingBefore = await readFile(pendingPath, 'utf8')
+
+    release()
+
+    // The restore waits for the game to be gone; the engine still owns the file until then.
+    expect(await readFile(configPath, 'utf8')).toBe(configBefore)
+    expect(await readFile(pendingPath, 'utf8')).toBe(pendingBefore)
+    await registry.disposeAll()
+  })
+
+  it("a staged session's pending snapshot records the running game's pid", async () => {
+    const { app, game, run } = await countingContext({ mainWindow: windowOn(1) })
+    game.keepRunning = true
+    const registry = await registerAndPlay(app, { x: 10, y: 20, width: 640, height: 360 })
+    const pendingPath = join(dir, SESSION_CVARS_PENDING_FILE)
+    // Reading the file while it is replaced would fail that rename on Windows (EPERM), so the read
+    // waits for the pid write's own rename to settle.
+    const renamed: Array<Promise<void>> = []
+    const rename = nodeCvarRestoreFs.rename
+    const spy = vi.spyOn(nodeCvarRestoreFs, 'rename').mockImplementation((from, to) => {
+      const done = rename(from, to)
+      if (to === pendingPath) renamed.push(done)
+      return done
+    })
+    try {
+      run(4242)
+      await vi.waitFor(() => expect(renamed).toHaveLength(1))
+      await renamed[0]
+      const pending = JSON.parse(await readFile(pendingPath, 'utf8')) as { pid?: number }
+      expect(pending.pid).toBe(4242)
+    } finally {
+      spy.mockRestore()
+    }
+    await registry.disposeAll()
   })
 
   it('stage geometry comes from the window snapshot and the displays service', async () => {

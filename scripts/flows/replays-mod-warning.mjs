@@ -6,11 +6,14 @@
 // The "engine" is the fixture's stand-in client (see `replays-play-q2pro.mjs`); no real Quake II runs.
 // The final step resets the trusted list so the flow leaves defaults behind - later deliverables insert
 // their steps BEFORE that cleanup.
+import { mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
 import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   REPLAYS_PLAY_MISSING_MOD,
   REPLAYS_PLAY_MISSING_MOD_DEMO,
+  replaysPlayInstallRoot,
   vendoredExtractorExists,
   startBootstrapFixtureServer,
   writeReplaysPlayFixture,
@@ -278,6 +281,26 @@ export default async function replaysModWarning({ page, step, shot }) {
   await viewPlaysWithoutDialog('turned off, no demo asks')
   await openSettings()
   await setSwitch(true)
+
+  step('play anyway on a mod whose folder does not exist is refused with a reason')
+  const modDir = join(replaysPlayInstallRoot(), REPLAYS_PLAY_MISSING_MOD)
+  rmSync(modDir, { recursive: true, force: true })
+  try {
+    await openDemos()
+    const launchesBeforeRefusal = launchCount()
+    await play.click({ timeout: TIMEOUT_MS })
+    await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    await page.getByTestId('replays-mod-missing-confirm').click({ timeout: TIMEOUT_MS })
+    const refusal = page.getByTestId('actionbar-action-error')
+    await refusal.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    if (!((await refusal.textContent()) ?? '').includes(REPLAYS_PLAY_MISSING_MOD))
+      throw new Error('replays-mod-warning: the refusal must name the missing mod folder')
+    if (launchCount() !== launchesBeforeRefusal)
+      throw new Error('replays-mod-warning: a missing mod folder must not launch anything')
+    await shot('missing-mod-dir-refused')
+  } finally {
+    mkdirSync(modDir, { recursive: true })
+  }
 
   step('cleanup: reset the trusted mods so the flow leaves defaults')
   await page.evaluate(() =>

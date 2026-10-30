@@ -78,14 +78,16 @@ describe('stageGeometry', () => {
         identity,
       ),
     ).toBe('125x63+18+32')
-    // negative display origin (a monitor left of the primary) stays signed in the geometry
+  })
+
+  it('a display left of the primary gives a single-sign origin', () => {
     expect(
       stageGeometry(
         { x: 0, y: 0, width: 200, height: 100 },
         { contentBounds: { x: -1920, y: 0 }, zoomFactor: 1 },
         identity,
       ),
-    ).toBe('200x100+-1920+0')
+    ).toBe('200x100-1920+0')
   })
 
   it('passes the exact DIP rect to dipToScreen and rounds only its result', () => {

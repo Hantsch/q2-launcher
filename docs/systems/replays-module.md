@@ -54,19 +54,15 @@ counts follow the scoped rows; the filter value survives an installation switch.
   `components/SidesEditor.tsx`, `RenameDemoDialog.tsx` — the detail is one view, edited in place: every text fact is an
   `InPlaceField` saving per field (Enter or leaving it; Escape reverts) through the editor store's single `edit` write path; the
   roster opens `SidesEditor`, saved when focus leaves it; an archive entry is read-only.
-- `components/DemoCommentsList.tsx` — the detail's time-sorted comment list (edit in place, delete; read-only for an archive
-  entry). Changes go through the editor store's `commentEdit`, which applies the op to the freshly read sidecar in the per-demo
-  write queue (the timeline reuses it).
+- `components/DemoCommentsList.tsx` — the detail's time-sorted comment list (edit in place, delete; read-only for an archive entry);
+  changes go through the editor store's `commentEdit`, applied to the freshly read sidecar in the per-demo write queue.
 - `components/TimelineComments.tsx` — the strip's comment marks and Add-comment field. Marks sit in a layer beside the
   `role="slider"` element (a mark's click is not also a bar seek) and seek to `floor(atMs / 1000)`. Add comment pins the shown
   position, then pauses; field and hover bubble stay inside the strip (the native game window covers the stage above it). No
   comment controls in fullscreen or the cinema overlay. "Play from here" seeks a session on that demo, else plays it.
-- Start position: `beginSession(..., { id, archived, startAtS })` keeps `pendingSeekS`; the first position sample sends one
-  `seekTo` and clears it (the engine takes no commands earlier).
 - `components/DemoStatsPanel.tsx` — the detail's OpenTDM accuracy table (one row per item, totals below), rendered from `row.stats` alone and absent when the row has none.
 - `components/DemoPlayersPanel.tsx` — players by side — two teams side by side, otherwise stacked; side colours from `--color-side-1/2`; `components/DemoStage.tsx`, `components/DemoTimeline.tsx` (takes the
-  session's `demo` and `onRowPatched` for comments), `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `useDemoPlay.ts` — playback.
-- `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
+  session's `demo` and `onRowPatched` for comments), `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `useDemoPlay.ts` — playback. `beginSession(..., { startAtS })` keeps `pendingSeekS`; the first position sample sends one `seekTo`. Also `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
 
 **Parser and index facts**
 
@@ -148,3 +144,7 @@ volume, cinema availability, stage notice).
   outside the Quake filesystem is played from a temporary copy; a `.gz` is not decompressed by the launcher.
 - Stage placement depends on the platform's window system; nested archives are not expanded. An `.mvd2` demo has no roster and no
   stats; an OpenTDM 1v1 demo cut off before the match ends has no teams. Only OpenTDM's "Stats for" format is read for stats.
+- Quit-time stage restore: the pending record carries the game's pid; `applyPending` retries every 2 s while it is alive (on
+  Windows the only guarantee; Linux also sends a last console line). `vid_geometry` origins are single-sign (`200x100-1920+0`).
+- A stop whose kill succeeds without an exit event is settled by main after 5 s: the launch ends as for an exit, the UI returns to idle.
+- Play refuses with `replays.play.error.gameDirMissing` when the mod game dir does not exist; a failed "don't ask again" trust keeps the dialog open.

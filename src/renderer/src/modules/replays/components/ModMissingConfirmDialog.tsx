@@ -15,6 +15,7 @@ export function ModMissingConfirmDialog({
   onInstall,
   installError,
   installPending = false,
+  error,
   onCancel,
   onConfirm,
 }: {
@@ -25,6 +26,8 @@ export function ModMissingConfirmDialog({
   installError?: string
   /** The install start request is in flight - the Install button is disabled meanwhile. */
   installPending?: boolean
+  /** Why Play anyway did not go through - the dialog stays open. */
+  error?: string
   onCancel: () => void
   onConfirm: (dontAskAgain: boolean) => void
 }) {
@@ -76,6 +79,11 @@ export function ModMissingConfirmDialog({
             data-testid="replays-mod-missing-install-error"
           >
             {installError}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-danger" data-testid="replays-mod-missing-error">
+            {error}
           </p>
         )}
         <Checkbox

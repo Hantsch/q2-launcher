@@ -881,6 +881,89 @@ describe('ReplaysView - the action bar View plays the selected demo', () => {
       usePlaybackStore.getState().endSession()
     })
 
+    it('a second Play while one is starting starts nothing', async () => {
+      await selectModMissing()
+      readModWarningMock.mockResolvedValueOnce({
+        ok: true,
+        value: { enabled: false, trustedMods: [] },
+      })
+      let finish: (value: unknown) => void = () => {}
+      playDemoMock.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+      const run = published().run
+      await act(async () => {
+        run()
+        run()
+        await Promise.resolve()
+      })
+      await vi.waitFor(() => expect(playDemoMock).toHaveBeenCalledTimes(1))
+      await act(async () => {
+        finish({ ok: true, value: { stage: null } })
+      })
+      expect(readModWarningMock).toHaveBeenCalledTimes(1)
+      expect(playDemoMock).toHaveBeenCalledTimes(1)
+      const { usePlaybackStore } = await import('./playback-store')
+      usePlaybackStore.getState().endSession()
+    })
+
+    it('a failed trust does not play and shows why', async () => {
+      await selectModMissing()
+      trustModWarningModMock.mockResolvedValueOnce({ ok: false, error: { key: 'x' } } as never)
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-warning-dont-ask'))
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-confirm'))
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        stringAt('replays.modWarning.error'),
+      )
+      expect(screen.getByTestId('replays-mod-missing-dialog')).toBeTruthy()
+      expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    it('changing the selection closes the missing-mod confirmation', async () => {
+      playableSetup()
+      const other = { ...DEMO, id: 'fedcba0123456789', fileName: 'other.dm2' } as DemoRowData
+      await renderView([{ ...DEMO, gameDir: 'opentdm' } as DemoRowData, other])
+      fireEvent.click(screen.getAllByTestId('replays-demo-row')[0])
+      await screen.findByTestId('replays-detail')
+      act(() => published().run())
+      await screen.findByTestId('replays-mod-missing-dialog')
+      act(() => useDemoEditorStore.getState().select(other.id))
+      await vi.waitFor(() => expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull())
+      act(() => useDemoEditorStore.getState().select(DEMO.id))
+      await screen.findByTestId('replays-detail')
+      expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull()
+    })
+
+    it('a double click on Play anyway trusts and plays once', async () => {
+      await selectModMissing()
+      let release: (value: unknown) => void = () => {}
+      trustModWarningModMock.mockReturnValueOnce(
+        new Promise((resolve) => (release = resolve)) as never,
+      )
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-warning-dont-ask'))
+      const confirm = await screen.findByTestId('replays-mod-missing-confirm')
+      fireEvent.click(confirm)
+      fireEvent.click(confirm)
+      await act(async () => {
+        release({ ok: true, value: undefined })
+      })
+      await vi.waitFor(() => expect(playDemoMock).toHaveBeenCalledTimes(1))
+      expect(trustModWarningModMock).toHaveBeenCalledTimes(1)
+      const { usePlaybackStore } = await import('./playback-store')
+      usePlaybackStore.getState().endSession()
+    })
+
+    it('a failed mod-warning read releases the Play guard', async () => {
+      await selectModMissing()
+      readModWarningMock.mockRejectedValueOnce(new Error('ipc down'))
+      act(() => published().run())
+      expect(await screen.findByTestId('replays-mod-missing-dialog')).toBeTruthy()
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-cancel'))
+      act(() => published().run())
+      expect(await screen.findByTestId('replays-mod-missing-dialog')).toBeTruthy()
+      expect(readModWarningMock).toHaveBeenCalledTimes(2)
+    })
+
     it('an unreadable warning state falls back to asking', async () => {
       await selectModMissing()
       readModWarningMock.mockResolvedValueOnce({ ok: false, error: { key: 'x' } } as never)

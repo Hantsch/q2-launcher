@@ -1,4 +1,5 @@
 import type { ReplaysStageRect } from '@shared/modules/replays'
+import { formatGeometry } from './geometry'
 
 /**
  * Story 170: pure helpers for playing a demo on the launcher's stage - whether the platform can
@@ -74,7 +75,12 @@ export function stageGeometry(
     width: cssRect.width * zoomFactor,
     height: cssRect.height * zoomFactor,
   })
-  return `${Math.round(physical.width)}x${Math.round(physical.height)}+${Math.round(physical.x)}+${Math.round(physical.y)}`
+  return formatGeometry(
+    Math.round(physical.width),
+    Math.round(physical.height),
+    Math.round(physical.x),
+    Math.round(physical.y),
+  )
 }
 
 /**

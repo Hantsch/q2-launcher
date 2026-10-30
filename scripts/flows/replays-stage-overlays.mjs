@@ -65,7 +65,7 @@ async function placedNow(page, app) {
             width: dip.width * scale,
             height: dip.height * scale,
           }
-    return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}+${Math.round(p.x)}+${Math.round(p.y)}`
+    return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}${Math.round(p.x) < 0 ? '' : '+'}${Math.round(p.x)}${Math.round(p.y) < 0 ? '' : '+'}${Math.round(p.y)}`
   }, rect)
 }
 
@@ -124,7 +124,7 @@ export default async function replaysStageOverlays({ page, app, step, shot }) {
   })
   const parkX = edge + 64
   const isPark = (l) =>
-    Number(/^set vid_geometry \d+x\d+\+(-?\d+)\+-?\d+$/.exec(l ?? '')?.[1]) === parkX
+    Number(/^set vid_geometry \d+x\d+([+-]\d+)[+-]\d+$/.exec(l ?? '')?.[1]) === parkX
 
   step('a dialog over the stage parks the game, closing it places it again')
   let from = windowLines(files.windowLog).length

@@ -66,6 +66,7 @@ async function expectNewLines(from, expected, label) {
   }
 }
 
+const sg = (n) => (Number(n) < 0 ? `${Number(n)}` : `+${Number(n)}`)
 const geometryLines = (lines) => lines.filter((l) => l.startsWith('set vid_geometry '))
 
 /** The `vid_geometry` line for the picture's box at the window's current place and display (the same
@@ -99,7 +100,7 @@ async function placedNow(page, app) {
             width: dip.width * scale,
             height: dip.height * scale,
           }
-    return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}+${Math.round(p.x)}+${Math.round(p.y)}`
+    return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}${Math.round(p.x) < 0 ? '' : '+'}${Math.round(p.x)}${Math.round(p.y) < 0 ? '' : '+'}${Math.round(p.y)}`
   }, rect)
 }
 
@@ -153,7 +154,7 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
     }
   })
   const size = `${launched.w}x${launched.h}`
-  const parked = `set vid_geometry ${size}+${edge + PARK_MARGIN_PX}+${launched.y}`
+  const parked = `set vid_geometry ${size}+${edge + PARK_MARGIN_PX}${sg(launched.y)}`
 
   step('AC1: a drag parks the game once, then places it once, moved by the delta')
   let from = windowLines(files.windowLog).length
@@ -176,7 +177,7 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   }
   await sleep(SETTLE_MS)
   const dragged = geometryLines(windowLines(files.windowLog).slice(from))
-  const pk = /^set vid_geometry (\d+x\d+)\+(-?\d+)\+(-?\d+)$/.exec(dragged[0] ?? '')
+  const pk = /^set vid_geometry (\d+x\d+)\+?(-?\d+)\+?(-?\d+)$/.exec(dragged[0] ?? '')
   const parkY = pk ? Number(pk[3]) : Number.NaN
   const yLo = Math.min(launched.y, launched.y + STEPS * STEP_PX * scale) - 1
   const yHi = Math.max(launched.y, launched.y + STEPS * STEP_PX * scale) + 1
@@ -191,7 +192,7 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
       `drag: expected exactly [${parked} (Y within the drag), <placed>], got ${JSON.stringify(dragged)}`,
     )
   }
-  const m = /^set vid_geometry (\d+x\d+)\+(-?\d+)\+(-?\d+)$/.exec(dragged[1])
+  const m = /^set vid_geometry (\d+x\d+)\+?(-?\d+)\+?(-?\d+)$/.exec(dragged[1])
   const wantX = launched.x + STEPS * STEP_PX * scale
   const wantY = launched.y + STEPS * STEP_PX * scale
   if (
@@ -206,7 +207,7 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   }
   const placed = dragged[1]
   // After the drag the stage sits at the placed Y, so minimize parks at that Y.
-  const parkedAfter = `set vid_geometry ${size}+${edge + PARK_MARGIN_PX}+${m[3]}`
+  const parkedAfter = `set vid_geometry ${size}+${edge + PARK_MARGIN_PX}${sg(m[3])}`
 
   step('AC2: minimize parks the game, restore places it back')
   from = windowLines(files.windowLog).length
@@ -218,7 +219,7 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   // the game is then re-parked at the new size before it is placed - never placed anywhere else.
   const restoreBy = Date.now() + ENGINE_TIMEOUT_MS
   const isPark = (l) => {
-    const g = /^set vid_geometry \d+x\d+\+(-?\d+)\+(-?\d+)$/.exec(l)
+    const g = /^set vid_geometry \d+x\d+\+?(-?\d+)\+?(-?\d+)$/.exec(l)
     return (
       g !== null &&
       Number(g[1]) === edge + PARK_MARGIN_PX &&

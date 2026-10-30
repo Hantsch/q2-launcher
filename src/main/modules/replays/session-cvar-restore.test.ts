@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,6 +33,28 @@ afterEach(async () => {
 const restorer = () => createCvarRestore({ names: STAGE_CVAR_NAMES, pendingPath })
 const bytes = (text: string): Buffer => Buffer.from(text, 'latin1')
 const readBytes = (): Promise<Buffer> => readFile(configPath)
+
+/** The pid of each pending record, oldest first; a single record is stored bare. */
+function pendingPids(): Array<number | undefined> {
+  const raw = JSON.parse(readFileSync(pendingPath, 'utf8')) as { pid?: number } | { pid?: number }[]
+  return (Array.isArray(raw) ? raw : [raw]).map((record) => record.pid)
+}
+
+/** A next launcher start that sees `alive` running and collects its scheduled retries. */
+function waitingRestorer(alive: number[]) {
+  const running = new Set(alive)
+  const retries: Array<() => void> = []
+  const next = createCvarRestore({
+    names: STAGE_CVAR_NAMES,
+    pendingPath,
+    isAlive: (pid) => running.has(pid),
+    scheduleRetry: (run) => {
+      retries.push(run)
+      return () => undefined
+    },
+  })
+  return { next, running, retries }
+}
 
 describe('session cvar restore', () => {
   it('restores vid_fullscreen and vid_geometry lines byte-exact', async () => {
@@ -142,6 +164,144 @@ describe('session cvar restore', () => {
     expect((await readBytes()).toString('latin1')).toBe('set vid_fullscreen "0"\r\n')
   })
 
+  it('a pending restore waits while the recorded game is still running', async () => {
+    await writeFile(configPath, bytes('set vid_fullscreen "1"\nset name "a"\n'))
+    // A launcher quit with the game left running: snapshot and pid persisted, restore never ran.
+    const quitting = restorer()
+    await quitting.snapshot(configPath)
+    await quitting.recordPid(4242)
+    const stage = 'set vid_fullscreen "0"\nset name "a"\nset vid_geometry "640x360+10+20"\n'
+    await writeFile(configPath, bytes(stage))
+
+    const running = new Set([4242])
+    const retries: Array<() => void> = []
+    const waitingFor: number[] = []
+    const next = createCvarRestore({
+      names: STAGE_CVAR_NAMES,
+      pendingPath,
+      onWaiting: (pid) => waitingFor.push(pid),
+      isAlive: (pid) => running.has(pid),
+      scheduleRetry: (run) => {
+        retries.push(run)
+        return () => undefined
+      },
+    })
+    await next.applyPending()
+    expect((await readBytes()).toString('latin1')).toBe(stage)
+    expect(existsSync(pendingPath)).toBe(true)
+    expect(retries).toHaveLength(1)
+    expect(waitingFor).toEqual([4242])
+
+    running.delete(4242)
+    retries[0]()
+    // Serialised behind the retry's own pass, so this resolves once that pass has finished.
+    await next.restore()
+    expect((await readBytes()).toString('latin1')).toBe('set vid_fullscreen "1"\nset name "a"\n')
+    expect(existsSync(pendingPath)).toBe(false)
+    expect(retries).toHaveLength(1)
+  })
+
+  it('a pending restore without a pid restores at once', async () => {
+    await mkdir(join(tmp, 'userData'), { recursive: true })
+    await writeFile(
+      pendingPath,
+      JSON.stringify({
+        configPath,
+        lines: { vid_fullscreen: 'set vid_fullscreen "1"', vid_geometry: null },
+      }),
+    )
+    await writeFile(configPath, bytes('set vid_fullscreen "0"\nset vid_geometry "640x360+10+20"\n'))
+    const next = createCvarRestore({
+      names: STAGE_CVAR_NAMES,
+      pendingPath,
+      isAlive: () => true,
+      scheduleRetry: () => {
+        throw new Error('a record without a pid never waits')
+      },
+    })
+    await next.applyPending()
+    expect((await readBytes()).toString('latin1')).toBe('set vid_fullscreen "1"\n')
+    expect(existsSync(pendingPath)).toBe(false)
+  })
+
+  it("a new session started while a previous launcher's game still runs leaves that game's record waiting for its exit", async () => {
+    const user = 'set vid_fullscreen "1"\nset name "a"\n'
+    const stage = 'set vid_fullscreen "0"\nset name "a"\nset vid_geometry "640x360+10+20"\n'
+    await writeFile(configPath, bytes(user))
+    const quitting = restorer()
+    await quitting.snapshot(configPath)
+    await quitting.recordPid(4242)
+
+    const { next, running, retries } = waitingRestorer([4242])
+    await next.applyPending()
+    await next.snapshot(configPath)
+    running.add(5151)
+    await next.recordPid(5151)
+    // Each session's record carries its own game's pid.
+    expect(pendingPids()).toEqual([4242, 5151])
+
+    // The new session ends first; the old game is still running and archives the stage on exit.
+    await writeFile(configPath, bytes(stage))
+    running.delete(5151)
+    await next.restore()
+    expect((await readBytes()).toString('latin1')).toBe(user)
+    expect(pendingPids()).toEqual([4242])
+
+    await writeFile(configPath, bytes(stage))
+    running.delete(4242)
+    retries.at(-1)?.()
+    // Serialised behind the retry's own pass.
+    await next.restore()
+    expect((await readBytes()).toString('latin1')).toBe(user)
+    expect(existsSync(pendingPath)).toBe(false)
+  })
+
+  it('a session adopting a record its failed repair left behind records its own pid', async () => {
+    await writeFile(configPath, bytes('set vid_fullscreen "1"\n'))
+    const quitting = restorer()
+    await quitting.snapshot(configPath)
+    await quitting.recordPid(4242)
+    await writeFile(configPath, bytes('set vid_fullscreen "0"\n'))
+
+    const fs = {
+      ...nodeCvarRestoreFs,
+      rename: async (from: string, to: string) => {
+        if (to === configPath) throw Object.assign(new Error('busy'), { code: 'EBUSY' })
+        return nodeCvarRestoreFs.rename(from, to)
+      },
+    }
+    // The old game is gone, but the config cannot be repaired before the next play.
+    const next = createCvarRestore({
+      names: STAGE_CVAR_NAMES,
+      pendingPath,
+      fs,
+      isAlive: () => false,
+    })
+    await next.snapshot(configPath)
+    await next.recordPid(5151)
+    expect(pendingPids()).toEqual([5151])
+    expect(next.originalsLine()).toBe('set vid_fullscreen "1"; reset vid_geometry')
+  })
+
+  it('a pending retry never restores the record of the session that is starting', async () => {
+    await writeFile(configPath, bytes('set vid_fullscreen "1"\n'))
+    const quitting = restorer()
+    await quitting.snapshot(configPath)
+    await quitting.recordPid(4242)
+
+    const { next, running, retries } = waitingRestorer([4242])
+    await next.applyPending()
+    await next.snapshot(configPath)
+    // The old game exits after the new session's snapshot, before its pid is known.
+    running.delete(4242)
+    retries.at(-1)?.()
+    await next.applyPending()
+    expect(existsSync(pendingPath)).toBe(true)
+    expect(pendingPids()).toEqual([undefined])
+    await next.recordPid(5151)
+    expect(pendingPids()).toEqual([5151])
+  })
+
   it('restores con_notifylines and scr_chathud like the stage cvars (story 174 D3)', async () => {
     const kept = 'seta con_notifylines "4"\r\n'
     const before = `// q2pro\r\nset name "Pl\xe4yer"\r\n${kept}set gl_swapinterval "1"\r\n`
@@ -219,6 +379,42 @@ describe('session cvar restore', () => {
     await cvars.restore()
     expect((await readBytes()).toString('latin1')).toBe(before)
     expect(existsSync(pendingPath)).toBe(false)
+  })
+
+  it("a failed restore of one record does not stop the wait for a running game's record", async () => {
+    const deadConfig = join(tmp, 'baseq2', 'dead.cfg')
+    await mkdir(join(tmp, 'userData'), { recursive: true })
+    const record = (path: string, pid: number) => ({
+      configPath: path,
+      lines: { vid_fullscreen: 'set vid_fullscreen "1"', vid_geometry: null },
+      pid,
+    })
+    await writeFile(
+      pendingPath,
+      JSON.stringify([record(deadConfig, 3000), record(configPath, 4242)]),
+    )
+    await writeFile(deadConfig, bytes('set vid_fullscreen "0"\n'))
+    const retries: Array<() => void> = []
+    const fs = {
+      ...nodeCvarRestoreFs,
+      rename: async (from: string, to: string) => {
+        if (to === deadConfig) throw Object.assign(new Error('busy'), { code: 'EBUSY' })
+        return nodeCvarRestoreFs.rename(from, to)
+      },
+    }
+    const next = createCvarRestore({
+      names: STAGE_CVAR_NAMES,
+      pendingPath,
+      fs,
+      isAlive: (pid) => pid === 4242,
+      scheduleRetry: (run) => {
+        retries.push(run)
+        return () => undefined
+      },
+    })
+
+    await expect(next.applyPending()).rejects.toThrow('busy')
+    expect(retries).toHaveLength(1)
   })
 
   it("the config lives in the game dir, or in Q2PRO's Linux write dir", () => {
