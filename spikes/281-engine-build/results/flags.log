@@ -1,0 +1,12 @@
+# Flags of the default build (O2), from .engine-build/build/compile_commands.json and build.ninja
+compile units: 125
+compile units with -fPIC: 0 | in q2pro.js link: no
+compile units with -O0: 0 | in q2pro.js link: no
+compile units with -O1: 0 | in q2pro.js link: no
+compile units with -O2: 125 | in q2pro.js link: yes
+compile units with MAIN_MODULE: 0 | in q2pro.js link: no
+compile units with SIDE_MODULE: 0 | in q2pro.js link: no
+compile units with ASSERTIONS: 0 | in q2pro.js link: no
+compile units with -g: 0 | in q2pro.js link: no
+link: LINK_ARGS = -sERROR_ON_UNDEFINED_SYMBOLS=1 -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2 -sSTACK_SIZE=4MB -O2 -Wl,--start-group subprojects/zlib-ng-2.2.4/libz.a subprojects/libpng-1.6.50/libpng16.a -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web -sFORCE_FILESYSTEM=1 -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=128MB -sMAXIMUM_MEMORY=2GB -sEXPORTED_FUNCTIONS=_main -sEXPORTED_RUNTIME_METHODS=FS,cwrap,HEAPU8,HEAP16 --profiling-funcs -lm -Wl,--end-group
+result: no MAIN_MODULE, SIDE_MODULE, -fPIC, hard-coded -O0 or ASSERTIONS; every unit and the link use -O2 only.

@@ -1,0 +1,9 @@
+command: npm run engine:build -- --opt=O0
+exit: 0
+elapsed seconds (incl. docker image check + clone): 48
+wasm bytes: 2495042
+js bytes: 411234
+wasm-validate (wabt 1.0.36): exit 0 
+sha256 q2pro.wasm: 06574bcd22e9cf2661712df3b0ac116148c48e5d61e6bb103fc024ffb0f2ce26
+checkSymbols(defaultSymbolRules): {"ok":true,"forbidden":[],"missingRequired":[]}
+note: emcc defaults ASSERTIONS=1 at -O0; nothing in the build sets it.

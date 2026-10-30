@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 1/6] web: link the client statically, without a game library
+
+The launcher's web build is a single client module. Drop the MAIN_MODULE/SIDE_MODULE dynamic linking, the side-module import/export list, -fPIC and the gamewasm32.so target.
+---
+ meson.build | 89 ++---------------------------------------------------
+ 1 file changed, 3 insertions(+), 86 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index 9efbe99..d0835f8 100644
+--- a/meson.build
++++ b/meson.build
+@@ -662,74 +662,15 @@ if get_option('game-abi-hack').require(x86 and cc.get_id() == 'gcc' and cc.has_a
+ endif
+ 
+ if web
+-  side_module_imports = [
+-    'acos',
+-    'asin',
+-    'rand',
+-    'strcmp',
+-    'strcpy',
+-    'strchr',
+-    'strrchr',
+-    'qsort',
+-    'strlen',
+-    'strcat',
+-    'strdup',
+-    'strtok',
+-    'strcasecmp',
+-    'strncasecmp',
+-    'free',
+-    'atoi',
+-    'atof',
+-    'sscanf',
+-    'sprintf',
+-    'vsprintf',
+-    'strtof',
+-    'fopen',
+-    'fseek',
+-    'fgets',
+-    'fread',
+-    'fwrite',
+-    'feof',
+-    'fprintf',
+-    'fclose',
+-    'strstr',
+-    'cos',
+-    'sin',
+-    'atan2',
+-    'cosf',
+-    'sinf',
+-    'tanf',
+-    'atan2f',
+-    'strncmp',
+-    'strncpy',
+-    'strnlen',
+-    'memcmp',
+-    'vsnprintf',
+-    'strtol',
+-    'aligned_alloc',
+-    'close',
+-    'read',
+-    '__errno_location',
+-    'strerror',
+-    'malloc',
+-    'snprintf',
+-    'open',
+-    'lseek',
+-    'write',
+-    'time',
+-    'localtime',
+-    'srand',
+-  ]
+-
+   # Avoid optimizer/wasm validation issues seen with this toolchain by
+   # preferring conservative optimization for web builds.
+   add_project_arguments('-O0', language: 'c')
+-  add_project_arguments('-fPIC', language: 'c')
+   add_project_link_arguments('-O0', language: 'c')
+ 
++  # The web client is one statically linked module: it never loads a game
++  # library, so it needs no dynamic linking and no position-independent code.
+   exe_link_args += [
+     '-sWASM=1',
+-    '-sMAIN_MODULE=2',
+     '-sWASM_BIGINT=1',
+     '-sFORCE_FILESYSTEM=1',
+     '-sALLOW_MEMORY_GROWTH=1',
+@@ -740,17 +681,6 @@ if web
+     '-sMAXIMUM_MEMORY=2048MB',
+     '-sEXPORTED_RUNTIME_METHODS=["ccall", "cwrap", "FS", "FS_createPath", "FS_createDataFile", "addRunDependency", "removeRunDependency"]'
+   ]
+-  foreach sym : side_module_imports
+-    exe_link_args += '-Wl,--undefined=' + sym
+-    exe_link_args += '-Wl,--export=' + sym
+-  endforeach
+-  dll_link_args += [
+-    '-sSIDE_MODULE=2',
+-    '-sWASM_BIGINT=1',
+-    '-sEXPORT_ALL=1',
+-    '-sEXPORTED_FUNCTIONS=["_GetGameAPI"]',
+-    '-Wl,--export=GetGameAPI',
+-  ]
+ endif
+ 
+ executable('q2pro', common_src, client_src, refresh_src,
+@@ -776,20 +706,7 @@ if not web
+ 
+ endif
+ 
+-if web
+-  executable('game' + cpu, game_src,
+-    name_prefix:           '',
+-    name_suffix:           'so',
+-    dependencies:          game_deps,
+-    include_directories:   'inc',
+-    gnu_symbol_visibility: 'default',
+-    c_args:                '-fPIC',
+-    link_args:             dll_link_args,
+-    install:               system_wide,
+-    install_dir:           libdir / get_option('base-game'),
+-    override_options:      get_option('game-build-options'),
+-  )
+-else
++if not web
+   shared_library('game' + cpu, game_src,
+     name_prefix:           '',
+     dependencies:          game_deps,

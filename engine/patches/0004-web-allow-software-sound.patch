@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 4/6] web: allow software sound
+
+dma.c builds without a platform driver on web; until one exists, sound stays off at runtime (s_enable 0).
+---
+ meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index cba5af6..f8433c7 100644
+--- a/meson.build
++++ b/meson.build
+@@ -606,7 +606,7 @@ if get_option('client-ui')
+   endif
+ endif
+ 
+-if get_option('software-sound').require(win32 or sdl2.found()).allowed()
++if get_option('software-sound').require(win32 or web or sdl2.found()).allowed()
+   client_src += 'src/client/sound/dma.c'
+   if sdl2.found()
+     client_src += 'src/unix/sound/sdl.c'

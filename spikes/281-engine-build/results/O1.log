@@ -1,0 +1,14 @@
+command: npm run engine:build -- --opt=O1
+exit: 0
+elapsed seconds (incl. docker image check + clone): 45
+wasm bytes: 1079538
+js bytes: 377235
+wasm-validate (wabt 1.0.36): exit 0 
+sha256 q2pro.wasm: b4013d21fcbcefdbb44e834bf754c3d4a987329de6828e992586897edb7e42ea
+checkSymbols(defaultSymbolRules): {"ok":true,"forbidden":[],"missingRequired":[]}
+
+--- earlier variants (before b_staticpic=false; meson compiled the static subprojects with -fPIC)
+1) ninja all targets: libpng pngtest link failed: "Fatal: error in parsing input" / "emcc: error: '/emsdk/upstream/bin/wasm-emscripten-finalize --dyncalls-i64 --pass-arg=legalize-js-interface-exported-helpers subprojects/libpng-1.6.50/pngtest.wasm -o subprojects/libpng-1.6.50/pngtest.wasm --detect-features' failed (returned 1)"; server/send.c:311 "too many arguments provided to function-like macro invocation" (fixed by patch 0006)
+2) ninja q2pro.js only: "wasm-ld: error: initial memory too small, 90729088 bytes needed" (fixed by -sINITIAL_MEMORY=128MB in patch 0005)
+3) INITIAL_MEMORY=128MB: "Fatal: error in parsing input" / "emcc: error: '/emsdk/upstream/bin/wasm-emscripten-finalize -g --dyncalls-i64 --pass-arg=legalize-js-interface-exported-helpers q2pro.wasm -o q2pro.wasm --detect-features' failed (returned 1)"; wasm-validate reported type mismatches only in zlib-ng functable stubs (adler32_stub, chunkmemset_safe_stub, ...)
+4) -Db_staticpic=false in engine/docker/build.sh: O1 builds and validates (above).

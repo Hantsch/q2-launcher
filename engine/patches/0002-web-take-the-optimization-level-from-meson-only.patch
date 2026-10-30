@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 2/6] web: take the optimization level from meson only
+
+Drop the hard-coded -O0 and -sASSERTIONS=2; pass -Doptimization to the emcc link step as well, since emcc applies wasm-opt per the link-time -O level.
+---
+ meson.build | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index d0835f8..38ae741 100644
+--- a/meson.build
++++ b/meson.build
+@@ -662,10 +662,12 @@ if get_option('game-abi-hack').require(x86 and cc.get_id() == 'gcc' and cc.has_a
+ endif
+ 
+ if web
+-  # Avoid optimizer/wasm validation issues seen with this toolchain by
+-  # preferring conservative optimization for web builds.
+-  add_project_arguments('-O0', language: 'c')
+-  add_project_link_arguments('-O0', language: 'c')
++  # Optimization comes only from -Doptimization. emcc runs wasm-opt at link
++  # time according to the -O level it is given there, so the link step must
++  # see the same level as the compile step.
++  if get_option('optimization') not in ['plain', 'g']
++    add_project_link_arguments('-O' + get_option('optimization'), language: 'c')
++  endif
+ 
+   # The web client is one statically linked module: it never loads a game
+   # library, so it needs no dynamic linking and no position-independent code.
+@@ -675,7 +677,6 @@ if web
+     '-sFORCE_FILESYSTEM=1',
+     '-sALLOW_MEMORY_GROWTH=1',
+     '-sNO_EXIT_RUNTIME=1',
+-    '-sASSERTIONS=2',
+     '-sEXPORTED_FUNCTIONS=["_main"]',
+     '-sINITIAL_MEMORY=512MB',
+     '-sMAXIMUM_MEMORY=2048MB',

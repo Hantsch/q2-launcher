@@ -1,0 +1,24 @@
+command: npm run engine:build
+exit: 0
+elapsed seconds (incl. docker image check + clone): 50
+wasm bytes: 1013566
+js bytes: 205455
+wasm-validate (wabt 1.0.36): exit 0 
+sha256 q2pro.wasm: aa92eb37be2b136b918d5a84cf4c78c20c670393f2ae7d5e50554c71e7cd4a1b
+checkSymbols(defaultSymbolRules): {"ok":true,"forbidden":[],"missingRequired":[]}
+--- second build, same tree (reproducibility)
+exit: 0
+elapsed seconds (incl. docker image check + clone): 51
+wasm bytes: 1013566
+js bytes: 205455
+wasm-validate (wabt 1.0.36): exit 0 
+sha256 q2pro.wasm: aa92eb37be2b136b918d5a84cf4c78c20c670393f2ae7d5e50554c71e7cd4a1b
+checkSymbols(defaultSymbolRules): {"ok":true,"forbidden":[],"missingRequired":[]}
+reproducible: identical sha256 over both builds (and an earlier O2 build of the same tree)
+
+--- earlier variants (before b_staticpic=false; meson compiled the static subprojects with -fPIC)
+1) ninja all targets: libpng pngtest link failed: "Fatal: error in parsing input" / "emcc: error: '/emsdk/upstream/bin/wasm-emscripten-finalize --dyncalls-i64 --pass-arg=legalize-js-interface-exported-helpers subprojects/libpng-1.6.50/pngtest.wasm -o subprojects/libpng-1.6.50/pngtest.wasm --detect-features' failed (returned 1)"; server/send.c:311 "too many arguments provided to function-like macro invocation" (fixed by patch 0006)
+2) ninja q2pro.js only: "wasm-ld: error: initial memory too small, 90729088 bytes needed" (fixed by -sINITIAL_MEMORY=128MB in patch 0005)
+3) INITIAL_MEMORY=128MB: "Fatal: error in parsing input" / "emcc: error: '/emsdk/upstream/bin/wasm-emscripten-finalize -g --dyncalls-i64 --pass-arg=legalize-js-interface-exported-helpers q2pro.wasm -o q2pro.wasm --detect-features' failed (returned 1)"; wasm-validate reported type mismatches only in zlib-ng functable stubs (adler32_stub, chunkmemset_safe_stub, ...)
+4) -Db_staticpic=false in engine/docker/build.sh (no -fPIC anywhere): builds and validates, see above. Cheapest variant, tried first; no zlib-ng option change or patch 0007 needed.
+symbols: --profiling-funcs keeps names at O2; main, Com_LPrintf, CL_Init, SV_Init present. SV_InitGameProgs (listen server, src/server/game.c) is present at O0/O1 and inlined away at O2, so it is not a forbidden name.

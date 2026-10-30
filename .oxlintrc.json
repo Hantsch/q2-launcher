@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "react", "import", "unicorn", "oxc"],
-  "ignorePatterns": ["out/", "dist/", "release/", "node_modules/", "vendor/"],
+  "ignorePatterns": ["out/", "dist/", "release/", "node_modules/", "vendor/", ".engine-build/"],
   "categories": { "correctness": "error" },
   "rules": {
     "react-hooks/rules-of-hooks": "error",

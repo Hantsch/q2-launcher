@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 6/6] server: match the SV_MvdMulticast stub to its
+ three-argument call
+
+With -Dmvd-server=false the stub macro took two arguments while send.c passes three, which fails to compile.
+---
+ src/server/server.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/server/server.h b/src/server/server.h
+index 47b1712..80bc30b 100644
+--- a/src/server/server.h
++++ b/src/server/server.h
+@@ -672,7 +672,7 @@ void SV_MvdStop_f(void);
+ #define SV_MvdClientDropped(client) (void)0
+ 
+ #define SV_MvdUnicast(ent, clientNum, reliable)     (void)0
+-#define SV_MvdMulticast(leafnum, to)                (void)0
++#define SV_MvdMulticast(leaf, to, reliable)         (void)0
+ #define SV_MvdConfigstring(index, string, len)      (void)0
+ #define SV_MvdBroadcastPrint(level, string)         (void)0
+ #define SV_MvdStartSound(entnum, channel, flags, \

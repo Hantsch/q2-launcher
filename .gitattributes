@@ -32,3 +32,6 @@
 
 # Vendored 7-Zip binaries (7za, 7za.exe).
 resources/bin/7za* binary
+
+# The engine container runs these on Linux (story 281).
+engine/** text eol=lf

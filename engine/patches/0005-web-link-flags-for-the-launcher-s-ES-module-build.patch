@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 5/6] web: link flags for the launcher's ES module build
+
+Modularized ES6 factory for the web environment, WebGL 2 only, memory growth up to 2GB instead of a fixed 200MB heap, FS/cwrap/HEAP views exported, function names kept for profiling.
+---
+ meson.build | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index f8433c7..71b2e6c 100644
+--- a/meson.build
++++ b/meson.build
+@@ -250,7 +250,6 @@ if cc.get_argument_syntax() == 'gcc'
+       '-sMAX_WEBGL_VERSION=2',
+       '-sMIN_WEBGL_VERSION=2',
+       '-sSTACK_SIZE=4MB',
+-      '-sTOTAL_MEMORY=200MB',
+     ]
+   endif
+ elif cc.get_id() == 'msvc'
+@@ -671,16 +670,21 @@ if web
+ 
+   # The web client is one statically linked module: it never loads a game
+   # library, so it needs no dynamic linking and no position-independent code.
++  # The launcher imports q2pro.js as an ES module factory and feeds game data
++  # through FS; memory grows on demand. The initial size only has to hold the
++  # static data (~87MB of fixed-size engine tables) plus the 4MB stack:
++  # wasm-ld rejects emscripten's 16MB default.
+   exe_link_args += [
+-    '-sWASM=1',
+-    '-sWASM_BIGINT=1',
++    '-sMODULARIZE=1',
++    '-sEXPORT_ES6=1',
++    '-sENVIRONMENT=web',
+     '-sFORCE_FILESYSTEM=1',
+     '-sALLOW_MEMORY_GROWTH=1',
+-    '-sNO_EXIT_RUNTIME=1',
+-    '-sEXPORTED_FUNCTIONS=["_main"]',
+-    '-sINITIAL_MEMORY=512MB',
+-    '-sMAXIMUM_MEMORY=2048MB',
+-    '-sEXPORTED_RUNTIME_METHODS=["ccall", "cwrap", "FS", "FS_createPath", "FS_createDataFile", "addRunDependency", "removeRunDependency"]'
++    '-sINITIAL_MEMORY=128MB',
++    '-sMAXIMUM_MEMORY=2GB',
++    '-sEXPORTED_FUNCTIONS=_main',
++    '-sEXPORTED_RUNTIME_METHODS=FS,cwrap,HEAPU8,HEAP16',
++    '--profiling-funcs',
+   ]
+ endif
+ 

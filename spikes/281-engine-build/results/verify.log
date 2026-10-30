@@ -1,0 +1,18 @@
+PASS a clean build writes q2pro.js and q2pro.wasm (40s)
+PASS the build checks out the UPSTREAM commit (0s)
+PASS a patch that does not apply fails the build and writes no artefact (7s)
+PASS two builds produce the same wasm hash (73s)
+PASS check-config shows curl and openal disabled and no server or game target (30s)
+PASS the artefact carries no server, game, curl or openal symbols (1s)
+PASS each optimisation level builds its own artefact (185s)
+PASS a build leaves the working tree clean (0s)
+all checks passed
+
+# partial run (--only=patch)
+PASS a patch that does not apply fails the build and writes no artefact (8s)
+all checks passed
+
+# partial run (--only=clean)
+PASS a clean build writes q2pro.js and q2pro.wasm (44s)
+PASS a build leaves the working tree clean (0s)
+all checks passed

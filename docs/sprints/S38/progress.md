@@ -1,0 +1,20 @@
+- 2026-10-30 17:10 · refine · 281-291 · started
+- 2026-10-30 17:16 · refine · 281-291 · done
+- 2026-10-30 17:16 · 281 · build · started
+- 2026-10-30 17:17 · 281 · D1 Engine build helpers · started
+- 2026-10-30 17:18 · 281 · D1 Engine build helpers · done
+- 2026-10-30 17:19 · 281 · D2 Reproducible container build · started
+- 2026-10-30 17:24 · 281 · D2 Reproducible container build · done
+- 2026-10-30 17:24 · 281 · D3 Patch series and -O spike · started
+- 2026-10-30 17:54 · 281 · D3 Patch series and -O spike · done
+- 2026-10-30 17:54 · 281 · D4 Real-build verifier and engine lane · started
+- 2026-10-30 18:09 · 281 · D4 Real-build verifier and engine lane · done
+- 2026-10-30 18:09 · 281 · D5 Spike result · started
+- 2026-10-30 18:11 · 281 · D5 Spike result · done
+- 2026-10-30 18:11 · 281 · verify · started
+- 2026-10-30 18:18 · 281 · verify · done
+- 2026-10-30 18:18 · 281 · review 1 · started
+- 2026-10-30 18:20 · 281 · review 1 · done
+- 2026-10-30 18:20 · 281 · D6 review fixes · started
+- 2026-10-30 18:22 · 281 · D6 review fixes · done
+- 2026-10-30 18:22 · 281 · story · done

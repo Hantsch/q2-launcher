@@ -15,6 +15,7 @@ dist/
 *.log
 # Test fixtures are real captures, not run output.
 !**/__fixtures__/*.log
+!spikes/*/results/*.log
 npm-debug.log*
 
 .env
@@ -38,3 +39,8 @@ resources/bin/7zz
 resources/bin/*.7z
 resources/bin/*.tar.xz
 resources/bin/.fetch-7za-tmp/
+
+# WebAssembly engine build (scripts/engine/build.mjs, story 281)
+.engine-build/
+resources/engine/*.js
+resources/engine/*.wasm

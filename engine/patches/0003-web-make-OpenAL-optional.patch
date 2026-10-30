@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 3/6] web: make OpenAL optional
+
+Honour -Dopenal on web instead of always requiring it; the launcher build has no OpenAL.
+---
+ meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index 38ae741..cba5af6 100644
+--- a/meson.build
++++ b/meson.build
+@@ -528,7 +528,7 @@ if web
+   openal = dependency('openal',
+     method: 'system',
+     fallback: 'openal-soft',
+-    required: true,
++    required: get_option('openal'),
+   )
+ else
+   openal = dependency('openal',

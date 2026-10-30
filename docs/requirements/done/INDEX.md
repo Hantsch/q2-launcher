@@ -383,3 +383,4 @@ second roadmap.
 - 326 — Platform decisions in playback stay behind the seam · S37 · plan.ts owns playback platform choice, X11 keeper reports stray errors/auth family/parked and re-raises the overlay
 - 327 — OpenTDM installs on a 64-bit Q2PRO · S37 · OpenTDM gets a content-only package (example config, visible not-playable reason); flow proves remove and noVariant refusal
 - 324 — Styles use tokens only, and UI kit controls keep their own rules · S37 · colour and font-size tokens with scanning checks, Radio 24px floor, canSubmit and tab-panel labelling fixed, memoised Controls rows
+- 281 — The engine builds reproducibly as WebAssembly · S38 · npm run engine:build builds Q2PRO (MashedD @ 3139866 + 6 patches) in a pinned container, O2 validates, engine:verify lane and spike result
