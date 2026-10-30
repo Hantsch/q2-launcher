@@ -13,7 +13,7 @@ player.
 
 Context:
 
-- [concept §8.3](../concepts/integrated-demo-player.md) (overlays off), [concept §8.5](../concepts/integrated-demo-player.md), [concept §9.5](../concepts/integrated-demo-player.md); success criteria K1 and K3.
+- [concept §8.3](../../concepts/integrated-demo-player.md) (overlays off), [concept §8.5](../../concepts/integrated-demo-player.md), [concept §9.5](../../concepts/integrated-demo-player.md); success criteria K1 and K3.
 - Building blocks: mode and eligibility ([[287]]), `integrated.prepare` and `/engine-data/`
   ([[289]]), `EngineCanvas` and loader ([[290]]).
 - Today's play path in the renderer: `src/renderer/src/modules/replays/useDemoPlay.ts` (`play`),

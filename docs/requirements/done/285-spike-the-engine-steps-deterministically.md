@@ -15,7 +15,7 @@ recommendation, no production code (the engine patch is committed under `engine/
 
 Context:
 
-- [concept §8.2](../concepts/integrated-demo-player.md) (main loop and time), [concept §10.1](../concepts/integrated-demo-player.md) (step mode), [concept §13](../concepts/integrated-demo-player.md) (test
+- [concept §8.2](../../concepts/integrated-demo-player.md) (main loop and time), [concept §10.1](../../concepts/integrated-demo-player.md) (step mode), [concept §13](../../concepts/integrated-demo-player.md) (test
   strategy), risk R3 (randomness, occlusion queries, integer ms, GPU variance).
 - Engine time path: `Qcommon_Frame` in `vendor/q2pro/src/common/common.c` (`NET_Sleep`,
   `Sys_Milliseconds`, `fixedtime`, `timescale`); `CL_Frame` and `CL_UpdateFrameTimes` in

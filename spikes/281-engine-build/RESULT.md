@@ -27,7 +27,7 @@ Time includes the docker image check and clone.
 
 ## Base: MashedD fork vs upstream mirror
 
-**MashedD patch series:** 291 lines (`cat engine/patches/*.patch | wc -l`, 6 patches).
+**MashedD patch series:** 975 lines (`cat engine/patches/*.patch | wc -l`, 10 patches). This spike measured 291 lines in patches 0001..0006; 0007..0010 were added by later stories (285, 286, 290, 291).
 
 **Upstream mirror patch series:** about 1322 lines = 291 (our series) + 1031 (mashed's web-target diff against `vendor/q2pro`).
 Method: files in mashed that mention emscripten, webgl or wasm, `git diff --no-index --numstat` against `vendor/q2pro`, added + removed lines.

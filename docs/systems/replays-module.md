@@ -8,17 +8,12 @@ Contract: `src/shared/modules/replays.ts`.
 
 - Discover demos (also in zip archives) across installations and user-added folders; index header facts in a disposable cache.
 - Let the user sort, filter, rename and annotate demos (tags, rating, favourite, sides) in a sidecar next to the demo; it also
-  carries time-anchored comments (`comments`: demo time in ms plus text, at most 200 of 500 characters, sorted by time).
+  carries time-anchored comments (`comments`: demo ms plus text, at most 200 of 500 characters, sorted by time).
 - Play a demo in Q2PRO and steer it, on the launcher's stage or in cinema mode; R1Q2 plays it, stop only. Playback has an engine mode (Q2PRO, today's path) and an integrated mode (opt-in, experimental): the integrated player runs the in-launcher engine on the demo stage. `demoPlayEligibility` takes the mode.
 
 ### Scope
 
-The scan is global; the list is scoped in the view. `scopeDemoRows` (`src/shared/replays/list-scope.ts`) keeps a row from an extra
-folder or when `reachedBy` (absent = its own installation) holds the rail's installation, so a folder shared by two installations
-lists in both. An "All installations" toggle (view state, off by default) lifts the scope. Filter options, tag suggestions and
-counts follow the scoped rows; the filter value survives an installation switch. An empty list says why
-(`deriveReplaysListState`): no installation registered or selected, or the selected one has no demos (naming its folders,
-`demoFolders.read`). The source-error strip shows only in-scope sources (`scopeSourceErrors`) unless the toggle is on.
+The scan is global; the list is scoped in the view. `scopeDemoRows` (`src/shared/replays/list-scope.ts`) keeps a row from an extra folder or when `reachedBy` (absent = its own installation) holds the rail's installation, so a folder shared by two installations lists in both. An "All installations" toggle (view state, off by default) lifts the scope. Filter options, tag suggestions and counts follow the scoped rows; the filter value survives an installation switch. An empty list says why (`deriveReplaysListState`): no installation registered or selected, or the selected one has no demos (naming its folders, `demoFolders.read`). The source-error strip shows only in-scope sources (`scopeSourceErrors`) unless the toggle is on.
 
 ## Map
 
@@ -40,47 +35,47 @@ counts follow the scoped rows; the filter value survives an installation switch.
 
 - `modules/replays.ts` — handler map, events, schemas and the typed `ReplaysContract`.
 - `replays/` — `sidecar.ts`, `list-sort.ts`, `list-filter.ts`, `name-template.ts`, `name-templates.ts`, `demo-comments.ts`,
-  `demo-rename.ts`, `demo-play.ts`, `player-mode.ts`, `demo-control.ts`, `timeline.ts`, `console-line.ts`, `cinema.ts`; `demos/` — header, frame and
-  readability readers.
+  `demo-rename.ts`, `demo-play.ts`, `player-mode.ts`, `demo-control.ts`, `timeline.ts`, `console-line.ts`, `cinema.ts`; `demos/` —
+  header, frame and readability readers.
 
 **Renderer** (`src/renderer/src/modules/replays/`)
 
-- `ReplaysView.tsx`, `components/VirtualDemoList.tsx`, `components/DemoRow.tsx`, `DemoListFilterBar.tsx`, `ReplaysListStatus.tsx`
-  — the list.
-- `components/BulkActionBar.tsx`, `components/SelectionSummary.tsx`, `useBulkActions.ts` — the Delete/Tag/Move bar shows from
-  one selected demo (and while an outcome is shown). The detail pane is always present beside the list: empty
-  until a demo is chosen, the demo's detail for one, the selection summary from two.
+- `ReplaysView.tsx`, `components/VirtualDemoList.tsx`, `components/DemoRow.tsx`, `DemoListFilterBar.tsx`, `ReplaysListStatus.tsx` — the list.
+- `components/BulkActionBar.tsx`, `components/SelectionSummary.tsx`, `useBulkActions.ts` — the Delete/Tag/Move bar shows from one
+  selected demo (and while an outcome is shown). The detail pane beside the list is empty until a demo is chosen, then its detail,
+  and the selection summary from two.
 - `components/DemoDetailPanel.tsx`, `components/InPlaceField.tsx`, `components/TagInput.tsx`, `components/SidesField.tsx`,
   `components/SidesEditor.tsx`, `RenameDemoDialog.tsx` — the detail is one view, edited in place: every text fact is an
   `InPlaceField` saving per field (Enter or leaving it; Escape reverts) through the editor store's single `edit` write path; the
   roster opens `SidesEditor`, saved when focus leaves it; an archive entry is read-only.
-- `components/DemoCommentsList.tsx` — the detail's time-sorted comment list (edit in place, delete; read-only for an archive entry);
-  changes go through the editor store's `commentEdit`, applied to the freshly read sidecar in the per-demo write queue.
+- `components/DemoCommentsList.tsx` — the detail's time-sorted comments (edit, delete; read-only for an archive entry) via the editor
+  store's `commentEdit`, applied to the freshly read sidecar in the per-demo write queue.
 - `components/TimelineComments.tsx` — the strip's comment marks and Add-comment field. Marks sit in a layer beside the
   `role="slider"` element (a mark's click is not also a bar seek) and seek to `floor(atMs / 1000)`. Add comment pins the shown
-  position, then pauses; field and hover bubble stay inside the strip (the native game window covers the stage above it). No
-  comment controls in fullscreen or the cinema overlay. "Play from here" seeks a session on that demo, else plays it.
-- `integrated/` — the integrated host (story 290). `engine-loader.ts` is a singleton that owns the engine canvas and its WebGL context for the whole session: `EngineCanvas.tsx` only attaches and detaches it, so a remount re-attaches the same instance (`instances` stays 1). The drawing buffer has one owner, `EngineCanvas`, which keeps it at CSS size x `devicePixelRatio` in JS and calls `_q2l_resize`. `fake-engine.ts` stands in for the WASM build in flows and tests: the harness serves it from `Q2L_UI_ENGINE_DIR` and exposes counters on `globalThis.__q2lFakeEngine`; the flow is `scripts/flows/replays-integrated-canvas.mjs`. `integrated-session.ts` runs one Play (prepare, fetch the manifest from `/engine-data/<token>/<index>` into MEMFS under `/q2`, `callMain` once per instance with the session cvars, later demos via console, release on Stop); `engine-console.ts` captures the engine's console text into a 500-line ring; the flow is `scripts/flows/replays-play-integrated.mjs`.
+  position, then pauses; field and bubble stay inside the strip (the native game window covers the stage above it). No comment
+  controls in fullscreen or cinema. "Play from here" seeks a session on that demo, else plays it.
+- `integrated/` — the integrated host (story 290): `engine-loader.ts` is a singleton owning the engine canvas and its WebGL context
+  for the session (`EngineCanvas.tsx` attaches it, sizes the buffer to CSS x `devicePixelRatio`); `fake-engine.ts` stands in for
+  the WASM build in flows (`Q2L_UI_ENGINE_DIR`); `integrated-session.ts` runs one Play (prepare, manifest from `/engine-data/<token>/<index>`
+  into MEMFS `/q2`, `callMain` once, later demos via console, release on Stop); `engine-console.ts` keeps a 500-line ring.
 - `components/DemoStatsPanel.tsx` — the detail's OpenTDM accuracy table (one row per item, totals below), rendered from `row.stats` alone and absent when the row has none.
 - `components/DemoPlayersPanel.tsx` — players by side — two teams side by side, otherwise stacked; side colours from `--color-side-1/2`; `components/DemoStage.tsx`, `components/DemoTimeline.tsx` (takes the
   session's `demo` and `onRowPatched` for comments), `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `playback-mode-store.ts`, `components/PlaybackModeSwitch.tsx`, `useDemoPlay.ts` — playback. `beginSession(..., { startAtS })` keeps `pendingSeekS`; the first position sample sends one `seekTo`. Also `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
 
 **Parser and index facts**
 
-- Each index row carries `roster`: `{ teams: { name, players }[], spectators }`, or `null` when unknown, collected by
-  `shared/demos/dm2-roster.ts` in the one existing frame-count pass (`readDemoFullPass` for a loose file, `zip-demos.ts` for an
-  archive entry), never a second read.
-- A row also carries `stats` (the recording player's end-of-match accuracy table and totals) when the demo has one, otherwise the
-  key is omitted. `shared/demos/dm2-stats.ts` collects it in that same single pass, through `shared/demos/dm2-facts.ts` (roster
-  and stats collectors behind one observer); the last complete OpenTDM block wins and a map change does not reset it.
+- Each index row carries `roster`: `{ teams: { name, players }[], spectators }` or `null`, collected by `shared/demos/dm2-roster.ts`
+  in the one existing frame-count pass (`readDemoFullPass`, `zip-demos.ts`), never a second read. It also carries `stats` (the
+  recording player's end-of-match accuracy table) when present, else the key is omitted; `dm2-stats.ts` collects it in that pass
+  through `dm2-facts.ts`; the last complete OpenTDM block wins and a map change does not reset it.
 - Teams: OpenTDM takes a team from the slot string `name (team)` while it names the slot's current player (the last scoreboard's
   `Spectators` section overrides); CTF uses `ctf_r` / `ctf_b` skins.
 - A change to the cached row shape bumps `REPLAYS_INDEX_CACHE_VERSION` (`index-cache.ts`).
 
 ## Persisted state
 
-`persisted.ts` stores the `replays` slot of state.json, every part parsed forgivingly. Elsewhere: the index cache
-replays-index.json (regenerable), one sidecar per demo.
+`persisted.ts` stores the `replays` slot of state.json, every part parsed forgivingly. Elsewhere: the index cache replays-index.json
+(regenerable), one sidecar per demo.
 
 - `nameTemplates` — stored entries (shipped overrides, user templates) and removed shipped ids; `extraFolders` — user-added demo
   folders, unique by normalised path.
@@ -101,11 +96,10 @@ replays-index.json (regenerable), one sidecar per demo.
   an override, clear every tombstone.
 - `extraFoldersList` / `extraFoldersAdd` / `extraFoldersRemove` — the extra folders; add refuses invalid or duplicate paths.
 - `scanStart` — starts a background scan; `foldersRead` — every folder of every demo source, empty and zip ones included;
-  `sidecarRead` / `sidecarWrite` — a demo's sidecar by id (or none), full-replace save.
-- `listGetSort` / `listSetSort` / `listGetFilter` / `listSetFilter` — the persisted sort and filter.
-- `modWarningRead`, `modWarningSetEnabled`, `modWarningTrustMod`, `modWarningResetTrusted` — read, switch, trust a game dir, clear
-  them.
-- `playbackMode.read` / `playbackMode.set` — the persisted player mode; set returns the stored value.
+  `sidecarRead` / `sidecarWrite` — a demo's sidecar by id (or none), full-replace save; `listGetSort` / `listSetSort` /
+  `listGetFilter` / `listSetFilter` — the persisted sort and filter.
+- `modWarningRead`, `modWarningSetEnabled`, `modWarningTrustMod`, `modWarningResetTrusted` — read, switch, trust a game dir, clear.
+- `playbackModeRead` / `playbackModeSet` — the persisted player mode; set returns the stored value.
 - `demosReveal` / `demosCopyPath` / `demoRename` — reveal, copy the resolved path, rename demo+sidecar.
 - `demoMove` — moves a loose demo and its sidecar into another folder of a source (target real path inside the root). Refuses
   archive entries and folders, a playing demo, a running scan, a clash.
@@ -123,10 +117,9 @@ replays-index.json (regenerable), one sidecar per demo.
   demo already in the target. All four refuse while a scan runs.
 - `demoFoldersRead` — an installation's absolute `demos` folders (display only); `demoPlay` — plays a demo. In an R1Q2
   installation it launches `+demomap <file>`, Stop only; its whole config file is restored after the session (stufftext).
-- `integratedPrepare` — takes `{ demoId, installationId }`, never a path; main resolves the demo, game dir and every file the
-  in-app engine may read, pins them and answers `{ token, gameDir, files, demo }` (index, vpath, size only). One token is active:
-  a new prepare replaces it. Refuses over the data limit or when overtaken by a later prepare.
-- `integratedRelease` — takes `{ token }` and drops it when it is the active one; any other token is a no-op.
+- `integratedPrepare` — takes `{ demoId, installationId }`, never a path; main pins the demo, game dir and every file the engine
+  may read and answers `{ token, gameDir, files, demo }`. One token is active: a new prepare replaces it; refuses over the data
+  limit. `integratedRelease` — takes `{ token }`, drops it when active, else a no-op.
 - `playbackVolume` — sets the running game's `s_volume` (percent + mute; mute sends 0, latest value wins while a line is in
   flight).
 - `playbackTimeline` / `playbackConsoleSend` / `playbackStage` / `playbackStop` / `playbackCinema` / `playbackDisplayRead` —
@@ -146,14 +139,9 @@ volume, cinema availability, stage notice).
 
 ## Limitations
 
-- Playback needs Q2PRO or R1Q2; an installation of another engine plays through its detected, supported Q2PRO (or R1Q2). R1Q2
-  refuses `.mvd2`, `.gz` and protocols other than 34/35, and has no stage, cinema, pause, speed, seek, position or volume. A demo
-  outside the Quake filesystem is played from a temporary copy; a `.gz` is not decompressed by the launcher.
-- Stage placement depends on the platform's window system; nested archives are not expanded. An `.mvd2` demo has no roster and no
-  stats; an OpenTDM 1v1 demo cut off before the match ends has no teams. Only OpenTDM's "Stats for" format is read for stats.
-- Quit-time stage restore: the pending record carries the game's pid; `applyPending` retries every 2 s while it is alive (on
-  Windows the only guarantee; Linux also sends a last console line). `vid_geometry` origins are single-sign (`200x100-1920+0`).
-- Integrated host: pointer lock is removed, so the engine's mouse-look is inactive; the canvas takes no focus and the engine receives no keys. A lost WebGL context is final for the instance and shows `replays.integrated.error.contextLost` until the next Play.
-- Integrated mode: no timeline control or sound yet.
+- Playback needs Q2PRO or R1Q2; an installation of another engine plays through its detected, supported Q2PRO (or R1Q2). R1Q2 refuses `.mvd2`, `.gz` and protocols other than 34/35, and has no stage, cinema, pause, speed, seek, position or volume. A demo outside the Quake filesystem is played from a temporary copy; a `.gz` is not decompressed by the launcher.
+- Stage placement depends on the platform's window system; nested archives are not expanded. An `.mvd2` demo has no roster or stats; a cut-off OpenTDM 1v1 demo has no teams. Only OpenTDM's "Stats for" format is read.
+- Quit-time stage restore: the pending record carries the game's pid; `applyPending` retries every 2 s while it is alive (on Windows the only guarantee; Linux also sends a last console line). `vid_geometry` origins are single-sign (`200x100-1920+0`).
+- Integrated mode: no pointer lock (no mouse-look), no focus or keys for the engine, no timeline control or sound yet. A lost WebGL context is final for the instance (`replays.integrated.error.contextLost`) until the next Play.
 - A stop whose kill succeeds without an exit event is settled by main after 5 s: the launch ends as for an exit, the UI returns to idle.
 - Play refuses with `replays.play.error.gameDirMissing` when the mod game dir does not exist; a failed "don't ask again" trust keeps the dialog open.

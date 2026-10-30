@@ -13,7 +13,7 @@ path at any time.
 
 Context:
 
-- [concept §9.5](../concepts/integrated-demo-player.md) (switching modes), [concept §9.2](../concepts/integrated-demo-player.md) (capabilities per mode); default mode is an
+- [concept §9.5](../../concepts/integrated-demo-player.md) (switching modes), [concept §9.2](../../concepts/integrated-demo-player.md) (capabilities per mode); default mode is an
   open point of the concept.
 - Persistence: `src/main/modules/replays/persisted.ts` (forgiving parse like `demoVolume`),
   golden test `src/main/modules/persisted-state.golden.test.ts`. Contract:

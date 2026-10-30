@@ -17,7 +17,7 @@ recommendation, no production code.
 
 Context:
 
-- [concept §10.4](../concepts/integrated-demo-player.md) (encoder selection and fallback), [concept §10.5](../concepts/integrated-demo-player.md) (streaming), [concept §8.3](../concepts/integrated-demo-player.md)
+- [concept §10.4](../../concepts/integrated-demo-player.md) (encoder selection and fallback), [concept §10.5](../../concepts/integrated-demo-player.md) (streaming), [concept §8.3](../../concepts/integrated-demo-player.md)
   (`preserveDrawingBuffer`), risks R4 and R5.
 - Electron 43.8.4 (`node_modules/electron/package.json`). External facts:
   [electron/electron#55456](https://github.com/electron/electron/issues/55456) (Linux VA-API crash),

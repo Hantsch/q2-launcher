@@ -16,7 +16,7 @@ recommendation, no production code (the engine patch is committed under `engine/
 
 Context:
 
-- [concept §8.4](../concepts/integrated-demo-player.md) (audio), [concept §10.1](../concepts/integrated-demo-player.md) (step mode and audio capture), risk R6 (not exactly
+- [concept §8.4](../../concepts/integrated-demo-player.md) (audio), [concept §10.1](../../concepts/integrated-demo-player.md) (step mode and audio capture), risk R6 (not exactly
   `48·ms` samples per step because of mixahead or skipped refreshes).
 - DMA path: `vendor/q2pro/src/client/sound/dma.c` (`s_drivers[]`, `DMA_Init`, `DMA_Update`,
   `PaintChannels`), `vendor/q2pro/inc/client/sound/dma.h` (`dma_t`, `snddma_driver_t`), model

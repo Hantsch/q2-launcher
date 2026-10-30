@@ -17,8 +17,8 @@ reference for upstream behaviour.
 
 Context:
 
-- [concept §8.1](../concepts/integrated-demo-player.md) (source base and build), [concept §8.7](../concepts/integrated-demo-player.md) (switched-off parts), risks R1 (`-O2`
-  fails WASM validation) and R11 (base fork) in [concept §11](../concepts/integrated-demo-player.md).
+- [concept §8.1](../../concepts/integrated-demo-player.md) (source base and build), [concept §8.7](../../concepts/integrated-demo-player.md) (switched-off parts), risks R1 (`-O2`
+  fails WASM validation) and R11 (base fork) in [concept §11](../../concepts/integrated-demo-player.md).
 - Existing web target in MashedD/q2pro @ `3139866`: `build-web.sh`, `cross-web.txt`, the `web`
   branch of `meson.build`, `src/unix/video/emscripten.c`. Read-only clones under
   `vendor/q2pro-mashed/` and `vendor/q2pro/` (not committed).

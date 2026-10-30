@@ -1,6 +1,6 @@
 ---
 sprint: S38
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: dev # set by /sprint
 milestone: 12.1 — Toolchain and spikes; 12.2 — Playback in the canvas
 ---
@@ -37,3 +37,14 @@ milestone: 12.1 — Toolchain and spikes; 12.2 — Playback in the canvas
 ## Regression gate
 
 <!-- Filled by `/sprint` phase 2b: the commands run, minutes taken, result, commit, and a verdict per failure. -->
+
+Run on `59f69962` (HEAD after 291), Windows.
+
+| Command                                        | Result                                                                                                                                                                                                                                                                             | Min     |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `npm run build`                                | green                                                                                                                                                                                                                                                                              | <1      |
+| `npm test`                                     | green — 659 files, 7883 passed, 9 skipped                                                                                                                                                                                                                                          | <1      |
+| `npm run ui:verify`                            | green on the dev build (118/118 shots, 0 unreachable, 0 critical/serious axe, 1 moderate on `config-conflict-dialog`). The first run on a production `out/` showed `mods`/`assets` unreachable: those modules exist only in `build:dev`; an environment mismatch, not a regression | ~2 + ~3 |
+| `npm run ui:flows -- --parallel=4` (`e2e-all`) | green — 184/184 flows                                                                                                                                                                                                                                                              | 22      |
+
+No failures, no attribution, no quarantine entries, no unexpected pass.

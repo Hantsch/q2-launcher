@@ -16,8 +16,8 @@ a recommendation, no production code.
 
 Context:
 
-- [concept §8.5](../concepts/integrated-demo-player.md) (file system and game data), [concept §8.6](../concepts/integrated-demo-player.md) (embedding in Electron),
-  [concept §8.3](../concepts/integrated-demo-player.md) (renderer), risks R2 (RAM through MEMFS), R8 (synchronous load
+- [concept §8.5](../../concepts/integrated-demo-player.md) (file system and game data), [concept §8.6](../../concepts/integrated-demo-player.md) (embedding in Electron),
+  [concept §8.3](../../concepts/integrated-demo-player.md) (renderer), risks R2 (RAM through MEMFS), R8 (synchronous load
   freezes the UI), R9 (CSP).
 - Engine artefact from [[281]]: `resources/engine/q2pro.js`, `resources/engine/q2pro.wasm`.
 - Launcher security: `src/main/window-shared.ts` `rendererWebPreferences` (`contextIsolation`,

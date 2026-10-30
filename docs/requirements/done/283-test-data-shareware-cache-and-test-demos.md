@@ -13,7 +13,7 @@ without a retail installation and without committing game data.
 
 Context:
 
-- [concept §13](../concepts/integrated-demo-player.md) (test strategy, test demos), risk R13, licence point L8 in [concept §12](../concepts/integrated-demo-player.md).
+- [concept §13](../../concepts/integrated-demo-player.md) (test strategy, test demos), risk R13, licence point L8 in [concept §12](../../concepts/integrated-demo-player.md).
 - The bootstrap already knows the shareware archive: `src/main/modules/downloads/bootstrap/assemble.ts`
   (`q2-314-demo-x86.exe`), unpacked with 7-Zip; fetch style follows `scripts/fetch-7za.mjs`.
 - `docs/fixtures/demos/*` need retail or mod maps (assumption) and do not suit automated tests.

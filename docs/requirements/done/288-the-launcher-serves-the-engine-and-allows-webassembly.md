@@ -13,7 +13,7 @@ rest of the security architecture stays as it is.
 
 Context:
 
-- [concept §8.6](../concepts/integrated-demo-player.md) (embedding in Electron), risk R9 (relaxing the launcher document's CSP). Spike
+- [concept §8.6](../../concepts/integrated-demo-player.md) (embedding in Electron), risk R9 (relaxing the launcher document's CSP). Spike
   result: `spikes/284-demo-frame-in-electron/RESULT.md`.
 - CSP and scheme: `src/main/lib/renderer-source.ts` (`PRODUCTION_CSP`, `DEV_CSP`, `RENDERER_SCHEME`,
   `createRendererProtocolHandler`, model `NEWS_IMAGE_PATH_PREFIX` / `isSafeNewsImageFileName`);

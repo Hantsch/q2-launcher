@@ -188,3 +188,7 @@
 - 2026-10-30 23:19 · 291 · verify 2 · started
 - 2026-10-30 23:28 · 291 · verify 2 · done
 - 2026-10-30 23:28 · 291 · story · done
+- 2026-10-30 23:28 · gate · short suites · started
+- 2026-10-30 23:34 · gate · e2e-all · started
+- 2026-10-30 23:56 · gate · e2e-all · done
+- 2026-10-31 00:01 · review · done

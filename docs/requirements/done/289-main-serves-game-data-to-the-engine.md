@@ -13,7 +13,7 @@ arbitrary files.
 
 Context:
 
-- [concept §8.5](../concepts/integrated-demo-player.md) (file system and game data), [concept §7](../concepts/integrated-demo-player.md) (responsibilities), risk R2; the RAM ceiling is
+- [concept §8.5](../../concepts/integrated-demo-player.md) (file system and game data), [concept §7](../../concepts/integrated-demo-player.md) (responsibilities), risk R2; the RAM ceiling is
   an open point of the concept.
 - Resolving demo id and installation as today: `src/main/modules/replays/demo-play.ts` (index
   lookup, `demoPlayEligibility`, containment, `SAFE_FILE_NAME`), staging of zip entries and foreign

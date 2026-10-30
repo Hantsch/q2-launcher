@@ -12,7 +12,7 @@ Demos view, moving and scaling with the window, so that I no longer manage a sec
 
 Context:
 
-- [concept §7](../concepts/integrated-demo-player.md) (engine host), [concept §8.3](../concepts/integrated-demo-player.md) (canvas size, DPR).
+- [concept §7](../../concepts/integrated-demo-player.md) (engine host), [concept §8.3](../../concepts/integrated-demo-player.md) (canvas size, DPR).
 - Today's stage: `src/renderer/src/modules/replays/components/DemoStage.tsx` (4:3 area, `fitAspect`
   from `stage-fit.ts`, `useStageReport`). In engine mode it reports its rect to main; in integrated
   mode it hosts the canvas.
