@@ -1,7 +1,7 @@
 ---
 id: 286
 title: 'Spike: audio is pulled from the DMA mixer per step'
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -40,21 +40,21 @@ or dropouts.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `npm run engine:build` exits 0 with `snddma_web`.
-- [ ] **AC2** — With `s_driver web` and `s_khz 48`, the engine starts with the driver listed in the
+- [x] **AC1** — `npm run engine:build` exits 0 with `snddma_web`.
+- [x] **AC2** — With `s_driver web` and `s_khz 48`, the engine starts with the driver listed in the
       console without errors and `s_started` true.
-- [ ] **AC3** — In capture mode (`s_mixahead 0`, `cls.active` forced), 600 steps at the 60 fps
+- [x] **AC3** — In capture mode (`s_mixahead 0`, `cls.active` forced), 600 steps at the 60 fps
       cadence (17/17/16 ms) each yield exactly `48·ms` stereo samples from `q2l_audio_take`:
       `harness.mjs --mode=capture --frames=600 --fps=60` exits 0 and writes `results/counts.json`
       with `mismatches: 0`.
-- [ ] **AC4** — Two capture runs of the same demo with the same seed produce the same PCM
+- [x] **AC4** — Two capture runs of the same demo with the same seed produce the same PCM
       SHA-256 (`--mode=capture --runs=2 --seed=1`, `results/pcm-hashes.json`).
-- [ ] **AC5** — In real-time mode an AudioWorklet pulls the samples through a ring buffer and the
+- [x] **AC5** — In real-time mode an AudioWorklet pulls the samples through a ring buffer and the
       demo is audible; `--mode=realtime --seconds=60` writes `results/realtime.json` with
       `underruns` per minute and `latencyMs` engine → output.
-- [ ] **AC6** — `RESULT.md` describes the interface (`q2l_audio_take`, worklet ring buffer), the
+- [x] **AC6** — `RESULT.md` describes the interface (`q2l_audio_take`, worklet ring buffer), the
       patches needed and open points for [[293]] and [[305]].
-- [ ] **AC7** — `git status --short src/` is empty.
+- [x] **AC7** — `git status --short src/` is empty.
 
 ## Open Questions
 
@@ -118,7 +118,7 @@ Spike, no `src/` change, no CHANGELOG entry (nothing user-visible), no systems d
 
 ## Deliverables
 
-- **D1 — The `snddma_web` driver and audio exports as an engine patch.** Write
+- [x] **D1 — The `snddma_web` driver and audio exports as an engine patch.** Write
   `engine/patches/NNNN-snddma-web.patch` (NNNN = next free number after the `q2l_step` patch of
   story 285; patches apply in order, so it may touch that patch's `src/unix/q2l_step.c`). Engine
   source is the MashedD fork; read `vendor/q2pro-mashed/src/unix/sound/sdl.c` (driver model,
@@ -143,7 +143,7 @@ s_paintedtime`. While on, a hook `snddma_web_step(int ms)` advances `samplepos` 
     `_q2l_audio_take,_q2l_audio_consumed,_q2l_audio_capture` added to `-sEXPORTED_FUNCTIONS`.
   - Acceptance: `npm run engine:build` exits 0 and the three names appear in the built
     `resources/engine/q2pro.wasm` exports (`wasm-objdump -x`, or the [[281]] symbol-check script).
-- **D2 — Capture harness with boot check, counts and PCM hashes.** `spikes/286-dma-audio-pull/
+- [x] **D2 — Capture harness with boot check, counts and PCM hashes.** `spikes/286-dma-audio-pull/
 harness.mjs` (plus `README.md`), results under `spikes/286-dma-audio-pull/results/`. Reuse the
   Electron frame (window with copied `webPreferences`, spike scheme, game data + test demo of
   story 283) by importing it from `spikes/285-deterministic-step/` or
@@ -160,7 +160,7 @@ nonZeroSamples }`; exit 0 only when `mismatches === 0` and `nonZeroSamples > 0`.
   - `--runs=2 --seed=1`: two capture runs (engine re-initialised as in 285), SHA-256 over the
     concatenated PCM per run → `results/pcm-hashes.json` `{ runs: [hash, hash], equal }`; exit 0
     only when equal. Also writes `results/capture-run1.wav` for listening.
-- **D3 — Real-time mode with an AudioWorklet.** `spikes/286-dma-audio-pull/worklet.js` and the
+- [x] **D3 — Real-time mode with an AudioWorklet.** `spikes/286-dma-audio-pull/worklet.js` and the
   real-time branch of `harness.mjs`. Harness adds the switch
   `--autoplay-policy=no-user-gesture-required`; `webPreferences` stay the copy. The engine runs on
   284's own main loop; a JS pump (each animation frame) calls `q2l_audio_take` into a JS ring and
@@ -173,7 +173,7 @@ nonZeroSamples }`; exit 0 only when `mismatches === 0` and `nonZeroSamples > 0`.
 underrunsPerMinute, latencyMs, nonSilentBlocks, crossOriginIsolated }` (underrun = the worklet
   rendered a quantum with fewer frames than needed; `latencyMs` per the Decisions); exit 0 when
   `nonSilentBlocks > 0`.
-- **D4 — `RESULT.md`.** `spikes/286-dma-audio-pull/RESULT.md`: the interface (`q2l_audio_take`,
+- [x] **D4 — `RESULT.md`.** `spikes/286-dma-audio-pull/RESULT.md`: the interface (`q2l_audio_take`,
   `q2l_audio_consumed`, `q2l_audio_capture`, the worklet ring and its transport), the patches
   needed (file + purpose), the measurements from `counts.json`, `pcm-hashes.json` and
   `realtime.json` for each transport tried, whether R6 holds, and open points for [[293]]
@@ -209,3 +209,29 @@ Review: → default
 - AC7 → command `git status --short src/` prints nothing (D4).
 
 ## Done
+
+Spike delivered (`spikes/286-dma-audio-pull/RESULT.md`): engine patch 0008 adds the `snddma_web` DMA driver and
+the `q2l_audio_take` / `q2l_audio_consumed` / `q2l_audio_capture` exports; a capture harness proves exact
+`48·ms` frames per step and reproducible PCM; a real-time AudioWorklet harness measures port and SAB transport.
+The 284/285 Electron frame was extracted to `spikes/lib/` (284, 285, 286 import it).
+
+Change type: test
+
+Commit message: `286: spike DMA audio pull (snddma_web patch 0008, capture + realtime harness, RESULT.md)`
+
+Verification (narrow gate; no `test-story` tests apply to spikes, no e2e mapped): typecheck, lint (after fixing an
+unused import in 285/main.mjs), `vitest --changed HEAD` (no files), `engine:build` + export check, `engine:smoke`
+and the 285 harness (still green after the frame extraction), review PASS after one fix cycle.
+AC → check: AC1 `npm run engine:build` + wasm exports passed; AC2 boot check (`driver web`, `sEnable 1`) passed;
+AC3 capture 600 steps, `mismatches 0`, `nonZeroSamples 959174` passed; AC4 `--runs=2 --seed=1` equal hash
+passed; AC5 `--mode=realtime --seconds=60` port 16 underruns/min, SAB 24, latency 135.3 ms passed;
+AC6 RESULT.md sections passed; AC7 `git status --short src/` empty passed.
+Manual residue: listening to the real-time run (sync, clicks, dropouts) — no automated check judges it.
+
+Decisions:
+- Capture mixes to a `target` set by `q2l_step`; `DMA_Update` paints to it via `snddma_web_paint_to`, and the play position moves after `CL_Frame` (moving it first made the mixer paint nothing: exact counts, silent PCM).
+- Patch 0008 also exports `_malloc,_free` (take buffer) and changes `DMA_Update`'s mix-ahead sum to integer arithmetic, outside the `__EMSCRIPTEN__` guard (float rounding past 2^24 frames); left as is, disclosed in RESULT.md.
+- Cadence used is a rounded cumulative 17/16/17 ms (816/768/816 frames), same sum as 17/17/16.
+- Real time: the focused window activates the client; mixahead default; demo loops through `nextserver`. Underruns (16 port, 24 SAB) vary between runs and look start-up related; cause not isolated. Port transport recommended because it needs no cross-origin isolation, not on a measured advantage.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 9

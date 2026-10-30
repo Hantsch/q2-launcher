@@ -1,0 +1,10 @@
+{
+  "transport": "sab",
+  "seconds": 60,
+  "underruns": 24,
+  "underrunsPerMinute": 23.99,
+  "latencyMs": 135.3,
+  "nonSilentBlocks": 2812,
+  "blocks": 2812,
+  "crossOriginIsolated": true
+}

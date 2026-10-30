@@ -20,7 +20,7 @@ milestone: 12.1 — Toolchain and spikes; 12.2 — Playback in the canvas
 - [x] 282 — Spike: what WebCodecs and Mediabunny can encode in Electron 43
 - [x] 284 — Spike: a demo frame renders in the Electron renderer
 - [x] 285 — Spike: the engine steps deterministically
-- [ ] 286 — Spike: audio is pulled from the DMA mixer per step
+- [x] 286 — Spike: audio is pulled from the DMA mixer per step
 - [ ] 288 — The launcher serves the engine and allows WebAssembly
 - [ ] 287 — I choose between engine and integrated playback
 - [ ] 289 — Main serves game data to the engine

@@ -74,3 +74,19 @@
 - 2026-10-30 19:30 · 285 · review 2 (hard) · started
 - 2026-10-30 19:33 · 285 · review 2 (hard) · done
 - 2026-10-30 19:33 · 285 · story · done
+- 2026-10-30 19:33 · 286 · build · started
+- 2026-10-30 19:34 · 286 · D1 snddma_web patch · started
+- 2026-10-30 19:41 · 286 · D1 snddma_web patch · done
+- 2026-10-30 19:41 · 286 · D2 capture harness · started
+- 2026-10-30 19:51 · 286 · D2 capture harness · started
+- 2026-10-30 19:56 · 286 · D2 capture harness · done
+- 2026-10-30 19:56 · 286 · D3 realtime worklet · started
+- 2026-10-30 20:04 · 286 · D3 realtime worklet · done
+- 2026-10-30 20:04 · 286 · D4 RESULT.md · started
+- 2026-10-30 20:06 · 286 · D4 RESULT.md · done
+- 2026-10-30 20:06 · 286 · verify · started
+- 2026-10-30 20:19 · 286 · verify · blocked: lint 285/main.mjs unused env, prettier RESULT.md, RESULT figures stale vs rerun
+- 2026-10-30 20:20 · 286 · verify · done
+- 2026-10-30 20:20 · 286 · review 1 · started
+- 2026-10-30 20:21 · 286 · review 1 · done
+- 2026-10-30 20:22 · 286 · story · done

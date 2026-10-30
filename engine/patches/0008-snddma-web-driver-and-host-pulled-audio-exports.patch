@@ -1,0 +1,344 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Q2 Launcher <engine@q2launcher.invalid>
+Date: Thu, 1 Jan 2026 00:00:00 +0000
+Subject: [PATCH 8/8] web: snddma_web driver and host-pulled audio exports
+
+The mixer paints S16LE stereo into a ring that the launcher pulls with q2l_audio_take. In real time the host reports its play position with q2l_audio_consumed; with q2l_audio_capture on, q2l_step paints exactly the stepped msec of frames, forces the client active and mixes after CL_Frame, so each step paints its own frames. DMA_Update sums the paint-to time in integers so it stays exact past 2^24 frames.
+---
+ inc/client/sound/dma.h |   7 ++
+ meson.build            |   5 +-
+ src/client/sound/dma.c |  14 +++-
+ src/unix/q2l_step.c    |   9 +++
+ src/unix/sound/web.c   | 216 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 249 insertions(+), 2 deletions(-)
+
+diff --git a/inc/client/sound/dma.h b/inc/client/sound/dma.h
+index af36a54..685481f 100644
+--- a/inc/client/sound/dma.h
++++ b/inc/client/sound/dma.h
+@@ -47,3 +47,10 @@ extern dma_t    dma;
+ extern int      s_paintedtime;
+ 
+ extern cvar_t   *s_khz;
++
++#ifdef __EMSCRIPTEN__
++// Called by q2l_step around CL_Frame; no-ops unless capture is on.
++void snddma_web_step(unsigned msec);
++void snddma_web_settle(void);
++int snddma_web_paint_to(int endtime);
++#endif
+diff --git a/meson.build b/meson.build
+index 4ef86db..a8c345a 100644
+--- a/meson.build
++++ b/meson.build
+@@ -610,6 +610,9 @@ if get_option('software-sound').require(win32 or web or sdl2.found()).allowed()
+   if sdl2.found()
+     client_src += 'src/unix/sound/sdl.c'
+   endif
++  if web
++    client_src += 'src/unix/sound/web.c'
++  endif
+   config.set10('USE_SNDDMA', true)
+ elif not openal.found()
+   warning('Neither software sound nor OpenAL enabled, this is not supported')
+@@ -682,7 +685,7 @@ if web
+     '-sALLOW_MEMORY_GROWTH=1',
+     '-sINITIAL_MEMORY=128MB',
+     '-sMAXIMUM_MEMORY=2GB',
+-    '-sEXPORTED_FUNCTIONS=_main,_q2l_step,_q2l_seed,_q2l_frames_rendered',
++    '-sEXPORTED_FUNCTIONS=_main,_q2l_step,_q2l_seed,_q2l_frames_rendered,_q2l_audio_take,_q2l_audio_consumed,_q2l_audio_capture,_malloc,_free',
+     '-sEXPORTED_RUNTIME_METHODS=FS,cwrap,HEAPU8,HEAP16',
+     '--profiling-funcs',
+   ]
+diff --git a/src/client/sound/dma.c b/src/client/sound/dma.c
+index 229710f..5edb4f7 100644
+--- a/src/client/sound/dma.c
++++ b/src/client/sound/dma.c
+@@ -528,6 +528,10 @@ extern const snddma_driver_t    snddma_wave;
+ extern const snddma_driver_t    snddma_sdl;
+ #endif
+ 
++#ifdef __EMSCRIPTEN__
++extern const snddma_driver_t    snddma_web;
++#endif
++
+ static const snddma_driver_t *const s_drivers[] = {
+ #ifdef _WIN32
+     &snddma_dsound,
+@@ -535,6 +539,9 @@ static const snddma_driver_t *const s_drivers[] = {
+ #endif
+ #if USE_SDL
+     &snddma_sdl,
++#endif
++#ifdef __EMSCRIPTEN__
++    &snddma_web,
+ #endif
+     NULL
+ };
+@@ -845,7 +852,12 @@ static void DMA_Update(void)
+     sec = Cvar_ClampValue(s_mixahead, 0, 1);
+     if (!cls.active)
+         sec = max(sec, 0.125f);
+-    endtime = soundtime + sec * dma.speed;
++    // Integer sum: as a float, soundtime past 2^24 frames would round, and the
++    // paint-to time would no longer advance by exactly the play position.
++    endtime = soundtime + (int)(sec * dma.speed);
++#ifdef __EMSCRIPTEN__
++    endtime = snddma_web_paint_to(endtime);
++#endif
+ 
+     // mix to an even submission block size
+     endtime = Q_ALIGN(endtime, dma.submission_chunk);
+diff --git a/src/unix/q2l_step.c b/src/unix/q2l_step.c
+index 725e54d..8438591 100644
+--- a/src/unix/q2l_step.c
++++ b/src/unix/q2l_step.c
+@@ -27,6 +27,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
+ #include "common/cvar.h"
+ #include "common/net/net.h"
+ #include "client/client.h"
++#include "client/sound/dma.h"
+ #include "server/server.h"
+ #include "system/system.h"
+ 
+@@ -63,7 +64,15 @@ EMSCRIPTEN_KEEPALIVE void q2l_step(int ms)
+ 
+     SV_Frame(msec);
+ 
++#if USE_SNDDMA
++    snddma_web_step(msec);
++#endif
++
+     CL_Frame(msec);
++
++#if USE_SNDDMA
++    snddma_web_settle();
++#endif
+ }
+ 
+ EMSCRIPTEN_KEEPALIVE void q2l_seed(int seed)
+diff --git a/src/unix/sound/web.c b/src/unix/sound/web.c
+new file mode 100644
+index 0000000..2ba4ef7
+--- /dev/null
++++ b/src/unix/sound/web.c
+@@ -0,0 +1,216 @@
++/*
++Copyright (C) 2026 Q2 Launcher
++
++This program is free software; you can redistribute it and/or modify
++it under the terms of the GNU General Public License as published by
++the Free Software Foundation; either version 2 of the License, or
++(at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License along
++with this program; if not, write to the Free Software Foundation, Inc.,
++51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++*/
++
++// Software sound driver for the web build: the mixer paints S16LE stereo into
++// a ring the host pulls from, instead of a device pulling from it. (story 286)
++//
++// DMA_Update paints up to DMA_GetTime() + mixahead, and DMA_GetTime() is
++// samplepos / 2 plus one ring per observed wrap (samplepos smaller than last
++// seen). So the play position written here alone decides how far the mixer
++// paints:
++// - real time: the host reports how many frames it has consumed;
++// - capture: each step advances samplepos by exactly speed * msec / 1000
++//   frames (remainder carried), and with s_mixahead 0 and the client forced
++//   active (no 0.125 s floor) s_paintedtime ends every step equal to the play
++//   position. A step must stay below one ring (0x8000 frames, ~682 ms at
++//   48 kHz), or DMA_GetTime cannot see the wrap.
++
++#include "shared/shared.h"
++#include "common/common.h"
++#include "common/zone.h"
++#include "client/client.h"
++#include "client/sound/sound.h"
++#include "client/sound/dma.h"
++
++#include <emscripten.h>
++
++#define RING_FRAMES 0x8000
++
++static bool     started;
++static bool     capturing;
++static int      taken;          // stereo frames already handed to the host
++static int      target;         // s_paintedtime a capture step must reach
++static unsigned frame_rest;     // speed * msec not yet turned into a frame
++
++static sndinitstat_t Init(void)
++{
++    switch (s_khz->integer) {
++    case 48:
++        dma.speed = 48000;
++        break;
++    case 44:
++        dma.speed = 44100;
++        break;
++    case 22:
++        dma.speed = 22050;
++        break;
++    default:
++        dma.speed = 11025;
++        break;
++    }
++
++    dma.channels = 2;
++    dma.samples = RING_FRAMES * 2;
++    dma.submission_chunk = 1;
++    dma.samplebits = 16;
++    dma.buffer = Z_Mallocz(dma.samples * 2);
++    dma.samplepos = 0;
++
++    started = true;
++    capturing = false;
++    taken = target = 0;
++    frame_rest = 0;
++
++    Com_Printf("Using web audio driver (host-pulled ring, %d Hz).\n", dma.speed);
++
++    return SIS_SUCCESS;
++}
++
++static void Shutdown(void)
++{
++    Com_Printf("Shutting down web audio.\n");
++
++    started = capturing = false;
++    Z_Freep(&dma.buffer);
++}
++
++static void BeginPainting(void)
++{
++}
++
++static void Submit(void)
++{
++}
++
++const snddma_driver_t snddma_web = {
++    .name = "web",
++    .init = Init,
++    .shutdown = Shutdown,
++    .begin_painting = BeginPainting,
++    .submit = Submit,
++};
++
++/*
++=================
++q2l_audio_take
++
++Copies painted stereo frames [taken, s_paintedtime) into dst, at most
++maxFrames, and returns how many. Only the last ring's worth is still intact.
++=================
++*/
++EMSCRIPTEN_KEEPALIVE int q2l_audio_take(int16_t *dst, int maxFrames)
++{
++    const int16_t *ring = (const int16_t *)dma.buffer;
++    int count, pos, first;
++
++    if (!started || maxFrames <= 0)
++        return 0;
++
++    // s_paintedtime goes back when DMA_GetTime chops it near 2^30.
++    if (taken > s_paintedtime)
++        taken = s_paintedtime;
++    else if (s_paintedtime - taken > RING_FRAMES)
++        taken = s_paintedtime - RING_FRAMES;
++
++    count = min(s_paintedtime - taken, maxFrames);
++    pos = taken & (RING_FRAMES - 1);
++    first = min(count, RING_FRAMES - pos);
++
++    memcpy(dst, ring + pos * 2, first * 4);
++    memcpy(dst + first * 2, ring, (count - first) * 4);
++
++    taken += count;
++    return count;
++}
++
++/*
++=================
++q2l_audio_consumed
++
++Real-time play position: total stereo frames the host has played. Ignored
++while capturing, where steps own the play position.
++=================
++*/
++EMSCRIPTEN_KEEPALIVE void q2l_audio_consumed(int frames)
++{
++    if (!started || capturing)
++        return;
++
++    dma.samplepos = ((unsigned)frames * 2) % dma.samples;
++}
++
++/*
++=================
++q2l_audio_capture
++
++Turning capture on drops everything painted so far and moves the play
++position onto s_paintedtime. After any DMA_Update s_paintedtime lies less
++than one ring ahead of the time last seen, so the next DMA_GetTime returns
++exactly s_paintedtime and the first step paints only its own frames.
++=================
++*/
++EMSCRIPTEN_KEEPALIVE void q2l_audio_capture(int on)
++{
++    if (!started)
++        return;
++
++    capturing = on != 0;
++    if (!capturing)
++        return;
++
++    taken = target = s_paintedtime;
++    frame_rest = 0;
++    dma.samplepos = (s_paintedtime & (RING_FRAMES - 1)) * 2;
++}
++
++void snddma_web_step(unsigned msec)
++{
++    if (!started || !capturing)
++        return;
++
++    CL_Activate(ACT_ACTIVATED);
++    // cls.active may already be ACT_ACTIVATED from before the mixer started, which makes
++    // CL_Activate a no-op and leaves s_active false, so every S_StartSound would be dropped.
++    S_Activate();
++
++    frame_rest += (unsigned)dma.speed * msec;
++    target += frame_rest / 1000;
++    frame_rest %= 1000;
++}
++
++// While capturing, the mixer paints up to the step's end time although the play position
++// still sits at the step's start: with the play position already at the end, DMA_Update would
++// snap s_paintedtime onto it and paint nothing.
++int snddma_web_paint_to(int endtime)
++{
++    return started && capturing ? target : endtime;
++}
++
++// CL_Frame mixes only on frames it renders (or while minimized); mixing here as
++// well keeps every step's frames painted within that step. The play position moves to
++// the step's end only afterwards, so the next step's mix starts at s_paintedtime.
++void snddma_web_settle(void)
++{
++    if (!started || !capturing)
++        return;
++
++    if (s_paintedtime != target)
++        S_Update();
++
++    dma.samplepos = (target & (RING_FRAMES - 1)) * 2;
++}
+-- 
+2.40.0.windows.1
+

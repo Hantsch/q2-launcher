@@ -1,7 +1,8 @@
 // Spike page: per run a fresh canvas and engine instance, the main loop paused, then the engine
 // stepped by host-given milliseconds with WebGL frames hashed along the way.
 
-const spike = window.spike
+import { loadData, report, sleep, toHex, watchCsp } from './lib/page.js'
+
 const WIDTH = 640
 const HEIGHT = 480
 const HASH_EVERY = 15
@@ -12,12 +13,7 @@ const WARMUP_STREAK = 3
 Object.assign(document.documentElement.style, { margin: '0', background: '#000' })
 Object.assign(document.body.style, { margin: '0', background: '#000' })
 
-const report = (obj) => spike.report(obj)
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-window.addEventListener('securitypolicyviolation', (e) =>
-  report({ type: 'csp', directive: e.effectiveDirective, blockedURI: e.blockedURI }),
-)
+watchCsp()
 
 function newCanvas() {
   document.getElementById('canvas')?.remove()
@@ -29,20 +25,6 @@ function newCanvas() {
   document.body.append(canvas)
   return canvas
 }
-
-async function loadData() {
-  const { files: manifest } = await (await fetch('data/manifest.json')).json()
-  return Promise.all(
-    manifest.map(async ({ index, vpath }) => {
-      const response = await fetch(`data/${index}`)
-      if (!response.ok) throw new Error(`data/${index} (${vpath}): HTTP ${response.status}`)
-      return { vpath, bytes: new Uint8Array(await response.arrayBuffer()) }
-    }),
-  )
-}
-
-const toHex = (buffer) =>
-  [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
 function isSingleColour(pixels) {
   for (let i = 4; i < pixels.length; i += 4)

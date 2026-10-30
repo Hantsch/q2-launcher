@@ -2,17 +2,16 @@
 // under the launcher's production CSP, watches the window until the demo shows a picture, plays on
 // for the requested seconds and writes frame + metrics to results/. Always quits. (story 284)
 
-const { app, BrowserWindow, ipcMain, protocol, screen } = require('electron')
-const { createHash } = require('node:crypto')
-const { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } = require('node:fs')
-const { readFile } = require('node:fs/promises')
-const { basename, join } = require('node:path')
+import { app } from 'electron'
+import { createHash } from 'node:crypto'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { env, startEngineWindow } from '../lib/engine-window.mjs'
 
-const SPIKE_DIR = __dirname
+const SPIKE_DIR = dirname(fileURLToPath(import.meta.url))
 const RESULTS_DIR = join(SPIKE_DIR, 'results')
-const ENGINE_DIR = process.env.Q2L_SPIKE_ENGINE_DIR
-const PAKS = JSON.parse(process.env.Q2L_SPIKE_PAKS ?? '[]')
-const DEMO = process.env.Q2L_SPIKE_DEMO
+const ENGINE_DIR = env.engineDir
 const LABEL = process.env.Q2L_SPIKE_LABEL ?? 'shareware'
 const SECONDS = Number(process.env.Q2L_SPIKE_SECONDS ?? '10')
 const PAD_MB = Number(process.env.Q2L_SPIKE_PAD_MB ?? '0')
@@ -29,65 +28,7 @@ const MIN_CHANGED_SHARE = 0.02
 // earlier sample exceeds this (of a possible 765); filters compositor dithering noise.
 const CHANGED_THRESHOLD = 24
 
-if (!ENGINE_DIR || !DEMO || PAKS.length === 0) {
-  console.error('main.cjs: start it through harness.mjs (npm run engine:smoke)')
-  process.exit(2)
-}
-
-// Copied by value from PRODUCTION_CSP in src/main/lib/renderer-source.ts; a spike may not import
-// src/. The only change under test is 'wasm-unsafe-eval' in script-src.
-const PRODUCTION_CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
-const CSP = WASM_CSP
-  ? PRODUCTION_CSP.replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
-  : PRODUCTION_CSP
-
-// Same privileges as the launcher's own scheme (src/main/index.ts); must run before `ready`.
-protocol.registerSchemesAsPrivileged([
-  { scheme: 'q2spike', privileges: { standard: true, secure: true, supportFetchAPI: true } },
-])
-
-// Every servable file is fixed here; the renderer only ever names a key or an index, never a path.
-const APP_FILES = {
-  '/': { path: join(SPIKE_DIR, 'app', 'index.html'), type: 'text/html; charset=utf-8' },
-  '/index.html': { path: join(SPIKE_DIR, 'app', 'index.html'), type: 'text/html; charset=utf-8' },
-  '/boot.js': { path: join(SPIKE_DIR, 'app', 'boot.js'), type: 'text/javascript; charset=utf-8' },
-  '/engine/q2pro.js': {
-    path: join(ENGINE_DIR, 'q2pro.js'),
-    type: 'text/javascript; charset=utf-8',
-  },
-  '/engine/q2pro.wasm': { path: join(ENGINE_DIR, 'q2pro.wasm'), type: 'application/wasm' },
-}
-
-// The demo goes to baseq2/demos/ because that is where `demo <name>` looks it up.
-const DATA_FILES = [
-  ...PAKS.map((path) => ({ path, vpath: `baseq2/${basename(path).toLowerCase()}` })),
-  { path: DEMO, vpath: `baseq2/demos/${basename(DEMO)}` },
-].map((file, index) => ({ ...file, index, size: statSync(file.path).size }))
-const MANIFEST = JSON.stringify({
-  files: DATA_FILES.map(({ index, vpath, size }) => ({ index, vpath, size })),
-  padMb: PAD_MB,
-})
-
-function respond(body, status, type) {
-  const headers = { 'Content-Security-Policy': CSP }
-  if (type) headers['Content-Type'] = type
-  return new Response(body, { status, headers })
-}
-const notFound = () => respond(null, 404)
-
-async function handle(request) {
-  const url = new URL(request.url)
-  if (url.host !== 'app') return notFound()
-  const fixed = Object.hasOwn(APP_FILES, url.pathname) ? APP_FILES[url.pathname] : null
-  if (fixed) return respond(await readFile(fixed.path), 200, fixed.type)
-  if (url.pathname === '/data/manifest.json')
-    return respond(MANIFEST, 200, 'application/json; charset=utf-8')
-  const match = /^\/data\/(\d+)$/.exec(url.pathname)
-  const file = match ? DATA_FILES[Number(match[1])] : undefined
-  if (!file) return notFound()
-  return respond(await readFile(file.path), 200, 'application/octet-stream')
-}
+const manifestExtra = { padMb: PAD_MB }
 
 // ---- state reported by the renderer ----
 const state = {
@@ -109,11 +50,9 @@ const state = {
   lastTick: null,
 }
 let firstPicture = null // { at, tick }
-let win = null
 let finished = false
 
-function onReport(event, msg) {
-  if (!win || event.sender !== win.webContents || !msg || typeof msg !== 'object') return
+function onReport(msg) {
   switch (msg.type) {
     case 'csp':
       state.cspViolations += 1
@@ -188,7 +127,7 @@ let polling = false
 let candidate = null // first poll of a possible pair of consecutive picture polls
 
 async function pagePerf() {
-  return win.webContents.executeJavaScript('performance.now()')
+  return engineWindow.getWindow().webContents.executeJavaScript('performance.now()')
 }
 
 async function poll() {
@@ -196,7 +135,7 @@ async function poll() {
   polling = true
   try {
     const perf = await pagePerf()
-    const image = await win.webContents.capturePage()
+    const image = await engineWindow.getWindow().webContents.capturePage()
     const at = Date.now()
     const bitmap = image.toBitmap()
     const earlier = samples.filter((s) => s.at <= at - COMPARE_BACK_MS).at(-1) ?? null
@@ -224,7 +163,10 @@ async function poll() {
 
 function appMetricsWorkingSet() {
   const metrics = app.getAppMetrics()
-  const rendererPid = win && !win.isDestroyed() ? win.webContents.getOSProcessId() : -1
+  const rendererPid =
+    engineWindow.getWindow() && !engineWindow.getWindow().isDestroyed()
+      ? engineWindow.getWindow().webContents.getOSProcessId()
+      : -1
   const of = (pred) =>
     metrics.filter(pred).reduce((sum, m) => sum + (m.memory?.workingSetSize ?? 0), 0)
   return {
@@ -271,10 +213,10 @@ async function finish(extraFailure) {
         ((endTick.at - firstPicture.tick.at) / 1000)
 
     let playbackMotion = null
-    if (firstPicture && win && !win.isDestroyed()) {
-      const before = (await win.webContents.capturePage()).toBitmap()
+    if (firstPicture && engineWindow.getWindow() && !engineWindow.getWindow().isDestroyed()) {
+      const before = (await engineWindow.getWindow().webContents.capturePage()).toBitmap()
       await new Promise((resolve) => setTimeout(resolve, COMPARE_BACK_MS))
-      const image = await win.webContents.capturePage()
+      const image = await engineWindow.getWindow().webContents.capturePage()
       playbackMotion = analyse(image.toBitmap(), before).changedShare
       const frame = join(RESULTS_DIR, `frame-${LABEL}.png`)
       writeFileSync(frame, image.toPNG())
@@ -289,7 +231,7 @@ async function finish(extraFailure) {
       dataLoadMs: state.dataLoadMs,
       dataBytes: state.dataBytes,
       padBytes: state.padBytes,
-      files: DATA_FILES.map(({ vpath, size }) => ({ vpath, size })),
+      files: engineWindow.dataFiles.map(({ vpath, size }) => ({ vpath, size })),
       timeToPictureMs,
       longestLongTaskMs: maxOf(inWindow, 'duration'),
       longTaskTotalMs: Math.round(inWindow.reduce((sum, t) => sum + t.duration, 0)),
@@ -349,64 +291,17 @@ async function finish(extraFailure) {
   const code = failures.length > 0 ? 1 : 0
   for (const f of failures) console.error(`engine:smoke FAILED: ${f}`)
   if (code === 0) console.log('engine:smoke: OK')
-  // finish() can run inside an IPC dispatch, where app.exit() stalls; leave the handler first and
-  // fall back to a hard process exit so the app always quits.
-  setImmediate(() => app.exit(code))
-  setTimeout(() => process.exit(code), 3000).unref()
+  engineWindow.exit(code)
 }
 
-setTimeout(() => void finish(`hard timeout after ${HARD_TIMEOUT_MS / 1000} s`), HARD_TIMEOUT_MS)
-
-app.whenReady().then(() => {
-  protocol.handle('q2spike', (request) =>
-    handle(request).catch((error) => {
-      console.error(`q2spike handler: ${error.message}`)
-      return respond(null, 500)
-    }),
-  )
-  ipcMain.on('spike:report', onReport)
-
-  // Copied by value from rendererWebPreferences in src/main/window-shared.ts (offscreen variant);
-  // a spike may not import src/.
-  const webPreferences = {
-    preload: join(SPIKE_DIR, 'preload.cjs'),
-    contextIsolation: true,
-    sandbox: true,
-    nodeIntegration: false,
-    webSecurity: true,
-    spellcheck: false,
-    backgroundThrottling: false,
-  }
-  // Left of every display, as scripts/lib/harness.mjs places the offscreen UI harness window.
-  const width = 1024
-  const height = 768
-  const left = Math.min(...screen.getAllDisplays().map((d) => d.bounds.x))
-  win = new BrowserWindow({
-    x: left - width - 100,
-    y: 0,
-    width,
-    height,
-    useContentSize: true,
-    show: false,
-    focusable: false,
-    autoHideMenuBar: true,
-    backgroundColor: '#000000',
-    webPreferences,
-  })
-  win.setPosition(left - width - 100, 0)
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  win.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('q2spike://app/')) event.preventDefault()
-  })
-  win.webContents.on('console-message', (event) => {
-    const { level, message } = event
-    if (level === 'warning' || level === 'error') console.error(`[renderer ${level}] ${message}`)
-  })
-  win.webContents.on(
-    'render-process-gone',
-    (_e, details) => void finish(`renderer gone: ${details.reason}`),
-  )
-  win.once('ready-to-show', () => win.showInactive())
-  void win.loadURL('q2spike://app/index.html')
-  setInterval(() => void poll(), POLL_MS)
+const engineWindow = startEngineWindow({
+  spikeDir: SPIKE_DIR,
+  hardTimeoutMs: HARD_TIMEOUT_MS,
+  onHardTimeout: () => void finish(`hard timeout after ${HARD_TIMEOUT_MS / 1000} s`),
+  onReport,
+  onGone: (reason) => void finish(`renderer gone: ${reason}`),
+  wasmCsp: WASM_CSP,
+  manifestExtra,
+  window: { width: 1024, height: 768, focusable: false },
+  onReady: () => setInterval(() => void poll(), POLL_MS),
 })

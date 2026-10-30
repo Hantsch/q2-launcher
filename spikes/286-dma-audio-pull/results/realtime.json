@@ -1,0 +1,10 @@
+{
+  "transport": "port",
+  "seconds": 60,
+  "underruns": 16,
+  "underrunsPerMinute": 16,
+  "latencyMs": 135.3,
+  "nonSilentBlocks": 2813,
+  "blocks": 2813,
+  "crossOriginIsolated": false
+}

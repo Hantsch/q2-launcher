@@ -23,7 +23,7 @@ that expects a freeze of a quarter second, and memory as the one risk story 289 
 
 ## AC1 - CSP and the engine under it
 
-CSP served on every response (`PRODUCTION_CSP` of `src/main/lib/renderer-source.ts` copied by value, `main.cjs`):
+CSP served on every response (`PRODUCTION_CSP` of `src/main/lib/renderer-source.ts` copied by value, `main.mjs`):
 
 `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'`
 
@@ -154,7 +154,7 @@ Proposed changes to the concept (each seen in the harness code; none changes the
 1. **CSP:** `PRODUCTION_CSP` in `src/main/lib/renderer-source.ts` needs `'wasm-unsafe-eval'` in `script-src` (AC4 proves it). The engine
    `.js` glue is a same-origin module, so `'self'` covers it; no `'unsafe-eval'`, no `blob:` script and no `worker-src` was needed on
    the main thread (a worker would need `worker-src 'self'`; untested).
-2. **MIME:** the wasm is served as `application/wasm` (`APP_FILES` in `main.cjs`); the launcher's `q2launcher://` handler must map it.
+2. **MIME:** the wasm is served as `application/wasm` (`APP_FILES` in `main.mjs`); the launcher's `q2launcher://` handler must map it.
    I did not test what happens with another type.
 3. **Engine args** used: `+set basedir /q2 +set homedir /q2home +set s_enable 0 +set cl_autopause 0 +set scr_showpause 0 +set cl_demowait 1 +demo <name>`.
    Sound is off (`Sound initialization disabled` in the log); audio is the spike of story 286. The concept should list these.
@@ -173,7 +173,7 @@ Proposed changes to the concept (each seen in the harness code; none changes the
    without it).
 
 Consequences for story 289 (data): a **manifest** of `{ index, vpath, size }` per file (the spike wraps it as `{ files, padMb }`) is enough; the renderer names only an index and
-main maps it to a path (`DATA_FILES` in `main.cjs`). Files are fetched **whole** (`arrayBuffer()`), so the 1 GiB cap means up to 1 GiB
+main maps it to a path (`DATA_FILES` in `main.mjs`). Files are fetched **whole** (`arrayBuffer()`), so the 1 GiB cap means up to 1 GiB
 resident in the renderer before MEMFS gets its copy (AC5). `size` in the manifest gives the total up front for a progress bar and a
 cap check; `Content-Length` was not relied on (the Response is built from a Buffer and the harness never reads the header).
 Streaming and range reads were not tried.
