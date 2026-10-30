@@ -1,7 +1,7 @@
 ---
 sprint: S37
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S37
 milestone: 11.6 — PR and release path, overdue tech debt
 ---
 
