@@ -365,6 +365,9 @@ untested.
 
 ### 9.2 WASM engine — deferred, future polish feature (§2)
 
+> Superseded 2026-10-30 by [integrated-demo-player.md](integrated-demo-player.md), which takes this
+> option up as "integrated mode". The research below is kept as its history.
+
 Researched 2026-09-30. Originally rejected, now **deferred, not rejected**: the reason that killed
 Yamagi-based ports no longer holds.
 
