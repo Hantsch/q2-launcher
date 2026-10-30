@@ -433,6 +433,7 @@ describe('architecture', () => {
     const allowed: ReadonlyArray<{ file: string; story: string }> = [
       { file: 'src/main/modules/replays/stage.ts', story: '170' },
       { file: 'src/main/modules/replays/discovery.ts', story: '160' },
+      { file: 'src/main/modules/replays/demo-play.test-helpers.ts', story: '321' },
     ]
     const stories = ['docs/requirements', 'docs/requirements/done'].flatMap((dir) =>
       readdirSync(join(REPO_ROOT, dir)),
