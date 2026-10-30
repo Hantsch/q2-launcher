@@ -248,8 +248,7 @@ jobs:
 
       - name: Packaged launch smoke
         shell: bash
-        # Advisory until the tripwire in scripts/workflows.test.mjs removes this after two releases past 0.8.0.
-        continue-on-error: true
+        # Blocking by decision: a packaged app that does not launch is not released (story 280).
         run: npm run ui:flow -- about-release-notes --app="${{ steps.smoke-app.outputs.path }}"
 
       - name: Download the Linux artifacts

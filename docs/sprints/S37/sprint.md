@@ -15,7 +15,7 @@ After a sprint, `npm run verify:release` passing means the PR and the release pa
 
 - [x] 276 — Linux checks leave the PR and release path and are never red
 - [x] 279 — Doc-shape tests leave the blocking unit lane
-- [ ] 280 — The packaged smoke's blocking switch is a decision, not a tripwire
+- [x] 280 — The packaged smoke's blocking switch is a decision, not a tripwire
 - [ ] 278 — A release runs only when the user starts it, and checks its own commit
 - [ ] 277 — verify:release checks exactly what a PR and a release check, cheap steps first
 - [ ] 325 — Tests and comments state what they check

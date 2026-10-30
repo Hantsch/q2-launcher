@@ -31,18 +31,6 @@ export function allSteps(workflows = loadWorkflows()) {
   )
 }
 
-/** True once at least two released `## x.y.z` headings are newer than `baseline`; `## Unreleased` never counts. */
-export function packagedSmokeMustBlock(changelogText, baseline = '0.8.0') {
-  const num = (v) => v.split('.').map(Number)
-  const newer = (a, b) => {
-    const [x, y] = [num(a), num(b)]
-    for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]
-    return false
-  }
-  const released = [...changelogText.matchAll(/^## \[?(\d+\.\d+\.\d+)\]?/gm)].map((m) => m[1])
-  return released.filter((v) => newer(v, baseline)).length >= 2
-}
-
 const LINUX = join(WORKFLOWS_DIR, 'linux.yml')
 
 describe('linux workflow', () => {
@@ -382,19 +370,12 @@ describe('release packaged launch smoke', () => {
     expect(runs.some((r) => /\bpackage:win\b/.test(r))).toBe(false)
   })
 
-  test('the packaged smoke turns blocking after two releases past 0.8.0', () => {
-    const h = (...v) => ['## Unreleased', ...v.map((x) => `## ${x} - 2026-11-01`)].join('\n\n')
-    expect(packagedSmokeMustBlock(h())).toBe(false)
-    expect(packagedSmokeMustBlock(h('0.8.0'))).toBe(false)
-    expect(packagedSmokeMustBlock(h('0.8.1', '0.8.0'))).toBe(false)
-    expect(packagedSmokeMustBlock(h('0.10.0', '0.8.1', '0.8.0'))).toBe(true)
-    expect(packagedSmokeMustBlock('## [0.9.0]\n## [0.8.1]')).toBe(true)
-  })
-
-  test("the packaged smoke step's continue-on-error matches the released count", () => {
-    const must = packagedSmokeMustBlock(readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf-8'))
-    const flag = smokeStep()['continue-on-error']
-    if (must) expect(flag).toBeUndefined()
-    else expect(flag).toBe(true)
+  test('the packaged smoke step fails the release when the app does not launch', () => {
+    const step = smokeStep()
+    expect(step).toBeDefined()
+    expect(step['continue-on-error'] ?? false).toBe(false)
+    for (const swallow of ['|| true', '|| exit 0', '::warning::']) {
+      expect(step.run).not.toContain(swallow)
+    }
   })
 })

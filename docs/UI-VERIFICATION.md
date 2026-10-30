@@ -1623,8 +1623,8 @@ a human to look at during manual review.
 
 `.github/workflows/release.yml` runs `about-release-notes` against the
 unpacked packaged app (`package:dir` into `release/smoke`) before publishing.
-It is non-blocking until two releases after 0.8.0 and blocking from then on
-(tripwire test in `scripts/workflows.test.mjs`). Story 223's claim "the
+It blocks the release — a decision, pinned by `scripts/workflows.test.mjs`
+(story 280). Story 223's claim "the
 packaged path is already proven by release.yml" is superseded: the packaged
 launch is the release step, the PR lane stays on `build:dev` (story 264).
 

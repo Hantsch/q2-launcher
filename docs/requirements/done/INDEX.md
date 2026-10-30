@@ -372,3 +372,4 @@ second roadmap.
 - 271 — CI pins Node via a version file and the audit gate blocks · S36 · Node 22.22.2 via .node-version, blocking npm audit, audit-clean lockfile.
 - 276 — Linux checks leave the PR and release path and are never red · S37 · Linux checks are dispatch-only and warn instead of failing; npm run verify:linux runs them locally; verify:release and releases no longer depend on Linux.
 - 279 — Doc-shape tests leave the blocking unit lane · S37 · doc-prose tests run in a local docs lane (npm run check:docs) and a guard keeps them out of npm test
+- 280 — The packaged smoke's blocking switch is a decision, not a tripwire · S37 · the packaged smoke blocks the release, pinned by a structural workflows test; no test reads the CHANGELOG release count

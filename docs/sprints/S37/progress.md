@@ -34,3 +34,11 @@
 - 2026-10-30 09:36:33 · 279 · review fix · started
 - 2026-10-30 09:37:16 · 279 · review fix · done
 - 2026-10-30 09:37:16 · 279 · story · done
+- 2026-10-30 09:37:28 · 280 · build · started
+- 2026-10-30 09:37:45 · 280 · D1 packaged smoke blocking · started
+- 2026-10-30 09:39:13 · 280 · D1 packaged smoke blocking · done
+- 2026-10-30 09:39:13 · 280 · verify · started
+- 2026-10-30 09:39:53 · 280 · verify · done
+- 2026-10-30 09:39:53 · 280 · review 1 · started
+- 2026-10-30 09:44:38 · 280 · review 1 · done
+- 2026-10-30 09:44:38 · 280 · story · done
