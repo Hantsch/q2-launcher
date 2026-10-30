@@ -175,4 +175,6 @@ Decisions:
 - Six registrar tests in `src/main/ipc/` follow the new mechanism through `src/test-support/ipc.ts` (`bindRegisteredChannels`); `registerAllIpc` gets the unlock service as 2nd argument.
 - Noted, not fixed: a failed context leaves the window open with refused invokes and only a log line (no user-visible message); a `handle()` after `setup()` resolves is dropped.
 
+Regression gate: `flow-select` "every non-test src file is reached" failed at the sprint gate (`src/main/boot.ts` unmapped); fixed in 1ce4139d.
+
 tiers: D 7 / hard 1 · review default · cycles 1 · agents 11

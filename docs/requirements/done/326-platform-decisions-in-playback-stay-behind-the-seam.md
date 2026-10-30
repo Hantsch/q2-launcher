@@ -210,4 +210,6 @@ AC -> test: AC1 architecture.test.ts + plan.test.ts; AC2/AC4 connection.test.ts;
 Manual residue (local Linux run, real X11, story 198 Q5): X error log line from a real server (AC2); real WM clamping the parked window (AC3); overlay visibly above the ABOVE game (AC6).
 Unfixed minor: docs/ARCHITECTURE.md:660-666 keeper description lacks the new behaviours (plan named only replays-module.md).
 
+Regression gate: `error-keys` "every `fail()` literal resolves in en.json" failed at the sprint gate (`x11.authFamilyUnsupported`); fixed in 90811196.
+
 tiers: D 4 / hard 0 · review default · cycles 1 · agents 6

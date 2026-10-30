@@ -157,4 +157,6 @@ Decisions:
 - `import.test.ts` and `file-source-pipeline.test.ts` had no `shell` mock left and reach `userDataDir()`, so their electron blocks stay.
 - The new flow sets Plain Profile as default on the two-profile fixture installation first (the switch-bind control needs a default profile); a re-run needs `npm run ui:seed` (flow header says so).
 
+Regression gate: `flow-select` "every area row selects at most 12" failed at the sprint gate (new flow in two config rows); fixed in 1ce4139d.
+
 tiers: D 7 / hard 1 · review default · cycles 1 · agents 11

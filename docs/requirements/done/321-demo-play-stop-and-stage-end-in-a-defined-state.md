@@ -294,4 +294,6 @@ Fixes the work required: D3 settles at launch level (`launch.settleKilledPlaybac
 
 **Decisions:** Windows file channel cannot deliver the originals line at quit (files deleted on quit, release listeners do not fire without pipes), so on Windows the pid wait is the only guarantee and Linux additionally gets the last console line (that line applies live to the running game: accepted). The replays-stage flow proves the wait/restore with a flow-owned live pid because the stub exits with its parent (real-engine survival is story 163's coverage). Join flow assertion moved to servers-actionbar-join (fixture install needs repair). Watchlist tab action-bar Join resolves against the unfiltered matches the tab shows; list tab against filtered rows. Stale pid reuse after a crash defers the restore until that pid exits (documented limit). TD-030's fourth item re-filed as TD-059.
 
+Regression gate: `test-kit` "no test file exceeds 1,500 lines" failed at the sprint gate (`demo-play.test.ts` 1503); fixed in d6213a64.
+
 tiers: D 10 / hard 1 · review default+hard · cycles 2 · agents 23

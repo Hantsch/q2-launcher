@@ -196,4 +196,6 @@ Styles name colours through tokens and sizes through a typography scale (11/12/1
 - D8: grip passed as inputs (`ControlsRowGrip`) and built by `ControlsGripHandle` inside the row; per-row edited/revealed/expanded state became boolean props instead of Sets in ctx.
 - Open visual points (not re-opened, size is the user's decision): 11px tile tags/`.ctrl-cap` and TitleBar `leading-normal` were not eyeballed in screenshots. Docs for downloads/home/replays modules not touched (class swaps only), as decided.
 
+Regression gate: `architecture` per-file purity checks and tsconfig excludes failed at the sprint gate (two style tests excluded); fixed in 19c57151.
+
 tiers: D 9 / hard 1 · review default · cycles 0 · agents 11
