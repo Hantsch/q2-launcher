@@ -1,7 +1,7 @@
 ---
 id: 326
 title: Platform decisions in playback stay behind the seam
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -14,15 +14,15 @@ reports park geometry as placed and has a cinema ABOVE ordering edge. Linux is a
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — No file outside the playback channel's platform seam branches on `process.platform`
+- [x] **AC1** — No file outside the playback channel's platform seam branches on `process.platform`
       for playback; a check enforces it (TD-005).
-- [ ] **AC2** — An X error from a fire-and-forget request is logged with its request (TD-023).
-- [ ] **AC3** — The stage keeper reports a parked window as parked, not placed (TD-023).
-- [ ] **AC4** — An unsupported X auth family is refused with a named reason instead of failing
+- [x] **AC2** — An X error from a fire-and-forget request is logged with its request (TD-023).
+- [x] **AC3** — The stage keeper reports a parked window as parked, not placed (TD-023).
+- [x] **AC4** — An unsupported X auth family is refused with a named reason instead of failing
       silently (TD-023).
-- [ ] **AC5** — Rows TD-005 and TD-023 are removed from `docs/TECH-DEBT.md`; what only a real X11
+- [x] **AC5** — Rows TD-005 and TD-023 are removed from `docs/TECH-DEBT.md`; what only a real X11
       session can show is manual residue for the local Linux run.
-- [ ] **AC6** — Cinema entered before the X11 keeper has found the game window still shows its
+- [x] **AC6** — Cinema entered before the X11 keeper has found the game window still shows its
       overlay above the game once the keeper sets the game's ABOVE (TD-023; user decision "fix it").
 
 ## Open Questions
@@ -191,3 +191,21 @@ Real-X effects stay manual residue for the local Linux run (story 198 Q5: no Xvf
   the ABOVE game on a real X11 WM (story 198 Q5).
 
 ## Done
+Playback platform decisions now live in `playback-channel/plan.ts`, guarded by an architecture rule. The X11 keeper logs stray
+X errors by request name, refuses an unsupported Xauthority family by name, is told parked vs placed, and re-raises the cinema
+overlay after each ABOVE add. TD-005 and TD-023 rows removed; replays-module.md updated within its 150-line cap.
+
+Commit message: `326: playback platform decisions behind plan.ts + architecture guard, X11 keeper stray-error log, auth-family refusal, parked vs placed, cinema raise after ABOVE, TD-005/TD-023 closed`
+
+Decisions:
+- Architecture allowlist (stage.ts story 170, discovery.ts story 160) is local to the new `it`, checking the story file exists and the branch still matches.
+- `onFailure` now passes outcome params; one existing stage-window assertion tightened to `('x11.requestFailed', { code: 5 })`.
+- Fixed TD-059's stale link (requirements/321 -> requirements/done/321) because it broke `check:docs`; no other TD row touched.
+- Changelog: no user-facing change, no entry.
+
+Verification (narrow gate): `npm run build`, `typecheck`, `lint` green; `npx vitest run --changed HEAD` 23 files / 369 tests green; `npm run check:docs` green after the TD-059 link fix; `grep TD-005|TD-023 docs/TECH-DEBT.md` empty. No e2e-story mapped (no UI surface). Full gate pending (sprint). Review 1 (default): PASS, no blocking findings.
+AC -> test: AC1 architecture.test.ts + plan.test.ts; AC2/AC4 connection.test.ts; AC3 stage-follow.test.ts + stage-window.test.ts; AC5 grep; AC6 stage-window.test.ts ABOVE order — all passed.
+Manual residue (local Linux run, real X11, story 198 Q5): X error log line from a real server (AC2); real WM clamping the parked window (AC3); overlay visibly above the ABOVE game (AC6).
+Unfixed minor: docs/ARCHITECTURE.md:660-666 keeper description lacks the new behaviours (plan named only replays-module.md).
+
+tiers: D 4 / hard 0 · review default · cycles 1 · agents 6

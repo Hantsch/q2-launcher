@@ -32,7 +32,7 @@ counts follow the scoped rows; the filter value survives an installation switch.
 - `name-templates.ts` / `demo-rename.ts` / `file-actions.ts` — rename templates, rename, reveal and copy path; `demo-play.ts` /
   `demo-staging.ts` — eligibility, launch, temp copy in `<gamedir>/demos/_launcher/`.
 - `playback-sessions.ts` / `playback-control.ts` / `playback-timeline.ts` / `playback-console.ts` / `playback-stop.ts` /
-  `session-cvar-restore.ts` — the live session; `playback-channel/` — the link to the running engine (none for R1Q2).
+  `session-cvar-restore.ts` — the live session; `playback-channel/` — link to the engine, its `plan.ts` decides per platform.
 - `stage.ts` / `stage-follow.ts` / `stage-follow-session.ts` / `geometry.ts` / `x11/stage-window.ts` — placing the game window
   over the stage; `cinema.ts` / `cinema-controller.ts` — cinema mode; `persisted.ts` — the forgiving state parse.
 
@@ -135,7 +135,7 @@ volume, cinema availability, stage notice).
   each `demos` folder; zip archives via a bounded reader, never recursed; sidecars; replays-index.json; state.json. Folder walk:
   an already visited real path is never entered; the `_launcher` staging folder is skipped.
 - Engine: Q2PRO started with `+demo`. Windows: commands via `q2l_ctl.cfg` in the game dir, answers tailed from a dedicated logfile; Linux: console over stdin/stdout.
-- Window system: placement on Windows; X11 (X-Resource PID) on Linux. Network: none.
+- Window system: placement on Windows; X11 (X-Resource PID) on Linux: stray errors logged, unsupported auth family refused, parks reported, overlay re-raised. Network: none.
 
 ## Limitations
 

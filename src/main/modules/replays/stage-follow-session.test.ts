@@ -221,7 +221,11 @@ describe('stage follow sessions window-state', () => {
         return { update: () => undefined, pin: () => undefined, dispose: () => undefined }
       },
     })
-    const windowState = { setTop: () => ok(undefined), placed: () => undefined }
+    const windowState = {
+      setTop: () => ok(undefined),
+      placed: () => undefined,
+      parked: () => undefined,
+    }
     sessions.begin({ geometry: '800x600+0+0', rect: RECT, windowState })
     sessions.begin({ geometry: '800x600+0+0', rect: RECT })
     expect(created[0]?.windowState).toBe(windowState)

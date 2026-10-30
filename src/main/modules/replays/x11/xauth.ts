@@ -72,3 +72,22 @@ export function pickCookie(
   )
   return match ? match.data : null
 }
+
+/**
+ * The family of a MIT-MAGIC-COOKIE-1 entry for this display that `pickCookie` cannot use (a network
+ * family such as Internet), or null when there is none. Only meaningful when `pickCookie` found nothing.
+ */
+export function unsupportedCookieFamily(
+  entries: readonly XauthEntry[],
+  target: { display: number },
+): number | null {
+  const display = String(target.display)
+  const other = entries.find(
+    (e) =>
+      e.name === MIT_MAGIC_COOKIE &&
+      e.family !== XAUTH_FAMILY_WILD &&
+      e.family !== XAUTH_FAMILY_LOCAL &&
+      (e.number === '' || e.number === display),
+  )
+  return other ? other.family : null
+}

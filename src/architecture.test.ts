@@ -427,6 +427,34 @@ describe('architecture', () => {
     expect(stale).toEqual([])
   })
 
+  it('playback platform decisions branch only inside the playback channel seam', () => {
+    const seam = 'src/main/modules/replays/playback-channel/'
+    const platformBranch = /'(?:win32|linux|darwin)'|\bis(?:Windows|Linux)\(/
+    const allowed: ReadonlyArray<{ file: string; story: string }> = [
+      { file: 'src/main/modules/replays/stage.ts', story: '170' },
+      { file: 'src/main/modules/replays/discovery.ts', story: '160' },
+    ]
+    const stories = ['docs/requirements', 'docs/requirements/done'].flatMap((dir) =>
+      readdirSync(join(REPO_ROOT, dir)),
+    )
+    const branching = PRODUCTION.filter(
+      (file) =>
+        file.startsWith('src/main/modules/replays/') &&
+        platformBranch.test(stripComments(TEXT.get(file) ?? '')),
+    )
+    const offenders = branching.filter(
+      (file) => !file.startsWith(seam) && !allowed.some((entry) => entry.file === file),
+    )
+    expect(offenders).toEqual([])
+    expect(
+      allowed.filter(
+        (entry) =>
+          !branching.includes(entry.file) ||
+          !stories.some((name) => name.startsWith(`${entry.story}-`)),
+      ),
+    ).toEqual([])
+  })
+
   it('as any in production source does not exceed the baseline', () => {
     const count = PRODUCTION.reduce(
       (sum, file) => sum + (stripComments(TEXT.get(file) ?? '').match(/\bas any\b/g)?.length ?? 0),

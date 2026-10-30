@@ -171,6 +171,7 @@ describe('stage follower with a window-state owner', () => {
     const lines: string[] = []
     const tops: Array<0 | 1> = []
     const placed: string[] = []
+    const parkedGeos: string[] = []
     const follower = createStageFollower({
       send: (line) => {
         lines.push(line)
@@ -185,9 +186,10 @@ describe('stage follower with a window-state owner', () => {
           return ok(undefined)
         },
         placed: (g) => placed.push(g),
+        parked: (g) => parkedGeos.push(g),
       },
     })
-    return { lines, tops, placed, follower }
+    return { lines, tops, placed, parkedGeos, follower }
   }
 
   it('reports the launch geometry once at creation', () => {
@@ -202,11 +204,12 @@ describe('stage follower with a window-state owner', () => {
     expect(lines.some((l) => l.includes('win_alwaysontop'))).toBe(false)
   })
 
-  it('reports every geometry it sends', () => {
-    const { placed, follower } = withState()
+  it('a park is reported to the window keeper as parked and a placement as placed', () => {
+    const { placed, parkedGeos, follower } = withState()
     follower.update({ stageRect: rect(30, 40), window: win(), tick: true })
     vi.advanceTimersByTime(300)
-    expect(placed).toEqual([LAUNCH, '800x600+3904+40', '800x600+30+40'])
+    expect(parkedGeos).toEqual(['800x600+3904+40'])
+    expect(placed).toEqual([LAUNCH, '800x600+30+40'])
   })
 
   it('a pinned follower never calls setTop', () => {

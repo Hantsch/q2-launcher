@@ -1,8 +1,8 @@
 import { createConnection } from 'node:net'
 import type { Duplex } from 'node:stream'
 import { fail, ok, type Outcome } from '@shared/types'
-import { MIT_MAGIC_COOKIE, parseXauthority, pickCookie } from './xauth'
-import { decodeSetupReply, encodeSetupRequest, readPacket } from './wire'
+import { MIT_MAGIC_COOKIE, parseXauthority, pickCookie, unsupportedCookieFamily } from './xauth'
+import { decodeSetupReply, encodeSetupRequest, readPacket, requestName } from './wire'
 
 /** Where to connect: a unix socket path, or a TCP host and port. */
 export type X11Target = { path: string } | { host: string; port: number }
@@ -15,7 +15,7 @@ export interface X11Connection {
   /**
    * Writes one encoded request. With `expectsReply` the outcome carries the whole reply packet (32
    * bytes plus extra data); without it the outcome is an empty buffer as soon as the bytes are
-   * written, and any X error for that request is dropped.
+   * written, and any X error for that request is reported through `onStrayError`.
    */
   request(bytes: Buffer, expectsReply: boolean): Promise<Outcome<Buffer>>
   close(): void
@@ -29,6 +29,8 @@ export interface ConnectX11Options {
   hostname: string
   createSocket?: (target: X11Target) => Duplex
   timeoutMs?: number
+  /** An X error for a request nobody awaits (sent without a reply); the connection stays up. */
+  onStrayError?: (e: { request: string; code: number; sequence: number; badValue: number }) => void
 }
 
 const X11_UNIX_DIR = '/tmp/.X11-unix'
@@ -54,15 +56,20 @@ async function loadCookie(
   opts: ConnectX11Options,
   display: number,
   host: string | null,
-): Promise<Buffer | null> {
+): Promise<{ cookie: Buffer | null; unsupportedFamily: number | null }> {
+  const none = { cookie: null, unsupportedFamily: null }
   const file = opts.env.XAUTHORITY || (opts.env.HOME ? `${opts.env.HOME}/.Xauthority` : undefined)
-  if (!file) return null
+  if (!file) return none
   try {
     const entries = parseXauthority(await opts.readFile(file))
-    return pickCookie(entries, { hostname: host ?? opts.hostname, display })
+    const cookie = pickCookie(entries, { hostname: host ?? opts.hostname, display })
+    return {
+      cookie,
+      unsupportedFamily: cookie ? null : unsupportedCookieFamily(entries, { display }),
+    }
   } catch {
     // a missing or malformed Xauthority file means no cookie, connecting without one
-    return null
+    return none
   }
 }
 
@@ -75,7 +82,9 @@ export async function connectX11(opts: ConnectX11Options): Promise<Outcome<X11Co
   const display = parseDisplay(opts.env.DISPLAY)
   if (!display) return fail('x11.noDisplay')
   const timeoutMs = opts.timeoutMs ?? 2000
-  const cookie = await loadCookie(opts, display.number, display.host)
+  const { cookie, unsupportedFamily } = await loadCookie(opts, display.number, display.host)
+  if (unsupportedFamily !== null)
+    return fail('x11.authFamilyUnsupported', { family: unsupportedFamily })
   const socket = (opts.createSocket ?? defaultSocket)(display.target)
 
   return new Promise<Outcome<X11Connection>>((resolveConnect) => {
@@ -161,11 +170,22 @@ export async function connectX11(opts: ConnectX11Options): Promise<Outcome<X11Co
           if (packet.error === 'garbled') shutdown('x11.protocolError')
           return
         }
-        const { kind, sequence: seq, length } = packet.value
+        const p = packet.value
+        const { kind, sequence: seq, length } = p
         const bytes = Buffer.from(inbox.subarray(0, length))
         inbox = inbox.subarray(length)
         if (kind === 'reply') settlePending(seq, ok(bytes))
-        else if (kind === 'error') settlePending(seq, fail('x11.requestFailed', { code: bytes[1] }))
+        else if (kind === 'error') {
+          if (pending.has(seq)) settlePending(seq, fail('x11.requestFailed', { code: bytes[1] }))
+          else {
+            opts.onStrayError?.({
+              request: requestName(p.majorOpcode),
+              code: p.code,
+              sequence: seq,
+              badValue: p.badValue,
+            })
+          }
+        }
       }
     }
 

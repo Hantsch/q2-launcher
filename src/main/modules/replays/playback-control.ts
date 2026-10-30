@@ -15,6 +15,7 @@ import {
   R1Q2_CONTROLS_UNAVAILABLE,
 } from './playback-channel/engine-less-channel'
 import { createLinuxChannel } from './playback-channel/linux-channel'
+import { playbackChannelPlan } from './playback-channel/plan'
 import { POSITION_PUSH_MS } from './playback-channel/protocol'
 import type { EngineIo, PlaybackChannel } from './playback-channel/types'
 import {
@@ -243,9 +244,10 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       }
       // platform-read: injectable default, tests pass their own
       const platform = deps.platform ?? process.platform
-      if (engine === 'r1q2') {
+      const plan = playbackChannelPlan(platform, engine)
+      if (plan.kind === 'engine-less') {
         channel = createEngineLessChannel()
-      } else if (platform === 'win32') {
+      } else if (plan.kind === 'windows') {
         channel = makeWindows({ gameDirPath, log })
       } else {
         const lateIo: EngineIo = {
@@ -254,7 +256,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         }
         channel = makeLinux({ io: lateIo, log, gameDirPath })
       }
-      const startedEarly = engine === 'q2pro' && platform === 'win32'
+      const startedEarly = plan.startsEarly
       prepared = {
         channel,
         durationMs,

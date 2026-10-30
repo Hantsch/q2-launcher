@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseXauthority, pickCookie } from './xauth'
+import { parseXauthority, pickCookie, unsupportedCookieFamily } from './xauth'
 
 /** Fixtures are hand-written libXau records: big-endian CARD16 family, then four CARD16-prefixed fields. */
 function hex(...parts: string[]): Buffer {
@@ -102,5 +102,25 @@ describe('picking the MIT cookie for a local display', () => {
       Buffer.concat([hex('ff ff 00 00 00 01 30', MIT_NAME, '00 10', COOKIE_WILD), LOCAL_BOX_0]),
     )
     expect(pickCookie(wildFirst, { hostname: 'box', display: 0 })).toEqual(hex(COOKIE_WILD))
+  })
+})
+
+describe('finding a cookie only a network family offers', () => {
+  const internetEntry = (display: string): Buffer =>
+    hex('00 00', '00 04 0a 00 00 01', display, MIT_NAME, '00 10', COOKIE_LOCAL)
+  const internet0 = parseXauthority(internetEntry('00 01 30'))
+
+  it('reports the family of a matching MIT entry that is neither Local nor Wild', () => {
+    expect(unsupportedCookieFamily(internet0, { display: 0 })).toBe(0)
+  })
+
+  it('reports nothing for another display, a usable family or an empty file', () => {
+    expect(unsupportedCookieFamily(internet0, { display: 1 })).toBeNull()
+    expect(unsupportedCookieFamily(parseXauthority(FILE), { display: 0 })).toBeNull()
+    expect(unsupportedCookieFamily([], { display: 0 })).toBeNull()
+  })
+
+  it('treats an empty display number as matching every display', () => {
+    expect(unsupportedCookieFamily(parseXauthority(internetEntry('00 00')), { display: 5 })).toBe(0)
   })
 })

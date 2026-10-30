@@ -21,7 +21,9 @@ export interface X11StageWindowOptions {
   /** The launched game's PID; undefined until the process has spawned. */
   pid: () => number | undefined
   /** Called at most once, with a stable cause key; afterwards the keeper does nothing. */
-  onFailure: (cause: string) => void
+  onFailure: (cause: string, params?: Record<string, string | number>) => void
+  /** Called after each ABOVE add was written: the WM may have restacked the game over the overlay. */
+  onAboveApplied?: () => void
   now?: () => number
   setTimeout?: (fn: () => void, ms: number) => unknown
   clearTimeout?: (handle: unknown) => void
@@ -31,6 +33,8 @@ export interface X11StageWindow {
   setTop(top: 0 | 1): Outcome<void>
   /** Records the `WxH+X+Y` physical-pixel geometry the game was told to open at. */
   placed(geometry: string): void
+  /** Records the off-desktop park geometry; a window adopted while parked is re-placed there. */
+  parked(geometry: string): void
   dispose(): void
 }
 
@@ -75,10 +79,11 @@ export function createX11StageWindow(opts: X11StageWindowOptions): X11StageWindo
     timer = null
     conn?.close()
   }
-  const failWith = (cause: string): void => {
+  const failWith = (cause: string, params?: Record<string, string | number>): void => {
     if (stopped) return
     stop()
-    opts.onFailure(cause)
+    if (params) opts.onFailure(cause, params)
+    else opts.onFailure(cause)
   }
 
   /** A request whose failure ends the keeper; the outcome is null once it has. */
@@ -87,7 +92,7 @@ export function createX11StageWindow(opts: X11StageWindowOptions): X11StageWindo
     const result = await conn.request(bytes, expectsReply)
     if (stopped) return null
     if (!result.ok) {
-      failWith(result.error.key)
+      failWith(result.error.key, result.error.params)
       return null
     }
     return result.value
@@ -100,17 +105,19 @@ export function createX11StageWindow(opts: X11StageWindowOptions): X11StageWindo
 
   async function applyTop(): Promise<void> {
     if (!ready || !game || !conn || appliedTop === wantTop) return
-    appliedTop = wantTop
-    await send(
+    const applying = wantTop
+    appliedTop = applying
+    const written = await send(
       encodeSendClientMessage({
         destination: conn.root,
         eventMask: ROOT_EVENT_MASK,
         window: game.id,
         messageType: game.atoms.wmState,
-        data: [wantTop === 1 ? 1 : 0, game.atoms.above, 0, 1, 0],
+        data: [applying === 1 ? 1 : 0, game.atoms.above, 0, 1, 0],
       }),
       false,
     )
+    if (written !== null && applying === 1 && !stopped) opts.onAboveApplied?.()
     // setTop may have changed again while the message was in flight.
     if (appliedTop !== wantTop) await applyTop()
   }
@@ -155,7 +162,7 @@ export function createX11StageWindow(opts: X11StageWindowOptions): X11StageWindo
         // The window vanished between the list and the query; skip it.
         const code = result.error.params?.code
         if (code === BAD_WINDOW || code === BAD_VALUE) continue
-        failWith(result.error.key)
+        failWith(result.error.key, result.error.params)
         return null
       }
       const owner = decoded(decodeQueryClientIdsReply(result.value))
@@ -176,7 +183,7 @@ export function createX11StageWindow(opts: X11StageWindowOptions): X11StageWindo
       if (connected.ok) connected.value.close()
       return
     }
-    if (!connected.ok) return failWith(connected.error.key)
+    if (!connected.ok) return failWith(connected.error.key, connected.error.params)
     conn = connected.value
 
     const ext = await send(encodeQueryExtension('X-Resource'), true)
@@ -217,6 +224,9 @@ export function createX11StageWindow(opts: X11StageWindowOptions): X11StageWindo
       return ok(undefined)
     },
     placed(next) {
+      geometry = next
+    },
+    parked(next) {
       geometry = next
     },
     dispose: stop,

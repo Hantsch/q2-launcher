@@ -190,6 +190,41 @@ describe('X11 stage window keeper', () => {
     expect(state.readUInt32LE(28)).toBe(ATOMS._NET_WM_STATE_ABOVE)
   })
 
+  it('a window found while parked is re-placed at the park geometry', async () => {
+    const fake = fakeConnection()
+    const { keeper } = start(fake)
+    keeper.placed('1280x720+100+50')
+    keeper.parked('1280x720+3904+50')
+    await vi.advanceTimersByTimeAsync(250)
+    const configure = mutations(fake.sent).find((m) => m.opcode === 12)
+    expect(configure?.bytes.readInt32LE(12)).toBe(3904)
+    expect(configure?.bytes.readInt32LE(16)).toBe(50)
+  })
+
+  it('the ABOVE add is written before the overlay is raised, and a remove raises nothing', async () => {
+    const fake = fakeConnection()
+    const log: string[] = []
+    const request = fake.conn.request.bind(fake.conn)
+    fake.conn.request = (bytes, expectsReply) => {
+      if (bytes[0] === 25) log.push(bytes.readUInt32LE(24) === 1 ? 'add' : 'remove')
+      return request(bytes, expectsReply)
+    }
+    const keeper = createX11StageWindow({
+      connect: () => Promise.resolve(ok(fake.conn)),
+      pid: () => GAME_PID,
+      onFailure: vi.fn(),
+      onAboveApplied: () => log.push('raise'),
+    })
+    await vi.advanceTimersByTimeAsync(250)
+    expect(log).toEqual(['add', 'raise'])
+    keeper.setTop(0)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(log).toEqual(['add', 'raise', 'remove'])
+    keeper.setTop(1)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(log).toEqual(['add', 'raise', 'remove', 'add', 'raise'])
+  })
+
   it('skips ConfigureWindow for an unparseable geometry', async () => {
     const fake = fakeConnection()
     const { keeper } = start(fake)
@@ -273,7 +308,7 @@ describe('X11 stage window keeper', () => {
     keeper.setTop(0)
     keeper.dispose()
     expect(onFailure).toHaveBeenCalledTimes(1)
-    expect(onFailure).toHaveBeenCalledWith('x11.requestFailed')
+    expect(onFailure).toHaveBeenCalledWith('x11.requestFailed', { code: 5 })
   })
 
   it('stops polling, closes the connection and reports nothing on dispose', async () => {

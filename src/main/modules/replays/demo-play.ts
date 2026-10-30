@@ -32,6 +32,7 @@ import {
 } from './discovery'
 import type { PlaybackSession } from '../../services/playback-session'
 import { DEFAULT_VOLUME_PERCENT, type PlaybackControl } from './playback-control'
+import { playbackChannelPlan } from './playback-channel/plan'
 import { MOUSE_SESSION_CVARS, NOTIFY_SESSION_CVARS } from './playback-channel/protocol'
 import {
   STAGE_CVAR_NAMES,
@@ -309,8 +310,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     engine: DemoPlayEngine,
   ): Promise<Outcome<ReplaysDemoPlayResult>> {
     const r1q2 = engine === 'r1q2'
-    // An engine-less session has nothing to talk to over the pipes.
-    const pipes = !r1q2 && deps.platform !== 'win32'
+    const pipes = playbackChannelPlan(deps.platform, engine).usesPipes
     let input = launchInput
     // Story 170: stage args sit right before `+demo`, after the channel's args; only when a rect came.
     let stageArgs: string[] = []

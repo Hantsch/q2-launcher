@@ -270,6 +270,20 @@ export function encodeQueryClientIds(majorOpcode: number, windowId: number): Buf
 
 // ---- server -> client packets ------------------------------------------------------------------
 
+const REQUEST_NAMES: Readonly<Record<number, string>> = {
+  12: 'ConfigureWindow',
+  16: 'InternAtom',
+  18: 'ChangeProperty',
+  20: 'GetProperty',
+  25: 'SendEvent',
+  98: 'QueryExtension',
+}
+
+/** Name of a core request this client encodes; an extension opcode is dynamic, so it stays a number. */
+export function requestName(majorOpcode: number): string {
+  return REQUEST_NAMES[majorOpcode] ?? `opcode ${majorOpcode}`
+}
+
 export type Packet =
   | { kind: 'reply'; sequence: number; length: number }
   | {

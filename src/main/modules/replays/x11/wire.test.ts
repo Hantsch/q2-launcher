@@ -14,6 +14,7 @@ import {
   encodeSendClientMessage,
   encodeSetupRequest,
   readPacket,
+  requestName,
 } from './wire'
 
 /**
@@ -424,5 +425,22 @@ describe('X11 reply decoding', () => {
       ok: false,
       error: 'truncated',
     })
+  })
+})
+
+describe('naming the request an X error belongs to', () => {
+  it('names the core requests this client encodes', () => {
+    expect([12, 16, 18, 20, 25, 98].map(requestName)).toEqual([
+      'ConfigureWindow',
+      'InternAtom',
+      'ChangeProperty',
+      'GetProperty',
+      'SendEvent',
+      'QueryExtension',
+    ])
+  })
+
+  it('falls back to the number for an extension or unknown opcode', () => {
+    expect(requestName(131)).toBe('opcode 131')
   })
 })

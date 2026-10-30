@@ -200,3 +200,18 @@
 - 2026-10-30 13:41:09 · 321 · verify 4 · done
 - 2026-10-30 13:41:24 · 321 · story · done
 - 2026-10-30 13:41:27 · 321 · story · done
+- 2026-10-30 13:41:43 · 326 · build · started
+- 2026-10-30 13:42:03 · 326 · D1 playback seam + guard · started
+- 2026-10-30 13:43:13 · 326 · D1 playback seam + guard · done
+- 2026-10-30 13:43:13 · 326 · D2 X11 connection honesty · started
+- 2026-10-30 13:45:17 · 326 · D2 X11 connection honesty · done
+- 2026-10-30 13:45:17 · 326 · D3 keeper parked + ABOVE order · started
+- 2026-10-30 13:46:10 · 326 · D3 keeper parked + ABOVE order · done
+- 2026-10-30 13:46:10 · 326 · D4 docs · started
+- 2026-10-30 13:46:41 · 326 · D4 docs · done
+- 2026-10-30 13:46:41 · 326 · verify · started
+- 2026-10-30 13:48:08 · 326 · verify · done
+- 2026-10-30 13:48:08 · 326 · review 1 · started
+- 2026-10-30 13:49:13 · 326 · review 1 · done
+- 2026-10-30 13:49:13 · 326 · story · done
+- 2026-10-30 13:49:16 · 326 · story · done

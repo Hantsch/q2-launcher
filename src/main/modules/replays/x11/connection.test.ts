@@ -1,6 +1,6 @@
 import { Duplex } from 'node:stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { connectX11, type X11Target } from './connection'
+import { connectX11, type ConnectX11Options, type X11Target } from './connection'
 
 /** Hand-written spec bytes, little-endian (X11 Appendix B), not produced by the codec. */
 function hex(...parts: string[]): Buffer {
@@ -26,8 +26,15 @@ const seqLE = (n: number): string =>
 /** A 32-byte reply for `seq` whose bytes 8-9 carry `tag`. */
 const reply = (seq: number, tag: number): Buffer =>
   hex('01 00', seqLE(seq), '00 00 00 00', tag.toString(16).padStart(2, '0'), '00', '00'.repeat(22))
-const errorPacket = (seq: number, code: number): Buffer =>
-  hex('00', code.toString(16).padStart(2, '0'), seqLE(seq), '00'.repeat(28))
+const errorPacket = (seq: number, code: number, major = 0): Buffer =>
+  hex(
+    '00',
+    code.toString(16).padStart(2, '0'),
+    seqLE(seq),
+    '00'.repeat(6),
+    major.toString(16).padStart(2, '0'),
+    '00'.repeat(21),
+  )
 const eventPacket = (seq: number): Buffer => hex('0c 00', seqLE(seq), '00'.repeat(28))
 
 class FakeServer {
@@ -51,8 +58,13 @@ class FakeServer {
 
 const tick = (): Promise<void> => new Promise((r) => setImmediate(r))
 
-async function connected(server = new FakeServer(), timeoutMs?: number) {
+async function connected(
+  server = new FakeServer(),
+  timeoutMs?: number,
+  onStrayError?: ConnectX11Options['onStrayError'],
+) {
   const pendingConn = connectX11({
+    onStrayError,
     env: { DISPLAY: ':0' },
     readFile: () => Promise.reject(new Error('ENOENT')),
     hostname: 'box',
@@ -170,6 +182,31 @@ describe('X11 handshake', () => {
   })
 })
 
+describe('X11 authorization', () => {
+  it('a display whose only matching cookie has an unsupported family is refused with that family', async () => {
+    const record = Buffer.concat([
+      hex('0000 0004 0a000001 0001'),
+      Buffer.from('0'),
+      hex('0012'),
+      Buffer.from('MIT-MAGIC-COOKIE-1'),
+      hex('0010'),
+      Buffer.alloc(16, 0xab),
+    ])
+    const createSocket = vi.fn()
+    const result = await connectX11({
+      env: { DISPLAY: ':0', XAUTHORITY: '/home/u/xa' },
+      readFile: async () => record,
+      hostname: 'box',
+      createSocket,
+    })
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'x11.authFamilyUnsupported', params: { family: 0 } },
+    })
+    expect(createSocket).not.toHaveBeenCalled()
+  })
+})
+
 describe('X11 requests', () => {
   it('matches replies to requests by sequence number, out of order and past events', async () => {
     const { server, conn } = await connected()
@@ -200,6 +237,21 @@ describe('X11 requests', () => {
     const next = conn.request(Buffer.from('b'), true)
     server.send(errorPacket(1, 8), reply(2, 5))
     expect((await next).ok).toBe(true)
+  })
+
+  it("an X error for a request sent without a reply is reported with that request's name", async () => {
+    const onStrayError = vi.fn()
+    const { server, conn } = await connected(new FakeServer(), undefined, onStrayError)
+    await conn.request(Buffer.from('a'), false)
+    const next = conn.request(Buffer.from('b'), true)
+    server.send(errorPacket(1, 8, 18), reply(2, 5))
+    expect((await next).ok).toBe(true)
+    expect(onStrayError).toHaveBeenCalledWith({
+      request: 'ChangeProperty',
+      code: 8,
+      sequence: 1,
+      badValue: 0,
+    })
   })
 
   it('reassembles a reply split across chunks and several packets in one chunk', async () => {

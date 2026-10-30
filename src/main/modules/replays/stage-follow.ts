@@ -65,10 +65,15 @@ export interface StageFollowerDeps {
   launchGeometry: string
   /**
    * Owns the game window's always-on-top flag out of band (X11): the top decision goes to `setTop`
-   * instead of a `win_alwaysontop` console line, and every geometry the follower places is reported
-   * through `placed` in the same `WxH+X+Y` form. Absent: the console line is used.
+   * instead of a `win_alwaysontop` console line, and every geometry the follower sends is reported in
+   * the same `WxH+X+Y` form - through `parked` for the off-desktop park, through `placed` otherwise
+   * (the launch geometry included). Absent: the console line is used.
    */
-  windowState?: { setTop(top: 0 | 1): Outcome<void>; placed(geometry: string): void }
+  windowState?: {
+    setTop(top: 0 | 1): Outcome<void>
+    placed(geometry: string): void
+    parked(geometry: string): void
+  }
   now?: () => number
   setTimeout?: (fn: () => void, ms: number) => unknown
   clearTimeout?: (handle: unknown) => void
@@ -123,7 +128,8 @@ export function createStageFollower(deps: StageFollowerDeps): StageFollower {
       if (deps.send(geometryLine(desiredGeo)).ok) {
         sentGeo = desiredGeo
         sentIsPark = desiredIsPark
-        deps.windowState?.placed(sentGeo)
+        if (sentIsPark) deps.windowState?.parked(sentGeo)
+        else deps.windowState?.placed(sentGeo)
       } else failed = true
     }
     if (failed && retryTimer === null) {

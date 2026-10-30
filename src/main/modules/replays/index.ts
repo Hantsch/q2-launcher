@@ -342,10 +342,17 @@ export const replaysModule: MainModule = {
       const offLaunch = app.launch.onStateChange(adopt)
       const keeper = createX11StageWindow({
         connect: () =>
-          connectX11({ env: app.env, readFile: (path) => readFile(path), hostname: hostname() }),
+          connectX11({
+            env: app.env,
+            readFile: (path) => readFile(path),
+            hostname: hostname(),
+            onStrayError: (e) =>
+              log.warn(`x11 error ${e.code} on ${e.request} (seq ${e.sequence})`),
+          }),
         pid: () => pid,
-        onFailure: (cause) => {
-          log.warn(`stage keeper gave up: ${cause}`)
+        onAboveApplied: () => app.cinemaWindow.raise(),
+        onFailure: (cause, params) => {
+          log.warn(`stage keeper gave up: ${cause}${params ? ` ${JSON.stringify(params)}` : ''}`)
           stageNotice = { key: 'replays.stage.notOnTop.x11' }
           playbackControl.emitDisplay()
         },

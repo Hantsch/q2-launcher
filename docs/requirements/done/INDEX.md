@@ -380,3 +380,4 @@ second roadmap.
 - 323 — The update service is split into testable parts · S37 · createUpdateService split into four parts, TD-020 gaps closed (slot-keep/abort tests, LAN recheck, joined catalog fetch)
 - 320 — Config edits reach disk only through save, and every flag survives a reload · S37 · baseline carries writeCatalogDefaults, switch bind writes via syncAndPersist with visible refusal, keepEmptyAlias persisted, saveNow revert and applied-load fixed, five TD rows closed
 - 321 — Demo play, stop and stage restore end in a defined state · S37 · missing game dir refused, single-flight play, stop settles via launch, pid-guarded quit restore, single-sign geometry, Alt+Enter race, replace-dialog value, Join vs filter
+- 326 — Platform decisions in playback stay behind the seam · S37 · plan.ts owns playback platform choice, X11 keeper reports stray errors/auth family/parked and re-raises the overlay
