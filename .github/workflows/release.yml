@@ -1,8 +1,6 @@
 name: release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -21,14 +19,13 @@ on:
         type: boolean
         default: false
       skip_ci_guard:
-        description: 'Skip the green-ci check on this commit (logged in the run)'
+        description: 'Skip the in-run ci checks (logged in the run)'
         required: false
         type: boolean
         default: false
 
 permissions:
   contents: write
-  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -38,7 +35,8 @@ concurrency:
 # cannot be built on Windows and building the Windows half under Wine on Linux would replace the
 # one configuration that is proven to produce a working `latest.yml`:
 #
-#   plan (ubuntu)         requires a green `ci` run on HEAD (scripts/release-ci-guard.mjs), decides the version ONCE, up front, and refuses early (an empty
+#   ci (windows)          runs the ci checks on the commit this run releases (skipped by skip_ci_guard).
+#   plan (ubuntu)         decides the version ONCE, up front, and refuses early (an empty
 #                         `## Unreleased`, an existing tag) so a refusal costs no build at all.
 #   build-linux (ubuntu)  builds the AppImage AT THAT VERSION and uploads it as a workflow
 #                         artifact.
@@ -47,19 +45,50 @@ concurrency:
 #                         two jobs used (`--version`, never a second derivation) - a version
 #                         derived twice is a release whose tag and whose asset filenames disagree.
 jobs:
+  ci:
+    name: ci checks
+    runs-on: windows-latest
+    if: ${{ !inputs.skip_ci_guard }}
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - id: sha
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/setup-node-electron
+        with:
+          # Unit tests resolve `electron` to a stub (vitest.config.ts) and never need the binary.
+          electron: 'false'
+
+      - name: Audit
+        run: npm audit --audit-level=high
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
   plan:
     name: Plan
     runs-on: ubuntu-latest
-    # A workflow_dispatch run has no head_commit at all, so the guard is written to only evaluate
-    # the [skip ci] check on a push - this stops the release commit itself (tagged
-    # "release: <version> [skip ci]" by scripts/release.mjs) from re-triggering a run when it lands
-    # on main via the push trigger (AC7), without relying on contains() coercing an undefined
-    # head_commit.message safely. It lives on this job alone: the other two `needs:` it, and a
-    # skipped dependency skips them too.
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    needs: ci
+    # `!cancelled()` because a skipped `ci` (skip_ci_guard) would otherwise skip every job below it.
+    if: ${{ !cancelled() && (needs.ci.result == 'success' || (needs.ci.result == 'skipped' && inputs.skip_ci_guard)) }}
     outputs:
       version: ${{ steps.plan.outputs.version }}
-      sha: ${{ steps.ci-guard.outputs.sha }}
+      sha: ${{ steps.head.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,14 +100,22 @@ jobs:
         with:
           electron: 'false'
 
-      - name: Require a green ci run
-        id: ci-guard
+      - name: Check the commit the ci checks saw
+        id: head
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_DRY_RUN_INPUT: ${{ inputs.dry_run }}
-          RELEASE_SKIP_CI_GUARD_INPUT: ${{ inputs.skip_ci_guard }}
-        run: node scripts/release-ci-guard.mjs
+          CI_SHA: ${{ needs.ci.outputs.sha }}
+          SKIP_CI: ${{ inputs.skip_ci_guard }}
+        run: |
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [ -n "$CI_SHA" ] && [ "$CI_SHA" != "$HEAD_SHA" ]; then
+            echo "::error::ci checked $CI_SHA but this run releases $HEAD_SHA" >&2
+            exit 1
+          fi
+          if [ "$SKIP_CI" = "true" ]; then
+            echo "::warning::ci checks skipped by $GITHUB_ACTOR for $HEAD_SHA"
+          fi
+          echo "sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Resolve the version to release
         id: plan
@@ -108,6 +145,7 @@ jobs:
     name: Build Linux
     runs-on: ubuntu-latest
     needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     steps:
       - id: checkout
         uses: actions/checkout@v4
@@ -116,7 +154,7 @@ jobs:
           ref: ${{ github.ref_name }}
 
       - id: guard
-        name: Refuse a commit the ci guard did not see
+        name: Refuse a commit the ci checks did not see
         if: ${{ !contains(steps.*.outcome, 'failure') }}
         continue-on-error: ${{ github.actor != 'nektos/act' }}
         shell: bash
@@ -125,7 +163,7 @@ jobs:
         run: |
           HEAD_SHA="$(git rev-parse HEAD)"
           if [ "$HEAD_SHA" != "$GUARDED_SHA" ]; then
-            echo "::error::checked out $HEAD_SHA but the ci guard approved $GUARDED_SHA" >&2
+            echo "::error::checked out $HEAD_SHA but the ci checks approved $GUARDED_SHA" >&2
             exit 1
           fi
 
@@ -208,14 +246,14 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
 
-      - name: Refuse a commit the ci guard did not see
+      - name: Refuse a commit the ci checks did not see
         shell: bash
         env:
           GUARDED_SHA: ${{ needs.plan.outputs.sha }}
         run: |
           HEAD_SHA="$(git rev-parse HEAD)"
           if [ "$HEAD_SHA" != "$GUARDED_SHA" ]; then
-            echo "::error::checked out $HEAD_SHA but the ci guard approved $GUARDED_SHA" >&2
+            echo "::error::checked out $HEAD_SHA but the ci checks approved $GUARDED_SHA" >&2
             exit 1
           fi
 
@@ -223,12 +261,6 @@ jobs:
         with:
           # Unit tests resolve `electron` to a stub (vitest.config.ts) and never need the binary.
           electron: 'false'
-
-      - name: Test
-        run: npm test
-
-      - name: Typecheck
-        run: npm run typecheck
 
       # Built outside release/<version>/ so release.mjs never collects it as a release asset.
       - name: Package the unpacked Windows app

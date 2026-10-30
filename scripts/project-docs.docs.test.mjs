@@ -132,6 +132,18 @@ describe('lane map in CLAUDE.md', () => {
     expect(docs[4]).toMatch(/^No\b/)
   })
 
+  test("a lane's trigger names push only for workflows that run on push", () => {
+    for (const row of rows.slice(2)) {
+      const [lane, trigger] = cells(row)
+      for (const [, file] of row.matchAll(/`([^`\s]+\.yml)`/g)) {
+        const text = readFileSync(join(WORKFLOWS_DIR, file), 'utf-8')
+        const onBlock = text.match(/^on:[ \t]*\r?\n((?:[ \t]+.*\r?\n|\r?\n)*)/m)?.[1] ?? ''
+        const runsOnPush = /^ {2}push:/m.test(onBlock)
+        expect(runsOnPush, `${lane}: ${file}`).toBe(/\bpush\b/.test(trigger))
+      }
+    }
+  })
+
   test('the sprint end runs verify:linux before verify:release and records it as advisory', () => {
     const md = readFileSync(join(ROOT, '.claude/ai-scrum.md'), 'utf-8')
     const notesAt = md.search(/^## Notes/m)
@@ -171,9 +183,10 @@ describe('release pipeline docs', () => {
     expect(readme).toContain('github.com/Hantsch/q2-launcher/releases')
   })
 
-  test('CLAUDE.md states that a release needs a green ci run on its SHA', () => {
+  test('CLAUDE.md states that a release runs only when dispatched, after its own ci checks', () => {
     const lines = read('CLAUDE.md').split(/\r?\n/)
-    expect(lines.some((l) => /green/.test(l) && /\bci\b/.test(l) && /SHA/.test(l))).toBe(true)
+    const ok = (l) => /only when dispatched/.test(l) && /`ci`/.test(l) && /skip_ci_guard/.test(l)
+    expect(lines.some(ok)).toBe(true)
   })
 
   test('changelog-path points at CHANGELOG.md', () => {

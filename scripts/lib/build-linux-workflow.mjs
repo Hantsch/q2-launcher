@@ -11,7 +11,7 @@ import yaml from 'js-yaml'
  */
 export function buildLinuxWorkflowText(releaseYml, version, sha) {
   const release = yaml.load(releaseYml)
-  const { needs: _plan, ...job } = release.jobs['build-linux']
+  const { needs: _plan, if: _if, ...job } = release.jobs['build-linux']
   const checkout = job.steps.findIndex((step) => step.uses?.startsWith('actions/checkout@'))
   delete job.steps[checkout].with?.ref
   job.steps.splice(checkout + 1, 0, {

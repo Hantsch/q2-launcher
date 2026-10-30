@@ -42,3 +42,13 @@
 - 2026-10-30 09:39:53 · 280 · review 1 · started
 - 2026-10-30 09:44:38 · 280 · review 1 · done
 - 2026-10-30 09:44:38 · 280 · story · done
+- 2026-10-30 09:44:50 · 278 · build · started
+- 2026-10-30 09:45:07 · 278 · D1 release dispatch + own ci checks · started
+- 2026-10-30 09:51:07 · 278 · D1 release dispatch + own ci checks · done
+- 2026-10-30 09:51:07 · 278 · D2 ci triggers + docs · started
+- 2026-10-30 09:53:58 · 278 · D2 ci triggers + docs · done
+- 2026-10-30 09:53:58 · 278 · verify · started
+- 2026-10-30 09:54:27 · 278 · verify · done
+- 2026-10-30 09:54:27 · 278 · review 1 · started
+- 2026-10-30 09:57:32 · 278 · review 1 · done
+- 2026-10-30 09:57:32 · 278 · story · done

@@ -1,7 +1,7 @@
 ---
 id: 278
 title: A release runs only when the user starts it, and checks its own commit
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-29
 ---
 
@@ -19,15 +19,15 @@ commit `verify:release` passed does not fail.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — No push to `main` starts a release; `release.yml` runs on `workflow_dispatch`
+- [x] **AC1** — No push to `main` starts a release; `release.yml` runs on `workflow_dispatch`
       only.
-- [ ] **AC2** — A dispatched release runs the blocking `ci` checks on its commit inside the same
+- [x] **AC2** — A dispatched release runs the blocking `ci` checks on its commit inside the same
       run, before `plan` builds anything, and stops before any build when they fail.
-- [ ] **AC3** — A release never ends red because another `ci` run is missing or still running.
-- [ ] **AC4** — The `version`, `bump`, `dry_run` and `skip_ci_guard` inputs keep working.
-- [ ] **AC5** — `scripts/workflows.test.mjs` fails when `release.yml` gets a `push` trigger back
+- [x] **AC3** — A release never ends red because another `ci` run is missing or still running.
+- [x] **AC4** — The `version`, `bump`, `dry_run` and `skip_ci_guard` inputs keep working.
+- [x] **AC5** — `scripts/workflows.test.mjs` fails when `release.yml` gets a `push` trigger back
       or loses its own `ci` checks.
-- [ ] **AC6** — `CLAUDE.md` (`## Test lanes` `release` row, the "A release needs a green `ci`
+- [x] **AC6** — `CLAUDE.md` (`## Test lanes` `release` row, the "A release needs a green `ci`
       run" key rule) describes the dispatched release.
 
 ## Open Questions
@@ -176,3 +176,18 @@ Review: → default
 - AC6 → `check:docs` › "a lane's trigger names push only for workflows that run on push" (D2)
 
 ## Done
+
+**Summary.** `release.yml` is dispatch-only and carries its own `ci` job (windows-latest, a verbatim copy of `ci.yml` > `test`); `plan` needs it (or its `skip_ci_guard` skip, logged as a warning) and pins the SHA; `build-linux`/`release` run on `!cancelled() && needs.plan.result == 'success'`. The polling guard scripts, `permissions.actions` and the release job's second test/typecheck are gone. `ci.yml` runs on PRs and dispatch only; CLAUDE.md key rule and lane rows describe the dispatched release; a `check:docs` rule keeps lane push triggers honest.
+
+**Commit message:** `278: release runs on dispatch only and checks its own commit - in-run ci job, guard scripts removed, ci.yml no push trigger`
+
+**Verification (narrow gate).** typecheck, lint green; `npx vitest run --changed HEAD` 34 tests green; release/workflow/build-linux suites 82 tests green; `npm run check:docs` 69 green. No build/e2e: no UI or app code touched. Review 1 (default): PASS.
+AC -> test: AC1 "a release starts only by dispatch"; AC2/AC3 "the release runs the ci checks on its own commit before plan"; AC4 wiring "workflow_dispatch exposes exactly version, bump, dry_run and skip_ci_guard as inputs" + "skip_ci_guard skips the checks with a warning and the build jobs still run"; AC5 the AC1/AC2 tests; AC6 check:docs "a lane's trigger names push only for workflows that run on push" - all passed.
+Manual residue: AC2 runtime half - the first dispatched release must show `ci` -> `plan` -> builds on GitHub (act cannot run the windows `ci` job).
+
+**Decisions.**
+- Docs-lane rules live in `scripts/project-docs.docs.test.mjs` (story 279's file), not a separate rules file; its old "release needs a green ci run on its SHA" test was rewritten to the new bullet.
+- `linuxJobs()` in `workflows.test.mjs` skips release.yml and the `PUSH_PR_EXCEPTED` exception is removed (release no longer push-triggered); `build-linux` keeps its own test.
+- Unfixed review findings (test strength, not bugs): `ci` `sha` output / `plan` `head` step not asserted directly; `plan.if` pinned by substring only; `npm test` check matches whole elements; `ci` job inherits top-level `contents: write`; stale describe name "three jobs" in wiring.test.mjs (now four jobs).
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 5

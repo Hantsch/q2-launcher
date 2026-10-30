@@ -138,8 +138,6 @@ describe('Linux jobs never gate and never end red', () => {
   // An `if:` without a status function implies `success()`, which a continue-on-error failure
   // leaves true; the `contains` is what skips the rest of the job.
   const SKIP_AFTER_FAILURE = "${{ !contains(steps.*.outcome, 'failure') }}"
-  // release.yml still triggers on push, so the exception goes when it is dispatch-only (story 278)
-  const PUSH_PR_EXCEPTED = ['release.yml']
 
   /** Every runner a job resolves to, with a `matrix.os` runs-on expanded to its values. */
   const runnersOf = (def) =>
@@ -155,7 +153,8 @@ describe('Linux jobs never gate and never end red', () => {
 
   const linuxJobs = () =>
     loadWorkflows()
-      .filter(({ doc }) => !onPushOrPr(doc))
+      // release.yml is dispatch-only; its Linux jobs are pinned by their own tests (story 278)
+      .filter(({ file, doc }) => !onPushOrPr(doc) && file !== 'release.yml')
       .flatMap(({ file, doc }) =>
         Object.entries(doc.jobs)
           .filter(([, def]) => isLinux(def))
@@ -164,7 +163,7 @@ describe('Linux jobs never gate and never end red', () => {
 
   test('no push or pull-request workflow runs a Linux job', () => {
     const offenders = loadWorkflows()
-      .filter(({ file, doc }) => onPushOrPr(doc) && !PUSH_PR_EXCEPTED.includes(file))
+      .filter(({ doc }) => onPushOrPr(doc))
       .flatMap(({ file, doc }) =>
         Object.entries(doc.jobs)
           .filter(([, def]) => !runnersOf(def).every((r) => r.includes('windows')))
@@ -206,6 +205,11 @@ describe('Linux jobs never gate and never end red', () => {
       expect(last.env.STEPS, at).toBe('${{ toJSON(steps) }}')
       expect(last.env.CHECK.startsWith(`${file}/${job}`), at).toBe(true)
     }
+  })
+
+  test('ci runs on pull requests into main and on dispatch only', () => {
+    const ci = loadYaml(join(WORKFLOWS_DIR, 'ci.yml'))
+    expect(Object.keys(ci.on).sort()).toEqual(['pull_request', 'workflow_dispatch'])
   })
 
   test('the ci test job runs audit, format check, typecheck, lint and tests on windows-latest', () => {
@@ -294,17 +298,40 @@ describe('workflow setup', () => {
 describe('release workflow', () => {
   const release = () => loadYaml(join(WORKFLOWS_DIR, 'release.yml'))
 
-  test('the release plan requires a green ci run before any build job', () => {
-    const { jobs } = release()
-    const steps = jobs.plan.steps
-    const guard = steps.findIndex((s) => s.id === 'ci-guard')
-    expect(guard).toBeGreaterThanOrEqual(0)
-    expect(steps[guard].run).toContain('scripts/release-ci-guard.mjs')
-    expect(guard).toBeLessThan(steps.findIndex((s) => s.id === 'plan'))
-    for (const job of ['build-linux', 'release']) expect([jobs[job].needs].flat()).toContain('plan')
+  test('a release starts only by dispatch', () => {
+    expect(Object.keys(release().on)).toEqual(['workflow_dispatch'])
   })
 
-  test('later release jobs refuse a commit the guard did not see', () => {
+  test('the release runs the ci checks on its own commit before plan', () => {
+    const doc = release()
+    const { jobs } = doc
+    const isCheckout = (s) => String(s.uses ?? '').startsWith('actions/checkout')
+    expect(jobs.ci['runs-on']).toBe('windows-latest')
+    const ciTest = loadYaml(join(WORKFLOWS_DIR, 'ci.yml')).jobs.test.steps
+    const own = jobs.ci.steps.filter((s) => !isCheckout(s) && s.id !== 'sha')
+    expect(own).toEqual(ciTest.filter((s) => !isCheckout(s)))
+    expect([jobs.plan.needs].flat()).toContain('ci')
+    for (const job of ['build-linux', 'release']) expect([jobs[job].needs].flat()).toContain('plan')
+    const runs = Object.values(jobs).flatMap((j) => (j.steps ?? []).map((s) => String(s.run ?? '')))
+    for (const run of runs) expect(run).not.toMatch(/release-ci-guard|actions\/workflows|gh api/)
+    expect(doc.permissions.actions).toBeUndefined()
+  })
+
+  test('skip_ci_guard skips the checks with a warning and the build jobs still run', () => {
+    const { jobs } = release()
+    expect(jobs.ci.if).toContain('inputs.skip_ci_guard')
+    expect(jobs.plan.if).toContain('!cancelled()')
+    expect(jobs.plan.if).toContain('needs.ci.result')
+    const run = jobs.plan.steps.map((s) => String(s.run ?? '')).join('\n')
+    expect(run).toContain('::warning::')
+    expect(run).toContain('GITHUB_ACTOR')
+    for (const job of ['build-linux', 'release']) {
+      expect(jobs[job].if, job).toContain('!cancelled()')
+      expect(jobs[job].if, job).toContain("needs.plan.result == 'success'")
+    }
+  })
+
+  test('later release jobs refuse a commit plan did not see', () => {
     const doc = release()
     for (const job of ['build-linux', 'release']) {
       const steps = doc.jobs[job].steps
@@ -312,7 +339,6 @@ describe('release workflow', () => {
         steps[steps.findIndex((s) => String(s.uses ?? '').startsWith('actions/checkout')) + 1]
       expect(JSON.stringify(after), job).toContain('needs.plan.outputs.sha')
     }
-    expect(doc.permissions.actions).toBe('read')
   })
 
   test('build-linux cannot end red and the release runs after it fails', () => {
@@ -345,10 +371,10 @@ describe('release workflow', () => {
     expect(download['continue-on-error']).toBe(true)
   })
 
-  test('the release job still runs unit tests and typecheck on windows', () => {
+  test('the release job runs no second unit test or typecheck', () => {
     const runs = release().jobs.release.steps.map((s) => String(s.run ?? ''))
-    expect(runs).toContain('npm test')
-    expect(runs).toContain('npm run typecheck')
+    expect(runs).not.toContain('npm test')
+    expect(runs).not.toContain('npm run typecheck')
   })
 })
 

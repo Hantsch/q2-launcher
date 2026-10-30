@@ -125,17 +125,6 @@ describe('release pipeline wiring', () => {
       expect(Object.keys(inputs).sort()).toEqual(['bump', 'dry_run', 'skip_ci_guard', 'version'].sort())
     })
 
-    test('the job carries a guard that skips a push carrying [skip ci]', () => {
-      const workflow = readWorkflow()
-      const jobs = Object.values(workflow.jobs)
-
-      const guarded = jobs.some((job) => {
-        const condition = String(job.if ?? '')
-        return condition.includes('[skip ci]') && condition.includes('contains(')
-      })
-      expect(guarded).toBe(true)
-    })
-
     test('the release step disables electron-builder code-signing discovery', () => {
       const workflow = readWorkflow()
       const jobs = Object.values(workflow.jobs)
@@ -147,7 +136,7 @@ describe('release pipeline wiring', () => {
       expect(hasFlag).toBe(true)
     })
 
-    test('the release commit carries [skip ci] and the workflow skips such a commit', () => {
+    test('the release commit carries [skip ci]', () => {
       // (a) the commit message scripts/release.mjs actually produces carries the marker - derived
       // from planRelease itself (plan.mjs), not re-typed here, so a template change would fail this.
       const changelog = `# Changelog
@@ -195,19 +184,13 @@ describe('release pipeline wiring', () => {
       // fails the next PR instead.
       const readmeWrite = plan.writes.find((write) => write.path === 'README.md')
       expect(readmeWrite.content).toMatch(/\*\*Status:[^\n]*\(1\.0\.1\)/)
-
-      // (b) the workflow's own guard references that same marker.
-      const workflow = readWorkflow()
-      const jobs = Object.values(workflow.jobs)
-      const guarded = jobs.some((job) => String(job.if ?? '').includes('[skip ci]'))
-      expect(guarded).toBe(true)
     })
 
     describe('D3 (story 101): three jobs, one release', () => {
       test('plan, build-linux and release exist, and release waits for both others', () => {
         const workflow = readWorkflow()
 
-        expect(Object.keys(workflow.jobs).sort()).toEqual(['build-linux', 'plan', 'release'])
+        expect(Object.keys(workflow.jobs).sort()).toEqual(['build-linux', 'ci', 'plan', 'release'])
 
         // `needs` is what makes the split safe rather than merely parallel: the Windows job must
         // not start tagging and publishing before the Linux artifacts it has to upload exist, and
