@@ -7,6 +7,7 @@ import { demoListFilterSchema, type DemoListFilter } from '../replays/list-filte
 import { DEMO_SORT_COLUMNS, type DemoListSort } from '../replays/list-sort'
 import type { BulkOutcome } from '../replays/bulk'
 import type { NameFacts } from '../replays/name-template'
+import { playerModeSchema, type PlayerMode } from '../replays/player-mode'
 import type { NameTemplatesView } from '../replays/name-templates'
 import { sidecarFieldsSchema, type SidecarFields } from '../replays/sidecar'
 import { timelineActionSchema } from '../replays/timeline'
@@ -60,6 +61,9 @@ export const REPLAYS_HANDLERS = {
    */
   listGetFilter: 'listFilter.read',
   listSetFilter: 'listFilter.write',
+  /** The persisted playback mode (engine or integrated). */
+  playbackModeRead: 'playbackMode.read',
+  playbackModeSet: 'playbackMode.set',
   /** The missing-mod warning's persisted state. */
   modWarningRead: 'modWarning.read',
   modWarningSetEnabled: 'modWarning.setEnabled',
@@ -703,6 +707,8 @@ export interface ReplaysModWarning {
   trustedMods: string[]
 }
 
+export const playbackModeReadInputSchema = replaysNoInputSchema
+export const playbackModeSetInputSchema = z.object({ mode: playerModeSchema }).strict()
 export const modWarningReadInputSchema = replaysNoInputSchema
 export const modWarningResetTrustedInputSchema = replaysNoInputSchema
 export const modWarningSetEnabledInputSchema = z.object({ enabled: z.boolean() }).strict()
@@ -740,6 +746,8 @@ export const REPLAYS_HANDLER_SCHEMAS = {
   [REPLAYS_HANDLERS.listSetSort]: listSetSortInputSchema,
   [REPLAYS_HANDLERS.listGetFilter]: listGetFilterInputSchema,
   [REPLAYS_HANDLERS.listSetFilter]: listSetFilterInputSchema,
+  [REPLAYS_HANDLERS.playbackModeRead]: playbackModeReadInputSchema,
+  [REPLAYS_HANDLERS.playbackModeSet]: playbackModeSetInputSchema,
   [REPLAYS_HANDLERS.modWarningRead]: modWarningReadInputSchema,
   [REPLAYS_HANDLERS.modWarningSetEnabled]: modWarningSetEnabledInputSchema,
   [REPLAYS_HANDLERS.modWarningTrustMod]: modWarningTrustModInputSchema,
@@ -864,6 +872,8 @@ export type ReplaysContract = {
     [REPLAYS_HANDLERS.listSetSort]: ReplaysHandler<'list.setSort', DemoListSort | null>
     [REPLAYS_HANDLERS.listGetFilter]: ReplaysHandler<'listFilter.read', DemoListFilter>
     [REPLAYS_HANDLERS.listSetFilter]: ReplaysHandler<'listFilter.write', DemoListFilter>
+    [REPLAYS_HANDLERS.playbackModeRead]: ReplaysHandler<'playbackMode.read', PlayerMode>
+    [REPLAYS_HANDLERS.playbackModeSet]: ReplaysHandler<'playbackMode.set', PlayerMode>
     [REPLAYS_HANDLERS.modWarningRead]: ReplaysHandler<'modWarning.read', ReplaysModWarning>
     [REPLAYS_HANDLERS.modWarningSetEnabled]: ReplaysHandler<
       'modWarning.setEnabled',

@@ -17,6 +17,7 @@ vi.hoisted(() => {
 const playDemo = vi.fn()
 vi.mock('./client', (importOriginal) =>
   mockClient<typeof import('./client')>(importOriginal, {
+    readPlaybackMode: () => new Promise(() => {}),
     playDemo: (...args: unknown[]) => playDemo(...args),
     onPlaybackPosition: () => () => {},
     onPlaybackState: () => () => {},
@@ -28,16 +29,19 @@ vi.mock('./client', (importOriginal) =>
 let useDemoPlay: typeof import('./useDemoPlay').useDemoPlay
 let useLauncher: typeof import('../../store/useLauncher').useLauncher
 let usePlaybackStore: typeof import('./playback-store').usePlaybackStore
+let usePlaybackModeStore: typeof import('./playback-mode-store').usePlaybackModeStore
 
 beforeAll(async () => {
   await initI18n('en')
   ;({ useDemoPlay } = await import('./useDemoPlay'))
   ;({ useLauncher } = await import('../../store/useLauncher'))
   ;({ usePlaybackStore } = await import('./playback-store'))
+  ;({ usePlaybackModeStore } = await import('./playback-mode-store'))
 })
 
 afterEach(() => {
   cleanup()
+  usePlaybackModeStore.setState({ mode: 'engine' })
   playDemo.mockReset()
   usePlaybackStore.getState().endSession()
   usePlaybackStore.getState().disarmStage()
@@ -56,7 +60,7 @@ function demo(over: Record<string, unknown> = {}): DemoRow {
 }
 
 function inst(id: string, engineKind: string, extra: Record<string, unknown> = {}) {
-  return { id, engineKind, gameDirs: ['baseq2'], runner: undefined, ...extra }
+  return { id, engineKind, gameDirs: ['baseq2'], checks: [], runner: undefined, ...extra }
 }
 
 function setStore(opts: {
@@ -236,5 +240,29 @@ describe('useDemoPlay', () => {
   it('a Steam-launched installation refuses with the needsDirectLaunch reason', () => {
     setStore({ installations: [inst('q', 'q2pro', { runner: 'steam' })] })
     expect(reasonText(demo())).toContain('direct launch')
+  })
+
+  it('in integrated mode an mvd2 shows the engine-mode reason', () => {
+    setStore({})
+    usePlaybackModeStore.setState({ mode: 'integrated' })
+    expect(reasonText(demo({ format: 'mvd2' }))).toContain('MVD2 demos play in engine mode for now')
+  })
+
+  it('in integrated mode a playable demo says integrated mode is not ready and never starts', async () => {
+    setStore({})
+    usePlaybackModeStore.setState({ mode: 'integrated' })
+    expect(reasonText(demo())).toContain('Integrated mode is not ready yet')
+    const { result } = hook()
+    await act(() => result.current.play())
+    await act(() => result.current.play(true))
+    expect(playDemo).not.toHaveBeenCalled()
+  })
+
+  it('engine mode still plays through demo.play', async () => {
+    setStore({})
+    playDemo.mockResolvedValue(PLAYED)
+    const { result } = hook()
+    await act(() => result.current.play())
+    expect(playDemo).toHaveBeenCalledTimes(1)
   })
 })

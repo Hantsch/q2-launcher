@@ -908,7 +908,11 @@
         "src/renderer/src/modules/replays/playback-store.ts",
         "src/renderer/src/modules/replays/useDemoPlay.ts",
         "src/renderer/src/modules/replays/useDemoStop.ts",
-        "src/renderer/src/modules/replays/optimistic-timeline.ts"
+        "src/renderer/src/modules/replays/optimistic-timeline.ts",
+        "src/shared/replays/demo-play.ts",
+        "src/shared/replays/player-mode.ts",
+        "src/renderer/src/modules/replays/playback-mode-store.ts",
+        "src/renderer/src/modules/replays/components/PlaybackModeSwitch.tsx"
       ],
       "flows": [
         "replays-play-q2pro",
@@ -919,7 +923,8 @@
         "replays-timeline-burst",
         "replays-timeline-optimistic",
         "replays-volume",
-        "replays-play-r1q2"
+        "replays-play-r1q2",
+        "replays-playback-mode"
       ],
       "why": "Demo playback: staging, the playback channel, console, timeline, volume and stop."
     },

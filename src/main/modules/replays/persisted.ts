@@ -6,6 +6,7 @@ import {
   type ReplaysExtraFolder,
 } from '@shared/modules/replays'
 import type { DemoListSort } from '@shared/replays/list-sort'
+import { DEFAULT_PLAYER_MODE, playerModeSchema, type PlayerMode } from '@shared/replays/player-mode'
 import {
   EMPTY_DEMO_LIST_FILTER,
   demoListFilterSchema,
@@ -41,6 +42,8 @@ export interface ReplaysState {
    * null until a session changed it. Mute is never remembered, only the level under it (story 237).
    */
   demoVolume: number | null
+  /** Which player plays a demo; missing or invalid loads as the default. */
+  playbackMode: PlayerMode
 }
 
 const demoVolumeSchema = z.number().int().min(0).max(100)
@@ -157,7 +160,17 @@ export function parseReplaysState(raw: unknown): ReplaysState {
   )
   const demoVolume = demoVolumeResult.success ? demoVolumeResult.data : null
 
-  return { nameTemplates, extraFolders, listFilter, modWarning, listSort, demoVolume }
+  const playbackModeResult = playerModeSchema.safeParse(
+    (raw as { playbackMode?: unknown } | null)?.playbackMode,
+  )
+  const playbackMode = playbackModeResult.success ? playbackModeResult.data : DEFAULT_PLAYER_MODE
+
+  return { nameTemplates, extraFolders, listFilter, modWarning, listSort, demoVolume, playbackMode }
+}
+
+/** Remembers the chosen player mode through the same section handle. */
+export function setPlaybackMode(state: StateStore, mode: PlayerMode): void {
+  replaysState(state).update((live) => ({ ...live, playbackMode: mode }))
 }
 
 /** Remembers the level a demo session ended at; the same section handle every other slot writes through. */
@@ -177,6 +190,7 @@ const replaysSpec: StateSectionSpec<ReplaysState> = {
     modWarning: { enabled: true, trustedMods: [] },
     listSort: null,
     demoVolume: null,
+    playbackMode: DEFAULT_PLAYER_MODE,
   }),
 }
 

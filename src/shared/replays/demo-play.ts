@@ -9,8 +9,9 @@
 
 import type { DiscoveredDemo } from '../modules/replays'
 import { refuse, type DomainResult, type Refusal } from '../types/common'
-import type { Installation } from '../types/installation'
+import type { Installation, ValidationCheckId } from '../types/installation'
 import { STEAM_RUNNER_CHOICE } from '../types/runner'
+import type { PlayerMode } from './player-mode'
 
 export const DEMO_BASE_GAME_DIR = 'baseq2'
 
@@ -28,35 +29,45 @@ export type DemoPlayReasonKey =
   | 'replays.play.unavailable.needsDirectLaunch'
   | 'replays.play.unavailable.gameRunning'
   | 'replays.play.unavailable.unsafeName'
+  | 'replays.player.unavailable.noBasePaks'
+  | 'replays.player.unavailable.mvd2Integrated'
+  /** Produced by the renderer while the integrated player cannot play yet, never by this file. */
+  | 'replays.player.unavailable.integratedNotReady'
 
 /** `acknowledgeable` marks a warning, not a blocker: playing is allowed once the user has acknowledged it (`acknowledgeModMissing`). */
 export type DemoPlayRefusal = Refusal<DemoPlayReasonKey> & { acknowledgeable?: true }
 
-export type DemoPlayEligibility =
-  | Exclude<
-      DomainResult<
-        {
-          installationId: string
-          gameDir: string
-          /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
-          inPlace: boolean
-          extraArgs: string[]
-          /** The engine that plays the demo; decides the console command. */
-          playEngine: DemoPlayEngine
-          /** Set when the installation's own engine is not the one that plays: the launch must use its detected one. */
-          engine?: DemoPlayEngine
-        },
-        DemoPlayReasonKey
-      >,
-      Refusal
-    >
-  | DemoPlayRefusal
+type DemoPlayOk<T extends object> = Exclude<DomainResult<T, DemoPlayReasonKey>, Refusal>
+
+export type DemoPlayEngineTarget = DemoPlayOk<{
+  mode: 'engine'
+  installationId: string
+  gameDir: string
+  /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
+  inPlace: boolean
+  extraArgs: string[]
+  /** The engine that plays the demo; decides the console command. */
+  playEngine: DemoPlayEngine
+  /** Set when the installation's own engine is not the one that plays: the launch must use its detected one. */
+  engine?: DemoPlayEngine
+}>
+
+export type DemoPlayIntegratedTarget = DemoPlayOk<{
+  mode: 'integrated'
+  installationId: string
+  gameDir: string
+}>
+
+export type DemoPlayEngineEligibility = DemoPlayEngineTarget | DemoPlayRefusal
+export type DemoPlayIntegratedEligibility = DemoPlayIntegratedTarget | DemoPlayRefusal
+export type DemoPlayEligibility = DemoPlayEngineTarget | DemoPlayIntegratedTarget | DemoPlayRefusal
 
 export interface DemoPlayInput {
   demo: DiscoveredDemo
+  mode: PlayerMode
   installations: readonly Pick<
     Installation,
-    'id' | 'engineKind' | 'detectedEngines' | 'gameDirs' | 'runner'
+    'id' | 'engineKind' | 'detectedEngines' | 'gameDirs' | 'runner' | 'checks'
   >[]
   activeInstallationId: string | null
   platform: string
@@ -121,14 +132,65 @@ function hasGameDir(gameDirs: readonly string[], dir: string): boolean {
   return sameDir(dir, DEMO_BASE_GAME_DIR) || gameDirs.some((d) => sameDir(d, dir))
 }
 
+/** The checks whose failure means the installation has no usable baseq2 game data. */
+const BASE_GAME_CHECKS: ReadonlySet<ValidationCheckId> = new Set([
+  'root-exists',
+  'base-game-dir',
+  'base-paks',
+])
+
+function activeInstallation(
+  input: DemoPlayInput,
+): DemoPlayInput['installations'][number] | undefined {
+  const { activeInstallationId, installations } = input
+  return activeInstallationId === null
+    ? undefined
+    : installations.find((i) => i.id === activeInstallationId)
+}
+
+function modMissingWarning(
+  active: Pick<Installation, 'gameDirs'>,
+  gameDir: string,
+  input: DemoPlayInput,
+): DemoPlayRefusal | null {
+  if (hasGameDir(active.gameDirs, gameDir) || input.acknowledgeModMissing) return null
+  return { ...refuse('replays.play.unavailable.modMissing', { gameDir }), acknowledgeable: true }
+}
+
+export function demoPlayEligibility(
+  input: DemoPlayInput & { mode: 'engine' },
+): DemoPlayEngineEligibility
+export function demoPlayEligibility(
+  input: DemoPlayInput & { mode: 'integrated' },
+): DemoPlayIntegratedEligibility
+export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility
 export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
-  const { demo, installations, activeInstallationId, gameRunning } = input
+  return input.mode === 'integrated' ? integratedEligibility(input) : engineEligibility(input)
+}
+
+/**
+ * The integrated player brings its own engine and reads only the installation's game data, so the
+ * engine kind, the Steam runner and R1Q2's protocol limits do not apply (story 287).
+ */
+function integratedEligibility(input: DemoPlayInput): DemoPlayIntegratedEligibility {
+  const { demo, gameRunning } = input
+  const active = activeInstallation(input)
+  if (!active || active.checks.some((c) => c.severity === 'error' && BASE_GAME_CHECKS.has(c.id))) {
+    return refuse('replays.player.unavailable.noBasePaks')
+  }
+  if (gameRunning) return refuse('replays.play.unavailable.gameRunning')
+  if (demo.format === 'mvd2') return refuse('replays.player.unavailable.mvd2Integrated')
+  const gameDir = demoGameDir(demo)
+  const warning = modMissingWarning(active, gameDir, input)
+  if (warning) return warning
+  return { ok: true, mode: 'integrated', installationId: active.id, gameDir }
+}
+
+function engineEligibility(input: DemoPlayInput): DemoPlayEngineEligibility {
+  const { demo, gameRunning } = input
   const gameDir = demoGameDir(demo)
 
-  const active =
-    activeInstallationId === null
-      ? undefined
-      : installations.find((i) => i.id === activeInstallationId)
+  const active = activeInstallation(input)
   if (!active) return refuse('replays.play.unavailable.unsupportedEngine')
   const playEngine: DemoPlayEngine | null = isQ2proCapable(active)
     ? 'q2pro'
@@ -145,12 +207,8 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
   // Last, and only a warning: a mod folder the inspector does not list (only demos, or files the
   // server sent on connect) still plays - the user decides. Last so the warning is never shown for
   // a demo that could not be played anyway.
-  if (!hasGameDir(active.gameDirs, gameDir) && !input.acknowledgeModMissing) {
-    return {
-      ...refuse('replays.play.unavailable.modMissing', { gameDir }),
-      acknowledgeable: true,
-    }
-  }
+  const warning = modMissingWarning(active, gameDir, input)
+  if (warning) return warning
 
   // Story 160: a demo from elsewhere is playable through a temporary copy, so location never
   // refuses. Only a demo that sits in the active installation, with a name the console can take, is
@@ -166,6 +224,7 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
 
   return {
     ok: true,
+    mode: 'engine',
     installationId: active.id,
     gameDir,
     inPlace,

@@ -105,6 +105,7 @@ vi.mock('./client', (importOriginal) =>
     onPlaybackState: () => () => {},
     onPlaybackDisplay: () => () => {},
     playbackDisplayRead: () => new Promise(() => {}),
+    readPlaybackMode: () => new Promise(() => {}),
   }),
 )
 

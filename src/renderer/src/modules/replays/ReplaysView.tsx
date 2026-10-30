@@ -59,6 +59,7 @@ import { RenameDemoDialog } from './RenameDemoDialog'
 import type { MenuPoint } from './row-menu'
 import { ConsoleCommandField } from './components/ConsoleCommandField'
 import { DemoStage } from './components/DemoStage'
+import { PlaybackModeSwitch } from './components/PlaybackModeSwitch'
 import { DemoTimeline } from './components/DemoTimeline'
 import { usePlaybackStore } from './playback-store'
 import { useDemoPlay } from './useDemoPlay'
@@ -545,7 +546,10 @@ export function ReplaysView() {
       ...(hasSelection && eligibility !== null && !eligibility.ok && !askFirst
         ? { reason: { key: eligibility.reasonKey, params: eligibility.params } }
         : {}),
-      ...(hasSelection && eligibility?.ok && eligibility.engine === 'q2pro'
+      ...(hasSelection &&
+      eligibility?.ok &&
+      eligibility.mode === 'engine' &&
+      eligibility.engine === 'q2pro'
         ? { reason: { key: 'replays.play.withInstallationQ2pro' } }
         : {}),
       ...(playError ? { error: playError } : {}),
@@ -797,6 +801,7 @@ export function ReplaysView() {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <PlaybackModeSwitch testIdPrefix="replays-playback-mode" />
           <Switch
             checked={showAll}
             onChange={setShowAll}

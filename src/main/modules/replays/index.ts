@@ -51,7 +51,7 @@ import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackConsole } from './playback-console'
 import { createPlaybackStop } from './playback-stop'
 import { createPlaybackSessions } from './playback-sessions'
-import { rememberDemoVolume, replaysState } from './persisted'
+import { rememberDemoVolume, replaysState, setPlaybackMode } from './persisted'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { SESSION_CVARS_PENDING_FILE, createCvarRestore } from './session-cvar-restore'
 import { createSidecarStore } from './sidecar-store'
@@ -640,6 +640,13 @@ export const replaysModule: MainModule = {
           listFilter: normalizeDemoListFilter(payload.filter),
         })).listFilter ?? EMPTY_DEMO_LIST_FILTER,
       )
+    })
+
+    // The playback mode is a plain persisted slot; `set` echoes what is stored.
+    handle(REPLAYS_HANDLERS.playbackModeRead, () => ok(replaysState(app.state).get().playbackMode))
+    handle(REPLAYS_HANDLERS.playbackModeSet, (payload) => {
+      setPlaybackMode(app.state, payload.mode)
+      return ok(replaysState(app.state).get().playbackMode)
     })
 
     // Story 182: the `modWarning.*` handlers - same live-slice discipline as `listFilter`;

@@ -463,6 +463,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       const activeInstallationId = deps.activeInstallationId()
       const eligibility = demoPlayEligibility({
         demo,
+        mode: 'engine',
         installations,
         activeInstallationId,
         platform: deps.platform,

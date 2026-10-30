@@ -16,6 +16,7 @@ import {
   setModWarningEnabled,
 } from './client'
 import { NameTemplatesList } from './NameTemplatesList'
+import { PlaybackModeSwitch } from './components/PlaybackModeSwitch'
 
 /**
  * Story 142: the extra-demo-folders list a user actually edits - a sibling block to
@@ -162,6 +163,16 @@ function ModWarningSettings() {
   )
 }
 
+function PlaybackSettings() {
+  const { t } = useTranslation()
+  return (
+    <div className="space-y-3 border-t border-line pt-3">
+      <SectionLabel>{t('replays.player.mode.label')}</SectionLabel>
+      <PlaybackModeSwitch testIdPrefix="replays-settings-playback-mode" />
+    </div>
+  )
+}
+
 /**
  * Story 135: the replays module's Settings section - inner content only, the shell
  * (`SettingsView.tsx`) already wraps every contributed section in its own `Panel` + `SectionLabel`
@@ -177,6 +188,7 @@ function ModWarningSettings() {
 export function ReplaysSettingsSection() {
   return (
     <>
+      <PlaybackSettings />
       <NameTemplatesList />
       <ExtraFoldersList />
       <ModWarningSettings />

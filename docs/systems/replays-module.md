@@ -9,7 +9,7 @@ Contract: `src/shared/modules/replays.ts`.
 - Discover demos (also in zip archives) across installations and user-added folders; index header facts in a disposable cache.
 - Let the user sort, filter, rename and annotate demos (tags, rating, favourite, sides) in a sidecar next to the demo; it also
   carries time-anchored comments (`comments`: demo time in ms plus text, at most 200 of 500 characters, sorted by time).
-- Play a demo in Q2PRO and steer it, on the launcher's stage or in cinema mode; R1Q2 plays it, stop only.
+- Play a demo in Q2PRO and steer it, on the launcher's stage or in cinema mode; R1Q2 plays it, stop only. Playback has an engine mode (Q2PRO, today's path) and an integrated mode (opt-in, experimental): until the integrated player lands the renderer refuses it with `replays.player.unavailable.integratedNotReady`. `demoPlayEligibility` takes the mode.
 
 ### Scope
 
@@ -40,7 +40,7 @@ counts follow the scoped rows; the filter value survives an installation switch.
 
 - `modules/replays.ts` — handler map, events, schemas and the typed `ReplaysContract`.
 - `replays/` — `sidecar.ts`, `list-sort.ts`, `list-filter.ts`, `name-template.ts`, `name-templates.ts`, `demo-comments.ts`,
-  `demo-rename.ts`, `demo-play.ts`, `demo-control.ts`, `timeline.ts`, `console-line.ts`, `cinema.ts`; `demos/` — header, frame and
+  `demo-rename.ts`, `demo-play.ts`, `player-mode.ts`, `demo-control.ts`, `timeline.ts`, `console-line.ts`, `cinema.ts`; `demos/` — header, frame and
   readability readers.
 
 **Renderer** (`src/renderer/src/modules/replays/`)
@@ -62,7 +62,7 @@ counts follow the scoped rows; the filter value survives an installation switch.
   comment controls in fullscreen or the cinema overlay. "Play from here" seeks a session on that demo, else plays it.
 - `components/DemoStatsPanel.tsx` — the detail's OpenTDM accuracy table (one row per item, totals below), rendered from `row.stats` alone and absent when the row has none.
 - `components/DemoPlayersPanel.tsx` — players by side — two teams side by side, otherwise stacked; side colours from `--color-side-1/2`; `components/DemoStage.tsx`, `components/DemoTimeline.tsx` (takes the
-  session's `demo` and `onRowPatched` for comments), `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `useDemoPlay.ts` — playback. `beginSession(..., { startAtS })` keeps `pendingSeekS`; the first position sample sends one `seekTo`. Also `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
+  session's `demo` and `onRowPatched` for comments), `cinema/CinemaOverlay.tsx`, `playback-store.ts`, `playback-mode-store.ts`, `components/PlaybackModeSwitch.tsx`, `useDemoPlay.ts` — playback. `beginSession(..., { startAtS })` keeps `pendingSeekS`; the first position sample sends one `seekTo`. Also `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
 
 **Parser and index facts**
 
@@ -88,6 +88,7 @@ replays-index.json (regenerable), one sidecar per demo.
 - `demoVolume` — the level (integer percent) the last demo session ended at, for every installation; `null` until one changed it,
   mute never stored. Written once at session end. A channel play starts there, else at the config's last archived `s_volume`, else
   70; `s_volume` is a session-restore cvar, so its archived line is put back after the game exits.
+- `playbackMode` — `'engine'` or `'integrated'`, which player plays a demo; missing or invalid loads as `'engine'`.
 
 ## Handlers
 
@@ -103,6 +104,7 @@ replays-index.json (regenerable), one sidecar per demo.
 - `listGetSort` / `listSetSort` / `listGetFilter` / `listSetFilter` — the persisted sort and filter.
 - `modWarningRead`, `modWarningSetEnabled`, `modWarningTrustMod`, `modWarningResetTrusted` — read, switch, trust a game dir, clear
   them.
+- `playbackMode.read` / `playbackMode.set` — the persisted player mode; set returns the stored value.
 - `demosReveal` / `demosCopyPath` / `demoRename` — reveal, copy the resolved path, rename demo+sidecar.
 - `demoMove` — moves a loose demo and its sidecar into another folder of a source (target real path inside the root). Refuses
   archive entries and folders, a playing demo, a running scan, a clash.

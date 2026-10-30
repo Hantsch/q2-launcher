@@ -1,3 +1,4 @@
+import type { PlayerMode } from '@shared/replays/player-mode'
 import {
   REPLAYS_EVENTS,
   REPLAYS_HANDLERS,
@@ -327,6 +328,14 @@ export function setModWarningEnabled(enabled: boolean): Promise<Outcome<ReplaysM
   return client.call(REPLAYS_HANDLERS.modWarningSetEnabled, {
     enabled,
   })
+}
+
+export function readPlaybackMode(): Promise<Outcome<PlayerMode>> {
+  return client.call(REPLAYS_HANDLERS.playbackModeRead)
+}
+
+export function setPlaybackMode(mode: PlayerMode): Promise<Outcome<PlayerMode>> {
+  return client.call(REPLAYS_HANDLERS.playbackModeSet, { mode })
 }
 
 export function trustModWarningMod(gameDir: string): Promise<Outcome<ReplaysModWarning>> {

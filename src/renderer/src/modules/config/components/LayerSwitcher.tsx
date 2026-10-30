@@ -1,7 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import { cn } from '../../../lib/cn'
-import { Button } from '../../../components/ui/Button'
+import { SegmentedControl } from '../../../components/ui/SegmentedControl'
+
+/** Option value for the base layer; layer ids are never empty. */
+const BASE = ''
 
 /**
  * Base/alt-layer segmented switcher, lifted out of `LayersPanel` (story
@@ -28,31 +31,15 @@ export function LayerSwitcher({
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       <span className="text-xs text-ink-muted">{t('config.layersPanel.selector.label')}</span>
-      <div
-        role="group"
-        aria-label={t('config.layersPanel.selector.label')}
-        className="flex flex-wrap items-center gap-1.5"
-      >
-        <Button
-          variant={activeLayerId === null ? 'primary' : 'neutral'}
-          size="sm"
-          aria-pressed={activeLayerId === null}
-          onClick={() => onSelect(null)}
-        >
-          {t('config.layersPanel.selector.base')}
-        </Button>
-        {layers.map((layer) => (
-          <Button
-            key={layer.id}
-            variant={activeLayerId === layer.id ? 'primary' : 'neutral'}
-            size="sm"
-            aria-pressed={activeLayerId === layer.id}
-            onClick={() => onSelect(layer.id)}
-          >
-            {layer.name}
-          </Button>
-        ))}
-      </div>
+      <SegmentedControl
+        label={t('config.layersPanel.selector.label')}
+        options={[
+          { value: BASE, label: t('config.layersPanel.selector.base') },
+          ...layers.map((layer) => ({ value: layer.id, label: layer.name })),
+        ]}
+        value={activeLayerId ?? BASE}
+        onChange={(id) => onSelect(id === BASE ? null : id)}
+      />
     </div>
   )
 }

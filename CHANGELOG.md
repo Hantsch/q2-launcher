@@ -12,6 +12,10 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Added
+
+- Demos can play inside the launcher (experimental), switchable in Settings.
+
 ### Changed
 
 - The launcher window appears right away, before settings finish loading.

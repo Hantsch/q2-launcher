@@ -1,7 +1,7 @@
 ---
 id: 287
 title: I choose between engine and integrated playback
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -39,24 +39,24 @@ Expected manual residue: wording and placement of the switch in the Demos view.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A `state.json` without `replays.playbackMode`, or with an invalid value, reads as
+- [x] **AC1** — A `state.json` without `replays.playbackMode`, or with an invalid value, reads as
       mode `engine`; the other fields of the `replays` slot are untouched (persisted and golden
       tests).
-- [ ] **AC2** — The contract-first handlers `playbackMode.read` and `playbackMode.set` (zod
+- [x] **AC2** — The contract-first handlers `playbackMode.read` and `playbackMode.set` (zod
       `z.enum(['engine','integrated'])`) exist; after `set` with `integrated`, `read` returns
       `integrated`, also after a restart.
-- [ ] **AC3** — In Settings → Demos the "Playback" switch between "Engine window" and "Integrated
+- [x] **AC3** — In Settings → Demos the "Playback" switch between "Engine window" and "Integrated
       (experimental)" stores the chosen value.
-- [ ] **AC4** — The Demos view shows a segmented switch with both modes next to "Play" that reads
+- [x] **AC4** — The Demos view shows a segmented switch with both modes next to "Play" that reads
       and writes the same value.
-- [ ] **AC5** — While a demo plays, the switch is disabled and shows the visible text "Stop the
+- [x] **AC5** — While a demo plays, the switch is disabled and shows the visible text "Stop the
       demo to switch" (`replays.player.mode.lockedWhilePlaying`), not only a tooltip.
-- [ ] **AC6** — In mode `integrated`, an `.mvd2` demo has Play disabled with the visible reason
+- [x] **AC6** — In mode `integrated`, an `.mvd2` demo has Play disabled with the visible reason
       "MVD2 demos play in engine mode for now" (`replays.player.unavailable.mvd2Integrated`).
-- [ ] **AC7** — In mode `engine`, eligibility is unchanged from today.
-- [ ] **AC8** — In mode `integrated`, a demo is playable when the active installation has
+- [x] **AC7** — In mode `engine`, eligibility is unchanged from today.
+- [x] **AC8** — In mode `integrated`, a demo is playable when the active installation has
       `baseq2` but only R1Q2 or no recognised engine.
-- [ ] **AC9** — `npm run ui:flow -- replays-play-q2pro` stays green (engine mode unchanged).
+- [x] **AC9** — `npm run ui:flow -- replays-play-q2pro` stays green (engine mode unchanged).
 
 ## Open Questions
 
@@ -147,3 +147,17 @@ Order: D1 → D2 → D3 → D4 → D5. D3 is independent of D1/D2.
 - Expected manual residue from the requirement (wording and placement) is not a criterion; the placement is decided above.
 
 ## Done
+
+Summary: the playback mode (`engine` default / `integrated`) is persisted forgivingly in the `replays` slot and served by `playbackMode.read` / `playbackMode.set`. `demoPlayEligibility` takes a required `mode` with the integrated rules; `useDemoPlay` follows the mode and shows `integratedNotReady` until 291. One `PlaybackModeSwitch` (on the new `SegmentedControl` UI-kit primitive, which `ServersModeToggle` and `LayerSwitcher` now use) sits in Settings → Demos and the Demos view header and locks with visible text while a demo plays.
+
+Change type: feat
+
+Commit message: `287: playback mode engine/integrated (persisted, IPC, eligibility, switch in Settings + Demos view), SegmentedControl UI kit, flow replays-playback-mode`
+
+Verification (narrow gate): `npm run build:dev` (mods flows need a dev-modules build; a production `npm run build` hides `nav-mods`, which turned 4 mods flows red until rebuilt), typecheck, lint green; `npx vitest run --changed HEAD` green (194 files, 1807 tests); `ui:flows -- --affected <replays-playback-mode, replays-play-q2pro> --shard=1/2, 2/2` ran on the production build: only the 4 mods flows (mods-install, mods-install-refused, replays-mod-install, replays-mod-warning) red, then all four plus both story flows green on the dev build (run singly via `ui:flow`). Review: default stage, PASS, 1 fix cycle.
+AC → test: AC1 persisted.test.ts "playbackMode parses forgivingly" + golden test; AC2 replays/index.test.ts both named tests; AC3/AC4/AC5 flow `replays-playback-mode`; AC6 demo-play.test.ts mvd2 test + useDemoPlay.test.ts "in integrated mode an mvd2 shows the engine-mode reason"; AC7 demo-play.test.ts existing tests + "engine mode still plays through demo.play"; AC8 demo-play.test.ts R1Q2-only test; AC9 flow `replays-play-q2pro`. All passed. manual residue: wording and placement of the switch (as in the requirement).
+Decisions: ReplaysView hint ("Plays with this installation's Q2PRO") now shows only for `mode === 'engine'` (ok result is a union); `useDemoPlay.play()` also returns early in integrated mode so an acknowledged mod warning cannot reach `playDemo`; replays view/dialog tests gained a `readPlaybackMode` mock because the store loads on mount; `i18n` bundle snapshot updated.
+Unfixed review findings (accepted): "engine mode still plays through demo.play" overlaps neighbouring play tests (kept, it is the AC7 named test); the Settings switch's lock is proven by the shared component's unit test and the view switch's flow step, not a second flow step; the flow asserts the interim "not ready" text, which story 291 removes together with the gate; PlaybackModeSwitch test omits `busy` and error states.
+Note for the gate: `scripts/repo-hygiene.test.mjs` CRLF report seen by D5 did not reproduce in the verify run.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 8

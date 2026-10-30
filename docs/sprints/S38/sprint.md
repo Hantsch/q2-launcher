@@ -22,7 +22,7 @@ milestone: 12.1 — Toolchain and spikes; 12.2 — Playback in the canvas
 - [x] 285 — Spike: the engine steps deterministically
 - [x] 286 — Spike: audio is pulled from the DMA mixer per step
 - [x] 288 — The launcher serves the engine and allows WebAssembly
-- [ ] 287 — I choose between engine and integrated playback
+- [x] 287 — I choose between engine and integrated playback
 - [ ] 289 — Main serves game data to the engine
 - [ ] 290 — The engine canvas sits on the demo stage
 - [ ] 291 — A demo plays inside the launcher

@@ -105,3 +105,22 @@
 - 2026-10-30 20:35 · 288 · review 1 · started
 - 2026-10-30 20:39 · 288 · review 1 · done
 - 2026-10-30 20:39 · 288 · story · done
+- 2026-10-30 20:39 · 287 · build · started
+- 2026-10-30 20:39 · 287 · D1 persisted mode + IPC · started
+- 2026-10-30 20:41 · 287 · D1 persisted mode + IPC · done
+- 2026-10-30 20:41 · 287 · D2 eligibility knows the mode · started
+- 2026-10-30 20:45 · 287 · D2 eligibility knows the mode · done
+- 2026-10-30 20:45 · 287 · D3 SegmentedControl · started
+- 2026-10-30 20:46 · 287 · D3 SegmentedControl · done
+- 2026-10-30 20:46 · 287 · D4 renderer mode store + useDemoPlay · started
+- 2026-10-30 20:48 · 287 · D4 renderer mode store + useDemoPlay · done
+- 2026-10-30 20:48 · 287 · D5 switch UI + flow · started
+- 2026-10-30 20:52 · 287 · D5 switch UI + flow · done
+- 2026-10-30 20:52 · 287 · verify · started
+- 2026-10-30 21:08 · 287 · verify · blocked: 4 mods flows red, investigating
+- 2026-10-30 21:11 · 287 · verify · done
+- 2026-10-30 21:11 · 287 · review 1 · started
+- 2026-10-30 21:12 · 287 · review 1 · done
+- 2026-10-30 21:12 · 287 · review 1 fixes · started
+- 2026-10-30 21:13 · 287 · review 1 fixes · done
+- 2026-10-30 21:13 · 287 · story · done

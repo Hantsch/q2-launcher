@@ -547,6 +547,26 @@ describe('replays module', () => {
       })
     })
 
+    it('playbackMode handlers persist the mode across a reload', async () => {
+      expect(await invoke(REPLAYS_HANDLERS.playbackModeRead)).toEqual({ ok: true, value: 'engine' })
+      expect(await invoke(REPLAYS_HANDLERS.playbackModeSet, { mode: 'integrated' })).toEqual({
+        ok: true,
+        value: 'integrated',
+      })
+
+      await state.settle()
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
+      await reloaded.load()
+      expect(replaysState(reloaded).get().playbackMode).toBe('integrated')
+    })
+
+    it('playbackMode.set rejects a mode outside the enum', async () => {
+      expect(await invoke(REPLAYS_HANDLERS.playbackModeSet, { mode: 'bogus' })).toEqual({
+        ok: false,
+        error: { key: 'ipc.error.invalidPayload' },
+      })
+    })
+
     it('modWarning.trustMod rejects an unsafe game dir', async () => {
       for (const gameDir of ['..', '.', '', 'a/b', 'a\\b', 'C:\\x', 'x'.repeat(65), 'ctf mod']) {
         expect(await invoke(REPLAYS_HANDLERS.modWarningTrustMod, { gameDir })).toEqual({
@@ -830,6 +850,8 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,
         [REPLAYS_HANDLERS.listSetFilter]: { filter: EMPTY_DEMO_LIST_FILTER },
+        [REPLAYS_HANDLERS.playbackModeRead]: undefined,
+        [REPLAYS_HANDLERS.playbackModeSet]: { mode: 'engine' },
         [REPLAYS_HANDLERS.modWarningRead]: undefined,
         [REPLAYS_HANDLERS.modWarningSetEnabled]: { enabled: true },
         [REPLAYS_HANDLERS.modWarningTrustMod]: { gameDir: 'opentdm' },

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DemoRow } from '@shared/modules/replays'
-import type { LocalizedMessage } from '@shared/types'
+import { refuse, type LocalizedMessage } from '@shared/types'
 import { demoPlayEligibility, type DemoPlayEligibility } from '@shared/replays/demo-play'
 import { useLauncher } from '../../store/useLauncher'
 import { playDemo } from './client'
+import { usePlaybackModeStore } from './playback-mode-store'
 import { usePlaybackStore, type StageRect } from './playback-store'
 
 const STAGE_MEASURE_FRAMES = 30
@@ -35,6 +36,10 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
   const activeInstallationId = useLauncher((state) => state.settings.activeInstallationId)
   const platform = useLauncher((state) => state.appInfo?.platform ?? '')
   const launchPhase = useLauncher((state) => state.launch.phase)
+  const mode = usePlaybackModeStore((state) => state.mode)
+  useEffect(() => {
+    void usePlaybackModeStore.getState().load()
+  }, [])
   const [error, setError] = useState<LocalizedMessage | null>(null)
   const [busy, setBusy] = useState(false)
   const gameRunning = launchPhase === 'starting' || launchPhase === 'running'
@@ -46,19 +51,29 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
 
   // Memoised so the result (and its `reason`) keeps its identity across unrelated re-renders - a
   // published action built from it stays stable instead of republishing every render.
-  const eligibility = useMemo(
-    () =>
-      demo === null
-        ? null
-        : demoPlayEligibility({ demo, installations, activeInstallationId, platform, gameRunning }),
-    [demo, installations, activeInstallationId, platform, gameRunning],
-  )
+  const eligibility = useMemo((): DemoPlayEligibility | null => {
+    if (demo === null) return null
+    const decided = demoPlayEligibility({
+      demo,
+      mode,
+      installations,
+      activeInstallationId,
+      platform,
+      gameRunning,
+    })
+    // The integrated player cannot play yet. (story 291)
+    return mode === 'integrated' && decided.ok
+      ? refuse('replays.player.unavailable.integratedNotReady')
+      : decided
+  }, [demo, mode, installations, activeInstallationId, platform, gameRunning])
 
   async function play(acknowledgeModMissing = false, startAtS?: number): Promise<void> {
     if (demo === null || eligibility === null) return
+    if (mode === 'integrated') return // (story 291)
     const target = acknowledgeModMissing
       ? demoPlayEligibility({
           demo,
+          mode,
           installations,
           activeInstallationId,
           platform,

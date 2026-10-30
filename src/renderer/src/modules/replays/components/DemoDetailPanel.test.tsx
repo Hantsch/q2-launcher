@@ -25,6 +25,7 @@ const sidecarWrite = vi.fn()
 
 vi.mock('../client', (importOriginal) =>
   mockClient<typeof import('../client')>(importOriginal, {
+    readPlaybackMode: () => new Promise(() => {}),
     sidecarRead: (demoId: string) => sidecarRead(demoId),
     sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
     revealDemo: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),

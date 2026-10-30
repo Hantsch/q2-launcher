@@ -22,6 +22,7 @@ describe('parseReplaysState', () => {
       modWarning: { enabled: true, trustedMods: [] },
       listSort: null,
       demoVolume: null,
+      playbackMode: 'engine',
     })
   })
 
@@ -95,6 +96,7 @@ describe('parseReplaysState', () => {
       modWarning: { enabled: true, trustedMods: [] },
       listSort: null,
       demoVolume: null,
+      playbackMode: 'engine',
     })
   })
 
@@ -267,6 +269,20 @@ describe('replays state section', () => {
 
     expect(replaysState(reloaded).get().extraFolders).toEqual([])
     expect(doc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
+  })
+})
+
+describe('parseReplaysState playbackMode', () => {
+  it('playbackMode parses forgivingly', () => {
+    expect(parseReplaysState({}).playbackMode).toBe('engine')
+    expect(parseReplaysState({ playbackMode: 'integrated' }).playbackMode).toBe('integrated')
+    for (const bad of ['bogus', 3, null])
+      expect(parseReplaysState({ playbackMode: bad }).playbackMode, String(bad)).toBe('engine')
+    const sort = { column: 'players', direction: 'desc' }
+    const mixed = parseReplaysState({ playbackMode: 'bogus', demoVolume: 40, listSort: sort })
+    expect(mixed.playbackMode).toBe('engine')
+    expect(mixed.demoVolume).toBe(40)
+    expect(mixed.listSort).toEqual(sort)
   })
 })
 

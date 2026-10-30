@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { DiscoveredDemo } from '../modules/replays'
 import { engineKindSchema } from '../schemas'
-import { demoGameDir, demoPlayEligibility, type DemoPlayInput } from './demo-play'
+import {
+  demoGameDir,
+  demoPlayEligibility,
+  type DemoPlayEligibility,
+  type DemoPlayInput,
+} from './demo-play'
 
 type Inst = DemoPlayInput['installations'][number]
 
@@ -11,7 +16,7 @@ function inst(
   gameDirs: string[] = [],
   runner?: string,
 ): Inst {
-  return { id, engineKind, gameDirs, ...(runner === undefined ? {} : { runner }) }
+  return { id, engineKind, gameDirs, checks: [], ...(runner === undefined ? {} : { runner }) }
 }
 
 function demo(over: Partial<DiscoveredDemo> = {}): DiscoveredDemo {
@@ -36,9 +41,10 @@ function demo(over: Partial<DiscoveredDemo> = {}): DiscoveredDemo {
   } as DiscoveredDemo
 }
 
-function run(over: Partial<DemoPlayInput> = {}) {
+function run(over: Partial<Omit<DemoPlayInput, 'mode'>> = {}) {
   return demoPlayEligibility({
     demo: demo(),
+    mode: 'engine',
     installations: [inst('a', 'q2pro', ['rogue'])],
     activeInstallationId: 'a',
     platform: 'win32',
@@ -47,11 +53,24 @@ function run(over: Partial<DemoPlayInput> = {}) {
   })
 }
 
-function keyOf(r: ReturnType<typeof run>): string | null {
+function runIntegrated(over: Partial<Omit<DemoPlayInput, 'mode'>> = {}) {
+  return demoPlayEligibility({
+    demo: demo(),
+    mode: 'integrated',
+    installations: [inst('a', 'q2pro', ['rogue'])],
+    activeInstallationId: 'a',
+    platform: 'win32',
+    gameRunning: false,
+    ...over,
+  })
+}
+
+function keyOf(r: DemoPlayEligibility): string | null {
   return r.ok ? null : r.reasonKey
 }
 
 const P = 'replays.play.unavailable.'
+const PLAYER = 'replays.player.unavailable.'
 
 describe('demoGameDir', () => {
   it('uses the header game dir, baseq2 for null or empty', () => {
@@ -90,6 +109,7 @@ describe('demoPlayEligibility', () => {
     })
     expect(r).toEqual({
       ok: true,
+      mode: 'engine',
       installationId: 'a',
       gameDir: 'rogue',
       inPlace: true,
@@ -127,6 +147,7 @@ describe('demoPlayEligibility', () => {
     const r = run({ installations: [inst('a', 'r1q2')] })
     expect(r).toEqual({
       ok: true,
+      mode: 'engine',
       installationId: 'a',
       gameDir: 'baseq2',
       inPlace: true,
@@ -316,6 +337,7 @@ describe('demoPlayEligibility', () => {
     for (const d of [other, folder, archived, wrongDir]) {
       expect(run({ demo: d, installations: insts })).toEqual({
         ok: true,
+        mode: 'engine',
         installationId: 'a',
         gameDir: 'baseq2',
         inPlace: false,
@@ -404,5 +426,89 @@ describe('demoPlayEligibility', () => {
     ).toBe(P + 'needsDirectLaunch')
     expect(keyOf(run({ demo: bad, gameRunning: true }))).toBe(P + 'gameRunning')
     expect(keyOf(run({ demo: bad }))).toBe(P + 'modMissing')
+  })
+})
+
+function failing(id: Inst['checks'][number]['id'], severity: 'error' | 'warn' = 'error') {
+  return { id, severity, messageKey: 'validation.x' } as const
+}
+
+describe('integrated playback eligibility', () => {
+  it('integrated mode plays on an R1Q2-only or engine-less installation that has baseq2 paks', () => {
+    for (const engineKind of ['r1q2', 'vanilla', 'unknown'] as const) {
+      const installations = [inst('a', engineKind)]
+      expect(runIntegrated({ installations }), engineKind).toEqual({
+        ok: true,
+        mode: 'integrated',
+        installationId: 'a',
+        gameDir: 'baseq2',
+      })
+    }
+    // Engine mode keeps refusing what it cannot launch.
+    expect(keyOf(run({ installations: [inst('a', 'vanilla')] }))).toBe(P + 'unsupportedEngine')
+    // A gzipped demo or a protocol R1Q2 cannot play is no reason in integrated mode.
+    const r1q2 = [inst('a', 'r1q2')]
+    for (const d of [demo({ gzip: true, fileName: 'a.dm2.gz' }), demo({ protocol: 26 })]) {
+      expect(runIntegrated({ demo: d, installations: r1q2 }).ok).toBe(true)
+      expect(keyOf(run({ demo: d, installations: r1q2 }))).toBe(P + 'r1q2CannotPlay')
+    }
+  })
+
+  it('integrated mode refuses an mvd2 and an mvd2.gz with the engine-mode reason', () => {
+    for (const [fileName, gzip] of [
+      ['team.mvd2', false],
+      ['team.mvd2.gz', true],
+    ] as const) {
+      const d = demo({ fileName, format: 'mvd2', gzip })
+      expect(runIntegrated({ demo: d }), fileName).toEqual({
+        ok: false,
+        reasonKey: PLAYER + 'mvd2Integrated',
+      })
+      expect(run({ demo: d }).ok, fileName).toBe(true)
+    }
+  })
+
+  it('integrated mode refuses an installation whose base paks are missing', () => {
+    for (const id of ['root-exists', 'base-game-dir', 'base-paks'] as const) {
+      const installations = [{ ...inst('a', 'q2pro'), checks: [failing(id)] }]
+      expect(keyOf(runIntegrated({ installations })), id).toBe(PLAYER + 'noBasePaks')
+    }
+    expect(keyOf(runIntegrated({ activeInstallationId: null }))).toBe(PLAYER + 'noBasePaks')
+    expect(keyOf(runIntegrated({ activeInstallationId: 'gone' }))).toBe(PLAYER + 'noBasePaks')
+    // Only an error on a base game check counts.
+    const unaffected = [
+      { ...inst('a', 'q2pro'), checks: [failing('base-paks', 'warn'), failing('executable')] },
+    ]
+    expect(runIntegrated({ installations: unaffected }).ok).toBe(true)
+  })
+
+  it('integrated mode ignores the Steam runner but still refuses a running game and warns on a missing mod', () => {
+    const steam = [inst('a', 'q2pro', [], 'steam')]
+    expect(runIntegrated({ installations: steam }).ok).toBe(true)
+    expect(keyOf(run({ installations: steam }))).toBe(P + 'needsDirectLaunch')
+    expect(keyOf(runIntegrated({ gameRunning: true }))).toBe(P + 'gameRunning')
+    expect(runIntegrated({ demo: demo({ gameDir: 'zaero' }) })).toEqual({
+      ok: false,
+      reasonKey: P + 'modMissing',
+      params: { gameDir: 'zaero' },
+      acknowledgeable: true,
+    })
+    expect(
+      runIntegrated({ demo: demo({ gameDir: 'zaero' }), acknowledgeModMissing: true }),
+    ).toEqual({ ok: true, mode: 'integrated', installationId: 'a', gameDir: 'zaero' })
+  })
+
+  it('integrated reasons are reported in the fixed order', () => {
+    const bad = demo({ gameDir: 'zaero', format: 'mvd2', fileName: 'a.mvd2' })
+    const noPaks = [{ ...inst('a', 'vanilla', [], 'steam'), checks: [failing('base-paks')] }]
+    expect(keyOf(runIntegrated({ demo: bad, gameRunning: true, installations: noPaks }))).toBe(
+      PLAYER + 'noBasePaks',
+    )
+    expect(keyOf(runIntegrated({ demo: bad, gameRunning: true }))).toBe(P + 'gameRunning')
+    expect(keyOf(runIntegrated({ demo: bad, acknowledgeModMissing: true }))).toBe(
+      PLAYER + 'mvd2Integrated',
+    )
+    expect(keyOf(runIntegrated({ demo: bad }))).toBe(PLAYER + 'mvd2Integrated')
+    expect(keyOf(runIntegrated({ demo: demo({ gameDir: 'zaero' }) }))).toBe(P + 'modMissing')
   })
 })

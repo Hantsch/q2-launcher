@@ -3082,6 +3082,19 @@
         "r1q2": "Not available in R1Q2: pausing, speed, seeking, the position, volume, console commands, fullscreen and cinema need Q2PRO."
       }
     },
+    "player": {
+      "mode": {
+        "engine": "Engine window",
+        "integrated": "Integrated (experimental)",
+        "label": "Playback",
+        "lockedWhilePlaying": "Stop the demo to switch"
+      },
+      "unavailable": {
+        "integratedNotReady": "Integrated mode is not ready yet — switch to Engine window to play.",
+        "mvd2Integrated": "MVD2 demos play in engine mode for now",
+        "noBasePaks": "Integrated playback needs an installation with the Quake II game files (baseq2). Pick one in the left rail."
+      }
+    },
     "rename": {
       "error": {
         "archiveEntry": "Demos inside an archive can't be renamed.",

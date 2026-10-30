@@ -799,6 +799,7 @@
       "trustedMods": []
     },
     "listSort": null,
-    "demoVolume": null
+    "demoVolume": null,
+    "playbackMode": "engine"
   }
 }
