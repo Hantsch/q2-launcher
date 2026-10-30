@@ -20,12 +20,23 @@ import { registerLaunchIpc } from './launch'
 import { registerModulesIpc } from './modules'
 import { registerSettingsIpc } from './settings'
 import { registerUnlockIpc } from './unlock'
+import type { UnlockService } from '../services/unlock/service'
 import { registerUpdateIpc } from './update'
 import { registerWindowIpc } from './window'
 
 const log = scopedLogger('ipc')
 
+type Listener = (event: IpcMainInvokeEvent, payload: unknown) => unknown
+
 const registeredChannels = new Set<InvokeChannel>()
+const listeners = new Map<InvokeChannel, Listener>()
+
+type Gate = 'booting' | 'ready' | 'failed'
+let gateState: Gate = 'booting'
+let releaseGate: () => void = () => {}
+const gate = new Promise<void>((resolve) => {
+  releaseGate = resolve
+})
 
 /** Fallback rejection key for `handleOutcome`; per-channel keys are passed explicitly. */
 const INVALID_PAYLOAD_KEY = 'ipc.error.invalidPayload'
@@ -58,15 +69,50 @@ type OutcomeChannel = {
  * `assertContractFullyHandled()` and the startup count rely on cannot drift
  * between the two public wrappers.
  */
-function register<C extends InvokeChannel>(
-  channel: C,
-  listener: (event: IpcMainInvokeEvent, payload: unknown) => unknown,
-): void {
+function register<C extends InvokeChannel>(channel: C, listener: Listener): void {
   if (registeredChannels.has(channel)) {
     throw new Error(`[ipc] channel '${channel}' registered twice`)
   }
   registeredChannels.add(channel)
-  ipcMain.handle(channel, listener)
+  listeners.set(channel, listener)
+}
+
+function dispatch(channel: InvokeChannel, event: IpcMainInvokeEvent, payload: unknown): unknown {
+  if (gateState === 'failed') return Promise.reject(new Error(HANDLER_FAILED_KEY))
+  const listener = listeners.get(channel)
+  if (!listener) return Promise.reject(new Error(`No handler registered for '${channel}'`))
+  return listener(event, payload)
+}
+
+/**
+ * Binds every invoke channel of the contract to `ipcMain` once, before the window loads, so a
+ * renderer invoke can never hit "no handler registered" while services are still starting.
+ * Invokes arriving before `markIpcReady()` wait; once ready they dispatch synchronously so a
+ * handler's own throw/reject semantics are untouched.
+ */
+export function bindAllChannels(): void {
+  for (const channel of INVOKE_CHANNELS) {
+    ipcMain.handle(channel, (event, payload) =>
+      gateState === 'booting'
+        ? gate.then(() => dispatch(channel, event, payload))
+        : dispatch(channel, event, payload),
+    )
+  }
+}
+
+/** Boot finished: held invokes run against the registered handlers. */
+export function markIpcReady(): void {
+  if (gateState !== 'booting') return
+  gateState = 'ready'
+  releaseGate()
+}
+
+/** Boot failed: held and later invokes are refused with `ipc.error.handlerFailed`. */
+export function markIpcFailed(error: unknown): void {
+  if (gateState !== 'booting') return
+  log.error('boot failed; refusing IPC invokes', error)
+  gateState = 'failed'
+  releaseGate()
 }
 
 /**
@@ -137,10 +183,10 @@ export function handleOutcome<C extends OutcomeChannel>(
   })
 }
 
-export function registerAllIpc(app: AppContext): void {
+export function registerAllIpc(app: AppContext, unlock: UnlockService): void {
   registerAppIpc(app)
   registerFeaturesIpc(app)
-  registerUnlockIpc(app)
+  registerUnlockIpc(unlock)
   registerWindowIpc()
   registerSettingsIpc(app)
   registerInstallationsIpc(app)

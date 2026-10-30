@@ -70,12 +70,11 @@ export interface InstallationsDeps {
    * never imports `electron` and stays testable against a plain temp directory - the same rule
    * `installation-removal.ts` follows for the same two values.
    *
-   * Optional so every existing fixture that never exercises `deleteFromDisk` (this service's other
-   * tests, the download/repair job tests) does not have to pass values it will never use; `remove()`
-   * only ever reads them on the `deleteFromDisk` path, and `context.ts` always supplies real ones.
+   * Required: an empty anchor would make the safety fence fail open, so `remove()` still refuses
+   * `deleteFromDisk` when either arrives blank.
    */
-  userDataDir?: string
-  homeDir?: string
+  userDataDir: string
+  homeDir: string
 }
 
 /**
@@ -101,8 +100,8 @@ export class InstallationsService {
     this.onSettingsChange = deps.onSettingsChange
     this.onRemoved = deps.onRemoved
     this.isRunning = deps.isRunning
-    this.userDataDir = deps.userDataDir ?? ''
-    this.homeDir = deps.homeDir ?? ''
+    this.userDataDir = deps.userDataDir
+    this.homeDir = deps.homeDir
   }
 
   list(): Installation[] {

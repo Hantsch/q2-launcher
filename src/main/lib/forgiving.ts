@@ -77,14 +77,3 @@ export function parseForgivingEnvelope<T>(
   const result = schema.safeParse(raw === undefined ? {} : raw)
   return result.success ? result.data : fallback()
 }
-
-/** First occurrence wins. */
-export function dedupeByKey<T>(rows: T[], keyOf: (row: T) => string): T[] {
-  const seenKeys = new Set<string>()
-  return rows.filter((row) => {
-    const key = keyOf(row)
-    if (seenKeys.has(key)) return false
-    seenKeys.add(key)
-    return true
-  })
-}

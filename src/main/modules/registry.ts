@@ -39,6 +39,8 @@ interface RegisteredHandler {
 export class MainModuleRegistry {
   private readonly modules = new Map<ModuleId, MainModule>()
   private readonly handlers = new Map<string, RegisteredHandler>()
+  /** Modules whose `setup()` threw: every request for them is refused, never routed. */
+  private readonly failed = new Set<ModuleId>()
   private readonly disposers: Array<{ moduleId: ModuleId; cb: () => void | Promise<void> }> = []
 
   /**
@@ -82,6 +84,8 @@ export class MainModuleRegistry {
     }
 
     const moduleLog = scopedLogger(`module:${module.id}`)
+    // Handlers go live only once `setup()` resolves, so a half-set-up module never answers (story 322).
+    const staged = new Map<string, RegisteredHandler>()
 
     try {
       await module.setup({
@@ -98,7 +102,7 @@ export class MainModuleRegistry {
             return
           }
           const key = handlerKey(module.id, type)
-          if (this.handlers.has(key)) {
+          if (staged.has(key)) {
             moduleLog.error(`handler '${type}' registered twice`)
             return
           }
@@ -106,7 +110,7 @@ export class MainModuleRegistry {
           // site; it is only needed there, to check `schema` against `handler`.
           // `invoke()` never mixes entries, so what it feeds the handler is
           // always what this schema produced.
-          this.handlers.set(key, {
+          staged.set(key, {
             handler: handler as ModuleHandler,
             schema: schema as ZodType<unknown>,
           })
@@ -121,14 +125,20 @@ export class MainModuleRegistry {
       })
     } catch (error) {
       log.error(`module '${module.id}' failed to set up`, error)
+      this.failed.add(module.id)
       return
     }
+
+    for (const [key, entry] of staged) this.handlers.set(key, entry)
 
     this.modules.set(module.id, module)
     log.info(`registered module '${module.id}'`)
   }
 
   async invoke(request: ModuleInvokeRequest): Promise<Outcome<unknown>> {
+    if (this.failed.has(request.moduleId)) {
+      return fail('modules.error.unavailable', { moduleId: request.moduleId })
+    }
     const entry = this.handlers.get(handlerKey(request.moduleId, request.type))
     if (!entry) {
       return fail('modules.error.notImplemented', {
@@ -177,6 +187,7 @@ export class MainModuleRegistry {
     }
     this.modules.clear()
     this.handlers.clear()
+    this.failed.clear()
   }
 }
 

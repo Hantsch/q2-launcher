@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Installation } from '@shared/types'
 import { pathExists } from '../lib/fs-utils'
-import { InstallationsService } from './installations'
+import type { InstallationsService } from './installations'
+import { makeInstallationsService } from '../../test-support/installations'
 import { StateStore } from './state'
 import { deleteStoredIcon, ICONS_DIR_NAME, InstallationIconsService } from './installation-icons'
 
@@ -110,10 +111,8 @@ beforeEach(async () => {
   await state.load()
   state.setInstallations([installation()])
 
-  installations = new InstallationsService({
+  installations = makeInstallationsService({
     state,
-    onChange: () => {},
-    onSettingsChange: () => {},
     // Wired exactly as `context.ts` wires it, so the removal teardown is covered as it ships.
     onRemoved: (id) => deleteStoredIcon(id),
   })

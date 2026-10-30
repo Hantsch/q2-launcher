@@ -1,6 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppContext } from '../context'
+import { bindRegisteredChannels } from '../../test-support/ipc'
 
 /**
  * Story 130 D2: `features:getUnlocked` is a plain (non-`Outcome`) `handle()` channel, mirroring
@@ -33,6 +34,7 @@ async function setup(unlocked: string[]): Promise<{
     },
   } as unknown as AppContext
   registerFeaturesIpc(app)
+  await bindRegisteredChannels()
   return { getUnlocked: registered.get('features:getUnlocked')! }
 }
 

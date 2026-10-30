@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { INVOKE_CHANNELS } from '@shared/ipc'
 import type { Installation } from '@shared/types'
 import type { AppContext } from '../context'
+import { bindRegisteredChannels } from '../../test-support/ipc'
 
 /**
  * Story 103 D6: `installations:listRunners`, registered by the real `registerInstallationsIpc`
@@ -74,6 +75,7 @@ async function setup(
     },
   } as unknown as AppContext
   registerInstallationsIpc(app)
+  await bindRegisteredChannels()
   return registered.get(channel)!
 }
 

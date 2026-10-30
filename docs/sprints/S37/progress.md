@@ -94,3 +94,26 @@
 - 2026-10-30 10:43:09 · 325 · review 1 · started
 - 2026-10-30 10:44:51 · 325 · review 1 · done
 - 2026-10-30 10:44:51 · 325 · story · done
+- 2026-10-30 10:45:05 · 322 · build · started
+- 2026-10-30 10:45:24 · 322 · story · started
+- 2026-10-30 10:45:33 · 322 · D1 ipc bind before handlers · started
+- 2026-10-30 10:45:33 · 322 · D3 failed module unavailable · started
+- 2026-10-30 10:45:33 · 322 · D4 InstallationsService required deps · started
+- 2026-10-30 10:45:33 · 322 · D5 optional test deps required · started
+- 2026-10-30 10:45:33 · 322 · D7 dead helper and debt rows · started
+- 2026-10-30 10:46:54 · 322 · D1 ipc bind before handlers · done
+- 2026-10-30 10:46:54 · 322 · D3 failed module unavailable · done
+- 2026-10-30 10:46:54 · 322 · D4 InstallationsService required deps · done
+- 2026-10-30 10:46:54 · 322 · D5 optional test deps required · done
+- 2026-10-30 10:46:54 · 322 · D7 dead helper and debt rows · done
+- 2026-10-30 10:46:54 · 322 · D2 boot reorder · started
+- 2026-10-30 10:51:23 · 322 · D2 boot reorder · done
+- 2026-10-30 10:51:23 · 322 · D1b registrar tests follow bound channels · started
+- 2026-10-30 10:51:23 · 322 · D6 unlock leaves AppContext · started
+- 2026-10-30 10:52:32 · 322 · D1b registrar tests follow bound channels · done
+- 2026-10-30 10:52:32 · 322 · D6 unlock leaves AppContext · done
+- 2026-10-30 10:52:48 · 322 · verify · started
+- 2026-10-30 11:03:41 · 322 · verify · done
+- 2026-10-30 11:03:41 · 322 · review 1 · started
+- 2026-10-30 11:05:15 · 322 · review 1 · done
+- 2026-10-30 11:05:26 · 322 · story · done

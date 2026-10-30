@@ -18,7 +18,8 @@ import type { EngineBackupInfo, ManifestPackage } from '@shared/modules/download
 import type { Installation, Job } from '@shared/types'
 import { downloadPackage } from '../../../lib/net/fetcher'
 import type { StageDownloadFn } from '../../../services/package-staging'
-import { InstallationsService } from '../../../services/installations'
+import type { InstallationsService } from '../../../services/installations'
+import { makeInstallationsService } from '../../../../test-support/installations'
 import { JobRunner } from '../../../services/job-runner'
 import { makeJobRunner } from '../../../../test-support/job-runner'
 import type { ManifestSource } from '../bootstrap/ports'
@@ -218,11 +219,7 @@ async function harness(
       return service.validate(id)
     },
   })
-  const service = new InstallationsService({
-    state: fakeState(),
-    onChange: () => {},
-    onSettingsChange: () => {},
-  })
+  const service = makeInstallationsService({ state: fakeState() })
 
   const added = await service.addExisting({ rootPath: installRoot, source: 'manual' })
   if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)

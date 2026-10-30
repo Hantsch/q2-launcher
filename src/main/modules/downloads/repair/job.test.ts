@@ -17,7 +17,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import type { ManifestPackage, RepairOfferKind } from '@shared/modules/downloads'
 import type { EngineKind, Installation, Job } from '@shared/types'
-import { InstallationsService } from '../../../services/installations'
+import type { InstallationsService } from '../../../services/installations'
+import { makeInstallationsService } from '../../../../test-support/installations'
 import { inspectInstallation } from '../../../services/inspector'
 import { makeJobRunner } from '../../../../test-support/job-runner'
 import {
@@ -215,11 +216,7 @@ async function harness(
   } = {},
 ): Promise<Harness> {
   const validateCalls: string[] = []
-  const service = new InstallationsService({
-    state: fakeState(),
-    onChange: () => {},
-    onSettingsChange: () => {},
-  })
+  const service = makeInstallationsService({ state: fakeState() })
 
   const added = await service.addExisting({
     rootPath: installRoot,

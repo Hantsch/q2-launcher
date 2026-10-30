@@ -737,6 +737,7 @@
   "modules": {
     "error": {
       "notImplemented": "The {{moduleId}} module has no handler for “{{type}}” yet.",
+      "unavailable": "The {{moduleId}} module failed to start and is unavailable.",
       "handlerFailed": "The {{moduleId}} module failed while handling “{{type}}”."
     }
   },

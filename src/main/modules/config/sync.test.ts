@@ -85,6 +85,10 @@ function deps(overrides: Partial<SyncProfileDeps> = {}): SyncProfileDeps {
     installations: { find: () => undefined },
     launchState: idleLaunchState(),
     playedModsFor: () => [],
+    switchBindFor: () => undefined,
+    canonicalWriteAllowed: () => true,
+    // Tests that only override the write predicate expect the move predicate to follow it.
+    canonicalMoveAllowed: overrides.canonicalWriteAllowed ?? (() => true),
     canonicalBaseDir: userDataDir,
     writeFailures: {},
     log: noopLog,

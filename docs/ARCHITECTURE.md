@@ -73,8 +73,8 @@ Everything derives from it:
 
 - **main** registers handlers through a typed `handle()` wrapper
   (`src/main/ipc/index.ts`). At boot, `assertContractFullyHandled()` throws if a
-  declared channel has no handler — a missing handler is a startup crash in
-  development, not a rejected promise a user stumbles into months later. The
+  declared channel has no handler — a missing handler fails the boot loudly (logged,
+  every invoke refused), not a rejected promise a user stumbles into months later. The
   wrapper takes a zod schema as a required parameter, so a channel with no
   schema, or the wrong schema, is a compile error, not just a runtime risk.
 - **preload** builds its allowlist from the same file. `INVOKE_CHANNELS` and
@@ -84,6 +84,18 @@ Everything derives from it:
 - **renderer** gets end-to-end types from `window.q2.invoke(...)`.
 
 Push traffic (main → renderer) uses `IpcEventMap` and the `Broadcaster` service.
+
+**Boot order.** `boot()` (`src/main/boot.ts`, driven by `bootstrap()` in `src/main/index.ts`)
+first binds every invoke channel to `ipcMain` (`bindAllChannels()`), then builds the shell — the
+UI harness, the frozen env and the `Broadcaster` (`createAppShell()` in `src/main/context.ts`) —
+and then opens the main window and builds the app context concurrently. `createMainWindow` takes
+only the shell, so the window appears without waiting for `state.json`, unlock or module setup.
+Invokes that arrive meanwhile are held; once the context resolves and `registerAllIpc()` has
+registered the handlers, `markIpcReady()` releases them. A context that fails (or a registration
+that throws) calls `markIpcFailed()`: held and later invokes are refused with
+`ipc.error.handlerFailed`, and the window stays open. Startup revalidation and the update check
+run only after both the context and the window's first load are done, so their broadcasts reach a
+loaded renderer.
 
 Payloads that cross from the renderer are validated by two wrappers around
 `ipcMain.handle`, both in `src/main/ipc/index.ts`. `handle(channel, schema,
@@ -104,7 +116,9 @@ into an i18n key and log the original error with the channel/handler, so
 neither prose nor a path ever crosses IPC: the shell wrappers answer with
 `ipc.error.handlerFailed` (`handleOutcome` resolves `fail(…, { channel })`,
 `handle` rejects with an `Error` whose message is the key) and the module bus
-(`MainModuleRegistry.invoke`) with `modules.error.handlerFailed`.
+(`MainModuleRegistry.invoke`) with `modules.error.handlerFailed`. A module whose `setup()` throws is unavailable: its
+handlers (including any registered before the throw) never go live, and every
+request for it is answered with `modules.error.unavailable`.
 
 `Outcome<T>` is the transport/unexpected envelope (schema reject, throw, missing handler, I/O failure); `Refusal<R>` / `DomainResult<T, R>` is a handler's expected domain "no", returned _inside_ `Outcome.value`, always carrying a full i18n key (never a reason code the renderer must template), built with `refuse()`; the renderer toasts either through `toastOutcomeError`/`toastRefusal` in `src/renderer/src/lib/toast.ts`.
 
@@ -294,7 +308,8 @@ installation id is derived on the same machine it protects, from a value
 is gatekeeping for a legitimate feature rollout, not a security boundary
 against a hostile local user.
 
-The public surface other code reaches through is `AppContext.unlock`:
+The service is not on `AppContext`: `createAppContext` returns it beside the context and only
+`registerUnlockIpc` receives it; everything else reads `AppContext.features`. Its surface:
 
 - `isUnlocked(feature)` — whether `feature` is active right now;
 - `unlockedFeatures()` — the full active set;

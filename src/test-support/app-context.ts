@@ -74,7 +74,6 @@ export function stubbedAppContext(overrides: Partial<AppContext> = {}): AppConte
     'mainWindow',
     'cinemaWindow',
     'update',
-    'unlock',
   ]
   const stubs = Object.fromEntries(services.map((name) => [name, deepStub()]))
   return fakeAppContext({

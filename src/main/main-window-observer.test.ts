@@ -35,12 +35,17 @@ function fakeWin(
   return { s, win }
 }
 
+const baseDeps = {
+  displayFor: () => ({ id: 1, scaleFactor: 1 }),
+  onListenerError: (): void => undefined,
+}
+
 describe('main window observer', () => {
   it('has no snapshot without a live window', () => {
     let current: ObservedWindow | null = null
     const { observer } = createMainWindowEvents({
       getWindow: () => current,
-      displayFor: () => ({ id: 1, scaleFactor: 1 }),
+      ...baseDeps,
     })
     expect(observer.snapshot()).toBeNull()
     const { s, win } = fakeWin({ destroyed: true })
@@ -63,7 +68,7 @@ describe('main window observer', () => {
     const onListenerError = vi.fn()
     const { observer, notify } = createMainWindowEvents({
       getWindow: () => win,
-      displayFor: () => ({ id: 1, scaleFactor: 1 }),
+      ...baseDeps,
       onListenerError,
     })
     const seen: MainWindowEvent[] = []
@@ -82,7 +87,7 @@ describe('main window observer', () => {
     const { win } = fakeWin({ focused: false })
     const { observer, notify } = createMainWindowEvents({
       getWindow: () => win,
-      displayFor: () => ({ id: 1, scaleFactor: 1 }),
+      ...baseDeps,
     })
     expect(observer.snapshot()?.focused).toBe(false)
     notify('focus')
@@ -94,7 +99,11 @@ describe('main window observer', () => {
   it('while minimized, reports the last un-minimized bounds and the scale for them', () => {
     const { s, win } = fakeWin()
     const displayFor = vi.fn(() => ({ id: 7, scaleFactor: 1.5 }))
-    const { observer, notify } = createMainWindowEvents({ getWindow: () => win, displayFor })
+    const { observer, notify } = createMainWindowEvents({
+      ...baseDeps,
+      getWindow: () => win,
+      displayFor,
+    })
     notify('move')
     s.minimized = true
     s.bounds = { x: -32000, y: -32000, width: 160, height: 28 }
@@ -118,6 +127,7 @@ describe('main window snapshot', () => {
     const { win } = fakeWin({ zoom: 1.25, outer: { x: 5, y: 6, width: 400, height: 300 } })
     const { observer } = createMainWindowEvents({
       getWindow: () => win,
+      ...baseDeps,
       displayFor: () => ({ id: 42, scaleFactor: 2 }),
     })
     expect(observer.snapshot()).toMatchObject({

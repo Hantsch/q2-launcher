@@ -1,6 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppContext } from '../context'
+import { bindRegisteredChannels } from '../../test-support/ipc'
 import { fakeAppContext } from '../../test-support/app-context'
 import { stubPlatform } from '../../test-support/platform'
 
@@ -60,6 +61,7 @@ async function setup(
     },
   })
   registerAppIpc(app)
+  await bindRegisteredChannels()
   return {
     getInfo: registered.get('app:getInfo')!,
     copyText: registered.get('app:copyText')!,

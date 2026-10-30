@@ -52,10 +52,10 @@ export interface MainWindowEvents {
 export function createMainWindowEvents(deps: {
   getWindow: () => ObservedWindow | null
   displayFor: (bounds: MainWindowBounds) => { id: number; scaleFactor: number }
-  onListenerError?: (error: unknown) => void
+  onListenerError: (error: unknown) => void
 }): MainWindowEvents {
   const listeners = createListenerSet<MainWindowEvent>(
-    { error: (_message, error) => deps.onListenerError?.(error) },
+    { error: (_message, error) => deps.onListenerError(error) },
     'main window',
   )
   let lastBounds: MainWindowBounds | null = null

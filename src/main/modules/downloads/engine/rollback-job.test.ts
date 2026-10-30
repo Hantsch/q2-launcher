@@ -5,7 +5,8 @@ import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR } from '@shared/constants'
 import type { Installation, Job } from '@shared/types'
-import { InstallationsService } from '../../../services/installations'
+import type { InstallationsService } from '../../../services/installations'
+import { makeInstallationsService } from '../../../../test-support/installations'
 import { makeJobRunner, type JobRunnerHarness } from '../../../../test-support/job-runner'
 import { fakeState } from '../test-support'
 import { readEngineState } from '../../../services/engine-state'
@@ -99,11 +100,7 @@ async function harness(options: { withBackup?: boolean } = {}): Promise<Harness>
       return service.validate(id)
     },
   })
-  const service = new InstallationsService({
-    state: fakeState(),
-    onChange: () => {},
-    onSettingsChange: () => {},
-  })
+  const service = makeInstallationsService({ state: fakeState() })
 
   const added = await service.addExisting({ rootPath: installRoot, source: 'manual' })
   if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)

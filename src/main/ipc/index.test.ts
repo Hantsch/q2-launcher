@@ -3,8 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { DEV_ONLY_CHANNELS, INVOKE_CHANNELS } from '@shared/ipc'
 import type { AppContext } from '../context'
+import type { UnlockService } from '../services/unlock/service'
 import { resolveUiHarness } from '../lib/ui-harness'
 import { en } from '../../renderer/src/i18n/bundle'
+
+// The registrars here never read the service; only registerUnlockIpc keeps a reference.
+const unlockStub = {} as UnlockService
 
 /**
  * Story 036 D8: covers `registerAllIpc()`'s two public wrappers (`handle`,
@@ -68,6 +72,13 @@ function fakeApp(isDev: boolean): AppContext {
   } as unknown as AppContext
 }
 
+/** Binds the channels and opens the gate, as boot does once every service exists. */
+async function boot(): Promise<typeof import('./index')> {
+  const mod = await import('./index')
+  mod.bindAllChannels()
+  return mod
+}
+
 beforeEach(() => {
   registered.clear()
   vi.resetModules()
@@ -88,22 +99,26 @@ describe('registerAllIpc', () => {
 
   it('registers every non-dev-only channel and does not throw when isDev is false', async () => {
     delete process.env['Q2L_UI_HARNESS']
-    const { registerAllIpc } = await import('./index')
-    expect(() => registerAllIpc(fakeApp(false))).not.toThrow()
+    const { registerAllIpc, markIpcReady } = await boot()
+    expect(() => registerAllIpc(fakeApp(false), unlockStub)).not.toThrow()
+    markIpcReady()
 
     for (const channel of INVOKE_CHANNELS) {
       if (DEV_ONLY_CHANNELS.includes(channel)) continue
       expect(registered.has(channel)).toBe(true)
     }
-    expect(registered.has('dev:simulateJob')).toBe(false)
-    expect(registered.has('dev:simulateLaunch')).toBe(false)
-    expect(registered.has('dev:simulateAppUpdate')).toBe(false)
+    for (const channel of DEV_ONLY_CHANNELS) {
+      await expect(registered.get(channel)!(fakeEvent, undefined)).rejects.toThrow(
+        'No handler registered',
+      )
+    }
   })
 
   it('registers every channel, including dev-only ones, when isDev is true, with no throw', async () => {
     delete process.env['Q2L_UI_HARNESS']
-    const { registerAllIpc } = await import('./index')
-    expect(() => registerAllIpc(fakeApp(true))).not.toThrow()
+    const { registerAllIpc, markIpcReady } = await boot()
+    expect(() => registerAllIpc(fakeApp(true), unlockStub)).not.toThrow()
+    markIpcReady()
 
     for (const channel of INVOKE_CHANNELS) {
       expect(registered.has(channel)).toBe(true)
@@ -119,12 +134,16 @@ describe('registerAllIpc', () => {
   it('registers dev-only channels when isDev is false but Q2L_UI_HARNESS=1, with no throw', async () => {
     process.env['Q2L_UI_HARNESS'] = '1'
     try {
-      const { registerAllIpc } = await import('./index')
-      expect(() => registerAllIpc(fakeApp(false))).not.toThrow()
+      const { registerAllIpc, markIpcReady } = await boot()
+      expect(() => registerAllIpc(fakeApp(false), unlockStub)).not.toThrow()
+      markIpcReady()
 
-      expect(registered.has('dev:simulateJob')).toBe(true)
-      expect(registered.has('dev:simulateLaunch')).toBe(true)
-      expect(registered.has('dev:simulateAppUpdate')).toBe(true)
+      for (const channel of DEV_ONLY_CHANNELS) {
+        const outcome = await Promise.resolve()
+          .then(() => registered.get(channel)!(fakeEvent, undefined))
+          .catch((e: Error) => e)
+        expect(String(outcome)).not.toContain('No handler registered')
+      }
     } finally {
       delete process.env['Q2L_UI_HARNESS']
     }
@@ -132,25 +151,30 @@ describe('registerAllIpc', () => {
 
   it('does not register dev-only channels when isDev is false and Q2L_UI_HARNESS is unset', async () => {
     delete process.env['Q2L_UI_HARNESS']
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
-    expect(registered.has('dev:simulateJob')).toBe(false)
-    expect(registered.has('dev:simulateLaunch')).toBe(false)
-    expect(registered.has('dev:simulateAppUpdate')).toBe(false)
+    for (const channel of DEV_ONLY_CHANNELS) {
+      await expect(registered.get(channel)!(fakeEvent, undefined)).rejects.toThrow(
+        'No handler registered',
+      )
+    }
   })
 
   it('rejects an invalid payload on a plain (throwing) handle() channel synchronously', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(true))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(true), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('window:getState')!
     expect(() => fn(fakeEvent, 'not void')).toThrow()
   })
 
   it('resolves an invalid payload on a handleOutcome() channel to a failed Outcome without running the handler', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('installations:addExisting')!
     // `fakeApp(false)` has no `installations` service - if the handler body ran,
@@ -162,8 +186,9 @@ describe('registerAllIpc', () => {
   })
 
   it('preserves a channel-specific invalidKey for app:openExternal', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('app:openExternal')!
     const result = (await fn(fakeEvent, 'ftp://not-http')) as {
@@ -175,8 +200,9 @@ describe('registerAllIpc', () => {
   })
 
   it('preserves a channel-specific invalidKey for app:revealPath', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('app:revealPath')!
     const result = (await fn(fakeEvent, '')) as { ok: false; error: { key: string } }
@@ -187,8 +213,9 @@ describe('registerAllIpc', () => {
   // ---- story 067: the icon channels (D3's contract, D4's handlers) --------------------------
 
   it('resolves an invalid payload on installations:setIcon to a failed Outcome without running the handler', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('installations:setIcon')!
     const result = await fn(fakeEvent, {
@@ -199,8 +226,9 @@ describe('registerAllIpc', () => {
   })
 
   it('routes a null icon on installations:setIcon to the icon store and passes its outcome through', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('installations:setIcon')!
     const result = await fn(fakeEvent, { installationId: 'id', icon: null })
@@ -210,8 +238,9 @@ describe('registerAllIpc', () => {
   })
 
   it('routes a shipped icon on installations:setIcon to the icon store', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('installations:setIcon')!
     const result = await fn(fakeEvent, {
@@ -224,8 +253,9 @@ describe('registerAllIpc', () => {
   })
 
   it('refuses a bare custom icon on installations:setIcon - only a stored pick may set that', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('installations:setIcon')!
     // Schema-valid, but `{ kind: 'custom' }` without stored bytes is not a state the renderer may
@@ -238,8 +268,9 @@ describe('registerAllIpc', () => {
   })
 
   it('resolves an invalid payload on installations:pickIconFile to a failed Outcome without running the handler', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(false))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(false), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('installations:pickIconFile')!
     const result = await fn(fakeEvent, { garbage: true })
@@ -247,20 +278,48 @@ describe('registerAllIpc', () => {
   })
 
   it('rejects an invalid payload on installations:iconDataUrl synchronously', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(true))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(true), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('installations:iconDataUrl')!
     expect(() => fn(fakeEvent, 42)).toThrow()
   })
 
   it('answers a valid installations:iconDataUrl payload from the icon store', async () => {
-    const { registerAllIpc } = await import('./index')
-    registerAllIpc(fakeApp(true))
+    const { registerAllIpc, markIpcReady } = await boot()
+    registerAllIpc(fakeApp(true), unlockStub)
+    markIpcReady()
 
     const fn = registered.get('installations:iconDataUrl')!
     await expect(fn(fakeEvent, 'some-id')).resolves.toBe('data:image/png;base64,AAAA')
     expect(iconsMock.dataUrl).toHaveBeenCalledWith('some-id')
+  })
+})
+
+describe('the boot gate', () => {
+  it('an invoke sent before the handlers exist is answered once they are registered', async () => {
+    const { bindAllChannels, handle, markIpcReady } = await import('./index')
+    bindAllChannels()
+
+    const pending = registered.get('window:getState')!(fakeEvent, undefined)
+    handle('window:getState', z.any() as never, () => ({ late: true }) as never)
+    markIpcReady()
+
+    await expect(pending).resolves.toEqual({ late: true })
+  })
+
+  it('an invoke held at boot is refused with handlerFailed when boot fails', async () => {
+    const { bindAllChannels, markIpcFailed } = await import('./index')
+    bindAllChannels()
+
+    const pending = registered.get('window:getState')!(fakeEvent, undefined)
+    markIpcFailed(new Error('boom'))
+
+    await expect(pending).rejects.toThrow('ipc.error.handlerFailed')
+    await expect(registered.get('window:getState')!(fakeEvent, undefined)).rejects.toThrow(
+      'ipc.error.handlerFailed',
+    )
   })
 })
 
@@ -270,7 +329,8 @@ describe('a throwing handler', () => {
   const anySchema = z.any() as never
 
   it('handleOutcome resolves a thrown handler to ipc.error.handlerFailed with the channel and logs it', async () => {
-    const { handleOutcome } = await import('./index')
+    const { handleOutcome, markIpcReady } = await boot()
+    markIpcReady()
     handleOutcome('installations:inspectPath', anySchema, () => {
       throw secretError()
     })
@@ -290,7 +350,8 @@ describe('a throwing handler', () => {
   })
 
   it('handleOutcome resolves a rejected async handler to ipc.error.handlerFailed', async () => {
-    const { handleOutcome } = await import('./index')
+    const { handleOutcome, markIpcReady } = await boot()
+    markIpcReady()
     handleOutcome('installations:inspectPath', anySchema, () => Promise.reject(secretError()))
 
     const result = await registered.get('installations:inspectPath')!(fakeEvent, 'x')
@@ -308,7 +369,8 @@ describe('a throwing handler', () => {
   })
 
   it('handle rejects a thrown handler with a sanitised ipc.error.handlerFailed error', async () => {
-    const { handle } = await import('./index')
+    const { handle, markIpcReady } = await boot()
+    markIpcReady()
     handle('window:getState', anySchema, () => {
       throw secretError()
     })

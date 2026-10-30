@@ -11,7 +11,8 @@ import {
   type RetailSourceInspection,
 } from '@shared/modules/downloads'
 import { isWindows } from '../../../lib/platform'
-import { InstallationsService } from '../../../services/installations'
+import type { InstallationsService } from '../../../services/installations'
+import { makeInstallationsService } from '../../../../test-support/installations'
 import type { JobsService } from '../../../services/jobs'
 import { makeJobRunner, type ControllableLaunch } from '../../../../test-support/job-runner'
 import { fakeManifest, fakeState } from '../test-support'
@@ -238,11 +239,7 @@ export function harness(
     gameDataSource?: (rootPath: string) => GameDataSourceVerdict
   } = {},
 ): Harness {
-  const installations = new InstallationsService({
-    state: fakeState(),
-    onChange: () => {},
-    onSettingsChange: () => {},
-  })
+  const installations = makeInstallationsService({ state: fakeState() })
   // The real runner, job list and write guard over a launch host that is idle by default - so every
   // test runs its assemble passes immediately, and only the write-deferral test moves the launch
   // state to `running`. Revalidation goes to the real service, looked up per call so a test's spy on

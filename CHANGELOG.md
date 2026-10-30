@@ -12,6 +12,10 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Changed
+
+- The launcher window appears right away, before settings finish loading.
+
 ## 0.9.0 — 2026-10-29
 
 ### Added

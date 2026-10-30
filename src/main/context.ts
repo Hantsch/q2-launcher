@@ -110,11 +110,6 @@ export interface AppContext {
   /** Story 097: the update-check service - a shell service, not a module (it has no per-installation
    * data and nothing renderer-writable to validate), constructed here like `launch`/`jobs` above. */
   update: UpdateService
-  /** Story 128: the unlock-code service - a shell service, same reasoning as `update` above.
-   * `init()` is awaited before `registerModules(context)` runs, so every module sees a settled
-   * unlock state (the resolved installation id and the redeemed codes' current verdicts) from the
-   * moment it is constructed. */
-  unlock: UnlockService
   /** Story 130: which gated features exist in this process. Resolved once at boot from 128's
    * re-verified unlock state and then frozen for the process lifetime - a code redeemed
    * mid-session takes effect only at the next start. `modules` was built with this same gate. */
@@ -126,13 +121,28 @@ export interface AppContext {
   persistence: PersistenceRegistry
 }
 
+/**
+ * What the window and the context both need, built before either: the main window opens while the
+ * context is still being created, so neither may own these. (story 322)
+ */
+export type AppShell = Pick<AppContext, 'harness' | 'env' | 'broadcast'>
+
+export function createAppShell(processEnv: NodeJS.ProcessEnv): AppShell {
+  return {
+    harness: resolveUiHarness(processEnv),
+    env: bootEnv(processEnv),
+    broadcast: new Broadcaster(),
+  }
+}
+
 export async function createAppContext(options: {
   isDev: boolean
+  /** The harness, env and broadcaster the main window was opened with. */
+  shell: AppShell
   /**
-   * Resolves the tracked main `BrowserWindow`. `index.ts` creates the window *after* the context
-   * (`createMainWindow(context)` takes `context` as an argument), so this cannot be a `BrowserWindow`
-   * reference yet at this point - only a getter that will resolve to one by the time anything actually
-   * calls `DialogService.pickConfigFiles()`.
+   * Resolves the tracked main `BrowserWindow`. `index.ts` creates the window concurrently with the
+   * context, so this is a getter read at call time: it may answer `null` while the window is still
+   * loading, and every caller (`DialogService`, `DisplaysService`) already handles that.
    */
   getMainWindow: () => BrowserWindow | null
   /** Story 171: fed by `window.ts` (via `index.ts`), which owns the window's event wiring. */
@@ -140,9 +150,8 @@ export async function createAppContext(options: {
   /** Electron's `screen`, injected so the displays service stays testable. */
   screen: ScreenLike
   createCinemaWindow: (harness: UiHarness, rendererSource: RendererSource) => CinemaWindow
-}): Promise<AppContext> {
-  const harness = resolveUiHarness(process.env)
-  const broadcast = new Broadcaster()
+}): Promise<{ context: AppContext; unlock: UnlockService }> {
+  const { harness, env, broadcast } = options.shell
   const persistence = new PersistenceRegistry()
 
   const state = new StateStore(stateFilePath(), {
@@ -246,7 +255,7 @@ export async function createAppContext(options: {
   const context: AppContext = {
     isDev: options.isDev,
     harness,
-    env: bootEnv(process.env),
+    env,
     isPackaged: electronApp.isPackaged,
     userDataDir: userDataDir(),
     state,
@@ -268,7 +277,6 @@ export async function createAppContext(options: {
     mainWindow: options.mainWindow,
     cinemaWindow: options.createCinemaWindow(harness, rendererSourceFromEnv(process.env)),
     update,
-    unlock,
     features,
     content: { manifest },
     persistence,
@@ -281,5 +289,6 @@ export async function createAppContext(options: {
     log.warn(`state recovered from ${state.recoveredFrom}`)
   }
 
-  return context
+  // The live service leaves only to `registerUnlockIpc`; the context holds `features`. (story 128)
+  return { context, unlock }
 }

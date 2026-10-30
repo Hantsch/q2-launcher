@@ -376,3 +376,4 @@ second roadmap.
 - 278 — A release runs only when the user starts it, and checks its own commit · S37 · release.yml is dispatch-only with an in-run ci job; guard scripts, ci.yml push trigger removed
 - 277 — verify:release checks exactly what a PR and a release check, cheap steps first · S37 · npm run check, drift-tested step coverage, run record and --status
 - 325 — Tests and comments state what they check · S37 · describe titles id-free, typed client mocks, edge-case tests, locale-comment guard, zero bare catches in src/main with a guard, config invariant notes restored
+- 322 — Boot does not wait on file I/O, and a failed module has no live handlers · S37 · window opens before the context is built, failed modules refuse invokes, test-only deps required, unlock off AppContext

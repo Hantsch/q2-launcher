@@ -9,6 +9,7 @@ import { InstallationWriteGuard } from '../services/write-guard'
 import type { InstallationsService } from '../services/installations'
 import { createUpdateService, type UpdateService } from '../services/update/service'
 import type { AppContext } from '../context'
+import { bindRegisteredChannels } from '../../test-support/ipc'
 
 /**
  * Story 073 D5: `dev:simulateJob` gained a `scenario` payload (`success | stall |
@@ -47,6 +48,7 @@ async function setup(): Promise<{
   const jobs = new JobsService(() => {})
   const app = { jobs } as unknown as AppContext
   registerDevIpc(app)
+  await bindRegisteredChannels()
   return { jobs, fn: registered.get('dev:simulateJob')! }
 }
 
@@ -69,6 +71,7 @@ async function setupLaunch(): Promise<{
   })
   const app = { launch } as unknown as AppContext
   registerDevIpc(app)
+  await bindRegisteredChannels()
   return { launch, states, fn: registered.get('dev:simulateLaunch')! }
 }
 
@@ -98,6 +101,7 @@ async function setupWriting(): Promise<{
   })
   const app = { jobs, writeGuard: guard, jobRunner } as unknown as AppContext
   registerDevIpc(app)
+  await bindRegisteredChannels()
   return { jobs, launch, guard, fn: registered.get('dev:simulateJob')! }
 }
 
@@ -134,6 +138,7 @@ async function setupUpdate(): Promise<{
   })
   const app = { update } as unknown as AppContext
   registerDevIpc(app)
+  await bindRegisteredChannels()
   return { update, states, fn: registered.get('dev:simulateAppUpdate')! }
 }
 

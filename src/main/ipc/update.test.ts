@@ -2,6 +2,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fail, ok, type UpdateState } from '@shared/types'
 import type { AppContext } from '../context'
+import { bindRegisteredChannels } from '../../test-support/ipc'
 
 /**
  * Story 097 D5: `update:getState`/`update:check`, registered against a faked
@@ -62,6 +63,7 @@ async function setup(update: AppContext['update']): Promise<{
   const { registerUpdateIpc } = await import('./update')
   const app = { update } as unknown as AppContext
   registerUpdateIpc(app)
+  await bindRegisteredChannels()
   return {
     getState: registered.get('update:getState')!,
     check: registered.get('update:check')!,

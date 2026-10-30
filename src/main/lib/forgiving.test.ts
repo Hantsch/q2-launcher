@@ -2,12 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { z } from 'zod'
-import {
-  dedupeByKey,
-  parseForgivingEnvelope,
-  parseForgivingRows,
-  parseKeyedRows,
-} from './forgiving'
+import { parseForgivingEnvelope, parseForgivingRows, parseKeyedRows } from './forgiving'
 
 const rowSchema = z.object({ id: z.string(), gamedir: z.string() })
 type Row = z.infer<typeof rowSchema>
@@ -128,24 +123,6 @@ describe('parseForgivingEnvelope', () => {
     const b = parseForgivingEnvelope(envelope, 'garbage', fallback)
     expect(a).toEqual({ items: ['fallback'] })
     expect(a).not.toBe(b)
-  })
-})
-
-describe('dedupeByKey', () => {
-  it('keeps the first occurrence', () => {
-    expect(
-      dedupeByKey(
-        [
-          { k: 'a', n: 1 },
-          { k: 'a', n: 2 },
-          { k: 'b', n: 3 },
-        ],
-        (r) => r.k,
-      ),
-    ).toEqual([
-      { k: 'a', n: 1 },
-      { k: 'b', n: 3 },
-    ])
   })
 })
 

@@ -7,7 +7,7 @@ import {
   type UnlockState,
 } from '@shared/types'
 import { unlockGetStateSchema, unlockRedeemSchema } from '@shared/ipc-schemas'
-import type { AppContext } from '../context'
+import type { UnlockService } from '../services/unlock/service'
 import { handle, handleOutcome } from './index'
 
 /**
@@ -16,17 +16,18 @@ import { handle, handleOutcome } from './index'
  *
  * Nothing here verifies anything: `getState` reads the service's start-time classification and
  * `redeem` goes through the service's own redeem path. Only reason ids cross IPC, never prose, and
- * never a raw code body.
+ * never a raw code body. It takes the service directly: `AppContext` carries only the `features`
+ * view, so no other handler can reach the live service. (story 322)
  */
-export function registerUnlockIpc(app: AppContext): void {
+export function registerUnlockIpc(unlock: UnlockService): void {
   handle('unlock:getState', unlockGetStateSchema, (): UnlockState => {
-    return toUnlockState(app.unlock.snapshot())
+    return toUnlockState(unlock.snapshot())
   })
 
   // A refused code is an answer (`ok({ ok: false, reason })`), not a failed `Outcome` - the failed
   // `Outcome` is kept for a payload the schema refused before the service was ever called.
   handleOutcome('unlock:redeem', unlockRedeemSchema, (code) => {
-    const verdict = app.unlock.redeem(code)
+    const verdict = unlock.redeem(code)
     if (!verdict.ok) {
       return ok<RedeemResult>({ ok: false, reason: toRejectReason(verdict.reason) })
     }

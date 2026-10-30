@@ -48,7 +48,7 @@ export interface SyncProfileDeps {
   installations: { find: (id: string) => Installation | undefined }
   launchState: LaunchState
   playedModsFor: (installationId: string) => string[]
-  switchBindFor?: (installationId: string) => string | undefined
+  switchBindFor: (installationId: string) => string | undefined
   /** Base directory for the canonical file, e.g. `app.getPath('userData')` — a plain string so tests need no electron. */
   canonicalBaseDir: string
   /** Current write-failure map (`<profileId>|own` or `<profileId>|<installationId>` -> {messageKey, at}), read and returned updated. */
@@ -76,11 +76,8 @@ export interface SyncProfileDeps {
    * copies only ever come from the canonical file". The one place the answer still shapes the
    * copies is a profile WITHOUT a canonical file: `true` publishes the render (which this run
    * writes as the file first), `false` publishes nothing.
-   *
-   * Optional, defaulting to "always ours": every caller that does not opt in keeps the pre-043
-   * unconditional write, so no existing call site changes behaviour by accident.
    */
-  canonicalWriteAllowed?: (profile: ConfigProfile, onDisk: CanonicalFileFacts) => boolean
+  canonicalWriteAllowed: (profile: ConfigProfile, onDisk: CanonicalFileFacts) => boolean
   /**
    * The LOCATION half of the question above, asked only when
    * `canonicalWriteAllowed` said no - "this file's bytes are not ours to replace, but is the file
@@ -95,11 +92,8 @@ export interface SyncProfileDeps {
    * can never succeed. A move preserves every byte, so nothing `canonicalWriteAllowed` protects is
    * at risk (a *dirty* profile is still excluded by the caller: story 043 keeps its file where it
    * is until the user saves).
-   *
-   * Optional, defaulting to `canonicalWriteAllowed`'s own answer - i.e. `false` on this branch - so
-   * no existing call site changes behaviour by accident.
    */
-  canonicalMoveAllowed?: (profile: ConfigProfile, onDisk: CanonicalFileFacts) => boolean
+  canonicalMoveAllowed: (profile: ConfigProfile, onDisk: CanonicalFileFacts) => boolean
   /**
    * Story 079: restricts the per-installation loop below to this one installation id - every
    * other installation any profile in this pass is assigned to is left completely untouched (no
@@ -280,7 +274,6 @@ async function syncOneProfile(
    */
   const writeAllowed = new Map<string, boolean>()
   const mayWrite = async (candidate: ConfigProfile): Promise<boolean> => {
-    if (!deps.canonicalWriteAllowed) return true
     const remembered = writeAllowed.get(candidate.id)
     if (remembered !== undefined) return remembered
     const content = await canonicalBytesOf(candidate)
@@ -298,7 +291,6 @@ async function syncOneProfile(
    * above, and only on the branch where `mayWrite` said no.
    */
   const mayMove = async (candidate: ConfigProfile): Promise<boolean> => {
-    if (!deps.canonicalMoveAllowed) return mayWrite(candidate)
     const content = await canonicalBytesOf(candidate)
     return deps.canonicalMoveAllowed(candidate, {
       content,
@@ -457,7 +449,7 @@ async function syncOneProfile(
     }
     const defaultProfile = foundDefault ?? profile
 
-    const switchBindKey = deps.switchBindFor?.(installation.id)
+    const switchBindKey = deps.switchBindFor(installation.id)
     const switchBindProfiles: SwitchBindProfile[] = assignedProfiles.map((p) => ({
       id: p.id,
       name: p.name,

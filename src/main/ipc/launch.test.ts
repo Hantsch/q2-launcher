@@ -1,6 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppContext } from '../context'
+import { bindRegisteredChannels } from '../../test-support/ipc'
 
 /**
  * Story 163 AC2: `launch:start` can never open a playback pipe. Only the main-side demo-play path
@@ -30,6 +31,7 @@ async function setup() {
   }))
   const { registerLaunchIpc } = await import('./launch')
   registerLaunchIpc({ launch: { start } } as unknown as AppContext)
+  await bindRegisteredChannels()
   return { start, handler: registered.get('launch:start')! }
 }
 

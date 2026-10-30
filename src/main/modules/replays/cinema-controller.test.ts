@@ -57,6 +57,7 @@ function setup(
       calls.push('fullscreen')
       return opts.fullscreen ?? ok(undefined)
     },
+    raiseOverlay: () => undefined,
     emitDisplay: () => calls.push('display'),
   })
   /** The user closed the overlay themselves (Alt+F4 / its own Escape). */

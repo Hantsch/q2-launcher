@@ -13,7 +13,7 @@ import { scopedLogger } from './lib/logger'
 import { windowStateFilePath } from './lib/paths'
 import { RENDERER_INDEX_URL, rendererSourceFromEnv } from './lib/renderer-source'
 import { parseWindowState } from './lib/schemas'
-import type { AppContext } from './context'
+import type { AppShell } from './context'
 import type { MainWindowEvent } from './main-window-observer'
 import { hardenWebContents, OFFSCREEN_MARGIN, rendererWebPreferences } from './window-shared'
 import { isWindows } from './lib/platform'
@@ -75,8 +75,13 @@ export interface MainWindow {
   settle: () => Promise<{ ok: boolean }>
 }
 
+/**
+ * Needs only the shell, never the app context: the window opens while the context is still being
+ * built. The saved geometry is read before the `BrowserWindow` exists so the first frame is already
+ * at the right size and place. (story 322)
+ */
 export async function createMainWindow(
-  app: AppContext,
+  app: AppShell,
   /** Story 171: receives the window events `AppContext.mainWindow` republishes to modules. */
   onWindowEvent?: (event: MainWindowEvent) => void,
 ): Promise<MainWindow> {

@@ -3,9 +3,10 @@ import { join } from 'node:path'
 import { BrowserWindow, app, protocol, screen, session } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { createCinemaWindow } from './cinema-window'
-import { createAppContext, type AppContext } from './context'
+import { boot } from './boot'
+import { createAppContext, createAppShell, type AppContext } from './context'
 import { createMainWindowEvents } from './main-window-observer'
-import { registerAllIpc } from './ipc'
+import { bindAllChannels, markIpcFailed, markIpcReady, registerAllIpc } from './ipc'
 import { logger } from './lib/logger'
 import {
   DEV_CSP,
@@ -112,45 +113,57 @@ async function bootstrap(): Promise<void> {
     },
     onListenerError: (error) => logger.warn(`main window listener failed: ${String(error)}`),
   })
-  context = await createAppContext({
-    isDev: is.dev,
-    // `mainWindow` is assigned a few lines below, after `createMainWindow(context)` returns - this
-    // closure reads the module-level `let` at call time, by which point it is always set, rather
-    // than capturing today's (still-null) value.
-    getMainWindow: () => mainWindow?.window ?? null,
-    mainWindow: windowEvents.observer,
-    screen,
-    createCinemaWindow,
+
+  // The window and the context are built concurrently (story 322). Each step assigns its
+  // module-level binding as soon as it exists, so `second-instance`, shutdown and the late-bound
+  // getters below see it without waiting for the other half.
+  const booted = await boot({
+    bindIpc: bindAllChannels,
+    createShell: () => createAppShell(process.env),
+    createWindow: async (appShell) => {
+      mainWindow = await createMainWindow(appShell, windowEvents.notify)
+      return mainWindow
+    },
+    createContext: async (appShell) => {
+      const created = await createAppContext({
+        isDev: is.dev,
+        shell: appShell,
+        // Read at call time: `mainWindow` is null until `createMainWindow` has loaded the renderer.
+        getMainWindow: () => mainWindow?.window ?? null,
+        mainWindow: windowEvents.observer,
+        screen,
+        createCinemaWindow,
+      })
+      context = created.context
+      return created
+    },
+    registerIpc: ({ context: ready, unlock }) => registerAllIpc(ready, unlock),
+    markReady: markIpcReady,
+    markFailed: markIpcFailed,
   })
-  registerAllIpc(context)
-  mainWindow = await createMainWindow(context, windowEvents.notify)
 
-  // Both of these used to hang off `mainWindow.window.webContents.once('did-finish-load', …)` here,
-  // and therefore never ran at all: `createMainWindow()` ends by awaiting `window.loadURL(...)`
-  // (src/main/window.ts), and that promise settles with the renderer's own `did-finish-load`. By
-  // the time this line is reached the event has already fired, so a `once` listener registered now
-  // waits for something that is never coming again. The `await` above is itself the guarantee the
-  // listener was there for - "the UI can display the result" is true the moment it returns.
-  //
-  // Caught by `scripts/linux-update-e2e.mjs` (story 101): its packaged AppImage sat at
-  // `{ status: 'idle', lastCheckedAt: null, supported: true }` for the full 180s, i.e. a build that
-  // supports updates had simply never checked for one.
+  // `boot` resolves only once `createMainWindow()` has awaited `loadURL`, i.e. the renderer's own
+  // `did-finish-load`: from here a broadcast reaches a loaded page instead of being dropped. A
+  // `once('did-finish-load')` listener registered at this point would never fire (story 101).
+  const ready = booted.context?.context ?? null
+  if (ready) {
+    // Re-check every installation once the UI can display the result: a folder may
+    // have been deleted, moved or unplugged while the launcher was closed.
+    void revalidateOnStartup(ready)
 
-  // Re-check every installation once the UI can display the result: a folder may
-  // have been deleted, moved or unplugged while the launcher was closed.
-  void revalidateOnStartup(context)
-
-  // Story 097: the update-check's startup kick - fire-and-forget, after a short delay so it
-  // never competes with the window's own first paint, and never awaited
-  // (`scheduleStartupCheck()` itself returns synchronously; so startup is not blocked).
-  setTimeout(() => {
-    context?.update.scheduleStartupCheck()
-  }, 3_000)
+    // Story 097: the update-check's startup kick - fire-and-forget, after a short delay so it
+    // never competes with the window's own first paint, and never awaited
+    // (`scheduleStartupCheck()` itself returns synchronously; so startup is not blocked).
+    setTimeout(() => {
+      ready.update.scheduleStartupCheck()
+    }, 3_000)
+  }
 
   app.on('activate', () => {
-    // macOS: re-create the window after the last one was closed.
-    if (BrowserWindow.getAllWindows().length === 0 && context) {
-      void createMainWindow(context, windowEvents.notify).then((created) => {
+    // macOS: re-create the window after the last one was closed. Needs only the shell, so it works
+    // even when the context failed to start.
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void createMainWindow(booted.shell, windowEvents.notify).then((created) => {
         mainWindow = created
       })
     }

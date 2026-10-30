@@ -15,7 +15,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import type { DetectedRetailSource, RetailSourceInspection } from '@shared/modules/downloads'
 import { IDLE_LAUNCH_STATE, type Installation, type Job } from '@shared/types'
-import { InstallationsService } from '../../../services/installations'
+import type { InstallationsService } from '../../../services/installations'
+import { makeInstallationsService } from '../../../../test-support/installations'
 import { inspectInstallation } from '../../../services/inspector'
 import { makeJobRunner } from '../../../../test-support/job-runner'
 import type { AssembleInstallationResult } from '../bootstrap/assemble'
@@ -192,11 +193,7 @@ async function harness(
 ): Promise<Harness> {
   await createDemoInstallation(options.baseDirName)
 
-  const service = new InstallationsService({
-    state: fakeState(),
-    onChange: () => {},
-    onSettingsChange: () => {},
-  })
+  const service = makeInstallationsService({ state: fakeState() })
 
   const added = await service.addExisting({ rootPath: installRoot, source: 'manual' })
   if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)

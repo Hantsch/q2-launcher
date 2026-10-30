@@ -384,7 +384,9 @@ export const replaysModule: MainModule = {
       hasSession: () => playbackControl.currentFormat() !== null,
       enterFullscreen: () => playbackControl.enterFullscreen(),
       emitDisplay: () => playbackControl.emitDisplay(),
-      ...(x11Keeper ? { raiseOverlay: () => app.cinemaWindow.raise() } : {}),
+      raiseOverlay: () => {
+        if (x11Keeper) app.cinemaWindow.raise()
+      },
     })
     onDispose(() => cinema.dispose())
 

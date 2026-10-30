@@ -2,7 +2,6 @@ import { generateKeyPairSync, sign as cryptoSign, type KeyObject } from 'node:cr
 import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UnlockPayload } from '@shared/unlock'
-import type { AppContext } from '../context'
 import { fakeSectionState } from '../../test-support/state-sections'
 import { unlockState } from '../services/unlock/persisted'
 import { resolveFeatureGate } from '../features/gate'
@@ -91,8 +90,11 @@ async function setup(unlock: UnlockService): Promise<{
   getState: (event: unknown, payload: unknown) => unknown
   redeem: (event: unknown, payload: unknown) => unknown
 }> {
+  const ipc = await import('./index')
   const { registerUnlockIpc } = await import('./unlock')
-  registerUnlockIpc({ unlock } as unknown as AppContext)
+  ipc.bindAllChannels()
+  registerUnlockIpc(unlock)
+  ipc.markIpcReady()
   return {
     getState: registered.get('unlock:getState')!,
     redeem: registered.get('unlock:redeem')!,

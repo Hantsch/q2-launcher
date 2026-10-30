@@ -323,4 +323,26 @@ describe('MainModuleRegistry disposal', () => {
 
     expect(disposer).toHaveBeenCalledTimes(1)
   })
+
+  it('a module whose setup throws answers every invoke with modules.error.unavailable', async () => {
+    const registry = new MainModuleRegistry()
+    const handler = vi.fn(() => ok(1))
+    await registry.register(
+      {
+        id: 'library',
+        setup: ({ handle }) => {
+          handle('stats', z.unknown(), handler)
+          throw new Error('setup failed')
+        },
+      },
+      fakeAppContext(),
+    )
+
+    for (const type of ['stats', 'missing']) {
+      const result = await registry.invoke({ moduleId: 'library', type, payload: {} })
+      expect(result).toEqual(fail('modules.error.unavailable', { moduleId: 'library' }))
+    }
+    expect(handler).not.toHaveBeenCalled()
+    expect(registry.handlerTypes('library')).toEqual([])
+  })
 })

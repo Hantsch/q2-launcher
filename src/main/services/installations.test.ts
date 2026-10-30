@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { engineLabel, fail, ok, type Installation, type InstallationSource } from '@shared/types'
-import { InstallationsService } from './installations'
+import type { InstallationsService } from './installations'
+import { makeInstallationsService } from '../../test-support/installations'
 import { deleteInstallationFolder } from './installation-removal'
 import { inspectInstallation } from './inspector'
 import { StateStore } from './state'
@@ -75,10 +76,8 @@ beforeEach(async () => {
   deleteInstallationFolderMock.mockReset()
   inspectInstallationMock.mockClear()
 
-  installations = new InstallationsService({
+  installations = makeInstallationsService({
     state,
-    onChange: () => {},
-    onSettingsChange: () => {},
     onRemoved: async (id) => {
       removedIds.push(id)
     },
@@ -585,10 +584,9 @@ describe('patch', () => {
       installation({ writeDirPath: join(dir, 'write'), steamAppId: '2320', favorite: true }),
     ])
     const changes: string[][] = []
-    const observed = new InstallationsService({
+    const observed = makeInstallationsService({
       state,
       onChange: (list) => changes.push(list.map((i) => i.name)),
-      onSettingsChange: () => {},
     })
 
     const result = observed.patch(INSTALLATION_ID, { name: 'Renamed', writeDirPath: undefined })
@@ -675,12 +673,12 @@ describe('remove({ deleteFromDisk: true })', () => {
     })
   })
 
-  it('review fix: refuses removal from disk when userDataDir/homeDir were never supplied, without touching the disk deleter', async () => {
-    const misconfigured = new InstallationsService({
+  it('review fix: refuses removal from disk when userDataDir/homeDir are blank, without touching the disk deleter', async () => {
+    const misconfigured = makeInstallationsService({
       state,
-      onChange: () => {},
-      onSettingsChange: () => {},
-      // Deliberately omitting userDataDir/homeDir - the fail-open default this guards against.
+      // Blank anchors - the fail-open configuration this guards against.
+      userDataDir: '',
+      homeDir: '',
     })
     state.setInstallations([installation()])
 
@@ -797,11 +795,7 @@ describe('an installation with several engines', () => {
     await state.settle()
     const reloaded = new StateStore(join(userData, 'state.json'), { migrations: 'none' })
     await reloaded.load()
-    const restarted = new InstallationsService({
-      state: reloaded,
-      onChange: () => {},
-      onSettingsChange: () => {},
-    })
+    const restarted = makeInstallationsService({ state: reloaded })
     await restarted.validateAll()
     expect(restarted.find(INSTALLATION_ID)?.engineKind).toBe('q2pro')
     expect(restarted.find(INSTALLATION_ID)?.executablePath).toBe(join(rootPath, client('q2pro')))
