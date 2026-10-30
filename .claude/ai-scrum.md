@@ -90,10 +90,10 @@ changelog-path: CHANGELOG.md
 ## Branching
 
 branch-base: dev <!-- branch a sprint is cut from -->
-sprint-branch: true <!-- true = cut a sprint branch, commit there, you merge it; false = commit every story directly on branch-base -->
+sprint-branch: false <!-- true = cut a sprint branch, commit there, you merge it; false = commit every story directly on branch-base -->
 sprint-branch-pattern: sprint/{id}
 auto-commit-per-story: true <!-- /sprint commits once per story ON THE SPRINT BRANCH only -->
-protected-branches: main, dev <!-- never commit here, never push, never merge -->
+protected-branches: main <!-- never commit here, never push, never merge -->
 
 ## Acceptance
 
