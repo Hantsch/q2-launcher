@@ -33,11 +33,11 @@ commit `verify:release` passed does not fail.
 ## Open Questions
 
 ~~`ci.yml` also runs on every push to `main`. With the release checking its own commit, that run~~ answered → Decisions (Sprint)
-  is redundant — drop the push trigger and keep only `pull_request` and `workflow_dispatch`?
+is redundant — drop the push trigger and keep only `pull_request` and `workflow_dispatch`?
 ~~Decided: Dependabot is removed (`.github/dependabot.yml` deleted). Dependencies are checked in the~~ answered → Decisions (Sprint)
-  process instead (e.g. `npm outdated` / `npm audit` in `/roadmap check`, a story when something is due).
+process instead (e.g. `npm outdated` / `npm audit` in `/roadmap check`, a story when something is due).
 ~~The release job runs `npm test` and typecheck again (~4 min). With AC2 that is a second run of~~ answered → Decisions (Sprint)
-  the same checks in the same workflow — drop it?
+the same checks in the same workflow — drop it?
 
 ## Decisions (Sprint)
 
@@ -102,7 +102,7 @@ Files: `.github/workflows/{release,ci}.yml`, `scripts/workflows.test.mjs`,
     `jobs.test.steps` after its checkout, copied verbatim incl. their `if:` (whatever `ci.yml`
     holds at build time). Job output `sha: ${{ steps.sha.outputs.sha }}`.
   - `plan`: `needs: ci`; its `if` becomes `${{ !cancelled() && (needs.ci.result == 'success' ||
-    (needs.ci.result == 'skipped' && inputs.skip_ci_guard)) }}`. Replace the `ci-guard` step by a
+(needs.ci.result == 'skipped' && inputs.skip_ci_guard)) }}`. Replace the `ci-guard` step by a
     bash step `id: head`: writes `sha=$(git rev-parse HEAD)`; exits 1 with `::error::` when
     `needs.ci.outputs.sha` is non-empty and differs; when `inputs.skip_ci_guard` is true prints
     `::warning::ci checks skipped by $GITHUB_ACTOR for <sha>`. Output
@@ -186,6 +186,7 @@ AC -> test: AC1 "a release starts only by dispatch"; AC2/AC3 "the release runs t
 Manual residue: AC2 runtime half - the first dispatched release must show `ci` -> `plan` -> builds on GitHub (act cannot run the windows `ci` job).
 
 **Decisions.**
+
 - Docs-lane rules live in `scripts/project-docs.docs.test.mjs` (story 279's file), not a separate rules file; its old "release needs a green ci run on its SHA" test was rewritten to the new bullet.
 - `linuxJobs()` in `workflows.test.mjs` skips release.yml and the `PUSH_PR_EXCEPTED` exception is removed (release no longer push-triggered); `build-linux` keeps its own test.
 - Unfixed review findings (test strength, not bugs): `ci` `sha` output / `plan` `head` step not asserted directly; `plan.if` pinned by substring only; `npm test` check matches whole elements; `ci` job inherits top-level `contents: write`; stale describe name "three jobs" in wiring.test.mjs (now four jobs).

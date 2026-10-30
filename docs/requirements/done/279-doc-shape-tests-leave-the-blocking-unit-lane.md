@@ -47,7 +47,7 @@ block a PR or a release. Code rules stay in the blocking lane.
   `new URL(...)` and path constants and would also flag the synthetic `docs/a.md` fixtures.
 - Root `README.md` is not guarded: `planRelease` reads its Status line, so a real-README read in a
   release test is "Markdown the release reads" (AC1 exception); README prose tests still move.
-- Tests of doc-checking *code* on synthetic input (`check-docs.test.mjs` fixtures, `checkTechDebt`
+- Tests of doc-checking _code_ on synthetic input (`check-docs.test.mjs` fixtures, `checkTechDebt`
   on fixture rows, `overdueTechDebt`, `flow-select` paths, release fixtures) stay in `npm test`,
   because they assert on the script, not on a project doc.
 - `content/q2_community_content/**` (templates-kit) stays: it is the news content the product
@@ -88,7 +88,7 @@ on `npm run check:docs` green. No e2e: no user surface changes.
   `test.include` to `['src/**/*.docs.test.ts', 'scripts/**/*.docs.test.mjs']`,
   `test.exclude: configDefaults.exclude`), `vitest.config.ts` (add `'**/*.docs.test.*'` to
   `exclude`, next to the perf glob), `package.json` (`"check:docs": "node scripts/check-docs.mjs &&
-  vitest run --config vitest.docs.config.ts"` — `&&`, never `;`, and no `--passWithNoTests`, so
+vitest run --config vitest.docs.config.ts"` — `&&`, never `;`, and no `--passWithNoTests`, so
   an empty glob also fails), `scripts/repo-hygiene.test.mjs` (two tests in the existing
   `test discovery` describe, reusing its `matchesGlob`/`git ls-files` helpers: "every docs-lane
   test file runs in check:docs and not in npm test" — each tracked `*.docs.test.*` matches a docs
@@ -116,9 +116,9 @@ on `npm run check:docs` green. No e2e: no user surface changes.
     release needs a green ci run on its SHA", and the `.claude/ai-scrum.md` `changelog-path` test.
     The real-README `planRelease` read (~line 195) stays — the release reads README.
   - `scripts/repo-hygiene.test.mjs`: drop "the roadmap carries no Vite pin follow-up".
-  Files: the five sources above + the new file (6). Done when `npm test` and `npm run check:docs`
-  are green and `grep -nE "docs/|CLAUDE\.md|\.claude/"` over the five sources finds only fixture
-  or comment hits.
+    Files: the five sources above + the new file (6). Done when `npm test` and `npm run check:docs`
+    are green and `grep -nE "docs/|CLAUDE\.md|\.claude/"` over the five sources finds only fixture
+    or comment hits.
 
 - **D3 — src-side doc rules move to the docs lane, and the unit lane refuses doc reads.**
   `git mv` to `.docs.test.ts` (content unchanged): `src/main/modules/architecture-doc.test.ts`,

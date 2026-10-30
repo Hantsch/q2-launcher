@@ -141,6 +141,7 @@ Review: → default
 - AC6 → `node scripts/check-docs.mjs` on the edited `docs/TECH-DEBT.md` (D7)
 
 ## Done
+
 Config edits reach disk only through save: the baseline carries `writeCatalogDefaults` (TD-009), `setSwitchBind` refuses on an external edit and writes via `syncAndPersist` with a visible refusal (TD-017), `keepEmptyAlias` is in the shared action schema (TD-022), `saveNow` reverts after a cancelled burst and `load()` reports `applied` (TD-025), one `withLiveAssignments` plus injected `writeTargetFile`, stale `shell` electron mocks gone (TD-024).
 
 Commit message: `320: config edits reach disk only via save - baseline writeCatalogDefaults, switch bind through syncAndPersist, keepEmptyAlias persisted, saveNow revert + applied load, TD-009/017/022/024/025 closed`
@@ -149,6 +150,7 @@ Verification (narrow gate): typecheck, lint, `npm run check:docs` green; `npx vi
 AC -> test as verified: AC1 commit-cvars test + `servers-address-book.mjs`; AC2 `profile-writes.switch-bind.test.ts` + `switch-bind-keeps-unsaved-edits.mjs`; AC3 `persisted.test.ts` + `profile-schema.test.ts`; AC4 `useProfileSave.test.ts`, `ConfigView.routeFocus.test.tsx`, `config-profiles-store.test.ts`; AC5 `assignments.test.ts` + config tests passing without the mocks; AC6 `check:docs`. No manual residue.
 
 Decisions:
+
 - Review finding not fixed: a dirty default profile with no canonical file and no other assigned profile gets the bind stored but no loader written (sync has nothing it may publish); the plan does not cover it, and before the change the unsaved render leaked instead.
 - `cancel()` has no production caller today, so the parked-revert path is exercised by tests and by `saveNow` taking over a pending burst; not widened.
 - The address-book flow compares the canonical file before the toggle and after the add, ignoring `set adrN`/blank/`// --- Other ---` lines; strict byte equality is impossible since the add legitimately writes those. The unit test proves the toggle's output effect.

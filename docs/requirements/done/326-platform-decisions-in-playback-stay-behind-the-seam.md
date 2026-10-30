@@ -35,7 +35,7 @@ reports park geometry as placed and has a cinema ABOVE ordering edge. Linux is a
 - AC6 is added for the user's "fix it" decision, so the fix has a criterion and a test like every
   other TD-023 part.
 - The seam is `src/main/modules/replays/playback-channel/`: one `playbackChannelPlan(platform,
-  engine)` there decides channel kind, early start and pipe use, because those three are the playback
+engine)` there decides channel kind, early start and pipe use, because those three are the playback
   branches that today live in `playback-control.ts` and `demo-play.ts`.
 - The AC1 check is a rule in `src/architecture.test.ts` (CLAUDE.md: layering is enforced there) with
   an allowlist naming stories: `stage.ts` (window system, story 170) and `discovery.ts` (Q2PRO write
@@ -95,7 +95,7 @@ Real-X effects stay manual residue for the local Linux run (story 198 Q5: no Xvf
     comment). `demo-play.ts` sets `pipes` from `plan.usesPipes`; `deps.platform` stays for
     `demoPlayEligibility`, which only passes it on.
   - `src/architecture.test.ts`: new `it('playback platform decisions branch only inside the playback
-    channel seam')` — every non-test file under `src/main/modules/replays/` (via `listSourceFiles`,
+channel seam')` — every non-test file under `src/main/modules/replays/` (via `listSourceFiles`,
     `isTestFile`, `readRepoFile` from `src/test-support/source-tree.ts`; ignore comments with that
     file's lexer if it exposes one) that contains a `'win32'`, `'linux'` or `'darwin'` literal or calls
     `isWindows(` / `isLinux(` must lie under `src/main/modules/replays/playback-channel/` or be on an
@@ -118,7 +118,7 @@ Real-X effects stay manual residue for the local Linux run (story 198 Q5: no Xvf
     QueryExtension 98), otherwise `opcode <n>` (the X-Resource extension opcode is dynamic). In
     `connection.ts` `drain`, an error whose sequence has no pending entry calls a new optional
     `ConnectX11Options.onStrayError?: (e: { request: string; code: number; sequence: number;
-    badValue: number }) => void` and does not fail the connection. Rewrite the `request` doc comment
+badValue: number }) => void` and does not fail the connection. Rewrite the `request` doc comment
     ("dropped" → reported through `onStrayError`).
   - Auth family: `xauth.ts` gets a pure helper (or a richer `pickCookie` result) that, when no
     FamilyLocal/FamilyWild MIT-MAGIC-COOKIE-1 entry matches but one with the same display number (or
@@ -191,6 +191,7 @@ Real-X effects stay manual residue for the local Linux run (story 198 Q5: no Xvf
   the ABOVE game on a real X11 WM (story 198 Q5).
 
 ## Done
+
 Playback platform decisions now live in `playback-channel/plan.ts`, guarded by an architecture rule. The X11 keeper logs stray
 X errors by request name, refuses an unsupported Xauthority family by name, is told parked vs placed, and re-raises the cinema
 overlay after each ABOVE add. TD-005 and TD-023 rows removed; replays-module.md updated within its 150-line cap.
@@ -198,6 +199,7 @@ overlay after each ABOVE add. TD-005 and TD-023 rows removed; replays-module.md 
 Commit message: `326: playback platform decisions behind plan.ts + architecture guard, X11 keeper stray-error log, auth-family refusal, parked vs placed, cinema raise after ABOVE, TD-005/TD-023 closed`
 
 Decisions:
+
 - Architecture allowlist (stage.ts story 170, discovery.ts story 160) is local to the new `it`, checking the story file exists and the branch still matches.
 - `onFailure` now passes outcome params; one existing stage-window assertion tightened to `('x11.requestFailed', { code: 5 })`.
 - Fixed TD-059's stale link (requirements/321 -> requirements/done/321) because it broke `check:docs`; no other TD row touched.

@@ -192,6 +192,7 @@ Order D1 → D2 → D3 → D4 (D2 runs `check`, D3 sits on D2's split, D4 docume
 **Verification (narrow gate).** typecheck, lint, prettier on changed files, `npx vitest run --changed HEAD` (633 files, 7654 tests), `npm run check:docs` (69 tests) all green; no e2e criteria. Review: stage 1 default, PASS with gaps, one fix cycle (extra blockingRuns/anchoring tests, `--status` uses `record.base`, corrupt record exits 2), re-verified green. AC1-AC4 -> the named tests in `scripts/verify-release.test.mjs`, all passed; AC5 -> lane-map rule in `scripts/project-docs.docs.test.mjs` (docs lane), passed. No manual residue. `verify:release` itself not run (phase-4 gate).
 
 **Decisions.**
+
 - `verifiedTree` is the tree of the verified working-tree snapshot before merging `origin/main`, so committing exactly the verified changes reads as verified.
 - `src/architecture.test.ts` lint assertion moved to `package.json` check script + plan module (stale after the split).
 - Windows-only `IS_WIN` guard on the release phase dropped (supported host is Windows; spec lists the dry run unconditionally).

@@ -169,6 +169,7 @@ Commit message: `322: window opens before app context (IPC gate), failed module 
 Verification (narrow gate): `npm run build`, `typecheck`, `lint` green; `npx vitest run --changed HEAD` green (250 files, 2922 tests); `npm run ui:verify` green after `npm run build:dev` (116 shots, 0 unreachable, exit 0; the first run used a stale dev build). Review: clean agent, PASS, 1 cycle. AC1 boot.test.ts + ipc/index.test.ts; AC2 registry.test.ts; AC3/AC5 typecheck + lint; AC4 typecheck + unlock.test.ts; AC6 tech-debt.test.mjs + check:docs (green). No manual residue.
 
 Decisions:
+
 - AC6's invariant test was not written: story 279 already removed the pinned-rows assertion, so there was nothing to replace.
 - `AppShell`/`createAppShell` added to `context.ts` so window and context share one harness/env/broadcaster.
 - Six registrar tests in `src/main/ipc/` follow the new mechanism through `src/test-support/ipc.ts` (`bindRegisteredChannels`); `registerAllIpc` gets the unlock service as 2nd argument.

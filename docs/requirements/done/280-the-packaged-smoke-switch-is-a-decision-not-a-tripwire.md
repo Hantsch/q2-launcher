@@ -62,7 +62,7 @@ Order: one D. Stories 276/278 also edit `scripts/workflows.test.mjs` — touch o
     in its place. Leave the `run:` line unchanged.
   - `scripts/workflows.test.mjs`: delete the exported `packagedSmokeMustBlock` function (with its
     JSDoc) and the two tests that use it (`"the packaged smoke turns blocking after two releases
-    past 0.8.0"`, `"the packaged smoke step's continue-on-error matches the released count"`).
+past 0.8.0"`, `"the packaged smoke step's continue-on-error matches the released count"`).
     Drop any import that becomes unused (e.g. `readFileSync`/`ROOT` only if nothing else uses
     them — the lane-map describe still does). In `describe('release packaged launch smoke')`,
     reusing its existing `smokeStep()` helper, add test
@@ -102,9 +102,11 @@ Order: one D. Stories 276/278 also edit `scripts/workflows.test.mjs` — touch o
 **Commit message:** `280: packaged smoke blocks the release - structural workflows test, count-based tripwire removed`
 
 **Verification (narrow gate).** `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEAD` (17/17 in scripts/workflows.test.mjs), `npx prettier --check` on changed files, `npm run check:docs`: all green. No e2e (no UI change, no e2e-mapped criterion). Review (default tier, 1 cycle): PASS.
+
 - AC1, AC2, AC3 -> `scripts/workflows.test.mjs` › "the packaged smoke step fails the release when the app does not launch": ran, passed. No manual residue.
 
 **Decisions.**
+
 - Blocking is pinned structurally (no `continue-on-error`, no `|| true` / `|| exit 0` / `::warning::` in `run`); AC3 is vacuous under that decision.
 - No CHANGELOG entry (CI gating, nothing user-visible); no systems doc touched.
 - Unfixed review notes: the test's denylist misses exotic swallows (`|| :`, `set +e`, step-level `if:`) and job-level `continue-on-error` is not checked; marginal for the story scope.
