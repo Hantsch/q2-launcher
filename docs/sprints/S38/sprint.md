@@ -1,7 +1,7 @@
 ---
 sprint: S38
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: dev # set by /sprint
 milestone: 12.1 — Toolchain and spikes; 12.2 — Playback in the canvas
 ---
 
