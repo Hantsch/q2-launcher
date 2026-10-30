@@ -78,7 +78,7 @@ async function bindResponder(): Promise<{ socket: Socket; port: number }> {
   return { socket, port: address.port }
 }
 
-describe('servers scan real-socket integration (story 114 D8)', () => {
+describe('servers scan real-socket integration', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry

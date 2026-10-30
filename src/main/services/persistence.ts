@@ -26,6 +26,7 @@ export class PersistenceRegistry {
           const { ok } = await store.settle()
           return { label, ok }
         } catch {
+          // a store whose settle rejects is reported as not ok
           return { label, ok: false }
         }
       }),

@@ -258,7 +258,7 @@ describe('setEngineState', () => {
   })
 })
 
-describe('setModuleData (story 190 D2)', () => {
+describe('setModuleData', () => {
   it('setModuleData persists under its module key only', () => {
     state.setInstallations([installation({ moduleData: { downloads: { version: '2.34' } } })])
 
@@ -276,7 +276,7 @@ describe('setModuleData (story 190 D2)', () => {
   })
 })
 
-describe('AC4: a playable verdict clears the last failure, an invalid one keeps it', () => {
+describe('a playable verdict clears the last failure, an invalid one keeps it', () => {
   it('clears lastFailure once validate() sees a playable verdict', async () => {
     const rootPath = join(dir, 'playable')
     await writePlayableRoot(rootPath)
@@ -378,7 +378,7 @@ describe('findByRootPath', () => {
   })
 })
 
-describe('recordedEngineKind (story 093 finding fix, AC1)', () => {
+describe('recordedEngineKind', () => {
   it('addExisting() records the freshly-inspected engine at creation time', async () => {
     const rootPath = join(dir, 'existing')
     await writePlayableRoot(rootPath)
@@ -614,7 +614,7 @@ describe('patch', () => {
   })
 })
 
-describe('remove({ deleteFromDisk: true }) (story 094 D2)', () => {
+describe('remove({ deleteFromDisk: true })', () => {
   const STORE_SOURCES: InstallationSource[] = ['steam', 'gog', 'epic', 'bethesda']
 
   it.each(STORE_SOURCES)(

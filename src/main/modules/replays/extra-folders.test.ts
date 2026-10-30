@@ -64,7 +64,7 @@ describe('resolveExtraFolder and appendExtraFolder', () => {
   })
 })
 
-describe('removeExtraFolder (story 142 D2)', () => {
+describe('removeExtraFolder', () => {
   let dir: string
 
   beforeEach(async () => {

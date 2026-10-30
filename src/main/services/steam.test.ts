@@ -2,19 +2,37 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { stubPlatform } from '../../test-support/platform'
 import { readSteamAppId } from './steam'
 
 let dir: string
+let restorePlatform: (() => void) | undefined
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'q2-launcher-steam-'))
 })
 
 afterEach(async () => {
+  restorePlatform?.()
+  restorePlatform = undefined
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
 describe('readSteamAppId', () => {
+  it('readSteamAppId matches a differently cased installdir on darwin', async () => {
+    restorePlatform = stubPlatform('darwin')
+    const steamappsDir = join(dir, 'steamapps')
+    const installRoot = join(steamappsDir, 'common', 'Quake 2')
+    await mkdir(installRoot, { recursive: true })
+    await writeFile(
+      join(steamappsDir, 'appmanifest_2320.acf'),
+      '"AppState"\n{\n\t"appid"\t\t"2320"\n\t"installdir"\t\t"QUAKE 2"\n}\n',
+      'utf8',
+    )
+
+    await expect(readSteamAppId(installRoot)).resolves.toBe('2320')
+  })
+
   it('reads the appid from the manifest whose installdir matches the folder', async () => {
     const steamappsDir = join(dir, 'steamapps')
     const commonDir = join(steamappsDir, 'common')

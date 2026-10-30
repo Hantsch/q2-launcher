@@ -22,6 +22,7 @@ export async function pathExists(target: string): Promise<boolean> {
     await access(target, FS.F_OK)
     return true
   } catch {
+    // ENOENT/EACCES: an inaccessible path does not exist for our purposes
     return false
   }
 }
@@ -30,6 +31,7 @@ export async function isDirectory(target: string): Promise<boolean> {
   try {
     return (await stat(target)).isDirectory()
   } catch {
+    // ENOENT/EACCES: a path that cannot be stat-ed is not a directory
     return false
   }
 }
@@ -38,6 +40,7 @@ export async function isFile(target: string): Promise<boolean> {
   try {
     return (await stat(target)).isFile()
   } catch {
+    // ENOENT/EACCES: a path that cannot be stat-ed is not a file
     return false
   }
 }
@@ -47,6 +50,7 @@ export async function isWritableDir(target: string): Promise<boolean> {
     await access(target, FS.W_OK)
     return true
   } catch {
+    // EACCES/ENOENT: no write access means not writable
     return false
   }
 }
@@ -55,6 +59,7 @@ export async function fileSize(target: string): Promise<number | null> {
   try {
     return (await stat(target)).size
   } catch {
+    // ENOENT/EACCES: a path that cannot be stat-ed has no size
     return null
   }
 }
@@ -107,6 +112,7 @@ export async function canonicalizePath(target: string): Promise<string> {
   try {
     return await realpath(absolute)
   } catch {
+    // ENOENT: a path that does not exist (yet) has no real path to resolve
     return resolve(absolute)
   }
 }
@@ -172,6 +178,7 @@ export async function listDir(dir: string): Promise<DirListing> {
   try {
     entries = await readdir(dir, { withFileTypes: true })
   } catch {
+    // ENOENT/ENOTDIR/EACCES: an unreadable directory lists as empty
     return EMPTY_LISTING
   }
 
@@ -274,6 +281,7 @@ export async function looksExecutable(dir: string, name: string): Promise<boolea
     const stats = await stat(join(dir, name))
     return stats.isFile() && (stats.mode & 0o111) !== 0
   } catch {
+    // ENOENT/EACCES: a file that cannot be stat-ed is not executable
     return false
   }
 }
@@ -293,6 +301,7 @@ export async function readBinaryKind(path: string): Promise<BinaryKind> {
   try {
     handle = await open(path, 'r')
   } catch {
+    // ENOENT/EACCES/EBUSY: a file that cannot be opened has an unknown kind
     return 'unknown'
   }
 
@@ -312,6 +321,7 @@ export async function readBinaryKind(path: string): Promise<BinaryKind> {
     if (bytesRead >= 2 && header[0] === 0x23 && header[1] === 0x21) return 'script'
     return 'unknown'
   } catch {
+    // a read failure or short file leaves the kind unknown
     return 'unknown'
   } finally {
     await handle.close()
@@ -329,6 +339,7 @@ export async function readBinaryArch(path: string): Promise<BinaryArch> {
   try {
     handle = await open(path, 'r')
   } catch {
+    // ENOENT/EACCES/EBUSY: a file that cannot be opened has an unknown architecture
     return 'unknown'
   }
 
@@ -359,6 +370,7 @@ export async function readBinaryArch(path: string): Promise<BinaryArch> {
     }
     return 'unknown'
   } catch {
+    // a read failure or truncated header leaves the architecture unknown
     return 'unknown'
   } finally {
     await handle.close()

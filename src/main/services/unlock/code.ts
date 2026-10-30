@@ -68,6 +68,7 @@ function parsePayload(payloadB64: string): UnlockPayload | null {
   try {
     json = JSON.parse(utf8.decode(bytes))
   } catch {
+    // a payload that is not valid JSON is an invalid code
     return null
   }
   const result = payloadSchema.safeParse(json)

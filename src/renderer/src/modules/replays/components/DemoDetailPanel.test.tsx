@@ -27,9 +27,12 @@ vi.mock('../client', (importOriginal) =>
   mockClient<typeof import('../client')>(importOriginal, {
     sidecarRead: (demoId: string) => sidecarRead(demoId),
     sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
-    revealDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })) as never,
-    copyDemoPath: vi.fn(async () => ({ ok: true, value: { ok: true } })) as never,
-    renameDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })) as never,
+    revealDemo: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
+    copyDemoPath: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
+    renameDemo: vi.fn(async () => ({
+      ok: false as const,
+      error: { key: 'replays.rename.error.failed' },
+    })),
   }),
 )
 

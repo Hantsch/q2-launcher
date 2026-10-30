@@ -67,7 +67,7 @@ function baseInput(overrides = {}) {
   }
 }
 
-describe('planRelease — AC2: an empty Unreleased section refuses with a reason and plans no writes', () => {
+describe('planRelease — an empty Unreleased section refuses with a reason and plans no writes', () => {
   test('literally empty Unreleased refuses with a readable reason', () => {
     let caught
     try {
@@ -93,7 +93,7 @@ describe('planRelease — AC2: an empty Unreleased section refuses with a reason
   })
 })
 
-describe('planRelease — AC3: a release promotes Unreleased, writes version files, plans one commit and one tag', () => {
+describe('planRelease — a release promotes Unreleased, writes version files, plans one commit and one tag', () => {
   test('promotes changelog, writes package.json/lockfile, plans exactly one commit and one tag', () => {
     const result = planRelease(baseInput())
 
@@ -136,7 +136,7 @@ describe('planRelease — AC3: a release promotes Unreleased, writes version fil
   })
 })
 
-describe('planRelease — AC5: a dry run yields the version and the notes but no git or gh commands', () => {
+describe('planRelease — a dry run yields the version and the notes but no git or gh commands', () => {
   test('version and notes are computed but commands is empty', () => {
     const result = planRelease(baseInput({ dryRun: true }))
     expect(result.version).toBe('1.0.0-beta.2')
@@ -146,7 +146,7 @@ describe('planRelease — AC5: a dry run yields the version and the notes but no
   })
 })
 
-describe('planRelease — AC7: a second run on an unchanged tree refuses', () => {
+describe('planRelease — a second run on an unchanged tree refuses', () => {
   test('refuses when Unreleased is already empty (post-promotion state)', () => {
     expect(() => planRelease(baseInput({ changelogText: EMPTY_CHANGELOG }))).toThrow(
       ReleaseRefused,
@@ -160,7 +160,7 @@ describe('planRelease — AC7: a second run on an unchanged tree refuses', () =>
   })
 })
 
-describe('planRelease — AC6: an explicit version and an explicit bump each override the derived one', () => {
+describe('planRelease — an explicit version and an explicit bump each override the derived one', () => {
   test('requestedVersion wins outright, regardless of what categories would derive', () => {
     const result = planRelease(baseInput({ requestedVersion: '3.0.0' }))
     expect(result.version).toBe('3.0.0')

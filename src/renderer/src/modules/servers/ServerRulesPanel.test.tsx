@@ -19,7 +19,7 @@ function renderPanel(serverinfo: Record<string, string> | undefined) {
   render(createElement(ServerRulesPanel, { serverinfo }))
 }
 
-describe('ServerRulesPanel (story 123 D3)', () => {
+describe('ServerRulesPanel', () => {
   it('renders every reported key as a row', () => {
     renderPanel({
       hostname: 'Fixture Server',

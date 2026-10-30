@@ -75,7 +75,7 @@ function appearsElsewhere(lines: string[], skipIndex: number, name: string): boo
   return lines.some((line, index) => index !== skipIndex && lineTokens(line).includes(lower))
 }
 
-describe('render invariants (story 038 D3, AC4)', () => {
+describe('render invariants', () => {
   for (const [fixtureName, profile] of Object.entries(PROFILE_FIXTURES)) {
     it(`"${fixtureName}": no alias line whose name is referenced by nothing else in the file`, () => {
       const rendered = renderProfileFile(profile)
@@ -345,7 +345,7 @@ describe('render invariants (story 038 D3, AC4)', () => {
   // hand-mangled headers) lives in `round-trip.test.ts`, for the reason the
   // block above already gives: the parser is a main-process module.
   // -------------------------------------------------------------------------
-  describe('the header block (story 051 D6)', () => {
+  describe('the header block', () => {
     /** The `=` rule `banner(…, { fill: '=' })` draws - the block's first and third line. */
     const HEADER_RULE = /^\/\/ ={10,}$/
 
@@ -448,7 +448,7 @@ describe('render invariants (story 038 D3, AC4)', () => {
   // once D3's `profile-restore.ts` can read a sub-banner back, so this
   // fixture stays local to this test rather than joining `profile-fixtures.ts`).
   // -------------------------------------------------------------------------
-  describe('sub-category bucketing and banner emission (story 053 D2)', () => {
+  describe('sub-category bucketing and banner emission', () => {
     const ungroupedAction: ConfigAction = {
       id: 'sub-a-ungrouped',
       categoryId: 'weapons',

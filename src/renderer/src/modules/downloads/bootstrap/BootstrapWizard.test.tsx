@@ -237,7 +237,7 @@ afterEach(() => {
   useLauncher.setState({ jobs: [] })
 })
 
-describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
+describe('BootstrapWizard failure fetch', () => {
   it('a running job triggers no fetch of getDownloadFailures at all', async () => {
     useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
@@ -350,7 +350,7 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
  * still needs zero extra clicks) while a user's explicit pick on a later render is never
  * overwritten by that default effect.
  */
-describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
+describe('BootstrapWizard engine selection', () => {
   it('defaults to the single pinned option and can proceed with zero clicks', async () => {
     getBootstrapEngineOptions.mockResolvedValueOnce({
       ok: true,
@@ -649,7 +649,7 @@ describe('BootstrapWizard install location', () => {
  * exactly one dialog off `store.dialog.kind`, so asserting that field is enough - rendering the real
  * `AddExistingDialog` is `AddExistingDialog`'s own test's job, not this one's).
  */
-describe('BootstrapWizard engine step empty state (story 100 D7/D8, AC7)', () => {
+describe('BootstrapWizard engine step empty state', () => {
   it('names the platform gap and its action opens the add-existing dialog for "none-for-platform"', async () => {
     getBootstrapEngineOptions.mockResolvedValueOnce({
       ok: true,
@@ -700,7 +700,7 @@ describe('BootstrapWizard engine step empty state (story 100 D7/D8, AC7)', () =>
  * reason when the chosen source has neither `baseq2/video` nor `baseq2/players`), and AC5 (the
  * confirm step naming the copy source, the engine-only download and the target).
  */
-describe('BootstrapWizard game-data step (story 088 D5)', () => {
+describe('BootstrapWizard game-data step', () => {
   const verifiedSource: DetectedRetailSource = {
     source: 'steam',
     rootPath: 'C:\\Steam\\Quake II',
@@ -880,7 +880,7 @@ describe('BootstrapWizard game-data step (story 088 D5)', () => {
  * verdict still lets the user continue) and AC5 (an `'unusable'` verdict blocks Next and shows the
  * reason).
  */
-describe('BootstrapWizard existing-folder game-data source (story 089 D4)', () => {
+describe('BootstrapWizard existing-folder game-data source', () => {
   it('offers the existing-folder choice even when no store source was detected (AC1)', async () => {
     render(createElement(BootstrapWizard))
 

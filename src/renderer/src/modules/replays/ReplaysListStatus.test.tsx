@@ -8,9 +8,7 @@ import { initI18n } from '../../i18n'
 import { demoFoldersRead } from './client'
 import { ReplaysListStatus } from './ReplaysListStatus'
 
-vi.mock('./client', (importOriginal) =>
-  mockClient<typeof import('./client')>(importOriginal as never),
-)
+vi.mock('./client', (importOriginal) => mockClient<typeof import('./client')>(importOriginal))
 
 beforeAll(async () => {
   await initI18n('en')

@@ -335,7 +335,7 @@ describe('actionsWithAliasLine', () => {
  * display name: a discrete (sign-free) single-token entry named after its own
  * command derives an alias name textually identical to that command.
  */
-describe('actionsWithAliasLine self-reference guard (story 039)', () => {
+describe('actionsWithAliasLine self-reference guard', () => {
   /** A *discrete* catalogue row exactly as `bind-adoption.ts` materialises `bind MWHEELUP "weapnext"`. */
   function discreteRow(overrides: Partial<ConfigAction> = {}): ConfigAction {
     return action({
@@ -557,7 +557,7 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
   })
 })
 
-describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () => {
+describe('collectAliasReferences ignoreOwnMirrorOf option', () => {
   it('ignores the own base bind slot the action holds', () => {
     const owner = action({
       id: 'a1',
@@ -664,7 +664,7 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
   })
 })
 
-describe('findAliasReferrers (story 039, D9)', () => {
+describe('findAliasReferrers', () => {
   it('finds nothing for an unreferenced entry', () => {
     const owner = action({
       id: 'a1',
@@ -824,7 +824,7 @@ describe('findAliasReferrers (story 039, D9)', () => {
  * (base binds, layer overrides, other aliases' bodies, other entries' commands) gets its own case,
  * as does the self-reference the graph deliberately counts.
  */
-describe('buildAliasIndex (story 044, D1)', () => {
+describe('buildAliasIndex', () => {
   function holdLayer(overrides: Partial<AltLayer> = {}): AltLayer {
     return {
       id: 'l1',
@@ -1151,7 +1151,7 @@ describe('buildAliasIndex (story 044, D1)', () => {
   })
 })
 
-describe('findAliasReferrersByName (story 044, D1)', () => {
+describe('findAliasReferrersByName', () => {
   it('answers for a name with no owning action at all', () => {
     const referrers = findAliasReferrersByName('+drops', { actions: [], binds: { ALT: '+drops' } })
 

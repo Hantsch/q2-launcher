@@ -63,7 +63,7 @@ describe('banner', () => {
   })
 })
 
-describe('sectionHeaderStyle (story 042 D7)', () => {
+describe('sectionHeaderStyle', () => {
   // Carries both a title and a `[q2l ...]` tag, exactly the shape `render.ts`'s `titledSection`
   // hands to `banner()` - the whole point of this block is proving the tag rides through
   // unchanged regardless of which decoration wraps it.

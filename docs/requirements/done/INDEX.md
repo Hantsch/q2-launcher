@@ -375,3 +375,4 @@ second roadmap.
 - 280 — The packaged smoke's blocking switch is a decision, not a tripwire · S37 · the packaged smoke blocks the release, pinned by a structural workflows test; no test reads the CHANGELOG release count
 - 278 — A release runs only when the user starts it, and checks its own commit · S37 · release.yml is dispatch-only with an in-run ci job; guard scripts, ci.yml push trigger removed
 - 277 — verify:release checks exactly what a PR and a release check, cheap steps first · S37 · npm run check, drift-tested step coverage, run record and --status
+- 325 — Tests and comments state what they check · S37 · describe titles id-free, typed client mocks, edge-case tests, locale-comment guard, zero bare catches in src/main with a guard, config invariant notes restored

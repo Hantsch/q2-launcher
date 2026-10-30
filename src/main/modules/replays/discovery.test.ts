@@ -311,7 +311,7 @@ describe('discoverDemos', () => {
     expect(result.demos).toEqual([])
   })
 
-  describe('zip expansion (story 143 D3)', () => {
+  describe('zip expansion', () => {
     const realBinary = resolveExtractorPath({ isPackaged: false })
 
     it.skipIf(!realBinary.exists)('a scanned folder expands its zips into entry rows', async () => {
@@ -522,7 +522,7 @@ describe('discoverDemos - subfolders', () => {
   })
 })
 
-describe('discoverDemos - extra folders (story 142 D3)', () => {
+describe('discoverDemos - extra folders', () => {
   it('demos in an extra folder are listed with an extra-folder source', async () => {
     const extra = join(dir, 'my-demos')
     await writeDemo(extra, 'one.dm2')
@@ -619,7 +619,7 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
   })
 })
 
-describe('discoverDemos - per-source errors (story 151 D1)', () => {
+describe('discoverDemos - per-source errors', () => {
   it('a missing extra folder is reported and the other sources still list', async () => {
     const root = join(dir, 'inst')
     await writeDemo(join(root, 'baseq2', 'demos'), 'one.dm2')
@@ -671,7 +671,7 @@ describe('discoverDemos - per-source errors (story 151 D1)', () => {
     expect(result.sourceErrors).toEqual([])
   })
 
-  describe('a broken zip (story 143 D3 extractor)', () => {
+  describe('a broken zip', () => {
     const realBinary = resolveExtractorPath({ isPackaged: false })
 
     it.skipIf(!realBinary.exists)(

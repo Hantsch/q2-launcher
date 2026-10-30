@@ -35,7 +35,7 @@ const OTHER_REAL_MODULE_IDS: Exclude<ModuleId, 'home'>[] = [
   'assets',
 ]
 
-describe('the dashboard registry (AC3, AC6)', () => {
+describe('the dashboard registry', () => {
   it('the dashboard offers exactly playtime and config profiles', () => {
     expect([...DASHBOARD_MODULE_IDS].sort()).toEqual(['configProfiles', 'playtime'])
     expect(Object.keys(DASHBOARD_MODULES).sort()).toEqual(['configProfiles', 'playtime'])

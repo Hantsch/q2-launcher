@@ -601,6 +601,7 @@ async function processFile(
   try {
     text = await readFile(absolutePath, 'latin1')
   } catch {
+    // an unreadable include file cannot be followed, so it is not a candidate
     return false
   }
 

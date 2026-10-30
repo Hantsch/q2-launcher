@@ -144,7 +144,7 @@ describe('servers module', () => {
   })
 })
 
-describe('servers module sources.* handlers (story 111 D3)', () => {
+describe('servers module sources.* handlers', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry
@@ -287,7 +287,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
   })
 })
 
-describe('servers module favourites handlers (story 112 D3)', () => {
+describe('servers module favourites handlers', () => {
   let filePath: string
   let state: StateStore
 
@@ -414,7 +414,7 @@ describe('servers module history.read handler', () => {
  * scan moves `lastScanAt` from `null` to a real timestamp, which the old hardcoded object could
  * never do.
  */
-describe('servers module overview.read reflects the scan service (story 114 D6)', () => {
+describe('servers module overview.read reflects the scan service', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry
@@ -487,7 +487,7 @@ describe('servers module overview.read reflects the scan service (story 114 D6)'
  * min/max) runs too. `scan.patchSettings` follows the read/merge/persist discipline: only `scan` is
  * replaced, every other `ServersState` key is carried over from the same snapshot untouched.
  */
-describe('servers module scan.* settings handlers (story 115 D2)', () => {
+describe('servers module scan.* settings handlers', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry
@@ -555,7 +555,7 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
  * harness as the `scan.*` settings block above, driven through the real `MainModuleRegistry` so
  * `listSetSortInputSchema` (including its column-enum validation) runs too.
  */
-describe('servers module list.*Sort handlers (story 119 D2)', () => {
+describe('servers module list.*Sort handlers', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry
@@ -617,7 +617,7 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
   })
 })
 
-describe('servers module quick filter handlers (story 197 D2)', () => {
+describe('servers module quick filter handlers', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry
@@ -701,7 +701,7 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
  * holds through the handler for a *scoped* call, the same way the unscoped call is already covered
  * above (`servers module overview.read reflects the scan service`).
  */
-describe('servers module scan.start is guarded and single-flight per scope (story 117 D4)', () => {
+describe('servers module scan.start is guarded and single-flight per scope', () => {
   let filePath: string
   let state: StateStore
 
@@ -756,7 +756,7 @@ describe('servers module scan.start is guarded and single-flight per scope (stor
  * host (`fakeAppContextWithControllableLaunch`) so `setLaunchState` drives the module's own
  * `app.launch.onStateChange` subscription the same way the real `LaunchService` would.
  */
-describe('servers module records a history visit on a successful join (story 125 D3)', () => {
+describe('servers module records a history visit on a successful join', () => {
   let filePath: string
   let state: StateStore
 
@@ -828,7 +828,7 @@ describe('servers module records a history visit on a successful join (story 125
  * `watchlistService`/`createRegexHost()` at all) - exactly like `context.ts` wires the same
  * `FeatureGate` instance into both places in the real app.
  */
-describe('servers module watchlist.* handlers are feature-gated (story 131 D5)', () => {
+describe('servers module watchlist.* handlers are feature-gated', () => {
   let filePath: string
   let state: StateStore
 

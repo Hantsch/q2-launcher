@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DownloadsErrorKey } from '@shared/modules/downloads'
 import type { ModInstallRecord } from '@shared/modules/mods'
 import { fail, ok, type Installation } from '@shared/types'
-import type { BinaryArch } from '../../lib/fs-utils'
+import { moveFile, type BinaryArch } from '../../lib/fs-utils'
 import { makeJobRunner } from '../../../test-support/job-runner'
 import { getExtractDir } from '../../services/package-staging'
 import type { StagePackageInput, StagePackageResult } from '../../services/package-staging'
@@ -21,6 +21,37 @@ import {
   startModUpdate,
   type ModUpdateDeps,
 } from './update-job'
+
+/**
+ * Runs once, after `planRemoval` has resolved and checked every recorded path and before the update
+ * touches the disk: the window in which a folder can be swapped for a link the plan never saw.
+ */
+let afterPlanning: (() => Promise<void>) | undefined
+
+vi.mock('../../lib/fs-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/fs-utils')>()
+  return {
+    ...actual,
+    moveFile: vi.fn(actual.moveFile),
+    hashFile: vi.fn(async (path: string) => {
+      // Staged files are hashed too; only a hash of an installed file means planning is done.
+      const hook = path.startsWith(gameDir) ? afterPlanning : undefined
+      if (hook) afterPlanning = undefined
+      await hook?.()
+      return actual.hashFile(path)
+    }),
+  }
+})
+
+/** Arms {@link afterPlanning} once staging is over, so the start-time preflight does not trigger it. */
+function armAfterStaging(deps: ModUpdateDeps, hook: () => Promise<void>): void {
+  const stage = deps.stage
+  deps.stage = async (input) => {
+    const staged = await stage(input)
+    if (input.index === 1) afterPlanning = hook
+    return staged
+  }
+}
 
 type Tree = Record<string, string>
 type StageSpec = { files: Tree } | { fail: string }
@@ -98,6 +129,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  afterPlanning = undefined
+  vi.mocked(moveFile).mockClear()
   await rm(tmp, { recursive: true, force: true })
 })
 
@@ -331,6 +364,43 @@ describe('startModUpdate', () => {
     const h = harness({ stages: [{ files: { 'pak0.pak': 'new-pak' } }] })
     expect((await h.run()).status).toBe('succeeded')
     expect(await readTree(gameDir)).toEqual({ 'pak0.pak': 'new-pak' })
+  })
+
+  it('refuses a recorded path whose folder is swapped for a link above the game dir after planning', async () => {
+    const h = harness({
+      arch: 'x86_64',
+      stages: [{ files: { 'gamex86_64.dll': 'lib-v2' } }, { files: { 'pak0.pak': 'new-pak' } }],
+    })
+    armAfterStaging(h.deps, async () => {
+      await rm(join(gameDir, 'maps'), { recursive: true })
+      await symlink(tmp, join(gameDir, 'maps'), 'junction')
+      await writeFile(join(tmp, 'old.bsp'), OLD_FILES['maps/old.bsp']!)
+    })
+
+    const outcome = await h.run()
+
+    expect(outcome.status).toBe('failed')
+    expect(await readFile(join(tmp, 'old.bsp'), 'utf8')).toBe('old-map')
+    // Refused before the file is moved, not moved and then rolled back.
+    expect(vi.mocked(moveFile).mock.calls.map(([from]) => basename(from))).not.toContain('old.bsp')
+    expect(h.records()).toEqual([oldRecord()])
+  })
+
+  it('refuses a new path whose folder is swapped for a link above the game dir after planning', async () => {
+    const h = harness({
+      arch: 'x86_64',
+      stages: [
+        { files: { 'gamex86_64.dll': 'lib-v2' } },
+        { files: { 'pak0.pak': 'new-pak', 'models/new.md2': 'new-model' } },
+      ],
+    })
+    armAfterStaging(h.deps, () => symlink(tmp, join(gameDir, 'models'), 'junction'))
+
+    const outcome = await h.run()
+
+    expect(outcome.status).toBe('failed')
+    await expect(readFile(join(tmp, 'new.md2'), 'utf8')).rejects.toThrow()
+    expect(h.records()).toEqual([oldRecord()])
   })
 
   it('a verify or extract failure leaves the old files and record', async () => {

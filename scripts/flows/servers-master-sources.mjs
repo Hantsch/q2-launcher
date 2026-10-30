@@ -54,7 +54,7 @@ const SOURCE_ROWS = {
   exact: true,
 }
 
-/** Mirrors `module.servers.settings.type.*` (`src/renderer/src/i18n/locales/en.json`). */
+/** The English text of `module.servers.settings.type.*` (`src/renderer/src/modules/servers/locale/en.json`). */
 const TYPE_LABEL = { 'udp-master': 'UDP master', 'http-list': 'HTTP list' }
 
 /**

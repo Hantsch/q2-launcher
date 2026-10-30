@@ -48,6 +48,7 @@ function signatureIsValid(
     if (key.asymmetricKeyType !== 'ed25519') return false
     return verify(null, signedBytes, key, signature)
   } catch {
+    // a malformed key or signature fails verification
     return false
   }
 }

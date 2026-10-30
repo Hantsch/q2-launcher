@@ -33,6 +33,7 @@ export function resolveDetectedRetailSourcesOverride(
     const parsed: unknown = JSON.parse(raw)
     return Array.isArray(parsed) ? (parsed as DetectedRetailSource[]) : undefined
   } catch {
+    // a malformed JSON override is treated as no override
     return undefined
   }
 }

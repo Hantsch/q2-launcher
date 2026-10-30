@@ -47,6 +47,7 @@ export async function realFileExists(path: string): Promise<boolean> {
     await access(path)
     return true
   } catch {
+    // ENOENT or EACCES: a path that cannot be accessed does not exist for this probe
     return false
   }
 }

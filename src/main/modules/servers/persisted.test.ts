@@ -17,7 +17,7 @@ import { homeState } from '../home/persisted'
 import { parseServersState, serversState } from './persisted'
 
 // Story 110 D2.
-describe('parseServersState (story 110 D2)', () => {
+describe('parseServersState', () => {
   const validSource1 = {
     id: 's1',
     type: 'udp-master',

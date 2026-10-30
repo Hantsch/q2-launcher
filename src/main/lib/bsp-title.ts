@@ -89,6 +89,7 @@ export async function readBspTitle(
     const message = firstBlockMessage(entities)
     return message === undefined ? undefined : cleanTitle(message)
   } catch {
+    // an unreadable or malformed BSP has no title
     return undefined
   } finally {
     await handle?.close().catch(() => undefined)

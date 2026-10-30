@@ -56,6 +56,11 @@ describe('redactHome', () => {
     expect(redactHome('c:\\USERS\\BOB\\AppData', home)).toBe(`${HOME_PLACEHOLDER}\\AppData`)
   })
 
+  it('is case-insensitive on darwin', () => {
+    restorePlatform = stubPlatform('darwin')
+    expect(redactHome('c:\\USERS\\BOB\\AppData', home)).toBe(`${HOME_PLACEHOLDER}\\AppData`)
+  })
+
   it('is case-sensitive on a non-win32 host, matching only identical casing', () => {
     // `redactHome` only relaxes casing on win32 (drive letters / case-insensitive filesystems);
     // elsewhere a differently-cased path is a different path and must be left alone, while an

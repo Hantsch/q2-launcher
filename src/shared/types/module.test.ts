@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getModuleManifest, MODULE_MANIFESTS } from './module'
 
-describe('servers module manifest (story 106 D1)', () => {
+describe('servers module manifest', () => {
   it('servers is registered in ModuleId and MODULE_MANIFESTS with the decided route, nav slot and status', () => {
     const manifest = getModuleManifest('servers')
     expect(manifest).toBeDefined()
@@ -26,7 +26,7 @@ describe('servers module manifest (story 106 D1)', () => {
   })
 })
 
-describe('replays module manifest (story 135 D1)', () => {
+describe('replays module manifest', () => {
   it('replays is registered in ModuleId and MODULE_MANIFESTS with the decided route, nav slot, icon and status', () => {
     const manifest = getModuleManifest('replays')
     expect(manifest).toBeDefined()

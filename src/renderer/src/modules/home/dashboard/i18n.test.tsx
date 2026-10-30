@@ -172,7 +172,7 @@ function configureConfigProfiles(state: TileState): void {
   }
 }
 
-describe('PlaytimeTile (AC7: no dotted key leaks into rendered text)', () => {
+describe('PlaytimeTile', () => {
   it.each(STATES)('the %s state renders only real strings', async (state) => {
     configurePlaytime(state)
 
@@ -182,7 +182,7 @@ describe('PlaytimeTile (AC7: no dotted key leaks into rendered text)', () => {
   })
 })
 
-describe('ConfigProfilesTile (AC7: no dotted key leaks into rendered text)', () => {
+describe('ConfigProfilesTile', () => {
   it.each(STATES)('the %s state renders only real strings', async (state) => {
     configureConfigProfiles(state)
 

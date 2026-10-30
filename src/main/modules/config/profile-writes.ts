@@ -1175,6 +1175,7 @@ async function unassign(
   try {
     list = withLiveAssignments(deps, deps.profiles.unassign(input))
   } catch {
+    // unassign throws when the profile is unknown
     return fail('config.error.profileNotFound')
   }
   // Covers the profile's own canonical file plus its remaining assignments.

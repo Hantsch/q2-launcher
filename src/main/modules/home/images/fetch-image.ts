@@ -211,6 +211,7 @@ export async function fetchImage(options: FetchImageOptions): Promise<FetchImage
   try {
     decoded = await resolved.decodeImage(body)
   } catch {
+    // a decoder that throws on corrupt bytes means the body is not a usable image
     decoded = { ok: false }
   }
 
@@ -234,6 +235,7 @@ export async function fetchImage(options: FetchImageOptions): Promise<FetchImage
       await rm(finalPath, { force: true })
       await rename(partPath, finalPath)
     } catch {
+      // EBUSY/EPERM: the target stays locked, so the part file is dropped and the image is unavailable
       await rm(partPath, { force: true })
       return {
         kind: 'unavailable',

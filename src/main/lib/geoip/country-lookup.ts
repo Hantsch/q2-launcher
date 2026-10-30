@@ -51,6 +51,7 @@ export function createCountryLookup(dbPath: string, log?: Pick<Logger, 'warn'>):
       if (!country || !isContinent(continent)) return UNKNOWN
       return { kind: 'country', country: country.toUpperCase(), continent }
     } catch {
+      // a malformed IP or corrupt database record is an unknown country
       return UNKNOWN
     }
   }

@@ -64,7 +64,7 @@ describe('parseManifestFile - envelope refusal', () => {
   })
 })
 
-describe('parseManifestFile - row-by-row package parse (AC2/AC3)', () => {
+describe('parseManifestFile - row-by-row package parse', () => {
   it('drops a package missing sha256, mirrors or sizeBytes, keeping the good ones and logging a warning per drop', () => {
     const log = fakeLogger()
     const missingSha256 = { ...goodEnginePackage, id: 'broken-1', sha256: undefined }
@@ -121,7 +121,7 @@ describe('parseManifestFile - row-by-row package parse (AC2/AC3)', () => {
   })
 })
 
-describe('parseManifestFile - pin resolution (AC5)', () => {
+describe('parseManifestFile - pin resolution', () => {
   it('resolves pinned.q2pro to the surviving package it references', () => {
     const log = fakeLogger()
     const result = parseManifestFile(
@@ -190,7 +190,7 @@ describe('parseManifestFile - pin resolution (AC5)', () => {
  * flat shape, so a launcher carrying this code that refuses it - or resolves nothing from it -
  * kills the Windows download path in production, where no test runs.
  */
-describe('parseManifestFile - per-platform pin resolution (story 100 AC5)', () => {
+describe('parseManifestFile - per-platform pin resolution', () => {
   const windowsPackage = { ...goodEnginePackage, id: 'q2pro-win', platforms: ['win32'] }
   const linuxPackage = { ...goodEnginePackage, id: 'q2pro-linux', platforms: ['linux'] }
 

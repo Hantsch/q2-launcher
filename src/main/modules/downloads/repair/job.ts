@@ -527,6 +527,7 @@ async function resolveStep(
   try {
     extractDir = getBootstrapExtractDir(deps.userDataPath, jobId, pkg.id)
   } catch {
+    // an unsafe package id makes getBootstrapExtractDir throw; reported as an unusable package
     return fail(PACKAGE_UNAVAILABLE, { reason: 'unusable package id' })
   }
 

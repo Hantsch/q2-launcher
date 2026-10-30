@@ -146,6 +146,7 @@ export class JsonStore<T> {
       try {
         await this.flush(value)
       } catch {
+        // a failed first write (EBUSY/EPERM from AV or sync tools) is retried once; the second failure is handled below
         await new Promise<void>((resolve) => setTimeout(resolve, PERSIST_RETRY_DELAY_MS))
         await this.flush(value)
       }
@@ -178,12 +179,14 @@ export class JsonStore<T> {
     try {
       text = await readFile(path, 'utf8')
     } catch {
+      // ENOENT: the store file may not exist yet
       return { status: 'absent' }
     }
     if (text.trim().length === 0) return { status: 'damaged' }
     try {
       return { status: 'ok', value: JSON.parse(text) as unknown }
     } catch {
+      // a JSON syntax error means the file is damaged, reported as such
       return { status: 'damaged' }
     }
   }

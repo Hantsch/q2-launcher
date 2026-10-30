@@ -51,6 +51,7 @@ async function contentOf(filePath: string): Promise<string | null> {
   try {
     return await readFile(filePath, 'latin1')
   } catch {
+    // the file may be missing or unreadable, so it has no content to match
     return null
   }
 }

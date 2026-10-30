@@ -25,7 +25,7 @@ export type SaveBarAction =
   /**
    * Story 043: the file changed underneath the launcher, so nothing was written. Carries the
    * whole-file conflict payload so `ProfileSaveActions` can open `ConfigConflictDialog` with it -
-   * replaces the plain-toast stub that stood here (`config.save.conflict` is no longer reached).
+   * the conflict is never surfaced as a plain toast.
    */
   | { type: 'conflict'; conflict: SaveProfileConflict }
 

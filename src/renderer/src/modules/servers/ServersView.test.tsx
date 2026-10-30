@@ -209,7 +209,7 @@ async function renderView(initial: ScanSnapshot): Promise<void> {
   })
 }
 
-describe('ServersView - game-running note (story 116 D5)', () => {
+describe('ServersView - game-running note', () => {
   it('renders the paused-auto-refresh note as real text and keeps the refresh control enabled', async () => {
     await renderView(snapshot({ state: { blockedReason: 'game-running' } }))
 
@@ -232,7 +232,7 @@ describe('ServersView - game-running note (story 116 D5)', () => {
   })
 })
 
-describe('ServersView - stale row label (story 116 D5)', () => {
+describe('ServersView - stale row label', () => {
   it('flags a stale entry with a visible stale label', async () => {
     await renderView(
       snapshot({
@@ -287,7 +287,7 @@ describe('ServersView - stale row label (story 116 D5)', () => {
   })
 })
 
-describe('ServersView - scoped refresh controls (story 117 D5)', () => {
+describe('ServersView - scoped refresh controls', () => {
   it('calls startScan with the favourites scope, and only that scope, when "Refresh favourites" is clicked', async () => {
     await renderView(snapshot({}))
 
@@ -364,7 +364,7 @@ describe('ServersView - scoped refresh controls (story 117 D5)', () => {
   })
 })
 
-describe('ServersView - list sort (story 119 D3)', () => {
+describe('ServersView - list sort', () => {
   it("renders rows in the engine's default order", async () => {
     await renderView(
       snapshot({
@@ -427,7 +427,7 @@ describe('ServersView - list sort (story 119 D3)', () => {
   })
 })
 
-describe('ServersView - list filter (story 120 D2)', () => {
+describe('ServersView - list filter', () => {
   it('filtering narrows the rendered rows without changing the sort control', async () => {
     await renderView(
       snapshot({
@@ -526,7 +526,7 @@ describe('ServersView - list filter (story 120 D2)', () => {
   })
 })
 
-describe('ServersView - detail pane (story 122 D3)', () => {
+describe('ServersView - detail pane', () => {
   const ADDRESS = '1.2.3.4:27910'
 
   async function renderWithOneServer(): Promise<void> {
@@ -594,7 +594,7 @@ describe('ServersView - detail pane (story 122 D3)', () => {
   })
 })
 
-describe('ServersView - list status panel (story 121 D1)', () => {
+describe('ServersView - list status panel', () => {
   it('a source failure is shown beside the rows from the other sources', async () => {
     listMasterSourcesMock.mockResolvedValueOnce({
       ok: true,
@@ -662,7 +662,7 @@ describe('ServersView - list status panel (story 121 D1)', () => {
   })
 })
 
-describe('ServersView - Online/LAN toggle (story 196 D4)', () => {
+describe('ServersView - Online/LAN toggle', () => {
   it('the mode toggle opens on Online', async () => {
     await renderView(snapshot({}))
     expect(screen.getByTestId('servers-mode-online').getAttribute('aria-pressed')).toBe('true')
@@ -730,7 +730,7 @@ describe('ServersView - render cost', () => {
   })
 })
 
-describe('ServersView - refresh the shown servers (story 250)', () => {
+describe('ServersView - refresh the shown servers', () => {
   const CTF: ServerListEntry = {
     address: 'a:1',
     name: 'Alpha',

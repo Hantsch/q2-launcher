@@ -43,6 +43,7 @@ function validateNameAndMode(
     try {
       new RegExp(trimmed, 'i')
     } catch {
+      // the pattern is not a valid regular expression
       return 'servers.watchlist.error.invalidRegex'
     }
   }

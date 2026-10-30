@@ -296,6 +296,7 @@ export async function queryServer(
         onError,
       })
     } catch {
+      // opening the UDP socket failed, reported as transport-error
       settle({ ok: false, reason: 'transport-error' })
       return
     }

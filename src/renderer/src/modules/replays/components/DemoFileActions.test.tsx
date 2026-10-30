@@ -52,7 +52,7 @@ afterEach(() => {
 const NOOP = { onRename: vi.fn(), onMove: vi.fn(), onDelete: vi.fn() }
 const BASE_DEMO = { id: 'demo-1', fileName: 'demo-1.dm2', archiveEntry: null } as unknown as DemoRow
 
-describe('DemoFileActions (story 156 D2)', () => {
+describe('DemoFileActions', () => {
   it('a successful copy shows the path-copied toast (AC2)', async () => {
     copyDemoPath.mockResolvedValue({ ok: true, value: { ok: true } })
 

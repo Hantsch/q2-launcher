@@ -415,7 +415,7 @@ describe('createScanCadence (timer lifetime)', () => {
   })
 })
 
-describe('createScanCadence - story 196 D3 mode switch', () => {
+describe('createScanCadence - mode switch', () => {
   const scan = { autoScanOnOpen: true, autoRefreshEnabled: false }
 
   it('a never-scanned mode triggers the view-open auto trigger', () => {
@@ -459,7 +459,7 @@ describe('createScanCadence - story 196 D3 mode switch', () => {
   })
 })
 
-describe('createScanCadence - story 116 D3 game-running guard', () => {
+describe('createScanCadence - game-running guard', () => {
   const INTERVAL = 60_000
   const scan = {
     autoScanOnOpen: true,

@@ -53,6 +53,7 @@ export async function relocateDemo(
       try {
         await fs.rename(to, from)
       } catch {
+        // the rollback rename failed too, so the demo stays in the new place
         return { ok: false, kind: 'stuck' }
       }
       return { ok: false, kind: 'failed', error }

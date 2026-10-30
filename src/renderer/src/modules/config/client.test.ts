@@ -14,7 +14,7 @@ describe('config client', () => {
   it('a handler ok arrives as the function’s value', async () => {
     invokeMock.mockResolvedValue({ ok: true, value: { canonical: null, installations: [] } })
 
-    const result = await getRawFiles({ profileId: 'p1' } as never)
+    const result = await getRawFiles({ profileId: 'p1' })
 
     expect(result).toEqual({ ok: true, value: { canonical: null, installations: [] } })
   })
@@ -22,7 +22,7 @@ describe('config client', () => {
   it('a handler fail arrives as the function’s fail', async () => {
     invokeMock.mockResolvedValue({ ok: false, error: { key: 'config.error.profileNotFound' } })
 
-    const result = await getRawFiles({ profileId: 'p1' } as never)
+    const result = await getRawFiles({ profileId: 'p1' })
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.key).toBe('config.error.profileNotFound')

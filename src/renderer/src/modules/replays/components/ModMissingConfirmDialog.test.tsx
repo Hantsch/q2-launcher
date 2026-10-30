@@ -12,7 +12,7 @@ beforeAll(async () => {
 })
 afterEach(cleanup)
 
-describe('ModMissingConfirmDialog (story 180 D3)', () => {
+describe('ModMissingConfirmDialog', () => {
   it('names the mod and offers Cancel and Play anyway', () => {
     const onCancel = vi.fn()
     const onConfirm = vi.fn()

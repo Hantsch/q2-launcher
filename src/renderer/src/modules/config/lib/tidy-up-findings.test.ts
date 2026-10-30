@@ -482,7 +482,7 @@ describe('analyzeTidyUp - the auto set', () => {
   })
 })
 
-describe('story 048 D4 - a default-filled profile offers no new tidy-up clutter', () => {
+describe('a default-filled profile offers no new tidy-up clutter', () => {
   it('analyzeTidyUp never reads profile.cvars, so the ~30 always-written default lines are never findings', () => {
     // What D2's writer puts in `cvars` for every catalogue entry when nothing overrides the default
     // (`writeValueFor(def, undefined)` is `def.default`) - the exact shape a default-filled file
@@ -524,7 +524,7 @@ function fixAllOps(input: ConfigProfile): TidyUpOp[] {
     .flatMap((finding) => finding.ops)
 }
 
-describe('story 050 - Fix all safe findings across two slots of one action', () => {
+describe('Fix all safe findings across two slots of one action', () => {
   it('applies both removals instead of renumbering the second op out of existence', () => {
     // One row losing two contested keys at once, which is the ordinary shape of a re-imported
     // profile: `Winner` holds `q` and `w` in the rendered file, and `Loser` claims both of them

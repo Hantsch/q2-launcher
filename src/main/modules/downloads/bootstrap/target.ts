@@ -66,6 +66,7 @@ async function probeWritable(dir: string): Promise<boolean> {
   try {
     await writeFile(marker, '')
   } catch {
+    // EACCES/EPERM/ENOENT: a directory that refuses the marker file is not writable
     return false
   }
   await rm(marker, { force: true }).catch(() => {})

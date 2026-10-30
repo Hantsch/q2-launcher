@@ -5,7 +5,7 @@ import { foreignBannerCommentText } from '@shared/config/profile/profile-restore
 import type { RestoreProfilePartsResult } from '@shared/config/profile/profile-restore'
 import { doc, tagged, keysOf, type DocBuilder } from './profile-restore.test-helpers'
 
-describe('restoreProfileParts - toggle and press/release entries (story 045)', () => {
+describe('restoreProfileParts - toggle and press/release entries', () => {
   /** A healthy toggle family exactly as the writer emits it, dispatch bound to `v`. */
   function toggleFile(): DocBuilder {
     const file = doc()
@@ -291,7 +291,7 @@ describe('restoreProfileParts - toggle and press/release entries (story 045)', (
   })
 })
 
-describe('foreignBannerCommentText (story 059 D5)', () => {
+describe('foreignBannerCommentText', () => {
   it("peels dm.cfg's own double-wrapped banner and hands back a mirroredWrapTitle-shaped inner title", () => {
     const raw =
       '<<--------------------------- .: General Settings :. ----------------------------->>'
@@ -327,7 +327,7 @@ describe('foreignBannerCommentText (story 059 D5)', () => {
  * this layer, so the cvar-section attribution this deliverable is actually about is pinned against
  * `restoreProfileParts` itself, not only against the end-to-end importer.
  */
-describe('restoreProfileParts - cvar sections from a marker-less foreign banner (story 059 D5)', () => {
+describe('restoreProfileParts - cvar sections from a marker-less foreign banner', () => {
   it('files cvars under a banner drawn with no `//` marker at all, once its text is recognised', () => {
     const file = doc('dm.cfg')
     const banner = foreignBannerCommentText(

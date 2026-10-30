@@ -37,7 +37,7 @@ function renderBar(
   )
 }
 
-describe('ServerListFilterBar - each control writes its own field (story 120 D2)', () => {
+describe('ServerListFilterBar - each control writes its own field', () => {
   it('search writes on every keystroke', () => {
     const onChange = vi.fn()
     renderBar(EMPTY_SERVER_LIST_FILTER, onChange)
@@ -138,7 +138,7 @@ describe('ServerListFilterBar - each control writes its own field (story 120 D2)
   })
 })
 
-describe('ServerListFilterBar - clear and count (story 120 D2)', () => {
+describe('ServerListFilterBar - clear and count', () => {
   it('clear is disabled while inactive, enabled while active, and resets every field', () => {
     const onChange = vi.fn()
     const { rerender } = render(
@@ -211,7 +211,7 @@ describe('ServerListFilterBar - clear and count (story 120 D2)', () => {
   })
 })
 
-describe('ServerListFilterBar - saved quick filters (story 197 D3)', () => {
+describe('ServerListFilterBar - saved quick filters', () => {
   const crit = { ...criteriaFor() }
   function criteriaFor() {
     const { search: _search, ...rest } = EMPTY_SERVER_LIST_FILTER
@@ -318,7 +318,7 @@ describe('ServerListFilterBar - saved quick filters (story 197 D3)', () => {
   })
 })
 
-describe('ServerListFilterBar - quick filter chip menu (story 197 D4)', () => {
+describe('ServerListFilterBar - quick filter chip menu', () => {
   it('deleting a quick filter never calls onChange', async () => {
     const { QuickFilterChipMenu } = await import('./QuickFilterChipMenu')
     const { search: _search, ...crit } = EMPTY_SERVER_LIST_FILTER

@@ -135,7 +135,7 @@ describe('update service source', () => {
   })
 })
 
-describe('update service: AC8 - the last known result survives a restart', () => {
+describe('update service: the last known result survives a restart', () => {
   it('a cold start restores the last known result before any check runs', async () => {
     const store = fakeStore({
       update: KNOWN_UPDATE,
@@ -217,7 +217,7 @@ describe('update service: AC8 - the last known result survives a restart', () =>
   })
 })
 
-describe('update service: AC1 - at most one check per 24 hours', () => {
+describe('update service: at most one check per 24 hours', () => {
   it('a start inside 24 hours of the last successful check reuses the last result instead of checking', async () => {
     const store = fakeStore({
       update: KNOWN_UPDATE,
@@ -270,7 +270,7 @@ describe('update service: AC1 - at most one check per 24 hours', () => {
   })
 })
 
-describe('update service: AC2 - the checker decides newer, the service relays it', () => {
+describe('update service: the checker decides newer, the service relays it', () => {
   it('a newer published release becomes an available state carrying version and notes, an older or equal one becomes up to date', async () => {
     const newer = build({ check: vi.fn(available) })
     const state = await newer.service.checkNow()
@@ -325,7 +325,7 @@ describe('update service: AC2 - the checker decides newer, the service relays it
   })
 })
 
-describe('update service: AC3 - a failure is quiet, kept, and not retried', () => {
+describe('update service: a failure is quiet, kept, and not retried', () => {
   it('a failed check keeps the reason, never throws, never toasts and never retries', async () => {
     const check = vi.fn(failing('network'))
     const { service } = build({ check })
@@ -414,7 +414,7 @@ describe('update service: AC3 - a failure is quiet, kept, and not retried', () =
   })
 })
 
-describe('update service: AC4 - a failure does not burn the daily window', () => {
+describe('update service: a failure does not burn the daily window', () => {
   it('a failed check does not start the 24-hour window', async () => {
     const check = vi.fn(failing('network'))
     const { service, store } = build({ check })
@@ -446,7 +446,7 @@ describe('update service: AC4 - a failure does not burn the daily window', () =>
   })
 })
 
-describe('update service: AC5 - an unpackaged build stays out of it', () => {
+describe('update service: an unpackaged build stays out of it', () => {
   it('an unpackaged build never checks and reports supported: false', async () => {
     const check = vi.fn(available)
     const store = fakeStore({ update: KNOWN_UPDATE, lastSuccessAt: ago(2 * DAY) })
@@ -475,7 +475,7 @@ describe('update service: AC5 - an unpackaged build stays out of it', () => {
   })
 })
 
-describe('update service: AC7 - the manual check ignores the window', () => {
+describe('update service: the manual check ignores the window', () => {
   it('a manual check runs regardless of the 24-hour window and reports its failure reason', async () => {
     const store = fakeStore({ lastCheckedAt: ago(MINUTE), lastSuccessAt: ago(MINUTE) })
     const check = vi.fn(failing('http'))

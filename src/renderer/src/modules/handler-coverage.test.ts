@@ -6,12 +6,19 @@ import { LIBRARY_HANDLERS } from '@shared/modules/library'
 import { MODS_HANDLERS } from '@shared/modules/mods'
 import { REPLAYS_HANDLERS } from '@shared/modules/replays'
 import { SERVERS_HANDLERS, SERVERS_WATCHLIST_HANDLERS } from '@shared/modules/servers'
+import {
+  isTestFile,
+  listSourceFiles,
+  readRepoFile,
+  stripComments,
+} from '../../../test-support/source-tree'
 
-const clients = import.meta.glob('./*/client.ts', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>
+const CLIENT_FILE = /^src\/renderer\/src\/modules\/([^/]+)\/client\.ts$/
+const clients: Record<string, string> = {}
+for (const file of listSourceFiles('src/renderer/src/modules')) {
+  const module = CLIENT_FILE.exec(file)?.[1]
+  if (module !== undefined) clients[`./${module}/client.ts`] = readRepoFile(file)
+}
 
 const sourceOf = (module: string): string | undefined => clients[`./${module}/client.ts`]
 
@@ -39,11 +46,12 @@ describe('renderer module clients', () => {
   it("every handler constant is referenced by its module's client", () => {
     const missing: string[] = []
     for (const { module, name, handlers } of GROUPS) {
-      const source = sourceOf(module)
-      if (source === undefined) {
+      const raw = sourceOf(module)
+      if (raw === undefined) {
         missing.push(`${module}: no client.ts`)
         continue
       }
+      const source = stripComments(raw)
       for (const key of Object.keys(handlers)) {
         if (FLOW_ONLY[module]?.includes(key)) continue
         if (!new RegExp(`${name}[.]${key}(?![A-Za-z0-9_])`).test(source))
@@ -62,5 +70,52 @@ describe('renderer module clients', () => {
       expect(source, path).not.toMatch(/onModuleEvent/)
       expect(source, path).not.toMatch(/as Outcome/)
     }
+  })
+})
+
+/** The argument text of every `mockClient(` call, found by balancing parentheses. */
+function mockClientSpans(source: string): string[] {
+  const spans: string[] = []
+  for (
+    let at = source.indexOf('mockClient(');
+    at !== -1;
+    at = source.indexOf('mockClient(', at + 1)
+  ) {
+    const open = at + 'mockClient'.length
+    let depth = 0
+    for (let i = open; i < source.length; i++) {
+      if (source[i] === '(') depth++
+      else if (source[i] === ')' && --depth === 0) {
+        spans.push(source.slice(open, i + 1))
+        break
+      }
+    }
+  }
+  return spans
+}
+
+describe('renderer client mocks', () => {
+  it('the span extractor flags a cast override and passes a typed one', () => {
+    const cast =
+      'vi.mock("./client", (o) => mockClient(o, { a: x as never }))\nconst y = z as never'
+    const typed = 'vi.mock("./client", (o) => mockClient(o, { a: x }))\nconst y = z as never'
+    expect(mockClientSpans(cast).filter((span) => span.includes('as never'))).toHaveLength(1)
+    expect(mockClientSpans(typed).filter((span) => span.includes('as never'))).toEqual([])
+  })
+
+  it('no client mock override is cast with as never', () => {
+    const files = listSourceFiles('src/renderer').filter(isTestFile)
+    expect(files.length).toBeGreaterThan(0)
+    const offenders: string[] = []
+    for (const file of files) {
+      if (file.endsWith('/handler-coverage.test.ts')) continue
+      const source = stripComments(readRepoFile(file))
+      const wholeFile = file.endsWith('/client.test.ts')
+      const hit = wholeFile
+        ? source.includes('as never')
+        : mockClientSpans(source).some((span) => span.includes('as never'))
+      if (hit) offenders.push(file)
+    }
+    expect(offenders).toEqual([])
   })
 })

@@ -44,7 +44,7 @@ function renderBar(
   )
 }
 
-describe('DemoListFilterBar - each control writes its own field (story 153 D4)', () => {
+describe('DemoListFilterBar - each control writes its own field', () => {
   it('search writes on every keystroke', () => {
     const onChange = vi.fn()
     renderBar(EMPTY_DEMO_LIST_FILTER, onChange)
@@ -120,7 +120,7 @@ describe('DemoListFilterBar - each control writes its own field (story 153 D4)',
   })
 })
 
-describe('DemoListFilterBar - tags (story 153 D4)', () => {
+describe('DemoListFilterBar - tags', () => {
   it('tags toggle in and out of the chosen set', () => {
     const onChange = vi.fn()
     renderBar({ ...EMPTY_DEMO_LIST_FILTER, tags: ['clutch'] }, onChange)
@@ -163,7 +163,7 @@ describe('DemoListFilterBar - tags (story 153 D4)', () => {
   })
 })
 
-describe('DemoListFilterBar - clear and count (story 153 D4)', () => {
+describe('DemoListFilterBar - clear and count', () => {
   it('clear is disabled while inactive, enabled while active, and resets every field', () => {
     const onChange = vi.fn()
     const { rerender } = render(

@@ -64,7 +64,7 @@ async function renderPanel(snapshot: WatchlistSnapshot): Promise<void> {
   })
 }
 
-describe('WatchlistPanel (story 132 D2)', () => {
+describe('WatchlistPanel', () => {
   it('each row shows its name and offline or every match with score and ping', async () => {
     const snapshot: WatchlistSnapshot = {
       asOf: '2026-01-01T00:00:00.000Z',

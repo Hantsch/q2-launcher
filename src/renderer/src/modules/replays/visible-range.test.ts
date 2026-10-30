@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { visibleRange } from './visible-range'
 
-describe('visibleRange (story 158/159 D4)', () => {
+describe('visibleRange', () => {
   it('the first window starts at row 0', () => {
     const result = visibleRange({ scrollTop: 0, viewportHeight: 400, rowHeight: 56, count: 3000 })
     expect(result.start).toBe(0)

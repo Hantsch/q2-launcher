@@ -66,7 +66,7 @@ const INSTALLATION_NAME = 'Q2PRO Demo'
  * afterwards" assertion below simple and unambiguous. */
 const FAIL_FIRST_PACKAGE_ID = 'q2pro-fixture-client'
 
-/** The exact text `src/renderer/src/i18n/locales/en.json`'s `downloads.error.allMirrorsFailed`
+/** The exact text of `downloads.error.allMirrorsFailed` in `src/renderer/src/modules/downloads/locale/en.json`
  * carries - what `fetcher.ts` reports once a package's primary URL and every mirror have failed,
  * and what `INSTALL_FAILED_ERROR_KEY` (`scripts/lib/fixture.mjs`) also names for the seeded fixture
  * row, so the same failure reads the same way on both the live run and the restart-proof screen. */

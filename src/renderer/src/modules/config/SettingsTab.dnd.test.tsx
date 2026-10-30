@@ -142,7 +142,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('SettingsTab drag (story 054 D10)', () => {
+describe('SettingsTab drag', () => {
   it('reorders two cvars inside one section by dragging the second past the first', async () => {
     const profile = baseProfile([{ id: 'sec-a', name: 'Alpha', cvars: ['cl_maxfps', 'crosshair'] }])
     renderTab(profile)

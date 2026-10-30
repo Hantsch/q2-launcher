@@ -216,6 +216,7 @@ function parseJson(text: string): { ok: true; value: unknown } | { ok: false } {
   try {
     return { ok: true, value: JSON.parse(text) as unknown }
   } catch {
+    // a SyntaxError from JSON.parse: the feed body is not JSON
     return { ok: false }
   }
 }

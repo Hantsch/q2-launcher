@@ -5,7 +5,7 @@ import { HAND_EDIT_SENTENCE } from '@shared/config/render/render'
 import { restoreProfileParts } from '@shared/config/profile/profile-restore'
 import { idFactory, doc, tagged, keysOf } from './profile-restore.test-helpers'
 
-describe('restoreProfileParts - the story-051 banner header', () => {
+describe('restoreProfileParts - the banner header', () => {
   const file0 = 'q2l-profile-src.cfg'
 
   it('reads ownership off the header tag and consumes all four header lines', () => {

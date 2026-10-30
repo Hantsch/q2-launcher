@@ -14,7 +14,7 @@ describe('downloads client', () => {
   it('a handler ok arrives as the function’s value', async () => {
     invokeMock.mockResolvedValue({ ok: true, value: { jobId: 'j1' } })
 
-    const result = await startRepair({ installationId: 'i1', offers: [] } as never)
+    const result = await startRepair({ installationId: 'i1', offers: [] })
 
     expect(result).toEqual({ ok: true, value: { jobId: 'j1' } })
   })
@@ -22,7 +22,7 @@ describe('downloads client', () => {
   it('a handler fail arrives as the function’s fail', async () => {
     invokeMock.mockResolvedValue({ ok: false, error: { key: 'downloads.error.noInstallation' } })
 
-    const result = await startRepair({ installationId: 'i1', offers: [] } as never)
+    const result = await startRepair({ installationId: 'i1', offers: [] })
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.key).toBe('downloads.error.noInstallation')

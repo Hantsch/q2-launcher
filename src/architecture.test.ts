@@ -455,6 +455,7 @@ describe('architecture', () => {
       'src/shared/types/common.test.ts',
       'src/renderer/src/lib/toast.test.ts',
       'src/renderer/src/modules/config/config-structure.test.ts',
+      'src/renderer/src/modules/handler-coverage.test.ts',
       'src/renderer/src/i18n/reason-templates.test.ts',
       'src/renderer/src/i18n/keys.test.ts',
       'src/renderer/src/i18n/bundle.test.ts',

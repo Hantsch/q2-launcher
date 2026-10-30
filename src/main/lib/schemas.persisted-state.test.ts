@@ -5,7 +5,7 @@ import { parseInstallation } from './schemas'
  * Story 077 D1: `installationSchema`'s `lastFailure` field - additive and forgiving in exactly the
  * shape `icon` already gets right above it in `./schemas.ts`.
  */
-describe('installationSchema - lastFailure (story 077 D1)', () => {
+describe('installationSchema - lastFailure', () => {
   const baseRow = {
     id: 'install-1',
     rootPath: 'C:\\Games\\Quake2',

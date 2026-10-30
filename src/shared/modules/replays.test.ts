@@ -12,7 +12,7 @@ import {
   type ReplaysStageRect,
 } from './replays'
 
-describe('replays module contract (story 135 D1)', () => {
+describe('replays module contract', () => {
   it('every replays handler has a zod schema', () => {
     for (const name of Object.values(REPLAYS_HANDLERS)) {
       expect(REPLAYS_HANDLER_SCHEMAS[name]).toBeDefined()

@@ -53,7 +53,7 @@ const input = (): HTMLInputElement =>
 const send = (): HTMLButtonElement =>
   screen.getByTestId('replays-console-send') as HTMLButtonElement
 
-describe('ConsoleCommandField (story 166 D4)', () => {
+describe('ConsoleCommandField', () => {
   it('with controls unavailable the field is visible, disabled and shows the reason', () => {
     begin()
     act(() =>
@@ -128,7 +128,7 @@ describe('ConsoleCommandField (story 166 D4)', () => {
     expect(input().value).toBe('fov 110')
   })
 
-  describe('stage input hint (story 173 D4)', () => {
+  describe('stage input hint', () => {
     const hint = (): HTMLElement | null => screen.queryByTestId('replays-console-stage-hint')
     const platform = (p: string): void =>
       useLauncher.setState({ appInfo: { platform: p } as never })

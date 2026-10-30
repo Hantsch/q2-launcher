@@ -115,7 +115,7 @@ describe('derivedAliasName', () => {
  * rule that recognises a hand-written `drop_rail` (`drop-entries.ts#isDropEntry`: a `drop_` name plus
  * a `drop <item>` command) recognises a generated drop too.
  */
-describe('derivedAliasName: the launcher`s own drops (story 055, D2)', () => {
+describe('derivedAliasName: the launcher`s own drops', () => {
   /** A template Weapon-dropping row as `STANDARD_TEMPLATE` seeds it: named after its own raw
    * command (`catalog-rows.ts#nameForCatalogRow`), in the `drops` category, with a drop row's
    * `catalogId`. */
@@ -349,7 +349,7 @@ describe('renderActionAlias', () => {
   })
 })
 
-describe('renderActionAlias (story 015: drop-catalogue row)', () => {
+describe('renderActionAlias - drop-catalogue rows', () => {
   it('renders a drop row with ammo and a team message as one alias, "; "-joined in order', () => {
     // Shaped like a materialised drop-catalogue row (decision 6): the item,
     // its ammo, then the team message last - `catalogId`/`key`/`secondaryKey`

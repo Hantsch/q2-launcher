@@ -168,7 +168,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('ControlsTab category chip drag (story 054 D7)', () => {
+describe('ControlsTab category chip drag', () => {
   it('reorders the rail and persists the new category order', async () => {
     renderTab()
     expect(renderedCategoryIds()).toEqual(['movement', 'weapons', 'drops'])

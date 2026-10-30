@@ -181,6 +181,7 @@ export class InstallationIconsService {
       if (bytes.length === 0) return null
       return `data:image/png;base64,${bytes.toString('base64')}`
     } catch {
+      // ENOENT: the icon file may have been removed, so there is no icon to show
       return null
     }
   }

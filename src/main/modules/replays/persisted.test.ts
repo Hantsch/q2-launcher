@@ -12,7 +12,7 @@ import { parseReplaysState, replaysState } from './persisted'
  * Story 140 D2: `parseReplaysState`'s forgiving parse of the `replays` state key - mirrors
  * `parseServersState`'s envelope/row-level-drop convention (see that describe block above).
  */
-describe('parseReplaysState (story 140 D2)', () => {
+describe('parseReplaysState', () => {
   it('a missing `replays` key yields the default, empty name-templates state', () => {
     const result = parseReplaysState(undefined)
     expect(result).toEqual({
@@ -220,7 +220,7 @@ describe('parseReplaysState modWarning', () => {
   })
 })
 
-describe('replays state section (story 142 D1)', () => {
+describe('replays state section', () => {
   let filePath: string
   let state: StateStore
 

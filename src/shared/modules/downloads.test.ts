@@ -16,7 +16,7 @@ import {
   startEngineUpdateInputSchema,
 } from './downloads'
 
-describe('downloads module contract (story 072 D2)', () => {
+describe('downloads module contract', () => {
   it('DEFAULT_DOWNLOADS_SETTINGS carries the documented defaults', () => {
     expect(DEFAULT_DOWNLOADS_SETTINGS).toEqual({
       concurrentJobs: 2,

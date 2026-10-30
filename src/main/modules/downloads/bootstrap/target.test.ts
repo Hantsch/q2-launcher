@@ -130,6 +130,26 @@ describe('computeTargetVerdict', () => {
     expect(verdict.blockedReason).toBe('unsafePath')
   })
 
+  it('refuses a path that contains the root, never one that only sits above it', async () => {
+    const root = join(dir, 'app')
+    const child = join(root, 'inside')
+    await mkdir(child, { recursive: true })
+
+    const above = await computeTargetVerdict(dir, {
+      env: { ProgramFiles: root },
+      protectedDirs: [root],
+    })
+    const inside = await computeTargetVerdict(child, {
+      env: { ProgramFiles: root },
+      protectedDirs: [root],
+    })
+
+    expect(above.programFiles).toBe(false)
+    expect(above.blockedReason).not.toBe('unsafePath')
+    expect(inside.programFiles).toBe(true)
+    expect(inside.blockedReason).toBe('unsafePath')
+  })
+
   it('a Windows device path is blocked as an unsafe path', async () => {
     const verdict = await computeTargetVerdict('\\\\.\\PhysicalDrive0', {
       env: {},

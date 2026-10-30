@@ -56,7 +56,7 @@ function renderedLines(profile: ConfigProfile): string[] {
   return renderProfileFile(profile).split('\n')
 }
 
-describe('render: the demo category (story 167 D1)', () => {
+describe('render: the demo category', () => {
   it('the template seeds the demo category unbound and binds no demo command', () => {
     expect(STANDARD_TEMPLATE.categories.some((category) => category.id === 'demo')).toBe(true)
     const demoActions = STANDARD_TEMPLATE.actions.filter((action) => action.categoryId === 'demo')
@@ -81,7 +81,7 @@ describe('render: the demo category (story 167 D1)', () => {
   })
 })
 
-describe('render: the unbound line (story 052 D2)', () => {
+describe('render: the unbound line', () => {
   it('a seeded, unbound template profile renders exactly one //bind line per unbound row', () => {
     const profile = templateProfile()
     const actions = profile.actions!

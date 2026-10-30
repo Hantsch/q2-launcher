@@ -138,6 +138,7 @@ function run7za(deps: ZipDeps, args: string[], maxBytes: number): Promise<RunRes
         windowsHide: true,
       })
     } catch {
+      // spawn throws synchronously on a missing or non-executable extractor
       resolve({ kind: 'failed' })
       return
     }

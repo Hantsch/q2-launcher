@@ -32,7 +32,7 @@ type NameTemplatesOutcome =
   | { ok: true; value: NameTemplatesView }
   | { ok: false; error: { key: string; params?: Record<string, unknown> } }
 
-describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
+describe('replays module nameTemplates.* handlers', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry

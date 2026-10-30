@@ -136,7 +136,7 @@ describe('news-service: cold start', () => {
   })
 })
 
-describe('news-service: AC7 a failed refresh delivers the cached feed with its retrievedAt', () => {
+describe('news-service: a failed refresh delivers the cached feed with its retrievedAt', () => {
   it('a failed refresh delivers the cached feed with its retrievedAt', async () => {
     const cache = fakeCache()
     const onChanged = vi.fn()
@@ -173,7 +173,7 @@ describe('news-service: AC7 a failed refresh delivers the cached feed with its r
   })
 })
 
-describe('news-service: AC9 change detection', () => {
+describe('news-service: change detection', () => {
   it('a changed feed emits news.changed, an identical one does not', async () => {
     const cache = fakeCache()
     const onChanged = vi.fn()

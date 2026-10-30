@@ -78,6 +78,7 @@ export async function readPakDirectory(path: string): Promise<PakDirectoryResult
     }
     return { ok: true, names: entries.map((e) => e.name), entries }
   } catch {
+    // a truncated or malformed PAK directory is refused
     return REFUSED
   } finally {
     await handle?.close().catch(() => undefined)

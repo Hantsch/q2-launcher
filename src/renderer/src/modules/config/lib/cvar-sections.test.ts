@@ -186,7 +186,7 @@ describe('removeCvarFromSections / moveCvarToSection', () => {
   })
 })
 
-describe('adding a cvar by name (D8 acceptance): catalogue name gets the rich row, unknown name a plain one', () => {
+describe('adding a cvar by name: catalogue name gets the rich row, unknown name a plain one', () => {
   it('places cl_maxfps as a catalog row and zz_unknown as a plain row once added to a section', () => {
     const sections = [section('a', [])]
     const withBoth = moveCvarToSection(
@@ -204,7 +204,7 @@ describe('adding a cvar by name (D8 acceptance): catalogue name gets the rich ro
   })
 })
 
-describe('moveSectionToIndex (story 054 D9)', () => {
+describe('moveSectionToIndex', () => {
   it('reorders a section to an arbitrary index, not just an adjacent swap', () => {
     const sections = [section('a', []), section('b', []), section('c', [])]
     expect(moveSectionToIndex(sections, 'c', 0).map((s) => s.id)).toEqual(['c', 'a', 'b'])
@@ -235,7 +235,7 @@ describe('moveSectionToIndex (story 054 D9)', () => {
   })
 })
 
-describe('moveSubsectionToIndex (story 054 D9)', () => {
+describe('moveSubsectionToIndex', () => {
   it('reorders a sub-section to an arbitrary index', () => {
     const withSubs = section('a', [], {
       subsections: [
@@ -254,7 +254,7 @@ describe('moveSubsectionToIndex (story 054 D9)', () => {
   })
 })
 
-describe('moveCvarToPosition (story 054 D9)', () => {
+describe('moveCvarToPosition', () => {
   it('moves a cvar between sections at an exact index, not just appended', () => {
     const sections = [section('a', ['fov', 'sensitivity']), section('b', ['rate'])]
     const result = moveCvarToPosition(sections, 'sensitivity', { sectionId: 'b', index: 0 })
@@ -336,7 +336,7 @@ describe('cvarPlacementOptions', () => {
  * round trip over the same reordered shape lives in `round-trip.test.ts` (a main-process test, since
  * the real file parser is main-only) - this only needs to show the write side.
  */
-describe('story 054 D11: a reorder renders in its new order', () => {
+describe('a reorder renders in its new order', () => {
   function profile(
     cvarSections: ConfigCvarSection[],
     cvars: Record<string, string>,

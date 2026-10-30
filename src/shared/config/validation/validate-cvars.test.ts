@@ -123,7 +123,7 @@ describe('validateCvars — choice values only another engine accepts', () => {
   })
 })
 
-describe('story 048 D4 — a default-filled file does not storm validateCvars with cvar-absent findings', () => {
+describe('a default-filled file does not storm validateCvars with cvar-absent findings', () => {
   /**
    * What D2's writer now puts in `cvars` for every catalogue entry when nothing overrides the
    * default - `writeValueFor(def, undefined)` is exactly `def.default`, the same fallback

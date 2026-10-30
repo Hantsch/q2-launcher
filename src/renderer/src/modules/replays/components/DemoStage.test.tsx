@@ -2,7 +2,8 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { mockClient } from '../../../test-support/mock-client'
-import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
+import { EMPTY_DEMO_LIST_FILTER, type DemoListFilter } from '@shared/replays/list-filter'
+import type { DemoListSort } from '@shared/replays/list-sort'
 import { initI18n } from '../../../i18n'
 
 vi.hoisted(() => {
@@ -14,12 +15,12 @@ vi.mock('../client', (importOriginal) =>
     scanStart: async () => ({ ok: true, value: { started: true } }),
     onScanProgress: () => () => {},
     getListSort: async () => ({ ok: true, value: null }),
-    setListSort: async (sort: unknown) => ({ ok: true, value: sort }) as never,
+    setListSort: async (sort: DemoListSort | null) => ({ ok: true as const, value: sort }),
     getListFilter: async () => ({ ok: true, value: EMPTY_DEMO_LIST_FILTER }),
-    setListFilter: async (filter: unknown) => ({ ok: true, value: filter }) as never,
+    setListFilter: async (filter: DemoListFilter) => ({ ok: true as const, value: filter }),
     sidecarRead: async () => ({ ok: true, value: { state: { state: 'none' }, values: {} } }),
     playbackTimeline: vi.fn(),
-    sendStageRect: vi.fn(async () => ({ ok: true, value: undefined })) as never,
+    sendStageRect: vi.fn(async () => ({ ok: true as const, value: undefined })),
     onPlaybackPosition: () => () => {},
     onPlaybackState: () => () => {},
     onPlaybackDisplay: () => () => {},
@@ -50,7 +51,7 @@ afterEach(() => {
   observerCallback = null
 })
 
-describe('DemoStage (story 170 D4)', () => {
+describe('DemoStage', () => {
   it('stage mode hides list and detail but keeps them mounted', async () => {
     render(<ReplaysView />)
     await act(async () => {})
@@ -110,7 +111,7 @@ describe('DemoStage (story 170 D4)', () => {
     expect(usePlaybackStore.getState().stageRect).toEqual({ x: 10, y: 21, width: 800, height: 600 })
   })
 
-  describe('live rect updates (D5)', () => {
+  describe('live rect updates', () => {
     let current: { x: number; y: number; width: number; height: number }
     const frames: FrameRequestCallback[] = []
 

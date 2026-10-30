@@ -32,7 +32,7 @@ import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 const TIMEOUT_MS = 8_000
 
 /** The exact `bootstrapWizard.engine.empty.platformTitle`/`platformBody` strings
- * (`src/renderer/src/i18n/locales/en.json`) - asserted against the literal, not merely "some text
+ * (`src/renderer/src/modules/downloads/locale/en.json`) - asserted against the literal, not merely "some text
  * changed", so a future wording edit here fails loudly rather than silently drifting from the copy
  * a real user would read. */
 const EXPECTED_TITLE = 'No engine for this platform yet'

@@ -35,6 +35,7 @@ export async function resolveExtraFolder(rawPath: string): Promise<ResolvedExtra
   try {
     stats = await stat(rawPath)
   } catch {
+    // ENOENT or EACCES: the folder is missing or unreadable
     return refuse('replays.extraFolders.error.unresolvable')
   }
   if (!stats.isDirectory()) return refuse('replays.extraFolders.error.notAFolder')

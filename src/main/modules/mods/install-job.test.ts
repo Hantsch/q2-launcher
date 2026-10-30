@@ -15,6 +15,7 @@ import type { StagePackageInput, StagePackageResult } from '../../services/packa
 import type { ModCatalogEntryParsed } from './catalog-schema'
 import { readModsState } from './install-records'
 import {
+  isStrictlyInside,
   placedGameLibraryName,
   startModInstall,
   type ModInstallDecision,
@@ -229,6 +230,16 @@ describe('placedGameLibraryName', () => {
     expect(placedGameLibraryName('gamex86.dll')).toBe('gamex86.dll')
     expect(placedGameLibraryName('lib/gamex86-foo.dll')).toBe('lib/gamex86-foo.dll')
     expect(placedGameLibraryName('pak0-extra.pak')).toBe('pak0-extra.pak')
+  })
+})
+
+describe('isStrictlyInside', () => {
+  it('refuses a path that contains the root, the root itself, and accepts a real child', () => {
+    const parent = join(tmpdir(), 'q2l-strict', 'game')
+
+    expect(isStrictlyInside(dirname(parent), parent)).toBe(false)
+    expect(isStrictlyInside(parent, parent)).toBe(false)
+    expect(isStrictlyInside(join(parent, 'maps', 'a.bsp'), parent)).toBe(true)
   })
 })
 

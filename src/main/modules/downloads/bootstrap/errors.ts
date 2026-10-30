@@ -12,8 +12,7 @@ import type { DownloadsErrorKey } from '@shared/modules/downloads'
 
 /**
  * A required package (the pinned engine build, the demo data, the point release) could not be
- * resolved from the manifest. Distinct from `downloads.error.manifestUnavailable`, which is the
- * *fetch* failing and is not a member of the fixed set.
+ * resolved from the manifest. Distinct from the manifest *fetch* failing, which is not a member of the fixed set.
  */
 export const PACKAGE_UNAVAILABLE: DownloadsErrorKey = 'downloads.error.packageUnavailable'
 

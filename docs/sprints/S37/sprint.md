@@ -18,7 +18,7 @@ After a sprint, `npm run verify:release` passing means the PR and the release pa
 - [x] 280 — The packaged smoke's blocking switch is a decision, not a tripwire
 - [x] 278 — A release runs only when the user starts it, and checks its own commit
 - [x] 277 — verify:release checks exactly what a PR and a release check, cheap steps first
-- [ ] 325 — Tests and comments state what they check
+- [x] 325 — Tests and comments state what they check
 - [ ] 322 — Boot does not wait on file I/O, and a failed module has no live handlers
 - [ ] 323 — The update service is split into testable parts
 - [ ] 320 — Config edits reach disk only through save, and every flag survives a reload

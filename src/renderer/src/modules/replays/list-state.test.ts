@@ -40,7 +40,7 @@ describe('deriveReplaysListState', () => {
   })
 })
 
-describe('describeReplaysScanProgress (story 151 D3)', () => {
+describe('describeReplaysScanProgress', () => {
   it('progress sums every source and has no numbers before discovery', () => {
     expect(describeReplaysScanProgress(progress({ sources: [] }))).toEqual({
       key: 'replays.list.loading',

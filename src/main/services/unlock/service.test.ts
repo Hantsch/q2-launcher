@@ -40,7 +40,7 @@ function spyLog(): UnlockServiceLog & { messages: string[] } {
   }
 }
 
-describe('UnlockService (story 128 D4)', () => {
+describe('UnlockService', () => {
   let filePath: string
   let state: StateStore
 

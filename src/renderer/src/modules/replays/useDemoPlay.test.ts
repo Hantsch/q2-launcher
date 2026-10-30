@@ -89,7 +89,7 @@ function reasonText(row: DemoRow): string {
 
 const PLAYED = { ok: true, value: { stage: null } }
 
-describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
+describe('useDemoPlay', () => {
   it('an eligible demo is playable and play sends only ids', async () => {
     setStore({})
     playDemo.mockResolvedValue(PLAYED)

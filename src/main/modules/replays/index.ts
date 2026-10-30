@@ -113,6 +113,7 @@ export async function scanHoldMs({ harness, userData }: ScanHoldMsOptions): Prom
   try {
     raw = await readFile(join(userData, 'harness-replays-scan-hold-ms'), 'utf8')
   } catch {
+    // ENOENT: the harness hold file is optional
     return 0
   }
   const trimmed = raw.trim()

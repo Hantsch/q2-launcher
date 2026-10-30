@@ -14,6 +14,7 @@ export async function decodeImageWithElectron(
     const { width, height } = image.getSize()
     return { ok: true, width, height }
   } catch {
+    // undecodable image bytes are reported as not ok
     return { ok: false }
   }
 }

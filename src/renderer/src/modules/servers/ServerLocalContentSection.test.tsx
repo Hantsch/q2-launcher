@@ -67,7 +67,7 @@ async function renderSection(mod: string | undefined, map: string | undefined) {
   })
 }
 
-describe('ServerLocalContentSection (story 192 D3)', () => {
+describe('ServerLocalContentSection', () => {
   it('says the mod is installed when its gamedir is in the installation', async () => {
     await renderSection('opentdm', 'tdm1')
     const el = screen.getByTestId('servers-detail-mod-status')
@@ -136,7 +136,7 @@ describe('ServerLocalContentSection (story 192 D3)', () => {
   })
 })
 
-describe('ServerLocalContentSection install (story 192 D4)', () => {
+describe('ServerLocalContentSection install', () => {
   it('Install calls the mods install with the active installation and the matched catalog id', async () => {
     await renderSection('ctf', 'q2ctf1')
     const button = screen.getByTestId('servers-detail-mod-install')

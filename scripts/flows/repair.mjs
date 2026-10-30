@@ -109,7 +109,7 @@ const TIMEOUT_MS = 8_000
  * own single-package budget. */
 const JOB_TIMEOUT_MS = 60_000
 
-/** Mirrors `validation.fix.install-game-files` (`src/renderer/src/i18n/locales/en.json`) - the
+/** The English text of `validation.fix.install-game-files` (`src/renderer/src/i18n/locales/en.shell.json`) - the
  * checks list's own fix button for every `base-paks`/`base-game-dir` finding this job can act on. */
 const GET_GAME_FILES_LABEL = 'Get game files'
 

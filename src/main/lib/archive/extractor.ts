@@ -89,6 +89,7 @@ export function extractArchive(input: ExtractArchiveInput): ExtractorHandle {
         windowsHide: true,
       })
     } catch {
+      // spawn throws synchronously on a missing or non-executable extractor
       resolve(fail('downloads.error.extractionFailed'))
       return
     }

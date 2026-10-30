@@ -211,6 +211,7 @@ export function createRendererProtocolHandler(
     try {
       contents = await newsImages.readFile(resolvedPath)
     } catch {
+      // ENOENT: a cached news image that is gone is a 404
       return notFound()
     }
 
@@ -228,6 +229,7 @@ export function createRendererProtocolHandler(
     try {
       url = new URL(request.url)
     } catch {
+      // a malformed request URL is a 404
       return notFound()
     }
 
@@ -242,6 +244,7 @@ export function createRendererProtocolHandler(
     try {
       decodedPath = decodeURIComponent(url.pathname)
     } catch {
+      // URIError: a malformed percent-escape in the path is a 404
       return notFound()
     }
 
@@ -264,6 +267,7 @@ export function createRendererProtocolHandler(
     try {
       contents = await readFile(resolvedPath)
     } catch {
+      // ENOENT/EISDIR: a missing renderer file is a 404
       return notFound()
     }
 

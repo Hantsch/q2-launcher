@@ -384,7 +384,7 @@ describe('restoreFailure', () => {
   })
 })
 
-describe('pruneFailures - AC2 retention', () => {
+describe('pruneFailures - retention', () => {
   it('a dismissed failure is gone after 7 days, an undismissed one never', () => {
     let log = appendFailure([], newEntry({ jobId: 'dismissed-old' }), T0)
     log = appendFailure(log, newEntry({ jobId: 'dismissed-recent' }), T0)

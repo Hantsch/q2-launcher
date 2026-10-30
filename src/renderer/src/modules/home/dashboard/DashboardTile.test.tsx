@@ -60,7 +60,7 @@ afterEach(() => {
   cleanup()
 })
 
-describe('DashboardTile (AC5: a throwing tile body cannot unmount the grid)', () => {
+describe('DashboardTile', () => {
   it('a throw during body render is caught by this tile alone, and a sibling tile keeps rendering', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 

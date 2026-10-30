@@ -130,7 +130,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('ControlsTab category menu (story 062 D1)', () => {
+describe('ControlsTab category menu', () => {
   it('has no move-up or move-down icon buttons left in the rail, only a kebab and a grip', () => {
     renderTab()
     const rail = categoryRail()
@@ -271,7 +271,7 @@ describe('ControlsTab category menu (story 062 D1)', () => {
  * rule owns the one border/background and the `data-selected` emphasis), and nothing inside it
  * paints a surface of its own any more.
  */
-describe('ControlsTab category chip (story 062 D2)', () => {
+describe('ControlsTab category chip', () => {
   it('a category chip is one level: the label button carries no border or background of its own, and grip plus one menu trigger are its only other controls', () => {
     renderTab()
     const chip = categoryChip('Movement')

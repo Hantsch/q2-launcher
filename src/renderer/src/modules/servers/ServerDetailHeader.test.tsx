@@ -62,7 +62,7 @@ function favouriteDetail(favourite: boolean): ServerDetail {
   }
 }
 
-describe('ServerDetailHeader (story 122 D3)', () => {
+describe('ServerDetailHeader', () => {
   it('shows name, address, mod, map, gamemode, occupancy, ping, password, engine and protocol', () => {
     const detail: ServerDetail = {
       row: {

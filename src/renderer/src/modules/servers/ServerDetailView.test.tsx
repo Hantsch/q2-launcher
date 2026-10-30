@@ -97,7 +97,7 @@ async function flush(): Promise<void> {
   })
 }
 
-describe('ServerDetailView (story 122 D3)', () => {
+describe('ServerDetailView', () => {
   it('a section that throws shows its fallback and the other sections still render', async () => {
     readServerDetailMock.mockResolvedValue({ ok: true, value: DETAIL })
     onScanChangedMock.mockImplementation(() => () => {})

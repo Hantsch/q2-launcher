@@ -266,7 +266,7 @@ describe('mods module mapPresence', () => {
   })
 })
 
-describe('mods module update (story 194)', () => {
+describe('mods module update', () => {
   const record = (over: Record<string, unknown> = {}) => ({
     catalogId: 'rogue',
     gameDir: 'rogue',

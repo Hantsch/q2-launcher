@@ -108,6 +108,7 @@ async function readCacheEntries(dir: string, log?: ImageCacheLog): Promise<Image
   try {
     dirents = await readdir(dir, { withFileTypes: true })
   } catch {
+    // ENOENT: the cache directory may not exist yet, so it holds no entries
     return []
   }
 

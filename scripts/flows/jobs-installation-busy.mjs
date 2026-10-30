@@ -14,7 +14,7 @@ const lifecycle = modsInstallLifecycle((s) => (server = s))
 export const setup = lifecycle.setup
 export const teardown = lifecycle.teardown
 
-/** Mirrors `jobs.error.installationBusy` (`src/renderer/src/i18n/locales/en.json`). */
+/** The English text of `jobs.error.installationBusy` (`src/renderer/src/i18n/locales/en.shell.json`). */
 const BUSY = /another job is changing this installation/i
 
 const jobsFor = (page) =>

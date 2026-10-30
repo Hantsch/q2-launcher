@@ -86,7 +86,7 @@ export async function removeStagedCopy(copyPath: string): Promise<void> {
     if (basename(dirname(copyPath)) !== LAUNCHER_DIR_NAME) return
     await rm(copyPath, { force: true })
   } catch {
-    // Best effort.
+    // the staged copy may already be gone or locked; a leftover is swept at next start
   }
 }
 
@@ -103,6 +103,7 @@ export async function sweepLauncherDirs(demosDirs: string[], log: DemoStagingLog
     try {
       names = await readdir(launcherDir)
     } catch {
+      // ENOENT: the _launcher folder may not exist in this demos directory
       continue
     }
     for (const fileName of names) {

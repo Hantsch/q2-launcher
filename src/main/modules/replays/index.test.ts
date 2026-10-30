@@ -255,7 +255,7 @@ describe('replays module', () => {
     })
   })
 
-  describe('extraFolders.* handlers (story 142 D2)', () => {
+  describe('extraFolders.* handlers', () => {
     let filePath: string
     let state: StateStore
     let dir: string
@@ -347,7 +347,7 @@ describe('replays module', () => {
    * harness as the `extraFolders.*` block above, mirroring
    * `src/main/modules/servers/index.test.ts`'s `list.*Sort` handlers block exactly.
    */
-  describe('list.*Sort handlers (story 152 D2)', () => {
+  describe('list.*Sort handlers', () => {
     let filePath: string
     let state: StateStore
     let registry: MainModuleRegistry
@@ -409,7 +409,7 @@ describe('replays module', () => {
    * Story 153 D3: the `listFilter.read`/`listFilter.write` handlers - same real-`StateStore`
    * round-trip harness as the `list.*Sort handlers` block above.
    */
-  describe('listFilter.* handlers (story 153 D3)', () => {
+  describe('listFilter.* handlers', () => {
     let filePath: string
     let state: StateStore
     let registry: MainModuleRegistry
@@ -479,7 +479,7 @@ describe('replays module', () => {
     })
   })
 
-  describe('modWarning.* handlers (story 182 D1)', () => {
+  describe('modWarning.* handlers', () => {
     let filePath: string
     let state: StateStore
     let registry: MainModuleRegistry
@@ -557,7 +557,7 @@ describe('replays module', () => {
     })
   })
 
-  describe('sidecar handlers (story 146)', () => {
+  describe('sidecar handlers', () => {
     let dir: string
     let filePath: string
     let state: StateStore
@@ -849,7 +849,7 @@ describe('replays module', () => {
     })
   })
 
-  describe('sidecar error i18n (story 146)', () => {
+  describe('sidecar error i18n', () => {
     it('sidecar error keys resolve to specific English text', () => {
       const sidecar = (en as { replays: { sidecar: { error: Record<string, string> } } }).replays
         .sidecar.error
@@ -882,7 +882,7 @@ describe('replays module', () => {
     })
   })
 
-  describe('scanHoldMs (story 151 D2)', () => {
+  describe('scanHoldMs', () => {
     let userData: string
 
     beforeEach(async () => {

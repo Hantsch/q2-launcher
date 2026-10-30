@@ -352,7 +352,7 @@ describe('generateLayerAliases — issues', () => {
   })
 })
 
-describe('generateLayerAliases — trigger-less layers (story 011)', () => {
+describe('generateLayerAliases — trigger-less layers', () => {
   it('returns triggerBind: null and warns layer.noTrigger when the layer has overrides', () => {
     const result = generateLayerAliases(
       layer({ triggerKey: null, overrides: { '1': 'drop rl' } }),

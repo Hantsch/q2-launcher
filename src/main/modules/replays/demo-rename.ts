@@ -204,6 +204,7 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
       try {
         await undoSidecarWrite()
       } catch {
+        // the sidecar rollback write failed, reported as rollbackFailed
         return fail('replays.rename.error.rollbackFailed', {
           demo: row.fileName,
           sidecar: sidecarFileName(row.fileName),

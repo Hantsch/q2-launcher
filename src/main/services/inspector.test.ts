@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
+import type { ValidationResult } from '@shared/types'
 import { stubPlatform } from '../../test-support/platform'
 import { inspectInstallation, looksLikeQuake2 } from './inspector'
 
@@ -366,6 +367,41 @@ describe('looksLikeQuake2 is the one rule for what counts as a game folder', () 
   it('looksLikeQuake2 accepts a base-game or known-engine folder and rejects a missing one', async () => {
     expect(looksLikeQuake2(await inspectInstallation(rootPath))).toBe(true)
     expect(looksLikeQuake2(await inspectInstallation(join(dir, 'nope')))).toBe(false)
+  })
+
+  it('looksLikeQuake2 decides each validation shape', () => {
+    const validation = (
+      status: ValidationResult['status'],
+      baseDirSeverity: 'error' | 'ok' | undefined,
+      engineKind: ValidationResult['engineKind'],
+    ): ValidationResult => ({
+      status,
+      checks:
+        baseDirSeverity === undefined
+          ? []
+          : [
+              {
+                id: 'base-game-dir',
+                severity: baseDirSeverity,
+                messageKey: 'validation.baseGameDir',
+              },
+            ],
+      gameDirs: [],
+      executables: [],
+      engineKind,
+      engines: [],
+      checkedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    const table: [string, ValidationResult, boolean][] = [
+      ['missing folder', validation('missing', undefined, 'q2pro'), false],
+      ['no base game and unknown engine', validation('invalid', 'error', 'unknown'), false],
+      ['no base game but a known engine', validation('invalid', 'error', 'q2pro'), true],
+      ['base game present', validation('ok', undefined, 'unknown'), true],
+    ]
+    for (const [label, result, expected] of table) {
+      expect(looksLikeQuake2(result), label).toBe(expected)
+    }
   })
 
   it('looksLikeQuake2 is defined only in inspector.ts', async () => {

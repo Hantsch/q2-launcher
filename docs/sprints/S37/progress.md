@@ -70,3 +70,27 @@
 - 2026-10-30 10:12:16 · 277 · verify · started
 - 2026-10-30 10:13:24 · 277 · verify · done
 - 2026-10-30 10:13:33 · 277 · story · done
+- 2026-10-30 10:13:42 · 325 · build · started
+- 2026-10-30 10:14:01 · 325 · D1 describe titles carry no ids · started
+- 2026-10-30 10:17:25 · 325 · D1 describe titles carry no ids · done
+- 2026-10-30 10:17:25 · 325 · D2 typed client mocks · started
+- 2026-10-30 10:22:39 · 325 · D2 typed client mocks · done
+- 2026-10-30 10:22:39 · 325 · D3 missing edge-case tests · started
+- 2026-10-30 10:28:43 · 325 · D3 missing edge-case tests · done
+- 2026-10-30 10:28:43 · 325 · D4 locale comments · started
+- 2026-10-30 10:31:01 · 325 · D4 locale comments · done
+- 2026-10-30 10:31:01 · 325 · D5 bare-catch check · started
+- 2026-10-30 10:36:32 · 325 · D5 bare-catch check · done
+- 2026-10-30 10:36:45 · 325 · D6 sweep lib/services/ipc/top-level · started
+- 2026-10-30 10:37:56 · 325 · D6 sweep lib/services/ipc/top-level · done
+- 2026-10-30 10:37:56 · 325 · D7 sweep downloads/home/mods · started
+- 2026-10-30 10:38:56 · 325 · D7 sweep downloads/home/mods · done
+- 2026-10-30 10:38:56 · 325 · D8 sweep config/replays/servers, close baseline · started
+- 2026-10-30 10:40:02 · 325 · D8 sweep config/replays/servers, close baseline · done
+- 2026-10-30 10:40:02 · 325 · D9 config contract invariant notes · started
+- 2026-10-30 10:41:12 · 325 · D9 config contract invariant notes · done
+- 2026-10-30 10:41:12 · 325 · verify · started
+- 2026-10-30 10:43:09 · 325 · verify · done
+- 2026-10-30 10:43:09 · 325 · review 1 · started
+- 2026-10-30 10:44:51 · 325 · review 1 · done
+- 2026-10-30 10:44:51 · 325 · story · done

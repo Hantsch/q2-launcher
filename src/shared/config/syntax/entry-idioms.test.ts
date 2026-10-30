@@ -445,7 +445,7 @@ describe('recognizeEntryIdioms - waitN family', () => {
   })
 })
 
-describe("recognizeEntryIdioms - the launcher's own D3 output", () => {
+describe("recognizeEntryIdioms - the launcher's own output", () => {
   const toggle = action({
     kind: 'toggle',
     aliasName: 'zoom',

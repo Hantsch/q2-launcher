@@ -77,7 +77,7 @@ const TIMEOUT_MS = 8_000
 const VERSION = '9.9.9-e2e'
 const NOTES = 'Offline UI-verification fixture release notes.'
 
-/** Mirrors `src/renderer/src/i18n/locales/en.json`'s `appUpdate.error.*` - the repo ships only `en`
+/** The English text of `appUpdate.error.*` in `src/renderer/src/i18n/locales/en.shell.json` - the repo ships only `en`
  * (CLAUDE.md), so asserting the exact rendered string is as strong as asserting the key. */
 const ERROR_TEXT = {
   gameRunning: 'Quake II is still running. Close it before installing the update.',

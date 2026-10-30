@@ -423,7 +423,7 @@ describe('entryPlacementOptions', () => {
  * lives in `round-trip.test.ts` (a main-process test, since the real file parser is main-only), so
  * this only needs to show the write side: `renderProfileFile` follows the reordered arrays.
  */
-describe('story 054 D11: a reorder renders in its new order', () => {
+describe('a reorder renders in its new order', () => {
   function profile(overrides: Partial<ConfigProfile>): ConfigProfile {
     return {
       id: 'p1',

@@ -168,7 +168,7 @@ describe('ActionBar', () => {
     expect(requestStop).toHaveBeenCalledTimes(1)
   })
 
-  describe('story 180 D1: a tab contributes the primary action', () => {
+  describe('a tab contributes the primary action', () => {
     const seed = (over: Partial<Installation> = {}, jobs: Job[] = []): void => {
       useLauncher.setState({
         installations: [makeInstallation(over)],
@@ -276,7 +276,7 @@ describe('ActionBar', () => {
     })
   })
 
-  describe('story 181 D2: the Servers Join contribution', () => {
+  describe('the Servers Join contribution', () => {
     const joinContribution = (over: Partial<ContributedAction> = {}) => {
       const run = vi.fn()
       usePrimaryActionStore.setState({

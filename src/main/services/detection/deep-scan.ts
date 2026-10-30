@@ -123,6 +123,7 @@ export async function listDrives(): Promise<string[]> {
         await access(root)
         return root
       } catch {
+        // a drive letter that is not mounted fails access
         return null
       }
     }),

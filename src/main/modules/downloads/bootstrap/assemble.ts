@@ -465,6 +465,7 @@ async function findSource(
         await stat(absolutePath)
         return { absolutePath, relativePath, packageId: source.packageId }
       } catch {
+        // ENOENT: the file is not in this source, try the next one
         continue
       }
     }
@@ -489,6 +490,7 @@ async function expandGlobDir(
         const names = await readdir(absoluteDir)
         return { absoluteDir, relativePath: dirRelativePath, names, packageId: source.packageId }
       } catch {
+        // ENOENT/ENOTDIR: the directory is not in this source, try the next one
         continue
       }
     }

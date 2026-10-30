@@ -83,7 +83,7 @@ describe('ServerRow location cell', () => {
   })
 })
 
-describe('ServerRow (story 118 D3)', () => {
+describe('ServerRow', () => {
   it('shows name, mod, players/slots, map and ping when known (AC1)', () => {
     const row: ServerListRow = {
       ...BASE_ROW,

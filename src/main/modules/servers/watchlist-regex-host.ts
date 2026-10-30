@@ -160,6 +160,7 @@ export function createRegexHost({
       try {
         w = worker ?? startWorker()
       } catch {
+        // the worker failed to start, reported as worker-error
         retireWorker()
         job.resolve({ ok: false, reason: 'worker-error' })
         continue
@@ -169,6 +170,7 @@ export function createRegexHost({
       try {
         w.postMessage(request)
       } catch {
+        // posting to a dead worker throws, reported as worker-error
         failCurrentAndRetire('worker-error')
         return
       }

@@ -110,6 +110,7 @@ export function createDemoFileOps(options: CreateDemoFileOpsOptions): DemoFileOp
     try {
       await os.trashItem(sidecar)
     } catch {
+      // the sidecar cannot be moved to the trash (locked or permission denied)
       return item(id, 'failed', 'sidecarTrashFailed', { name: sidecarFileName(basename(path)) })
     }
     return item(id, 'done', null)

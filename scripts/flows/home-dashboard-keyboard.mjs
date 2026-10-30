@@ -39,7 +39,7 @@ const DEFAULT_HOME_LAYOUT = {
 
 /** Fragments of en.json's `home.dashboard.status.*` - the announcement text is this deliverable's
  * observable contract (AC9), so the flow asserts the real user-visible wording rather than merely
- * "some text appeared". Keep in sync with src/renderer/src/i18n/locales/en.json. */
+ * "some text appeared". Keep in sync with the `home.*` keys in `src/renderer/src/modules/home/locale/en.json`. */
 const STATUS = {
   lifted: 'lifted',
   dropped: 'placement confirmed',

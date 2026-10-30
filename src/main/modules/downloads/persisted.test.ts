@@ -13,7 +13,7 @@ import { downloadsState, parseDownloadFailures, parseDownloadsSettings } from '.
  * `parseConfigProfiles`'s "forgiving, never throws" contract - a corrupt value falls back to
  * `DEFAULT_DOWNLOADS_SETTINGS` instead of throwing.
  */
-describe('parseDownloadsSettings (story 071 D1)', () => {
+describe('parseDownloadsSettings', () => {
   it('loads defaults when the key is absent', () => {
     expect(parseDownloadsSettings(undefined)).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
   })
@@ -70,7 +70,7 @@ describe('parseDownloadsSettings (story 071 D1)', () => {
 })
 
 // Story 075 D1 (AC6).
-describe('parseDownloadFailures - diagnostics (story 075 D1)', () => {
+describe('parseDownloadFailures - diagnostics', () => {
   const baseRow = {
     id: 'f1',
     jobId: 'job-1',
@@ -193,7 +193,7 @@ describe('parseDownloadFailures - diagnostics (story 075 D1)', () => {
   })
 })
 
-describe('StateStore downloads settings (story 072 D2)', () => {
+describe('StateStore downloads settings', () => {
   let filePath: string
   let state: StateStore
 
@@ -270,7 +270,7 @@ describe('StateStore downloads settings (story 072 D2)', () => {
   })
 })
 
-describe('StateStore downloadFailures (story 073 D1)', () => {
+describe('StateStore downloadFailures', () => {
   let filePath: string
   let state: StateStore
 

@@ -24,7 +24,7 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
   }
 }
 
-describe('resolveAliasChain (story 015: dual-bound drop row)', () => {
+describe('resolveAliasChain', () => {
   it('resolves a two-key action alias to its full command list from the alias name alone', () => {
     const dropRow = action({
       catalogId: 'dropWeapon:rlauncher',

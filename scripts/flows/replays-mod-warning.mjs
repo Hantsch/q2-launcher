@@ -1,7 +1,7 @@
 // Story 182 D2: e2e proof that a missing-mod demo carries no permanent warning, that View asks once
 // (naming the mod, with a "Don't ask again" box), that Cancel remembers nothing even with the box
 // ticked, and that Play anyway with the box ticked is remembered in `state.json`
-// (`replays.modWarning.trustedMods`) so the next View launches without a dialog.
+// (the remembered-mods list) so the next View launches without a dialog.
 //
 // The "engine" is the fixture's stand-in client (see `replays-play-q2pro.mjs`); no real Quake II runs.
 // The final step resets the trusted list so the flow leaves defaults behind - later deliverables insert

@@ -58,7 +58,7 @@ function begin(durationMs: number | null, positionMs?: number): void {
 
 const testid = (id: string): HTMLElement => screen.getByTestId(`replays-timeline-${id}`)
 
-describe('DemoTimeline (story 165 D3)', () => {
+describe('DemoTimeline transport', () => {
   it('is absent without a session', () => {
     render(createElement(DemoTimeline))
     expect(screen.queryByTestId('replays-timeline')).toBeNull()
@@ -235,7 +235,7 @@ describe('DemoTimeline (story 165 D3)', () => {
   })
 })
 
-describe('DemoTimeline (story 184 D3)', () => {
+describe('DemoTimeline optimistic toggle state', () => {
   afterEach(() => {
     vi.useRealTimers()
   })
@@ -272,7 +272,7 @@ describe('DemoTimeline (story 184 D3)', () => {
   })
 })
 
-describe('DemoTimeline (story 187 D6)', () => {
+describe('DemoTimeline cinema and fullscreen', () => {
   it('offers cinema and fullscreen buttons, and exit cinema while in cinema', async () => {
     playbackCinema.mockResolvedValue({ ok: true, value: undefined })
     begin(60_000, 1000)

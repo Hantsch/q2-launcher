@@ -96,7 +96,7 @@ describe('release pipeline wiring', () => {
     expect(resolved).toBe('Q2-Launcher-1.0.0-beta.1-linux-x86_64.AppImage')
   })
 
-  describe("D5: .github/workflows/release.yml", () => {
+  describe(".github/workflows/release.yml", () => {
     /** @returns {any} the parsed workflow, re-read per test so no test can leak a mutation. */
     function readWorkflow() {
       return yaml.load(readFileSync(RELEASE_WORKFLOW_PATH, 'utf8'))
@@ -186,7 +186,7 @@ describe('release pipeline wiring', () => {
       expect(readmeWrite.content).toMatch(/\*\*Status:[^\n]*\(1\.0\.1\)/)
     })
 
-    describe('D3 (story 101): three jobs, one release', () => {
+    describe('three jobs, one release', () => {
       test('plan, build-linux and release exist, and release waits for both others', () => {
         const workflow = readWorkflow()
 

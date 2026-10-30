@@ -268,6 +268,7 @@ export function engineAllowlistFor(
       (entry) => entry.role === 'engine',
     )
   } catch {
+    // buildAssemblePlan throws for an engine with no assemble plan; no engine entries then
     return []
   }
 }
@@ -278,6 +279,7 @@ function downloadFileNameFor(url: string, prefix = ''): string | undefined {
   try {
     name = decodeURIComponent(new URL(url).pathname.split('/').pop() ?? '')
   } catch {
+    // a malformed package URL (TypeError from new URL or URIError from decoding) has no usable file name
     return undefined
   }
   const prefixed = `${prefix}${name}`
@@ -730,6 +732,7 @@ async function findStaged(stagingRoot: string, candidates: string[]): Promise<st
       const info = await stat(absolute)
       if (info.isFile()) return absolute
     } catch {
+      // ENOENT: the candidate is not in the staging tree, try the next one
       continue
     }
   }

@@ -71,7 +71,7 @@ const REPORTED_SETUP_NAME = 'Fixture Runner Choice Install'
  * count" - the reason text must contain this literal). */
 const PROTON_BUILD_COUNT = 4
 
-/** Mirrors src/renderer/src/i18n/locales/en.json's `runner.unavailable.*` - asserted verbatim, the
+/** The English text of `runner.unavailable.*` in `src/renderer/src/i18n/locales/en.shell.json` - asserted verbatim, the
  * same way `steam-handoff.mjs`/`windows-build-on-linux.mjs` assert their own reason texts. */
 const PROTON_REASON_TEXT =
   `${PROTON_BUILD_COUNT} Proton builds are used through umu-run, not launched directly — ` +

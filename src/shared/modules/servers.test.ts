@@ -24,7 +24,7 @@ import {
   serversStateSchema,
 } from './servers'
 
-describe('servers module contract (story 106 D1)', () => {
+describe('servers module contract', () => {
   it('every servers handler has a zod schema', () => {
     for (const name of Object.values(SERVERS_HANDLERS)) {
       expect(SERVERS_HANDLER_SCHEMAS[name]).toBeDefined()
@@ -106,7 +106,7 @@ describe('serversOverviewSchema', () => {
   })
 })
 
-describe('servers persisted state (story 110 D1)', () => {
+describe('servers persisted state', () => {
   it("the persisted servers state has a zod schema in the module's shared contract", () => {
     const parsed = serversStateSchema.parse(DEFAULT_SERVERS_STATE)
     expect(parsed).toEqual(DEFAULT_SERVERS_STATE)
@@ -170,7 +170,7 @@ describe('servers persisted state (story 110 D1)', () => {
   })
 })
 
-describe('master sources (story 111 D1)', () => {
+describe('master sources', () => {
   it('every sources.* handler has a payload schema registered', () => {
     for (const name of [
       SERVERS_HANDLERS.sourcesList,
@@ -247,7 +247,7 @@ describe('master sources (story 111 D1)', () => {
   })
 })
 
-describe('favourites (story 112 D1)', () => {
+describe('favourites', () => {
   it('every favourites.* handler has a payload schema registered', () => {
     for (const name of [SERVERS_HANDLERS.favouritesAdd, SERVERS_HANDLERS.favouritesRemove]) {
       expect(SERVERS_HANDLER_SCHEMAS[name]).toBeDefined()
@@ -330,7 +330,7 @@ describe('manual servers and history', () => {
   })
 })
 
-describe('scan settings (story 115 D1)', () => {
+describe('scan settings', () => {
   it('every scan.*Settings/scan.setViewActive handler has a payload schema registered', () => {
     for (const name of [
       SERVERS_HANDLERS.scanGetSettings,
@@ -377,7 +377,7 @@ describe('scan settings (story 115 D1)', () => {
   })
 })
 
-describe('scan guard (story 116 D1)', () => {
+describe('scan guard', () => {
   it("ScanBlockedReason accepts 'game-running'", () => {
     const reason: ScanBlockedReason = 'game-running'
     expect(reason).toBe('game-running')
@@ -409,7 +409,7 @@ describe('scan guard (story 116 D1)', () => {
   })
 })
 
-describe('scan scope (story 117 D1)', () => {
+describe('scan scope', () => {
   it('scanScopeSchema accepts all three valid shapes', () => {
     expect(scanScopeSchema.safeParse({ kind: 'all' }).success).toBe(true)
     expect(scanScopeSchema.safeParse({ kind: 'favourites' }).success).toBe(true)
@@ -476,7 +476,7 @@ describe('scan scope (story 117 D1)', () => {
   })
 })
 
-describe('server detail (story 122 D2)', () => {
+describe('server detail', () => {
   it('detailReadInputSchema accepts a well-formed address and rejects a missing one', () => {
     expect(detailReadInputSchema.safeParse('127.0.0.1:27910').success).toBe(true)
     expect(detailReadInputSchema.safeParse({}).success).toBe(false)

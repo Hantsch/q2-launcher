@@ -399,7 +399,7 @@ describe('validateStructure - an engine with no source-cited limits', () => {
   })
 })
 
-describe('story 048 D4 - the bigger default-filled file stays honest', () => {
+describe('the bigger default-filled file stays honest', () => {
   /** Every catalogue cvar's `set` line exactly as D2's writer emits one when nothing overrides the
    * default (`writeValueFor(def, undefined)` is `def.default`) - built as plain lines rather than
    * through `renderProfileFile`'s alignment/section machinery, since `validateStructure` only ever

@@ -66,6 +66,7 @@ function deriveHttpListRaw(url: string): HttpListRaw {
   try {
     return new URL(url).searchParams.get('raw') === '2' ? 2 : 1
   } catch {
+    // an unparsable URL takes the default text shape
     return 1
   }
 }

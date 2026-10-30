@@ -203,6 +203,7 @@ export async function discoverLanServers(
             plan,
           }
         } catch {
+          // binding a socket can fail (address unavailable on this interface); that plan is skipped
           return null
         }
       }),

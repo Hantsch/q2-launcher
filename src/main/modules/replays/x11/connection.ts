@@ -61,6 +61,7 @@ async function loadCookie(
     const entries = parseXauthority(await opts.readFile(file))
     return pickCookie(entries, { hostname: host ?? opts.hostname, display })
   } catch {
+    // a missing or malformed Xauthority file means no cookie, connecting without one
     return null
   }
 }

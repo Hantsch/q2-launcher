@@ -138,7 +138,7 @@ async function downloaded(parts: Parameters<typeof build>[0] = {}) {
   return harness
 }
 
-describe('AC3/AC4 - the state machine: available -> downloading -> downloaded, and no further', () => {
+describe('the state machine: available -> downloading -> downloaded, and no further', () => {
   it('walks available -> downloading -> downloaded, publishing progress on the way', async () => {
     const { service, states, report, finish } = build()
 
@@ -208,7 +208,7 @@ describe('AC3/AC4 - the state machine: available -> downloading -> downloaded, a
   })
 })
 
-describe('AC6 - the restart guard refuses and cancels nothing', () => {
+describe('the restart guard refuses and cancels nothing', () => {
   it('refuses while a game started by this launcher is running, and does not stop it', async () => {
     const launch = { isRunning: vi.fn(() => true), cancel: vi.fn() }
     const { service, backend } = await downloaded({ isGameRunning: () => launch.isRunning() })
@@ -314,7 +314,7 @@ describe('quitAndInstall under the held before-quit', () => {
   })
 })
 
-describe('AC7 - a failed download falls back to available with its reason', () => {
+describe('a failed download falls back to available with its reason', () => {
   it.each([
     ['offline', 'appUpdate.error.offline'],
     ['checksum', 'appUpdate.error.checksum'],
@@ -464,7 +464,7 @@ describe('a known release the server no longer offers', () => {
   })
 })
 
-describe('AC5 - dismissal', () => {
+describe('dismissal', () => {
   it('marks the state dismissed without touching the update, and is never persisted', async () => {
     const fake = fakeBackend()
     const save = vi.fn(async (_next: UpdateCheckStoreData): Promise<void> => undefined)

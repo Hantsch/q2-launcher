@@ -156,7 +156,7 @@ describe('the home screen', () => {
   })
 })
 
-describe('the home screen feed wiring (story 083 D4 fixup)', () => {
+describe('the home screen feed wiring', () => {
   it('fetches the feed on mount and passes it into the hero', async () => {
     getNews.mockResolvedValueOnce({ ok: true, value: filledFeed })
 

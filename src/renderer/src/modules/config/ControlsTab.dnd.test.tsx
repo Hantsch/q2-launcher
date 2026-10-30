@@ -241,7 +241,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('ControlsTab cross-category drag (story 054 D5)', () => {
+describe('ControlsTab cross-category drag', () => {
   it('moves a row to another category when it is dropped straight on that category chip', async () => {
     renderTab()
     expect(renderedRowIds()).toEqual(['m1', 'm2'])

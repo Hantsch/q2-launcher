@@ -71,7 +71,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('ControlsTab row menu (story 054 D8)', () => {
+describe('ControlsTab row menu', () => {
   it('has no inline move-up/move-down arrow buttons left on a row', () => {
     renderTab()
     expect(container.querySelector('button[aria-label="Move entry up"]')).toBeNull()

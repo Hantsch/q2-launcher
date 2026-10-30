@@ -158,7 +158,7 @@ describe('validateProfileForEngines - equally-weighted multi-engine runs', () =>
   })
 })
 
-describe('validateProfileForEngines - story 019 D8 alias-wiring findings', () => {
+describe('validateProfileForEngines - alias-wiring findings', () => {
   it('reports a binding calling an undefined alias and an unreferenced alias through the orchestrated scope', () => {
     const p = profile({
       assignments: [{ installationId: 'a', isDefault: true }],

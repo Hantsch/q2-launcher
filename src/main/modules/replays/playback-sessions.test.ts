@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createPlaybackSessions } from './playback-sessions'
 
-describe('playback sessions (story 157)', () => {
+describe('playback sessions', () => {
   it('isPlaying is false initially, true after begin, false after end', () => {
     const sessions = createPlaybackSessions()
     expect(sessions.isPlaying('a')).toBe(false)

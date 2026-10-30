@@ -278,7 +278,7 @@ describe('the news hero', () => {
   })
 })
 
-describe('the news hero, no cached feed (story 083 D4)', () => {
+describe('the news hero, no cached feed', () => {
   it('AC6: shows the built-in welcome slide, named from i18n keys, with zero <img> elements', () => {
     render(<NewsHero slides={[]} />)
 
@@ -305,7 +305,7 @@ describe('the news hero, no cached feed (story 083 D4)', () => {
   })
 })
 
-describe('the news hero, a feed after a failed refresh (story 083 D4)', () => {
+describe('the news hero, a feed after a failed refresh', () => {
   it('AC7: shows an "as of <date>" chip and a refresh button, no toast, no dialog', () => {
     render(
       <NewsHero

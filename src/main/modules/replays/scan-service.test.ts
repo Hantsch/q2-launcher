@@ -131,7 +131,7 @@ function deferred(): { promise: Promise<void>; release: () => void } {
   return { promise, release }
 }
 
-describe('replays scan service (story 144 D3)', () => {
+describe('replays scan service', () => {
   it('a second scan.start while a scan runs does not start a parallel scan', async () => {
     const dir = await demoFolder('demos', ['a.dm2', 'b.dm2', 'c.dm2'])
     const gate = deferred()
@@ -348,7 +348,7 @@ describe('replays scan service (story 144 D3)', () => {
   })
 })
 
-describe('scan service source errors and scan hold (story 151 D2)', () => {
+describe('scan service source errors and scan hold', () => {
   function errorFor(
     path: string,
     reason: ReplaysSourceError['reason'] = 'unreadable',
@@ -482,7 +482,7 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
   })
 })
 
-describe('unreadable demos stay in the index (story 145 D2)', () => {
+describe('unreadable demos stay in the index', () => {
   const GARBAGE_FILE = '2026-09-26-2130-q2dm1.dm2'
   const FIXTURE = join(process.cwd(), 'docs/fixtures/demos/test.dm2')
 
@@ -612,7 +612,7 @@ describe('unreadable demos stay in the index (story 145 D2)', () => {
   })
 })
 
-describe('header facts and duration on the index row (story 150 D1)', () => {
+describe('header facts and duration on the index row', () => {
   const FIXTURE = join(process.cwd(), 'docs/fixtures/demos/test.dm2')
   /** `test.dm2`'s own header facts and frame-count duration (see `demo-bytes.test.ts`). */
   const EXPECTED = {
@@ -787,7 +787,7 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
   })
 })
 
-describe('applyRelocate (story 157)', () => {
+describe('applyRelocate', () => {
   it('re-keys the row, file lookup and cache to the new id/name, without touching disk', async () => {
     const dir = await demoFolder('demos', ['old.dm2'])
     const h = harness([dir])

@@ -17,7 +17,7 @@ describe('META_FORMAT_VERSION', () => {
   })
 })
 
-describe('id (story 051)', () => {
+describe('id', () => {
   it('is registered directly after v in KNOWN_META_KEYS', () => {
     const vIndex = KNOWN_META_KEYS.indexOf('v')
     expect(KNOWN_META_KEYS[vIndex + 1]).toBe('id')
@@ -242,7 +242,7 @@ describe('formatMetaTag / parseMetaTag round trip', () => {
   })
 })
 
-describe('KNOWN_META_KEYS (story 045 D4)', () => {
+describe('KNOWN_META_KEYS', () => {
   it('appends `lbl`, then `ord`, then `sub`, then `cvs`/`cvsub`, after the pre-existing nine keys without moving any of them', () => {
     expect(KNOWN_META_KEYS.slice(2, 10)).toEqual([
       'cid',

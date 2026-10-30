@@ -1,7 +1,7 @@
 ---
 id: 325
 title: Tests and comments state what they check
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -14,18 +14,18 @@ notes lost in a comment sweep.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — No `describe` title contains a story number; client mocks have no `as never` cast;
+- [x] **AC1** — No `describe` title contains a story number; client mocks have no `as never` cast;
       the handler-reference check ignores comments (TD-013).
-- [ ] **AC2** — Tests exist for darwin at the steam and diagnostics call sites, for `looksLikeQuake2`
+- [x] **AC2** — Tests exist for darwin at the steam and diagnostics call sites, for `looksLikeQuake2`
       positive and negative cases, and for `isInside` with swapped arguments at its four call sites
       (TD-014).
-- [ ] **AC3** — No comment says `mirrors locales/en.json` or names an i18n key that does not exist
+- [x] **AC3** — No comment says `mirrors locales/en.json` or names an i18n key that does not exist
       (TD-028).
-- [ ] **AC4** — Every bare `catch` in `src/main` names the failure class it swallows or calls
+- [x] **AC4** — Every bare `catch` in `src/main` names the failure class it swallows or calls
       `log.caught`; a check fails on a new bare catch (TD-031).
-- [ ] **AC5** — The invariant notes on `ImportPreviewResult` and `RefreshedProfileResult` in
+- [x] **AC5** — The invariant notes on `ImportPreviewResult` and `RefreshedProfileResult` in
       `shared/modules/config.ts` are back (TD-033).
-- [ ] **AC6** — Rows TD-013, TD-014, TD-028, TD-031 and TD-033 are removed from `docs/TECH-DEBT.md`.
+- [x] **AC6** — Rows TD-013, TD-014, TD-028, TD-031 and TD-033 are removed from `docs/TECH-DEBT.md`.
 
 ## Open Questions
 
@@ -249,3 +249,21 @@ Coverage: AC1 D1+D2 · AC2 D3 · AC3 D4 · AC4 D5–D8 · AC5 D9 · AC6 D2/D3/D4
 criterion describes a user action. No manual residue.
 
 ## Done
+
+Describe titles carry no ids, client mocks are typed, the handler check ignores comments, the missing
+edge-case tests exist, locale comments are accurate, `src/main` has zero bare catches (guarded by
+`src/main/catch-policy.test.ts`), and the config contract's invariant notes are restored. Rows TD-013,
+TD-014, TD-028, TD-031, TD-033 are removed.
+
+- Commit message: `325: describe titles id-free, typed client mocks, edge-case tests, locale-comment guard, bare-catch guard + sweep, config invariant notes`
+- Verification (narrow gate): build, typecheck, lint, `npx vitest run --changed HEAD` (321 files, 4939 passed), `npm run check:docs`, prettier --check on changed files: green. Review 1 (default): PASS, minor findings below. AC1-AC6 verified by the named tests in Acceptance Tests (comments.test.ts x3, handler-coverage.test.ts x2, steam/diagnostics/inspector, four swapped-order tests - each proven red with swapped arguments - catch-policy.test.ts x2, tech-debt.test.mjs). No manual residue.
+- Decisions:
+  - `handler-coverage.test.ts` moved to the node tsconfig project (it now uses `source-tree.ts` with `node:fs`); `src/architecture.test.ts` exclude list updated to match.
+  - Locale-key matcher checks backticked tokens of 3+ segments whose first two segments name a real namespace in `en` (plural `_one/_other` resolve from the base); 2-segment tokens such as `app.isPackaged` are property paths and gave dozens of false positives. Narrower than DS-9, accepted and unfixed.
+  - Scanner counts 90 bare catches of 311 clauses vs TD-031's ~114: TD-031 counted commented binding-less catches too (explained in the test's doc comment). `*.test-helpers.ts` count as test code.
+  - Swept catches all got a failure-class comment; no `log.caught` was needed; no behaviour changed.
+  - Update-job swapped-order tests use a post-planning junction swap (planRemoval refuses linked paths earlier); a link-dependent case in `remove.test.ts` is `skipIf(!canLinkDirs)`.
+  - Unfixed review nits: `mockClient` guard inspects the call span only; describe guard skips `describe.skip/concurrent` and concatenated titles; two scripts-walk helpers in `comments.test.ts` duplicate an expression.
+  - TECH-DEBT.md: only the five rows deleted by hand (prettier re-padding reverted).
+
+tiers: D 9 / hard 1 · review default · cycles 1 · agents 11

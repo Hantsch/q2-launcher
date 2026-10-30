@@ -10,6 +10,7 @@ export async function listNames(dir: string): Promise<string[]> {
   try {
     return await readdir(dir)
   } catch {
+    // ENOENT/ENOTDIR: a missing directory has no entries
     return []
   }
 }

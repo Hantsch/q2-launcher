@@ -670,7 +670,7 @@ describe('createWindowsChannel', () => {
   })
 })
 
-describe('createWindowsChannel fullscreen (story 172)', () => {
+describe('createWindowsChannel fullscreen', () => {
   const SWITCH = buildEnterFullscreenLines({ switchMode: true })
   const FOLLOW = buildEnterFullscreenLines({ switchMode: false })
   const FULLSCREEN_ERROR = { ok: false, error: { key: 'replays.playback.error.fullscreen' } }

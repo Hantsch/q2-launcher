@@ -511,7 +511,7 @@ describe('buildImportedActions - adversarial bodies', () => {
 })
 
 // Story 045, D6: `entry-idioms.ts`'s recogniser wired into `buildImportedActions`.
-describe('buildImportedActions - recognised idioms (story 045, D6)', () => {
+describe('buildImportedActions - recognised idioms', () => {
   it('imports the zoom/zoomin/zoomout trio as one toggle entry, names kept verbatim', () => {
     const { actions } = build(
       [

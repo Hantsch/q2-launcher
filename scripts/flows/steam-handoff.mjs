@@ -62,7 +62,7 @@ const UNKNOWN_APPID = '9999'
 /** Quake II's own seed entry in `STEAM_APP_CLIENTS` (`src/shared/types/steam.ts`). */
 const KNOWN_APPID = '2320'
 
-// Mirrors src/renderer/src/i18n/locales/en.json's `runner.unavailable.*`/`runner.steam.caveat` -
+// The English text of `runner.unavailable.*`/`runner.steam.caveat` in `src/renderer/src/i18n/locales/en.shell.json` -
 // asserted verbatim, the same way `windows-build-on-linux.mjs` asserts the wine reason text.
 const STEAM_NOT_FOUND_TEXT = 'Steam not found — install Steam to hand this game off to it'
 const STEAM_NOT_OWNER_TEXT =

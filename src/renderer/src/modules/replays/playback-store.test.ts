@@ -45,7 +45,7 @@ beforeEach(() => {
 })
 afterEach(() => usePlaybackStore.getState().endSession())
 
-describe('playback store (story 165 D3)', () => {
+describe('playback store', () => {
   it('has no session until one begins, then starts at 1x with no view', () => {
     expect(usePlaybackStore.getState().session).toBeNull()
     usePlaybackStore.getState().beginSession('a.dm2', 90_000)
@@ -181,7 +181,7 @@ describe('playback store (story 165 D3)', () => {
   })
 })
 
-describe('optimistic timeline in the store (story 184 D2)', () => {
+describe('optimistic timeline in the store', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 

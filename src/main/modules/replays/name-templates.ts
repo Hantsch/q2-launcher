@@ -136,6 +136,7 @@ export function nameTemplatesReorder(
     const next = reorderTemplates(merged, input.ids)
     return ok(view(persist(app, next)))
   } catch {
+    // reorderTemplates throws when the ids do not match the templates
     return fail('replays.nameTemplates.error.invalidReorder')
   }
 }

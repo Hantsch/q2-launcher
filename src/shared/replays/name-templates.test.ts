@@ -25,7 +25,7 @@ function newId(): string {
   return `user-${nextId}`
 }
 
-describe('name-templates (story 140 D1)', () => {
+describe('name-templates', () => {
   it("an unedited shipped entry follows a release's changed text", () => {
     const state: NameTemplatesState = {
       entries: [{ id: 'a', kind: 'shipped', shippedId: 'a', template: null }],

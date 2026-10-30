@@ -28,8 +28,8 @@ import type { PlatformTaggedManifestPackage } from './manifest-schemas'
  *    real `ageMs`.
  *  - **nothing cached at all**: a failed fetch with no cached copy is an error
  *    (`ManifestUnavailableError`), never an empty snapshot. Zero packages that
- *    look like valid data are worse than an explicit failure - the IPC handler turns this
- *    error into the `downloads.error.manifestUnavailable` key.
+ *    look like valid data are worse than an explicit failure - callers degrade this
+ *    error to "nothing known" rather than surfacing a key.
  *
  * A failed fetch and a *refused* manifest (bad `schemaVersion`, broken envelope -
  * `parseManifestFile`) are the same event to this service: neither can produce a

@@ -66,7 +66,7 @@ const TIMEOUT_MS = 8_000
 /** Mirrors `retail-upgrade.mjs`'s own budget for the same real copy+promote job. */
 const JOB_TIMEOUT_MS = 60_000
 
-/** Mirrors `src/renderer/src/i18n/locales/en.json`'s `installation.action.importRetail`. */
+/** The English text of `installation.action.importRetail` in `src/renderer/src/i18n/locales/en.shell.json`. */
 const IMPORT_RETAIL_LABEL = 'Import retail data…'
 
 /** A staging directory this job would leave behind mid-copy (`upgrade-job.ts`'s

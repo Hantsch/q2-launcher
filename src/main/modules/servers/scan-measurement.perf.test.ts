@@ -37,7 +37,7 @@ const RECORDED_FULL_PASS_BUDGET_MS = 7527
 
 const POPULATION_SIZE = 30
 
-describe('scan measurement budget (story 115 D6)', () => {
+describe('scan measurement budget', () => {
   let responders: Responder[]
 
   beforeAll(async () => {

@@ -158,7 +158,7 @@ function errorKey(outcome: Outcome<unknown>): string | undefined {
   return outcome.ok ? undefined : outcome.error.key
 }
 
-describe('demo rename (story 157)', () => {
+describe('demo rename', () => {
   it('renames a demo and its sidecar', async () => {
     const t = await setup({
       'Final.dm2': 'demo',

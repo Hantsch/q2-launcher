@@ -26,6 +26,7 @@ export async function openSlideUrl(
   try {
     parsed = new URL(url)
   } catch {
+    // a TypeError from new URL: the slide link is not a URL (logged just below)
     log.warn(`slide.openUrl: refused a malformed url`)
     return fail('app.error.invalidUrl')
   }

@@ -75,6 +75,7 @@ async function deletePart(partPath: string): Promise<boolean> {
     await rm(partPath, { force: true })
     return true
   } catch {
+    // EBUSY/EPERM: a locked part file is reported to the caller as not deleted
     return false
   }
 }
@@ -129,6 +130,7 @@ export async function verifyAndPromote(
     }
     actualSize = stats.size
   } catch {
+    // ENOENT: the part file is missing, reported as a refusal
     return refuse(partPath, 'missing', `${partPath} does not exist`)
   }
 
@@ -160,6 +162,7 @@ export async function verifyAndPromote(
       await rm(finalPath, { force: true })
       await rename(partPath, finalPath)
     } catch {
+      // EBUSY/EPERM: the target stays locked after the retry, reported as a failed install below
       await deletePart(partPath)
       return {
         ok: false,

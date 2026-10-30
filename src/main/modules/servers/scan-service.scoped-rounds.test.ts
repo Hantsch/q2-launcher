@@ -541,7 +541,7 @@ describe('createScanService - readDetail', () => {
   })
 })
 
-describe('addresses scope (story 250)', () => {
+describe('addresses scope', () => {
   const FAV = '10.0.1.1:27910'
   const MANUAL = '10.0.1.2:27910'
   const OTHER = '10.0.1.3:27910'

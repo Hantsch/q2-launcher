@@ -28,7 +28,7 @@ function press(body: string, timescale: string): string {
   return current
 }
 
-describe('demo speed commands (story 167 D2)', () => {
+describe('demo speed commands', () => {
   it('speed up and speed down move exactly one timeline step per press', () => {
     const up = speedUpCommand()
     const down = speedDownCommand()

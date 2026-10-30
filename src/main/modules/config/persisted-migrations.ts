@@ -155,6 +155,7 @@ function addBackToWindowAndGuard(raw: Record<string, unknown>): Record<string, u
     }
     return changed ? { ...raw, actions, dirty: true } : raw
   } catch {
+    // a malformed persisted shape is left as it was read; the schema pass rejects it later
     return raw
   }
 }

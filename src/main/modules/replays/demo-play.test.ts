@@ -309,7 +309,7 @@ describe('demo.play with a saved mod', () => {
   })
 })
 
-describe('demo.play with a trusted mod (story 182 D1)', () => {
+describe('demo.play with a trusted mod', () => {
   it('a mod-missing play without acknowledgement is refused even when the mod is trusted', async () => {
     // The trust list is renderer-side convenience: main never reads it, so a stored trust entry
     // cannot turn a mod-missing play into an unacknowledged one.
@@ -354,7 +354,7 @@ describe('demo.play with a trusted mod (story 182 D1)', () => {
   })
 })
 
-describe('demo.play engine guard (story 161 D1)', () => {
+describe('demo.play engine guard', () => {
   it('an installation with neither Q2PRO nor R1Q2 never gets a demo launch', async () => {
     const others = engineKindSchema.options.filter((kind) => kind !== 'q2pro' && kind !== 'r1q2')
     expect(others.length).toBeGreaterThan(0)
@@ -477,7 +477,7 @@ describe('demo.play engine guard (story 161 D1)', () => {
   })
 })
 
-describe('demo.play (story 159 D2)', () => {
+describe('demo.play', () => {
   it('a q2pro launch is exactly +set game and +demo, never demomap', async () => {
     const h = harness({ demos: [CTF_DEMO, BASE_DEMO], files: ctfFiles() })
     const q2pro = h.installations[0]
@@ -679,7 +679,7 @@ describe('demo.play (story 159 D2)', () => {
   })
 })
 
-describe('demo.play from elsewhere (story 160 D2)', () => {
+describe('demo.play from elsewhere', () => {
   /** A demo from the sibling installation: not in place for `q2pro-a`, so it is played from a copy. */
   const ELSEWHERE = demo({
     id: 'away',
@@ -862,7 +862,7 @@ function fakeControl() {
   } satisfies PlaybackControl
 }
 
-describe('demo.play playback channel (story 164 D4)', () => {
+describe('demo.play playback channel', () => {
   it('channel args wrap +demo so +demo precedes +exec', async () => {
     for (const platform of ['win32', 'linux']) {
       const playback = fakeControl()
@@ -946,7 +946,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
   })
 })
 
-describe('demo.play on the stage (story 170 D2)', () => {
+describe('demo.play on the stage', () => {
   const STAGE = { x: 1, y: 2, width: 640, height: 360 }
   const STAGE_ARGS = [
     '+set',
@@ -1109,7 +1109,7 @@ describe('demo.play on the stage (story 170 D2)', () => {
   })
 })
 
-describe('demo.play stage cvar restore (story 170 D3)', () => {
+describe('demo.play stage cvar restore', () => {
   const STAGE = { x: 1, y: 2, width: 640, height: 360 }
   const restorer = () => ({
     snapshot: vi.fn(async () => undefined),

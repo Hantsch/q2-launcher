@@ -151,7 +151,7 @@ describe('update:check', () => {
  * service's `Outcome` through untouched - a refusal decided in main must reach the renderer with
  * its key intact, since that key *is* the reason the user gets to read (AC6/AC7).
  */
-describe('the staged update actions (story 098)', () => {
+describe('the staged update actions', () => {
   it('routes each channel to its own service method and passes the outcome through', async () => {
     const actions = fakeActions()
     const update = {

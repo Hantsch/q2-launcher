@@ -66,7 +66,7 @@ beforeEach(() => {
   listeners = []
 })
 
-describe('servers client - scan transport (story 114 D7)', () => {
+describe('servers client - scan transport', () => {
   it('startScan calls scan.start with the scope and the selected address when present', async () => {
     invokeMock.mockResolvedValue({ ok: true, value: { ok: true } })
 

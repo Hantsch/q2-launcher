@@ -10,7 +10,7 @@ function pressAction(sim: ReturnType<typeof createCbufSim>, body: string): void 
   sim.run()
 }
 
-describe('demo guard (story 172 D1)', () => {
+describe('demo guard', () => {
   it('a guarded demo action is ignored at the armed position and runs once the position moved', () => {
     const body = guardDemoCommand('seek +10')
 

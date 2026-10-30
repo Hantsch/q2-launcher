@@ -535,8 +535,8 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
     await shot('pointer-drop-invalid-ghost')
   })
 
-  // Mirrors en.json's `home.dashboard.status.invalidDrop`, which interpolates the pure engine's own
-  // refusal reason - the user is told WHY while still dragging (AC5), not just that it went red.
+  // The home locale's `home.dashboard.status.invalidDrop` (modules/home/locale/en.json)
+  // interpolates the pure engine's own refusal reason - the user is told WHY while still dragging (AC5).
   if (!invalidStatus.includes('cannot go there')) {
     throw new Error(
       `expected the status line to explain the refusal while dragging, got ${JSON.stringify(invalidStatus)}`,

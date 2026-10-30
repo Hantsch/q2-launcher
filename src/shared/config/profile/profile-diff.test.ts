@@ -129,7 +129,7 @@ describe('diffProfileAgainstBaseline - nothing pending', () => {
   })
 })
 
-describe('diffProfileAgainstBaseline - cvars (resolved value, story 048 always-write)', () => {
+describe('diffProfileAgainstBaseline - cvars (resolved value, always-write)', () => {
   it('reports nothing for a catalogue cvar stored at its default on one side and absent on the other', () => {
     // The file carries `set cl_run "1"` either way since 048, so the map-key difference is not a
     // difference the file has - in both directions.

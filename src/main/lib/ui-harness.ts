@@ -163,6 +163,7 @@ export function parseHarnessBaseUrl(raw: string | undefined): string | undefined
   try {
     url = new URL(raw)
   } catch {
+    // an unparsable harness base URL is treated as unset
     return undefined
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
@@ -307,6 +308,7 @@ async function readHarnessJsonArray(filePath: string): Promise<string[]> {
     const parsed: unknown = JSON.parse(raw)
     return Array.isArray(parsed) ? (parsed as string[]) : []
   } catch {
+    // ENOENT or invalid JSON: the harness record may not exist yet
     return []
   }
 }

@@ -165,6 +165,7 @@ export function toSource(pkg: CatalogPackage): PackageSource | undefined {
   try {
     fileName = decodeURIComponent(new URL(pkg.url).pathname.split('/').pop() ?? '')
   } catch {
+    // a malformed package URL (TypeError from new URL or URIError from decoding) has no usable file name
     return undefined
   }
   if (!isSafeDownloadFileName(fileName)) return undefined
@@ -362,6 +363,7 @@ export async function collectPackageFiles(
       try {
         info = await lstat(source)
       } catch {
+        // ENOENT: the declared content is absent, reported as a refusal just below
         return { ok: false, reason: `${pkg.id} holds no ${content.from}` }
       }
       if (info.isFile()) {

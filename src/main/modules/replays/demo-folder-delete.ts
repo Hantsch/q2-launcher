@@ -45,6 +45,7 @@ export function createDemoFolderDelete(
     try {
       await os.trashItem(located.value.absolutePath)
     } catch {
+      // the folder cannot be moved to the trash (locked or permission denied)
       return fail('replays.folder.error.trashFailed')
     }
     await scan.applyMoves(rows.map((row) => ({ id: row.id, newPath: null })))

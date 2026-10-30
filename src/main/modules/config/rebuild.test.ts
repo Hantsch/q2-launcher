@@ -278,7 +278,7 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
 // The one-time format migration (AC8)
 // ---------------------------------------------------------------------------
 
-describe('runFileSourceStartup: AC8 one-time migration', () => {
+describe('runFileSourceStartup: one-time migration', () => {
   /** A profile whose canonical file is in a pre-043 shape: the old "generated, do not edit"
    * sentinel wording and a stale body. Still recognisably ours (`ownedProfileId` is wording
    * tolerant since D1), so the migration is expected to rewrite it in place with no backup. */

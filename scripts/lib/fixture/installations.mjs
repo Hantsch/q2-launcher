@@ -166,7 +166,7 @@ export const INSTALL_FAILED_ID = 'fixture-install-failed'
 
 /**
  * The i18n key `INSTALL_FAILED_ID` carries as its `lastFailure.errorKey` - a real, existing key
- * from `src/renderer/src/i18n/locales/en.json` ("Every download source failed. Check your
+ * from `src/renderer/src/modules/downloads/locale/en.json` ("Every download source failed. Check your
  * connection and try again."), not an invented one. Exported so both the seeded fixture row and
  * `scripts/flows/bootstrap-failure-retry.mjs` (whose own 404-both-URLs fixture-server option
  * produces this exact key via `fetcher.ts`'s `allMirrorsFailed` exit) can assert against the same

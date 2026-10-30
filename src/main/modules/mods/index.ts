@@ -139,6 +139,7 @@ export const modsModule: MainModule = {
             try {
               return (await manifest.getManifest()).packages
             } catch {
+              // an unavailable manifest (network or parse failure) means no engine packages are offered
               return []
             }
           },
@@ -216,6 +217,7 @@ export const modsModule: MainModule = {
         try {
           return (await manifest.getManifest()).packages
         } catch {
+          // an unavailable manifest (network or parse failure) means no engine packages are offered
           return []
         }
       },

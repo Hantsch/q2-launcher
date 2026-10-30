@@ -703,7 +703,7 @@ describe('a canonical file deleted outside the launcher', () => {
 // 5. AC8's one-time migration of a pre-042 profile.
 // ---------------------------------------------------------------------------
 
-describe('AC8 migration of a pre-042 profile', () => {
+describe('migration of a profile written before the file-source format', () => {
   /** A `state.json` record as it would have been before this story: no `fileHash`, no `fileSeenAt`,
    * no `dirty`, no `fileState`. */
   function pre043Record(): ConfigProfile {
@@ -857,7 +857,7 @@ describe('rebuild from the file with the sentinel id', () => {
 // 7. The whole cycle over every 042 fixture: nothing lost, fixed point holds.
 // ---------------------------------------------------------------------------
 
-describe('write -> external edit -> re-read -> render over every 042 fixture', () => {
+describe('write -> external edit -> re-read -> render over every file-source fixture', () => {
   // Story 052 D2/D3: no fixture is excluded here any more. "Keyless catalogue entry" - an entry
   // with no key whose command is exactly its catalogue default - used to render to nothing at all
   // (no alias line, no bind line, no anchor line) and was therefore listed as a named limitation

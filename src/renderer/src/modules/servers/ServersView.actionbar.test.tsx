@@ -165,7 +165,7 @@ async function renderViewWithBar(entries: ServerListEntry[]): Promise<void> {
 
 const joinButton = (): HTMLElement => screen.getByTestId('actionbar-play')
 
-describe('ServersView - Join in the action bar (story 181 D2)', () => {
+describe('ServersView - Join in the action bar', () => {
   it('no selection contributes a disabled Join', async () => {
     seedLauncher(true)
     await renderViewWithBar([entry(ROW_A)])

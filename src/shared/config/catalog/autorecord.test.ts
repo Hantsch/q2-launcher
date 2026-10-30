@@ -4,7 +4,7 @@ import { AUTORECORD_RECIPES, applyAutorecord, readAutorecord } from './autorecor
 
 const COMMAND = 'record ${cl_mapname}_${com_date}_${com_time}'
 
-describe('autorecord recipes (story 168 D1)', () => {
+describe('autorecord recipes', () => {
   it('r1q2 on writes cl_autorecord 1 and off removes it', () => {
     const on = applyAutorecord({ name: 'x' }, 'r1q2', true)
     expect(on).toEqual({ name: 'x', cl_autorecord: '1' })

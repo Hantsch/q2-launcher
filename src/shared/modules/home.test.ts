@@ -15,7 +15,7 @@ import {
   newsTextContentSchema,
 } from './home'
 
-describe('home module contract (story 082 D1)', () => {
+describe('home module contract', () => {
   it('every handler has an exported payload schema', () => {
     for (const name of Object.values(HOME_HANDLERS)) {
       expect(HOME_HANDLER_SCHEMAS[name]).toBeDefined()

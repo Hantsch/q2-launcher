@@ -116,6 +116,7 @@ export async function readManifest(rootPath: string): Promise<ManifestReadResult
   try {
     json = JSON.parse(text)
   } catch {
+    // a manifest that is not valid JSON is reported as invalid
     return { status: 'invalid' }
   }
   const parsed = manifestSchema.safeParse(json)
@@ -256,6 +257,7 @@ async function restoreUnserialized(rootPath: string): Promise<RestoreOriginalsRe
   try {
     manifest = await readManifest(rootPath)
   } catch {
+    // an unreadable manifest (I/O error) is reported as a failed restore
     return { status: 'failed', failedPaths: [] }
   }
   if (manifest.status !== 'ok') return manifest
@@ -265,6 +267,7 @@ async function restoreUnserialized(rootPath: string): Promise<RestoreOriginalsRe
     try {
       await restoreEntry(rootPath, entry)
     } catch {
+      // a single entry that cannot be restored is collected into failedPaths
       failedPaths.push(manifestEntryPath(entry))
     }
   }
@@ -273,6 +276,7 @@ async function restoreUnserialized(rootPath: string): Promise<RestoreOriginalsRe
   try {
     await rm(backupDir(rootPath), { recursive: true, force: true })
   } catch {
+    // the backup directory cannot be removed (locked or permission denied), reported as failed
     return { status: 'failed', failedPaths: [] }
   }
   return { status: 'restored' }

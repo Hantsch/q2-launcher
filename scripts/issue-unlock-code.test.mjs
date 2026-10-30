@@ -166,7 +166,7 @@ describe('issueUnlockCode - input validation', () => {
   })
 })
 
-describe('issueUnlockCode - payload validity (AC8: a signed code must be accepted, not just signable)', () => {
+describe('issueUnlockCode - payload validity', () => {
   test('an expiresAt equal to issuedAt throws', () => {
     const { privateKey } = throwawayKeyPair()
     const now = new Date('2026-01-01T00:00:00.000Z')

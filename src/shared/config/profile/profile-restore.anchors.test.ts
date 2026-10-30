@@ -280,7 +280,7 @@ describe('restoreProfileParts - anchor lines and how they find their entry', () 
   })
 })
 
-describe('restoreProfileParts - unbound lines (story 052 D3)', () => {
+describe('restoreProfileParts - unbound lines', () => {
   /**
    * One unbound line exactly as `render.ts#unboundLine` writes it, marker stripped the way
    * `config-parser.ts` hands a comment-only line over: the whole `bind` command commented out, then

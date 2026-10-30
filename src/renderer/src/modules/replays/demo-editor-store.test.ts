@@ -97,7 +97,7 @@ function fakeSidecar(initial: Record<string, unknown>, options: { broken?: boole
   return { disk, waiting, settle }
 }
 
-describe('quick edits never lose a write (story 179)', () => {
+describe('quick edits never lose a write', () => {
   it('a favourite toggle and a rating pick fired back-to-back both reach the sidecar', async () => {
     const sidecar = fakeSidecar({ name: 'x' })
     const favourite = store().quickEdit(A, { favourite: true }, vi.fn())

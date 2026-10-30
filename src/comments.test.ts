@@ -1,9 +1,13 @@
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { en } from './renderer/src/i18n/bundle'
+import { sourceFiles } from './test-support/source-files'
 import {
   commentRanges,
   isTestFile,
   listSourceFiles,
   readRepoFile,
+  REPO_ROOT,
 } from './test-support/source-tree'
 
 /**
@@ -109,6 +113,8 @@ const REQUIRED_SWEPT: string[] = [
 const ID_PATTERN = /\bD\d{1,2}\b|\bAC ?\d{1,2}\b/
 /** A pointer to a story in any spelling: `story 12`, `stories 052/053`, `story-146`, `[[146]]`. */
 const STORY_POINTER = /\bstor(?:y|ies)[ -]\d+|\[\[\d+\]\]/i
+/** A zero-padded story number (`pre-042`, `every 042 fixture`). */
+const PADDED_STORY_NUMBER = /\b0\d{2}\b/
 const TRAILING_POINTER = /\(story \d+\)\s*(\*\/)?\s*$/
 const HISTORY_PHRASES = /\b(later|this|earlier|next) deliverable\b|\bused to\b/i
 const NARRATIVE_MARKERS: RegExp[] = [
@@ -123,6 +129,17 @@ const productionSources = (): string[] =>
   listSourceFiles('src').filter(
     (path) => !isTestFile(path) && !path.startsWith('src/test-support/'),
   )
+
+/** The first string argument of a `describe(` / `describe.each(…)(` call, in any quote style. */
+const DESCRIBE_TITLE = /\bdescribe(?:\.each\([^)]*\))?\(\s*(['"`])((?:(?!\1)[^\\\n]|\\.)*)\1/g
+
+/** Repo-relative `*.test.ts(x)` / `*.test.mjs` files under `src/` and `scripts/`. */
+function testFilesWithDescribes(): string[] {
+  const scripts = sourceFiles(join(REPO_ROOT, 'scripts')).map((file) =>
+    file.slice(REPO_ROOT.length + 1).replaceAll('\\', '/'),
+  )
+  return [...listSourceFiles('src'), ...scripts].filter((path) => /\.test\.(tsx?|mjs)$/.test(path))
+}
 
 const filesUnder = (roots: string[]): string[] =>
   productionSources().filter((path) =>
@@ -156,6 +173,45 @@ function moduleHeader(path: string): ReturnType<typeof commentRanges>[number] | 
   const leading = blocks.find((range) => range.endLine < firstImport)
   const definition = /^export (const \w*Module\b|interface RendererModule\b|default\b)/
   return leading ?? blocks.find((range) => definition.test(lines[range.endLine] ?? ''))
+}
+
+/** A backticked dotted token in a comment: `a.b.c` or `a.b.*`. */
+const DOTTED_TOKEN = /`([A-Za-z][\w-]*(?:\.[\w-]+)+)(\.\*)?`/g
+const FILE_EXTENSION = /\.(?:[cm]?[jt]sx?|json|md|css|html|ya?ml|txt|log|exe|node|d)$/
+
+/** A plural key is stored as `<key>_one` / `<key>_other`, so the bare base resolves too. */
+function resolvesIn(tree: unknown, key: string): boolean {
+  let node = tree
+  const segments = key.split('.')
+  for (const [index, segment] of segments.entries()) {
+    if (typeof node !== 'object' || node === null) return false
+    const here = node as Record<string, unknown>
+    const plural = index === segments.length - 1 && `${segment}_other` in here
+    if (!(segment in here) && !plural) return false
+    node = here[segment]
+  }
+  return true
+}
+
+/**
+ * Backticked tokens of three or more segments whose first two segments name a real namespace of
+ * `bundle` (so `app.isPackaged` or `installation.gameDirs` stay property paths) but which do not resolve.
+ */
+function danglingKeys(comments: string[], bundle: object): string[] {
+  return comments.flatMap((comment) =>
+    [...comment.matchAll(DOTTED_TOKEN)]
+      .map((match) => match[1])
+      .filter((token) => !FILE_EXTENSION.test(token) && token.split('.').length >= 3)
+      .filter((token) => resolvesIn(bundle, token.split('.').slice(0, 2).join('.')))
+      .filter((token) => !resolvesIn(bundle, token)),
+  )
+}
+
+function sourcesAndScripts(): string[] {
+  const scripts = sourceFiles(join(REPO_ROOT, 'scripts')).map((file) =>
+    file.slice(REPO_ROOT.length + 1).replaceAll('\\', '/'),
+  )
+  return [...listSourceFiles('src'), ...scripts].filter((path) => path !== 'src/comments.test.ts')
 }
 
 describe('comment conventions', () => {
@@ -194,6 +250,17 @@ describe('comment conventions', () => {
     expect(offenders).toEqual([])
   })
 
+  it('no describe title carries a story, deliverable or criterion id', () => {
+    const idPatterns = [ID_PATTERN, STORY_POINTER, PADDED_STORY_NUMBER]
+    const offenders = testFilesWithDescribes().flatMap((path) =>
+      [...readRepoFile(path).matchAll(DESCRIBE_TITLE)]
+        .map((match) => match[2])
+        .filter((title) => idPatterns.some((pattern) => pattern.test(title)))
+        .map((title) => `${path}: ${title}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
   it('no review-round narrative in comments', () => {
     const offenders = filesUnder(ID_FREE_ROOTS).filter((path) =>
       commentsOf(path).some((comment) => NARRATIVE_MARKERS.some((marker) => marker.test(comment))),
@@ -226,5 +293,36 @@ describe('comment conventions', () => {
       for (const sentence of stale)
         for (const comment of commentsOf(path)) expect(comment, path).not.toContain(sentence)
     }
+  })
+
+  it('the config contract keeps its invariant notes', () => {
+    const path = 'src/shared/modules/config.ts'
+    const source = readRepoFile(path)
+    const lines = source.split('\n')
+    const docAbove = (fieldLine: RegExp): string => {
+      const index = lines.findIndex((line) => fieldLine.test(line))
+      expect(index, String(fieldLine)).toBeGreaterThan(-1)
+      const range = commentRanges(source).find((r) => r.endLine === index)
+      expect(range, String(fieldLine)).toBeDefined()
+      return range!.text
+    }
+    expect(docAbove(/^ {6}droppedAliases: string\[\]/)).toContain('[]')
+    expect(docAbove(/^ {2}messageCount: number/)).toContain('empty `layerAliases`')
+    expect(docAbove(/^ {2}ambiguousRebindAliases:/)).toContain('whatever')
+    expect(docAbove(/^ {2}ownWrittenFile: boolean/)).toContain('exec')
+  })
+
+  it('no comment names a missing locale file or i18n key', () => {
+    const fixture = ['// see `downloads.error.noSuchKey` and `downloads.error.allMirrorsFailed`']
+    expect(danglingKeys(fixture, en)).toEqual(['downloads.error.noSuchKey'])
+    expect(danglingKeys(['// the `runner.unavailable.*` family'], en)).toEqual([])
+
+    const files = sourcesAndScripts()
+    const oldFile = files.filter((path) => readRepoFile(path).includes('i18n/locales/en.json'))
+    expect(oldFile).toEqual([])
+    const dangling = files.flatMap((path) =>
+      danglingKeys(commentsOf(path), en).map((key) => `${path}: ${key}`),
+    )
+    expect(dangling).toEqual([])
   })
 })

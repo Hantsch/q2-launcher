@@ -220,8 +220,7 @@ export const BOOTSTRAP_JOB_LABEL_KEY = 'downloads.job.bootstrap'
 /**
  * The failure key for a target the wizard may not install into. Not a member of
  * `DOWNLOADS_ERROR_KEYS`: it is answered by `bootstrap.start` itself, before any job exists, so it
- * never reaches a `Job.error` - the same reason `downloads.error.manifestUnavailable` is not a
- * member either.
+ * never reaches a `Job.error` - the same reason a failed manifest fetch is not a member either.
  */
 export const TARGET_BLOCKED_KEY = 'downloads.error.bootstrapTargetBlocked'
 
@@ -461,6 +460,7 @@ export function toPackageSource(pkg: ManifestPackage): PackageSource | undefined
   try {
     fileName = decodeURIComponent(new URL(pkg.url).pathname.split('/').pop() ?? '')
   } catch {
+    // a malformed package URL (TypeError from new URL or URIError from decoding) has no usable file name
     return undefined
   }
   if (!isSafeDownloadFileName(fileName)) return undefined

@@ -59,7 +59,7 @@ beforeEach(() => {
   listeners = []
 })
 
-describe('useWatchlist (story 132 D1)', () => {
+describe('useWatchlist', () => {
   it('loads the snapshot and follows watchlist.changed', async () => {
     invokeMock.mockResolvedValue({ ok: true, value: SNAPSHOT_A })
 

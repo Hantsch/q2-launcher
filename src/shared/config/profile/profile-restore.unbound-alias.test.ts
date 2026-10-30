@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatMetaTag } from '@shared/config/profile/profile-metadata'
 import { doc, tagged, slotsOf, keysOf, type DocBuilder } from './profile-restore.test-helpers'
 
-describe('restoreProfileParts - an unbound line beside an alias line (story 063 D2)', () => {
+describe('restoreProfileParts - an unbound line beside an alias line', () => {
   /** One unbound line as `render.ts#unboundLine` writes it - same helper as the 052 block above. */
   function unbound(command: string, prose: string, fields: Record<string, string> = {}): string {
     return `bind "${command}"  //${tagged(prose, fields)}`

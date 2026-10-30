@@ -9,7 +9,7 @@ import { homeState, parseHomeLayout } from './persisted'
 import { configState } from '../config/persisted'
 
 // Story 086 D1 (AC10/AC11).
-describe('parseHomeLayout (story 086 D1)', () => {
+describe('parseHomeLayout', () => {
   it('a record for an unknown module id is dropped', () => {
     const layout = parseHomeLayout({
       tiles: [

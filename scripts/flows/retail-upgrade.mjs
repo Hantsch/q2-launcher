@@ -72,7 +72,7 @@
 // buttons (D4's own note in the story: "the agent that built D4 did not necessarily add explicit
 // new data-testids") - each is a plain `IconButton` whose only identifying trait is its translated
 // `aria-label`, so this flow selects all three by that accessible name
-// (`IMPORT_RETAIL_LABEL` below, mirroring `src/renderer/src/i18n/locales/en.json`'s
+// (`IMPORT_RETAIL_LABEL` below, the English text in `src/renderer/src/i18n/locales/en.shell.json`:
 // `installation.action.importRetail`), scoped per surface (`<aside>` for the rail,
 // `footer` for the action bar, the library row for the library card) the same way
 // `scripts/flows/installation-icon-tile.mjs` and `scripts/flows/engine-badge-surfaces.mjs` already
@@ -106,7 +106,7 @@ const TIMEOUT_MS = 8_000
  * those, but the budget stays generous rather than cutting it close. */
 const JOB_TIMEOUT_MS = 60_000
 
-/** Mirrors `src/renderer/src/i18n/locales/en.json`'s `installation.action.importRetail`. */
+/** The English text of `installation.action.importRetail` in `src/renderer/src/i18n/locales/en.shell.json`. */
 const IMPORT_RETAIL_LABEL = 'Import retail data…'
 
 /** Module-scoped: `setup()` writes it, the flow body below reads it back to name the two fixture

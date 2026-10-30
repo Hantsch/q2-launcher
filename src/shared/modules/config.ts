@@ -601,7 +601,9 @@ export type RefreshedProfileResult =
       profile: ConfigProfile
       /**
        * Alias names the file defined more than once, so the adopted profile is missing
-       * whatever the earlier definition of each said.
+       * whatever the earlier definition of each said; `[]` is the normal case. On the wire because
+       * main's alias fold discards the earlier body before the profile is rebuilt, so the loss is
+       * invisible anywhere else.
        */
       droppedAliases: string[]
     }
@@ -819,16 +821,25 @@ export interface ImportPreviewResult {
   bindCount: number
   /** Number of `alias <name> <body>` definitions the import found. */
   aliasCount: number
-  /** Of those alias definitions, how many convert to a `kind: 'message'` entry. */
+  /**
+   * Of those alias definitions, how many convert to a `kind: 'message'` entry; computed by
+   * `buildImportedActions` with an empty `layerAliases`, as nothing has been answered yet.
+   */
   messageCount: number
   preserved: UnrecognizedConfigLine[]
   filesRead: string[]
   duplicateBinds: DuplicateBindLine[]
   /** Mirrors `duplicateBinds` for aliases - `import-reader.ts`'s `duplicateAliases`. */
   duplicateAliases: DuplicateAliasLine[]
-  /** Every alias whose body rebinds at least one key. */
+  /**
+   * Every alias whose body rebinds at least one key. The same list whatever `layerAliases` answer
+   * `preview` used; only whether an entry becomes a layer or a plain alias changes.
+   */
   ambiguousRebindAliases: AmbiguousRebindAlias[]
-  /** True when the OWNERSHIP_MARKER sentinel. */
+  /**
+   * True when the OWNERSHIP_MARKER sentinel was found on any file this import read, including one
+   * reached only through an `exec` chain.
+   */
   ownWrittenFile: boolean
   /**
    * The `[q2l v=…]` format version the file was written with, or `null` for a foreign config

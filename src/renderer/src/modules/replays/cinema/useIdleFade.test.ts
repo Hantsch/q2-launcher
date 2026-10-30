@@ -6,7 +6,7 @@ import { useIdleFade } from './useIdleFade'
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
-describe('useIdleFade (story 187 D7)', () => {
+describe('useIdleFade', () => {
   it('controls hide after 3 s idle and stay while hovered or paused', () => {
     const { result, rerender } = renderHook(({ hold }) => useIdleFade(3000, hold), {
       initialProps: { hold: false },

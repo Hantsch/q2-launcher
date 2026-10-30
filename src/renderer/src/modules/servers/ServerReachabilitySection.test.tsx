@@ -30,7 +30,7 @@ function renderSection(entry: ServerListEntry) {
   render(createElement(ServerReachabilitySection, { entry }))
 }
 
-describe('ServerReachabilitySection (story 124 D2)', () => {
+describe('ServerReachabilitySection', () => {
   it('online entry states it answered the last scan', () => {
     renderSection(baseEntry({ status: 'online', lastSeenAt: '2026-01-01T00:00:00.000Z' }))
     const lastRound = screen.getByTestId('server-reachability-last-round')

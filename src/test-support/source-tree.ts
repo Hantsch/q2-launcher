@@ -37,13 +37,19 @@ const REGEX_PRECEDER_WORDS = /\b(return|typeof|case|do|else|in|of|void|yield|awa
 interface Lexed {
   code: string
   comments: { start: number; end: number }[]
+  masked: string
 }
 
-// One lexer for both views: `code` is the source with each comment replaced by a space, `comments`
-// the [start, end) offsets of those comments. String, template and regex literals are skipped
-// intact, so a `//` inside a URL or a quote inside a regex does not derail the scan.
+// Every character but a newline as a space, so a masked view keeps the source's offsets and lines.
+const blank = (text: string): string => text.replace(/[^\n]/g, ' ')
+
+// One lexer for every view: `code` is the source with each comment replaced by a space, `comments`
+// the [start, end) offsets of those comments, `masked` the source with comments and literal text
+// blanked offset for offset. String, template and regex literals are skipped intact, so a `//`
+// inside a URL or a quote inside a regex does not derail the scan.
 function lex(source: string): Lexed {
   let out = ''
+  let masked = ''
   const comments: Lexed['comments'] = []
   let i = 0
   const n = source.length
@@ -57,6 +63,7 @@ function lex(source: string): Lexed {
       while (i < n && source[i] !== '\n') i++
       comments.push({ start, end: i })
       out += ' '
+      masked += blank(source.slice(start, i))
       continue
     }
     if (c === '/' && next === '*') {
@@ -65,12 +72,14 @@ function lex(source: string): Lexed {
       i = end === -1 ? n : end + 2
       comments.push({ start, end: i })
       out += ' '
+      masked += blank(source.slice(start, i))
       continue
     }
     if (c === '"' || c === "'") {
       const start = i++
       while (i < n && source[i] !== c) i += source[i] === '\\' ? 2 : 1
       out += source.slice(start, ++i)
+      masked += blank(source.slice(start, i))
       continue
     }
     const closesExpression = c === '}' && templateDepths[templateDepths.length - 1] === 0
@@ -85,6 +94,8 @@ function lex(source: string): Lexed {
         templateDepths.push(0)
       } else i++
       out += source.slice(start, Math.min(i, n))
+      // The `${` and the `}` closing it are blanked together, so the expression's braces still pair.
+      masked += blank(source.slice(start, Math.min(i, n)))
       continue
     }
     if (templateDepths.length > 0 && (c === '{' || c === '}'))
@@ -99,12 +110,23 @@ function lex(source: string): Lexed {
         i++
       }
       out += source.slice(start, ++i)
+      masked += blank(source.slice(start, i))
       continue
     }
     out += c
+    masked += c
     i++
   }
-  return { code: out, comments }
+  return { code: out, comments, masked: masked.slice(0, n) }
+}
+
+/**
+ * `source` with every comment and the text of every string, template and regex literal replaced
+ * by spaces, newlines kept: same length and lines as `source`, so braces can be paired and offsets
+ * mapped back. Template `${ }` expressions stay code.
+ */
+export function maskLiterals(source: string): string {
+  return lex(source).masked
 }
 
 /** `source` with every `//` and `/* *\/` comment replaced by a space. */

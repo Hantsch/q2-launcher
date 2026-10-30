@@ -141,6 +141,7 @@ export async function readArchivedCvar(
   try {
     text = (await fs.readFile(configPath)).toString('latin1')
   } catch {
+    // ENOENT: the config file may not exist yet
     return null
   }
   let value: string | null = null
@@ -280,6 +281,7 @@ export function createCvarRestore({
             await apply(pending)
             await fs.rm(pendingPath, { force: true })
           } catch {
+            // the pending restore could not be re-applied, so the original snapshot is kept
             current = pending
             return
           }

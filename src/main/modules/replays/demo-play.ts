@@ -200,6 +200,7 @@ async function containment(filePath: string, gameDirPath: string): Promise<Conta
   try {
     realFile = await realpath(filePath)
   } catch {
+    // ENOENT: the demo file may no longer exist
     return 'missing'
   }
   const demosDir = await findDemosDir(gameDirPath)
@@ -208,6 +209,7 @@ async function containment(filePath: string, gameDirPath: string): Promise<Conta
   try {
     realDemosDir = await realpath(demosDir)
   } catch {
+    // the demos directory may have been removed since it was found
     return 'outside'
   }
   // Parent equality, never a prefix check: `pathKey` only normalises trailing separators and (off

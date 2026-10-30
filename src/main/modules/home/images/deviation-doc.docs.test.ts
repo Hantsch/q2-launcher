@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 const REPO_ROOT = resolve(__dirname, '../../../../..')
 const CLAUDE_MD_PATH = resolve(REPO_ROOT, 'CLAUDE.md')
 
-describe('CLAUDE.md records the feed-image deviation for story 084', () => {
+describe('CLAUDE.md records the feed-image deviation', () => {
   const contents = readFileSync(CLAUDE_MD_PATH, 'utf-8')
 
   // Isolate the Deviations table so a mention elsewhere in the doc cannot satisfy the assertions.

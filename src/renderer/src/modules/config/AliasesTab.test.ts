@@ -86,7 +86,7 @@ function renderTab(actions: ConfigAction[]) {
   )
 }
 
-describe('AliasesTab drop toggles (story 055 D4)', () => {
+describe('AliasesTab drop toggles', () => {
   it('shows the two drop toggles on an editable drop alias row and toggles ammo through applyDropAmmo', async () => {
     renderTab([dropAction()])
 

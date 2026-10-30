@@ -98,7 +98,7 @@ const BLEEDING_EDGE_VERSION = 'fixture-nightly-99'
  * shared-layer-free constant in a main-process-only module this plain-Node script cannot import. */
 const ENGINE_BACKUP_DIR_NAME = '.q2launcher-engine-backup'
 
-/** Mirrors `engineUpdate.bleedingEdge.label` (`src/renderer/src/i18n/locales/en.json`). */
+/** The English text of `engineUpdate.bleedingEdge.label` (`src/renderer/src/modules/downloads/locale/en.json`). */
 const BLEEDING_EDGE_LABEL = 'Bleeding edge'
 
 let server = null

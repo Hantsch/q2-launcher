@@ -167,7 +167,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('ControlsTab sub-category header drag (story 054 D6)', () => {
+describe('ControlsTab sub-category header drag', () => {
   it('reorders sub-categories within their category and persists the new order', async () => {
     renderTab()
     expect(renderedSubcategoryIds()).toEqual(['sub-1', 'sub-2'])

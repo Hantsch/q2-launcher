@@ -20,6 +20,7 @@ export async function exists(
     await fs.stat(path)
     return true
   } catch {
+    // ENOENT: the path does not exist
     return false
   }
 }

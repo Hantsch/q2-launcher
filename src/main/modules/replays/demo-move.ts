@@ -82,6 +82,7 @@ export function createDemoMove(options: CreateDemoMoveOptions): DemoMoveService 
     try {
       await fs.stat(oldPath)
     } catch {
+      // stat fails when the demo file is gone
       return fail('replays.move.error.demoMissing')
     }
 

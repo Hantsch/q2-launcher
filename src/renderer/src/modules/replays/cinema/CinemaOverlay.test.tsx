@@ -51,7 +51,7 @@ afterEach(() => {
 
 const sent = (): unknown[] => playbackTimeline.mock.calls.map((c) => c[0])
 
-describe('CinemaOverlay (story 187 D7)', () => {
+describe('CinemaOverlay', () => {
   it('each control sends its timeline action', () => {
     render(createElement(CinemaOverlay))
     fireEvent.click(screen.getByTestId('cinema-fullscreen'))

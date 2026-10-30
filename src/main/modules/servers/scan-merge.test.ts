@@ -137,7 +137,7 @@ describe('appendRttSample', () => {
   })
 })
 
-describe('mergeStaleRound - story 124 D1 RTT history', () => {
+describe('mergeStaleRound - RTT history', () => {
   it('a stale-flipped server gets a no-answer sample', () => {
     const existing = entry({ address: '10.0.0.1:27910' })
     const entries = new Map([[existing.address, existing]])

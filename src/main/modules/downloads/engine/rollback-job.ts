@@ -239,6 +239,7 @@ async function listBackupFiles(dir: string): Promise<string[]> {
   try {
     return (await listFilesRecursive(dir)).map((entry) => entry.rel)
   } catch {
+    // ENOENT: a backup directory that is missing or unreadable holds no files to restore
     return []
   }
 }

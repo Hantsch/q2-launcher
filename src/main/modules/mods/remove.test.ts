@@ -238,6 +238,25 @@ describe('removeRecordedFiles', () => {
     expect(await exists(join(gameDirPath, 'pak0.pak'))).toBe(true)
   })
 
+  it.skipIf(!canLinkDirs)(
+    'refuses a path that contains the game dir, such as a link back up to the install root',
+    async () => {
+      const inside = await installed('pak0.pak')
+      await symlink(root, join(gameDirPath, 'maps'), 'junction')
+      const viaLink: ModInstallFile = { path: 'maps/x.bsp', sizeBytes: 1, sha256: sha256('x') }
+
+      await expect(
+        removeRecordedFiles(
+          root,
+          'rogue',
+          { files: [inside, viaLink] },
+          { changedFiles: 'delete' },
+        ),
+      ).rejects.toBeInstanceOf(RemovalRefusedError)
+      expect(await exists(join(gameDirPath, 'pak0.pak'))).toBe(true)
+    },
+  )
+
   it('a failed delete is reported and the rest still deleted', async () => {
     const files = [await installed('a.pak'), await installed('b.pak'), await installed('c.pak')]
     vi.mocked(unlink).mockImplementation(async (path) => {

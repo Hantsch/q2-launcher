@@ -111,7 +111,7 @@ describe('InstallationTile', () => {
     expect(classesOf(text)).toContain('text-flame-200')
   })
 
-  describe('story 067 D5 - icon rendering', () => {
+  describe('icon rendering', () => {
     it('renders a decorative <img> for a shipped icon, with no IPC call', () => {
       const { container } = render(
         <InstallationTile
@@ -165,7 +165,7 @@ describe('InstallationTile', () => {
     })
   })
 
-  describe('story 077 D4 - failed microtag', () => {
+  describe('failed microtag', () => {
     it('the failed microtag renders only with a lastFailure (AC5)', () => {
       const { rerender } = render(
         <InstallationTile

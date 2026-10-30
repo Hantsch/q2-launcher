@@ -23,7 +23,7 @@ function create(jobs: JobsService, moduleId: Job['moduleId'] = 'downloads'): str
   return jobs.create({ moduleId, kind: 'download', labelKey: 'downloads.job.bootstrap' }).id
 }
 
-describe('JobsService broadcast (unchanged by story 073 D2)', () => {
+describe('JobsService broadcast', () => {
   it('fires exactly once per change, with the full list', () => {
     const { jobs, broadcast } = service()
 

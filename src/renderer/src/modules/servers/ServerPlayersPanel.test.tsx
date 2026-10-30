@@ -41,7 +41,7 @@ function collectStrings(value: unknown, out: string[] = []): string[] {
   return out
 }
 
-describe('ServerPlayersPanel (story 122 D4)', () => {
+describe('ServerPlayersPanel', () => {
   it('lists name, score and ping for each player', () => {
     renderPanel(
       baseRow({

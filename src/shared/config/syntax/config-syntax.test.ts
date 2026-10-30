@@ -281,7 +281,7 @@ function richProfile(): ConfigProfile {
   })
 }
 
-describe('tokenizeConfigText - section banners and aligned commented rows (story 040 D6)', () => {
+describe('tokenizeConfigText - section banners and aligned commented rows', () => {
   it('tokenizes a `// --- Section ---` banner line as a single comment token', () => {
     const rendered = renderProfileFile(richProfile())
     const bannerLine = rendered.split('\n').find((line) => line.startsWith('// --- Binds: Weapons'))

@@ -60,6 +60,7 @@ export async function readDemoPrefix(path: string, maxBytes: number): Promise<De
       await handle.close()
     }
   } catch {
+    // an unreadable or truncated demo file yields no prefix
     return { ok: false }
   }
 }
@@ -231,6 +232,7 @@ export async function readDemoFullPass(path: string): Promise<DemoFullPass> {
     const gunzip = createGunzip()
     return await streamDemoDuration(gunzip, readStream)
   } catch {
+    // an unreadable or corrupt gzip demo has no duration
     return { duration: { ok: false, reason: 'unreadable' }, roster: null, stats: null }
   }
 }

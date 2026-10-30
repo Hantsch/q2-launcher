@@ -179,7 +179,7 @@ async function renderView(initial: ScanSnapshot): Promise<void> {
   })
 }
 
-describe('ServersView - watchlist tab, locked (story 132 D3)', () => {
+describe('ServersView - watchlist tab, locked', () => {
   it('has no tab strip and no watchlist text, and renders its pre-story list content', async () => {
     useLauncher.setState({ unlockedFeatures: [] })
 
@@ -200,7 +200,7 @@ describe('ServersView - watchlist tab, locked (story 132 D3)', () => {
   })
 })
 
-describe('ServersView - watchlist tab, unlocked (story 132 D3)', () => {
+describe('ServersView - watchlist tab, unlocked', () => {
   it('carries the experimental badge on the watchlist tab', async () => {
     useLauncher.setState({ unlockedFeatures: ['watchlist'] })
 

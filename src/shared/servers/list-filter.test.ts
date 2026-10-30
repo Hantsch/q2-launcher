@@ -422,7 +422,7 @@ describe('filter options are distinct, case-insensitive and sorted', () => {
   })
 })
 
-describe('ping limit (story 247)', () => {
+describe('ping limit', () => {
   const online = (rttMs: number) => row({ address: `10.9.0.${rttMs}:27910`, rttMs })
 
   it('a limit shows only online rows below it', () => {

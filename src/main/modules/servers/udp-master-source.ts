@@ -306,6 +306,7 @@ export async function resolveUdpMasterSource(
     }
     opened.send(buildMasterQuery())
   } catch {
+    // opening or sending on the UDP socket failed, reported as transport-error
     settle({ ok: false, reason: 'transport-error' })
     return collected
   }
