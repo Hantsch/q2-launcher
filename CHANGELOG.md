@@ -16,6 +16,10 @@ version section when a release actually ships.
 
 - The launcher window appears right away, before settings finish loading.
 
+### Fixed
+
+- A watchlist re-check started while browsing LAN no longer stays pending.
+
 ## 0.9.0 — 2026-10-29
 
 ### Added

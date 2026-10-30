@@ -2,6 +2,7 @@ import type {
   ScanScope,
   ScanServerPush,
   ScanStartResult,
+  ServersBrowseMode,
   ServerListRow,
   WatchlistEntry,
   WatchlistMatch,
@@ -44,7 +45,7 @@ export type WatchlistServiceMutationResult = WatchlistMutationResult
  * round, never the full `ScanService` (this file must not depend on scan-service.ts's own types
  * beyond the shared `ScanStartResult`). */
 export interface WatchlistScanHost {
-  start: (options: { scope: ScanScope }) => ScanStartResult
+  start: (options: { scope: ScanScope; mode: ServersBrowseMode }) => ScanStartResult
 }
 
 export interface CreateWatchlistServiceOptions {
@@ -383,7 +384,11 @@ export function createWatchlistService(options: CreateWatchlistServiceOptions): 
     recheckByEntry.set(entry.id, 'pending')
     emitSnapshot()
 
-    return scanService.start({ scope: { kind: 'server', address: mostRecent.address } })
+    // Only online rounds feed `onStage2Row`, so a recheck never follows the browser's LAN mode.
+    return scanService.start({
+      scope: { kind: 'server', address: mostRecent.address },
+      mode: 'online',
+    })
   }
 
   function dispose(): void {

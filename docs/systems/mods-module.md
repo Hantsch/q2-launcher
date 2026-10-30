@@ -56,7 +56,7 @@ This document describes the module as built. `mods` is a registered module; its 
   defensively: a bad envelope is an empty set, a bad row or an unsafe recorded path is dropped.
 - Every writer of the envelope keeps the keys it does not own.
 - catalog-cache.json under the user data cache folder — the last good catalog; fresh for 15
-  minutes, served stale when a fetch fails.
+  minutes, served stale when a fetch fails; concurrent reads share one fetch.
 
 ## Handlers
 

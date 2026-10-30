@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type {
   ScanScope,
+  ServersBrowseMode,
   ScanServerPush,
   ScanStartResult,
   ServerListRow,
@@ -71,16 +72,22 @@ function fakeRegexHost(script: Map<string, RegexMatchOutcome> = new Map()): {
   return { host, calls }
 }
 
-function fakeScanService(): { host: WatchlistScanHost; calls: ScanScope[] } {
+function fakeScanService(): {
+  host: WatchlistScanHost
+  calls: ScanScope[]
+  modes: ServersBrowseMode[]
+} {
   const calls: ScanScope[] = []
+  const modes: ServersBrowseMode[] = []
   const result: ScanStartResult = { ok: true }
   const host: WatchlistScanHost = {
     start: (options) => {
       calls.push(options.scope)
+      modes.push(options.mode)
       return result
     },
   }
-  return { host, calls }
+  return { host, calls, modes }
 }
 
 function setup(
@@ -111,7 +118,14 @@ function setup(
     emit: (snapshot) => snapshots.push(snapshot),
     now: () => '2026-01-01T00:00:00.000Z',
   })
-  return { service, snapshots, scanCalls: scan.calls, regexCalls, getEntries: () => entries }
+  return {
+    service,
+    snapshots,
+    scanCalls: scan.calls,
+    scanModes: scan.modes,
+    regexCalls,
+    getEntries: () => entries,
+  }
 }
 
 const tick = (): Promise<void> => new Promise((resolve) => setImmediate(resolve))
@@ -201,6 +215,16 @@ describe('createWatchlistService', () => {
     const result = service.recheck({ id: 'e1' })
     expect(result).toEqual({ ok: true })
     expect(scanCalls).toEqual([{ kind: 'server', address: '1.1.1.1:27910' }])
+  })
+
+  it('a recheck asks for an online round whatever the active mode', async () => {
+    const { service, scanModes } = setup({ entries: [entry({ id: 'e1', name: 'Alice' })] })
+    service.onStage2Row(statusRow('1.1.1.1:27910', [{ score: 1, ping: 10, name: 'Alice' }]))
+    await tick()
+
+    service.recheck({ id: 'e1' })
+
+    expect(scanModes).toEqual(['online'])
   })
 
   it('recheck refuses when the entry has no current match', () => {

@@ -1,7 +1,7 @@
 ---
 id: 323
 title: The update service is split into testable parts
-status: ready # draft -> ready -> in-progress -> done
+status: in-progress # draft -> ready -> in-progress -> done
 created: 2026-10-30
 ---
 
@@ -13,13 +13,13 @@ fetches fetch twice (TD-020). Updates must behave exactly as today, with those g
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — No function in the update service is longer than 80 lines, and the factory has no
+- [x] **AC1** — No function in the update service is longer than 80 lines, and the factory has no
       more than five inner functions (TD-001).
-- [ ] **AC2** — The update job's keep and cancel paths each have a unit test (TD-020).
-- [ ] **AC3** — In LAN mode a watchlist recheck resolves instead of staying pending (TD-020).
-- [ ] **AC4** — Two catalog fetches started together cause one network fetch (TD-020).
-- [ ] **AC5** — The existing update flows pass unchanged.
-- [ ] **AC6** — Rows TD-001 and TD-020 are removed from `docs/TECH-DEBT.md`.
+- [x] **AC2** — The update job's keep and cancel paths each have a unit test (TD-020).
+- [x] **AC3** — In LAN mode a watchlist recheck resolves instead of staying pending (TD-020).
+- [x] **AC4** — Two catalog fetches started together cause one network fetch (TD-020).
+- [x] **AC5** — The existing update flows pass unchanged.
+- [x] **AC6** — Rows TD-001 and TD-020 are removed from `docs/TECH-DEBT.md`.
 
 ## Open Questions
 
@@ -105,12 +105,12 @@ Order: D1–D4 are independent; D5 last.
   report it instead of changing `update-job.ts`.
 - **D3 — Two catalog reads started together fetch once.** Files: `src/main/lib/content-repo.ts`
   (`CachedContentDocument.get()`: the fresh-cache early return stays first; the store-load + fetch
-  + cache-fallback part runs as one in-flight promise that a second `get()` — with or without
-  `refresh` — awaits instead of fetching; cleared in `finally`), test in
-  `src/main/modules/mods/catalog-service.test.ts` › "two catalog reads started together cause one
-  network fetch" (mirror the file's existing fetch stub; `Promise.all` of two `getCatalog()` on a
-  cold service; one fetch, equal snapshots), `docs/systems/mods-module.md` (one sentence where the
-  catalog is described: concurrent reads share one fetch).
+  - cache-fallback part runs as one in-flight promise that a second `get()` — with or without
+    `refresh` — awaits instead of fetching; cleared in `finally`), test in
+    `src/main/modules/mods/catalog-service.test.ts` › "two catalog reads started together cause one
+    network fetch" (mirror the file's existing fetch stub; `Promise.all` of two `getCatalog()` on a
+    cold service; one fetch, equal snapshots), `docs/systems/mods-module.md` (one sentence where the
+    catalog is described: concurrent reads share one fetch).
 - **D4 — A watchlist recheck in LAN mode resolves.** Files: `src/main/modules/servers/scan-service.ts`
   (`ScanStartOptions.mode?: ServersBrowseMode`; `start()` uses `options.mode ?? mode` as
   `sweepMode`, so the round runs, reports and writes on that list; update the header comment's
@@ -158,3 +158,18 @@ Order: D1–D4 are independent; D5 last.
   Done).
 
 ## Done
+
+Split `createUpdateService` into `UpdateStateCell` / `UpdateChecks` / `UpdateDownloads` / `simulate` (factory: one inner function); oxlint `max-lines-per-function` override plus a structure test pin AC1. TD-020 fixed where it lives: slot-keep and abort tests for the mod update job, LAN recheck queries the online list (`ScanStartOptions.mode`), `CachedContentDocument.get()` single-flights concurrent fetches.
+
+Commit message: `323: update service split into state/checks/downloads/simulate, update-job keep/cancel tests, LAN watchlist recheck resolves, concurrent catalog fetches joined, TD-001/TD-020 closed`
+
+Verification (narrow gate): typecheck, lint, build + build:dev, `npx vitest run --changed HEAD` (38 files / 543 tests), `npm run check:docs` green; e2e `npm run ui:flows -- --affected scripts/flows/servers-watchlist.mjs scripts/flows/app-update.mjs scripts/flows/mod-update.mjs --parallel=4 --shard=1/2` and `2/2` green (30/30 flows). Review (default stage): PASS.
+AC → test: AC1 lint + `service.structure.test.ts`; AC2 the two `update-job.test.ts` tests; AC3 `watchlist-service.test.ts`, `scan-service.lan-mode.test.ts`, flow `servers-watchlist`; AC4 `catalog-service.test.ts`; AC5 `service.test.ts` + `service.actions.test.ts` unedited, flows `app-update`, `mod-update`; AC6 `grep -n "TD-001\|TD-020" docs/TECH-DEBT.md` returns nothing. No manual residue.
+
+Decisions:
+
+- The abort test cancels through `h.jobs.cancel(jobId)` inside `runWrite` (the job's signal is not reachable from `runWrite`'s args); `update-job.ts` untouched.
+- The flow's LAN step resets "rock" to `found` first, because the preceding step leaves it `left`.
+- Unfixed minor findings: service.ts and the part files import values from each other (lazy, method-only use; no cycle lint rule guards it); moved comments keep their `Story 097/098:` prefixes from before the split; D3 has no test for `refresh: true` joining an in-flight fetch or a shared failed fetch.
+
+tiers: D 5 / hard 1 · review default · cycles 0 · agents 7

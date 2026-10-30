@@ -442,6 +442,61 @@ describe('startModUpdate', () => {
     expect(await stagingLeft()).toEqual({})
   })
 
+  it('a rollback that cannot put a file back keeps the backup slot', async () => {
+    const h = harness({
+      stages: [{ files: { 'a-new.txt': 'n', 'pak0.pak': 'new-pak', 'zz.pak': 'z' } }],
+    })
+    h.writeGuard.runWrite.mockImplementationOnce(async (_i, jobId, _s, fn) => {
+      await rm(join(getExtractDir(userData, `${jobId}-0`), 'zz.pak'))
+      await fn()
+    })
+    const realMove = vi.mocked(moveFile).getMockImplementation()!
+    // Only the way back out of the slot fails, and only for one file.
+    vi.mocked(moveFile).mockImplementation(async (from, to) => {
+      if (from.includes(MOD_BACKUP_DIR_NAME) && basename(from) === 'readme.txt')
+        throw new Error('locked')
+      return realMove(from, to)
+    })
+    let outcome
+    try {
+      outcome = await h.run()
+    } finally {
+      vi.mocked(moveFile).mockImplementation(realMove)
+    }
+    expect(outcome).toEqual({ status: 'failed', key: 'mods.error.writeFailed' })
+    expect(h.records()).toEqual([oldRecord()])
+    // The slot still holds the only copy of the file that could not go back; the rest did.
+    const slot = await slotLeft()
+    expect(Object.entries(slot).filter(([, content]) => content !== '')).toEqual([
+      [expect.stringMatching(/readme\.txt$/), 'readme-v1'],
+    ])
+    expect(await readTree(gameDir)).toEqual({
+      'maps/': '',
+      'maps/old.bsp': 'old-map',
+      'pak0.pak': 'old-pak',
+    })
+    expect(await stagingLeft()).toEqual({})
+  })
+
+  it('an update aborted mid-write ends cancelled with the old files and record', async () => {
+    const h = harness({
+      stages: [{ files: { 'a-new.txt': 'n', 'pak0.pak': 'new-pak', 'zz.pak': 'z' } }],
+    })
+    h.writeGuard.runWrite.mockImplementationOnce(async (_i, jobId, _s, fn) => {
+      h.jobs.cancel(jobId)
+      await fn()
+    })
+    const outcome = await h.run()
+    expect(outcome.status).toBe('cancelled')
+    expect(h.finished()).toEqual([{ status: 'cancelled' }])
+    expect(await readTree(gameDir)).toEqual({ ...OLD_FILES, 'maps/': '' })
+    expect(h.installations.setModuleData).not.toHaveBeenCalled()
+    expect(h.records()).toEqual([oldRecord()])
+    expect(await slotLeft()).toEqual({})
+    expect(await readTree(root)).not.toHaveProperty(`${MOD_BACKUP_DIR_NAME}/`)
+    expect(await stagingLeft()).toEqual({})
+  })
+
   it('a failed record write restores the backup', async () => {
     const h = harness({ stages: [{ files: { 'pak0.pak': 'new-pak', 'b-new.txt': 'b' } }] })
     h.installations.setModuleData.mockImplementationOnce(() => fail('state.error.write'))

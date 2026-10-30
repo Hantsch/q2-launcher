@@ -496,6 +496,37 @@ describe('createScanService - online and LAN lists', () => {
     expect(onStage2Row).not.toHaveBeenCalled()
   })
 
+  it('a server round started with mode online while LAN is active queries the online list and feeds the watchlist', async () => {
+    const onStage2Row = vi.fn()
+    const query = recordingQuery()
+    const service = createScanService({
+      getServersState: onlineState,
+      emit: recorder().emit,
+      launch: fakeLaunch().host,
+      onStage2Row,
+      deps: { queryServer: query.fn, lanDiscovery: fakeLan([LAN_A]).fn },
+    })
+    service.start()
+    await waitForIdle(service)
+    service.setMode('lan')
+    service.start()
+    await waitForIdle(service)
+    query.calls.length = 0
+
+    expect(service.start({ scope: { kind: 'server', address: NET }, mode: 'online' })).toEqual({
+      ok: true,
+    })
+    await waitForIdle(service)
+
+    expect(query.calls).toEqual([{ address: NET, kind: 'status' }])
+    expect(onStage2Row).toHaveBeenCalledTimes(1)
+    expect(onStage2Row.mock.calls[0]?.[0]).toMatchObject({
+      stage: 'stage2',
+    })
+    expect(addresses(service)).toEqual([LAN_A])
+    expect(service.read().state.mode).toBe('online')
+  })
+
   it('a LAN status reply does not overwrite the stage-1 best ping', async () => {
     const queryServer: QueryServerFn = async (_target, options) =>
       options.kind === 'status'

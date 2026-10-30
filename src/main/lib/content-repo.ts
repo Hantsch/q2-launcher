@@ -128,6 +128,7 @@ export class CachedContentDocument<T extends object> {
   private fresh: { data: T; fetchedAt: string; fetchedAtMs: number } | null = null
   /** Mirrors the store: set by a live fetch and by `parseDocument`, the only disk validation. */
   private cached: { data: T; fetchedAt: string } | null = null
+  private inFlight: Promise<CachedContentResult<T>> | null = null
 
   constructor(options: CachedContentDocumentOptions<T>) {
     this.options = options
@@ -153,6 +154,14 @@ export class CachedContentDocument<T extends object> {
       }
     }
 
+    // A refresh joins a fetch already in flight: that fetch is no older than the one it would start.
+    this.inFlight ??= this.loadAndFetch().finally(() => {
+      this.inFlight = null
+    })
+    return this.inFlight
+  }
+
+  private async loadAndFetch(): Promise<CachedContentResult<T>> {
     if (!this.loaded) {
       await this.store.load()
       this.loaded = true

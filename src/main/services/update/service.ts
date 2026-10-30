@@ -6,9 +6,12 @@ import type {
   UpdateSimulateScenario,
   UpdateState,
 } from '@shared/types'
-import { fail, isJobActive, ok } from '@shared/types'
 import type { PersistenceRegistry } from '../persistence'
-import { UpdateCheckStore, type UpdateCheckStoreData } from './store'
+import { UpdateChecks } from './check'
+import { UpdateDownloads } from './download'
+import { UpdateSimulation } from './simulate'
+import { UpdateStateCell, type DownloadStage } from './state'
+import type { UpdateCheckStore } from './store'
 
 /**
  * Story 097: the update-check service - the only thing that decides *whether* a check runs, and
@@ -60,6 +63,12 @@ import { UpdateCheckStore, type UpdateCheckStoreData } from './store'
  *
  * Nothing here toasts, retries or broadcasts: `onStateChange` is a plain callback and the IPC layer is what
  * wires it to `update:state`.
+ *
+ * ## The parts
+ *
+ * This file holds the public vocabulary and wires the parts together. The mutable state lives in a
+ * single `UpdateStateCell` (`state.ts`) that `check.ts`, `download.ts` and `simulate.ts` all write
+ * through, so every transition is still published from one place (story 323).
  */
 
 /** The 24h auto-check window, measured from `lastSuccessAt`. */
@@ -200,10 +209,6 @@ export interface UpdateBackend {
   quitAndInstall(): void
 }
 
-/** How far the *download* has got - the half of the phase that the check status knows nothing
- * about. Kept separate from `UpdateState.status` so the two can never contradict each other. */
-type DownloadStage = 'none' | 'downloading' | 'downloaded'
-
 /**
  * The single place {@link UpdateState.phase} is decided, so `phase` and `status` cannot drift.
  *
@@ -228,39 +233,6 @@ export function resolveUpdatePhase(
 /** Structurally satisfied by `Logger` (`src/main/lib/logger.ts`); optional, as in `store.ts`. */
 export interface UpdateServiceLog {
   warn(message: string): void
-}
-
-/**
- * The part of `UpdateState` that a *check* owns. The other three fields (`phase`, `progress`,
- * `dismissed`) are owned by the closure in {@link createUpdateService} and written in exactly one
- * place, so no caller can hand in a `phase` that disagrees with the facts it came with.
- */
-type UpdateFacts = Pick<
-  UpdateState,
-  'status' | 'update' | 'error' | 'lastCheckedAt' | 'lastSuccessAt' | 'supported'
->
-
-/** Nothing known, nothing attempted. */
-function idleFacts(supported: boolean): UpdateFacts {
-  return {
-    status: 'idle',
-    update: null,
-    error: null,
-    lastCheckedAt: null,
-    lastSuccessAt: null,
-    supported,
-  }
-}
-
-/**
- * The status a restored record implies. The store does not persist `status` (nor the error key): a
- * new session has made no attempt of its own yet, so the honest answer is derived from what is
- * known, not replayed from what once happened.
- */
-function restoredStatus(data: UpdateCheckStoreData): UpdateState['status'] {
-  if (data.update !== null) return 'available'
-  if (data.lastSuccessAt !== null) return 'upToDate'
-  return 'idle'
 }
 
 export interface UpdateServiceOptions {
@@ -352,486 +324,18 @@ export interface UpdateService {
 
 export function createUpdateService(options: UpdateServiceOptions): UpdateService {
   const now = options.now ?? ((): Date => new Date())
-  const timeoutMs = options.timeoutMs ?? UPDATE_CHECK_TIMEOUT_MS
-  const log = options.log
-  const supported = options.isPackaged
-
-  let storeInstance: Pick<UpdateCheckStore, 'load' | 'save'> | undefined
-  function store(): Pick<UpdateCheckStore, 'load' | 'save'> {
-    if (options.store !== undefined) return options.store
-    if (storeInstance === undefined) {
-      const created = new UpdateCheckStore(log !== undefined ? { log } : {})
-      options.persistence?.register('update-check', created)
-      storeInstance = created
-    }
-    return storeInstance
-  }
-
-  let facts: UpdateFacts = idleFacts(supported)
-  /** Story 098: the download half of the state. Written only by `startDownload`/`runDownload` and
-   * by a check that learns of a *different* release. */
-  let stage: DownloadStage = 'none'
-  let progress: UpdateDownloadProgress | null = null
-  let dismissed = false
-  /** Guards a superseded download: a late progress callback or resolution from a download the user
-   * already cancelled must not write over the state a newer one produced. */
-  let downloadGeneration = 0
-  let cancelRequested = false
-
-  let state: UpdateState = compose()
-  let restoring: Promise<void> | undefined
-  let inFlight: Promise<UpdateState> | undefined
-
-  // Story 098, belt: off from the moment the service exists, not only once a download starts,
-  // so a release staged by a *previous* session's `electron-updater` cannot install itself on this
-  // session's next quit either.
-  options.backend.autoInstallOnAppQuit = false
-
-  /** The full state, assembled from the facts plus the three fields this closure owns. The only
-   * place `phase`/`progress`/`dismissed` are produced. */
-  function compose(): UpdateState {
-    return {
-      ...facts,
-      phase: resolveUpdatePhase(facts.status, facts.update !== null, stage),
-      // Progress belongs to a running download and to nothing else - a stale readout on a finished
-      // or failed one would be a lie the UI has no way to detect.
-      progress: stage === 'downloading' ? progress : null,
-      dismissed,
-    }
-  }
-
-  /** Publishes whatever `compose()` now says, if it differs from what was last published. Every
-   * state change in this file goes through here, whichever half of the state changed. */
-  function publish(): void {
-    const next = compose()
-    if (JSON.stringify(next) === JSON.stringify(state)) return
-    state = next
-    try {
-      options.onStateChange(state)
-    } catch (error) {
-      log?.warn(`update: the state callback threw (${describeError(error)})`)
-    }
-  }
-
-  function emit(next: UpdateFacts): void {
-    facts = next
-    publish()
-  }
-
-  /** Restores the persisted record exactly once, before any check can run. */
-  function ensureRestored(): Promise<void> {
-    // An unpackaged build knows nothing and stores nothing - it does not even read the file.
-    if (!supported) return Promise.resolve()
-    restoring ??= (async () => {
-      let data: UpdateCheckStoreData
-      try {
-        data = await store().load()
-      } catch (error) {
-        // `UpdateCheckStore.load()` degrades a damaged file to "nothing known" on its own, so this
-        // is the belt to that braces: one wasted check beats a service that cannot start.
-        log?.warn(`update: the check record could not be read (${describeError(error)})`)
-        return
-      }
-      // The record outlives the update it announced: after "Restart and install" the new build
-      // restores a record that still offers itself, and with the 24h window closed nothing would
-      // re-check. Dropping the release *and* the success stamp clears the offer and reopens the
-      // window, so the startup check replaces the record right away.
-      const restored: UpdateCheckStoreData =
-        data.update !== null && data.update.version === options.currentVersion
-          ? { ...data, update: null, lastSuccessAt: null }
-          : data
-      emit({
-        status: restoredStatus(restored),
-        update: restored.update,
-        error: null,
-        lastCheckedAt: restored.lastCheckedAt,
-        lastSuccessAt: restored.lastSuccessAt,
-        supported,
-      })
-    })()
-    return restoring
-  }
-
-  /** True when a check should run now: nothing known yet, the last success is 24h old, or the
-   * stored timestamp cannot be trusted (unparseable, or in the future after a clock correction). */
-  function isWindowOpen(): boolean {
-    const last = state.lastSuccessAt
-    if (last === null) return true
-    const lastMs = Date.parse(last)
-    if (Number.isNaN(lastMs)) return true
-    const elapsed = now().getTime() - lastMs
-    if (elapsed < 0) return true
-    return elapsed >= UPDATE_CHECK_WINDOW_MS
-  }
-
-  /** Calls the checker, never rejecting and never taking longer than the timeout. */
-  async function callChecker(): Promise<UpdateCheckOutcome> {
-    // Wrapped first, so the checker's promise cannot surface as an unhandled rejection when the
-    // timeout wins the race below and nobody is awaiting it any more.
-    const checking: Promise<UpdateCheckOutcome> = (async (): Promise<UpdateCheckOutcome> => {
-      try {
-        return await options.check()
-      } catch (error) {
-        log?.warn(`update: the check failed (${describeError(error)})`)
-        return { ok: false, reason: 'unknown' }
-      }
-    })()
-
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const timingOut = new Promise<UpdateCheckOutcome>((resolve) => {
-      timer = setTimeout(() => {
-        resolve({ ok: false, reason: 'timeout' })
-      }, timeoutMs)
-    })
-
-    try {
-      return await Promise.race([checking, timingOut])
-    } finally {
-      if (timer !== undefined) clearTimeout(timer)
-    }
-  }
-
-  async function persist(next: UpdateFacts): Promise<void> {
-    try {
-      await store().save({
-        update: next.update,
-        lastCheckedAt: next.lastCheckedAt,
-        lastSuccessAt: next.lastSuccessAt,
-      })
-    } catch (error) {
-      log?.warn(`update: the check record could not be written (${describeError(error)})`)
-    }
-  }
-
-  async function runAttempt(): Promise<UpdateState> {
-    // `update` is carried through deliberately: a check in progress does not un-know an update that
-    // was already found. The error is cleared, because "checking" is not a state that has one.
-    emit({ ...facts, status: 'checking', error: null })
-
-    const outcome = await callChecker()
-    const completedAt = now().toISOString()
-
-    const next: UpdateFacts = outcome.ok
-      ? {
-          status: outcome.available ? 'available' : 'upToDate',
-          // A successful "up to date" is the one thing that may clear a known update - the user
-          // installed it.
-          update: outcome.available ? outcome.update : null,
-          error: null,
-          lastCheckedAt: completedAt,
-          lastSuccessAt: completedAt,
-          supported,
-        }
-      : {
-          status: 'error',
-          update: facts.update, // a failure never erases what is already known.
-          error: { key: updateErrorKey(outcome.reason) },
-          lastCheckedAt: completedAt,
-          lastSuccessAt: facts.lastSuccessAt, // untouched, so the window is not burnt.
-          supported,
-        }
-
-    // Story 098: a *different* release than the one currently known is a new offer, so it undoes
-    // this session's dismissal and un-stages an earlier download - "Restart and install" must never
-    // be offered for a build that was never fetched. A download still in flight is left alone; it
-    // finishes or fails on its own terms.
-    if (next.update?.version !== facts.update?.version) {
-      dismissed = false
-      if (stage !== 'downloading') {
-        stage = 'none'
-        progress = null
-      }
-    }
-
-    emit(next)
-    await persist(next)
-    return state
-  }
-
-  /**
-   * Starts an attempt, or joins the one already running (Decisions: "a manual check during a
-   * running one joins it"). Synchronous up to the point where `inFlight` is assigned, so two calls
-   * in the same tick cannot both start a check.
-   */
-  function beginAttempt(): Promise<UpdateState> {
-    if (!supported) return Promise.resolve(state)
-    if (inFlight !== undefined) return inFlight
-    const attempt = runAttempt()
-      .catch((error: unknown) => {
-        // `runAttempt()` swallows everything it knows about; this keeps the promise this service
-        // hands out from rejecting even if something unforeseen (a broken injected `now`) throws.
-        log?.warn(`update: the check attempt failed unexpectedly (${describeError(error)})`)
-        return state
-      })
-      .finally(() => {
-        inFlight = undefined
-      })
-    inFlight = attempt
-    return attempt
-  }
-
-  async function getState(): Promise<UpdateState> {
-    await ensureRestored()
-    return state
-  }
-
-  async function checkNow(): Promise<UpdateState> {
-    await ensureRestored()
-    return beginAttempt()
-  }
-
-  async function startupCheck(): Promise<UpdateState> {
-    await ensureRestored()
-    if (!isWindowOpen()) return state
-    return beginAttempt()
-  }
-
-  function scheduleStartupCheck(): void {
-    // Fire-and-forget on purpose: nothing awaits this, and `startupCheck()` cannot reject.
-    void startupCheck().catch(() => undefined)
-  }
-
-  // ---- story 098: the four staged actions ------------------------------------------------------
-
-  /**
-   * Runs one download to completion and writes the single state change it produces. The *only*
-   * writer of `stage`/`progress` once a download is under way - `cancelDownload()` deliberately
-   * does not write the "back to available" state itself, so there is exactly one place that can
-   * decide how a download ended.
-   */
-  async function runDownload(generation: number): Promise<void> {
-    let outcome: UpdateDownloadOutcome
-    try {
-      outcome = await options.backend.download((next) => {
-        // A callback from a superseded download, or one arriving after this one ended, is dropped
-        // rather than published - progress from a download nobody is waiting on is noise.
-        if (generation !== downloadGeneration || stage !== 'downloading') return
-        progress = next
-        publish()
-      })
-    } catch (error) {
-      log?.warn(`update: the download failed (${describeError(error)})`)
-      outcome = { ok: false, reason: 'unknown' }
-    }
-
-    if (generation !== downloadGeneration) return
-
-    progress = null
-
-    if (!outcome.ok && outcome.reason === 'upToDate') {
-      // The known release turned out to be stale - typically the very build now running, carried
-      // over from the check the previous version made. That is a successful check saying "up to
-      // date", so it is recorded as one instead of offering a download that can never succeed.
-      stage = 'none'
-      const completedAt = now().toISOString()
-      const next: UpdateFacts = {
-        status: 'upToDate',
-        update: null,
-        error: null,
-        lastCheckedAt: completedAt,
-        lastSuccessAt: completedAt,
-        supported,
-      }
-      emit(next)
-      await persist(next)
-      return
-    }
-
-    if (outcome.ok) {
-      // It finished, so it finished - even if a cancel was requested just too late. Nothing is
-      // installed by this: `phase: 'downloaded'` only *offers* the restart.
-      stage = 'downloaded'
-      emit({ ...facts, error: null })
-      return
-    }
-
-    // nothing was installed and nothing on disk changed, so the update stays offerable -
-    // `resolveUpdatePhase` puts a known release back at `available` on its own, and the reason
-    // rides along in `error`.
-    stage = 'none'
-    const reason = cancelRequested ? 'cancelled' : outcome.reason
-    log?.warn(`update: the download ended without a staged release (${reason})`)
-    emit({ ...facts, error: { key: updateDownloadErrorKey(reason) } })
-  }
-
-  async function startDownload(): Promise<Outcome<UpdateState>> {
-    await ensureRestored()
-    if (!supported || facts.update === null) {
-      return fail(APP_UPDATE_REFUSAL_KEYS.notAvailable)
-    }
-    // Already running or already staged: report where we are instead of starting a second fetch of
-    // the same release.
-    if (stage !== 'none') return ok(state)
-
-    // Braces to the constructor's belt: `electron-updater` arms its install-on-quit handler
-    // when a download *completes*, so this is the last moment the flag can be turned off.
-    options.backend.autoInstallOnAppQuit = false
-
-    downloadGeneration += 1
-    cancelRequested = false
-    stage = 'downloading'
-    progress = { ratio: null, bytesDone: 0, bytesTotal: null, bytesPerSecond: null }
-    // Clears a previous attempt's failure reason, and publishes the `downloading` phase.
-    emit({ ...facts, error: null })
-
-    // Deliberately not awaited: the launcher stays fully usable while this runs, and every
-    // later state change arrives through `onStateChange`. `runDownload` cannot reject.
-    void runDownload(downloadGeneration).catch((error: unknown) => {
-      log?.warn(`update: the download ended unexpectedly (${describeError(error)})`)
-    })
-
-    return ok(state)
-  }
-
-  function cancelDownload(): Outcome<UpdateState> {
-    if (stage !== 'downloading') return ok(state)
-    cancelRequested = true
-    try {
-      options.backend.cancelDownload()
-    } catch (error) {
-      // A backend that cannot be cancelled is not a failure the user can act on; the download
-      // either finishes or fails, and both are handled above.
-      log?.warn(`update: the download could not be cancelled (${describeError(error)})`)
-    }
-    return ok(state)
-  }
-
-  async function installAndRestart(): Promise<Outcome<null>> {
-    await ensureRestored()
-
-    // nothing is installed until there is something staged to install. Deliberately not also
-    // gated on `supported`: `simulate()` (story 098) legitimately drives `stage` to `'downloaded'` on an
-    // unpackaged build so the game/job guards below can be proven for real without a packaged
-    // install - `download()` already refuses `!supported` on the real path, so `stage` cannot
-    // reach `'downloaded'` there without simulation, and `checker.ts`'s `quitAndInstall()` still
-    // throws on an unresolved updater as the last line of defence.
-    if (stage !== 'downloaded') return fail(APP_UPDATE_REFUSAL_KEYS.notReady)
-
-    // Both guards *read* live state that main already tracks and return before anything is
-    // touched - the game keeps running, the job keeps running, and the staged update stays staged
-    // so the user can come back to it. Nothing here cancels, kills or quits.
-    if (options.isGameRunning()) {
-      log?.warn('update: refused to restart - a game started by this launcher is running')
-      return fail(APP_UPDATE_REFUSAL_KEYS.gameRunning)
-    }
-    if (options.listJobs().some(isJobActive)) {
-      log?.warn('update: refused to restart - a job is in flight')
-      return fail(APP_UPDATE_REFUSAL_KEYS.jobActive)
-    }
-
-    try {
-      options.backend.quitAndInstall()
-    } catch (error) {
-      log?.warn(`update: quitAndInstall() failed (${describeError(error)})`)
-      return fail(APP_UPDATE_REFUSAL_KEYS.installFailed)
-    }
-    return ok(null)
-  }
-
-  function dismiss(): Outcome<UpdateState> {
-    dismissed = true
-    publish()
-    return ok(state)
-  }
-
-  function simulate(scenario: UpdateSimulateScenario): void {
-    // Marks the persisted-record restore as already done, exactly as a real `checkNow()`/
-    // `startDownload()` leaves it (both call `ensureRestored()` first) - otherwise the *next*
-    // `getState()` would run it for the first time, read "nothing known" from the real store, and
-    // clobber the facts this call is about to set.
-    restoring ??= Promise.resolve()
-
-    const completedAt = now().toISOString()
-
-    switch (scenario.scenario) {
-      case 'available':
-        // Same reset a real check applies to a newly-known release (`runAttempt`, above): a fresh
-        // offer is never dismissed and never carries over a previous, unrelated download.
-        stage = 'none'
-        progress = null
-        dismissed = false
-        emit({
-          status: 'available',
-          update: { version: scenario.version, notes: scenario.notes ?? '', releasedAt: null },
-          error: null,
-          lastCheckedAt: completedAt,
-          lastSuccessAt: completedAt,
-          supported,
-        })
-        return
-
-      case 'progress':
-        // Only `stage`/`progress` move - the same two fields `runDownload`'s own progress callback
-        // writes - so `publish()` alone is correct here, exactly as it is there.
-        stage = 'downloading'
-        progress = {
-          ratio: scenario.ratio,
-          bytesDone: Math.round(scenario.ratio * 1_000_000_000),
-          bytesTotal: 1_000_000_000,
-          bytesPerSecond: 5_000_000,
-        }
-        publish()
-        return
-
-      case 'downloaded':
-        stage = 'downloaded'
-        progress = null
-        emit({ ...facts, error: null })
-        return
-
-      case 'error':
-        // falls back to `available` - `resolveUpdatePhase` does that on its own once `stage`
-        // is `'none'` and `facts.update` is still non-null, same as a real failed download.
-        stage = 'none'
-        progress = null
-        emit({ ...facts, error: { key: updateDownloadErrorKey(scenario.reason) } })
-        return
-
-      case 'upToDate':
-        // the same facts a real "up to date" check produces - `resolveUpdatePhase` returns
-        // `idle` once `update` is null and `status` is not `checking`/`error`, which is what makes
-        // the control disappear.
-        stage = 'none'
-        progress = null
-        dismissed = false
-        emit({
-          status: 'upToDate',
-          update: null,
-          error: null,
-          lastCheckedAt: completedAt,
-          lastSuccessAt: completedAt,
-          supported,
-        })
-        return
-
-      case 'checkFailed':
-        // Story 099: a failed *check*, mirroring `runAttempt()`'s own real failure branch above
-        // - a failed check never erases what is already known and never touches
-        // `lastSuccessAt`, it only moves `lastCheckedAt` and reports the reason.
-        emit({
-          status: 'error',
-          update: facts.update,
-          error: { key: updateErrorKey(scenario.reason) },
-          lastCheckedAt: completedAt,
-          lastSuccessAt: facts.lastSuccessAt,
-          supported,
-        })
-        return
-    }
-  }
-
+  const cell = new UpdateStateCell(options)
+  const checks = new UpdateChecks(cell, options, now)
+  const downloads = new UpdateDownloads(cell, checks, options, now)
+  const simulation = new UpdateSimulation(cell, checks, now)
   return {
-    getState,
-    checkNow,
-    scheduleStartupCheck,
-    startDownload,
-    cancelDownload,
-    installAndRestart,
-    dismiss,
-    simulate,
+    getState: checks.getState.bind(checks),
+    checkNow: checks.checkNow.bind(checks),
+    scheduleStartupCheck: checks.scheduleStartupCheck.bind(checks),
+    startDownload: downloads.startDownload.bind(downloads),
+    cancelDownload: downloads.cancelDownload.bind(downloads),
+    installAndRestart: downloads.installAndRestart.bind(downloads),
+    dismiss: downloads.dismiss.bind(downloads),
+    simulate: simulation.simulate.bind(simulation),
   }
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

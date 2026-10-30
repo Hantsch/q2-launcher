@@ -117,3 +117,19 @@
 - 2026-10-30 11:03:41 · 322 · review 1 · started
 - 2026-10-30 11:05:15 · 322 · review 1 · done
 - 2026-10-30 11:05:26 · 322 · story · done
+- 2026-10-30 11:05:37 · 323 · build · started
+- 2026-10-30 11:05:57 · 323 · D1 update service split · started
+- 2026-10-30 11:05:58 · 323 · D2 update job tests · started
+- 2026-10-30 11:05:58 · 323 · D3 fetch join · started
+- 2026-10-30 11:05:58 · 323 · D4 LAN recheck · started
+- 2026-10-30 11:10:10 · 323 · D1 update service split · done
+- 2026-10-30 11:10:10 · 323 · D2 update job tests · done
+- 2026-10-30 11:10:10 · 323 · D3 fetch join · done
+- 2026-10-30 11:10:10 · 323 · D4 LAN recheck · done
+- 2026-10-30 11:10:13 · 323 · D5 tech debt rows · started
+- 2026-10-30 11:10:13 · 323 · D5 tech debt rows · done
+- 2026-10-30 11:10:16 · 323 · verify · started
+- 2026-10-30 11:15:40 · 323 · verify · done
+- 2026-10-30 11:15:40 · 323 · review 1 · started
+- 2026-10-30 11:17:22 · 323 · review 1 · done
+- 2026-10-30 11:17:24 · 323 · story · done

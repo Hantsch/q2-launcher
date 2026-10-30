@@ -106,6 +106,15 @@ describe('CatalogService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('two catalog reads started together cause one network fetch', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(catalog))
+    const service = new CatalogService({ log })
+    const [a, b] = await Promise.all([service.getCatalog(), service.getCatalog()])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(a).toEqual(b)
+    expect(a).toMatchObject({ status: 'ok', fromCache: false })
+  })
+
   it('a failed fetch serves the last good cache with its age', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(catalog))
     await new CatalogService({ log }).getCatalog()

@@ -85,7 +85,9 @@ import type { Clock, MasterUdpImpl } from './udp-master-source'
  *   replaces the LAN list: discovery broadcast, then `runScan` over the answers - no source
  *   resolution, no stale merge, no `onStage2Row`. Favourites are refused in LAN; a `'server'`
  *   round refreshes a row already in the LAN list and never adds one (only broadcast answers
- *   ever enter it) (story 196)
+ *   ever enter it). A caller can pin a round to one list with `ScanStartOptions.mode` whatever
+ *   `setMode` says - the watchlist rechecks on the online list so its stage-2 hook fires
+ *   (story 196)
  * - **The `addresses` scope.** Re-queries named rows the active list already has (its "known" set
  *   is exactly `read(mode).entries`, online placeholders included) and nothing else: one unknown
  *   name refuses the whole start before any query, so there is never a partial round. Online it is
@@ -141,6 +143,9 @@ export interface ScanStartOptions {
    * `'all'` scope, and for `'addresses'` only when it is one of the scope's addresses -
    * `'favourites'` ignores it, `'server'` already names its one address. */
   selectedAddress?: string
+  /** The list this round runs, reports and writes on; omitted means the active mode. The
+   * watchlist asks for `'online'`, since only online rounds feed it. */
+  mode?: ServersBrowseMode
 }
 
 export interface ScanService {
@@ -613,7 +618,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     const scope: ScanScope = options.scope ?? { kind: 'all' }
     // The round belongs to the mode active *now*; its list is captured here and
     // handed to the sweep, so a `setMode` mid-round never redirects its writes (story 196)
-    const sweepMode = mode
+    const sweepMode = options.mode ?? mode
     if (sweepMode === 'lan' && scope.kind === 'favourites') {
       return refuse(SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY)
     }

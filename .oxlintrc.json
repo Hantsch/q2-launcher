@@ -191,6 +191,21 @@
       }
     },
     {
+      "files": [
+        "src/main/services/update/service.ts",
+        "src/main/services/update/state.ts",
+        "src/main/services/update/check.ts",
+        "src/main/services/update/download.ts",
+        "src/main/services/update/simulate.ts"
+      ],
+      "rules": {
+        "max-lines-per-function": [
+          "error",
+          { "max": 80, "skipBlankLines": true, "skipComments": true }
+        ]
+      }
+    },
+    {
       "files": ["**/*.test.ts", "**/*.test.tsx"],
       // createElement's typed props require `children` as a prop; there is no JSX in the .ts tests.
       "rules": { "no-restricted-imports": "off", "react/no-children-prop": "off" }

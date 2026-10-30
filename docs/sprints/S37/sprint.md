@@ -20,7 +20,7 @@ After a sprint, `npm run verify:release` passing means the PR and the release pa
 - [x] 277 — verify:release checks exactly what a PR and a release check, cheap steps first
 - [x] 325 — Tests and comments state what they check
 - [x] 322 — Boot does not wait on file I/O, and a failed module has no live handlers
-- [ ] 323 — The update service is split into testable parts
+- [x] 323 — The update service is split into testable parts
 - [ ] 320 — Config edits reach disk only through save, and every flag survives a reload
 - [ ] 321 — Demo play, stop and stage restore end in a defined state
 - [ ] 326 — Platform decisions in playback stay behind the seam

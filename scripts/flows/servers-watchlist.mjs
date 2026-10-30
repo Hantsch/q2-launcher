@@ -264,6 +264,15 @@ async function runFullRefreshFromWatchlistTab(page) {
   await page.getByTestId('servers-watchlist').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }
 
+async function setBrowserMode(page, mode) {
+  await page.getByTestId(`servers-mode-${mode}`).click({ timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    (m) => document.querySelector(`[data-testid="${m}"]`)?.getAttribute('aria-pressed') === 'true',
+    `servers-mode-${mode}`,
+    { timeout: TIMEOUT_MS },
+  )
+}
+
 async function waitForRowState(page, id, state, timeout) {
   await page.waitForFunction(
     ({ testId, expected }) =>
@@ -505,6 +514,26 @@ export default async function serversWatchlist({ page, step, shot }) {
           `expected the "left" row to carry its full-scan-needed text, got ${JSON.stringify(leftText)}`,
         )
       }
+
+      step('a re-check started while the browser is on LAN still resolves to its online match')
+      serverA.players = [{ score: 9, ping: 12, name: 'Rocket' }]
+      await runFullRefreshFromWatchlistTab(p)
+      await waitForRowState(p, rockId, 'found', RECHECK_SETTLE_TIMEOUT_MS)
+      await p.getByTestId('servers-tab-list').click({ timeout: TIMEOUT_MS })
+      await setBrowserMode(p, 'lan')
+      await p.getByTestId('servers-tab-watchlist').click({ timeout: TIMEOUT_MS })
+      serverA.players = [{ score: 33, ping: 6, name: 'Rocket' }]
+      await p.getByTestId(`servers-watchlist-recheck-${rockId}`).click({ timeout: TIMEOUT_MS })
+      await p.waitForFunction(
+        (testId) =>
+          document.querySelector(`[data-testid="${testId}"]`)?.textContent?.includes('33'),
+        `servers-watchlist-match-${rockId}-${serverA.address}`,
+        { timeout: RECHECK_SETTLE_TIMEOUT_MS },
+      )
+      await waitForRowState(p, rockId, 'found', RECHECK_SETTLE_TIMEOUT_MS)
+      await p.getByTestId('servers-tab-list').click({ timeout: TIMEOUT_MS })
+      await setBrowserMode(p, 'online')
+      await p.getByTestId('servers-tab-watchlist').click({ timeout: TIMEOUT_MS })
 
       step(
         'editing "Nobody" to "Trooper" (server B’s own player) rematches it to found immediately (AC3)',

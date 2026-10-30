@@ -111,7 +111,7 @@ This document describes the module as built. `servers` is a registered module; i
 - `add` — adds an entry (exact, substring or regex).
 - `update` — edits an entry's name and mode.
 - `remove` — removes an entry.
-- `recheck` — re-evaluates the entries against the known rows.
+- `recheck` — re-evaluates the entries against the known rows. Its single-server round always queries the online list, whatever the browser's Online/LAN mode (only online rounds feed the watchlist).
 
 Events: `SERVERS_EVENTS` pushes `scanChanged`, `scanServer` (one row per result) and
 `watchlistChanged`.
