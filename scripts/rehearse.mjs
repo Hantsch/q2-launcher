@@ -1,25 +1,23 @@
-// `npm run rehearse` - runs the slow pre-merge rehearsal (verify:release, ci:local, and with
-// `--linux` the Linux ui-flows leg ci:local:flows) in a detached process and keeps a timed
-// pass/fail record, so whoever started it - a person or an agent whose tool call ends after a few
-// minutes - can walk away and poll for the verdict later. The rules (command list, record, shard
-// parsing, verdict) live in lib/rehearsal.mjs; this file does the I/O.
+// `npm run rehearse` - runs the slow pre-merge rehearsal (verify:release, and with `--linux`
+// verify:linux first) in a detached process and keeps a timed pass/fail record, so whoever started
+// it - a person or an agent whose tool call ends after a few minutes - can walk away and poll for
+// the verdict later. The rules (command list, record, verdict) live in lib/rehearsal.mjs; this
+// file does the I/O.
 //
 // Usage:
 //   npm run rehearse                 start a run in .rehearsal/<UTC yyyymmdd-hhmmss>/ and return;
-//                                    the Linux ui-flows leg is skipped and one line says so
-//   npm run rehearse -- --linux      the same, plus ci:local:flows (six act shards, ~24 min)
+//                                    the Linux checks are skipped and one line says so
+//   npm run rehearse -- --linux      the same, plus verify:linux, run before verify:release
 //   npm run rehearse -- --status     summarise the newest run; exit 0 passed, 1 failed, 2 running
 //                                    or aborted
 //   node scripts/rehearse.mjs --run <dir> [--linux]   the detached runner itself (started by the
 //                                    launcher, which passes its own --linux on)
 //
-// Each command's output goes to <dir>/<command>.log, every line prefixed with the time it arrived:
-// act prints no timestamps itself, and the per-shard wall time is read from those prefixes.
+// Each command's output goes to <dir>/<command>.log, every line prefixed with the time it arrived.
 //
 // Test seams, never set by hand: Q2L_REHEARSAL_ROOT (absolute) replaces .rehearsal/, and
-// Q2L_REHEARSAL_PLAN names a JSON file `{ commands: [{ name, command, args, shards? }], preflight:
-// { act, docker } }` that replaces the npm commands and the act/Docker probes - with it, no act,
-// Docker or container is ever touched.
+// Q2L_REHEARSAL_PLAN names a JSON file `{ commands: [{ name, command, args }] }` that replaces the
+// npm commands - with it, no npm script is ever started.
 import { spawn } from 'node:child_process'
 import {
   createWriteStream,
@@ -29,23 +27,19 @@ import {
   renameSync,
   writeFileSync,
 } from 'node:fs'
-import { delimiter, dirname, isAbsolute, join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
-import { dockerRunning, removeStaleActContainers, resolveAct } from './lib/act.mjs'
 import { REPO_ROOT } from './lib/paths.mjs'
 import {
   LINUX_FLAG,
-  LINUX_FLOWS_COMMAND,
+  LINUX_COMMAND,
   commandsFor,
   finalStatus,
   initialRecord,
   logFileName,
-  marginOk,
   newestRunDir,
   parseRehearseArgs,
-  parseShards,
-  preflightReason,
   runDirName,
   skippedLinuxLine,
   statusView,
@@ -71,13 +65,11 @@ function loadPlan(linux) {
   if (!file) {
     return {
       commands: commandsFor({ linux }),
-      skipped: linux ? [] : [LINUX_FLOWS_COMMAND.name],
-      preflight: null,
-      stub: false,
+      skipped: linux ? [] : [LINUX_COMMAND.name],
     }
   }
   const plan = JSON.parse(readFileSync(file, 'utf-8'))
-  return { commands: plan.commands, skipped: [], preflight: plan.preflight ?? null, stub: true }
+  return { commands: plan.commands, skipped: [] }
 }
 
 const recordPath = (dir) => join(dir, 'record.json')
@@ -116,15 +108,8 @@ function pidAlive(pid) {
   }
 }
 
-/** `env` with act's folder first on the PATH - the ci:local scripts call a bare `act`. */
-function withActOnPath(env, act) {
-  if (!act || !isAbsolute(act)) return env
-  const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH'
-  return { ...env, [key]: `${dirname(act)}${delimiter}${env[key] ?? ''}` }
-}
-
 /** Runs one command with stdout+stderr, each line timestamped, into `logPath`; resolves its exit code. */
-function runLogged(command, env, logPath) {
+function runLogged(command, logPath) {
   const { cmd, args, shell } =
     command.command === undefined
       ? { cmd: 'npm', args: ['run', command.name], shell: IS_WIN }
@@ -133,7 +118,6 @@ function runLogged(command, env, logPath) {
   const stamp = (line) => out.write(`${new Date().toISOString()} ${line}\n`)
   const child = spawn(cmd, args, {
     cwd: REPO_ROOT,
-    env,
     shell,
     // The runner has no console; without this every console child opens a window.
     windowsHide: true,
@@ -165,30 +149,17 @@ async function runRehearsal(dir, linux) {
   record.pid = process.pid
   writeRecord(dir, record)
   try {
-    const probes = plan.preflight ?? { act: resolveAct(), docker: dockerRunning() }
-    const reason = preflightReason(probes)
-    if (reason !== null) {
-      record.commands = plan.commands.map(({ name }) => ({ name, status: 'skipped' }))
-      record.reason = reason
-      return
-    }
-    const env = withActOnPath(process.env, probes.act)
     for (const [index, command] of plan.commands.entries()) {
-      if (!plan.stub) removeStaleActContainers()
       record.commands[index] = { name: command.name, status: 'running' }
       writeRecord(dir, record)
       const startedAt = Date.now()
       const logPath = join(dir, logFileName(command.name))
-      const exitCode = await runLogged(command, env, logPath)
+      const exitCode = await runLogged(command, logPath)
       const entry = {
         name: command.name,
         status: exitCode === 0 ? 'passed' : 'failed',
         exitCode,
         seconds: Math.round((Date.now() - startedAt) / 1000),
-      }
-      if (command.shards) {
-        entry.shards = parseShards(readFileSync(logPath, 'utf-8'))
-        record.marginOk = marginOk(entry.shards)
       }
       record.commands[index] = entry
       writeRecord(dir, record)
@@ -243,7 +214,7 @@ async function launch(linux) {
     return 1
   }
   console.log(`rehearsal running in ${dir}`)
-  if (plan.skipped.includes(LINUX_FLOWS_COMMAND.name)) console.log(skippedLinuxLine())
+  if (plan.skipped.includes(LINUX_COMMAND.name)) console.log(skippedLinuxLine())
   console.log('poll it with: npm run rehearse -- --status')
   return 0
 }

@@ -9,7 +9,7 @@ milestone: 11.5 — tests review 2026-10-27
 
 ## Goal
 
-The Windows PR lane fails when a core journey breaks, the release publishes only a commit with a green `ci` run and launches the packaged app first, and the sprint gate costs about 25–30 minutes instead of about 130. The timing, sleep and quarantine weaknesses of the [tests review](../../reviews/2026-10-27-tests-review.md) are closed, and `CLAUDE.md` carries one map of which lane blocks what. Three user-feedback fixes ride along: `q2pro64.exe` is recognised, the server ping is a whole best-sample value, and demos play in R1Q2.
+The Windows PR lane fails when a core journey breaks, the release publishes only a commit with a green `ci` run and launches the packaged app first, and the sprint gate costs about 25–30 minutes instead of about 130. The timing, sleep and quarantine weaknesses of the [tests review](../../../reviews/2026-10-27-tests-review.md) are closed, and `CLAUDE.md` carries one map of which lane blocks what. Three user-feedback fixes ride along: `q2pro64.exe` is recognised, the server ping is a whole best-sample value, and demos play in R1Q2.
 
 ## Stories (in build order)
 

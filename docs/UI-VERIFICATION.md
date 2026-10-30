@@ -1613,11 +1613,8 @@ deliberate, not a gap to fill in later: a pixel baseline rots on every design
 change and turns into noise nobody trusts. They exist purely as evidence for
 a human to look at during manual review.
 
-**CI runs the harness through `.github/workflows/ui-flows.yml`**, which has
-two jobs:
+**The PR lane is `.github/workflows/ui-flows.yml`**, whose one job is:
 
-- `ui-flows` — every flow on `ubuntu-latest` under xvfb, split into 6 shards
-  (`npm run ui:flows -- --shard=<i>/6`).
 - `windows-verify` — on `windows-latest`: build, `npm run ui:verify`
   (screenshots + axe-core), then eight blocking flows on a `build:dev` build
   (no `continue-on-error`): `linux-user-journey`, `bootstrap-wizard`,
@@ -1631,13 +1628,14 @@ It is non-blocking until two releases after 0.8.0 and blocking from then on
 packaged path is already proven by release.yml" is superseded: the packaged
 launch is the release step, the PR lane stays on `build:dev` (story 264).
 
-Both trigger on pull requests into `main` and on `workflow_dispatch` only; a
+The six-shard Linux run of every flow (`npm run ui:flows -- --shard=<i>/6` under
+xvfb) is the `flows` job of `.github/workflows/linux.yml`, manual dispatch
+only. `ui-flows.yml` triggers on pull requests into `main` and on
+`workflow_dispatch` only; a
 push or schedule run would re-verify a tree that only changes through PRs.
-`npm run ci:local:flows` rehearses the Linux leg locally with `act` (six
-shards, one at a time, ~24 min). `npm run rehearse` leaves that leg out by
-default — the GitHub job is advisory (`continue-on-error`) and 20 flows are
-quarantined for Linux — and prints one line saying so; `npm run rehearse --
---linux` includes it.
+`npm run verify:linux` runs the Linux leg locally with `act` (six shards, one at a
+time, ~24 min) as part of its advisory Linux check; 20 flows are quarantined for
+Linux. `npm run rehearse -- --linux` includes it.
 
 ## Known blind spots
 

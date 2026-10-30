@@ -1,6 +1,6 @@
 // Story 101 D6 (docs/requirements/101-a-linux-release-ships-and-updates-itself.md): AC6's e2e -
 // "a packaged AppImage takes an update on its startup check and comes back as the new version".
-// Linux only, and only ever run by `.github/workflows/linux-update.yml`; there is no way to
+// Linux only, and only ever run by `.github/workflows/linux-update.yml` (locally: `npm run verify:linux`); there is no way to
 // rehearse it on Windows (the story's own Locality note).
 //
 // ## What it actually proves, and why it needs an out-of-process oracle

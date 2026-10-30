@@ -1,2 +1,20 @@
 - 2026-10-30 08:46:09 · refine · 276 279 280 278 277 325 322 323 320 321 326 327 324 · started
 - 2026-10-30 08:54:16 · refine · 324 327 · started
+- 2026-10-30 08:57:05 · 276 · build · started
+- 2026-10-30 08:57 · 276 · D1 PR path loses Linux · started
+- 2026-10-30 09:02 · 276 · D1 PR path loses Linux · done
+- 2026-10-30 09:02 · 276 · D2 release survives failed build-linux · started
+- 2026-10-30 09:05 · 276 · D2 release survives failed build-linux · done
+- 2026-10-30 09:05 · 276 · D3 verify:linux · started
+- 2026-10-30 09:09 · 276 · D3 verify:linux · done
+- 2026-10-30 09:09 · 276 · D4 verify:release loses act · started
+- 2026-10-30 09:12 · 276 · D4 verify:release loses act · done
+- 2026-10-30 09:12 · 276 · D5 lane map and docs · started
+- 2026-10-30 09:16 · 276 · D5 lane map and docs · done
+- 2026-10-30 09:16 · 276 · verify · started
+- 2026-10-30 09:18 · 276 · verify · done
+- 2026-10-30 09:18 · 276 · review 1 · started
+- 2026-10-30 09:21 · 276 · review 1 · done
+- 2026-10-30 09:21 · 276 · fix from review 1 · started
+- 2026-10-30 09:23 · 276 · fix from review 1 · done
+- 2026-10-30 09:23 · 276 · story · done

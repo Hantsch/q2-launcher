@@ -2,7 +2,7 @@
 
 **Status: background for stories [100](requirements/done/100-the-launcher-runs-on-linux.md) (`done`),
 [101](requirements/done/101-a-linux-release-ships-and-updates-itself.md) (`ready`) and
-[102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) (`draft`).** This document
+102 (`draft`).** This document
 is deliberately parked at the `docs/` root rather than in `concepts/`, because a concept carries a
 line in [ROADMAP.md](ROADMAP.md) and that would mean the topic has been prioritised — it has not.
 Two draft stories exist; no sprint is cut and no roadmap row is written. If the topic is adopted,
@@ -82,7 +82,7 @@ gives B1 a second answer.** Rather than only building and mirroring a native Lin
 one as a runner, and launch a Windows build (Steam's `quake2.exe`, a carried-over r1q2 install)
 through it — with a plain refusal, naming the reason, when nothing on the machine can run it. This
 does not retire option 1; it makes it optional rather than obligatory. Per Q4's resolution in story
-103, [story 102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) is not cut into a sprint
+103, story 102 is not cut into a sprint
 until 103 has been confirmed working on a real Linux machine — this analysis and 103's own tests
 run in CI/sandboxes only, and neither has exercised an actual wine or umu-run launch yet.
 
@@ -158,7 +158,7 @@ blockers in §3 are two stories, not eight.
 | ------------------------------------------------------------------------ | ---------------------------------------- | ------ | ------------------ | ------------- |
 | [100](requirements/done/100-the-launcher-runs-on-linux.md)               | the launcher runs on linux               | done   | B2, B3, B4, B6, B7 | —             |
 | [101](requirements/done/101-a-linux-release-ships-and-updates-itself.md) | a linux release ships and updates itself | ready  | B5                 | —             |
-| [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md)           | a linux q2pro is built and mirrored      | draft  | B1                 | its own Q1–Q4 |
+| 102                                                                      | a linux q2pro is built and mirrored      | draft  | B1                 | its own Q1–Q4 |
 
 **Re-cut 2026-09-21.** 101 originally carried B1 as well. Its Q1 was resolved by splitting the
 engine-supply obligation into 102, so 101 is now the launcher's own release and update path and
@@ -185,7 +185,7 @@ configuration.
 Story 101's four questions were all answered on 2026-09-21 and are recorded, with their answers, in
 that story's `Open Questions`: engine supply split out to 102, AppImage only, x86_64 only, and AC6
 accepted by an automated `ubuntu-latest` job rather than a human. The engine-supply question itself
-did not go away — it reopened as [story 102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md)'s
+did not go away — it reopened as story 102's
 own Q1–Q4 (acceptable provenance for a self-compiled binary, who rebuilds it, where it runs, and
 what "reproducible" means for a C build). One place to answer them, as before.
 

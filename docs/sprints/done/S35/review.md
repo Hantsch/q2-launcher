@@ -37,7 +37,7 @@ Branch `sprint/S35`, 13/13 stories done, regression gate green after one fix com
 - Cross-story breakage the narrow gates could not see (all fixed in f075eb6): story 252's footer `select` broke two bare `select` locators (`unsaved-diff`, two ui:verify screens); stories 252/254/258/262 each tripped a repo-health test (areas.json coverage/cap, comment rule, helper duplication, pinned tsconfig excludes); 256's always-present pane failed axe on the servers list; 257 pushed ServersView over 350 lines (join and arrow-key logic extracted into two hooks).
 - Build agents left CRLF in the worktree (git normalises to LF); 11 files were converted. Narrow gates also ran the release `build` over the dev bundle twice, which turns mods flows red — keep verifying with `build:dev`.
 - Story 258's AC6 real-socket ping test cannot catch a receive stamp taken after processing (a discriminating variant was flaky); AC5's fake-socket test is the proof. Low-severity review nits are in each story's Done section.
-- Unfixed findings: TD-049 … TD-053 in [TECH-DEBT.md](../../TECH-DEBT.md), plus the two flaky flows (TD-052). The progress trail had two slips where a build agent wrote two events in one command; timestamps were shell-produced and monotonic.
+- Unfixed findings: TD-049 … TD-053 in [TECH-DEBT.md](../../../TECH-DEBT.md), plus the two flaky flows (TD-052). The progress trail had two slips where a build agent wrote two events in one command; timestamps were shell-produced and monotonic.
 - Doc check: every story touching a module also touched its `docs/systems/` doc. CHANGELOG has an entry for every user-facing story; none was added late.
 
 ## Blocked / open

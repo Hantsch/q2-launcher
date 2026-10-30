@@ -1,0 +1,197 @@
+name: linux
+
+# Linux is not a supported platform: these checks run on manual dispatch only and never gate a PR
+# or a release. On GitHub every step continues on error and the job ends green; the last step turns
+# each failed step into a `::warning::` annotation (scripts/linux-advisory.mjs). Under act the steps
+# stay strict, so a local rehearsal still reports a red Linux job.
+#
+# Every step after the first skips once any step failed: an `if:` without a status function implies
+# `success()`, which a continue-on-error failure leaves true, so the `contains` does the skip. No
+# job-level timeout: a timed-out job ends red, a timed-out step with continue-on-error does not.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: Unit tests (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+
+      - id: setup
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        uses: ./.github/actions/setup-node-electron
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        with:
+          # Unit tests resolve `electron` to a stub (vitest.config.ts) and never need the binary.
+          electron: 'false'
+
+      # Vendors the real 7-Zip Linux binary so extractor.test.ts's real-archive block runs instead
+      # of skipping (it is gated on the binary's presence).
+      - id: fetch-7za
+        name: Fetch 7-Zip binary
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: npm run fetch:7za
+
+      - id: test
+        name: Test
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: npm test
+
+      - id: advisory
+        name: Report failed steps as warnings
+        if: always()
+        continue-on-error: true
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          CHECK: linux.yml/unit
+        run: node scripts/linux-advisory.mjs
+
+  journey:
+    # The launcher's own end-to-end journeys on a real Linux build under xvfb: add an installation,
+    # edit a config profile, Play a real spawned process; a Windows build through a runner; and the
+    # Steam handoff. One job: the flows share one build and one display.
+    name: Linux user journey (ubuntu-latest, xvfb)
+    runs-on: ubuntu-latest
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+
+      - id: setup
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        uses: ./.github/actions/setup-node-electron
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+
+      # `ubuntu-latest` does not ship `xvfb-run`; Electron needs a real display even in CI.
+      - id: xvfb
+        name: Install xvfb
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      # Near no-op on ubuntu-latest; it makes the job self-contained under act, whose image has none
+      # of these libraries. Playwright's list is headless Chromium's and lacks GTK, which Electron links.
+      - id: electron-libs
+        name: Install Electron's runtime libraries
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: npx playwright install-deps chromium && sudo apt-get install -y libgtk-3-0t64
+
+      - id: build
+        name: Build
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: npm run build
+
+      # No `fetch:7za`: off Windows the journey's fixture install root is a tiny shell script
+      # (scripts/lib/fixture.mjs), never the vendored 7-Zip binary. The `chrome-sandbox` setuid
+      # helper needs privileges a shared runner does not grant, hence the disabled sandbox.
+      - id: linux-user-journey
+        name: Linux user journey
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flow -- linux-user-journey
+
+      - id: windows-build-on-linux
+        name: Windows build on Linux
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flow -- windows-build-on-linux
+
+      - id: steam-handoff
+        name: Steam handoff (Linux branch)
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flow -- steam-handoff
+
+      - id: advisory
+        name: Report failed steps as warnings
+        if: always()
+        continue-on-error: true
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          CHECK: linux.yml/journey
+        run: node scripts/linux-advisory.mjs
+
+  flows:
+    # Every UI flow on Linux, sharded. Local rehearsal: act with `-W .github/workflows/linux.yml -j flows`.
+    name: UI flows (ubuntu-latest, xvfb, shard ${{ matrix.shard }}/6)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+
+      - id: setup
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        uses: ./.github/actions/setup-node-electron
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+
+      - id: xvfb
+        name: Install xvfb
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - id: electron-libs
+        name: Install Electron's runtime libraries
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: npx playwright install-deps chromium && sudo apt-get install -y libgtk-3-0t64
+
+      - id: fetch-7za
+        name: Fetch 7-Zip
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: npm run fetch:7za
+
+      - id: build
+        name: Build
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        run: npm run build:dev
+
+      - id: ui-flows
+        name: UI flows (shard ${{ matrix.shard }}/6)
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        timeout-minutes: 20
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flows -- --shard=${{ matrix.shard }}/6
+
+      - id: upload
+        name: Upload screenshots
+        if: ${{ always() && contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-flows-shard-${{ matrix.shard }}
+          path: .ui-verify/screenshots/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - id: advisory
+        name: Report failed steps as warnings
+        if: always()
+        continue-on-error: true
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          CHECK: linux.yml/flows shard ${{ matrix.shard }}
+        run: node scripts/linux-advisory.mjs

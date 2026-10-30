@@ -100,16 +100,25 @@ jobs:
           echo "Planned version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+  # Linux is not a supported platform: every step continues on error under GitHub (strict under act)
+  # and a failed step is reported as a `::warning::`, so the job ends green and the `release` job
+  # still runs. A step after the first skips once any step failed (`contains` does the skip: `if:`
+  # without a status function implies `success()`, which a continue-on-error failure leaves true).
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
     needs: plan
     steps:
-      - uses: actions/checkout@v4
+      - id: checkout
+        uses: actions/checkout@v4
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         with:
           ref: ${{ github.ref_name }}
 
-      - name: Refuse a commit the ci guard did not see
+      - id: guard
+        name: Refuse a commit the ci guard did not see
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         shell: bash
         env:
           GUARDED_SHA: ${{ needs.plan.outputs.sha }}
@@ -120,7 +129,10 @@ jobs:
             exit 1
           fi
 
-      - uses: ./.github/actions/setup-node-electron
+      - id: setup
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        uses: ./.github/actions/setup-node-electron
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         with:
           electron: 'false'
 
@@ -129,29 +141,38 @@ jobs:
       # pre-bump version. Setting it to the planned version here is what makes the AppImage's
       # filename match the tag the `release` job will create - the bump itself is not committed
       # (this workspace is thrown away), it only has to be true for the duration of the build.
-      - name: Build at the planned version
+      - id: set-version
+        name: Build at the planned version
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         env:
           PLANNED_VERSION: ${{ needs.plan.outputs.version }}
         run: npm pkg set version="$PLANNED_VERSION"
 
-      # F2 fix: without this, the packaged AppImage bundles CHANGELOG.md still saying
-      # "## Unreleased" (this checkout never gets the promoted changelog the `release` job commits
-      # later), so src/main/lib/release-notes.ts's resolveReleaseNotes() finds no "## <version>"
-      # section matching app.getVersion() and About is permanently empty on Linux. This calls the
-      # exact same promote() code path scripts/release.mjs's real run uses for the Windows leg, at
-      # the same version, so both legs' bundled "## <version>" sections are byte-identical. It only
-      # writes CHANGELOG.md in this ephemeral checkout - nothing is committed or pushed here.
-      - name: Promote CHANGELOG.md for the bundled release notes
+      # Without this, the packaged AppImage bundles CHANGELOG.md still saying "## Unreleased" (this
+      # checkout never gets the promoted changelog the `release` job commits later), so About is
+      # permanently empty on Linux. It calls the same promote() code path scripts/release.mjs's real
+      # run uses for the Windows leg, at the same version, and only writes this ephemeral checkout.
+      - id: promote
+        name: Promote CHANGELOG.md for the bundled release notes
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         env:
           PLANNED_VERSION: ${{ needs.plan.outputs.version }}
         run: node scripts/release.mjs --promote-changelog --version "$PLANNED_VERSION"
 
-      - name: Package
+      - id: package
+        name: Package
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run package:linux
 
-      - name: Upload the Linux artifacts
+      - id: upload
+        name: Upload the Linux artifacts
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         uses: actions/upload-artifact@v4
         with:
           name: linux-release-assets
@@ -163,13 +184,24 @@ jobs:
           path: |
             release/${{ needs.plan.outputs.version }}/*.AppImage
             release/${{ needs.plan.outputs.version }}/latest-linux.yml
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 1
+
+      - id: advisory
+        name: Report failed steps as warnings
+        if: always()
+        continue-on-error: true
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          CHECK: release.yml/build-linux
+        run: node scripts/linux-advisory.mjs
 
   release:
     name: Release
     runs-on: windows-latest
     needs: [plan, build-linux]
+    # A failed or skipped `build-linux` must not stop the release: Windows ships alone.
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -221,6 +253,7 @@ jobs:
         run: npm run ui:flow -- about-release-notes --app="${{ steps.smoke-app.outputs.path }}"
 
       - name: Download the Linux artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: linux-release-assets
@@ -238,8 +271,8 @@ jobs:
           CI: 'true'
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           # scripts/release.mjs copies this directory's files into release/<version>/ between the
-          # Windows build and the asset check, so the Linux half is gated by the same
-          # refuses-when-a-file-is-missing check as the Windows half.
+          # Windows build and the asset check; a missing or incomplete Linux set is a warning and
+          # the Windows set ships alone.
           RELEASE_EXTRA_ASSETS_DIR: ${{ github.workspace }}/linux-assets
           # The version is NOT derived again here: it is the one the `plan` job resolved and the
           # `build-linux` job built at. Deriving it twice would tag one version and upload assets

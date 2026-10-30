@@ -181,6 +181,7 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
 
   test('an explicit --version reaches the plan, so the build and asset check target it', () => {
     const deps = createDeps({ env: {} })
+    deps.stageExtraAssets.mockImplementation((_dir, version) => expectedAssets(version, 'linux'))
 
     const result = runRelease({ dryRun: true, requestedVersion: '1.2.3' }, deps)
 
@@ -300,6 +301,31 @@ describe('runRelease - one run publishes both platforms', () => {
     expect(result.assets.some((path) => path.endsWith('latest.yml'))).toBe(true)
     expect(result.assets.some((path) => path.endsWith('latest-linux.yml'))).toBe(true)
     expect(result.assets.some((path) => path.endsWith('.AppImage'))).toBe(true)
+  })
+
+  test('a release without Linux assets publishes the Windows set and warns naming the AppImage', () => {
+    const deps = createDeps({ env: { CI: 'true' } })
+    deps.stageExtraAssets.mockImplementation(() => [])
+
+    const result = runRelease({ dryRun: false }, deps)
+
+    expect(result.code).toBe(0)
+    expect(deps.collectAssets).toHaveBeenCalledWith('release/1.0.0-beta.2', '1.0.0-beta.2', 'win')
+    expect(deps.log).toHaveBeenCalledWith(
+      `::warning::release 1.0.0-beta.2 has no Linux assets: missing ${STAGED[0]}, ${STAGED[1]}`,
+    )
+    expect(deps.run).toHaveBeenCalled()
+  })
+
+  test('a missing Windows file still refuses the release', () => {
+    const deps = createDeps({ env: { CI: 'true' } })
+    deps.stageExtraAssets.mockImplementation(() => [])
+    deps.collectAssets.mockImplementation(() => {
+      throw new Error('missing latest.yml')
+    })
+
+    expect(() => runRelease({ dryRun: false }, deps)).toThrow(/latest\.yml/)
+    expect(deps.run).not.toHaveBeenCalled()
   })
 
   test('a staging failure refuses before the asset check and publishes nothing', () => {
@@ -588,14 +614,21 @@ describe('stageExtraAssetsFrom - the one new piece of real I/O', () => {
     expect(readdirSync(target)).toEqual([])
   })
 
-  test('a source directory that does not exist throws instead of staging nothing', () => {
+  test('a source directory that does not exist or is empty stages nothing', () => {
     const target = scratchDir('target')
 
-    // Set-but-wrong means a failed download step or a typo'd path, and the release must say so
-    // rather than quietly continue into a Windows-only asset set.
-    expect(() => stageExtraAssetsFrom(target, VERSION, join(target, 'no-such-dir'))).toThrow(
-      /RELEASE_EXTRA_ASSETS_DIR/,
-    )
+    expect(stageExtraAssetsFrom(target, VERSION, join(target, 'no-such-dir'))).toEqual([])
+    expect(stageExtraAssetsFrom(target, VERSION, scratchDir('empty'))).toEqual([])
+    expect(readdirSync(target)).toEqual([])
+  })
+
+  test('an incomplete Linux set is not staged at all', () => {
+    const target = scratchDir('target')
+    const source = scratchDir('source')
+    writeFileSync(join(source, 'latest-linux.yml'), 'version: 1.0.0-beta.2\n')
+
+    expect(stageExtraAssetsFrom(target, VERSION, source)).toEqual([])
+    expect(readdirSync(target)).toEqual([])
   })
 
   test('refuses to stage a file over a Windows artifact - latest.yml above all', () => {

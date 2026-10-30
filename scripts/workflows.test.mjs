@@ -43,18 +43,16 @@ export function packagedSmokeMustBlock(changelogText, baseline = '0.8.0') {
   return released.filter((v) => newer(v, baseline)).length >= 2
 }
 
-const UI_FLOWS = join(WORKFLOWS_DIR, 'ui-flows.yml')
+const LINUX = join(WORKFLOWS_DIR, 'linux.yml')
 
-describe('ui-flows workflow', () => {
-  test('ui-flows runs six shards on PRs into main and on dispatch only', () => {
-    const doc = loadYaml(UI_FLOWS)
+describe('linux workflow', () => {
+  test('the Linux UI flows run six shards on manual dispatch only', () => {
+    const doc = loadYaml(LINUX)
     // js-yaml (YAML 1.2 core) keeps `on` a string key.
-    expect(Object.keys(doc.on).sort()).toEqual(['pull_request', 'workflow_dispatch'])
-    expect(doc.on.pull_request.branches).toEqual(['main'])
-    expect(doc.concurrency.group).toContain('github.ref')
-    const job = doc.jobs['ui-flows']
+    expect(Object.keys(doc.on)).toEqual(['workflow_dispatch'])
+    expect(Object.keys(doc.jobs).sort()).toEqual(['flows', 'journey', 'unit'])
+    const job = doc.jobs.flows
     expect(job['runs-on']).toBe('ubuntu-latest')
-    expect(job['timeout-minutes']).toBe(20)
     expect(job.strategy['fail-fast']).toBe(false)
     expect(job.strategy.matrix.shard).toEqual([1, 2, 3, 4, 5, 6])
     const runs = job.steps.map((s) => String(s.run ?? ''))
@@ -67,9 +65,21 @@ describe('ui-flows workflow', () => {
     expect(runs).toContain('npm run build:dev')
     const flows = job.steps.find((s) => /ui:flows/.test(String(s.run ?? '')))
     expect(flows.env.ELECTRON_DISABLE_SANDBOX).toBe('1')
+    expect(flows['timeout-minutes']).toBe(20)
     const upload = job.steps.find((s) => String(s.uses ?? '').startsWith('actions/upload-artifact'))
-    expect(upload.if).toBe('failure()')
+    expect(upload.if).toBe("${{ always() && contains(steps.*.outcome, 'failure') }}")
     expect(upload.with.path).toContain('.ui-verify/screenshots/**')
+  })
+})
+
+const UI_FLOWS = join(WORKFLOWS_DIR, 'ui-flows.yml')
+
+describe('ui-flows workflow', () => {
+  test('ui-flows triggers on PRs into main and on dispatch only, one run per ref', () => {
+    const doc = loadYaml(UI_FLOWS)
+    expect(Object.keys(doc.on).sort()).toEqual(['pull_request', 'workflow_dispatch'])
+    expect(doc.on.pull_request.branches).toEqual(['main'])
+    expect(doc.concurrency.group).toContain('github.ref')
   })
 
   test('windows-verify blocks on the core-journey flows on windows-latest', () => {
@@ -134,20 +144,98 @@ describe('7za fetch ordering', () => {
   })
 })
 
-describe('Linux jobs are advisory on GitHub', () => {
-  // Strict under act so the local verify:release / rehearse gate still reports a red Linux job.
+describe('Linux jobs never gate and never end red', () => {
+  // Strict under act so the local rehearsal still reports a failed Linux step.
   const ADVISORY = "${{ github.actor != 'nektos/act' }}"
-  const LINUX_JOBS = [
-    ['ci.yml', 'linux-journey'],
-    ['ui-flows.yml', 'ui-flows'],
-    ['linux-verify.yml', 'verify'],
-    ['linux-update.yml', 'update'],
-  ]
+  // An `if:` without a status function implies `success()`, which a continue-on-error failure
+  // leaves true; the `contains` is what skips the rest of the job.
+  const SKIP_AFTER_FAILURE = "${{ !contains(steps.*.outcome, 'failure') }}"
+  // release.yml still triggers on push, so the exception goes when it is dispatch-only (story 278)
+  const PUSH_PR_EXCEPTED = ['release.yml']
 
-  test.each(LINUX_JOBS)('%s %s does not block a PR or release', (file, job) => {
-    const def = loadWorkflows().find((w) => w.file === file).doc.jobs[job]
-    expect(def['runs-on']).toBe('ubuntu-latest')
-    expect(def['continue-on-error']).toBe(ADVISORY)
+  /** Every runner a job resolves to, with a `matrix.os` runs-on expanded to its values. */
+  const runnersOf = (def) =>
+    /matrix\.os/.test(String(def['runs-on']))
+      ? (def.strategy?.matrix?.os ?? []).map(String)
+      : [String(def['runs-on'])]
+  const isLinux = (def) => runnersOf(def).some((r) => r.includes('ubuntu'))
+  const onPushOrPr = (doc) => {
+    const on = doc.on
+    const events = typeof on === 'string' ? [on] : Array.isArray(on) ? on : Object.keys(on ?? {})
+    return events.includes('push') || events.includes('pull_request')
+  }
+
+  const linuxJobs = () =>
+    loadWorkflows()
+      .filter(({ doc }) => !onPushOrPr(doc))
+      .flatMap(({ file, doc }) =>
+        Object.entries(doc.jobs)
+          .filter(([, def]) => isLinux(def))
+          .map(([job, def]) => ({ file, job, def })),
+      )
+
+  test('no push or pull-request workflow runs a Linux job', () => {
+    const offenders = loadWorkflows()
+      .filter(({ file, doc }) => onPushOrPr(doc) && !PUSH_PR_EXCEPTED.includes(file))
+      .flatMap(({ file, doc }) =>
+        Object.entries(doc.jobs)
+          .filter(([, def]) => !runnersOf(def).every((r) => r.includes('windows')))
+          .map(([job]) => `${file}:${job}`),
+      )
+    expect(offenders).toEqual([])
+  })
+
+  test('a manual Linux job cannot end red', () => {
+    const jobs = linuxJobs()
+    expect(jobs.map(({ file, job }) => `${file}:${job}`).sort()).toEqual([
+      'linux-update.yml:update',
+      'linux-verify.yml:verify',
+      'linux.yml:flows',
+      'linux.yml:journey',
+      'linux.yml:unit',
+    ])
+    for (const { file, job, def } of jobs) {
+      const at = `${file} › ${job}`
+      expect(def['continue-on-error'], at).toBeUndefined()
+      expect(def['timeout-minutes'], at).toBeUndefined()
+      const steps = def.steps
+      const last = steps.at(-1)
+      steps.forEach((step, i) => {
+        const where = `${at} › step ${step.id ?? i}`
+        expect(step.id, where).toMatch(/^[\w-]+$/)
+        if (step === last) return
+        expect(step['continue-on-error'], where).toBe(ADVISORY)
+        if (i === 0) expect(step.if, where).toBeUndefined()
+        // An evidence upload runs after a failure on purpose; everything else skips.
+        else if (String(step.uses ?? '').startsWith('actions/upload-artifact'))
+          expect(String(step.if), where).toMatch(/^(\$\{\{ )?always\(\)/)
+        else expect(step.if, where).toBe(SKIP_AFTER_FAILURE)
+      })
+      expect(new Set(steps.map((s) => s.id)).size, at).toBe(steps.length)
+      expect(last.run, at).toBe('node scripts/linux-advisory.mjs')
+      expect(last.if, at).toBe('always()')
+      expect(last['continue-on-error'], at).toBe(true)
+      expect(last.env.STEPS, at).toBe('${{ toJSON(steps) }}')
+      expect(last.env.CHECK.startsWith(`${file}/${job}`), at).toBe(true)
+    }
+  })
+
+  test('the ci test job runs audit, format check, typecheck, lint and tests on windows-latest', () => {
+    const job = loadYaml(join(WORKFLOWS_DIR, 'ci.yml')).jobs.test
+    expect(job['runs-on']).toBe('windows-latest')
+    expect(job.strategy).toBeUndefined()
+    const steps = job.steps.filter((s) => s.run)
+    for (const s of steps) {
+      expect(s.if, s.name).toBeUndefined()
+      expect(s['continue-on-error'], s.name).toBeUndefined()
+    }
+    expect(steps.map((s) => s.run)).toEqual([
+      'npm audit --audit-level=high',
+      'npm run format:check',
+      'npm run typecheck',
+      'npm run lint',
+      'npm test',
+    ])
   })
 
   test('Windows jobs and the release pipeline stay blocking', () => {
@@ -155,6 +243,12 @@ describe('Linux jobs are advisory on GitHub', () => {
     expect(ui.jobs['windows-verify']['continue-on-error']).toBeUndefined()
     const { doc: release } = loadWorkflows().find((w) => w.file === 'release.yml')
     for (const def of Object.values(release.jobs)) expect(def['continue-on-error']).toBeUndefined()
+    // Only the Linux artifact download and the packaged smoke may fail without failing the job.
+    const exempt = ['Download the Linux artifacts', 'Packaged launch smoke']
+    for (const name of ['plan', 'release'])
+      for (const step of release.jobs[name].steps)
+        if (!exempt.includes(step.name))
+          expect(step['continue-on-error'], step.name).toBeUndefined()
   })
 })
 
@@ -233,6 +327,36 @@ describe('release workflow', () => {
     expect(doc.permissions.actions).toBe('read')
   })
 
+  test('build-linux cannot end red and the release runs after it fails', () => {
+    const { jobs } = release()
+    const def = jobs['build-linux']
+    expect(def['continue-on-error']).toBeUndefined()
+    expect(def['timeout-minutes']).toBeUndefined()
+    const last = def.steps.at(-1)
+    def.steps.forEach((step, i) => {
+      expect(step.id, `step ${i}`).toMatch(/^[\w-]+$/)
+      if (step === last) return
+      expect(step['continue-on-error'], step.id).toBe("${{ github.actor != 'nektos/act' }}")
+      if (i === 0) expect(step.if, step.id).toBeUndefined()
+      else expect(step.if, step.id).toBe("${{ !contains(steps.*.outcome, 'failure') }}")
+    })
+    expect(last.run).toBe('node scripts/linux-advisory.mjs')
+    expect(last.if).toBe('always()')
+    expect(last['continue-on-error']).toBe(true)
+    expect(last.env.STEPS).toBe('${{ toJSON(steps) }}')
+    expect(last.env.CHECK).toBe('release.yml/build-linux')
+    const upload = def.steps.find((s) => String(s.uses ?? '').startsWith('actions/upload-artifact'))
+    expect(upload.with['if-no-files-found']).toBe('warn')
+
+    expect(jobs.release.if).toContain('!cancelled()')
+    expect(jobs.release.if).toContain('needs.plan.result')
+    expect([jobs.release.needs].flat()).toContain('build-linux')
+    const download = jobs.release.steps.find((s) =>
+      String(s.uses ?? '').startsWith('actions/download-artifact'),
+    )
+    expect(download['continue-on-error']).toBe(true)
+  })
+
   test('the release job still runs unit tests and typecheck on windows', () => {
     const runs = release().jobs.release.steps.map((s) => String(s.run ?? ''))
     expect(runs).toContain('npm test')
@@ -304,5 +428,45 @@ describe('lane map in CLAUDE.md', () => {
       expect(workflows.has(file)).toBe(true)
     for (const [, name] of text.matchAll(/npm run ([\w:.-]+)/g))
       expect(scripts).toHaveProperty([name])
+  })
+
+  test('the linux lane runs verify:linux locally and blocks nothing, and no PR or release lane names a Linux job', () => {
+    const row = (lane) => cells(rows.find((l) => cells(l)[0] === lane))
+    const linux = row('linux')
+    expect(linux[1]).toContain('local')
+    expect(linux[2]).toContain('npm run verify:linux')
+    expect(linux[4]).toMatch(/^No\b/)
+    for (const lane of ['pr-unit', 'pr-ui', 'release'])
+      expect(row(lane).join(' ')).not.toMatch(/ubuntu|linux-|AppImage|Linux/)
+    const tail = body.filter((l) => !l.startsWith('|')).join('\n')
+    for (const name of [
+      'linux-journey',
+      'linux-verify',
+      'linux-update',
+      'ui-flows',
+      'build-linux',
+      'linux.yml',
+    ])
+      expect(tail).not.toContain(name)
+  })
+
+  test('the sprint end runs verify:linux before verify:release and records it as advisory', () => {
+    const md = readFileSync(join(ROOT, '.claude/ai-scrum.md'), 'utf-8')
+    const notesAt = md.search(/^## Notes/m)
+    expect(notesAt, '## Notes section').toBeGreaterThan(-1)
+    const notes = md.slice(notesAt)
+    const startAt = notes.search(/^Sprint end/m)
+    expect(startAt, 'Sprint end paragraph in ## Notes').toBeGreaterThan(-1)
+    const items = notes
+      .slice(startAt)
+      .split(/\r?\n/)
+      .filter((l) => /^\d+\. /.test(l))
+    const linux = items.findIndex((l) => l.includes('`npm run verify:linux`'))
+    const release = items.findIndex((l) => /`release-verify`|`npm run verify:release`/.test(l))
+    expect(linux, 'verify:linux step').toBeGreaterThan(-1)
+    expect(release, 'release-verify step').toBeGreaterThan(-1)
+    expect(linux).toBeLessThan(release)
+    expect(items[linux]).toContain('advisory')
+    expect(items[linux]).toContain('TECH-DEBT')
   })
 })

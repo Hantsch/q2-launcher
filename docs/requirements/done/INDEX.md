@@ -370,3 +370,4 @@ second roadmap.
 - 264 — Windows PR lane blocks on core-journey flows; release launches the packaged app · S36 · windows-verify runs 8 blocking flows, release smoke-launches the unpacked app (non-blocking until 2 releases past 0.8.0, tripwire test).
 - 270 — Test lane map in CLAUDE.md, e2e definition, drift guard · S36 · one Test lanes table, one e2e definition, existence-check test
 - 271 — CI pins Node via a version file and the audit gate blocks · S36 · Node 22.22.2 via .node-version, blocking npm audit, audit-clean lockfile.
+- 276 — Linux checks leave the PR and release path and are never red · S37 · Linux checks are dispatch-only and warn instead of failing; npm run verify:linux runs them locally; verify:release and releases no longer depend on Linux.

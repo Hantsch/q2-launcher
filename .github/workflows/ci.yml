@@ -13,12 +13,8 @@ concurrency:
 
 jobs:
   test:
-    name: test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    name: test (windows-latest)
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -28,13 +24,9 @@ jobs:
           electron: 'false'
 
       - name: Audit
-        if: matrix.os == 'ubuntu-latest'
         run: npm audit --audit-level=high
 
-      # One leg is enough: .gitattributes makes every text file LF on both OSes, so the check
-      # cannot differ between them.
       - name: Format check
-        if: matrix.os == 'ubuntu-latest'
         run: npm run format:check
 
       - name: Typecheck
@@ -43,78 +35,5 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # Story 100 D9: vendors the real 7-Zip Linux binary so extractor.test.ts's real-archive
-      # block (gated on the binary's presence via resolveExtractorPath) actually runs here instead
-      # of skipping. Ubuntu-only: the Windows leg's real-archive coverage is unchanged by this
-      # story (it still runs only when resources/bin/7za.exe happens to be vendored locally).
-      - name: Fetch 7-Zip binary
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run fetch:7za
-
       - name: Test
         run: npm test
-
-  linux-journey:
-    # Story 100 D10 (AC9): the launcher's own end-to-end journey - add an existing installation
-    # through the real folder-pick stub, edit and save a config profile, then press Play and watch
-    # a REAL spawned process go running -> exited (`scripts/flows/linux-user-journey.mjs`). This is
-    # the first job in this workflow that launches the actual Electron UI on Linux (the `test` job
-    # above only runs `vitest`), so it is its own job rather than a step in the matrix above: it
-    # needs a display (`xvfb-run`) and a real build, neither of which the unit-test leg needs.
-    name: linux user journey (ubuntu-latest, xvfb)
-    runs-on: ubuntu-latest
-    # Advisory on GitHub: a red Linux job must not block a PR or a release. Under act (the local
-    # `verify:release` / `rehearse` gate) it stays strict, so the local run still reports it.
-    continue-on-error: ${{ github.actor != 'nektos/act' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: ./.github/actions/setup-node-electron
-
-      # `ubuntu-latest` does not ship `xvfb-run` - Electron needs a real display even for a
-      # "headless" CI run on Linux.
-      - name: Install xvfb
-        run: sudo apt-get update && sudo apt-get install -y xvfb
-
-      # See the identical step in `linux-verify.yml` for why this is here on a runner that already
-      # has these: it is what lets `npm run ci:local` rehearse this job under act.
-      - name: Install Electron's runtime libraries
-        run: npx playwright install-deps chromium && sudo apt-get install -y libgtk-3-0t64
-
-      - name: Build
-        run: npm run build
-
-      # No `fetch:7za` here on purpose: off Windows this flow's fixture install root is a real,
-      # tiny shell script (`writeLinuxJourneyInstallRoot()`, `scripts/lib/fixture.mjs`), never the
-      # vendored 7-Zip binary - see that flow's own header comment for why. Sandboxing is disabled
-      # the way most Electron-on-Linux CI setups are: the `chrome-sandbox` setuid helper needs
-      # privileges a shared runner does not grant.
-      - name: Linux user journey (AC9)
-        env:
-          ELECTRON_DISABLE_SANDBOX: '1'
-        run: xvfb-run --auto-servernum npm run ui:flow -- linux-user-journey
-
-      # Story 103 D8: the runs-a-windows-build-via-a-runner story's own end-to-end proof
-      # (`scripts/flows/windows-build-on-linux.mjs`) - a PE-only install raises the visible
-      # executable-runnable check and a disabled `wine` Runner entry (AC2/AC6), Play refuses with
-      # no `launch:state` running phase while wine is absent (AC7), and once a stub `wine` is put on
-      # PATH and selected, Play reaches running -> exited for real (AC4/AC5). Same job as the Linux
-      # user journey above (same build, same xvfb display) rather than a separate one - both flows
-      # need nothing from each other, and standing up a second `npm run build` for one more flow
-      # would only add CI time.
-      - name: Windows build on Linux (AC2, AC4-AC7)
-        env:
-          ELECTRON_DISABLE_SANDBOX: '1'
-        run: xvfb-run --auto-servernum npm run ui:flow -- windows-build-on-linux
-
-      # Story 104 D6: the Steam-handoff story's own end-to-end proof (`scripts/flows/steam-handoff.mjs`)
-      # - Steam shows disabled with the not-found/not-owner/unknown-app reasons in turn, then enabled
-      # with its caveat for a folder Steam genuinely owns with a known appid; picking a client changes
-      # the previewed `steam://launch/<appid>/client/<n>` URL, and pressing Play for real hands off to
-      # a stub `steam` binary - the stub's recorded argv is asserted, `launch:state` reaches
-      # `handed-off`, and `running` is never observed. Same job as the two flows above (same build,
-      # same xvfb display) for the same reason: no flow here needs anything from another.
-      - name: Steam handoff (Linux branch)
-        env:
-          ELECTRON_DISABLE_SANDBOX: '1'
-        run: xvfb-run --auto-servernum npm run ui:flow -- steam-handoff

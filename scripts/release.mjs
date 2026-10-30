@@ -26,11 +26,10 @@
 // Windows client resolves an update through. The Linux artifacts are built by a separate CI job
 // and arrive as files: `stageExtraAssets` copies them from `RELEASE_EXTRA_ASSETS_DIR` into the
 // same `release/<version>/` directory AFTER the Windows build and BEFORE the asset check, so the
-// Linux half is gated by the same "refuses when a file is missing" check as the Windows half
-// instead of being a second, unchecked upload. A consequence worth knowing before you run one: a
-// local dry run on Windows now refuses too, naming the AppImage and `latest-linux.yml`, unless you
-// point `RELEASE_EXTRA_ASSETS_DIR` at a directory holding them - a rehearsal that skipped half the
-// release would not be rehearsing it.
+// Linux half is checked together with the Windows half instead of being a second, unchecked
+// upload. Linux is not a supported platform, so a missing or incomplete Linux set is not a
+// refusal: the Windows set is published alone and a `::warning::` names the missing files (a local
+// dry run without `RELEASE_EXTRA_ASSETS_DIR` therefore warns). A missing Windows file still refuses.
 //
 // Usage: `npm run release -- --dry-run` locally; `node scripts/release.mjs [--version <v>]
 // [--bump <major|minor|patch>]` with `CI=true` from `.github/workflows/release.yml` (D5),
@@ -184,8 +183,8 @@ function usageFor(arg) {
  * @property {(repoRelativeDir: string, version: string) => string[]} stageExtraAssets - copies
  *   whatever `RELEASE_EXTRA_ASSETS_DIR` points at (the `build-linux` CI job's AppImage +
  *   `latest-linux.yml`, downloaded as a workflow artifact) into the release directory, and returns
- *   the filenames it staged. A no-op returning `[]` when that variable is unset, which is what a
- *   plain local dry run does.
+ *   the filenames it staged. Returns `[]` when that variable is unset, missing, empty or holds an
+ *   incomplete Linux set; the run then publishes Windows only.
  * @property {(repoRelativeDir: string, version: string,
  *   platform: 'win'|'linux'|'all') => string[]} collectAssets - 096-D3's check; throws naming what
  *   is missing. Returns full paths ready for `gh release create`.
@@ -347,10 +346,22 @@ export function runRelease(options, deps) {
     if (staged.length > 0) {
       deps.log(`staged: ${staged.join(', ')}`)
     }
-    // `'all'`: one run publishes both platforms, so one check covers both. A Linux asset that the
-    // `build-linux` job failed to produce (or failed to upload) is now a refusal naming that file,
-    // exactly like a missing `latest.yml` already was.
-    const collected = deps.collectAssets(releaseDir, plan.version, 'all')
+    // A complete Linux set is checked together with the Windows one (`'all'`); a failed
+    // `build-linux` leaves none of it staged, so the Windows set ships alone and the gap is a
+    // warning. A missing Windows file still refuses, in `collectAssets`.
+    const missingLinux = expectedAssets(plan.version, 'linux').filter(
+      (name) => !staged.includes(name),
+    )
+    if (missingLinux.length > 0) {
+      deps.log(
+        `::warning::release ${plan.version} has no Linux assets: missing ${missingLinux.join(', ')}`,
+      )
+    }
+    const collected = deps.collectAssets(
+      releaseDir,
+      plan.version,
+      missingLinux.length > 0 ? 'win' : 'all',
+    )
     deps.log(`assets: ${collected.join(', ')}`)
     return collected
   }
@@ -446,25 +457,20 @@ function npmCommand() {
  *
  * `sourceDir` is `RELEASE_EXTRA_ASSETS_DIR`, which `.github/workflows/release.yml` points at the
  * directory `actions/download-artifact` unpacked the `build-linux` job's AppImage and
- * `latest-linux.yml` into. Unset (a plain local dry run, or a Windows-only run) means there is
- * nothing to stage: return `[]` and let `collectAssets` be the one that complains about whatever
- * is then missing.
+ * `latest-linux.yml` into. Linux is not a supported platform, so a missing set never refuses the
+ * release: an unset, missing or empty directory, or one lacking any file of the Linux set, stages
+ * nothing and returns `[]`; `runRelease` then publishes the Windows set and warns.
  *
- * Two deliberate refusals, both of which would otherwise be silent:
+ * One deliberate refusal, which would otherwise be silent: a source file whose name collides with
+ * one of the *Windows* expected assets throws rather than overwriting it. That guard exists for
+ * exactly one file: `latest.yml`. Every installed Windows client resolves its update through the
+ * `url` inside the `latest.yml` this release publishes, so a Linux job that ever uploaded a
+ * `latest.yml` (instead of `latest-linux.yml`) would, by overwriting the freshly built Windows
+ * one, break auto-update for every existing Windows install, permanently and invisibly. The names
+ * cannot collide today - that is the point of checking rather than assuming.
  *
- *   1. A set-but-nonexistent `sourceDir` throws instead of staging nothing. The variable being set
- *      means someone meant for files to arrive; a typo'd path or a failed download step must not
- *      degrade into "we just did not stage anything".
- *   2. A source file whose name collides with one of the *Windows* expected assets throws rather
- *      than overwriting it. That guard exists for exactly one file: `latest.yml`. Every installed
- *      Windows client resolves its update through the `url` inside the `latest.yml` this release
- *      publishes, so a Linux job that ever uploaded a `latest.yml` (instead of
- *      `latest-linux.yml`) would, by overwriting the freshly built Windows one, break auto-update
- *      for every existing Windows install, permanently and invisibly. The names cannot collide
- *      today - that is the point of checking rather than assuming.
- *
- * Exported (like `ghReleaseArgv`) so its two refusals are unit-tested against real directories
- * rather than argued about - `createRealDeps` is the only production caller.
+ * Exported (like `ghReleaseArgv`) so it is unit-tested against real directories - `createRealDeps`
+ * is the only production caller.
  *
  * @param {string} targetDir - absolute path to `release/<version>/`.
  * @param {string} version
@@ -475,27 +481,27 @@ export function stageExtraAssetsFrom(targetDir, version, sourceDir) {
   if (!sourceDir || sourceDir.trim() === '') return []
 
   const source = resolve(sourceDir)
-  if (!existsSync(source) || !statSync(source).isDirectory()) {
-    throw new Error(
-      `release: RELEASE_EXTRA_ASSETS_DIR points at "${sourceDir}", which is not a directory - ` +
-        'refusing to publish a release whose pre-built assets never arrived',
-    )
-  }
+  if (!existsSync(source) || !statSync(source).isDirectory()) return []
 
   const protectedNames = new Set(expectedAssets(version, 'win'))
-  const staged = []
-  for (const entry of readdirSync(source, { withFileTypes: true })) {
-    if (!entry.isFile()) continue
-    if (protectedNames.has(entry.name)) {
+  const files = readdirSync(source, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+  for (const name of files) {
+    if (protectedNames.has(name)) {
       throw new Error(
-        `release: refusing to stage "${entry.name}" over the freshly built Windows artifact of ` +
+        `release: refusing to stage "${name}" over the freshly built Windows artifact of ` +
           `the same name (from "${sourceDir}")`,
       )
     }
-    copyFileSync(join(source, entry.name), join(targetDir, entry.name))
-    staged.push(entry.name)
   }
-  return staged
+  // All or nothing: a partial Linux set must not be published next to metadata that points at a
+  // file that is not there.
+  const present = new Set(files)
+  if (expectedAssets(version, 'linux').some((name) => !present.has(name))) return []
+
+  for (const name of files) copyFileSync(join(source, name), join(targetDir, name))
+  return files
 }
 
 /** @returns {ReleaseDeps} */

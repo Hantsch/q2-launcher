@@ -35,7 +35,7 @@ Run directly on `dev` (no sprint branch, by the user's call), 12/12 stories done
 ## Findings & decisions
 
 - **User decisions taken in this run:** sprint on `dev`, no branch; `q2pro64.exe` wins and the user picks the build; Linux is an additional, manually-qualified target, never in a pipeline; no nightly runs (perf lane manual); after the gate, the Node pin moved from 22.12.0 to **22.22.2** with `engines >=22.22.2` — on 22.12.0 vitest workers fail to start (jsdom 30 / undici 8 need ≥22.19).
-- **Linux still triggers on GitHub.** 270's review found `linux-verify`, `linux-update`, `linux-journey` and the `ui-flows` Linux job still run on push/PR as advisory, against the Linux decision; the lane map describes them as advisory. Story draft [276](../../requirements/276-linux-checks-leave-the-github-pipeline.md).
+- **Linux still triggers on GitHub.** 270's review found `linux-verify`, `linux-update`, `linux-journey` and the `ui-flows` Linux job still run on push/PR as advisory, against the Linux decision; the lane map describes them as advisory. Story draft [276](../../../requirements/done/276-linux-checks-leave-the-github-pipeline.md).
 - **R1Q2 pause/speed** would need a second control protocol (r1q2 has `pause`/`timescale` but no channel); left out to stay inside one hard deliverable — roadmap follow-up.
 - **Story 268's scope line** ("flows and launch.test.ts only") was the orchestrator's wording of the user's answer; the refiner read it as "audit, don't edit" `launch.test.ts` (its sleeps are negative assertions) and kept AC6.
 - **Story 269** was cut by the Linux decision: no Linux engine package (TD-047 deleted); Linux-scoped quarantine entries no longer age out.

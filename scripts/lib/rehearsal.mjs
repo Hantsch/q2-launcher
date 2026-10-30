@@ -1,32 +1,28 @@
 // Decision logic of the release rehearsal (scripts/rehearse.mjs). Pure: no spawning, no
-// filesystem, so the record, the shard parser and the verdict are unit-testable. The caller does
-// the I/O and hands in log text, records and whether a pid is alive.
+// filesystem, so the record and the verdict are unit-testable. The caller does the I/O and hands in
+// records and whether a pid is alive.
 
-/** A ui-flows shard must finish inside this, or GitHub's job timeout is too close for comfort. */
-export const MARGIN_SECONDS = 15 * 60
-
-/** The commands every rehearsal runs, in order. */
-export const CORE_COMMANDS = [{ name: 'verify:release' }, { name: 'ci:local' }]
+/** The commands every rehearsal runs. */
+export const CORE_COMMANDS = [{ name: 'verify:release' }]
 
 /**
- * The Linux ui-flows leg: six act shards, ~24 min, with 20 flows quarantined for Linux — and
- * advisory on GitHub (`continue-on-error`), so a rehearsal runs it only on `--linux`. `shards`
- * marks its act log as per shard.
+ * The Linux checks (act + Docker, advisory on their own): opt-in, and run before the core
+ * commands, one after the other - both use act's containers and Docker's resources.
  */
-export const LINUX_FLOWS_COMMAND = { name: 'ci:local:flows', shards: true }
+export const LINUX_COMMAND = { name: 'verify:linux' }
 
 export const LINUX_FLAG = '--linux'
 
-/** The commands of one run: the core ones, plus the Linux leg when opted in. */
+/** The commands of one run, in order: the Linux checks first when opted in, then the core ones. */
 export function commandsFor({ linux = false } = {}) {
-  return linux ? [...CORE_COMMANDS, LINUX_FLOWS_COMMAND] : [...CORE_COMMANDS]
+  return linux ? [LINUX_COMMAND, ...CORE_COMMANDS] : [...CORE_COMMANDS]
 }
 
-/** The one line the launcher prints when the Linux leg stays out. */
+/** The one line the launcher prints when the Linux checks stay out. */
 export function skippedLinuxLine() {
   return (
-    `skipped ${LINUX_FLOWS_COMMAND.name} (the Linux ui-flows leg: six act shards, ~24 min, ` +
-    `advisory on GitHub); include it with: npm run rehearse -- ${LINUX_FLAG}`
+    `skipped ${LINUX_COMMAND.name} (the Linux checks, advisory); include it with: ` +
+    `npm run rehearse -- ${LINUX_FLAG}`
   )
 }
 
@@ -68,7 +64,7 @@ export function logFileName(name) {
 
 /**
  * The record before the runner has started: `pid` is set by the runner itself once it runs.
- * `skipped` names the legs left out on purpose (the Linux leg without `--linux`).
+ * `skipped` names the legs left out on purpose (the Linux checks without `--linux`).
  */
 export function initialRecord(startedAt, commands, skipped = []) {
   return {
@@ -80,72 +76,9 @@ export function initialRecord(startedAt, commands, skipped = []) {
   }
 }
 
-/** Why the rehearsal cannot start, or `null` when act and Docker are both there. */
-export function preflightReason({ act, docker }) {
-  if (act === null) {
-    return 'act not found: install it (Windows: `winget install nektos.act`) or set ACT=<path>'
-  }
-  if (!docker) return 'Docker is not running: start Docker Desktop'
-  return null
-}
-
-/** Seconds in a Go duration as act prints it (`1h2m3.5s`, `850ms`); `null` when it is not one. */
-export function parseGoDuration(text) {
-  const match = /^(?:(\d+)h)?(?:(\d+)m(?!s))?(?:([\d.]+)s)?(?:([\d.]+)ms)?$/.exec(text.trim())
-  if (!match || match.slice(1).every((part) => part === undefined)) return null
-  const [, h = 0, m = 0, s = 0, ms = 0] = match
-  return Number(h) * 3600 + Number(m) * 60 + Number(s) + Number(ms) / 1000
-}
-
-const TIMESTAMPED = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z) (.*)$/
-const SHARD_PREFIX = /^\[[^\]/]+\/[^\]]*\bshard (\d+)\/(\d+)[^\]]*\]/
-const JOB_END = /\bJob (succeeded|failed)\b(?:\s*\[([^\]]+)\])?/
-
-/**
- * Per-shard wall time and outcome from a rehearsal log. Every log line starts with the time the
- * runner received it, and act prefixes each line of a job with `[<workflow>/<job name>]`, so a
- * shard runs from its first prefixed line to its last - which is its wall time because the
- * workflow runs with `--concurrent-jobs 1`. When act prints a duration on the job's end line, that
- * duration wins. A shard without an end line did not finish and counts as failed.
- */
-export function parseShards(logText) {
-  const shards = new Map()
-  for (const raw of logText.split(/\r?\n/)) {
-    const stamped = TIMESTAMPED.exec(raw)
-    if (!stamped) continue
-    const at = Date.parse(stamped[1])
-    const line = stamped[2].trimStart()
-    const prefix = SHARD_PREFIX.exec(line)
-    if (!prefix) continue
-    const shard = `${prefix[1]}/${prefix[2]}`
-    const entry = shards.get(shard) ?? { first: at, last: at, status: 'failed', duration: null }
-    entry.last = at
-    const end = JOB_END.exec(line.slice(prefix[0].length))
-    if (end) {
-      entry.status = end[1] === 'succeeded' ? 'passed' : 'failed'
-      if (end[2] !== undefined) entry.duration = parseGoDuration(end[2])
-    }
-    shards.set(shard, entry)
-  }
-  return [...shards.entries()]
-    .sort(([a], [b]) => Number(a.split('/')[0]) - Number(b.split('/')[0]))
-    .map(([shard, { first, last, status, duration }]) => ({
-      shard,
-      seconds: Math.round(duration ?? (last - first) / 1000),
-      status,
-    }))
-}
-
-/** No shard parsed means the margin is unproven, not met. */
-export function marginOk(shards) {
-  return shards.length > 0 && shards.every((shard) => shard.seconds <= MARGIN_SECONDS)
-}
-
-/** `passed` only when every command passed and, if one was sharded, its margin held. */
+/** `passed` only when every command passed. */
 export function finalStatus(record) {
-  const allPassed = record.commands.every((command) => command.status === 'passed')
-  const sharded = record.commands.some((command) => command.shards !== undefined)
-  return allPassed && (!sharded || record.marginOk === true) ? 'passed' : 'failed'
+  return record.commands.every((command) => command.status === 'passed') ? 'passed' : 'failed'
 }
 
 /**
@@ -164,15 +97,10 @@ export function statusView(dirName, record, pidAlive) {
     lines.push(
       `  ${command.status.padEnd(8)} ${command.name}${detail.length ? ` (${detail.join(', ')})` : ''}`,
     )
-    for (const shard of command.shards ?? []) {
-      const over = shard.seconds > MARGIN_SECONDS ? ` - over the ${MARGIN_SECONDS}s margin` : ''
-      lines.push(`    shard ${shard.shard}: ${shard.status} (${shard.seconds}s)${over}`)
-    }
   }
   for (const name of record.skipped ?? []) {
     lines.push(`  ${'skipped'.padEnd(8)} ${name} (opt in with: npm run rehearse -- ${LINUX_FLAG})`)
   }
-  if (record.marginOk === false) lines.push(`  shard margin (<= ${MARGIN_SECONDS}s): not met`)
   if (record.reason) lines.push(`  reason: ${record.reason}`)
   lines.push(`verdict: ${verdict.toUpperCase()}`)
   const exitCode = verdict === 'passed' ? 0 : verdict === 'failed' ? 1 : 2

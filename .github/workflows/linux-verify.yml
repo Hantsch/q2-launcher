@@ -1,28 +1,19 @@
 name: linux-verify
 
-# Story 101 D5 (docs/requirements/101-a-linux-release-ships-and-updates-itself.md): proves AC7/AC8
-# against a REAL packaged Linux AppImage rather than this repo's own dev build, reusing D4's
-# `--app=<path>` flag (scripts/verify.mjs / scripts/flow.mjs / scripts/lib/harness.mjs) instead of
-# adding a second harness. `ci.yml`'s `linux-journey` job already proves the dev build works on
-# Linux under `xvfb-run`; this job is the one that proves the PACKAGED build - the thing users
-# actually run - does too, with the same screenshot set and axe-core report Windows produces
-# (`docs/UI-VERIFICATION.md`), plus that the About screen shows real release notes on Linux (AC7,
-# `scripts/flows/about-release-notes.mjs`, unchanged from the dev-build flow it already is).
+# Proves the PACKAGED Linux AppImage - the thing Linux users actually run - with the same screenshot
+# set and axe-core report Windows produces (`docs/UI-VERIFICATION.md`), plus that the About screen
+# shows real release notes (`scripts/flows/about-release-notes.mjs`), through the harness's
+# `--app=<path>` flag (scripts/verify.mjs / scripts/flow.mjs / scripts/lib/harness.mjs).
 #
-# Deliberately its own workflow, not folded into `release.yml`'s `build-linux` job: that job only
-# builds and uploads the AppImage for the real release pipeline (never runs it), and it must never
-# be slowed down or risked by a UI smoke test. This workflow builds its own throwaway AppImage at
-# whatever version happens to be in package.json - no `plan` job, no release artifact, nothing
-# uploaded anywhere but this run's own screenshots/report.
+# Its own workflow, not folded into `release.yml`'s `build-linux` job: that job only builds and
+# uploads the AppImage and must never be slowed down or risked by a UI smoke test. This workflow
+# builds its own throwaway AppImage at whatever version package.json carries and uploads nothing
+# but this run's screenshots/report.
 #
-# Runs only on PRs into main, not on every push: main only ever changes through a PR (no direct
-# pushes), so a push-to-main run would just re-verify the exact tree the PR check already covered.
-# Anything else (checking a `dev` push, or re-running this without a PR) goes through
-# `workflow_dispatch` or the local `npm run ci:local:verify` (act) rehearsal.
+# Linux is not a supported platform: manual dispatch only (or `npm run verify:linux` under act).
+# The job is advisory the same way as every job in linux.yml - see that file's header.
 
 on:
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -33,56 +24,52 @@ jobs:
   verify:
     name: Verify (ubuntu-latest, xvfb, packaged AppImage)
     runs-on: ubuntu-latest
-    # Advisory on GitHub: a red Linux job must not block a PR or a release. Under act (the local
-    # `verify:release` / `rehearse` gate) it stays strict, so the local run still reports it.
-    continue-on-error: ${{ github.actor != 'nektos/act' }}
     steps:
-      - uses: actions/checkout@v4
+      - id: checkout
+        uses: actions/checkout@v4
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
 
-      - uses: ./.github/actions/setup-node-electron
+      - id: setup
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        uses: ./.github/actions/setup-node-electron
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
 
       # `ubuntu-latest` ships neither a display nor (as of the 24.04 image) libfuse2, and an
-      # AppImage's own runtime needs both: `xvfb-run` for a display to launch into, `libfuse2` to
-      # actually mount and exec the AppImage itself (`scripts/lib/harness.mjs`'s `--app=<path>`
-      # hands the AppImage straight to Playwright's `_electron.launch({ executablePath })`, i.e.
-      # this runs the real packaged file, not an extracted one). Neither `release.yml`'s
-      # `build-linux` job nor `ci.yml`'s `linux-journey` job needed this: the former only builds
-      # the AppImage without ever running it, the latter runs this repo's own unpacked dev build.
-      - name: Install xvfb and libfuse2
+      # AppImage's own runtime needs both: `xvfb-run` for a display, `libfuse2` to mount and exec
+      # the AppImage itself (the harness hands the real packaged file to Playwright's
+      # `_electron.launch({ executablePath })`, not an extracted one).
+      - id: xvfb-libfuse2
+        name: Install xvfb and libfuse2
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         run: sudo apt-get update && sudo apt-get install -y xvfb libfuse2
 
-      # Electron's own shared-library dependencies (GTK, NSS, gbm, ALSA, …). `ubuntu-latest` ships
-      # every one of them preinstalled, so this is close to a no-op there - it is here so the
-      # workflow is self-contained and can also be run locally through `npm run ci:local:verify`
-      # (act), whose `catthehacker/ubuntu:act-latest` image has NONE of them: without this the local
-      # run fails for a reason that has nothing to do with the code, which is exactly the kind of
-      # false signal a local CI rehearsal exists to avoid. Playwright's own installer rather than a
-      # hand-written apt list because it knows the right package names per Ubuntu release (24.04
-      # renamed several of them in the t64 transition). Playwright's list is headless Chromium's,
-      # though, and that does not link GTK - Electron does (`libgtk-3.so.0`), so it is added by hand:
-      # without it every Electron launch under act dies with "Process failed to launch!".
-      - name: Install Electron's runtime libraries
+      # Close to a no-op on `ubuntu-latest`; it makes the workflow self-contained under act, whose
+      # `catthehacker/ubuntu:act-latest` image has none of Electron's shared libraries. Playwright's
+      # installer knows the package names per Ubuntu release (24.04's t64 renames), but its list is
+      # headless Chromium's and lacks GTK, which Electron links (`libgtk-3.so.0`).
+      - id: electron-libs
+        name: Install Electron's runtime libraries
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         run: npx playwright install-deps chromium && sudo apt-get install -y libgtk-3-0t64
 
-      # `package:linux` carries `--publish never` itself (see package.json and the note in
-      # electron-builder.yml): electron-builder turns publishing on *implicitly* when it detects
-      # CI, and a job without a token then dies with "GitHub Personal Access Token is not set"
-      # after a perfectly good build. That used to be flagged as an act-only quirk here and was
-      # worked around with a `-- --publish never` on this one step; it is not act-only - it took
-      # release.yml's `build-linux` job down on GitHub's own runner too, so the flag now lives in
-      # the script where no caller can forget it.
-      - name: Package the Linux AppImage
+      # `package:linux` carries `--publish never` itself: electron-builder turns publishing on
+      # implicitly when it detects CI, and a job without a token then dies after a good build.
+      - id: package
+        name: Package the Linux AppImage
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run package:linux
 
-      # electron-builder writes `release/<version>/Q2-Launcher-<version>-linux-x86_64.AppImage`
-      # (electron-builder.yml's `directories.output`/`linux.artifactName`) - the version is
-      # whatever package.json already carries, since this workflow deliberately never bumps it the
-      # way release.yml's `plan` job does. Resolved by glob rather than hardcoding the version so
-      # this workflow does not have to be edited every time the version changes.
-      - name: Resolve the built AppImage path
-        id: app
+      # electron-builder writes `release/<version>/Q2-Launcher-<version>-linux-x86_64.AppImage`;
+      # resolved by glob so this workflow does not change with every version bump.
+      - id: app
+        name: Resolve the built AppImage path
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -91,23 +78,28 @@ jobs:
           echo "Resolved AppImage: $APP_PATH"
           echo "path=$APP_PATH" >> "$GITHUB_OUTPUT"
 
-      - name: UI verify (screenshots + axe-core) against the packaged AppImage
+      - id: ui-verify
+        name: UI verify (screenshots + axe-core) against the packaged AppImage
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         env:
           ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run --auto-servernum npm run ui:verify -- --app=${{ steps.app.outputs.path }}
 
-      # AC7: the About screen shows real release notes on Linux, proven against the same packaged
-      # AppImage (scripts/flows/about-release-notes.mjs, reused unchanged from the dev-build flow).
-      - name: About release notes flow (AC7) against the packaged AppImage
+      - id: about-release-notes
+        name: About release notes flow against the packaged AppImage
+        if: ${{ !contains(steps.*.outcome, 'failure') }}
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         env:
           ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run --auto-servernum npm run ui:flow about-release-notes -- --app=${{ steps.app.outputs.path }}
 
-      # Same output paths docs/UI-VERIFICATION.md documents for every ui:verify/ui:flow run:
-      # `.ui-verify/screenshots/` (registry screens plus this run's `flows/about-release-notes-*`
-      # shots), `.ui-verify/a11y.json` and `.ui-verify/a11y.md`.
-      - name: Upload screenshots and accessibility report
+      # The output paths docs/UI-VERIFICATION.md documents for every ui:verify/ui:flow run; kept
+      # even (especially) when an earlier step failed.
+      - id: upload
+        name: Upload screenshots and accessibility report
         if: always()
+        continue-on-error: ${{ github.actor != 'nektos/act' }}
         uses: actions/upload-artifact@v4
         with:
           name: linux-ui-verify
@@ -115,5 +107,14 @@ jobs:
             .ui-verify/screenshots/**
             .ui-verify/a11y.json
             .ui-verify/a11y.md
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 14
+
+      - id: advisory
+        name: Report failed steps as warnings
+        if: always()
+        continue-on-error: true
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          CHECK: linux-verify.yml/verify
+        run: node scripts/linux-advisory.mjs
