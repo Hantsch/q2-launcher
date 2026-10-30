@@ -215,3 +215,13 @@
 - 2026-10-30 13:49:13 · 326 · review 1 · done
 - 2026-10-30 13:49:13 · 326 · story · done
 - 2026-10-30 13:49:16 · 326 · story · done
+- 2026-10-30 13:49:35 · 327 · build · started
+- 2026-10-30 13:49:53 · 327 · D1 OpenTDM content-only package · started
+- 2026-10-30 13:49:56 · 327 · D2 content-only flow remove + refusal · started
+- 2026-10-30 13:51:17 · 327 · D1 OpenTDM content-only package · done
+- 2026-10-30 13:51:17 · 327 · D2 content-only flow remove + refusal · done
+- 2026-10-30 13:51:17 · 327 · verify · started
+- 2026-10-30 14:11:49 · 327 · verify · done
+- 2026-10-30 14:11:50 · 327 · review 1 · started
+- 2026-10-30 14:12:45 · 327 · review 1 · done
+- 2026-10-30 14:12:46 · 327 · story · done

@@ -100,6 +100,16 @@ export function modsInstallManifestEntries({ library, content, bad }, baseUrl) {
       variants: [],
       contentOnly: { packages: [pkg('fixturebad-content', bad)] },
     }),
+    entry('fixturenovariant', 'Fixture No Build Mod', {
+      variants: [
+        {
+          platform: HOST_PLATFORM,
+          arch: 'x86',
+          packages: [pkg('fixturenovariant-win32-x86', library)],
+        },
+      ],
+      contentOnly: { packages: [] },
+    }),
   ]
 }
 

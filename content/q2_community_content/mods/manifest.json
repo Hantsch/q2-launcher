@@ -324,7 +324,19 @@
               ]
             }
           ],
-          "contentOnly": { "packages": [] }
+          "contentOnly": {
+            "packages": [
+              {
+                "id": "opentdm-r388-win32-content",
+                "version": "r388",
+                "url": "https://github.com/packetflinger/opentdm/releases/download/r388/opentdm-r388-win32.zip",
+                "mirrors": [],
+                "sizeBytes": 2580683,
+                "sha256": "0a9e24afb2e926ccdb27773f1c994cda6d5bff175e15ab3c4f83cd38fce1851f",
+                "contents": [{ "from": "example-opentdm.cfg", "to": "gamedir" }]
+              }
+            ]
+          }
         }
       ]
     },

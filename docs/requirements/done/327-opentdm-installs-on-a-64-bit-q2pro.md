@@ -1,7 +1,7 @@
 ---
 id: 327
 title: OpenTDM installs on a 64-bit Q2PRO
-status: ready # draft -> ready -> in-progress -> done
+status: done
 created: 2026-10-30
 ---
 
@@ -13,16 +13,16 @@ the default 64-bit engine cannot install one of the catalog's mods.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On an installation with a 64-bit Q2PRO, OpenTDM is offered and installs.
-- [ ] **AC2** — The installed OpenTDM is listed in the installation's mods and can be removed.
-- [ ] **AC3** — A mod with genuinely no matching variant is still refused with
+- [x] **AC1** — On an installation with a 64-bit Q2PRO, OpenTDM is offered and installs.
+- [x] **AC2** — The installed OpenTDM is listed in the installation's mods and can be removed.
+- [x] **AC3** — A mod with genuinely no matching variant is still refused with
       `mods.error.noVariant`, shown with its reason.
-- [ ] **AC4** — Row TD-007 is removed from `docs/TECH-DEBT.md`.
+- [x] **AC4** — Row TD-007 is removed from `docs/TECH-DEBT.md`.
 
 ## Open Questions
 
 ~~Which way: a content-only variant (if the 64-bit Q2PRO can run OpenTDM's game logic as shipped),~~ answered → Decisions (Sprint)
-  or a 64-bit OpenTDM build mirrored like the other packages?
+or a 64-bit OpenTDM build mirrored like the other packages?
 
 - ~~**Q2 (refine, S37) — the probe rules out both branches of the binding decision as stated; which
   way now?**~~ answered → Decisions (Sprint). Findings (2026-10-30):
@@ -115,8 +115,8 @@ lists no catalog entries; `docs/concepts/mods.md` §OpenTDM row already describe
   `scripts/lib/fixture/mods.mjs`, `scripts/flows/mods-install-content-only.mjs`.
   - In the mods-install fixture catalog (the `entry(...)` list holding `fixturemod` / `fixturebad`,
     ~line 93) add `entry('fixturenovariant', 'Fixture No Build Mod', { variants: [{ platform:
-    HOST_PLATFORM, arch: 'x86', packages: [pkg('fixturenovariant-win32-x86', library)] }],
-    contentOnly: { packages: [] } })`. First grep `scripts/flows/` for flows on this catalog
+HOST_PLATFORM, arch: 'x86', packages: [pkg('fixturenovariant-win32-x86', library)] }],
+contentOnly: { packages: [] } })`. First grep `scripts/flows/` for flows on this catalog
     (`modsInstallLifecycle`) that count tiles or entries, and adjust any count that moves.
   - Extend `mods-install-content-only.mjs` after its record check (same q2pro installation):
     step "remove the content-only install": `fixturemod` detail → `mods-detail-remove` → confirm
@@ -151,3 +151,23 @@ Review: → default
   behaviour to test).
 
 ## Done
+
+Catalog data plus flow coverage: OpenTDM r388 gets a content-only package (example config only), so a
+64-bit Q2PRO installs it with the visible "not playable locally" reason. The existing
+`mods-install-content-only` flow now also removes the install and shows the `noVariant` refusal for a
+fixture mod with no matching build. TD-007 row and a CHANGELOG line handled.
+
+Commit message: `327: OpenTDM content-only package for 64-bit Q2PRO, flow covers remove + noVariant refusal, TD-007 closed`
+
+Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` green, plus
+`shipped-manifest.test.ts` + `engine-target.test.ts` verbose (7 passed, both OpenTDM tests seen by name);
+`npm run ui:flows -- --affected scripts/flows/mods-install-content-only.mjs --parallel=4 --shard=1/2` and `2/2`
+green (flow passed in shard 1); `check:docs` and prettier --check green. Review (default tier, 1 cycle): PASS.
+AC1 -> shipped-manifest unit "OpenTDM on a 64-bit Windows Q2PRO ..." + flow, AC2/AC3 -> flow
+`mods-install-content-only`, AC3 also engine-target.test.ts, AC4 -> `rg TD-007 docs/TECH-DEBT.md` empty. No manual residue.
+
+Decisions: content-only package reuses the r388 win32 zip (decided in refine). Unfixed review finding: no
+`STATE_WRITE_GRACE_MS` wait before the record checks in the flow; the remove check follows the tile
+detaching and a refusal writes nothing, so no false pass is possible.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 4

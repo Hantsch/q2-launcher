@@ -1,5 +1,7 @@
-// Story 190 D8: on the q2pro 64-bit installation `fixturemod` has no x86_64 library, so the install is
-// content-only: pak0.pak lands, no library does, and tile and detail both say why it is not playable.
+// On the q2pro 64-bit installation `fixturemod` has no x86_64 library, so the install is content-only:
+// pak0.pak lands, no library does, and tile and detail both say why it is not playable. Removing it
+// deletes the pak and the record; a mod with no build for the engine is refused with its visible
+// reason and leaves no folder and no record.
 import { existsSync, readFileSync } from 'node:fs'
 import {
   installationRootFilePath,
@@ -21,6 +23,7 @@ export const setup = lifecycle.setup
 export const teardown = lifecycle.teardown
 
 const REASON = 'Not playable locally with Q2PRO 64-bit: no matching build'
+const NO_BUILD = 'This mod has no build for your engine.'
 
 export default async function modsInstallContentOnly({ page, shot, step }) {
   step('select the q2pro installation, open Mods and the fixturemod detail')
@@ -60,4 +63,30 @@ export default async function modsInstallContentOnly({ page, shot, step }) {
   const recs = installRecords(MODS_INSTALL_Q2PRO_ID)
   if (recs.length !== 1 || recs[0].files.length !== 1)
     throw new Error(`records: ${JSON.stringify(recs)}`)
+
+  step('remove the content-only install')
+  await page.getByTestId('mods-detail-remove').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('mods-remove-confirm').click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('mods-tile-status-fixturemod')
+    .filter({ hasText: /installed/i })
+    .first()
+    .waitFor({ state: 'detached', timeout: JOB_TIMEOUT_MS })
+  if (existsSync(installationRootFilePath(MODS_INSTALL_Q2PRO_ID, 'fixturemod/pak0.pak')))
+    throw new Error('pak0.pak is still on disk after remove')
+  if (installRecords(MODS_INSTALL_Q2PRO_ID).length !== 0)
+    throw new Error('an install record is left after remove')
+  await shot('removed-content-only')
+
+  step('a mod with no build for the engine is refused with its reason')
+  await page.getByTestId('mods-install-fixturenovariant').click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('mods-tile-status-fixturenovariant')
+    .filter({ hasText: NO_BUILD })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await shot('refused-no-variant')
+  if (existsSync(installationRootFilePath(MODS_INSTALL_Q2PRO_ID, 'fixturenovariant')))
+    throw new Error('fixturenovariant/ exists after a refused install')
+  if (installRecords(MODS_INSTALL_Q2PRO_ID).length !== 0)
+    throw new Error('a record exists for a refused install')
 }

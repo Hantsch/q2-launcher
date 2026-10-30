@@ -24,7 +24,7 @@ After a sprint, `npm run verify:release` passing means the PR and the release pa
 - [x] 320 — Config edits reach disk only through save, and every flag survives a reload
 - [x] 321 — Demo play, stop and stage restore end in a defined state
 - [x] 326 — Platform decisions in playback stay behind the seam
-- [ ] 327 — OpenTDM installs on a 64-bit Q2PRO
+- [x] 327 — OpenTDM installs on a 64-bit Q2PRO
 - [ ] 324 — Styles use tokens only, and UI kit controls keep their own rules
 
 ## Notes
