@@ -3,7 +3,7 @@
 ## Where we stand
 
 _As of 2026-10-31._ Phases 1–4 and 7–11 are done, and Mods milestone 5.1 is done (S31). Current: Phase 12, milestones 12.1 and 12.2 done (S38).
-S38 (stories 281–291) is on `dev` ([S38 review](sprints/done/S38/review.md)): the engine builds as WebAssembly and a demo plays in the launcher stage in integrated mode (experimental, engine mode stays default). All spikes came back viable. Next: cut milestones 12.3+ with `/roadmap plan`; the user decides whether the 1 GiB data cap holds given ~2.2x renderer RAM.
+S38 (stories 281–291) is on `dev` ([S38 review](sprints/done/S38/review.md)): the engine builds as WebAssembly and a demo plays in the launcher stage in integrated mode (experimental, engine mode stays default). All spikes came back viable. Next: `/sprint S39` — milestones 12.3 and 12.4 (player API, sound, video export) plus the S38 findings (329); the 1 GiB cap stays.
 Waiting on the user: pushing the edited OpenTDM manifest to `Hantsch/q2_community_content` (story 327 reaches users only then), the S37 manual residue ([testplan](sprints/done/S37/testplan.md)), pushing `dev` and the S36 manual residue ([testplan](sprints/done/S36/testplan.md)), 234 AC3 GitHub half, the manual residue in the S28–S30, [S32](sprints/done/S32/testplan.md), [S33](sprints/done/S33/testplan.md) and [S34](sprints/done/S34/testplan.md) testplans.
 
 ## Phase overview
@@ -27,11 +27,13 @@ Waiting on the user: pushing the edited OpenTDM manifest to `Hantsch/q2_communit
 
 Phase 12 — integrated demo player, [concept](concepts/integrated-demo-player.md); the first two increments are one sprint.
 
-| #         | Milestone                                          | Status          | Sprint                            | Note                                                          |
-| --------- | -------------------------------------------------- | --------------- | --------------------------------- | ------------------------------------------------------------- |
-| 12.1      | Toolchain and spikes (281–285)                     | done 2026-10-30 | [S38](sprints/done/S38/review.md) | Reproducible engine build; spikes settle base and determinism |
-| 12.2      | Playback in the canvas (286–291)                   | done 2026-10-30 | [S38](sprints/done/S38/review.md) | Integrated mode plays a demo; MVD2 stays in engine mode       |
-| 12.3–12.7 | Player API, export, fallbacks, packaging (292–319) | not cut         | —                                 | Cut after S38 from the spikes' results                        |
+| #         | Milestone                                    | Status          | Sprint                            | Note                                                          |
+| --------- | -------------------------------------------- | --------------- | --------------------------------- | ------------------------------------------------------------- |
+| 12.1      | Toolchain and spikes (281–285)               | done 2026-10-30 | [S38](sprints/done/S38/review.md) | Reproducible engine build; spikes settle base and determinism |
+| 12.2      | Playback in the canvas (286–291)             | done 2026-10-30 | [S38](sprints/done/S38/review.md) | Integrated mode plays a demo; MVD2 stays in engine mode       |
+| 12.3      | One player API, sound (292–297)              | planned         | [S39](sprints/S39/sprint.md)      | Both modes behind one API; integrated playback gets sound     |
+| 12.4      | Video export without sound (298–303)         | planned         | [S39](sprints/S39/sprint.md)      | MP4 export of a range from integrated mode                    |
+| 12.5–12.7 | Sound export, fallbacks, packaging (304–319) | not cut         | —                                 | Cut after S39                                                 |
 
 ## Open / unprioritised
 
@@ -46,7 +48,6 @@ Phase 12 — integrated demo player, [concept](concepts/integrated-demo-player.m
 
 ## Follow-ups worth doing
 
-- Fix the nine S38 review findings (TD-070 to TD-078); decide whether the 1 GiB integrated data cap holds, since renderer RSS measured ~2.2x the data (~2.3 GiB at the cap). [S38 review](sprints/done/S38/review.md)
 - Fix the ten S37 review findings (TD-060 to TD-069); the module-failure contract of story 322 has no module doc (TD-063). [S37 review](sprints/done/S37/review.md)
 - Split the longest flow shard: the S36 gate's was 18.8 min, over the 15-min mark. [S36 review](sprints/done/S36/review.md)
 - R1Q2 demo pause/speed via a control channel (r1q2 has `pause`/`timescale`). [S36 review](sprints/done/S36/review.md)
