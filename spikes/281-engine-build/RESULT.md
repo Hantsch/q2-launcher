@@ -37,7 +37,7 @@ Caveats: the `meson.build` figure also contains non-web changes of the fork (an 
 (for example `src/refresh/backend.c`, `gl_backend.h`, which exist only in mashed); `vendor/q2pro-mashed` and `vendor/q2pro` differ in 151 paths in total.
 
 **Recommendation:** MashedD fork is the base. It carries the web target already, so our series is 291 lines against roughly 1322 on
-the upstream mirror. The patches stay local to this repo and are not offered back to MashedD.
+the upstream mirror. The patches stay local to this repo and are not offered back to MashedD. *Revised 2026-10-31: generic patches are offered back, launcher-specific ones stay local (story 330).*
 
 ## Reproducibility, symbols, client/server split
 

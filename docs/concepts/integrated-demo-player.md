@@ -1003,8 +1003,10 @@ are not part of the repo's story format; they are kept here only for sizing the 
 1. **Language and placement.** Resolved by moving this concept and the stories into
    `docs/concepts/` and `docs/requirements/` in English.
 2. **Engine base.** MashedD fork (active, has the web target) or the upstream mirror? Should
-   patches go back to MashedD? Working assumption: MashedD at a pinned commit; story 281
-   recommends.
+   patches go back to MashedD? Resolved: MashedD at a pinned commit (story 281). Revised
+   2026-10-31: MashedD welcomes contributions, so generic web-target patches go back to the fork
+   and only launcher-specific ones (`q2l_*` exports, host hooks) stay in `engine/patches/`; the
+   pin follows MashedD's merges (story 330).
 3. **Where the patches and artifacts live.** `engine/` in this repo, or a separate fork repo? Are
    build artifacts committed or built in CI? Working assumption: `engine/` in the repo, artifacts
    not committed, the release job builds them.

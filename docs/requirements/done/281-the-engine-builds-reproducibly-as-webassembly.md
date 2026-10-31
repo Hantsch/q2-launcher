@@ -68,7 +68,7 @@ Context:
 
 ## Decisions (Sprint)
 
-- **(User)** Which engine base does the project adopt: the MashedD fork; patches are not offered back (they stay local to this repo).
+- **(User)** Which engine base does the project adopt: the MashedD fork; patches are not offered back (they stay local to this repo). *Revised 2026-10-31: MashedD welcomes contributions; generic patches go back, launcher-specific ones stay local — story 330.*
 - AC9 still compares both bases, but the comparison is measured, not built twice: the upstream
   figure is our series plus mashed's web-target delta against `q2pro/q2pro` — the base is decided,
   so a second full port would be spent effort.
